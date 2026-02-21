@@ -58,7 +58,7 @@ export function DeleteAccountSection() {
           <DialogTrigger asChild>
             <Button
               variant="destructive"
-              className="shrink-0 sm:w-50 mt-4"
+              className="shrink-0 sm:w-50 mt-4 "
             >
               Delete Account
             </Button>

@@ -46,7 +46,7 @@ export default function SettingsPage() {
                   aria-selected={activeTab === item.id}
                   onClick={() => setActiveTab(item.id)}
                   className={cn(
-                    "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all text-left",
+                    "flex w-full items-center cursor-pointer gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all text-left",
                     activeTab === item.id
                       ? item.id === "danger"
                         ? "bg-destructive/10 text-destructive"
