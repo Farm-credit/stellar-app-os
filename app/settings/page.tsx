@@ -1,3 +1,4 @@
+import { NotificationSection } from "@/components/organisms/settings/NotificationSection";
 import { ProfileSection } from "@/components/organisms/settings/ProfileSection";
 
 
@@ -18,6 +19,7 @@ export default function SettingsPage() {
         {/* Sections */}
         <div className="space-y-6">
           <ProfileSection />
+          <NotificationSection />
          
         </div>
       </div>
