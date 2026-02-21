@@ -1,3 +1,7 @@
+![CI](https://github.com/Farm-credit//stellar-app-os/actions/workflows/ci.yml/badge.svg)
+
+![Deploy](https://github.com/Farm-credit/stellar-app-os/actions/workflows/deploy.yml/badge.svg)
+
 # FarmCredit
 
 Decentralized agricultural credit platform built on the [Stellar network](https://stellar.org).
