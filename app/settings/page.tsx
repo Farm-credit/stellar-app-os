@@ -1,4 +1,5 @@
 import { NotificationSection } from "@/components/organisms/settings/NotificationSection";
+import { PreferencesSection } from "@/components/organisms/settings/PreferencesSection";
 import { ProfileSection } from "@/components/organisms/settings/ProfileSection";
 
 
@@ -20,7 +21,7 @@ export default function SettingsPage() {
         <div className="space-y-6">
           <ProfileSection />
           <NotificationSection />
-         
+            <PreferencesSection />
         </div>
       </div>
     </main>

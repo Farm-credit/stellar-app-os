@@ -11,7 +11,7 @@ import { SettingsCard } from "@/components/molecules/SettingsCard";
 import {
   notificationsSchema,
   type NotificationsFormData,
-} from "@/app/schemas/settings.schema";
+} from "@/schemas/settings.schema";
 
 type NotificationItem = {
   id: keyof NotificationsFormData["notifications"];

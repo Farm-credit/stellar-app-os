@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SettingsCard } from "@/components/molecules/SettingsCard";
-import { profileSchema, type ProfileFormData } from "@/app/schemas/settings.schema";
+import { profileSchema, type ProfileFormData } from "@/schemas/settings.schema";
 
 export function ProfileSection() {
   const [saved, setSaved] = useState(false);
