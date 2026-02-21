@@ -92,10 +92,10 @@ export function InstallPrompt() {
               </svg>
             </div>
             <div className="flex-1">
-              <Text variant="default" className="font-semibold">
+              <Text variant="body" className="font-semibold">
                 Install FarmCredit
               </Text>
-              <Text variant="muted" className="text-sm mt-1">
+              <Text variant="muted" className="mt-1">
                 Install our app for quick access and offline support
               </Text>
             </div>
