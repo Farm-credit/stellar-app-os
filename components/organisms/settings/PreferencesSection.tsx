@@ -156,7 +156,7 @@ export function PreferencesSection() {
         {/* Submit */}
         <div className="flex items-center justify-end gap-3 pt-2">
           {saved && (
-            <span className="flex items-center gap-1.5 text-sm text-[var(--stellar-green)]">
+            <span className="flex items-center gap-1.5 text-sm text-stellar-green">
               <CheckCircle2 className="h-4 w-4" />
               Saved
             </span>

@@ -26,7 +26,7 @@ export function ProfileSection() {
   });
 
   const onSubmit = async (data: ProfileFormData) => {
-    // Simulate API call
+
     await new Promise((r) => setTimeout(r, 800));
     console.log("Profile saved:", data);
     setSaved(true);
@@ -71,7 +71,7 @@ export function ProfileSection() {
           </p>
         </div>
 
-        {/* Submit */}
+
         <div className="flex items-center justify-end gap-3 pt-2">
           {saved && (
             <span className="flex items-center gap-1.5 text-sm text-stellar-green">
