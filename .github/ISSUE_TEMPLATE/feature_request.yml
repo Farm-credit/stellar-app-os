@@ -1,0 +1,70 @@
+name: Feature Request
+description: Propose a new capability with clear user value and acceptance criteria.
+title: "[Feature]: "
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this template for new features. Focus on user value, scope, and clear completion criteria.
+
+  - type: textarea
+    id: user-story
+    attributes:
+      label: User Story
+      description: Use the format - As a [user], I want [feature] so that [benefit].
+      placeholder: As a ..., I want ..., so that ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem-context
+    attributes:
+      label: Problem Context
+      description: What problem are we solving and who is affected?
+      placeholder: Describe the current limitation and impact.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed-solution
+    attributes:
+      label: Proposed Solution
+      description: Describe the feature behavior and key workflows.
+      placeholder: Outline the expected functionality.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      description: Select the requested delivery priority.
+      options:
+        - P0 - Critical
+        - P1 - High
+        - P2 - Medium
+        - P3 - Low
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: acceptance-criteria
+    attributes:
+      label: Acceptance Criteria
+      description: Check each item that is required for this feature to be complete.
+      options:
+        - label: The feature behavior is clearly defined for end users.
+        - label: Edge cases and error states are described.
+        - label: Success can be verified with testable outcomes.
+        - label: Dependencies, risks, or rollout notes are documented.
+
+  - type: textarea
+    id: design-mockups
+    attributes:
+      label: Design Mockups
+      description: Provide links, attachments, or notes for UX/UI designs.
+      placeholder: Figma links, screenshots, wireframes, or "N/A".
+    validations:
+      required: false
