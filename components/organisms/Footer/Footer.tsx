@@ -15,7 +15,7 @@ interface FooterSection {
 const aboutSection: FooterSection = {
   title: "About",
   links: [
-    { label: "About FarmCredit", href: "#about" },
+    { label: "About FarmCredit", href: "/about" },
     { label: "Blog", href: "/blog" },
     { label: "Documentation", href: "#docs" },
   ],
@@ -94,7 +94,7 @@ export function Footer(): React.ReactNode {
                   <li key={link.href}>
                     <Link
                       href={link.href}
-                      className="text-sm text-slate-300/80 hover:text-stellar-blue hover:underline transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-stellar-blue rounded"
+                      className="text-sm text-slate-300/80 hover:text-stellar-blue hover:underline transition-colors duration-200 focus:outline-none rounded"
                     >
                       {link.label}
                     </Link>
