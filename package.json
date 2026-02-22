@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "generate-icons": "node scripts/generate-icons.mjs",
-    "generate-routes-list": "generate-next-routes-list"
+    "generate-breadcrumbs": "generate-next-routes-list"
   },
   "dependencies": {
     "@stellar/freighter-api": "^1.7.0",
