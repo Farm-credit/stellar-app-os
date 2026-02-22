@@ -9,6 +9,10 @@ export const mockCarbonProjects: CarbonProject[] = [
     pricePerTon: 45.50,
     availableSupply: 1250.75,
     isOutOfStock: false,
+    type: "Reforestation",
+    location: "Brazil, Amazon Basin",
+    coBenefits: ["Biodiversity", "Water Conservation", "Indigenous Communities"],
+    verificationStatus: "Gold Standard",
   },
   {
     id: "proj-002",
@@ -18,6 +22,10 @@ export const mockCarbonProjects: CarbonProject[] = [
     pricePerTon: 38.25,
     availableSupply: 850.30,
     isOutOfStock: false,
+    type: "Renewable Energy",
+    location: "Texas, USA",
+    coBenefits: ["Clean Energy", "Job Creation"],
+    verificationStatus: "Verra (VCS)",
   },
   {
     id: "proj-003",
@@ -27,6 +35,10 @@ export const mockCarbonProjects: CarbonProject[] = [
     pricePerTon: 42.00,
     availableSupply: 0,
     isOutOfStock: true,
+    type: "Renewable Energy",
+    location: "Rural India",
+    coBenefits: ["Energy Access", "Education", "Health"],
+    verificationStatus: "Climate Action Reserve",
   },
   {
     id: "proj-004",
@@ -36,6 +48,10 @@ export const mockCarbonProjects: CarbonProject[] = [
     pricePerTon: 55.75,
     availableSupply: 2100.50,
     isOutOfStock: false,
+    type: "Mangrove Restoration",
+    location: "Indonesia, Coastal Regions",
+    coBenefits: ["Coastal Protection", "Fisheries", "Biodiversity"],
+    verificationStatus: "Plan Vivo",
   },
   {
     id: "proj-005",
@@ -45,5 +61,9 @@ export const mockCarbonProjects: CarbonProject[] = [
     pricePerTon: 35.00,
     availableSupply: 450.20,
     isOutOfStock: false,
+    type: "Sustainable Agriculture",
+    location: "Kenya, East Africa",
+    coBenefits: ["Soil Health", "Food Security", "Farmer Income"],
+    verificationStatus: "Gold Standard",
   },
 ];
