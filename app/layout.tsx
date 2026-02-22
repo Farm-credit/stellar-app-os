@@ -3,6 +3,11 @@ import { Inter } from "next/font/google";
 import { Footer } from "@/components/organisms/Footer/Footer";
 import "./globals.css";
 
+
+import { ToastProvider } from "@/components/ui/toast/toast-provider";
+
+
+
 const inter = Inter({
   variable: "--font-inter",
   subsets: ["latin"],
@@ -55,6 +60,7 @@ export default function RootLayout({
         <meta name="mobile-web-app-capable" content="yes" />
       </head>
       <body className={`${inter.variable} font-sans antialiased`}>
+       <ToastProvider>{children}</ToastProvider>
         {children}
         <Footer />
       </body>
