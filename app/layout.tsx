@@ -1,7 +1,10 @@
-import type { Metadata, Viewport } from "next";
-import { Inter } from "next/font/google";
-import { Footer } from "@/components/organisms/Footer/Footer";
 import "./globals.css";
+
+import type { Metadata, Viewport } from "next";
+
+import { Footer } from "@/components/organisms/Footer/Footer";
+import { Inter } from "next/font/google";
+import NavigationBreadcrumbs from "@/components/organisms/NavigationBreadcrumbs";
 import { WalletProviderWrapper } from "@/components/providers/WalletProviderWrapper";
 
 const inter = Inter({
@@ -47,18 +50,24 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <head>
-        <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
-        <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-        <meta name="apple-mobile-web-app-title" content="FarmCredit" />
-        <meta name="mobile-web-app-capable" content="yes" />
-      </head>
-      <body className={`${inter.variable} font-sans antialiased`}>
-        {children}
-        <Footer />
-      </body>
-    </html>
+    <WalletProviderWrapper>
+      <html lang="en">
+        <head>
+          <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
+          <meta name="apple-mobile-web-app-capable" content="yes" />
+          <meta
+            name="apple-mobile-web-app-status-bar-style"
+            content="default"
+          />
+          <meta name="apple-mobile-web-app-title" content="FarmCredit" />
+          <meta name="mobile-web-app-capable" content="yes" />
+        </head>
+        <body className={`${inter.variable} font-sans antialiased`}>
+          <NavigationBreadcrumbs />
+          {children}
+          <Footer />
+        </body>
+      </html>
+    </WalletProviderWrapper>
   );
 }
