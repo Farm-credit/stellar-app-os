@@ -1,0 +1,58 @@
+name: Task
+description: Track internal project work with complete context, scope, and execution details.
+title: "[Task]: "
+labels:
+  - task
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this for planned internal work. Keep each section specific and actionable.
+
+  - type: textarea
+    id: context-impact
+    attributes:
+      label: Context & Impact
+      description: Why this task matters and what outcome it enables.
+      placeholder: Describe background, current pain, and expected impact.
+    validations:
+      required: true
+
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope
+      description: List what is in scope and out of scope.
+      placeholder: Include boundaries and deliverables.
+    validations:
+      required: true
+
+  - type: textarea
+    id: implementation-guidelines
+    attributes:
+      label: Implementation Guidelines
+      description: Technical constraints, architecture notes, or coding requirements.
+      placeholder: Provide implementation direction and standards to follow.
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance-criteria
+    attributes:
+      label: Acceptance Criteria
+      description: Define testable completion criteria.
+      placeholder: |
+        - [ ] Criterion 1
+        - [ ] Criterion 2
+        - [ ] Criterion 3
+    validations:
+      required: true
+
+  - type: textarea
+    id: getting-started
+    attributes:
+      label: Getting Started
+      description: Initial setup and first implementation steps.
+      placeholder: Include setup commands, files to touch, and verification steps.
+    validations:
+      required: true

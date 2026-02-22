@@ -1,20 +1,20 @@
-name: "Node CI (pnpm + lint + build)"
-description: "Sets up Node 20, installs pnpm deps, lints, and builds"
+name: "Node CI"
+description: "Setup Node 20 + pnpm + install + lint + build"
 
 runs:
   using: "composite"
-
   steps:
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
         node-version: 20
-        cache: "pnpm"
 
-    - name: Install pnpm
-      uses: pnpm/action-setup@v3
-      with:
-        version: 9
+    - name: Install pnpm globally
+      shell: bash
+      run: |
+        npm install -g pnpm
+        echo "$(npm bin -g)" >> $GITHUB_PATH
+        echo "PNPM version: $(pnpm -v)"
 
     - name: Install dependencies
       shell: bash
@@ -24,6 +24,6 @@ runs:
       shell: bash
       run: pnpm lint
 
-    - name: Build (includes type-check)
+    - name: Build
       shell: bash
       run: pnpm build

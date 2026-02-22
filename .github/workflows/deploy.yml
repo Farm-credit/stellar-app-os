@@ -8,12 +8,11 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout repo
+      - name: Checkout Repo
         uses: actions/checkout@v4
 
-      - name: Run shared CI steps
+      - name: Node CI (shared composite)
         uses: ./.github/actions/node-ci
 
       - name: Deploy to Vercel

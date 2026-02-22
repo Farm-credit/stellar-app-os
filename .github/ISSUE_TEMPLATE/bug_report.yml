@@ -1,0 +1,98 @@
+name: Bug Report
+description: Report a reproducible problem so we can fix it quickly.
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please include enough detail for someone unfamiliar with the issue to reproduce it.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: What happened and why this is a problem.
+      placeholder: A short summary of the bug and its impact.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps-to-reproduce
+    attributes:
+      label: Steps to Reproduce
+      description: Provide exact steps so we can reproduce this bug.
+      placeholder: |
+        1. Go to ...
+        2. Click ...
+        3. Observe ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected-behavior
+    attributes:
+      label: Expected Behavior
+      description: What should have happened.
+      placeholder: Expected result.
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual-behavior
+    attributes:
+      label: Actual Behavior
+      description: What actually happened.
+      placeholder: Actual result, including errors if any.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      description: Choose the impact level of this bug.
+      options:
+        - Critical
+        - Major
+        - Minor
+        - Cosmetic
+    validations:
+      required: true
+
+  - type: input
+    id: browser
+    attributes:
+      label: Browser
+      description: Browser name and version.
+      placeholder: Chrome 122, Safari 17, Firefox 123
+    validations:
+      required: true
+
+  - type: input
+    id: os
+    attributes:
+      label: Operating System
+      description: OS and version.
+      placeholder: macOS 14.3, Windows 11, Ubuntu 24.04
+    validations:
+      required: true
+
+  - type: input
+    id: screen-size
+    attributes:
+      label: Screen Size
+      description: Device and viewport size.
+      placeholder: 1440x900 (desktop), 390x844 (mobile)
+    validations:
+      required: false
+
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots
+      description: Drag and drop screenshots, videos, or logs here.
+      placeholder: Add visuals that show the bug.
+    validations:
+      required: false

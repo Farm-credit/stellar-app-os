@@ -41,6 +41,49 @@ Open [http://localhost:3000](http://localhost:3000) to see the app.
 | `pnpm build` | Production build (also runs type-check) |
 | `pnpm start` | Start production server |
 | `pnpm lint` | Run ESLint |
+| `pnpm generate-icons` | Generate PWA icons from source |
+
+## Progressive Web App (PWA)
+
+FarmCredit is a fully functional Progressive Web App with offline support and installability.
+
+### Features
+
+- 📱 **Installable** - Add to home screen on mobile and desktop
+- 🔌 **Offline Support** - Works without internet connection
+- 🚀 **Fast Loading** - Cached assets for instant load times
+- 🔔 **Push Notifications** - Optional notification support
+- 📊 **Network Aware** - Detects and adapts to connection status
+
+### Quick Start
+
+```bash
+# Install PWA dependencies
+npm install next-pwa @ducanh2912/next-pwa workbox-window
+npm install -D @types/serviceworker sharp
+
+# Generate icons
+npm run generate-icons
+
+# Build and test
+npm run build
+npm start
+```
+
+### Documentation
+
+- [PWA Setup Guide](./PWA_SETUP.md) - Comprehensive setup and deployment
+- [Installation Guide](./INSTALLATION.md) - Quick start guide
+- [Testing Checklist](./TESTING_CHECKLIST.md) - Complete testing guide
+- [Quick Reference](./PWA_QUICK_REFERENCE.md) - Commands and tips
+
+### Testing PWA
+
+1. Build production version: `npm run build && npm start`
+2. Open DevTools → Application → Service Workers
+3. Verify service worker is active
+4. Test offline: DevTools → Network → Offline
+5. Run Lighthouse audit for PWA score
 
 ## Project Architecture
 

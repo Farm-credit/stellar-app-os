@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import * as React from 'react';
 import { Text } from '@/components/atoms/Text';
 
 interface CounterProps {
@@ -26,12 +26,12 @@ export function Counter({
   prefix = '',
   suffix = '',
 }: CounterProps) {
-  const [count, setCount] = useState<number>(0);
-  const [hasAnimated, setHasAnimated] = useState<boolean>(false);
-  const counterRef = useRef<HTMLDivElement>(null);
-  const prefersReducedMotion = useRef<boolean>(false);
+  const [count, setCount] = React.useState<number>(0);
+  const [hasAnimated, setHasAnimated] = React.useState<boolean>(false);
+  const counterRef = React.useRef<HTMLDivElement>(null);
+  const prefersReducedMotion = React.useRef<boolean>(false);
 
-  useEffect(() => {
+  React.useEffect(() => {
     // Check for prefers-reduced-motion
     const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
     prefersReducedMotion.current = mediaQuery.matches;
@@ -44,7 +44,7 @@ export function Counter({
     return () => mediaQuery.removeEventListener('change', handleChange);
   }, []);
 
-  useEffect(() => {
+  React.useEffect(() => {
     if (!counterRef.current || hasAnimated) return;
 
     const element = counterRef.current;

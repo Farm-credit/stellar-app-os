@@ -1,0 +1,18 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="512" height="512" rx="64" fill="#0D0B21"/>
+  
+  <!-- Stellar-inspired icon -->
+  <circle cx="256" cy="256" r="120" fill="#14B6E7" opacity="0.2"/>
+  <circle cx="256" cy="256" r="80" fill="#14B6E7" opacity="0.4"/>
+  <circle cx="256" cy="256" r="40" fill="#14B6E7"/>
+  
+  <!-- Orbiting elements -->
+  <circle cx="376" cy="256" r="20" fill="#00C2FF"/>
+  <circle cx="136" cy="256" r="20" fill="#00C2FF"/>
+  <circle cx="256" cy="136" r="20" fill="#3E1BDB"/>
+  <circle cx="256" cy="376" r="20" fill="#00B36B"/>
+  
+  <!-- Text -->
+  <text x="256" y="440" font-family="Arial, sans-serif" font-size="48" font-weight="bold" fill="#14B6E7" text-anchor="middle">FC</text>
+</svg>
