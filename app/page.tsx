@@ -59,6 +59,9 @@ export default function Home() {
           <Button data-tour-id="purchase-credits-button" asChild variant="outline" size="lg" className="w-full">
             <Link href="/credits/purchase">Purchase Carbon Credits</Link>
           </Button>
+          <Button asChild variant="default" size="lg" className="w-full bg-green-500 hover:bg-green-600">
+            <Link href="/donate">Make a Donation</Link>
+          </Button>
         </CardContent>
       </Card>
       <OnboardingTour />
