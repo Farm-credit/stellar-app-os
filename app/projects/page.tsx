@@ -1,12 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { Suspense, useState, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Text } from "@/components/atoms/Text";
 import { ProjectGrid } from "@/components/organisms/ProjectGrid/ProjectGrid";
 import { mockCarbonProjects } from "@/lib/api/mock/carbonProjects";
 
-export default function ProjectsPage() {
+function ProjectsContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
@@ -42,6 +42,17 @@ export default function ProjectsPage() {
   };
 
   return (
+    <ProjectGrid
+      projects={mockCarbonProjects}
+      view={view}
+      onViewChange={handleViewChange}
+      isLoading={isLoading}
+    />
+  );
+}
+
+export default function ProjectsPage() {
+  return (
     <main className="container mx-auto px-4 py-8 sm:py-10">
       <div className="mb-8">
         <Text as="h1" variant="h2" className="mb-2">
@@ -52,12 +63,9 @@ export default function ProjectsPage() {
         </Text>
       </div>
 
-      <ProjectGrid
-        projects={mockCarbonProjects}
-        view={view}
-        onViewChange={handleViewChange}
-        isLoading={isLoading}
-      />
+      <Suspense fallback={<div>Loading...</div>}>
+        <ProjectsContent />
+      </Suspense>
     </main>
   );
 }
