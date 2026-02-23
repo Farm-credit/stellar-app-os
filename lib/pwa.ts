@@ -68,9 +68,9 @@ export async function checkOnlineStatus(): Promise<boolean> {
   }
 }
 
-export function subscribeToNetworkStatus(callback: () => void): () => void {
-  const handleOnline = () => callback();
-  const handleOffline = () => callback();
+export function subscribeToNetworkStatus(callback: (online: boolean) => void): () => void {
+  const handleOnline = () => callback(true);
+  const handleOffline = () => callback(false);
 
   window.addEventListener('online', handleOnline);
   window.addEventListener('offline', handleOffline);
