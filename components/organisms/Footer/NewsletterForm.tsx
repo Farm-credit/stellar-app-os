@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, type ChangeEvent } from 'react';
+import React, { useState, type ChangeEvent, type FormEvent } from 'react';
 import { Mail, CheckCircle, Loader2 } from 'lucide-react';
 
 interface NewsletterFormState {
