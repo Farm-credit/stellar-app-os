@@ -1,0 +1,12 @@
+{
+  "*.{ts,tsx}": [
+    "pnpm exec eslint --fix --max-warnings=0",
+    "pnpm exec prettier --write"
+  ],
+  "*.{js,jsx,mjs,cjs}": [
+    "pnpm exec prettier --write"
+  ],
+  "*.{json,md,mdx,yaml,yml,css}": [
+    "pnpm exec prettier --write"
+  ]
+}
