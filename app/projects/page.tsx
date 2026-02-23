@@ -10,35 +10,36 @@ function ProjectsContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
-  const [view, setView] = useState<'grid' | 'list'>('grid');
-
+  
   // Initialize view from URL or localStorage
+  const getInitialView = (): 'grid' | 'list' => {
+    const urlView = searchParams.get('view');
+    if (urlView === 'grid' || urlView === 'list') {
+      return urlView;
+    }
+    const storedView = localStorage.getItem('projectView');
+    if (storedView === 'grid' || storedView === 'list') {
+      return storedView;
+    }
+    return 'grid';
+  };
+
+  const [view, setView] = useState<'grid' | 'list'>(getInitialView);
+
+  // Sync URL with view state
   useEffect(() => {
     const urlView = searchParams.get('view');
-    const storedView = localStorage.getItem('projectView');
-
-    if (urlView === 'grid' || urlView === 'list') {
-      setView(urlView);
-      localStorage.setItem('projectView', urlView);
-    } else if (storedView === 'grid' || storedView === 'list') {
-      setView(storedView);
-      // Sync to URL
+    if (urlView !== view) {
       const params = new URLSearchParams(searchParams.toString());
-      params.set('view', storedView);
+      params.set('view', view);
       router.replace(`/projects?${params.toString()}`, { scroll: false });
     }
-
     setIsLoading(false);
-  }, [searchParams, router]);
+  }, [view, searchParams, router]);
 
   const handleViewChange = (newView: 'grid' | 'list') => {
     setView(newView);
     localStorage.setItem('projectView', newView);
-
-    // Update URL
-    const params = new URLSearchParams(searchParams.toString());
-    params.set('view', newView);
-    router.replace(`/projects?${params.toString()}`, { scroll: false });
   };
 
   return (
