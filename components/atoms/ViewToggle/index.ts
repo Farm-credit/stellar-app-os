@@ -1,2 +1,2 @@
-export { ViewToggle } from "./ViewToggle";
-export type { ViewToggleProps } from "./ViewToggle";
+export { ViewToggle } from './ViewToggle';
+export type { ViewToggleProps } from './ViewToggle';

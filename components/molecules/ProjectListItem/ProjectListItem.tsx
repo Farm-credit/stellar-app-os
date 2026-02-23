@@ -1,9 +1,9 @@
-import * as React from "react";
-import Image from "next/image";
-import { Badge } from "@/components/atoms/Badge";
-import { Button } from "@/components/atoms/Button";
-import { Text } from "@/components/atoms/Text";
-import { MapPin, ImageOff } from "lucide-react";
+import * as React from 'react';
+import Image from 'next/image';
+import { Badge } from '@/components/atoms/Badge';
+import { Button } from '@/components/atoms/Button';
+import { Text } from '@/components/atoms/Text';
+import { MapPin, ImageOff } from 'lucide-react';
 
 export interface ProjectListItemProps {
   id: string | number;
@@ -11,16 +11,16 @@ export interface ProjectListItemProps {
   location: string;
   description: string;
   imageUrl: string | null;
-  type: "reforestation" | "renewable" | "conservation";
+  type: 'reforestation' | 'renewable' | 'conservation';
   progress: number;
   price: number;
   availableCredits: number;
 }
 
 const typeConfig = {
-  reforestation: { label: "Reforestation", colorClass: "bg-stellar-green" },
-  renewable: { label: "Renewable Energy", colorClass: "bg-stellar-cyan text-stellar-navy" },
-  conservation: { label: "Conservation", colorClass: "bg-stellar-purple" },
+  reforestation: { label: 'Reforestation', colorClass: 'bg-stellar-green' },
+  renewable: { label: 'Renewable Energy', colorClass: 'bg-stellar-cyan text-stellar-navy' },
+  conservation: { label: 'Conservation', colorClass: 'bg-stellar-purple' },
 };
 
 export function ProjectListItem({
@@ -70,7 +70,11 @@ export function ProjectListItem({
                   {location}
                 </Text>
               </div>
-              <Text as="h3" variant="h4" className="group-hover:text-stellar-blue transition-colors">
+              <Text
+                as="h3"
+                variant="h4"
+                className="group-hover:text-stellar-blue transition-colors"
+              >
                 {title}
               </Text>
             </div>
@@ -78,7 +82,7 @@ export function ProjectListItem({
               {badgeConfig.label}
             </Badge>
           </div>
-          
+
           <Text variant="muted" className="line-clamp-2 text-sm">
             {description}
           </Text>
@@ -90,11 +94,13 @@ export function ProjectListItem({
                 {clampedProgress}% Funded
               </Text>
               <Text variant="small" className="text-xs text-muted-foreground">
-                {availableCredits > 0 ? `${availableCredits.toLocaleString()} credits` : "0 credits"}
+                {availableCredits > 0
+                  ? `${availableCredits.toLocaleString()} credits`
+                  : '0 credits'}
               </Text>
             </div>
             <div className="h-1.5 w-full bg-secondary rounded-full overflow-hidden">
-              <div 
+              <div
                 className="h-full bg-stellar-green transition-all duration-1000 ease-out rounded-full"
                 style={{ width: `${clampedProgress}%` }}
               />
@@ -105,20 +111,26 @@ export function ProjectListItem({
         {/* Price & Action */}
         <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-center gap-3 sm:min-w-[140px] pt-2 sm:pt-0 border-t sm:border-t-0 sm:border-l sm:pl-4">
           <div className="flex flex-col items-start sm:items-end">
-            <Text variant="small" className="text-muted-foreground text-xs">Price</Text>
+            <Text variant="small" className="text-muted-foreground text-xs">
+              Price
+            </Text>
             <div className="flex items-baseline gap-1">
-              <Text variant="h4" className="text-lg sm:text-xl">${price.toFixed(2)}</Text>
-              <Text variant="small" className="text-muted-foreground text-xs">/unit</Text>
+              <Text variant="h4" className="text-lg sm:text-xl">
+                ${price.toFixed(2)}
+              </Text>
+              <Text variant="small" className="text-muted-foreground text-xs">
+                /unit
+              </Text>
             </div>
           </div>
-          
-          <Button 
-            stellar="primary" 
+
+          <Button
+            stellar="primary"
             disabled={isSoldOut}
             size="sm"
             className="font-semibold w-full sm:w-auto"
           >
-            {isSoldOut ? "Sold Out" : "Donate"}
+            {isSoldOut ? 'Sold Out' : 'Donate'}
           </Button>
         </div>
       </div>

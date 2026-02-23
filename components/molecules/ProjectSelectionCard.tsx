@@ -1,10 +1,16 @@
-"use client";
+'use client';
 
-import type { CarbonProject } from "@/lib/types/carbon";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/molecules/Card";
-import { Checkbox } from "@/components/atoms/Checkbox";
-import { Badge } from "@/components/atoms/Badge";
-import { Text } from "@/components/atoms/Text";
+import type { CarbonProject } from '@/lib/types/carbon';
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+} from '@/components/molecules/Card';
+import { Checkbox } from '@/components/atoms/Checkbox';
+import { Badge } from '@/components/atoms/Badge';
+import { Text } from '@/components/atoms/Text';
 
 export interface ProjectSelectionCardProps {
   project: CarbonProject;
@@ -14,9 +20,9 @@ export interface ProjectSelectionCardProps {
 }
 
 function formatPrice(price: number): string {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(price);
@@ -33,7 +39,9 @@ export function ProjectSelectionCard({
       <div className="absolute top-4 right-4">
         <Checkbox
           checked={isSelected}
-          onChange={(e: React.ChangeEvent<HTMLInputElement>) => onSelectionChange(project.id, e.target.checked)}
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+            onSelectionChange(project.id, e.target.checked)
+          }
           disabled={disabled || project.isOutOfStock}
           aria-label={`Select ${project.name} for comparison`}
         />

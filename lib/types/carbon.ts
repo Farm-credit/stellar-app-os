@@ -1,6 +1,16 @@
-export type ProjectType = "Reforestation" | "Renewable Energy" | "Mangrove Restoration" | "Sustainable Agriculture" | "Other";
+export type ProjectType =
+  | 'Reforestation'
+  | 'Renewable Energy'
+  | 'Mangrove Restoration'
+  | 'Sustainable Agriculture'
+  | 'Other';
 
-export type VerificationStatus = "Gold Standard" | "Verra (VCS)" | "Climate Action Reserve" | "Plan Vivo" | "Pending";
+export type VerificationStatus =
+  | 'Gold Standard'
+  | 'Verra (VCS)'
+  | 'Climate Action Reserve'
+  | 'Plan Vivo'
+  | 'Pending';
 
 export interface ProjectCoordinates {
   latitude: number;
@@ -30,5 +40,5 @@ export interface CreditSelectionState {
 
 export interface CreditSelectionProps {
   projects: CarbonProject[];
-  onSelectionChange?: (selection: CreditSelectionState) => void;
+  onSelectionChange?: (_selection: CreditSelectionState) => void;
 }

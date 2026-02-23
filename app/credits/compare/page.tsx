@@ -1,17 +1,17 @@
-"use client";
+'use client';
 
-import { useCallback } from "react";
-import { useRouter } from "next/navigation";
-import { ComparisonTool } from "@/components/organisms/ComparisonTool/ComparisonTool";
-import { mockCarbonProjects } from "@/lib/api/mock/carbonProjects";
-import { Text } from "@/components/atoms/Text";
+import { useCallback } from 'react';
+import { useRouter } from 'next/navigation';
+import { ComparisonTool } from '@/components/organisms/ComparisonTool/ComparisonTool';
+import { mockCarbonProjects } from '@/lib/api/mock/carbonProjects';
+import { Text } from '@/components/atoms/Text';
 
 export default function ComparePage() {
   const router = useRouter();
 
   const handleAddToCart = useCallback(
     (projectId: string) => {
-      console.log("Adding project to cart:", projectId);
+      console.log('Adding project to cart:', projectId);
       router.push(`/credits/purchase?projectId=${projectId}`);
     },
     [router]

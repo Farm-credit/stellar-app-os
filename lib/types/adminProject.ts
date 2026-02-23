@@ -1,22 +1,22 @@
 export type AdminProjectType =
-  | "Reforestation"
-  | "Renewable Energy"
-  | "Mangrove Restoration"
-  | "Sustainable Agriculture"
-  | "Blue Carbon"
-  | "Direct Air Capture"
-  | "Other";
+  | 'Reforestation'
+  | 'Renewable Energy'
+  | 'Mangrove Restoration'
+  | 'Sustainable Agriculture'
+  | 'Blue Carbon'
+  | 'Direct Air Capture'
+  | 'Other';
 
 export type AdminProjectLifecycleStatus =
-  | "Draft"
-  | "Under Review"
-  | "Approved"
-  | "Paused"
-  | "Archived";
+  | 'Draft'
+  | 'Under Review'
+  | 'Approved'
+  | 'Paused'
+  | 'Archived';
 
-export type AdminRiskRating = "Low" | "Medium" | "High";
+export type AdminRiskRating = 'Low' | 'Medium' | 'High';
 
-export type AdminMrvDocumentStatus = "Current" | "Superseded" | "Pending Review";
+export type AdminMrvDocumentStatus = 'Current' | 'Superseded' | 'Pending Review';
 
 export interface AdminMrvDocument {
   id: string;

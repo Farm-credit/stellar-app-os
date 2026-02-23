@@ -1,43 +1,43 @@
-"use client";
+'use client';
 
-import { Suspense, useState, useEffect } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
-import { Text } from "@/components/atoms/Text";
-import { ProjectGrid } from "@/components/organisms/ProjectGrid/ProjectGrid";
-import { mockCarbonProjects } from "@/lib/api/mock/carbonProjects";
+import { Suspense, useState, useEffect } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
+import { Text } from '@/components/atoms/Text';
+import { ProjectGrid } from '@/components/organisms/ProjectGrid/ProjectGrid';
+import { mockCarbonProjects } from '@/lib/api/mock/carbonProjects';
 
 function ProjectsContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
-  const [view, setView] = useState<"grid" | "list">("grid");
+  const [view, setView] = useState<'grid' | 'list'>('grid');
 
   // Initialize view from URL or localStorage
   useEffect(() => {
-    const urlView = searchParams.get("view");
-    const storedView = localStorage.getItem("projectView");
-    
-    if (urlView === "grid" || urlView === "list") {
+    const urlView = searchParams.get('view');
+    const storedView = localStorage.getItem('projectView');
+
+    if (urlView === 'grid' || urlView === 'list') {
       setView(urlView);
-      localStorage.setItem("projectView", urlView);
-    } else if (storedView === "grid" || storedView === "list") {
+      localStorage.setItem('projectView', urlView);
+    } else if (storedView === 'grid' || storedView === 'list') {
       setView(storedView);
       // Sync to URL
       const params = new URLSearchParams(searchParams.toString());
-      params.set("view", storedView);
+      params.set('view', storedView);
       router.replace(`/projects?${params.toString()}`, { scroll: false });
     }
-    
+
     setIsLoading(false);
   }, [searchParams, router]);
 
-  const handleViewChange = (newView: "grid" | "list") => {
+  const handleViewChange = (newView: 'grid' | 'list') => {
     setView(newView);
-    localStorage.setItem("projectView", newView);
-    
+    localStorage.setItem('projectView', newView);
+
     // Update URL
     const params = new URLSearchParams(searchParams.toString());
-    params.set("view", newView);
+    params.set('view', newView);
     router.replace(`/projects?${params.toString()}`, { scroll: false });
   };
 

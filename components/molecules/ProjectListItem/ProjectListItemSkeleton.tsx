@@ -1,4 +1,4 @@
-import * as React from "react";
+import * as React from 'react';
 
 export function ProjectListItemSkeleton() {
   return (
@@ -22,7 +22,7 @@ export function ProjectListItemSkeleton() {
               <div className="h-5 w-24 bg-muted animate-pulse rounded-full" />
             </div>
           </div>
-          
+
           {/* Description */}
           <div className="space-y-2">
             <div className="h-4 w-full bg-muted animate-pulse rounded" />

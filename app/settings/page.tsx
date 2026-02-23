@@ -1,15 +1,18 @@
-"use client";
+'use client';
 
-import { useEffect, useState } from "react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { Button } from "@/components/atoms/Button";
-import { Text } from "@/components/atoms/Text";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/molecules/Card";
+import { useEffect, useState } from 'react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { Button } from '@/components/atoms/Button';
+import { Text } from '@/components/atoms/Text';
 import {
-  hasCompletedOnboardingTour,
-  requestOnboardingTourRestart,
-} from "@/lib/onboardingTour";
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/molecules/Card';
+import { hasCompletedOnboardingTour, requestOnboardingTourRestart } from '@/lib/onboardingTour';
 
 export default function SettingsPage(): React.ReactNode {
   const router = useRouter();
@@ -22,7 +25,7 @@ export default function SettingsPage(): React.ReactNode {
   const restartTour = () => {
     requestOnboardingTourRestart();
     setTourCompleted(false);
-    router.push("/");
+    router.push('/');
   };
 
   return (
@@ -43,7 +46,7 @@ export default function SettingsPage(): React.ReactNode {
         </CardHeader>
         <CardContent className="space-y-4">
           <Text variant="small" as="p">
-            Status: {tourCompleted ? "Completed" : "Not completed"}
+            Status: {tourCompleted ? 'Completed' : 'Not completed'}
           </Text>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             <Button stellar="primary" onClick={restartTour}>

@@ -15,14 +15,9 @@ export default function RewardTiers({ tiers }: RewardTiersProps) {
       </h2>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {tiers.map((tier) => (
-          <div
-            key={tier.level}
-            className="rounded-lg border border-gray-200 p-4"
-          >
+          <div key={tier.level} className="rounded-lg border border-gray-200 p-4">
             <h3 className="text-lg font-bold mb-1">{tier.level}</h3>
-            <p className="text-sm text-gray-500 mb-2">
-              {tier.threshold}+ referrals
-            </p>
+            <p className="text-sm text-gray-500 mb-2">{tier.threshold}+ referrals</p>
             <p className="text-sm">{tier.rewardDescription}</p>
           </div>
         ))}

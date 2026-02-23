@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 import {
   useId,
@@ -7,21 +7,21 @@ import {
   type ChangeEvent,
   type FormEvent,
   type ReactNode,
-} from "react";
-import Link from "next/link";
-import { Badge } from "@/components/atoms/Badge";
-import { Button } from "@/components/atoms/Button";
-import { Checkbox } from "@/components/atoms/Checkbox";
-import { Input } from "@/components/atoms/Input";
-import { Select } from "@/components/atoms/Select";
-import { Text } from "@/components/atoms/Text";
+} from 'react';
+import Link from 'next/link';
+import { Badge } from '@/components/atoms/Badge';
+import { Button } from '@/components/atoms/Button';
+import { Checkbox } from '@/components/atoms/Checkbox';
+import { Input } from '@/components/atoms/Input';
+import { Select } from '@/components/atoms/Select';
+import { Text } from '@/components/atoms/Text';
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/molecules/Card";
+} from '@/components/molecules/Card';
 import type {
   AdminActivityLogEntry,
   AdminCreditIssuanceRecord,
@@ -31,43 +31,41 @@ import type {
   AdminProjectLifecycleStatus,
   AdminProjectType,
   AdminRiskRating,
-} from "@/lib/types/adminProject";
+} from '@/lib/types/adminProject';
 
 const PROJECT_TYPE_OPTIONS: AdminProjectType[] = [
-  "Reforestation",
-  "Renewable Energy",
-  "Mangrove Restoration",
-  "Sustainable Agriculture",
-  "Blue Carbon",
-  "Direct Air Capture",
-  "Other",
+  'Reforestation',
+  'Renewable Energy',
+  'Mangrove Restoration',
+  'Sustainable Agriculture',
+  'Blue Carbon',
+  'Direct Air Capture',
+  'Other',
 ];
 
 const LIFECYCLE_STATUS_OPTIONS: AdminProjectLifecycleStatus[] = [
-  "Draft",
-  "Under Review",
-  "Approved",
-  "Paused",
-  "Archived",
+  'Draft',
+  'Under Review',
+  'Approved',
+  'Paused',
+  'Archived',
 ];
 
-const RISK_RATING_OPTIONS: AdminRiskRating[] = ["Low", "Medium", "High"];
+const RISK_RATING_OPTIONS: AdminRiskRating[] = ['Low', 'Medium', 'High'];
 
-const ACTIVE_ADMIN_NAME = "Admin User";
+const ACTIVE_ADMIN_NAME = 'Admin User';
 
 interface AdminProjectDetailViewProps {
   initialProject: AdminProjectDetail;
 }
 
-export function AdminProjectDetailView({
-  initialProject,
-}: AdminProjectDetailViewProps): ReactNode {
+export function AdminProjectDetailView({ initialProject }: AdminProjectDetailViewProps): ReactNode {
   const [project, setProject] = useState<AdminProjectDetail>(initialProject);
   const [formValues, setFormValues] = useState<AdminProjectFormValues>(() =>
     toFormValues(initialProject)
   );
-  const [statusMessage, setStatusMessage] = useState<string>("");
-  const [uploadMessage, setUploadMessage] = useState<string>("");
+  const [statusMessage, setStatusMessage] = useState<string>('');
+  const [uploadMessage, setUploadMessage] = useState<string>('');
   const [isSaving, startSavingTransition] = useTransition();
   const uploadInputId = useId();
 
@@ -94,8 +92,8 @@ export function AdminProjectDetailView({
           lastUpdatedBy: ACTIVE_ADMIN_NAME,
           activityLog: [
             createActivityEntry(
-              "Saved project fields",
-              "Updated editable project metadata and verification notes."
+              'Saved project fields',
+              'Updated editable project metadata and verification notes.'
             ),
             ...updated.activityLog,
           ],
@@ -104,7 +102,7 @@ export function AdminProjectDetailView({
         setFormValues(toFormValues(withAudit));
         return withAudit;
       });
-      setStatusMessage("Project details saved successfully.");
+      setStatusMessage('Project details saved successfully.');
     });
   }
 
@@ -116,10 +114,10 @@ export function AdminProjectDetailView({
       lastUpdatedBy: ACTIVE_ADMIN_NAME,
       activityLog: [
         createActivityEntry(
-          nextChecked ? "Verification enabled" : "Verification disabled",
+          nextChecked ? 'Verification enabled' : 'Verification disabled',
           nextChecked
-            ? "Admin enabled project verification status."
-            : "Admin disabled project verification status."
+            ? 'Admin enabled project verification status.'
+            : 'Admin disabled project verification status.'
         ),
         ...current.activityLog,
       ],
@@ -127,9 +125,7 @@ export function AdminProjectDetailView({
 
     setFormValues((current) => ({ ...current, verificationEnabled: nextChecked }));
     setStatusMessage(
-      nextChecked
-        ? "Verification status enabled."
-        : "Verification status disabled."
+      nextChecked ? 'Verification status enabled.' : 'Verification status disabled.'
     );
   }
 
@@ -140,18 +136,16 @@ export function AdminProjectDetailView({
     }
 
     const uploadedAt = new Date().toISOString();
-    const uploadedDocuments: AdminMrvDocument[] = Array.from(files).map(
-      (file, index) => ({
-        id: `mrv-${Date.now()}-${index}`,
-        fileName: file.name,
-        fileType: file.type || "application/octet-stream",
-        sizeBytes: file.size,
-        uploadedAt,
-        uploadedBy: ACTIVE_ADMIN_NAME,
-        version: "v1.0",
-        status: "Pending Review",
-      })
-    );
+    const uploadedDocuments: AdminMrvDocument[] = Array.from(files).map((file, index) => ({
+      id: `mrv-${Date.now()}-${index}`,
+      fileName: file.name,
+      fileType: file.type || 'application/octet-stream',
+      sizeBytes: file.size,
+      uploadedAt,
+      uploadedBy: ACTIVE_ADMIN_NAME,
+      version: 'v1.0',
+      status: 'Pending Review',
+    }));
 
     setProject((current) => ({
       ...current,
@@ -160,10 +154,10 @@ export function AdminProjectDetailView({
       mrvDocuments: [...uploadedDocuments, ...current.mrvDocuments],
       activityLog: [
         createActivityEntry(
-          "Uploaded MRV document",
+          'Uploaded MRV document',
           `Added ${uploadedDocuments.length} file(s): ${uploadedDocuments
             .map((document) => document.fileName)
-            .join(", ")}`
+            .join(', ')}`
         ),
         ...current.activityLog,
       ],
@@ -171,11 +165,11 @@ export function AdminProjectDetailView({
 
     setUploadMessage(
       `${uploadedDocuments.length} MRV document${
-        uploadedDocuments.length === 1 ? "" : "s"
+        uploadedDocuments.length === 1 ? '' : 's'
       } uploaded.`
     );
-    setStatusMessage("");
-    event.target.value = "";
+    setStatusMessage('');
+    event.target.value = '';
   }
 
   return (
@@ -186,13 +180,13 @@ export function AdminProjectDetailView({
             Admin Project Detail
           </Text>
           <Text as="p" variant="muted" className="max-w-3xl">
-            Review and maintain project metadata, verification status, MRV
-            documents, and issuance records.
+            Review and maintain project metadata, verification status, MRV documents, and issuance
+            records.
           </Text>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Badge variant={project.verificationEnabled ? "success" : "secondary"}>
-            {project.verificationEnabled ? "Verified" : "Verification Off"}
+          <Badge variant={project.verificationEnabled ? 'success' : 'secondary'}>
+            {project.verificationEnabled ? 'Verified' : 'Verification Off'}
           </Badge>
           <Badge variant={lifecycleBadgeVariant(project.lifecycleStatus)}>
             {project.lifecycleStatus}
@@ -226,12 +220,7 @@ export function AdminProjectDetailView({
         />
       </div>
 
-      <div
-        className="mb-4 space-y-2"
-        role="status"
-        aria-live="polite"
-        aria-atomic="true"
-      >
+      <div className="mb-4 space-y-2" role="status" aria-live="polite" aria-atomic="true">
         {statusMessage ? (
           <p className="rounded-md border border-stellar-green/30 bg-stellar-green/10 px-3 py-2 text-sm text-stellar-green">
             {statusMessage}
@@ -264,7 +253,7 @@ export function AdminProjectDetailView({
                       id="project-id"
                       variant="primary"
                       value={formValues.id}
-                      onChange={(event) => setField("id", event.target.value)}
+                      onChange={(event) => setField('id', event.target.value)}
                       required
                     />
                   </Field>
@@ -276,7 +265,7 @@ export function AdminProjectDetailView({
                       id="project-name"
                       variant="primary"
                       value={formValues.name}
-                      onChange={(event) => setField("name", event.target.value)}
+                      onChange={(event) => setField('name', event.target.value)}
                       required
                     />
                   </Field>
@@ -288,25 +277,20 @@ export function AdminProjectDetailView({
                       id="project-slug"
                       variant="primary"
                       value={formValues.slug}
-                      onChange={(event) => setField("slug", event.target.value)}
+                      onChange={(event) => setField('slug', event.target.value)}
                       required
                     />
                   </Field>
                 </div>
 
                 <Field>
-                  <label
-                    htmlFor="project-description"
-                    className="text-sm font-medium"
-                  >
+                  <label htmlFor="project-description" className="text-sm font-medium">
                     Description
                   </label>
                   <textarea
                     id="project-description"
                     value={formValues.description}
-                    onChange={(event) =>
-                      setField("description", event.target.value)
-                    }
+                    onChange={(event) => setField('description', event.target.value)}
                     rows={4}
                     className="w-full rounded-lg border border-stellar-blue/30 bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stellar-blue"
                     required
@@ -322,9 +306,7 @@ export function AdminProjectDetailView({
                       id="project-type"
                       variant="primary"
                       value={formValues.type}
-                      onChange={(event) =>
-                        setField("type", event.target.value as AdminProjectType)
-                      }
+                      onChange={(event) => setField('type', event.target.value as AdminProjectType)}
                     >
                       {PROJECT_TYPE_OPTIONS.map((option) => (
                         <option key={option} value={option}>
@@ -334,10 +316,7 @@ export function AdminProjectDetailView({
                     </Select>
                   </Field>
                   <Field>
-                    <label
-                      htmlFor="project-lifecycle"
-                      className="text-sm font-medium"
-                    >
+                    <label htmlFor="project-lifecycle" className="text-sm font-medium">
                       Lifecycle status
                     </label>
                     <Select
@@ -346,7 +325,7 @@ export function AdminProjectDetailView({
                       value={formValues.lifecycleStatus}
                       onChange={(event) =>
                         setField(
-                          "lifecycleStatus",
+                          'lifecycleStatus',
                           event.target.value as AdminProjectLifecycleStatus
                         )
                       }
@@ -359,10 +338,7 @@ export function AdminProjectDetailView({
                     </Select>
                   </Field>
                   <Field>
-                    <label
-                      htmlFor="project-risk-rating"
-                      className="text-sm font-medium"
-                    >
+                    <label htmlFor="project-risk-rating" className="text-sm font-medium">
                       Risk rating
                     </label>
                     <Select
@@ -370,7 +346,7 @@ export function AdminProjectDetailView({
                       variant="primary"
                       value={formValues.riskRating}
                       onChange={(event) =>
-                        setField("riskRating", event.target.value as AdminRiskRating)
+                        setField('riskRating', event.target.value as AdminRiskRating)
                       }
                     >
                       {RISK_RATING_OPTIONS.map((option) => (
@@ -391,9 +367,7 @@ export function AdminProjectDetailView({
                       id="project-location"
                       variant="primary"
                       value={formValues.location}
-                      onChange={(event) =>
-                        setField("location", event.target.value)
-                      }
+                      onChange={(event) => setField('location', event.target.value)}
                     />
                   </Field>
                   <Field>
@@ -404,9 +378,7 @@ export function AdminProjectDetailView({
                       id="project-country"
                       variant="primary"
                       value={formValues.country}
-                      onChange={(event) =>
-                        setField("country", event.target.value)
-                      }
+                      onChange={(event) => setField('country', event.target.value)}
                     />
                   </Field>
                   <Field>
@@ -417,7 +389,7 @@ export function AdminProjectDetailView({
                       id="project-region"
                       variant="primary"
                       value={formValues.region}
-                      onChange={(event) => setField("region", event.target.value)}
+                      onChange={(event) => setField('region', event.target.value)}
                     />
                   </Field>
                 </div>
@@ -431,25 +403,18 @@ export function AdminProjectDetailView({
                       id="project-developer"
                       variant="primary"
                       value={formValues.developer}
-                      onChange={(event) =>
-                        setField("developer", event.target.value)
-                      }
+                      onChange={(event) => setField('developer', event.target.value)}
                     />
                   </Field>
                   <Field>
-                    <label
-                      htmlFor="project-methodology"
-                      className="text-sm font-medium"
-                    >
+                    <label htmlFor="project-methodology" className="text-sm font-medium">
                       Methodology
                     </label>
                     <Input
                       id="project-methodology"
                       variant="primary"
                       value={formValues.methodology}
-                      onChange={(event) =>
-                        setField("methodology", event.target.value)
-                      }
+                      onChange={(event) => setField('methodology', event.target.value)}
                     />
                   </Field>
                   <Field>
@@ -460,35 +425,25 @@ export function AdminProjectDetailView({
                       id="project-registry"
                       variant="primary"
                       value={formValues.registry}
-                      onChange={(event) =>
-                        setField("registry", event.target.value)
-                      }
+                      onChange={(event) => setField('registry', event.target.value)}
                     />
                   </Field>
                 </div>
 
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                   <Field>
-                    <label
-                      htmlFor="project-registry-id"
-                      className="text-sm font-medium"
-                    >
+                    <label htmlFor="project-registry-id" className="text-sm font-medium">
                       Registry project ID
                     </label>
                     <Input
                       id="project-registry-id"
                       variant="primary"
                       value={formValues.registryProjectId}
-                      onChange={(event) =>
-                        setField("registryProjectId", event.target.value)
-                      }
+                      onChange={(event) => setField('registryProjectId', event.target.value)}
                     />
                   </Field>
                   <Field>
-                    <label
-                      htmlFor="project-vintage-year"
-                      className="text-sm font-medium"
-                    >
+                    <label htmlFor="project-vintage-year" className="text-sm font-medium">
                       Vintage year
                     </label>
                     <Input
@@ -498,9 +453,7 @@ export function AdminProjectDetailView({
                       max={2100}
                       variant="primary"
                       value={String(formValues.vintageYear)}
-                      onChange={(event) =>
-                        setField("vintageYear", toNumber(event.target.value))
-                      }
+                      onChange={(event) => setField('vintageYear', toNumber(event.target.value))}
                     />
                   </Field>
                   <Field>
@@ -512,19 +465,14 @@ export function AdminProjectDetailView({
                       type="date"
                       variant="primary"
                       value={formValues.startDate}
-                      onChange={(event) =>
-                        setField("startDate", event.target.value)
-                      }
+                      onChange={(event) => setField('startDate', event.target.value)}
                     />
                   </Field>
                 </div>
 
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                   <Field>
-                    <label
-                      htmlFor="project-crediting-end"
-                      className="text-sm font-medium"
-                    >
+                    <label htmlFor="project-crediting-end" className="text-sm font-medium">
                       Crediting end date
                     </label>
                     <Input
@@ -532,9 +480,7 @@ export function AdminProjectDetailView({
                       type="date"
                       variant="primary"
                       value={formValues.expectedCreditingEndDate}
-                      onChange={(event) =>
-                        setField("expectedCreditingEndDate", event.target.value)
-                      }
+                      onChange={(event) => setField('expectedCreditingEndDate', event.target.value)}
                     />
                   </Field>
                   <Field>
@@ -548,16 +494,11 @@ export function AdminProjectDetailView({
                       step="0.01"
                       variant="primary"
                       value={String(formValues.pricePerTonUsd)}
-                      onChange={(event) =>
-                        setField("pricePerTonUsd", toNumber(event.target.value))
-                      }
+                      onChange={(event) => setField('pricePerTonUsd', toNumber(event.target.value))}
                     />
                   </Field>
                   <Field>
-                    <label
-                      htmlFor="project-available-supply"
-                      className="text-sm font-medium"
-                    >
+                    <label htmlFor="project-available-supply" className="text-sm font-medium">
                       Available supply (tCO2e)
                     </label>
                     <Input
@@ -568,15 +509,12 @@ export function AdminProjectDetailView({
                       variant="primary"
                       value={String(formValues.availableSupplyTons)}
                       onChange={(event) =>
-                        setField("availableSupplyTons", toNumber(event.target.value))
+                        setField('availableSupplyTons', toNumber(event.target.value))
                       }
                     />
                   </Field>
                   <Field>
-                    <label
-                      htmlFor="project-total-issued"
-                      className="text-sm font-medium"
-                    >
+                    <label htmlFor="project-total-issued" className="text-sm font-medium">
                       Total issued (tCO2e)
                     </label>
                     <Input
@@ -587,7 +525,7 @@ export function AdminProjectDetailView({
                       variant="primary"
                       value={String(formValues.totalIssuedTons)}
                       onChange={(event) =>
-                        setField("totalIssuedTons", toNumber(event.target.value))
+                        setField('totalIssuedTons', toNumber(event.target.value))
                       }
                     />
                   </Field>
@@ -595,10 +533,7 @@ export function AdminProjectDetailView({
 
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                   <Field>
-                    <label
-                      htmlFor="project-buffer-pool"
-                      className="text-sm font-medium"
-                    >
+                    <label htmlFor="project-buffer-pool" className="text-sm font-medium">
                       Buffer pool (%)
                     </label>
                     <Input
@@ -610,15 +545,12 @@ export function AdminProjectDetailView({
                       variant="primary"
                       value={String(formValues.bufferPoolPercent)}
                       onChange={(event) =>
-                        setField("bufferPoolPercent", toNumber(event.target.value))
+                        setField('bufferPoolPercent', toNumber(event.target.value))
                       }
                     />
                   </Field>
                   <Field>
-                    <label
-                      htmlFor="project-estimated-removal"
-                      className="text-sm font-medium"
-                    >
+                    <label htmlFor="project-estimated-removal" className="text-sm font-medium">
                       Estimated annual removal (tCO2e)
                     </label>
                     <Input
@@ -629,46 +561,33 @@ export function AdminProjectDetailView({
                       variant="primary"
                       value={String(formValues.estimatedAnnualRemovalTons)}
                       onChange={(event) =>
-                        setField(
-                          "estimatedAnnualRemovalTons",
-                          toNumber(event.target.value)
-                        )
+                        setField('estimatedAnnualRemovalTons', toNumber(event.target.value))
                       }
                     />
                   </Field>
                   <Field>
-                    <label
-                      htmlFor="project-verification-notes"
-                      className="text-sm font-medium"
-                    >
+                    <label htmlFor="project-verification-notes" className="text-sm font-medium">
                       Verification notes
                     </label>
                     <Input
                       id="project-verification-notes"
                       variant="primary"
                       value={formValues.verificationNotes}
-                      onChange={(event) =>
-                        setField("verificationNotes", event.target.value)
-                      }
+                      onChange={(event) => setField('verificationNotes', event.target.value)}
                     />
                   </Field>
                 </div>
 
                 <div className="grid gap-4 md:grid-cols-2">
                   <Field>
-                    <label
-                      htmlFor="project-co-benefits"
-                      className="text-sm font-medium"
-                    >
+                    <label htmlFor="project-co-benefits" className="text-sm font-medium">
                       Co-benefits (comma separated)
                     </label>
                     <textarea
                       id="project-co-benefits"
                       rows={3}
                       value={formValues.coBenefitsText}
-                      onChange={(event) =>
-                        setField("coBenefitsText", event.target.value)
-                      }
+                      onChange={(event) => setField('coBenefitsText', event.target.value)}
                       className="w-full rounded-lg border border-stellar-blue/30 bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stellar-blue"
                     />
                   </Field>
@@ -680,7 +599,7 @@ export function AdminProjectDetailView({
                       id="project-tags"
                       rows={3}
                       value={formValues.tagsText}
-                      onChange={(event) => setField("tagsText", event.target.value)}
+                      onChange={(event) => setField('tagsText', event.target.value)}
                       className="w-full rounded-lg border border-stellar-blue/30 bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stellar-blue"
                     />
                   </Field>
@@ -689,18 +608,11 @@ export function AdminProjectDetailView({
                 <div className="flex flex-col gap-3 border-t pt-4 sm:flex-row sm:items-center sm:justify-between">
                   <Checkbox
                     checked={formValues.verificationEnabled}
-                    onChange={(event) =>
-                      setField("verificationEnabled", event.target.checked)
-                    }
+                    onChange={(event) => setField('verificationEnabled', event.target.checked)}
                     label="Include verification status value when saving project fields"
                   />
-                  <Button
-                    type="submit"
-                    stellar="primary"
-                    disabled={isSaving}
-                    aria-busy={isSaving}
-                  >
-                    {isSaving ? "Saving..." : "Save Project"}
+                  <Button type="submit" stellar="primary" disabled={isSaving} aria-busy={isSaving}>
+                    {isSaving ? 'Saving...' : 'Save Project'}
                   </Button>
                 </div>
               </form>
@@ -731,16 +643,14 @@ export function AdminProjectDetailView({
                   aria-describedby="mrv-upload-help"
                 />
                 <p id="mrv-upload-help" className="text-sm text-muted-foreground">
-                  Accepted by browser file picker. Uploaded files are added to the
-                  document list locally.
+                  Accepted by browser file picker. Uploaded files are added to the document list
+                  locally.
                 </p>
               </div>
 
               <div className="overflow-x-auto rounded-lg border">
                 <table className="min-w-full text-left text-sm">
-                  <caption className="sr-only">
-                    MRV document upload list for this project
-                  </caption>
+                  <caption className="sr-only">MRV document upload list for this project</caption>
                   <thead className="bg-muted/60 text-xs uppercase tracking-wide text-muted-foreground">
                     <tr>
                       <th className="px-4 py-3 font-medium">File</th>
@@ -756,9 +666,7 @@ export function AdminProjectDetailView({
                       <tr key={document.id} className="border-t align-top">
                         <td className="px-4 py-3">
                           <div className="font-medium">{document.fileName}</div>
-                          <div className="text-xs text-muted-foreground">
-                            {document.fileType}
-                          </div>
+                          <div className="text-xs text-muted-foreground">{document.fileType}</div>
                         </td>
                         <td className="px-4 py-3">{document.version}</td>
                         <td className="px-4 py-3">
@@ -767,12 +675,8 @@ export function AdminProjectDetailView({
                           </Badge>
                         </td>
                         <td className="px-4 py-3">{document.uploadedBy}</td>
-                        <td className="px-4 py-3">
-                          {formatDateTime(document.uploadedAt)}
-                        </td>
-                        <td className="px-4 py-3">
-                          {formatFileSize(document.sizeBytes)}
-                        </td>
+                        <td className="px-4 py-3">{formatDateTime(document.uploadedAt)}</td>
+                        <td className="px-4 py-3">{formatFileSize(document.sizeBytes)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -829,22 +733,22 @@ export function AdminProjectDetailView({
                 onChange={(event) => handleVerificationToggle(event.target.checked)}
                 label={
                   project.verificationEnabled
-                    ? "Verification is enabled"
-                    : "Verification is disabled"
+                    ? 'Verification is enabled'
+                    : 'Verification is disabled'
                 }
               />
               <div className="rounded-lg border bg-muted/40 p-3 text-sm">
                 <p className="font-medium">Current status</p>
                 <p className="text-muted-foreground">
                   {project.verificationEnabled
-                    ? "Project can be treated as verified in admin review flows."
-                    : "Project is excluded from verified listings until re-enabled."}
+                    ? 'Project can be treated as verified in admin review flows.'
+                    : 'Project is excluded from verified listings until re-enabled.'}
                 </p>
               </div>
               <div>
                 <p className="mb-1 text-sm font-medium">Saved notes</p>
                 <p className="text-sm text-muted-foreground">
-                  {project.verificationNotes || "No verification notes provided."}
+                  {project.verificationNotes || 'No verification notes provided.'}
                 </p>
               </div>
             </CardContent>
@@ -853,9 +757,7 @@ export function AdminProjectDetailView({
           <Card>
             <CardHeader>
               <CardTitle className="text-xl">Activity Log</CardTitle>
-              <CardDescription>
-                Recent admin actions and project changes.
-              </CardDescription>
+              <CardDescription>Recent admin actions and project changes.</CardDescription>
             </CardHeader>
             <CardContent>
               <ol className="space-y-4">
@@ -868,9 +770,7 @@ export function AdminProjectDetailView({
                       </p>
                     </div>
                     <p className="text-sm text-muted-foreground">{entry.details}</p>
-                    <p className="mt-2 text-xs text-muted-foreground">
-                      Actor: {entry.actor}
-                    </p>
+                    <p className="mt-2 text-xs text-muted-foreground">Actor: {entry.actor}</p>
                   </li>
                 ))}
               </ol>
@@ -898,9 +798,7 @@ function SummaryCard({
   return (
     <Card>
       <CardContent className="p-4">
-        <p className="text-xs uppercase tracking-wide text-muted-foreground">
-          {label}
-        </p>
+        <p className="text-xs uppercase tracking-wide text-muted-foreground">{label}</p>
         <p className="mt-1 text-lg font-semibold">{value}</p>
         <p className="mt-1 text-xs text-muted-foreground">{helper}</p>
       </CardContent>
@@ -908,11 +806,7 @@ function SummaryCard({
   );
 }
 
-function IssuanceRow({
-  record,
-}: {
-  record: AdminCreditIssuanceRecord;
-}): ReactNode {
+function IssuanceRow({ record }: { record: AdminCreditIssuanceRecord }): ReactNode {
   return (
     <tr className="border-t align-top">
       <td className="px-4 py-3">{formatDate(record.issuanceDate)}</td>
@@ -949,8 +843,8 @@ function toFormValues(project: AdminProjectDetail): AdminProjectFormValues {
     bufferPoolPercent: project.bufferPoolPercent,
     estimatedAnnualRemovalTons: project.estimatedAnnualRemovalTons,
     riskRating: project.riskRating,
-    coBenefitsText: project.coBenefits.join(", "),
-    tagsText: project.tags.join(", "),
+    coBenefitsText: project.coBenefits.join(', '),
+    tagsText: project.tags.join(', '),
     verificationEnabled: project.verificationEnabled,
     verificationNotes: project.verificationNotes,
   };
@@ -993,7 +887,7 @@ function applyFormValues(
 
 function parseCommaList(value: string): string[] {
   return value
-    .split(",")
+    .split(',')
     .map((item) => item.trim())
     .filter(Boolean);
 }
@@ -1010,33 +904,33 @@ function createActivityEntry(action: string, details: string): AdminActivityLogE
 
 function lifecycleBadgeVariant(
   status: AdminProjectLifecycleStatus
-): "default" | "secondary" | "success" | "destructive" | "accent" | "outline" {
+): 'default' | 'secondary' | 'success' | 'destructive' | 'accent' | 'outline' {
   switch (status) {
-    case "Approved":
-      return "success";
-    case "Under Review":
-      return "accent";
-    case "Paused":
-      return "secondary";
-    case "Archived":
-      return "outline";
-    case "Draft":
+    case 'Approved':
+      return 'success';
+    case 'Under Review':
+      return 'accent';
+    case 'Paused':
+      return 'secondary';
+    case 'Archived':
+      return 'outline';
+    case 'Draft':
     default:
-      return "default";
+      return 'default';
   }
 }
 
 function documentStatusBadgeVariant(
-  status: AdminMrvDocument["status"]
-): "default" | "secondary" | "success" | "destructive" | "accent" | "outline" {
+  status: AdminMrvDocument['status']
+): 'default' | 'secondary' | 'success' | 'destructive' | 'accent' | 'outline' {
   switch (status) {
-    case "Current":
-      return "success";
-    case "Pending Review":
-      return "accent";
-    case "Superseded":
+    case 'Current':
+      return 'success';
+    case 'Pending Review':
+      return 'accent';
+    case 'Superseded':
     default:
-      return "secondary";
+      return 'secondary';
   }
 }
 
@@ -1046,36 +940,36 @@ function toNumber(value: string): number {
 }
 
 function formatCurrency(value: number): string {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
     maximumFractionDigits: 2,
   }).format(value);
 }
 
 function formatNumber(value: number): string {
-  return new Intl.NumberFormat("en-US", {
+  return new Intl.NumberFormat('en-US', {
     maximumFractionDigits: 2,
   }).format(value);
 }
 
 function formatDate(value: string): string {
   const date = new Date(value);
-  return new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
+  return new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
   }).format(date);
 }
 
 function formatDateTime(value: string): string {
   const date = new Date(value);
-  return new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
+  return new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
   }).format(date);
 }
 
@@ -1084,7 +978,7 @@ function formatFileSize(bytes: number): string {
     return `${bytes} B`;
   }
 
-  const units = ["KB", "MB", "GB"];
+  const units = ['KB', 'MB', 'GB'];
   let size = bytes / 1024;
   let unitIndex = 0;
   while (size >= 1024 && unitIndex < units.length - 1) {
