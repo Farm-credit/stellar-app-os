@@ -11,6 +11,7 @@ Closes #56
 ## What Was Implemented
 
 ### Core Features
+
 - ✅ Project selection with up to 3 projects limit
 - ✅ Visual selection counter with live updates
 - ✅ Comprehensive comparison table with 7 key attributes
@@ -20,6 +21,7 @@ Closes #56
 - ✅ Out-of-stock project handling
 
 ### User Interface Components
+
 - ✅ `Checkbox` atom component with accessibility support
 - ✅ `ProjectSelectionCard` molecule for project selection
 - ✅ `ComparisonTable` molecule for side-by-side comparison
@@ -27,6 +29,7 @@ Closes #56
 - ✅ Comparison page route at `/credits/compare`
 
 ### Data Model Extensions
+
 - ✅ Extended `CarbonProject` type with comparison fields:
   - `type`: Project category
   - `location`: Geographic location
@@ -35,6 +38,7 @@ Closes #56
 - ✅ Updated mock data with realistic comparison attributes
 
 ### Technical Implementation
+
 - ✅ TypeScript strict mode (no `any` types)
 - ✅ Responsive design (mobile/tablet/desktop)
 - ✅ WCAG 2.1 AA accessibility compliance
@@ -47,6 +51,7 @@ Closes #56
 ### Architecture Decisions
 
 **Atomic Design Pattern**: Following the project's established pattern, components are organized by complexity:
+
 - **Atom**: `Checkbox` - Reusable form element
 - **Molecules**: `ProjectSelectionCard`, `ComparisonTable` - Composed UI elements
 - **Organism**: `ComparisonTool` - Complete feature with state management
@@ -54,12 +59,14 @@ Closes #56
 **State Management**: Used local component state with `useState` and `useCallback` for optimal performance. Selection limit is enforced at the state level, preventing more than 3 projects from being selected.
 
 **PDF Export**: Implemented a lightweight text-based PDF export utility. While not using a full PDF library, this approach:
+
 - Has zero dependencies
 - Works universally across all browsers
 - Provides immediate download functionality
 - Can be easily enhanced with a proper PDF library later
 
 **Responsive Strategy**:
+
 - Mobile: Single column with horizontal scroll for comparison table
 - Tablet: 2-column grid for better space utilization
 - Desktop: 3-column grid for optimal viewing
@@ -74,6 +81,7 @@ Closes #56
 ### Comparison Table Attributes
 
 The comparison table displays:
+
 1. **Price per Ton** - Formatted currency with 2 decimal places
 2. **Type** - Project category badge
 3. **Location** - Geographic information
@@ -87,6 +95,7 @@ The comparison table displays:
 **Note**: Screen recording will be attached following the script in `SCREEN_RECORDING_SCRIPT.md`
 
 ### Key Screens to Demonstrate:
+
 1. Project selection with counter updates
 2. Comparison table with all attributes
 3. Add to Cart functionality
@@ -97,6 +106,7 @@ The comparison table displays:
 ## How to Test
 
 ### Setup
+
 ```bash
 # Ensure you're on the feature branch
 git checkout feat/issue-56-comparison-tool
@@ -114,11 +124,13 @@ npm run dev
 ### Testing Steps
 
 #### 1. Navigate to Comparison Tool
+
 - Go to `http://localhost:3000/credits/purchase`
 - Click "Compare Projects" button in top right
 - Verify navigation to `/credits/compare`
 
 #### 2. Test Project Selection
+
 - [ ] Select first project - counter shows "1 / 3 selected"
 - [ ] Select second project - counter shows "2 / 3 selected"
 - [ ] Select third project - counter shows "3 / 3 selected"
@@ -127,6 +139,7 @@ npm run dev
 - [ ] Verify out-of-stock projects are disabled
 
 #### 3. Test Comparison Table
+
 - [ ] Verify table appears after selecting projects
 - [ ] Check all 7 attributes are displayed correctly
 - [ ] Verify price formatting (USD currency)
@@ -134,24 +147,28 @@ npm run dev
 - [ ] Check table is readable and well-formatted
 
 #### 4. Test Add to Cart
+
 - [ ] Click "Add to Cart" on any project
 - [ ] Verify navigation to `/credits/purchase?projectId=XXX`
 - [ ] Use browser back button to return
 - [ ] Verify selection is maintained
 
 #### 5. Test PDF Export
+
 - [ ] Click "Export as PDF" button
 - [ ] Verify PDF downloads
 - [ ] Open PDF and verify content includes all selected projects
 - [ ] Check filename includes date
 
 #### 6. Test Clear Selection
+
 - [ ] Click "Clear Selection" button
 - [ ] Verify all checkboxes are unchecked
 - [ ] Verify comparison table disappears
 - [ ] Verify empty state message appears
 
 #### 7. Test Responsive Design
+
 - [ ] Open DevTools (F12)
 - [ ] Toggle device toolbar (Ctrl+Shift+M)
 - [ ] Test mobile view (375px) - single column, horizontal scroll
@@ -159,6 +176,7 @@ npm run dev
 - [ ] Test desktop view (1920px) - 3-column grid
 
 #### 8. Test Accessibility
+
 - [ ] Navigate using Tab key only
 - [ ] Verify focus indicators are visible
 - [ ] Test with screen reader (if available)
@@ -166,6 +184,7 @@ npm run dev
 - [ ] Check ARIA live region updates (selection counter)
 
 #### 9. Run Automated Checks
+
 ```bash
 # Type checking
 npx tsc --noEmit
@@ -178,7 +197,9 @@ npm run build
 ```
 
 ### Browser Compatibility
+
 Test in:
+
 - [ ] Chrome/Edge (latest)
 - [ ] Firefox (latest)
 - [ ] Safari (latest)
@@ -212,6 +233,7 @@ This PR consists of 9 atomic commits, each building on the previous:
 9. `docs(carbon): add implementation guide and screen recording script`
 
 Each commit:
+
 - Addresses one specific concern
 - Maintains a buildable state
 - Can be reverted independently
@@ -227,6 +249,7 @@ Each commit:
 ## Future Enhancements
 
 Potential improvements for future iterations:
+
 - Enhanced PDF formatting with charts and graphs (using jsPDF)
 - Save comparison for later viewing (requires backend)
 - Share comparison via unique URL

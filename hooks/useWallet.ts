@@ -16,7 +16,7 @@ export function useWallet() {
 
       switch (type) {
         case 'freighter':
-          publicKey = await connectFreighter(network);
+          publicKey = await connectFreighter();
           break;
         case 'albedo':
           publicKey = await connectAlbedo(network);

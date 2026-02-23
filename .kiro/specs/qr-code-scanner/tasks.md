@@ -1,0 +1,287 @@
+# Implementation Plan: QR Code Scanner Component
+
+## Overview
+
+This implementation plan breaks down the QR Code Scanner component into incremental, testable tasks. The component is a mobile-first React organism that enables camera-based QR code scanning with automatic validation of Stellar addresses and verification URLs, plus manual input fallback for accessibility.
+
+The implementation follows atomic design principles, uses TypeScript strict mode, integrates with the existing component library (Button, Input atoms), and leverages CVA for variant styling with Tailwind CSS.
+
+## Tasks
+
+- [ ] 1. Set up project structure and core types
+  - Create directory structure: `components/organisms/QRCodeScanner/`
+  - Define TypeScript interfaces for all component props and data models
+  - Set up barrel exports (index.ts)
+  - _Requirements: 10.1, 10.4_
+
+- [ ] 2. Implement validation utilities
+  - [ ] 2.1 Create Stellar address validator
+    - Implement format validation (56 chars, starts with 'G', base32 charset)
+    - Integrate @stellar/stellar-sdk for checksum validation
+    - Add whitespace trimming and normalization
+    - _Requirements: 3.4, 3.6_
+  - [ ]\* 2.2 Write property test for Stellar address validator
+    - **Property 9: Stellar Address Format Validation**
+    - **Validates: Requirements 3.4, 3.6**
+  - [ ] 2.3 Create URL validator
+    - Implement protocol validation (HTTP/HTTPS only)
+    - Add domain and URL format validation
+    - Implement verification URL pattern detection
+    - Add URL component extraction
+    - _Requirements: 3.1, 3.3_
+  - [ ]\* 2.4 Write property test for URL validator
+    - **Property 8: URL Component Extraction**
+    - **Validates: Requirements 3.1, 3.3**
+  - [ ] 2.5 Create QR data parser
+    - Implement data type detection (address vs URL)
+    - Integrate both validators
+    - Add error message generation
+    - _Requirements: 3.1, 3.2, 3.5_
+  - [ ]\* 2.6 Write property test for data type validation
+    - **Property 7: Data Type Validation**
+    - **Validates: Requirements 3.1, 3.2**
+
+- [ ] 3. Implement camera service and lifecycle management
+  - [ ] 3.1 Create CameraService class
+    - Implement html5-qrcode integration
+    - Add initialization and cleanup methods
+    - Implement start/stop/pause/resume methods
+    - Add camera status tracking
+    - _Requirements: 1.2, 9.1, 9.3_
+  - [ ] 3.2 Implement camera permission handling
+    - Add permission request logic
+    - Implement permission state checking
+    - Add platform-specific error messages
+    - _Requirements: 1.1, 1.3, 4.1_
+  - [ ] 3.3 Add camera error handling and retry logic
+    - Implement retry counter with max attempts (3)
+    - Add error logging
+    - Implement fallback to manual input after max retries
+    - _Requirements: 1.5, 4.3, 4.4, 4.5_
+  - [ ]\* 3.4 Write property test for camera state transitions
+    - **Property 1: Camera Permission State Transitions**
+    - **Validates: Requirements 1.2, 1.3, 1.4**
+  - [ ]\* 3.5 Write property test for retry limit fallback
+    - **Property 15: Retry Limit Fallback**
+    - **Validates: Requirements 4.5**
+
+- [ ] 4. Create debouncing and performance utilities
+  - [ ] 4.1 Implement useDebouncedScan hook
+    - Add 500ms debounce for duplicate scans
+    - Implement last scan tracking
+    - Add timeout management
+    - _Requirements: 9.5_
+  - [ ]\* 4.2 Write property test for scan debouncing
+    - **Property 33: Scan Result Debouncing**
+    - **Validates: Requirements 9.5**
+  - [ ] 4.3 Implement useCameraCleanup hook
+    - Add cleanup on unmount
+    - Add cleanup on visibility change
+    - Add cleanup on navigation
+    - _Requirements: 9.1, 9.3_
+  - [ ]\* 4.4 Write property test for resource cleanup
+    - **Property 30: Resource Cleanup on Unmount**
+    - **Validates: Requirements 9.1, 9.3**
+  - [ ] 4.5 Implement useCameraConfig hook
+    - Add responsive camera configuration
+    - Handle orientation changes
+    - Optimize for mobile vs desktop
+    - _Requirements: 6.1, 6.2, 6.3, 6.4_
+
+- [ ] 5. Checkpoint - Ensure all tests pass
+  - Ensure all tests pass, ask the user if questions arise.
+
+- [ ] 6. Implement atomic components (atoms)
+  - [ ] 6.1 Create VideoPreview atom
+    - Implement video element with ref
+    - Add aspect ratio styling (4:3)
+    - Add responsive sizing
+    - _Requirements: 6.2_
+  - [ ] 6.2 Create ScanningOverlay atom
+    - Implement animated scanning indicator
+    - Add CVA variants for different states
+    - Use Stellar brand colors
+    - _Requirements: 8.1, 8.5_
+  - [ ] 6.3 Create ViewfinderGuide atom
+    - Implement QR code positioning guide
+    - Add CVA variants (idle, scanning, success, error)
+    - _Requirements: 8.4_
+  - [ ] 6.4 Create LoadingSpinner atom
+    - Implement spinner animation
+    - Add ARIA labels
+    - _Requirements: 1.4, 7.2_
+  - [ ] 6.5 Create SuccessAnimation atom
+    - Implement success checkmark animation
+    - Use stellar-green color
+    - _Requirements: 8.2, 8.5_
+  - [ ] 6.6 Create ErrorMessage atom
+    - Implement error display with destructive color
+    - Add auto-dismiss after 3 seconds
+    - Add ARIA live region
+    - _Requirements: 4.2, 7.4, 8.3_
+
+- [ ] 7. Implement molecular components (molecules)
+  - [ ] 7.1 Create CameraView molecule
+    - Compose VideoPreview, ScanningOverlay, ViewfinderGuide
+    - Integrate CameraService
+    - Implement QR detection callback
+    - Add scan rate configuration (10 FPS minimum)
+    - _Requirements: 2.1, 2.2, 2.5_
+  - [ ] 7.2 Create ScanControls molecule
+    - Compose Button atoms for toggle, retry, close
+    - Add keyboard shortcuts (M, R, Escape)
+    - Add ARIA labels for all buttons
+    - _Requirements: 5.1, 7.1, 7.2_
+  - [ ] 7.3 Create ManualInputForm molecule
+    - Compose Input and Button atoms
+    - Add form validation
+    - Implement paste functionality
+    - Add field-specific error messages
+    - Add proper label associations
+    - _Requirements: 5.2, 5.3, 5.4, 5.5, 7.5_
+  - [ ] 7.4 Create StatusIndicator molecule
+    - Compose LoadingSpinner, SuccessAnimation, ErrorMessage
+    - Add CVA variants for all states
+    - Implement ARIA live announcements
+    - _Requirements: 7.3, 7.4, 8.1, 8.2, 8.3_
+  - [ ] 7.5 Create PermissionPrompt molecule
+    - Add permission instructions
+    - Add platform-specific guidance
+    - Add "Try Again" button
+    - _Requirements: 4.1_
+
+- [ ] 8. Implement main QRCodeScanner organism
+  - [ ] 8.1 Create QRCodeScanner component structure
+    - Set up component with all props
+    - Initialize state management
+    - Compose all molecular components
+    - _Requirements: 10.1_
+  - [ ] 8.2 Implement camera mode logic
+    - Add camera initialization on mount
+    - Integrate CameraView with scan callback
+    - Add QR data parsing and validation
+    - Implement visual feedback (200ms response time)
+    - Add haptic feedback for supported devices
+    - _Requirements: 1.2, 2.2, 2.3, 2.4, 3.3_
+  - [ ] 8.3 Implement manual input mode logic
+    - Add mode toggle functionality
+    - Integrate ManualInputForm
+    - Add manual input validation
+    - _Requirements: 5.1, 5.2, 5.3_
+  - [ ] 8.4 Add error handling and recovery
+    - Implement error state management
+    - Add error display with appropriate messages
+    - Implement retry logic
+    - Add automatic fallback to manual input
+    - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.5_
+  - [ ] 8.5 Implement resource management
+    - Add camera cleanup on unmount
+    - Add inactivity timeout (60 seconds)
+    - Add visibility change handling
+    - _Requirements: 9.1, 9.2, 9.3_
+  - [ ]\* 8.6 Write property test for permission state UI mapping
+    - **Property 1: Camera Permission State Transitions**
+    - **Validates: Requirements 1.2, 1.3, 1.4**
+
+- [ ] 9. Checkpoint - Ensure all tests pass
+  - Ensure all tests pass, ask the user if questions arise.
+
+- [ ] 10. Implement styling with CVA and Tailwind
+  - [ ] 10.1 Create CVA variant definitions
+    - Define scannerVariants (mode, status, size)
+    - Define viewfinderVariants (state)
+    - Define statusIndicatorVariants (status)
+    - Use Stellar brand colors (stellar-blue, stellar-green, destructive)
+    - _Requirements: 8.5, 10.2, 10.3, 10.6_
+  - [ ] 10.2 Apply responsive design styles
+    - Implement mobile-first full-width layout
+    - Add portrait/landscape orientation handling
+    - Ensure 4:3 aspect ratio for camera preview
+    - _Requirements: 6.1, 6.2, 6.3, 6.4_
+  - [ ] 10.3 Add touch gesture support
+    - Implement pinch-to-zoom for camera preview
+    - Add touch event handlers
+    - _Requirements: 6.5_
+
+- [ ] 11. Implement accessibility features
+  - [ ] 11.1 Add keyboard navigation
+    - Implement useScannerKeyboard hook
+    - Add Tab navigation support
+    - Add keyboard shortcuts (M, R, Escape)
+    - _Requirements: 7.1_
+  - [ ] 11.2 Add ARIA labels and live regions
+    - Add ARIA labels to all interactive elements
+    - Implement ScannerStatusAnnouncer component
+    - Add status announcements for scanning, success, error
+    - Ensure form labels are properly associated
+    - _Requirements: 7.2, 7.3, 7.4, 7.5_
+  - [ ]\* 11.3 Write property test for ARIA announcements
+    - **Property 26: Screen Reader Status Announcements**
+    - **Validates: Requirements 7.3, 7.4**
+
+- [ ] 12. Add unit tests for components
+  - [ ]\* 12.1 Write unit tests for validation utilities
+    - Test valid/invalid Stellar addresses
+    - Test valid/invalid URLs
+    - Test edge cases (whitespace, wrong length, invalid chars)
+    - _Requirements: 3.4, 3.6, 3.1, 3.3_
+  - [ ]\* 12.2 Write unit tests for CameraService
+    - Test initialization and cleanup
+    - Test start/stop/pause/resume
+    - Test error handling
+    - _Requirements: 1.2, 9.1, 9.3_
+  - [ ]\* 12.3 Write unit tests for debouncing logic
+    - Test duplicate scan prevention
+    - Test timing behavior
+    - _Requirements: 9.5_
+  - [ ]\* 12.4 Write unit tests for molecular components
+    - Test CameraView, ScanControls, ManualInputForm
+    - Test StatusIndicator, PermissionPrompt
+    - _Requirements: All component requirements_
+
+- [ ] 13. Add integration tests
+  - [ ]\* 13.1 Write integration test for full scan workflow
+    - Test camera initialization → QR detection → validation → callback
+    - _Requirements: 1.2, 2.2, 3.3_
+  - [ ]\* 13.2 Write integration test for permission denial fallback
+    - Test permission denied → manual input display
+    - _Requirements: 1.3, 5.2_
+  - [ ]\* 13.3 Write integration test for retry flow
+    - Test camera error → retry button → reinitialization
+    - _Requirements: 4.3, 4.4_
+  - [ ]\* 13.4 Write integration test for manual input submission
+    - Test manual mode → input entry → validation → callback
+    - _Requirements: 5.2, 5.3_
+
+- [ ] 14. Create component documentation and examples
+  - [ ] 14.1 Create component README
+    - Document props and usage
+    - Add code examples
+    - Document error handling
+    - Add accessibility notes
+  - [ ] 14.2 Create Storybook stories
+    - Add story for camera mode
+    - Add story for manual input mode
+    - Add story for error states
+    - Add story for loading state
+  - [ ] 14.3 Add JSDoc comments
+    - Document all public interfaces
+    - Add usage examples in comments
+    - Document all props and callbacks
+
+- [ ] 15. Final checkpoint - Ensure all tests pass
+  - Ensure all tests pass, ask the user if questions arise.
+
+## Notes
+
+- Tasks marked with `*` are optional and can be skipped for faster MVP
+- Each task references specific requirements for traceability
+- Checkpoints ensure incremental validation
+- Property tests validate universal correctness properties from the design document
+- Unit tests validate specific examples and edge cases
+- Integration tests validate component interactions and complete workflows
+- The implementation uses TypeScript strict mode throughout
+- All components follow atomic design principles
+- CVA is used for variant styling with Tailwind CSS
+- The component integrates with existing Button and Input atoms
+- Stellar brand colors are used consistently (stellar-blue, stellar-green, destructive)
