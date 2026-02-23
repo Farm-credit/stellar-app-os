@@ -24,7 +24,7 @@ const typeConfig = {
 };
 
 export function ProjectListItem({
-  id,
+  id: _id,
   title,
   location,
   description,

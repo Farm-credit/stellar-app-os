@@ -9,7 +9,7 @@ const USDC_ASSET_CODE = 'USDC';
 const USDC_ISSUER_MAINNET = 'GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN';
 const USDC_ISSUER_TESTNET = 'GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5';
 
-export async function connectFreighter(network?: NetworkType): Promise<string> {
+export async function connectFreighter(_network?: NetworkType): Promise<string> {
   // Network parameter accepted for API consistency but not used
   // Freighter manages network selection internally
   if (typeof window === 'undefined') {

@@ -32,13 +32,15 @@ const eslintConfig = defineConfig([
     rules: {
       'prettier/prettier': 'error',
 
-      'no-unused-vars': 'error',
+      'no-unused-vars': 'off', // Disabled in favor of @typescript-eslint/no-unused-vars
       '@typescript-eslint/no-unused-vars': [
         'error',
         {
           argsIgnorePattern: '^_',
           varsIgnorePattern: '^_',
           caughtErrorsIgnorePattern: '^_',
+          // Ignore unused parameters in interface/type definitions
+          ignoreRestSiblings: true,
         },
       ],
 
