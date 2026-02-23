@@ -17,14 +17,14 @@ export interface WalletConnection {
 
 export interface WalletContextValue {
   wallet: WalletConnection | null;
-  connect: (_type: WalletType, _network?: NetworkType) => Promise<void>;
+  connect: (type: WalletType, network?: NetworkType) => Promise<void>;
   disconnect: () => void;
-  switchNetwork: (_network: NetworkType) => Promise<void>;
+  switchNetwork: (network: NetworkType) => Promise<void>;
   refreshBalance: () => Promise<void>;
   isLoading: boolean;
   error: string | null;
 }
 
 export interface WalletConnectionProps {
-  onConnectionChange?: (_connection: WalletConnection | null) => void;
+  onConnectionChange?: (connection: WalletConnection | null) => void;
 }
