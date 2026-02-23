@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useState, useEffect } from 'react';
+import { Suspense, useState, useEffect, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Text } from '@/components/atoms/Text';
 import { ProjectGrid } from '@/components/organisms/ProjectGrid/ProjectGrid';
@@ -9,8 +9,8 @@ import { mockCarbonProjects } from '@/lib/api/mock/carbonProjects';
 function ProjectsContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const [isLoading, setIsLoading] = useState(true);
-  
+  const isInitialMount = useRef(true);
+
   // Initialize view from URL or localStorage
   const getInitialView = (): 'grid' | 'list' => {
     const urlView = searchParams.get('view');
@@ -26,20 +26,27 @@ function ProjectsContent() {
 
   const [view, setView] = useState<'grid' | 'list'>(getInitialView);
 
-  // Sync URL with view state
+  // Sync URL with view state on initial mount
   useEffect(() => {
-    const urlView = searchParams.get('view');
-    if (urlView !== view) {
-      const params = new URLSearchParams(searchParams.toString());
-      params.set('view', view);
-      router.replace(`/projects?${params.toString()}`, { scroll: false });
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      const urlView = searchParams.get('view');
+      if (urlView !== view) {
+        const params = new URLSearchParams(searchParams.toString());
+        params.set('view', view);
+        router.replace(`/projects?${params.toString()}`, { scroll: false });
+      }
     }
-    setIsLoading(false);
   }, [view, searchParams, router]);
 
   const handleViewChange = (newView: 'grid' | 'list') => {
     setView(newView);
     localStorage.setItem('projectView', newView);
+
+    // Update URL
+    const params = new URLSearchParams(searchParams.toString());
+    params.set('view', newView);
+    router.replace(`/projects?${params.toString()}`, { scroll: false });
   };
 
   return (
@@ -47,7 +54,7 @@ function ProjectsContent() {
       projects={mockCarbonProjects}
       view={view}
       onViewChange={handleViewChange}
-      isLoading={isLoading}
+      isLoading={false}
     />
   );
 }
