@@ -26,5 +26,5 @@ export interface WalletContextValue {
 }
 
 export interface WalletConnectionProps {
-  onConnectionChange?: () => void;
+  onConnectionChange?: (connection: WalletConnection | null) => void;
 }
