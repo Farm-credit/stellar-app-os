@@ -2,7 +2,13 @@
 
 import { Text } from '@/components/atoms/Text';
 import { Button } from '@/components/atoms/Button';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/molecules/Card';
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+} from '@/components/molecules/Card';
 
 export default function OfflinePage() {
   return (
@@ -33,7 +39,8 @@ export default function OfflinePage() {
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           <Text variant="muted" className="text-sm text-center">
-            FarmCredit works offline with cached data. Connect to the internet to access the latest information and perform transactions.
+            FarmCredit works offline with cached data. Connect to the internet to access the latest
+            information and perform transactions.
           </Text>
           <Button
             variant="default"
@@ -47,7 +54,7 @@ export default function OfflinePage() {
             variant="outline"
             size="lg"
             className="w-full"
-            onClick={() => window.location.href = '/'}
+            onClick={() => (window.location.href = '/')}
           >
             Go to Home
           </Button>

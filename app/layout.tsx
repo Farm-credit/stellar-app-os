@@ -1,44 +1,42 @@
-import "./globals.css";
-
-import type { Metadata, Viewport } from "next";
-
-import { Footer } from "@/components/organisms/Footer/Footer";
-import { Inter } from "next/font/google";
-import NavigationBreadcrumbs from "@/components/organisms/NavigationBreadcrumbs";
-import { WalletProviderWrapper } from "@/components/providers/WalletProviderWrapper";
+import type { Metadata, Viewport } from 'next';
+import { Inter } from 'next/font/google';
+import './globals.css';
+import { Footer } from '@/components/organisms/Footer/Footer';
+import { WalletProviderWrapper } from '@/components/providers/WalletProviderWrapper';
+import NavigationBreadcrumbs from '@/components/organisms/NavigationBreadcrumbs';
 
 const inter = Inter({
-  variable: "--font-inter",
-  subsets: ["latin"],
+  variable: '--font-inter',
+  subsets: ['latin'],
 });
 
 export const metadata: Metadata = {
-  title: "FarmCredit",
-  description: "FarmCredit - Decentralized agricultural credit on Stellar",
-  manifest: "/manifest.json",
+  title: 'FarmCredit',
+  description: 'FarmCredit - Decentralized agricultural credit on Stellar',
+  manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
-    statusBarStyle: "default",
-    title: "FarmCredit",
+    statusBarStyle: 'default',
+    title: 'FarmCredit',
   },
   formatDetection: {
     telephone: false,
   },
   icons: {
     icon: [
-      { url: "/icons/icon-192x192.png", sizes: "192x192", type: "image/png" },
-      { url: "/icons/icon-512x512.png", sizes: "512x512", type: "image/png" },
+      { url: '/icons/icon-192x192.png', sizes: '192x192', type: 'image/png' },
+      { url: '/icons/icon-512x512.png', sizes: '512x512', type: 'image/png' },
     ],
     apple: [
-      { url: "/icons/icon-152x152.png", sizes: "152x152", type: "image/png" },
-      { url: "/icons/icon-192x192.png", sizes: "192x192", type: "image/png" },
+      { url: '/icons/icon-152x152.png', sizes: '152x152', type: 'image/png' },
+      { url: '/icons/icon-192x192.png', sizes: '192x192', type: 'image/png' },
     ],
   },
 };
 
 export const viewport: Viewport = {
-  themeColor: "#14B6E7",
-  width: "device-width",
+  themeColor: '#14B6E7',
+  width: 'device-width',
   initialScale: 1,
   maximumScale: 5,
   userScalable: true,
@@ -55,10 +53,7 @@ export default function RootLayout({
         <head>
           <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
           <meta name="apple-mobile-web-app-capable" content="yes" />
-          <meta
-            name="apple-mobile-web-app-status-bar-style"
-            content="default"
-          />
+          <meta name="apple-mobile-web-app-status-bar-style" content="default" />
           <meta name="apple-mobile-web-app-title" content="FarmCredit" />
           <meta name="mobile-web-app-capable" content="yes" />
         </head>

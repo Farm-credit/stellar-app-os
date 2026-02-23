@@ -5,6 +5,7 @@ This document provides comprehensive setup and testing instructions for the Farm
 ## Overview
 
 FarmCredit is now a fully functional Progressive Web App (PWA) with:
+
 - ✅ Service worker for offline caching
 - ✅ Web app manifest with icons
 - ✅ Offline fallback page
@@ -44,6 +45,7 @@ This will generate all required icon sizes (72x72 to 512x512) in `public/icons/`
 ### 3. Add Screenshots (Optional but Recommended)
 
 Add the following screenshots for better app store presentation:
+
 - `public/screenshots/desktop-1.png` (1280x720)
 - `public/screenshots/mobile-1.png` (750x1334)
 
@@ -57,6 +59,7 @@ VAPID_PRIVATE_KEY=your_vapid_private_key_here
 ```
 
 Generate VAPID keys using:
+
 ```bash
 npx web-push generate-vapid-keys
 ```
@@ -105,6 +108,7 @@ The service worker implements a multi-strategy caching approach:
 ### 2. Install Prompt
 
 The app displays a native install prompt on supported browsers:
+
 - Appears automatically when PWA criteria are met
 - Can be dismissed (won't show again for 7 days)
 - Styled with Stellar brand colors
@@ -113,6 +117,7 @@ The app displays a native install prompt on supported browsers:
 ### 3. Offline Support
 
 When offline:
+
 - Cached pages continue to work
 - API responses served from cache when available
 - Custom offline page displays for uncached routes
@@ -128,6 +133,7 @@ To enable push notifications:
 4. Send notifications from your backend using the subscription
 
 Example usage:
+
 ```typescript
 import { requestNotificationPermission, subscribeToPushNotifications } from '@/lib/notifications';
 
@@ -144,6 +150,7 @@ if (permission === 'granted') {
 ### 5. Network Status
 
 The app automatically detects and displays network status changes:
+
 - Shows "Back Online" badge when connection restored
 - Shows "Offline Mode" badge when connection lost
 - Auto-hides after 5 seconds
@@ -154,6 +161,7 @@ The app automatically detects and displays network status changes:
 ### Local Testing
 
 1. Build the production version:
+
 ```bash
 npm run build
 npm start
@@ -192,6 +200,7 @@ Run a Lighthouse audit to verify PWA compliance:
 4. Verify all PWA checks pass
 
 Expected results:
+
 - ✅ Installable
 - ✅ PWA optimized
 - ✅ Works offline
@@ -242,6 +251,7 @@ Vercel automatically serves the service worker and manifest with correct headers
 ### Other Platforms
 
 Ensure your hosting platform:
+
 - Serves the site over HTTPS
 - Serves `/sw.js` with `Cache-Control: public, max-age=0, must-revalidate`
 - Serves `/manifest.json` with proper MIME type (`application/manifest+json`)
@@ -288,6 +298,7 @@ The PWA implementation includes several performance optimizations:
 - Lazy loading of non-critical components
 
 Expected Lighthouse scores:
+
 - Performance: 90+
 - Accessibility: 100
 - Best Practices: 100
@@ -296,14 +307,14 @@ Expected Lighthouse scores:
 
 ## Browser Support
 
-| Browser | Install | Offline | Push Notifications |
-|---------|---------|---------|-------------------|
-| Chrome (Android) | ✅ | ✅ | ✅ |
-| Chrome (Desktop) | ✅ | ✅ | ✅ |
-| Safari (iOS) | ✅ | ✅ | ❌ |
-| Safari (macOS) | ✅ | ✅ | ❌ |
-| Edge | ✅ | ✅ | ✅ |
-| Firefox | ✅ | ✅ | ✅ |
+| Browser          | Install | Offline | Push Notifications |
+| ---------------- | ------- | ------- | ------------------ |
+| Chrome (Android) | ✅      | ✅      | ✅                 |
+| Chrome (Desktop) | ✅      | ✅      | ✅                 |
+| Safari (iOS)     | ✅      | ✅      | ❌                 |
+| Safari (macOS)   | ✅      | ✅      | ❌                 |
+| Edge             | ✅      | ✅      | ✅                 |
+| Firefox          | ✅      | ✅      | ✅                 |
 
 ## Maintenance
 
@@ -312,6 +323,7 @@ Expected Lighthouse scores:
 When you update the service worker:
 
 1. Increment the cache version in `public/sw.js`:
+
 ```javascript
 const CACHE_NAME = 'farmcredit-v2'; // Increment version
 ```
@@ -353,6 +365,7 @@ const PRECACHE_ASSETS = [
 ## Support
 
 For issues or questions:
+
 1. Check this documentation
 2. Review browser console for errors
 3. Run Lighthouse audit for diagnostics

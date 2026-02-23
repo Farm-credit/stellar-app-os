@@ -35,3 +35,4 @@ stellar-app-os/
 │   │   └── layout.tsx               🏗️ Root Layout (Updated)
 │   │
 │
+```

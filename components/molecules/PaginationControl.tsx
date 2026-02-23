@@ -13,17 +13,17 @@ import { cn } from '@/lib/utils';
 export interface PaginationControlProps {
   /** Current page number (1-indexed) */
   currentPage: number;
-  
+
   /** Total number of pages */
   totalPages: number;
-  
+
   /** Current category filter to preserve in URLs (optional) */
   currentCategory?: string | null;
 }
 
 /**
  * PaginationControl molecule component
- * 
+ *
  * Displays pagination controls for navigating through blog posts.
  * Features:
  * - Previous/Next buttons with disabled states
@@ -31,7 +31,7 @@ export interface PaginationControlProps {
  * - Responsive display (compact on mobile, full on desktop)
  * - Scroll-to-top behavior on page change
  * - Preserves category filter in URLs
- * 
+ *
  * Requirements: 3.2, 3.4, 3.5, 3.6, 6.6, 7.2
  */
 export function PaginationControl({
@@ -69,7 +69,7 @@ export function PaginationControl({
     }
 
     const pages: (number | 'ellipsis')[] = [];
-    
+
     // Always show first page
     pages.push(1);
 
@@ -113,10 +113,7 @@ export function PaginationControl({
         variant="outline"
         size="icon"
         aria-label="Go to previous page"
-        className={cn(
-          'h-10 w-10',
-          isPrevDisabled && 'cursor-not-allowed opacity-50'
-        )}
+        className={cn('h-10 w-10', isPrevDisabled && 'cursor-not-allowed opacity-50')}
       >
         {isPrevDisabled ? (
           <span>
@@ -165,9 +162,7 @@ export function PaginationControl({
               {isCurrentPage ? (
                 <span>{page}</span>
               ) : (
-                <Link href={buildPaginationUrl(page, currentCategory)}>
-                  {page}
-                </Link>
+                <Link href={buildPaginationUrl(page, currentCategory)}>{page}</Link>
               )}
             </Button>
           );
@@ -188,10 +183,7 @@ export function PaginationControl({
         variant="outline"
         size="icon"
         aria-label="Go to next page"
-        className={cn(
-          'h-10 w-10',
-          isNextDisabled && 'cursor-not-allowed opacity-50'
-        )}
+        className={cn('h-10 w-10', isNextDisabled && 'cursor-not-allowed opacity-50')}
       >
         {isNextDisabled ? (
           <span>

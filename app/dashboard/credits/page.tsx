@@ -1,9 +1,15 @@
-"use client";
+'use client';
 
-import { Text } from "@/components/atoms/Text";
-import { Button } from "@/components/atoms/Button";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/molecules/Card";
-import Link from "next/link";
+import { Text } from '@/components/atoms/Text';
+import { Button } from '@/components/atoms/Button';
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+} from '@/components/molecules/Card';
+import Link from 'next/link';
 
 export default function DashboardCreditsPage() {
   return (
@@ -21,9 +27,7 @@ export default function DashboardCreditsPage() {
         <Card>
           <CardHeader>
             <CardTitle>Portfolio</CardTitle>
-            <CardDescription>
-              Your carbon credit holdings will appear here.
-            </CardDescription>
+            <CardDescription>Your carbon credit holdings will appear here.</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="text-center py-8">

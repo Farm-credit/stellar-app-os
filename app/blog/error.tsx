@@ -45,20 +45,16 @@ export default function BlogError({ error, reset }: BlogErrorProps) {
         </svg>
       </div>
 
-      <h1 className="mb-3 text-2xl font-bold text-foreground">
-        Something went wrong
-      </h1>
+      <h1 className="mb-3 text-2xl font-bold text-foreground">Something went wrong</h1>
 
       <p className="mb-2 max-w-md text-muted-foreground">
-        We couldn&apos;t load the blog posts right now. This might be a
-        temporary issue — please try again.
+        We couldn&apos;t load the blog posts right now. This might be a temporary issue — please try
+        again.
       </p>
 
       {/* Show digest for support references in production */}
       {error.digest && (
-        <p className="mb-6 text-xs text-muted-foreground/60">
-          Error reference: {error.digest}
-        </p>
+        <p className="mb-6 text-xs text-muted-foreground/60">Error reference: {error.digest}</p>
       )}
 
       <Button

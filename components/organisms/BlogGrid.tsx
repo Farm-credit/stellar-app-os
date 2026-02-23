@@ -13,11 +13,7 @@ import type { BlogGridProps } from '@/lib/types/blog';
 
 export function BlogGrid({ posts }: BlogGridProps) {
   return (
-    <section
-      aria-label="Blog posts"
-      aria-live="polite"
-      aria-atomic="false"
-    >
+    <section aria-label="Blog posts" aria-live="polite" aria-atomic="false">
       {posts.length === 0 ? (
         <EmptyState />
       ) : (
@@ -65,12 +61,10 @@ function EmptyState() {
         </svg>
       </div>
 
-      <h2 className="mb-2 text-2xl font-semibold text-foreground">
-        No posts found
-      </h2>
+      <h2 className="mb-2 text-2xl font-semibold text-foreground">No posts found</h2>
       <p className="max-w-sm text-muted-foreground">
-        There are no blog posts matching your current filters. Try selecting a
-        different category or clearing your filters.
+        There are no blog posts matching your current filters. Try selecting a different category or
+        clearing your filters.
       </p>
     </div>
   );

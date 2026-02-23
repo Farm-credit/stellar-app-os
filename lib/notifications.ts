@@ -23,9 +23,11 @@ export async function subscribeToPushNotifications(): Promise<PushSubscription |
   }
 
   // Check if VAPID key is available
-  const vapidKey = typeof window !== 'undefined' 
-    ? (window as typeof window & { ENV?: { NEXT_PUBLIC_VAPID_PUBLIC_KEY?: string } }).ENV?.NEXT_PUBLIC_VAPID_PUBLIC_KEY
-    : undefined;
+  const vapidKey =
+    typeof window !== 'undefined'
+      ? (window as typeof window & { ENV?: { NEXT_PUBLIC_VAPID_PUBLIC_KEY?: string } }).ENV
+          ?.NEXT_PUBLIC_VAPID_PUBLIC_KEY
+      : undefined;
 
   if (!vapidKey) {
     console.warn('VAPID public key not configured');
@@ -34,7 +36,7 @@ export async function subscribeToPushNotifications(): Promise<PushSubscription |
 
   try {
     const registration = await navigator.serviceWorker.ready;
-    
+
     const subscription = await registration.pushManager.subscribe({
       userVisibleOnly: true,
       applicationServerKey: urlBase64ToUint8Array(vapidKey) as BufferSource,
@@ -55,11 +57,11 @@ export async function unsubscribeFromPushNotifications(): Promise<boolean> {
   try {
     const registration = await navigator.serviceWorker.ready;
     const subscription = await registration.pushManager.getSubscription();
-    
+
     if (subscription) {
       return await subscription.unsubscribe();
     }
-    
+
     return false;
   } catch (error) {
     console.error('Failed to unsubscribe from push notifications:', error);
@@ -69,9 +71,7 @@ export async function unsubscribeFromPushNotifications(): Promise<boolean> {
 
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
-  const base64 = (base64String + padding)
-    .replace(/-/g, '+')
-    .replace(/_/g, '/');
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
 
   const rawData = window.atob(base64);
   const outputArray = new Uint8Array(rawData.length);
@@ -84,10 +84,7 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
   return new Uint8Array(outputArray.buffer);
 }
 
-export function showNotification(
-  title: string,
-  options?: NotificationOptions
-): void {
+export function showNotification(title: string, options?: NotificationOptions): void {
   if (!('Notification' in window) || Notification.permission !== 'granted') {
     return;
   }

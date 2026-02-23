@@ -1,6 +1,6 @@
-import Link from "next/link";
-import { NewsletterForm } from "./NewsletterForm";
-import { FaXTwitter, FaGithub, FaDiscord } from "react-icons/fa6";
+import Link from 'next/link';
+import { NewsletterForm } from './NewsletterForm';
+import { FaXTwitter, FaGithub, FaDiscord } from 'react-icons/fa6';
 
 interface FooterLink {
   label: string;
@@ -13,50 +13,50 @@ interface FooterSection {
 }
 
 const aboutSection: FooterSection = {
-  title: "About",
+  title: 'About',
   links: [
-    { label: "About FarmCredit", href: "#about" },
-    { label: "Blog", href: "/blog" },
-    { label: "Documentation", href: "#docs" },
+    { label: 'About FarmCredit', href: '#about' },
+    { label: 'Blog', href: '/blog' },
+    { label: 'Documentation', href: '#docs' },
   ],
 };
 
 const resourcesSection: FooterSection = {
-  title: "Resources",
+  title: 'Resources',
   links: [
-    { label: "API Documentation", href: "#api-docs" },
-    { label: "Developer Guide", href: "#dev-guide" },
-    { label: "Community", href: "#community" },
+    { label: 'API Documentation', href: '#api-docs' },
+    { label: 'Developer Guide', href: '#dev-guide' },
+    { label: 'Community', href: '#community' },
   ],
 };
 
 const legalSection: FooterSection = {
-  title: "Legal",
+  title: 'Legal',
   links: [
-    { label: "Terms of Service", href: "#terms" },
-    { label: "Privacy Policy", href: "#privacy" },
-    { label: "Cookie Policy", href: "#cookies" },
+    { label: 'Terms of Service', href: '#terms' },
+    { label: 'Privacy Policy', href: '#privacy' },
+    { label: 'Cookie Policy', href: '#cookies' },
   ],
 };
 
 const socialLinks = [
   {
-    label: "Twitter",
-    href: "https://twitter.com",
+    label: 'Twitter',
+    href: 'https://twitter.com',
     icon: FaXTwitter,
-    ariaLabel: "Follow us on Twitter/X",
+    ariaLabel: 'Follow us on Twitter/X',
   },
   {
-    label: "GitHub",
-    href: "https://github.com",
+    label: 'GitHub',
+    href: 'https://github.com',
     icon: FaGithub,
-    ariaLabel: "View our GitHub repository",
+    ariaLabel: 'View our GitHub repository',
   },
   {
-    label: "Discord",
-    href: "https://discord.com",
+    label: 'Discord',
+    href: 'https://discord.com',
     icon: FaDiscord,
-    ariaLabel: "Join our Discord community",
+    ariaLabel: 'Join our Discord community',
   },
 ];
 
@@ -71,7 +71,6 @@ export function Footer(): React.ReactNode {
       <div className="max-w-6xl mx-auto">
         {/* Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 mb-8">
-          
           {/* Newsletter */}
           <section className="flex flex-col gap-4">
             <h2 className="text-xs font-semibold uppercase tracking-wider text-stellar-blue">
@@ -110,7 +109,6 @@ export function Footer(): React.ReactNode {
 
         {/* Bottom */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
-          
           <p className="text-sm text-slate-300/60">
             © {currentYear} FarmCredit. All rights reserved.
           </p>
@@ -119,19 +117,18 @@ export function Footer(): React.ReactNode {
             {socialLinks.map((social) => {
               const Icon = social.icon;
               return (
-              <li key={social.label}>
-                <Link
-                  href={social.href}
-                  target="_blank"
-                  aria-label={social.ariaLabel}
-                  className="flex items-center justify-center w-10 h-10 rounded-lg border border-cyan-500/20 text-stellar-blue hover:bg-cyan-500/10 hover:border-stellar-blue transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-stellar-blue"
-                >
-                 
-                  <Icon className="w-5 h-5" />
-                  <span className="sr-only">{social.label}</span>
-                </Link>
-              </li>
-            );
+                <li key={social.label}>
+                  <Link
+                    href={social.href}
+                    target="_blank"
+                    aria-label={social.ariaLabel}
+                    className="flex items-center justify-center w-10 h-10 rounded-lg border border-cyan-500/20 text-stellar-blue hover:bg-cyan-500/10 hover:border-stellar-blue transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-stellar-blue"
+                  >
+                    <Icon className="w-5 h-5" />
+                    <span className="sr-only">{social.label}</span>
+                  </Link>
+                </li>
+              );
             })}
           </ul>
         </div>

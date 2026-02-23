@@ -1,17 +1,17 @@
-"use client";
+'use client';
 
-import { useState, useCallback, useMemo } from "react";
-import { useRouter, usePathname } from "next/navigation";
-import { CreditSelectionStep } from "@/components/organisms/CreditSelectionStep/CreditSelectionStep";
-import { ProgressStepper } from "@/components/molecules/ProgressStepper/ProgressStepper";
-import { Button } from "@/components/atoms/Button";
-import { mockCarbonProjects } from "@/lib/api/mock/carbonProjects";
+import { useState, useCallback, useMemo } from 'react';
+import { useRouter, usePathname } from 'next/navigation';
+import { CreditSelectionStep } from '@/components/organisms/CreditSelectionStep/CreditSelectionStep';
+import { ProgressStepper } from '@/components/molecules/ProgressStepper/ProgressStepper';
+import { Button } from '@/components/atoms/Button';
+import { mockCarbonProjects } from '@/lib/api/mock/carbonProjects';
 import {
   buildPurchaseFlowSteps,
   getCurrentStepFromPath,
   getCompletedSteps,
-} from "@/lib/utils/purchaseFlow";
-import type { CreditSelectionState } from "@/lib/types/carbon";
+} from '@/lib/utils/purchaseFlow';
+import type { CreditSelectionState } from '@/lib/types/carbon';
 
 export default function PurchasePage() {
   const router = useRouter();
@@ -20,7 +20,6 @@ export default function PurchasePage() {
 
   const handleSelectionChange = useCallback((newSelection: CreditSelectionState) => {
     setSelection(newSelection);
-    console.log("Selection changed:", newSelection);
   }, []);
 
   const handleNext = () => {
@@ -30,14 +29,11 @@ export default function PurchasePage() {
     }
   };
 
-  const canProceed = selection?.projectId && selection.quantity > 0 && selection.calculatedPrice > 0;
+  const canProceed =
+    selection?.projectId && selection.quantity > 0 && selection.calculatedPrice > 0;
 
   const currentStepId = getCurrentStepFromPath(pathname);
-  const completedSteps = getCompletedSteps(
-    currentStepId,
-    !!selection,
-    false
-  );
+  const completedSteps = getCompletedSteps(currentStepId, !!selection, false);
   const steps = useMemo(
     () => buildPurchaseFlowSteps(currentStepId, completedSteps, null),
     [currentStepId, completedSteps]

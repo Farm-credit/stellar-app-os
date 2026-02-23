@@ -39,6 +39,7 @@ npm run generate-icons
 ```
 
 This creates icons in the following sizes:
+
 - 72x72, 96x96, 128x128, 144x144, 152x152, 192x192, 384x384, 512x512
 
 ### Custom Icon (Optional)
@@ -111,6 +112,7 @@ Open http://localhost:3000 in your browser.
 5. Verify PWA score is 100
 
 Expected scores:
+
 - Performance: 90+
 - Accessibility: 100
 - Best Practices: 100
@@ -215,6 +217,7 @@ Vercel automatically handles PWA requirements.
 ### Other Platforms
 
 Ensure your hosting platform:
+
 - Serves over HTTPS
 - Serves `/sw.js` with correct headers
 - Serves `/manifest.json` with correct MIME type
@@ -239,6 +242,7 @@ Ensure your hosting platform:
 ## Support
 
 For issues or questions:
+
 1. Check the [PWA Setup Guide](./PWA_SETUP.md)
 2. Review browser console for errors
 3. Run Lighthouse audit for diagnostics

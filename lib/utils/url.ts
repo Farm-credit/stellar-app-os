@@ -9,10 +9,7 @@
  * @param currentPage - Current page number to preserve (optional)
  * @returns Relative URL starting with /blog
  */
-export function buildCategoryUrl(
-  category: string | null,
-  currentPage?: number
-): string {
+export function buildCategoryUrl(category: string | null, currentPage?: number): string {
   const params = new URLSearchParams();
 
   if (category) {
@@ -33,10 +30,7 @@ export function buildCategoryUrl(
  * @param currentCategory - Current category filter to preserve (optional)
  * @returns Relative URL starting with /blog
  */
-export function buildPaginationUrl(
-  page: number,
-  currentCategory?: string | null
-): string {
+export function buildPaginationUrl(page: number, currentCategory?: string | null): string {
   const params = new URLSearchParams();
 
   if (currentCategory) {
@@ -56,10 +50,7 @@ export function buildPaginationUrl(
  * @param params - Object containing category and/or page parameters
  * @returns Relative URL starting with /blog
  */
-export function buildBlogUrl(params: {
-  category?: string | null;
-  page?: number;
-}): string {
+export function buildBlogUrl(params: { category?: string | null; page?: number }): string {
   const searchParams = new URLSearchParams();
 
   if (params.category) {

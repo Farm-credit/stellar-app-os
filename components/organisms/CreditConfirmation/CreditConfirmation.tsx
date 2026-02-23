@@ -1,21 +1,16 @@
-"use client";
+'use client';
 
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { Button } from "@/components/atoms/Button";
-import { Badge } from "@/components/atoms/Badge";
-import { Text } from "@/components/atoms/Text";
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardContent,
-} from "@/components/molecules/Card";
-import { getStellarExplorerUrl } from "@/lib/stellar/transaction";
-import { mockCarbonProjects } from "@/lib/api/mock/carbonProjects";
-import { trackEvent } from "@/lib/analytics";
-import type { CreditSelectionState } from "@/lib/types/carbon";
-import type { NetworkType } from "@/lib/types/wallet";
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { Button } from '@/components/atoms/Button';
+import { Badge } from '@/components/atoms/Badge';
+import { Text } from '@/components/atoms/Text';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/molecules/Card';
+import { getStellarExplorerUrl } from '@/lib/stellar/transaction';
+import { mockCarbonProjects } from '@/lib/api/mock/carbonProjects';
+import { trackEvent } from '@/lib/analytics';
+import type { CreditSelectionState } from '@/lib/types/carbon';
+import type { NetworkType } from '@/lib/types/wallet';
 
 export interface CreditConfirmationProps {
   selection: CreditSelectionState;
@@ -33,21 +28,27 @@ export function CreditConfirmation({
 
   useEffect(() => {
     // Track analytics event on mount
-    trackEvent("credit_purchase_confirmed", {
+    trackEvent('credit_purchase_confirmed', {
       projectId: selection.projectId,
       quantity: selection.quantity,
       price: selection.calculatedPrice,
       transactionHash,
       network,
     });
-  }, [selection.projectId, selection.quantity, selection.calculatedPrice, transactionHash, network]);
+  }, [
+    selection.projectId,
+    selection.quantity,
+    selection.calculatedPrice,
+    transactionHash,
+    network,
+  ]);
 
   const handleViewPortfolio = () => {
-    router.push("/dashboard/credits");
+    router.push('/dashboard/credits');
   };
 
   const handleBuyMore = () => {
-    router.push("/credits/purchase");
+    router.push('/credits/purchase');
   };
 
   const explorerUrl = getStellarExplorerUrl(transactionHash, network);
@@ -79,11 +80,7 @@ export function CreditConfirmation({
                 stroke="currentColor"
                 strokeWidth={2}
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M5 13l4 4L19 7"
-                />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
               </svg>
             </div>
             <div className="absolute -top-1 -right-1 h-6 w-6 rounded-full bg-stellar-green flex items-center justify-center animate-pulse">
@@ -158,24 +155,20 @@ export function CreditConfirmation({
               Transaction Hash
             </Text>
             <div className="flex items-center gap-2 flex-wrap">
-              <Text
-                variant="small"
-                as="span"
-                className="font-mono text-muted-foreground break-all"
-              >
+              <Text variant="small" as="span" className="font-mono text-muted-foreground break-all">
                 {transactionHash}
               </Text>
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => window.open(explorerUrl, "_blank")}
+                onClick={() => window.open(explorerUrl, '_blank')}
                 aria-label="View transaction on Stellar Explorer"
               >
                 View on Explorer
               </Button>
             </div>
           </div>
-          {network === "testnet" && (
+          {network === 'testnet' && (
             <div className="rounded-lg border border-yellow-500/30 bg-yellow-50 dark:bg-yellow-900/20 p-3">
               <Text variant="small" as="p" className="text-yellow-800 dark:text-yellow-200">
                 <strong>Testnet Transaction:</strong> This transaction was made on the Stellar

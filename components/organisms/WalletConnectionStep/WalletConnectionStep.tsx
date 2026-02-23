@@ -1,38 +1,33 @@
-"use client";
+'use client';
 
-import { useState, useEffect } from "react";
-import { Button } from "@/components/atoms/Button";
-import { Badge } from "@/components/atoms/Badge";
-import { Text } from "@/components/atoms/Text";
+import { useState, useEffect } from 'react';
+import { Button } from '@/components/atoms/Button';
+import { Badge } from '@/components/atoms/Badge';
+import { Text } from '@/components/atoms/Text';
 import {
   Card,
   CardHeader,
   CardTitle,
   CardDescription,
   CardContent,
-} from "@/components/molecules/Card";
-import { useWalletContext } from "@/contexts/WalletContext";
-import { isFreighterInstalled, formatBalance } from "@/lib/stellar/wallet";
-import type { WalletType, NetworkType, WalletConnectionProps } from "@/lib/types/wallet";
+} from '@/components/molecules/Card';
+import { useWalletContext } from '@/contexts/WalletContext';
+import { isFreighterInstalled, formatBalance } from '@/lib/stellar/wallet';
+import type { WalletType, NetworkType, WalletConnectionProps } from '@/lib/types/wallet';
 
-const FREIGHTER_INSTALL_URL = "https://freighter.app";
+const FREIGHTER_INSTALL_URL = 'https://freighter.app';
 
 export function WalletConnectionStep({ onConnectionChange }: WalletConnectionProps) {
-  const {
-    wallet,
-    connect,
-    disconnect,
-    switchNetwork,
-    refreshBalance,
-    isLoading,
-    error,
-  } = useWalletContext();
+  const { wallet, connect, disconnect, switchNetwork, refreshBalance, isLoading, error } =
+    useWalletContext();
 
   const [connectingType, setConnectingType] = useState<WalletType | null>(null);
   const [freighterAvailable, setFreighterAvailable] = useState(false);
 
   useEffect(() => {
-    isFreighterInstalled().then(setFreighterAvailable).catch(() => setFreighterAvailable(false));
+    isFreighterInstalled()
+      .then(setFreighterAvailable)
+      .catch(() => setFreighterAvailable(false));
   }, []);
 
   useEffect(() => {
@@ -44,9 +39,9 @@ export function WalletConnectionStep({ onConnectionChange }: WalletConnectionPro
   const handleConnect = async (type: WalletType) => {
     setConnectingType(type);
     try {
-      await connect(type, wallet?.network || "testnet");
+      await connect(type, wallet?.network || 'testnet');
     } catch (err) {
-      console.error("Connection error:", err);
+      console.error('Connection error:', err);
     } finally {
       setConnectingType(null);
     }
@@ -61,7 +56,7 @@ export function WalletConnectionStep({ onConnectionChange }: WalletConnectionPro
     try {
       await switchNetwork(network);
     } catch (err) {
-      console.error("Network switch error:", err);
+      console.error('Network switch error:', err);
     }
   };
 
@@ -81,7 +76,7 @@ export function WalletConnectionStep({ onConnectionChange }: WalletConnectionPro
           </Text>
         </div>
 
-        {wallet.network === "testnet" && (
+        {wallet.network === 'testnet' && (
           <div className="rounded-lg border-2 border-yellow-500 bg-yellow-50 dark:bg-yellow-900/20 p-4">
             <div className="flex items-center gap-2">
               <svg
@@ -98,7 +93,11 @@ export function WalletConnectionStep({ onConnectionChange }: WalletConnectionPro
                   d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
                 />
               </svg>
-              <Text variant="small" as="span" className="font-semibold text-yellow-800 dark:text-yellow-200">
+              <Text
+                variant="small"
+                as="span"
+                className="font-semibold text-yellow-800 dark:text-yellow-200"
+              >
                 Testnet Mode
               </Text>
             </div>
@@ -121,8 +120,8 @@ export function WalletConnectionStep({ onConnectionChange }: WalletConnectionPro
                   </span>
                 </CardTitle>
                 <div className="mt-2 text-sm text-muted-foreground">
-                  Network:{" "}
-                  <Badge variant={wallet.network === "mainnet" ? "default" : "outline"}>
+                  Network:{' '}
+                  <Badge variant={wallet.network === 'mainnet' ? 'default' : 'outline'}>
                     {wallet.network}
                   </Badge>
                 </div>
@@ -155,13 +154,17 @@ export function WalletConnectionStep({ onConnectionChange }: WalletConnectionPro
               </div>
               <div className="space-y-2">
                 <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-                  <Text variant="small" as="span">XLM</Text>
+                  <Text variant="small" as="span">
+                    XLM
+                  </Text>
                   <Text variant="small" as="span" className="font-mono font-semibold">
                     {formatBalance(wallet.balance.xlm)}
                   </Text>
                 </div>
                 <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-                  <Text variant="small" as="span">USDC</Text>
+                  <Text variant="small" as="span">
+                    USDC
+                  </Text>
                   <Text variant="small" as="span" className="font-mono font-semibold">
                     {formatBalance(wallet.balance.usdc)}
                   </Text>
@@ -175,19 +178,19 @@ export function WalletConnectionStep({ onConnectionChange }: WalletConnectionPro
               </Text>
               <div className="flex gap-2">
                 <Button
-                  variant={wallet.network === "testnet" ? "default" : "outline"}
+                  variant={wallet.network === 'testnet' ? 'default' : 'outline'}
                   size="sm"
-                  onClick={() => handleNetworkSwitch("testnet")}
-                  disabled={isLoading || wallet.network === "testnet"}
+                  onClick={() => handleNetworkSwitch('testnet')}
+                  disabled={isLoading || wallet.network === 'testnet'}
                   aria-label="Switch to testnet"
                 >
                   Testnet
                 </Button>
                 <Button
-                  variant={wallet.network === "mainnet" ? "default" : "outline"}
+                  variant={wallet.network === 'mainnet' ? 'default' : 'outline'}
                   size="sm"
-                  onClick={() => handleNetworkSwitch("mainnet")}
-                  disabled={isLoading || wallet.network === "mainnet"}
+                  onClick={() => handleNetworkSwitch('mainnet')}
+                  disabled={isLoading || wallet.network === 'mainnet'}
                   aria-label="Switch to mainnet"
                 >
                   Mainnet
@@ -212,10 +215,7 @@ export function WalletConnectionStep({ onConnectionChange }: WalletConnectionPro
       </div>
 
       {error && (
-        <div
-          className="rounded-lg border border-destructive bg-destructive/10 p-4"
-          role="alert"
-        >
+        <div className="rounded-lg border border-destructive bg-destructive/10 p-4" role="alert">
           <Text variant="small" as="p" className="text-destructive">
             {error}
           </Text>
@@ -226,27 +226,25 @@ export function WalletConnectionStep({ onConnectionChange }: WalletConnectionPro
         <Card className="border-stellar-purple/30 hover:border-stellar-purple/50 transition-colors">
           <CardHeader>
             <CardTitle className="text-lg">Freighter</CardTitle>
-            <CardDescription>
-              Browser extension wallet for Stellar
-            </CardDescription>
+            <CardDescription>Browser extension wallet for Stellar</CardDescription>
           </CardHeader>
           <CardContent>
             {freighterAvailable ? (
               <Button
                 stellar="accent"
                 className="w-full"
-                onClick={() => handleConnect("freighter")}
+                onClick={() => handleConnect('freighter')}
                 disabled={isLoading || connectingType !== null}
                 aria-label="Connect Freighter wallet"
               >
-                {connectingType === "freighter" ? "Connecting..." : "Connect Freighter"}
+                {connectingType === 'freighter' ? 'Connecting...' : 'Connect Freighter'}
               </Button>
             ) : (
               <div className="space-y-2">
                 <Button
                   stellar="accent"
                   className="w-full"
-                  onClick={() => window.open(FREIGHTER_INSTALL_URL, "_blank")}
+                  onClick={() => window.open(FREIGHTER_INSTALL_URL, '_blank')}
                   aria-label="Install Freighter wallet"
                 >
                   Install Freighter
@@ -262,19 +260,17 @@ export function WalletConnectionStep({ onConnectionChange }: WalletConnectionPro
         <Card className="border-stellar-purple/30 hover:border-stellar-purple/50 transition-colors">
           <CardHeader>
             <CardTitle className="text-lg">Albedo</CardTitle>
-            <CardDescription>
-              Web-based wallet for Stellar
-            </CardDescription>
+            <CardDescription>Web-based wallet for Stellar</CardDescription>
           </CardHeader>
           <CardContent>
             <Button
               stellar="accent"
               className="w-full"
-              onClick={() => handleConnect("albedo")}
+              onClick={() => handleConnect('albedo')}
               disabled={isLoading || connectingType !== null}
               aria-label="Connect Albedo wallet"
             >
-              {connectingType === "albedo" ? "Connecting..." : "Connect Albedo"}
+              {connectingType === 'albedo' ? 'Connecting...' : 'Connect Albedo'}
             </Button>
           </CardContent>
         </Card>

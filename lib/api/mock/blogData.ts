@@ -125,7 +125,7 @@ export const MOCK_BLOG_DATA: BlogListResponse = {
     {
       id: 'post-5',
       slug: 'farmer-success-story-kojo-farms',
-      title: 'From 2 Acres to 20: Kojo\'s Journey with FarmCredit',
+      title: "From 2 Acres to 20: Kojo's Journey with FarmCredit",
       excerpt:
         'How one determined farmer used a structured credit plan to scale his maize farm tenfold in under four years.',
       content: '',
@@ -171,7 +171,7 @@ export const MOCK_BLOG_DATA: BlogListResponse = {
       slug: 'poultry-farming-loan-checklist',
       title: 'Poultry Farming Loan Checklist: What to Prepare',
       excerpt:
-        'Before you walk into a lender\'s office for a poultry loan, make sure you have these 10 documents and metrics ready.',
+        "Before you walk into a lender's office for a poultry loan, make sure you have these 10 documents and metrics ready.",
       content: '',
       publishedAt: '2025-12-28T09:00:00.000Z',
       updatedAt: '2025-12-28T09:00:00.000Z',
@@ -213,7 +213,7 @@ export const MOCK_BLOG_DATA: BlogListResponse = {
     {
       id: 'post-9',
       slug: 'adwoa-cocoa-success-story',
-      title: 'Adwoa\'s Cocoa Farm: Tripling Yield with Structured Finance',
+      title: "Adwoa's Cocoa Farm: Tripling Yield with Structured Finance",
       excerpt:
         'A cocoa farmer in the Ashanti region shares how a phased credit plan allowed her to renovate aging trees and triple output.',
       content: '',

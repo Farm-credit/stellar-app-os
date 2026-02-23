@@ -1,6 +1,6 @@
 name: Feature Request
 description: Propose a new capability with clear user value and acceptance criteria.
-title: "[Feature]: "
+title: '[Feature]: '
 labels:
   - enhancement
 body:

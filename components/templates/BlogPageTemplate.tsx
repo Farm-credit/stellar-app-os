@@ -30,8 +30,8 @@ export function BlogPageTemplate({
           FarmCredit Blog
         </h1>
         <p className="max-w-2xl mx-auto text-lg text-muted-foreground">
-          Insights on carbon credits, sustainable farming, climate technology,
-          and agricultural policy.
+          Insights on carbon credits, sustainable farming, climate technology, and agricultural
+          policy.
         </p>
       </header>
 

@@ -1,6 +1,6 @@
 name: Task
 description: Track internal project work with complete context, scope, and execution details.
-title: "[Task]: "
+title: '[Task]: '
 labels:
   - task
 body:

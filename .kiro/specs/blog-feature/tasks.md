@@ -11,7 +11,6 @@ This plan implements a server-side rendered blog listing page with Next.js 16 Ap
     - Define `BlogPost`, `BlogListResponse`, and component prop interfaces in `lib/types/blog.ts`
     - Ensure all types are exported and use strict TypeScript (no `any` types)
     - _Requirements: 8.1, 8.2, 8.3_
-  
   - [x] 1.2 Create Zod validation schemas
     - Implement `BlogPostSchema` and `BlogListResponseSchema` in `lib/schemas/blog.ts`
     - Export inferred TypeScript types from schemas
@@ -25,16 +24,13 @@ This plan implements a server-side rendered blog listing page with Next.js 16 Ap
     - Configure Next.js caching with 5-minute revalidation
     - Include proper error handling for network failures
     - _Requirements: 1.1, 8.4, 10.2_
-  
-  - [ ]* 2.2 Write property test for API client
+  - [ ]\* 2.2 Write property test for API client
     - **Property 23: API Error Handling**
     - **Validates: Requirements 1.4, 10.2, 10.6**
-  
   - [x] 2.3 Create URL helper utilities
     - Implement query parameter builders in `lib/utils/url.ts`
     - Add functions for constructing category and pagination URLs
     - _Requirements: 2.5, 3.7_
-  
   - [x] 2.4 Create SEO utility functions
     - Implement meta tag generation in `lib/utils/seo.ts`
     - Add functions for Open Graph tags, Twitter Cards, and JSON-LD structured data
@@ -49,21 +45,17 @@ This plan implements a server-side rendered blog listing page with Next.js 16 Ap
     - Integrate Next.js `Image` with blur placeholder and `Link` for navigation
     - Apply proper semantic HTML and ARIA labels
     - _Requirements: 1.3, 4.3, 7.4, 9.1, 9.3_
-  
-  - [ ]* 3.2 Write property test for BlogCard rendering
+  - [ ]\* 3.2 Write property test for BlogCard rendering
     - **Property 1: Blog Post Rendering Completeness**
     - **Validates: Requirements 1.3, 4.3**
-  
-  - [ ]* 3.3 Write property test for image alt text
+  - [ ]\* 3.3 Write property test for image alt text
     - **Property 15: Image Alt Text Presence**
     - **Validates: Requirements 5.5**
-  
-  - [ ]* 3.4 Write unit tests for BlogCard edge cases
+  - [ ]\* 3.4 Write unit tests for BlogCard edge cases
     - Test image loading errors and placeholder fallback
     - Test both standard and featured variants
     - Test navigation behavior
     - _Requirements: 10.5_
-  
   - [x] 3.5 Create CategoryFilter component
     - Implement `CategoryFilter` in `components/molecules/CategoryFilter.tsx`
     - Use existing `Button` atom with stellar variants
@@ -72,19 +64,15 @@ This plan implements a server-side rendered blog listing page with Next.js 16 Ap
     - Add keyboard navigation support (arrow keys)
     - Include ARIA attributes for selected state
     - _Requirements: 2.1, 2.4, 6.5, 7.2, 7.8, 9.2_
-  
-  - [ ]* 3.6 Write property test for category completeness
+  - [ ]\* 3.6 Write property test for category completeness
     - **Property 2: Category Filter Completeness**
     - **Validates: Requirements 2.1**
-  
-  - [ ]* 3.7 Write property test for selected category indication
+  - [ ]\* 3.7 Write property test for selected category indication
     - **Property 5: Selected Category Visual Indication**
     - **Validates: Requirements 2.4, 7.8**
-  
-  - [ ]* 3.8 Write property test for keyboard navigation
+  - [ ]\* 3.8 Write property test for keyboard navigation
     - **Property 18: Keyboard Navigation Completeness**
     - **Validates: Requirements 7.2**
-  
   - [ ] 3.9 Create PaginationControl component
     - Implement `PaginationControl` in `components/molecules/PaginationControl.tsx`
     - Use existing `Button` atom for navigation controls
@@ -93,16 +81,13 @@ This plan implements a server-side rendered blog listing page with Next.js 16 Ap
     - Disable prev button on first page, next button on last page
     - Add scroll-to-top behavior on page change
     - _Requirements: 3.2, 3.4, 3.5, 3.6, 6.6, 7.2_
-  
-  - [ ]* 3.10 Write property test for pagination display
+  - [ ]\* 3.10 Write property test for pagination display
     - **Property 8: Pagination Display Correctness**
     - **Validates: Requirements 3.2**
-  
-  - [ ]* 3.11 Write property test for pagination scroll behavior
+  - [ ]\* 3.11 Write property test for pagination scroll behavior
     - **Property 10: Pagination Scroll Behavior**
     - **Validates: Requirements 3.4**
-  
-  - [ ]* 3.12 Write unit tests for pagination edge cases
+  - [ ]\* 3.12 Write unit tests for pagination edge cases
     - Test first page (prev disabled)
     - Test last page (next disabled)
     - Test single page (both disabled)
@@ -119,16 +104,13 @@ This plan implements a server-side rendered blog listing page with Next.js 16 Ap
     - Map posts to `BlogCard` components
     - Include empty state message when no posts
     - _Requirements: 1.2, 1.6, 6.1, 6.2, 6.3, 10.3_
-  
-  - [ ]* 5.2 Write property test for responsive grid layout
+  - [ ]\* 5.2 Write property test for responsive grid layout
     - **Property 16: Responsive Grid Layout**
     - **Validates: Requirements 1.6, 6.1, 6.2, 6.3**
-  
-  - [ ]* 5.3 Write unit test for empty state
+  - [ ]\* 5.3 Write unit test for empty state
     - Test zero posts display
     - Test empty state message content
     - _Requirements: 10.3_
-  
   - [~] 5.4 Create FeaturedPostHero component
     - Implement `FeaturedPostHero` in `components/organisms/FeaturedPostHero.tsx`
     - Use `BlogCard` with `variant="featured"` and `priority={true}`
@@ -136,16 +118,13 @@ This plan implements a server-side rendered blog listing page with Next.js 16 Ap
     - Add background gradient overlay on image
     - Only render when featured post exists
     - _Requirements: 4.2, 4.3, 4.5, 6.4_
-  
-  - [ ]* 5.5 Write property test for featured post identification
+  - [ ]\* 5.5 Write property test for featured post identification
     - **Property 11: Featured Post Identification**
     - **Validates: Requirements 4.1, 4.2**
-  
-  - [ ]* 5.6 Write property test for featured post navigation
+  - [ ]\* 5.6 Write property test for featured post navigation
     - **Property 12: Featured Post Navigation**
     - **Validates: Requirements 4.6**
-  
-  - [ ]* 5.7 Write unit test for missing featured post
+  - [ ]\* 5.7 Write unit test for missing featured post
     - Test that hero section does not render when no featured post
     - _Requirements: 4.4_
 
@@ -156,12 +135,10 @@ This plan implements a server-side rendered blog listing page with Next.js 16 Ap
     - Apply max-width container (1280px) with responsive padding
     - Add vertical spacing between sections (3rem)
     - _Requirements: 1.2, 2.1, 3.1, 4.2_
-  
-  - [ ]* 6.2 Write property test for logical focus order
+  - [ ]\* 6.2 Write property test for logical focus order
     - **Property 19: Logical Focus Order**
     - **Validates: Requirements 7.3**
-  
-  - [ ]* 6.3 Write property test for ARIA label presence
+  - [ ]\* 6.3 Write property test for ARIA label presence
     - **Property 20: ARIA Label Presence**
     - **Validates: Requirements 7.4**
 
@@ -173,32 +150,25 @@ This plan implements a server-side rendered blog listing page with Next.js 16 Ap
     - Pass data to `BlogPageTemplate`
     - Generate meta tags using SEO utilities
     - _Requirements: 1.1, 2.6, 3.8, 5.1, 5.2_
-  
-  - [ ]* 7.2 Write property test for URL state synchronization
+  - [ ]\* 7.2 Write property test for URL state synchronization
     - **Property 6: URL State Synchronization**
     - **Validates: Requirements 2.5, 2.6, 3.7, 3.8**
-  
-  - [ ]* 7.3 Write property test for category filtering correctness
+  - [ ]\* 7.3 Write property test for category filtering correctness
     - **Property 3: Category Filtering Correctness**
     - **Validates: Requirements 2.2**
-  
-  - [ ]* 7.4 Write property test for filter clear round-trip
+  - [ ]\* 7.4 Write property test for filter clear round-trip
     - **Property 4: Filter Clear Round-Trip**
     - **Validates: Requirements 2.3**
-  
-  - [ ]* 7.5 Write property test for pagination activation
+  - [ ]\* 7.5 Write property test for pagination activation
     - **Property 7: Pagination Activation**
     - **Validates: Requirements 3.1**
-  
-  - [ ]* 7.6 Write property test for page navigation correctness
+  - [ ]\* 7.6 Write property test for page navigation correctness
     - **Property 9: Page Navigation Correctness**
     - **Validates: Requirements 3.3**
-  
-  - [ ]* 7.7 Write property test for SEO meta tag completeness
+  - [ ]\* 7.7 Write property test for SEO meta tag completeness
     - **Property 13: SEO Meta Tag Completeness**
     - **Validates: Requirements 5.2, 5.3, 5.5, 5.6**
-  
-  - [ ]* 7.8 Write property test for semantic heading hierarchy
+  - [ ]\* 7.8 Write property test for semantic heading hierarchy
     - **Property 14: Semantic Heading Hierarchy**
     - **Validates: Requirements 5.4**
 
@@ -208,33 +178,27 @@ This plan implements a server-side rendered blog listing page with Next.js 16 Ap
     - Create `BlogCardSkeleton` component matching BlogCard layout
     - Display 12 skeleton cards in grid layout
     - _Requirements: 1.5, 10.1_
-  
   - [~] 8.2 Create error boundary component
     - Implement `app/blog/error.tsx` with error UI and retry button
     - Display user-friendly error messages for different error types
     - Include console logging for debugging
     - _Requirements: 1.4, 10.2, 10.6_
-  
-  - [ ]* 8.3 Write property test for API error handling
+  - [ ]\* 8.3 Write property test for API error handling
     - **Property 23: API Error Handling**
     - **Validates: Requirements 1.4, 10.2, 10.6**
-  
-  - [ ]* 8.4 Write property test for type validation error handling
+  - [ ]\* 8.4 Write property test for type validation error handling
     - **Property 24: Type Validation Error Handling**
     - **Validates: Requirements 8.6**
-  
-  - [ ]* 8.5 Write unit tests for error states
+  - [ ]\* 8.5 Write unit tests for error states
     - Test network error display
     - Test validation error display
     - Test retry button functionality
     - _Requirements: 10.2, 10.6_
-  
   - [~] 8.3 Create empty state components
     - Implement empty state for zero posts
     - Implement empty state for zero category results with clear filter button
     - _Requirements: 10.3, 10.4_
-  
-  - [ ]* 8.4 Write unit tests for empty states
+  - [ ]\* 8.4 Write unit tests for empty states
     - Test zero posts message
     - Test zero category results with clear filter option
     - _Requirements: 10.3, 10.4_
@@ -247,30 +211,24 @@ This plan implements a server-side rendered blog listing page with Next.js 16 Ap
     - Add `aria-live="polite"` to BlogGrid for filter/pagination updates
     - Ensure screen readers announce content changes
     - _Requirements: 7.6_
-  
-  - [ ]* 10.2 Write property test for dynamic content announcement
+  - [ ]\* 10.2 Write property test for dynamic content announcement
     - **Property 22: Dynamic Content Announcement**
     - **Validates: Requirements 7.6**
-  
   - [~] 10.3 Verify color contrast ratios
     - Audit all text elements for WCAG 2.1 AA contrast compliance
     - Ensure 4.5:1 for normal text, 3:1 for large text
     - _Requirements: 7.5_
-  
-  - [ ]* 10.4 Write property test for color contrast compliance
+  - [ ]\* 10.4 Write property test for color contrast compliance
     - **Property 21: Color Contrast Compliance**
     - **Validates: Requirements 7.5**
-  
   - [~] 10.5 Verify touch target sizes on mobile
     - Audit all interactive elements for 44x44px minimum on mobile
     - Adjust button padding if needed
     - _Requirements: 6.7_
-  
-  - [ ]* 10.6 Write property test for touch target size compliance
+  - [ ]\* 10.6 Write property test for touch target size compliance
     - **Property 17: Touch Target Size Compliance**
     - **Validates: Requirements 6.7**
-  
-  - [ ]* 10.7 Run automated accessibility tests
+  - [ ]\* 10.7 Run automated accessibility tests
     - Use jest-axe to test for accessibility violations
     - Test all components and page layouts
     - _Requirements: 7.1_
@@ -281,7 +239,6 @@ This plan implements a server-side rendered blog listing page with Next.js 16 Ap
     - Create generators for all blog data types
     - Configure with realistic constraints (string lengths, date ranges)
     - _Requirements: All property tests_
-  
   - [ ] 11.2 Set up property test configuration
     - Configure fast-check with minimum 100 iterations
     - Add property test tag format comments
@@ -289,13 +246,12 @@ This plan implements a server-side rendered blog listing page with Next.js 16 Ap
     - _Requirements: All property tests_
 
 - [ ] 12. Integration and visual regression testing
-  - [ ]* 12.1 Write integration tests for user flows
+  - [ ]\* 12.1 Write integration tests for user flows
     - Test complete category filtering flow
     - Test complete pagination flow
     - Test featured post click navigation
     - _Requirements: 2.2, 2.3, 3.3, 4.6_
-  
-  - [ ]* 12.2 Write visual regression tests with Playwright
+  - [ ]\* 12.2 Write visual regression tests with Playwright
     - Test responsive grid layouts at all breakpoints
     - Test featured post hero responsive layout
     - Test category filter responsive layout

@@ -25,6 +25,7 @@ Vercel automatically handles PWA requirements with zero configuration.
 #### Steps
 
 1. **Push to GitHub**
+
    ```bash
    git add .
    git commit -m "feat(pwa): add PWA support"
@@ -60,6 +61,7 @@ Vercel automatically handles PWA requirements with zero configuration.
 #### Vercel Configuration
 
 No additional configuration needed. Vercel automatically:
+
 - Serves over HTTPS
 - Sets correct headers for service worker
 - Serves manifest with correct MIME type
@@ -70,6 +72,7 @@ No additional configuration needed. Vercel automatically:
 #### Steps
 
 1. **Create `netlify.toml`**
+
    ```toml
    [build]
      command = "npm run build"
@@ -110,6 +113,7 @@ No additional configuration needed. Vercel automatically:
 #### Steps
 
 1. **Create `amplify.yml`**
+
    ```yaml
    version: 1
    frontend:
@@ -197,7 +201,7 @@ services:
   app:
     build: .
     ports:
-      - "3000:3000"
+      - '3000:3000'
     environment:
       - NODE_ENV=production
       - NEXT_PUBLIC_VAPID_PUBLIC_KEY=${NEXT_PUBLIC_VAPID_PUBLIC_KEY}
@@ -229,11 +233,13 @@ docker-compose up -d
 #### Setup
 
 1. **Build the app**
+
    ```bash
    npm run build
    ```
 
 2. **Configure nginx** (recommended)
+
    ```nginx
    server {
        listen 443 ssl http2;
@@ -268,6 +274,7 @@ docker-compose up -d
    ```
 
 3. **Start the app**
+
    ```bash
    npm start
    ```
@@ -283,24 +290,28 @@ docker-compose up -d
 ## Post-Deployment Verification
 
 ### 1. HTTPS Check
+
 ```bash
 # Verify HTTPS is enabled
 curl -I https://your-domain.com
 ```
 
 ### 2. Service Worker Check
+
 ```bash
 # Check service worker is accessible
 curl -I https://your-domain.com/sw.js
 ```
 
 ### 3. Manifest Check
+
 ```bash
 # Check manifest is accessible
 curl -I https://your-domain.com/manifest.json
 ```
 
 ### 4. Icons Check
+
 ```bash
 # Check icons are accessible
 curl -I https://your-domain.com/icons/icon-192x192.png
@@ -317,12 +328,14 @@ curl -I https://your-domain.com/icons/icon-192x192.png
 ### 6. Mobile Testing
 
 #### Android
+
 1. Open site in Chrome
 2. Install prompt should appear
 3. Install the app
 4. Test offline functionality
 
 #### iOS
+
 1. Open site in Safari
 2. Tap Share → Add to Home Screen
 3. Install the app
@@ -394,10 +407,12 @@ window.addEventListener('offline', () => {
 ### Service Worker Not Registering
 
 **Symptoms:**
+
 - No service worker in DevTools
 - Console errors about service worker
 
 **Solutions:**
+
 1. Verify HTTPS is enabled
 2. Check `/sw.js` is accessible
 3. Check for console errors
@@ -407,10 +422,12 @@ window.addEventListener('offline', () => {
 ### Install Prompt Not Showing
 
 **Symptoms:**
+
 - No install prompt appears
 - Can't install app
 
 **Solutions:**
+
 1. Run Lighthouse audit - check PWA criteria
 2. Verify manifest is valid
 3. Check all icons are accessible
@@ -420,10 +437,12 @@ window.addEventListener('offline', () => {
 ### Offline Not Working
 
 **Symptoms:**
+
 - App doesn't work offline
 - Blank page when offline
 
 **Solutions:**
+
 1. Verify service worker is active
 2. Check cache storage has data
 3. Verify offline page exists
@@ -433,10 +452,12 @@ window.addEventListener('offline', () => {
 ### Icons Not Displaying
 
 **Symptoms:**
+
 - Missing icons in install prompt
 - 404 errors for icons
 
 **Solutions:**
+
 1. Run `npm run generate-icons`
 2. Verify icons exist in `public/icons/`
 3. Check manifest paths are correct
@@ -473,6 +494,7 @@ location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2)$ {
 ### 4. Enable CDN
 
 Use a CDN for static assets:
+
 - Cloudflare
 - AWS CloudFront
 - Fastly
@@ -512,28 +534,31 @@ add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsaf
 If issues occur after deployment:
 
 1. **Revert to previous version**
+
    ```bash
    git revert HEAD
    git push origin main
    ```
 
 2. **Unregister service worker** (if needed)
+
    ```javascript
-   navigator.serviceWorker.getRegistrations().then(registrations => {
-     registrations.forEach(registration => registration.unregister());
+   navigator.serviceWorker.getRegistrations().then((registrations) => {
+     registrations.forEach((registration) => registration.unregister());
    });
    ```
 
 3. **Clear caches**
    ```javascript
-   caches.keys().then(names => {
-     names.forEach(name => caches.delete(name));
+   caches.keys().then((names) => {
+     names.forEach((name) => caches.delete(name));
    });
    ```
 
 ## Support
 
 For deployment issues:
+
 1. Check deployment logs
 2. Verify all requirements met
 3. Run Lighthouse audit

@@ -7,8 +7,6 @@ export function registerServiceWorker(): void {
     navigator.serviceWorker
       .register('/sw.js')
       .then((registration) => {
-        console.log('Service Worker registered:', registration.scope);
-
         // Check for updates periodically
         setInterval(() => {
           registration.update();
@@ -70,11 +68,9 @@ export async function checkOnlineStatus(): Promise<boolean> {
   }
 }
 
-export function subscribeToNetworkStatus(
-  callback: (isOnline: boolean) => void
-): () => void {
-  const handleOnline = () => callback(true);
-  const handleOffline = () => callback(false);
+export function subscribeToNetworkStatus(callback: () => void): () => void {
+  const handleOnline = () => callback();
+  const handleOffline = () => callback();
 
   window.addEventListener('online', handleOnline);
   window.addEventListener('offline', handleOffline);

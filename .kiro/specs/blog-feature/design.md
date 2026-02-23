@@ -106,6 +106,7 @@ lib/
 Displays a single blog post's summary information. Supports two variants: standard (for grid) and featured (for hero).
 
 **Props:**
+
 ```typescript
 interface BlogCardProps {
   post: BlogPost;
@@ -115,6 +116,7 @@ interface BlogCardProps {
 ```
 
 **Composition:**
+
 - Uses `Card` molecule as base
 - Uses `Badge` atom for category display
 - Uses `Text` atom for title, excerpt, date
@@ -122,6 +124,7 @@ interface BlogCardProps {
 - Uses Next.js `Link` for navigation
 
 **Behavior:**
+
 - Standard variant: Displays in grid with vertical layout
 - Featured variant: Larger dimensions, horizontal layout on desktop
 - Hover state: Subtle elevation increase, border color change
@@ -133,6 +136,7 @@ interface BlogCardProps {
 Displays category buttons for filtering blog posts.
 
 **Props:**
+
 ```typescript
 interface CategoryFilterProps {
   categories: string[];
@@ -142,12 +146,14 @@ interface CategoryFilterProps {
 ```
 
 **Composition:**
+
 - Uses `Button` atom with stellar variants
 - Horizontal scrollable container on mobile
 - Wrapped button group on desktop
 - "All" button to clear filter
 
 **Behavior:**
+
 - Selected category: `stellar="primary"` variant
 - Unselected categories: `stellar="primary-outline"` variant
 - Click: Updates URL with `?category={name}` query parameter
@@ -159,6 +165,7 @@ interface CategoryFilterProps {
 Displays page navigation controls.
 
 **Props:**
+
 ```typescript
 interface PaginationControlProps {
   currentPage: number;
@@ -168,11 +175,13 @@ interface PaginationControlProps {
 ```
 
 **Composition:**
+
 - Uses `Button` atom for navigation
 - Displays page numbers with ellipsis for large ranges
 - Previous/Next buttons with icons
 
 **Behavior:**
+
 - Mobile: Shows only prev/next and current page
 - Desktop: Shows page numbers with ellipsis (1 ... 5 6 7 ... 20)
 - Disabled state: First page disables prev, last page disables next
@@ -186,6 +195,7 @@ interface PaginationControlProps {
 Displays blog posts in a responsive grid layout.
 
 **Props:**
+
 ```typescript
 interface BlogGridProps {
   posts: BlogPost[];
@@ -193,11 +203,13 @@ interface BlogGridProps {
 ```
 
 **Composition:**
+
 - CSS Grid layout with responsive columns
 - Maps posts to `BlogCard` components
 - Empty state message when no posts
 
 **Behavior:**
+
 - 1 column on mobile (< 768px)
 - 2 columns on tablet (768px - 1023px)
 - 3 columns on desktop (≥ 1024px)
@@ -209,6 +221,7 @@ interface BlogGridProps {
 Displays the featured blog post in a prominent hero section.
 
 **Props:**
+
 ```typescript
 interface FeaturedPostHeroProps {
   post: BlogPost;
@@ -216,11 +229,13 @@ interface FeaturedPostHeroProps {
 ```
 
 **Composition:**
+
 - Uses `BlogCard` with `variant="featured"`
 - Full-width container with max-width constraint
 - Background gradient overlay on image
 
 **Behavior:**
+
 - Only renders if featured post exists
 - Vertical stack on mobile
 - Horizontal layout on tablet/desktop
@@ -234,6 +249,7 @@ interface FeaturedPostHeroProps {
 Composes all organisms into the complete page layout.
 
 **Props:**
+
 ```typescript
 interface BlogPageTemplateProps {
   featuredPost: BlogPost | null;
@@ -247,6 +263,7 @@ interface BlogPageTemplateProps {
 ```
 
 **Composition:**
+
 - Container with max-width and padding
 - Conditional FeaturedPostHero
 - CategoryFilter
@@ -254,6 +271,7 @@ interface BlogPageTemplateProps {
 - PaginationControl
 
 **Layout:**
+
 - Max width: 1280px
 - Horizontal padding: 1rem (mobile), 2rem (desktop)
 - Vertical spacing: 3rem between sections
@@ -367,178 +385,174 @@ export async function fetchBlogPosts(params: {
   if (params.page) searchParams.set('page', params.page.toString());
   if (params.category) searchParams.set('category', params.category);
 
-  const response = await fetch(
-    `${process.env.CMS_API_URL}/blog?${searchParams}`,
-    {
-      next: { revalidate: 300 }, // Cache for 5 minutes
-    }
-  );
+  const response = await fetch(`${process.env.CMS_API_URL}/blog?${searchParams}`, {
+    next: { revalidate: 300 }, // Cache for 5 minutes
+  });
 
   if (!response.ok) {
     throw new Error(`CMS API error: ${response.status}`);
   }
 
   const data = await response.json();
-  
+
   // Runtime validation with Zod
   const validated = BlogListResponseSchema.parse(data);
-  
+
   return validated;
 }
 ```
 
-
 ## Correctness Properties
 
-*A property is a characteristic or behavior that should hold true across all valid executions of a system—essentially, a formal statement about what the system should do. Properties serve as the bridge between human-readable specifications and machine-verifiable correctness guarantees.*
+_A property is a characteristic or behavior that should hold true across all valid executions of a system—essentially, a formal statement about what the system should do. Properties serve as the bridge between human-readable specifications and machine-verifiable correctness guarantees._
 
 ### Property 1: Blog Post Rendering Completeness
 
-*For any* blog post (standard or featured), the rendered BlogCard SHALL display all required fields: featured image, title, excerpt, publication date, and category.
+_For any_ blog post (standard or featured), the rendered BlogCard SHALL display all required fields: featured image, title, excerpt, publication date, and category.
 
 **Validates: Requirements 1.3, 4.3**
 
 ### Property 2: Category Filter Completeness
 
-*For any* set of blog posts, the CategoryFilter SHALL display all unique categories present in the dataset.
+_For any_ set of blog posts, the CategoryFilter SHALL display all unique categories present in the dataset.
 
 **Validates: Requirements 2.1**
 
 ### Property 3: Category Filtering Correctness
 
-*For any* selected category, all displayed blog posts SHALL match that category, and no posts from other categories SHALL be displayed.
+_For any_ selected category, all displayed blog posts SHALL match that category, and no posts from other categories SHALL be displayed.
 
 **Validates: Requirements 2.2**
 
 ### Property 4: Filter Clear Round-Trip
 
-*For any* blog post dataset, applying a category filter and then clearing it SHALL restore the display to show all posts from the original dataset.
+_For any_ blog post dataset, applying a category filter and then clearing it SHALL restore the display to show all posts from the original dataset.
 
 **Validates: Requirements 2.3**
 
 ### Property 5: Selected Category Visual Indication
 
-*For any* selected category in the CategoryFilter, that category button SHALL have both visual styling (stellar="primary") and ARIA attributes (aria-pressed="true") indicating selection.
+_For any_ selected category in the CategoryFilter, that category button SHALL have both visual styling (stellar="primary") and ARIA attributes (aria-pressed="true") indicating selection.
 
 **Validates: Requirements 2.4, 7.8**
 
 ### Property 6: URL State Synchronization
 
-*For any* category selection or pagination change, the URL query parameters SHALL be updated to reflect the current state, and loading a page with those query parameters SHALL restore that exact state.
+_For any_ category selection or pagination change, the URL query parameters SHALL be updated to reflect the current state, and loading a page with those query parameters SHALL restore that exact state.
 
 **Validates: Requirements 2.5, 2.6, 3.7, 3.8**
 
 ### Property 7: Pagination Activation
 
-*For any* blog post dataset with more than 12 posts, the PaginationControl SHALL be rendered and display the correct total number of pages (Math.ceil(totalPosts / 12)).
+_For any_ blog post dataset with more than 12 posts, the PaginationControl SHALL be rendered and display the correct total number of pages (Math.ceil(totalPosts / 12)).
 
 **Validates: Requirements 3.1**
 
 ### Property 8: Pagination Display Correctness
 
-*For any* pagination state, the PaginationControl SHALL display both the current page number and total number of pages.
+_For any_ pagination state, the PaginationControl SHALL display both the current page number and total number of pages.
 
 **Validates: Requirements 3.2**
 
 ### Property 9: Page Navigation Correctness
 
-*For any* page number selection, the BlogGrid SHALL display exactly the posts corresponding to that page (posts[(page-1)*12] through posts[page*12-1]).
+_For any_ page number selection, the BlogGrid SHALL display exactly the posts corresponding to that page (posts[(page-1)*12] through posts[page*12-1]).
 
 **Validates: Requirements 3.3**
 
 ### Property 10: Pagination Scroll Behavior
 
-*For any* page navigation action, the window SHALL scroll to the top of the BlogGrid component.
+_For any_ page navigation action, the window SHALL scroll to the top of the BlogGrid component.
 
 **Validates: Requirements 3.4**
 
 ### Property 11: Featured Post Identification
 
-*For any* blog post dataset containing a post with isFeatured=true, the Blog_System SHALL identify and display that post in the FeaturedPostHero component.
+_For any_ blog post dataset containing a post with isFeatured=true, the Blog_System SHALL identify and display that post in the FeaturedPostHero component.
 
 **Validates: Requirements 4.1, 4.2**
 
 ### Property 12: Featured Post Navigation
 
-*For any* featured post, clicking it SHALL navigate to the full blog post page at `/blog/{slug}`.
+_For any_ featured post, clicking it SHALL navigate to the full blog post page at `/blog/{slug}`.
 
 **Validates: Requirements 4.6**
 
 ### Property 13: SEO Meta Tag Completeness
 
-*For any* blog post page, the rendered HTML SHALL include all required meta tags: title, description, Open Graph tags (og:title, og:description, og:image), Twitter Card tags, canonical URL, and JSON-LD structured data with BlogPosting schema.
+_For any_ blog post page, the rendered HTML SHALL include all required meta tags: title, description, Open Graph tags (og:title, og:description, og:image), Twitter Card tags, canonical URL, and JSON-LD structured data with BlogPosting schema.
 
 **Validates: Requirements 5.2, 5.3, 5.5, 5.6**
 
 ### Property 14: Semantic Heading Hierarchy
 
-*For any* rendered blog page, the heading elements SHALL follow proper hierarchy without skipping levels (h1 → h2 → h3, never h1 → h3).
+_For any_ rendered blog page, the heading elements SHALL follow proper hierarchy without skipping levels (h1 → h2 → h3, never h1 → h3).
 
 **Validates: Requirements 5.4**
 
 ### Property 15: Image Alt Text Presence
 
-*For any* rendered blog post image, the img element SHALL have a non-empty alt attribute.
+_For any_ rendered blog post image, the img element SHALL have a non-empty alt attribute.
 
 **Validates: Requirements 5.5**
 
 ### Property 16: Responsive Grid Layout
 
-*For any* viewport width, the BlogGrid SHALL display the correct number of columns: 1 column for width < 768px, 2 columns for 768px ≤ width < 1024px, and 3 columns for width ≥ 1024px.
+_For any_ viewport width, the BlogGrid SHALL display the correct number of columns: 1 column for width < 768px, 2 columns for 768px ≤ width < 1024px, and 3 columns for width ≥ 1024px.
 
 **Validates: Requirements 1.6, 6.1, 6.2, 6.3**
 
 ### Property 17: Touch Target Size Compliance
 
-*For any* interactive element on mobile viewports (< 768px), the element SHALL have minimum dimensions of 44x44 pixels to meet touch target accessibility requirements.
+_For any_ interactive element on mobile viewports (< 768px), the element SHALL have minimum dimensions of 44x44 pixels to meet touch target accessibility requirements.
 
 **Validates: Requirements 6.7**
 
 ### Property 18: Keyboard Navigation Completeness
 
-*For any* interactive element (CategoryFilter buttons, PaginationControl buttons, BlogCards), the element SHALL be keyboard accessible (focusable and activatable via Enter/Space keys).
+_For any_ interactive element (CategoryFilter buttons, PaginationControl buttons, BlogCards), the element SHALL be keyboard accessible (focusable and activatable via Enter/Space keys).
 
 **Validates: Requirements 7.2**
 
 ### Property 19: Logical Focus Order
 
-*For any* blog page, the tab order of interactive elements SHALL match the visual reading order (top to bottom, left to right).
+_For any_ blog page, the tab order of interactive elements SHALL match the visual reading order (top to bottom, left to right).
 
 **Validates: Requirements 7.3**
 
 ### Property 20: ARIA Label Presence
 
-*For any* interactive control without visible text (icon buttons, image links), the element SHALL have an accessible name via aria-label, aria-labelledby, or alt text.
+_For any_ interactive control without visible text (icon buttons, image links), the element SHALL have an accessible name via aria-label, aria-labelledby, or alt text.
 
 **Validates: Requirements 7.4**
 
 ### Property 21: Color Contrast Compliance
 
-*For any* text element, the color contrast ratio between text and background SHALL meet WCAG 2.1 AA requirements: minimum 4.5:1 for normal text, 3:1 for large text (18pt+ or 14pt+ bold).
+_For any_ text element, the color contrast ratio between text and background SHALL meet WCAG 2.1 AA requirements: minimum 4.5:1 for normal text, 3:1 for large text (18pt+ or 14pt+ bold).
 
 **Validates: Requirements 7.5**
 
 ### Property 22: Dynamic Content Announcement
 
-*For any* dynamic content change (pagination, filtering), the updated content region SHALL be marked with aria-live="polite" to announce changes to screen readers.
+_For any_ dynamic content change (pagination, filtering), the updated content region SHALL be marked with aria-live="polite" to announce changes to screen readers.
 
 **Validates: Requirements 7.6**
 
 ### Property 23: API Error Handling
 
-*For any* CMS API error response (network error, 4xx, 5xx), the Blog_System SHALL display a user-friendly error message, log the error to console, and provide a retry mechanism.
+_For any_ CMS API error response (network error, 4xx, 5xx), the Blog_System SHALL display a user-friendly error message, log the error to console, and provide a retry mechanism.
 
 **Validates: Requirements 1.4, 10.2, 10.6**
 
 ### Property 24: Type Validation Error Handling
 
-*For any* CMS API response that fails Zod schema validation, the Blog_System SHALL catch the validation error, display an error boundary, and log the validation failure details.
+_For any_ CMS API response that fails Zod schema validation, the Blog_System SHALL catch the validation error, display an error boundary, and log the validation failure details.
 
 **Validates: Requirements 8.6**
 
 ### Property 25: Responsive Grid Layout
 
-*For any* viewport width, the BlogGrid SHALL display the correct number of columns: 1 column for width < 768px, 2 columns for 768px ≤ width < 1024px, and 3 columns for width ≥ 1024px.
+_For any_ viewport width, the BlogGrid SHALL display the correct number of columns: 1 column for width < 768px, 2 columns for 768px ≤ width < 1024px, and 3 columns for width ≥ 1024px.
 
 **Validates: Requirements 1.6**
 
@@ -653,6 +667,7 @@ The blog feature uses both unit tests and property-based tests to ensure compreh
 We'll use **fast-check** (JavaScript/TypeScript property-based testing library) to implement the correctness properties defined above.
 
 **Configuration:**
+
 - Minimum 100 iterations per property test
 - Each test references its design document property via comment tag
 - Tag format: `// Feature: blog-feature, Property {number}: {property_text}`
@@ -671,7 +686,7 @@ test('BlogCard displays all required fields for any blog post', () => {
       blogPostArbitrary(), // Generator for random BlogPost objects
       (post) => {
         render(<BlogCard post={post} />);
-        
+
         // All required fields must be present
         expect(screen.getByRole('img')).toBeInTheDocument();
         expect(screen.getByText(post.title)).toBeInTheDocument();
@@ -698,8 +713,8 @@ export const blogPostArbitrary = () =>
     title: fc.string({ minLength: 10, maxLength: 100 }),
     excerpt: fc.string({ minLength: 50, maxLength: 200 }),
     content: fc.lorem({ maxCount: 500 }),
-    publishedAt: fc.date().map(d => d.toISOString()),
-    updatedAt: fc.date().map(d => d.toISOString()),
+    publishedAt: fc.date().map((d) => d.toISOString()),
+    updatedAt: fc.date().map((d) => d.toISOString()),
     category: fc.constantFrom('carbon-credits', 'sustainable-farming', 'climate-tech', 'policy'),
     featuredImage: fc.record({
       url: fc.webUrl(),
@@ -725,11 +740,13 @@ export const blogPostArbitrary = () =>
 Unit tests focus on specific examples and edge cases:
 
 **Examples:**
+
 - Page loads and fetches blog posts (Requirement 1.1)
 - Loading state displays skeleton loaders (Requirement 10.1)
 - Blog listing page has correct meta tags (Requirement 5.1)
 
 **Edge Cases:**
+
 - No featured post exists (Requirement 4.4)
 - Zero blog posts returned (Requirement 10.3)
 - Category filter returns zero results (Requirement 10.4)
@@ -755,7 +772,7 @@ test('does not render hero section when no featured post exists', () => {
       postCounts={{ 'carbon-credits': 5 }}
     />
   );
-  
+
   expect(screen.queryByTestId('featured-post-hero')).not.toBeInTheDocument();
 });
 ```
@@ -771,19 +788,19 @@ import BlogPage from '@/app/blog/page';
 
 test('category filtering updates URL and displays filtered posts', async () => {
   const user = userEvent.setup();
-  
+
   render(<BlogPage searchParams={{}} />);
-  
+
   await waitFor(() => {
     expect(screen.getByText('All Posts')).toBeInTheDocument();
   });
-  
+
   // Click category filter
   await user.click(screen.getByRole('button', { name: 'Carbon Credits' }));
-  
+
   // URL should update
   expect(window.location.search).toContain('category=carbon-credits');
-  
+
   // Only matching posts should display
   const cards = screen.getAllByTestId('blog-card');
   cards.forEach(card => {
@@ -807,7 +824,7 @@ test('blog page has no accessibility violations', async () => {
   const { container } = render(
     <BlogPageTemplate {...mockProps} />
   );
-  
+
   const results = await axe(container);
   expect(results).toHaveNoViolations();
 });
@@ -822,15 +839,15 @@ import { test, expect } from '@playwright/test';
 
 test('blog grid displays correct columns at different viewports', async ({ page }) => {
   await page.goto('/blog');
-  
+
   // Mobile
   await page.setViewportSize({ width: 375, height: 667 });
   await expect(page.locator('.blog-grid')).toHaveCSS('grid-template-columns', '1fr');
-  
+
   // Tablet
   await page.setViewportSize({ width: 768, height: 1024 });
   await expect(page.locator('.blog-grid')).toHaveCSS('grid-template-columns', 'repeat(2, 1fr)');
-  
+
   // Desktop
   await page.setViewportSize({ width: 1280, height: 800 });
   await expect(page.locator('.blog-grid')).toHaveCSS('grid-template-columns', 'repeat(3, 1fr)');
@@ -853,16 +870,16 @@ All tests run on every pull request:
 # .github/workflows/test.yml
 - name: Run unit tests
   run: pnpm test
-  
+
 - name: Run property tests
   run: pnpm test:property
-  
+
 - name: Run integration tests
   run: pnpm test:integration
-  
+
 - name: Run accessibility tests
   run: pnpm test:a11y
-  
+
 - name: Run visual regression tests
   run: pnpm test:visual
 ```

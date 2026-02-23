@@ -9,6 +9,7 @@ Both features are complete, all errors fixed, and ready for PR submission.
 ## 🚀 Create Your PRs (2 Minutes)
 
 ### PR #1: Animated Counter (Issue #68)
+
 **Click:** https://github.com/utilityjnr/stellar-app-os/pull/new/feat/issue-68-stat-counters
 
 **Title:** `feat(atoms): add animated stat counters with scroll trigger`
@@ -18,6 +19,7 @@ Both features are complete, all errors fixed, and ready for PR submission.
 ---
 
 ### PR #2: Progressive Web App
+
 **Click:** https://github.com/utilityjnr/stellar-app-os/pull/new/feat/pwa-implementation
 
 **Title:** `feat(pwa): add progressive web app support with offline functionality`
@@ -41,10 +43,10 @@ All CI/CD errors resolved professionally:
 
 ## 📊 Status
 
-| Feature | Branch | Lint | Build | TypeScript | Status |
-|---------|--------|------|-------|------------|--------|
-| Counter | feat/issue-68-stat-counters | ✅ | ✅ | ✅ | READY |
-| PWA | feat/pwa-implementation | ✅ | ✅ | ✅ | READY |
+| Feature | Branch                      | Lint | Build | TypeScript | Status |
+| ------- | --------------------------- | ---- | ----- | ---------- | ------ |
+| Counter | feat/issue-68-stat-counters | ✅   | ✅    | ✅         | READY  |
+| PWA     | feat/pwa-implementation     | ✅   | ✅    | ✅         | READY  |
 
 ---
 
@@ -60,6 +62,7 @@ All CI/CD errors resolved professionally:
 ## 🎯 What You Get
 
 ### Counter Feature
+
 - Scroll-triggered animations
 - Number formatting (1,234,567)
 - Smooth easing
@@ -67,6 +70,7 @@ All CI/CD errors resolved professionally:
 - Responsive design
 
 ### PWA Feature
+
 - Installable on all devices
 - Works offline
 - Service worker caching

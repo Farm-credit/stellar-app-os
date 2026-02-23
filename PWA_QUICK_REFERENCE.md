@@ -33,6 +33,7 @@ npm run lint
 ## Testing
 
 ### Quick Test
+
 ```bash
 # 1. Build
 npm run build
@@ -46,6 +47,7 @@ npm start
 ```
 
 ### Offline Test
+
 ```bash
 # In DevTools:
 # Application → Service Workers → Check "Offline"
@@ -53,6 +55,7 @@ npm start
 ```
 
 ### Lighthouse Audit
+
 ```bash
 # In DevTools:
 # Lighthouse → Select "Progressive Web App" → Generate report
@@ -79,12 +82,14 @@ Documentation:
 ## Common Tasks
 
 ### Update Service Worker
+
 ```javascript
 // In public/sw.js, increment version:
 const CACHE_NAME = 'farmcredit-v2'; // Change v1 → v2
 ```
 
 ### Add Route to Precache
+
 ```javascript
 // In public/sw.js:
 const PRECACHE_ASSETS = [
@@ -98,12 +103,14 @@ const PRECACHE_ASSETS = [
 ```
 
 ### Customize Install Prompt
+
 ```typescript
 // Edit components/atoms/InstallPrompt.tsx
 // Change text, styling, or dismissal logic
 ```
 
 ### Enable Push Notifications
+
 ```bash
 # 1. Generate keys
 npx web-push generate-vapid-keys
@@ -120,6 +127,7 @@ await requestNotificationPermission();
 ## Troubleshooting
 
 ### Service Worker Not Registering
+
 ```bash
 # Check:
 1. Using HTTPS or localhost? ✓
@@ -129,6 +137,7 @@ await requestNotificationPermission();
 ```
 
 ### Install Prompt Not Showing
+
 ```bash
 # Check:
 1. Run Lighthouse audit - all PWA criteria met?
@@ -138,6 +147,7 @@ await requestNotificationPermission();
 ```
 
 ### Offline Not Working
+
 ```bash
 # Check:
 1. Service worker active? DevTools → Application
@@ -147,6 +157,7 @@ await requestNotificationPermission();
 ```
 
 ### Icons Not Loading
+
 ```bash
 # Fix:
 1. Run: npm run generate-icons
@@ -177,6 +188,7 @@ DevTools → Lighthouse → Generate report
 ## API Reference
 
 ### Service Worker Registration
+
 ```typescript
 import { registerServiceWorker } from '@/lib/pwa';
 
@@ -185,6 +197,7 @@ registerServiceWorker();
 ```
 
 ### Network Status
+
 ```typescript
 import { subscribeToNetworkStatus } from '@/lib/pwa';
 
@@ -197,11 +210,12 @@ unsubscribe();
 ```
 
 ### Notifications
+
 ```typescript
-import { 
+import {
   requestNotificationPermission,
   subscribeToPushNotifications,
-  showNotification 
+  showNotification,
 } from '@/lib/notifications';
 
 // Request permission
@@ -231,8 +245,8 @@ VAPID_PRIVATE_KEY=your_private_key_here
 
 ```javascript
 // Current caches:
-'farmcredit-v1'          // Precached assets
-'farmcredit-runtime-v1'  // Runtime cached assets
+'farmcredit-v1'; // Precached assets
+'farmcredit-runtime-v1'; // Runtime cached assets
 ```
 
 ## Useful Commands
@@ -276,6 +290,7 @@ DevTools → Application → Clear storage
 ## Deployment
 
 ### Vercel
+
 ```bash
 # 1. Push to GitHub
 git push origin feat/issue-66-pwa
@@ -286,6 +301,7 @@ git push origin feat/issue-66-pwa
 ```
 
 ### Other Platforms
+
 ```
 Requirements:
 ✓ HTTPS enabled
@@ -337,16 +353,16 @@ Issues:
 
 ## Cheat Sheet
 
-| Task | Command |
-|------|---------|
-| Install deps | `npm install` |
-| Generate icons | `npm run generate-icons` |
-| Build | `npm run build` |
-| Start | `npm start` |
-| Lint | `npm run lint` |
-| Test offline | DevTools → Offline |
-| Audit | DevTools → Lighthouse |
-| Clear cache | Ctrl+Shift+R |
+| Task           | Command                            |
+| -------------- | ---------------------------------- |
+| Install deps   | `npm install`                      |
+| Generate icons | `npm run generate-icons`           |
+| Build          | `npm run build`                    |
+| Start          | `npm start`                        |
+| Lint           | `npm run lint`                     |
+| Test offline   | DevTools → Offline                 |
+| Audit          | DevTools → Lighthouse              |
+| Clear cache    | Ctrl+Shift+R                       |
 | Generate VAPID | `npx web-push generate-vapid-keys` |
 
 ---

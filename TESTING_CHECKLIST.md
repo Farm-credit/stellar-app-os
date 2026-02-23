@@ -13,12 +13,14 @@ Complete checklist for testing the FarmCredit PWA implementation.
 ## Service Worker Tests
 
 ### Registration
+
 - [ ] Service worker registers on page load
 - [ ] Service worker appears in DevTools → Application → Service Workers
 - [ ] Service worker status shows "activated and running"
 - [ ] No errors in console during registration
 
 ### Caching
+
 - [ ] Precached assets appear in Cache Storage
 - [ ] Cache named "farmcredit-v1" exists
 - [ ] Runtime cache "farmcredit-runtime-v1" created on first navigation
@@ -26,6 +28,7 @@ Complete checklist for testing the FarmCredit PWA implementation.
 - [ ] API responses cached after first request
 
 ### Updates
+
 - [ ] Service worker updates when sw.js changes
 - [ ] Update prompt appears when new version available
 - [ ] Page reloads correctly after update
@@ -33,6 +36,7 @@ Complete checklist for testing the FarmCredit PWA implementation.
 ## Manifest Tests
 
 ### Metadata
+
 - [ ] Manifest loads without errors (DevTools → Application → Manifest)
 - [ ] Name: "FarmCredit - Decentralized Agricultural Credit"
 - [ ] Short name: "FarmCredit"
@@ -43,12 +47,14 @@ Complete checklist for testing the FarmCredit PWA implementation.
 - [ ] Background color: "#0D0B21"
 
 ### Icons
+
 - [ ] All 8 icon sizes present (72, 96, 128, 144, 152, 192, 384, 512)
 - [ ] Icons load without 404 errors
 - [ ] Icons display correctly in manifest preview
 - [ ] Icons are properly sized and not distorted
 
 ### Additional Features
+
 - [ ] Shortcuts defined correctly
 - [ ] Categories set appropriately
 - [ ] Screenshots configured (if added)
@@ -56,6 +62,7 @@ Complete checklist for testing the FarmCredit PWA implementation.
 ## Offline Functionality Tests
 
 ### Basic Offline
+
 - [ ] Enable offline mode in DevTools
 - [ ] Homepage loads from cache
 - [ ] Navigation works for cached pages
@@ -63,6 +70,7 @@ Complete checklist for testing the FarmCredit PWA implementation.
 - [ ] No network errors for cached resources
 
 ### Offline Fallback
+
 - [ ] Navigate to uncached route while offline
 - [ ] Offline page displays correctly
 - [ ] "Try Again" button works
@@ -70,6 +78,7 @@ Complete checklist for testing the FarmCredit PWA implementation.
 - [ ] Offline page is styled correctly
 
 ### API Caching
+
 - [ ] API calls work online
 - [ ] API responses cached after first call
 - [ ] Cached API responses served when offline
@@ -78,6 +87,7 @@ Complete checklist for testing the FarmCredit PWA implementation.
 ## Install Prompt Tests
 
 ### Display
+
 - [ ] Install prompt appears on first visit
 - [ ] Prompt displays at bottom of screen
 - [ ] Prompt is responsive on mobile viewport
@@ -85,6 +95,7 @@ Complete checklist for testing the FarmCredit PWA implementation.
 - [ ] Icon displays in prompt
 
 ### Interaction
+
 - [ ] "Install" button works
 - [ ] App installs successfully
 - [ ] "Not Now" button dismisses prompt
@@ -93,6 +104,7 @@ Complete checklist for testing the FarmCredit PWA implementation.
 - [ ] Prompt doesn't appear if already installed
 
 ### Installation
+
 - [ ] App installs to home screen/app drawer
 - [ ] App icon displays correctly
 - [ ] App name displays correctly
@@ -102,6 +114,7 @@ Complete checklist for testing the FarmCredit PWA implementation.
 ## Network Status Tests
 
 ### Online/Offline Detection
+
 - [ ] Status badge appears when going offline
 - [ ] Badge shows "Offline Mode"
 - [ ] Badge styled with destructive variant (red)
@@ -110,11 +123,13 @@ Complete checklist for testing the FarmCredit PWA implementation.
 - [ ] Badge styled with success variant (green)
 
 ### Auto-Hide
+
 - [ ] Badge auto-hides after 5 seconds
 - [ ] Animation is smooth
 - [ ] No console errors during hide
 
 ### Accessibility
+
 - [ ] Status announced to screen readers
 - [ ] Badge has proper ARIA attributes
 - [ ] Color contrast meets WCAG AA
@@ -122,6 +137,7 @@ Complete checklist for testing the FarmCredit PWA implementation.
 ## Responsive Design Tests
 
 ### Mobile (< 640px)
+
 - [ ] Install prompt full width
 - [ ] Offline page centered and readable
 - [ ] Network status badge positioned correctly
@@ -129,11 +145,13 @@ Complete checklist for testing the FarmCredit PWA implementation.
 - [ ] No horizontal scrolling
 
 ### Tablet (640px - 1024px)
+
 - [ ] Install prompt max-width applied
 - [ ] Layout adjusts appropriately
 - [ ] All interactive elements accessible
 
 ### Desktop (> 1024px)
+
 - [ ] Install prompt positioned bottom-right
 - [ ] Max-width constraints applied
 - [ ] Layout optimized for large screens
@@ -141,6 +159,7 @@ Complete checklist for testing the FarmCredit PWA implementation.
 ## Accessibility Tests (WCAG 2.1 AA)
 
 ### Keyboard Navigation
+
 - [ ] Tab through install prompt
 - [ ] Focus indicators visible
 - [ ] Enter/Space activates buttons
@@ -148,6 +167,7 @@ Complete checklist for testing the FarmCredit PWA implementation.
 - [ ] Tab order logical
 
 ### Screen Reader
+
 - [ ] All text announced correctly
 - [ ] Button roles announced
 - [ ] Status changes announced (aria-live)
@@ -155,6 +175,7 @@ Complete checklist for testing the FarmCredit PWA implementation.
 - [ ] Semantic HTML used throughout
 
 ### Color Contrast
+
 - [ ] Text meets 4.5:1 ratio (normal text)
 - [ ] Large text meets 3:1 ratio
 - [ ] Interactive elements distinguishable
@@ -162,6 +183,7 @@ Complete checklist for testing the FarmCredit PWA implementation.
 - [ ] No color-only information
 
 ### Other
+
 - [ ] Images have alt text
 - [ ] Form inputs have labels
 - [ ] Headings in logical order
@@ -171,6 +193,7 @@ Complete checklist for testing the FarmCredit PWA implementation.
 ## Performance Tests
 
 ### Lighthouse Audit
+
 - [ ] Performance score: 90+
 - [ ] Accessibility score: 100
 - [ ] Best Practices score: 100
@@ -178,6 +201,7 @@ Complete checklist for testing the FarmCredit PWA implementation.
 - [ ] PWA score: 100
 
 ### PWA Checklist (Lighthouse)
+
 - [ ] Installable
 - [ ] PWA optimized
 - [ ] Works offline
@@ -188,6 +212,7 @@ Complete checklist for testing the FarmCredit PWA implementation.
 - [ ] Provides valid apple-touch-icon
 
 ### Load Times
+
 - [ ] First load < 3 seconds
 - [ ] Cached load < 1 second
 - [ ] Offline load instant
@@ -196,6 +221,7 @@ Complete checklist for testing the FarmCredit PWA implementation.
 ## TypeScript Tests
 
 ### Type Safety
+
 - [ ] No `any` types used
 - [ ] All functions have return types
 - [ ] All parameters have types
@@ -203,6 +229,7 @@ Complete checklist for testing the FarmCredit PWA implementation.
 - [ ] No TypeScript errors in build
 
 ### Build
+
 - [ ] `npm run build` succeeds
 - [ ] No type errors
 - [ ] No unused variables
@@ -218,6 +245,7 @@ Complete checklist for testing the FarmCredit PWA implementation.
 ## Browser Compatibility Tests
 
 ### Chrome (Desktop)
+
 - [ ] Service worker registers
 - [ ] Install prompt appears
 - [ ] App installs correctly
@@ -225,6 +253,7 @@ Complete checklist for testing the FarmCredit PWA implementation.
 - [ ] Push notifications work (if enabled)
 
 ### Chrome (Android)
+
 - [ ] Service worker registers
 - [ ] Install prompt appears
 - [ ] App installs to home screen
@@ -233,6 +262,7 @@ Complete checklist for testing the FarmCredit PWA implementation.
 - [ ] Push notifications work (if enabled)
 
 ### Safari (iOS)
+
 - [ ] Service worker registers
 - [ ] Add to Home Screen works
 - [ ] App installs to home screen
@@ -241,17 +271,20 @@ Complete checklist for testing the FarmCredit PWA implementation.
 - [ ] Apple touch icon displays
 
 ### Safari (macOS)
+
 - [ ] Service worker registers
 - [ ] Install works
 - [ ] Offline mode works
 
 ### Edge
+
 - [ ] Service worker registers
 - [ ] Install prompt appears
 - [ ] App installs correctly
 - [ ] Offline mode works
 
 ### Firefox
+
 - [ ] Service worker registers
 - [ ] Install works
 - [ ] Offline mode works
@@ -259,16 +292,19 @@ Complete checklist for testing the FarmCredit PWA implementation.
 ## Push Notifications Tests (Optional)
 
 ### Permission
+
 - [ ] Permission request appears
 - [ ] Permission stored correctly
 - [ ] Denied permission handled gracefully
 
 ### Subscription
+
 - [ ] Subscription created successfully
 - [ ] Subscription object valid
 - [ ] Subscription persists across sessions
 
 ### Notifications
+
 - [ ] Notifications display correctly
 - [ ] Icon displays in notification
 - [ ] Badge displays in notification
@@ -278,16 +314,19 @@ Complete checklist for testing the FarmCredit PWA implementation.
 ## Security Tests
 
 ### HTTPS
+
 - [ ] App served over HTTPS (production)
 - [ ] Service worker only registers on HTTPS
 - [ ] No mixed content warnings
 
 ### Permissions
+
 - [ ] Notification permission requested appropriately
 - [ ] Permissions can be revoked
 - [ ] App handles denied permissions
 
 ### Data
+
 - [ ] No sensitive data in cache
 - [ ] Cache can be cleared
 - [ ] No data leaks in console
@@ -295,17 +334,20 @@ Complete checklist for testing the FarmCredit PWA implementation.
 ## Edge Cases
 
 ### Network
+
 - [ ] Slow 3G connection handled
 - [ ] Intermittent connection handled
 - [ ] Connection timeout handled
 - [ ] Failed requests handled gracefully
 
 ### Storage
+
 - [ ] Cache quota exceeded handled
 - [ ] Storage cleared by user handled
 - [ ] Multiple tabs handled correctly
 
 ### Updates
+
 - [ ] Service worker update handled
 - [ ] Cache version update handled
 - [ ] Manifest update handled
@@ -336,8 +378,8 @@ Use this space to document any issues found during testing:
 
 ## Sign-Off
 
-- [ ] Tested by: _______________
-- [ ] Date: _______________
+- [ ] Tested by: **\*\***\_\_\_**\*\***
+- [ ] Date: **\*\***\_\_\_**\*\***
 - [ ] All critical tests passed
 - [ ] All blockers resolved
 - [ ] Ready for production

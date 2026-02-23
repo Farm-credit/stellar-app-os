@@ -7,6 +7,7 @@ This directory contains the Progressive Web App icons for FarmCredit.
 1. Place a source icon (minimum 512x512px) at `public/icon-source.png` or use the provided `icon-source.svg`
 
 2. Install sharp (if not already installed):
+
    ```bash
    npm install sharp
    ```
@@ -17,6 +18,7 @@ This directory contains the Progressive Web App icons for FarmCredit.
    ```
 
 This will generate all required icon sizes:
+
 - 72x72
 - 96x96
 - 128x128
@@ -55,6 +57,7 @@ After generating icons:
 ## Maskable Icons
 
 The current icons are set as `"purpose": "maskable any"` in the manifest, which means they work both as:
+
 - Regular icons (displayed as-is)
 - Maskable icons (can be cropped to different shapes by the OS)
 

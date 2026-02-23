@@ -9,6 +9,7 @@ This PR implements comprehensive Progressive Web App (PWA) support for FarmCredi
 ## What Was Implemented
 
 ### Core PWA Features
+
 - ✅ Service worker with intelligent caching strategies
 - ✅ Web app manifest with complete metadata
 - ✅ Offline fallback page with user-friendly UI
@@ -18,12 +19,14 @@ This PR implements comprehensive Progressive Web App (PWA) support for FarmCredi
 - ✅ Push notification infrastructure (optional setup)
 
 ### Caching Strategies
+
 - **Precache**: Essential assets (`/`, `/offline`, manifest, icons)
 - **Cache First**: Static assets (JS, CSS, images, fonts)
 - **Network First**: API calls with cache fallback
 - **Offline Fallback**: Custom offline page for uncached navigation
 
 ### Components Created
+
 1. **InstallPrompt** (`components/atoms/InstallPrompt.tsx`)
    - Native install prompt with Stellar branding
    - Dismissal logic (7-day cooldown)
@@ -46,22 +49,26 @@ This PR implements comprehensive Progressive Web App (PWA) support for FarmCredi
    - Stellar-branded design
 
 ### Utilities
+
 - **lib/pwa.ts**: Service worker registration, network status monitoring
 - **lib/notifications.ts**: Push notification subscription and management
 - **scripts/generate-icons.js**: Automated icon generation from source
 
 ### Configuration Updates
+
 - **next.config.ts**: Added PWA-specific headers for service worker and manifest
 - **app/layout.tsx**: Added PWA metadata, viewport config, and apple-touch-icon support
 - **package.json**: Added icon generation script
 
 ### Documentation
+
 - **PWA_SETUP.md**: Comprehensive setup, testing, and deployment guide
 - Includes troubleshooting, browser support matrix, and maintenance instructions
 
 ## Implementation Details
 
 ### Service Worker Architecture
+
 The service worker (`public/sw.js`) implements a sophisticated caching strategy:
 
 ```javascript
@@ -70,17 +77,20 @@ PRECACHE_ASSETS = ['/', '/offline', '/manifest.json', icons]
 
 // Cache strategies by resource type:
 - API calls: Network first → Cache fallback
-- Static assets: Cache first → Network fallback  
+- Static assets: Cache first → Network fallback
 - Pages: Network first → Cache fallback → Offline page
 ```
 
 ### Install Prompt Logic
+
 The install prompt appears when:
+
 1. PWA criteria are met (manifest, service worker, HTTPS)
 2. User hasn't dismissed it in the last 7 days
 3. App isn't already installed
 
 ### Accessibility Compliance (WCAG 2.1 AA)
+
 - Semantic HTML throughout
 - Proper ARIA labels (`aria-live`, `aria-atomic`)
 - Keyboard navigation support
@@ -89,12 +99,14 @@ The install prompt appears when:
 - Screen reader announcements for status changes
 
 ### TypeScript Strict Mode
+
 - Zero `any` types used
 - Proper type definitions for all functions and components
 - Service worker types via `@types/serviceworker`
 - Event handler types properly defined
 
 ### Responsive Design
+
 - Mobile-first approach
 - Breakpoints: mobile (default), tablet (sm:), desktop (md:)
 - Touch-friendly tap targets (minimum 44x44px)
@@ -103,6 +115,7 @@ The install prompt appears when:
 ## How to Test
 
 ### Prerequisites
+
 ```bash
 # Install dependencies
 npm install next-pwa @ducanh2912/next-pwa workbox-window
@@ -193,11 +206,13 @@ npm start
 ### Push Notifications (Optional)
 
 1. Generate VAPID keys:
+
    ```bash
    npx web-push generate-vapid-keys
    ```
 
 2. Add to `.env.local`:
+
    ```env
    NEXT_PUBLIC_VAPID_PUBLIC_KEY=your_public_key
    VAPID_PRIVATE_KEY=your_private_key
@@ -214,6 +229,7 @@ npm start
 [ATTACH SCREEN RECORDING HERE]
 
 The recording should demonstrate:
+
 1. Service worker registration in DevTools
 2. Install prompt appearing and installation process
 3. App launching in standalone mode
@@ -224,11 +240,11 @@ The recording should demonstrate:
 
 ## Browser Support
 
-| Feature | Chrome | Safari | Edge | Firefox |
-|---------|--------|--------|------|---------|
-| Install | ✅ | ✅ | ✅ | ✅ |
-| Offline | ✅ | ✅ | ✅ | ✅ |
-| Push Notifications | ✅ | ❌ | ✅ | ✅ |
+| Feature            | Chrome | Safari | Edge | Firefox |
+| ------------------ | ------ | ------ | ---- | ------- |
+| Install            | ✅     | ✅     | ✅   | ✅      |
+| Offline            | ✅     | ✅     | ✅   | ✅      |
+| Push Notifications | ✅     | ❌     | ✅   | ✅      |
 
 ## Performance Impact
 
@@ -293,6 +309,7 @@ No migration needed. The PWA features are automatically enabled for all users.
 ## Files Changed
 
 ### New Files
+
 - `lib/pwa.ts` - Service worker utilities
 - `lib/notifications.ts` - Push notification utilities
 - `components/atoms/InstallPrompt.tsx` - Install prompt component
@@ -308,6 +325,7 @@ No migration needed. The PWA features are automatically enabled for all users.
 - `public/screenshots/.gitkeep` - Screenshots directory
 
 ### Modified Files
+
 - `app/layout.tsx` - Added PWA metadata and provider
 - `next.config.ts` - Added PWA headers
 - `package.json` - Added icon generation script
@@ -315,6 +333,7 @@ No migration needed. The PWA features are automatically enabled for all users.
 ## Post-Merge Tasks
 
 1. Generate icons:
+
    ```bash
    # Add icon-source.png (512x512) to public/
    npm run generate-icons
@@ -325,6 +344,7 @@ No migration needed. The PWA features are automatically enabled for all users.
    - `public/screenshots/mobile-1.png` (750x1334)
 
 3. Set up push notifications (optional):
+
    ```bash
    npx web-push generate-vapid-keys
    # Add keys to .env.local

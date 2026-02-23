@@ -46,17 +46,14 @@ export default async function BlogPage({ searchParams }: BlogPageProps) {
   });
 
   // Derive featured post: first post marked isFeatured, or null
-  const featuredPost: BlogPost | null =
-    data.posts.find((post) => post.isFeatured) ?? null;
+  const featuredPost: BlogPost | null = data.posts.find((post) => post.isFeatured) ?? null;
 
   // Derive per-category post counts from the categories array
   // The API returns all categories; we compute counts from the current page's posts
   // (in a real API these would come from the server, but we derive them client-side here)
   const postCounts: Record<string, number> = {};
   for (const category of data.categories) {
-    postCounts[category] = data.posts.filter(
-      (post) => post.category === category
-    ).length;
+    postCounts[category] = data.posts.filter((post) => post.category === category).length;
   }
 
   return (
