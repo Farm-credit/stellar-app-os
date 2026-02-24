@@ -4,20 +4,7 @@ import { Header } from '@/components/organisms/Header/Header';
 import { Footer } from '@/components/organisms/Footer/Footer';
 import './globals.css';
 import { WalletProviderWrapper } from '@/components/providers/WalletProviderWrapper';
-import { ToastProvider } from '@/components/providers/ToastProvider';
-import type { Metadata, Viewport } from "next";
-import { Inter } from "next/font/google";
-import { Header } from "@/components/organisms/Header/Header";
-import { Footer } from "@/components/organisms/Footer/Footer";
-import "./globals.css";
-import { WalletProviderWrapper } from "@/components/providers/WalletProviderWrapper";
-import './globals.css';
-
-
-
-import { ToastProvider } from "@/components/ui/toast/toast-provider";
-
-
+import { ToastProvider } from '@/components/ui/toast/toast-provider';
 
 const inter = Inter({
   variable: '--font-inter',
@@ -71,13 +58,13 @@ export default function RootLayout({
         <meta name="mobile-web-app-capable" content="yes" />
       </head>
       <body className={`${inter.variable} font-sans antialiased`}>
-       <ToastProvider>
-        <WalletProviderWrapper>
-          <Header />
-          {children}
-          <Footer />
-        </WalletProviderWrapper>
-          </ToastProvider>
+        <ToastProvider>
+          <WalletProviderWrapper>
+            <Header />
+            {children}
+            <Footer />
+          </WalletProviderWrapper>
+        </ToastProvider>
       </body>
     </html>
   );
