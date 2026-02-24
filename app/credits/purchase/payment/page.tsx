@@ -2,7 +2,7 @@
 
 import { Suspense, useState, useEffect, useMemo } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
-import { PaymentMintingStep } from '@/components/organisms/PaymentMintingStep/PaymentMintingStep';
+import { PaymentMintingStep } from '@/components/organisms/PaymentMintingStep';
 import { ProgressStepper } from '@/components/molecules/ProgressStepper/ProgressStepper';
 import { Text } from '@/components/atoms/Text';
 import { useWalletContext } from '@/contexts/WalletContext';
