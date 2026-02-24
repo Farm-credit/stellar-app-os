@@ -13,12 +13,6 @@ import { cn } from '@/lib/utils';
 export interface SearchBarProps {
   /** Initial value for the search input */
   initialValue?: string;
-  /** Callback triggered when the input value changes */
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  onChange?: (_value: string) => void;
-  /** Callback triggered when the debounced value changes */
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  onSearch?: (_debouncedValue: string) => void;
   onChange?: (value: string) => void;
   /** Callback triggered when the debounced value changes */
   onSearch?: (debouncedValue: string) => void;

@@ -151,13 +151,28 @@ export default function MarketplacePage() {
 
       {/* Pagination */}
       {data.pagination.totalPages > 1 && (
-        <div className="mt-8">
-          <PaginationControl
-            currentPage={data.pagination.currentPage}
-            totalPages={data.pagination.totalPages}
-            currentCategory={null}
-            onPageChange={handlePageChange}
-          />
+        <div className="mt-8 flex items-center justify-center gap-2">
+          <button
+            aria-label="Go to previous page"
+            className="rounded-lg border px-3 py-2 text-sm disabled:opacity-50"
+            onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
+            disabled={currentPage === 1}
+          >
+            Previous
+          </button>
+          <div className="px-4 text-sm text-muted-foreground">
+            Page {currentPage} of {data.pagination.totalPages}
+          </div>
+          <button
+            aria-label="Go to next page"
+            className="rounded-lg border px-3 py-2 text-sm disabled:opacity-50"
+            onClick={() =>
+              handlePageChange(Math.min(data.pagination.totalPages, currentPage + 1))
+            }
+            disabled={currentPage === data.pagination.totalPages}
+          >
+            Next
+          </button>
         </div>
       )}
     </main>
