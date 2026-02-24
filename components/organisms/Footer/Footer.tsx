@@ -34,8 +34,8 @@ const legalSection: FooterSection = {
   title: 'Legal',
   links: [
     { label: 'Terms of Service', href: '#terms' },
-    { label: 'Privacy Policy', href: '#privacy' },
-    { label: 'Cookie Policy', href: '#cookies' },
+    { label: 'Privacy Policy', href: '/privacy' },
+    { label: 'Cookie Policy', href: '/privacy#cookies' },
   ],
 };
 
