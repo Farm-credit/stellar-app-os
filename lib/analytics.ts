@@ -10,11 +10,10 @@ export interface AnalyticsEvent {
 
 /**
  * Track an analytics event
- * @param _event - Event name
- * @param _properties - Optional event properties
+ * @param event - Event name
+ * @param properties - Optional event properties
  */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-export function trackEvent(_event: string, _properties?: Record<string, unknown>): void {
+export function trackEvent(event: string, properties?: Record<string, unknown>): void {
   if (typeof window === 'undefined') {
     return;
   }
@@ -30,8 +29,7 @@ export function trackEvent(_event: string, _properties?: Record<string, unknown>
 
     // Log to console for development
     if (process.env.NODE_ENV === 'development') {
-      // eslint-disable-next-line no-console
-      console.debug('[Analytics]', event, properties);
+      console.info('[Analytics]', event, properties);
     }
 
     // Example: Send to analytics service
@@ -43,7 +41,7 @@ export function trackEvent(_event: string, _properties?: Record<string, unknown>
     // fetch("/api/analytics", {
     //   method: "POST",
     //   headers: { "Content-Type": "application/json" },
-    //   body: JSON.stringify(analyticsEvent),
+    //   body: JSON.stringify({ event, properties }),
     // }).catch(console.error);
   } catch (error) {
     // Silently fail analytics tracking to not break user experience
