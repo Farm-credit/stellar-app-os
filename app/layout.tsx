@@ -5,6 +5,12 @@ import { Footer } from '@/components/organisms/Footer/Footer';
 import './globals.css';
 import { WalletProviderWrapper } from '@/components/providers/WalletProviderWrapper';
 
+
+
+import { ToastProvider } from "@/components/ui/toast/toast-provider";
+
+
+
 const inter = Inter({
   variable: '--font-inter',
   subsets: ['latin'],
@@ -71,6 +77,7 @@ export default function RootLayout({
         <meta name="mobile-web-app-capable" content="yes" />
       </head>
       <body className={`${inter.variable} font-sans antialiased`}>
+       <ToastProvider>
         <WalletProviderWrapper>
           <Header />
           <main id="main-content" className="min-h-[calc(100vh-4rem)]">
@@ -78,6 +85,7 @@ export default function RootLayout({
           </main>
           <Footer />
         </WalletProviderWrapper>
+          </ToastProvider>
       </body>
     </html>
   );

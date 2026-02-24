@@ -9,7 +9,7 @@ const USDC_ASSET_CODE = 'USDC';
 const USDC_ISSUER_MAINNET = 'GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN';
 const USDC_ISSUER_TESTNET = 'GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5';
 
-export async function connectFreighter(): Promise<string> {
+export async function connectFreighter(_network: NetworkType): Promise<string> {
   if (typeof window === 'undefined') {
     throw new Error('Freighter wallet can only be accessed in the browser');
   }
