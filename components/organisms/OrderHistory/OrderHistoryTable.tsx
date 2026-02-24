@@ -16,8 +16,6 @@ import { Text } from '@/components/atoms/Text';
 import type { Order, OrderType, OrderStatus } from '@/lib/types/order';
 import { fetchOrders } from '@/lib/api/mock/orders';
 import { ExternalLink, Download, FileQuestion } from 'lucide-react';
-import { Order, OrderType, OrderStatus } from '@/lib/types/order';
-import { ExternalLink, Download, FileQuestion } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export function OrderHistoryTable() {

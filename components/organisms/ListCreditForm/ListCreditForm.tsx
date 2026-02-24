@@ -1,57 +1,57 @@
 // components/organisms/ListCreditForm/ListCreditForm.tsx
-"use client";
+'use client';
 
-import { useState, useCallback } from "react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod";
-import { Button } from "@/components/atoms/Button";
-import { Text } from "@/components/atoms/Text";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/molecules/Card";
-import { CreditSelector } from "@/components/organisms/CreditSelector/CreditSelector";
-import { PriceInput } from "@/components/organisms/PriceInput/PriceInput";
-import { QuantityInput } from "@/components/organisms/QuantityInput/QuantityInput";
-import { useWalletContext } from "@/contexts/WalletContext";
-import type { Credit, ListingFormData, ListingStep } from "@/lib/types/listing";
+import { useState, useCallback } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
+import { Button } from '@/components/atoms/Button';
+import { Text } from '@/components/atoms/Text';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/molecules/Card';
+import { CreditSelector } from '@/components/organisms/CreditSelector/CreditSelector';
+import { PriceInput } from '@/components/organisms/PriceInput/PriceInput';
+import { QuantityInput } from '@/components/organisms/QuantityInput/QuantityInput';
+import { useWalletContext } from '@/contexts/WalletContext';
+import type { Credit, ListingFormData, ListingStep } from '@/lib/types/listing';
 
 const listingSchema = z.object({
-  creditId: z.string().min(1, "Please select a credit"),
-  pricePerCredit: z.number().positive("Price must be greater than 0"),
-  quantity: z.number().positive().int("Quantity must be a positive integer"),
+  creditId: z.string().min(1, 'Please select a credit'),
+  pricePerCredit: z.number().positive('Price must be greater than 0'),
+  quantity: z.number().positive().int('Quantity must be a positive integer'),
 });
 
 // Mock data for demonstration
 const mockCredits: Credit[] = [
   {
-    id: "CARBON_SOLAR_001",
-    type: "Solar Carbon Credit",
+    id: 'CARBON_SOLAR_001',
+    type: 'Solar Carbon Credit',
     amount: 100,
-    issuer: "GCXAMPLE1234567890ABCDEF",
-    vintage: "2024",
+    issuer: 'GCXAMPLE1234567890ABCDEF',
+    vintage: '2024',
     metadata: {
-      projectName: "Solar Farm Project Alpha",
-      location: "California, USA",
-      methodology: "VCS",
-      verificationStandard: "Verified Carbon Standard",
+      projectName: 'Solar Farm Project Alpha',
+      location: 'California, USA',
+      methodology: 'VCS',
+      verificationStandard: 'Verified Carbon Standard',
     },
   },
   {
-    id: "CARBON_WIND_002", 
-    type: "Wind Carbon Credit",
+    id: 'CARBON_WIND_002',
+    type: 'Wind Carbon Credit',
     amount: 75,
-    issuer: "GCXAMPLE1234567890ABCDEF",
-    vintage: "2024",
+    issuer: 'GCXAMPLE1234567890ABCDEF',
+    vintage: '2024',
     metadata: {
-      projectName: "Wind Farm Project Beta",
-      location: "Texas, USA", 
-      methodology: "CDM",
-      verificationStandard: "Clean Development Mechanism",
+      projectName: 'Wind Farm Project Beta',
+      location: 'Texas, USA',
+      methodology: 'CDM',
+      verificationStandard: 'Clean Development Mechanism',
     },
   },
 ];
 
 export function ListCreditForm() {
-  const [step, setStep] = useState<ListingStep>("form");
+  const [step, setStep] = useState<ListingStep>('form');
   const [selectedCredit, setSelectedCredit] = useState<Credit | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [transactionResult, setTransactionResult] = useState<{
@@ -70,42 +70,48 @@ export function ListCreditForm() {
     reset,
   } = useForm<ListingFormData>({
     resolver: zodResolver(listingSchema),
-    mode: "onChange",
+    mode: 'onChange',
   });
 
   const watchedValues = watch();
 
-  const handleCreditSelect = useCallback((credit: Credit) => {
-    setSelectedCredit(credit);
-    setValue("creditId", credit.id);
-    setValue("quantity", Math.min(1, credit.amount));
-  }, [setValue]);
+  const handleCreditSelect = useCallback(
+    (credit: Credit) => {
+      setSelectedCredit(credit);
+      setValue('creditId', credit.id);
+      setValue('quantity', Math.min(1, credit.amount));
+    },
+    [setValue]
+  );
 
-  const handlePreview = useCallback(async (data: ListingFormData) => {
-    if (!selectedCredit) return;
-    setStep("preview");
-  }, [selectedCredit]);
+  const handlePreview = useCallback(
+    async (data: ListingFormData) => {
+      if (!selectedCredit) return;
+      setStep('preview');
+    },
+    [selectedCredit]
+  );
 
   const handleConfirmListing = useCallback(async () => {
     if (!selectedCredit || !isValid) return;
 
     setIsLoading(true);
-    setStep("signing");
-    
+    setStep('signing');
+
     try {
       // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+
       const result = {
-        hash: "TXHASH" + Math.random().toString(36).substring(7),
-        listingId: "LIST" + Math.random().toString(36).substring(7),
+        hash: 'TXHASH' + Math.random().toString(36).substring(7),
+        listingId: 'LIST' + Math.random().toString(36).substring(7),
       };
 
       setTransactionResult(result);
-      setStep("success");
+      setStep('success');
     } catch (error) {
-      console.error("Failed to create listing:", error);
-      setStep("form");
+      console.error('Failed to create listing:', error);
+      setStep('form');
     } finally {
       setIsLoading(false);
     }
@@ -115,16 +121,22 @@ export function ListCreditForm() {
     reset();
     setSelectedCredit(null);
     setTransactionResult(null);
-    setStep("form");
+    setStep('form');
   }, [reset]);
 
-  const handlePriceChange = useCallback((value: number) => {
-    setValue("pricePerCredit", value);
-  }, [setValue]);
+  const handlePriceChange = useCallback(
+    (value: number) => {
+      setValue('pricePerCredit', value);
+    },
+    [setValue]
+  );
 
-  const handleQuantityChange = useCallback((value: number) => {
-    setValue("quantity", value);
-  }, [setValue]);
+  const handleQuantityChange = useCallback(
+    (value: number) => {
+      setValue('quantity', value);
+    },
+    [setValue]
+  );
 
   if (!wallet?.isConnected) {
     return (
@@ -136,26 +148,34 @@ export function ListCreditForm() {
           <Text variant="muted" as="p">
             You need to connect your wallet to list credits for sale
           </Text>
-          <Button stellar="accent">
-            Connect Wallet
-          </Button>
+          <Button stellar="accent">Connect Wallet</Button>
         </CardContent>
       </Card>
     );
   }
 
   // Success Step
-  if (step === "success" && transactionResult) {
+  if (step === 'success' && transactionResult) {
     return (
       <Card>
         <CardContent className="p-8">
           <div className="text-center space-y-6">
             <div className="w-20 h-20 mx-auto bg-green-100 dark:bg-green-900/20 rounded-full flex items-center justify-center">
-              <svg className="w-12 h-12 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              <svg
+                className="w-12 h-12 text-green-600 dark:text-green-400"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M5 13l4 4L19 7"
+                />
               </svg>
             </div>
-            
+
             <div>
               <Text variant="h2" as="h2" className="mb-2">
                 Listing Created Successfully!
@@ -164,7 +184,7 @@ export function ListCreditForm() {
                 Your credit is now available in the marketplace
               </Text>
             </div>
-            
+
             <Card className="bg-muted/50">
               <CardContent className="p-4">
                 <dl className="space-y-2 text-sm">
@@ -181,29 +201,32 @@ export function ListCreditForm() {
                 </dl>
               </CardContent>
             </Card>
-            
+
             <div className="space-y-3">
               <Button
                 stellar="accent"
                 className="w-full"
-                onClick={() => window.location.href = `/marketplace/listings/${transactionResult.listingId}`}
+                onClick={() =>
+                  (window.location.href = `/marketplace/listings/${transactionResult.listingId}`)
+                }
               >
                 View Your Listing
               </Button>
-              
+
               <Button
                 variant="outline"
                 className="w-full"
-                onClick={() => window.open(`https://stellar.expert/explorer/public/tx/${transactionResult.hash}`, '_blank')}
+                onClick={() =>
+                  window.open(
+                    `https://stellar.expert/explorer/public/tx/${transactionResult.hash}`,
+                    '_blank'
+                  )
+                }
               >
                 View on Stellar Explorer
               </Button>
-              
-              <Button
-                variant="ghost"
-                onClick={handleCreateAnother}
-                className="w-full"
-              >
+
+              <Button variant="ghost" onClick={handleCreateAnother} className="w-full">
                 Create Another Listing
               </Button>
             </div>
@@ -214,9 +237,9 @@ export function ListCreditForm() {
   }
 
   // Signing Step
-  if (step === "signing") {
+  if (step === 'signing') {
     const totalValue = watchedValues.pricePerCredit * watchedValues.quantity;
-    
+
     return (
       <Card>
         <CardContent className="p-8">
@@ -225,24 +248,33 @@ export function ListCreditForm() {
               {isLoading ? (
                 <div className="w-8 h-8 border-2 border-stellar-blue border-t-transparent rounded-full animate-spin" />
               ) : (
-                <svg className="w-8 h-8 text-stellar-blue" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                <svg
+                  className="w-8 h-8 text-stellar-blue"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+                  />
                 </svg>
               )}
             </div>
-            
+
             <div>
               <Text variant="h3" as="h2" className="mb-2">
                 {isLoading ? 'Creating Listing...' : 'Confirm with Wallet'}
               </Text>
               <Text variant="muted" as="p">
-                {isLoading 
+                {isLoading
                   ? 'Please wait while your listing is being created on the blockchain'
-                  : 'Please confirm the transaction in your wallet to create the listing'
-                }
+                  : 'Please confirm the transaction in your wallet to create the listing'}
               </Text>
             </div>
-            
+
             <Card className="bg-muted/50">
               <CardContent className="p-4">
                 <dl className="space-y-2 text-sm">
@@ -256,7 +288,9 @@ export function ListCreditForm() {
                   </div>
                   <div className="flex justify-between">
                     <dt className="text-muted-foreground">Price:</dt>
-                    <dd className="font-medium">{watchedValues.pricePerCredit?.toFixed(4)} XLM each</dd>
+                    <dd className="font-medium">
+                      {watchedValues.pricePerCredit?.toFixed(4)} XLM each
+                    </dd>
                   </div>
                   <div className="flex justify-between border-t pt-2 font-medium">
                     <dt>Total:</dt>
@@ -265,13 +299,9 @@ export function ListCreditForm() {
                 </dl>
               </CardContent>
             </Card>
-            
+
             {!isLoading && (
-              <Button
-                variant="outline"
-                onClick={() => setStep("preview")}
-                className="w-full"
-              >
+              <Button variant="outline" onClick={() => setStep('preview')} className="w-full">
                 Cancel
               </Button>
             )}
@@ -282,7 +312,7 @@ export function ListCreditForm() {
   }
 
   // Preview Step
-  if (step === "preview" && selectedCredit) {
+  if (step === 'preview' && selectedCredit) {
     const totalValue = watchedValues.pricePerCredit * watchedValues.quantity;
     const platformFee = totalValue * 0.025;
     const netAmount = totalValue - platformFee;
@@ -314,7 +344,7 @@ export function ListCreditForm() {
                   </div>
                 </dl>
               </div>
-              
+
               <div>
                 <Text variant="h4" as="h3" className="mb-4">
                   Listing Terms
@@ -331,7 +361,7 @@ export function ListCreditForm() {
                 </dl>
               </div>
             </div>
-            
+
             <div className="space-y-6">
               <Card className="bg-muted/50">
                 <CardHeader>
@@ -349,12 +379,14 @@ export function ListCreditForm() {
                     </div>
                     <div className="flex justify-between border-t pt-3 font-medium">
                       <dt>Net Amount:</dt>
-                      <dd className="text-green-600 dark:text-green-400">{netAmount.toFixed(4)} XLM</dd>
+                      <dd className="text-green-600 dark:text-green-400">
+                        {netAmount.toFixed(4)} XLM
+                      </dd>
                     </div>
                   </dl>
                 </CardContent>
               </Card>
-              
+
               <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
                 <Text variant="small" as="h4" className="font-medium mb-2">
                   Important Notes
@@ -368,12 +400,12 @@ export function ListCreditForm() {
               </div>
             </div>
           </div>
-          
+
           <div className="flex gap-4 mt-8 pt-6 border-t">
             <Button
               type="button"
               variant="outline"
-              onClick={() => setStep("form")}
+              onClick={() => setStep('form')}
               disabled={isLoading}
               className="flex-1"
             >
@@ -413,14 +445,14 @@ export function ListCreditForm() {
               />
 
               <PriceInput
-                {...register("pricePerCredit", { valueAsNumber: true })}
+                {...register('pricePerCredit', { valueAsNumber: true })}
                 marketPrice={undefined}
                 error={errors.pricePerCredit?.message}
                 onChange={handlePriceChange}
               />
 
               <QuantityInput
-                {...register("quantity", { valueAsNumber: true })}
+                {...register('quantity', { valueAsNumber: true })}
                 maxQuantity={selectedCredit?.amount || 0}
                 error={errors.quantity?.message}
                 onChange={handleQuantityChange}
@@ -474,7 +506,9 @@ export function ListCreditForm() {
                       </div>
                       <div className="flex justify-between font-medium border-t pt-2 mt-2">
                         <dt>Total value:</dt>
-                        <dd>{(watchedValues.pricePerCredit * watchedValues.quantity).toFixed(4)} XLM</dd>
+                        <dd>
+                          {(watchedValues.pricePerCredit * watchedValues.quantity).toFixed(4)} XLM
+                        </dd>
                       </div>
                     </dl>
                   </CardContent>

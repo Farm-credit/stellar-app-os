@@ -58,7 +58,7 @@ const QRCodeScanner: React.FC<QRCodeScannerProps> = ({
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         // small play guard
-        // eslint-disable-next-line @typescript-eslint/no-floating-promises
+
         videoRef.current.play();
       }
       setScanning(true);

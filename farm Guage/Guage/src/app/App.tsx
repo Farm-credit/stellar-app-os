@@ -10,7 +10,7 @@ export default function App() {
           <p className="text-gray-600">Scroll down to see the footer component</p>
         </div>
       </div>
-      
+
       {/* Footer */}
       <Footer />
     </div>

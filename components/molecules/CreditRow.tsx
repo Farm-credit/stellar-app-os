@@ -3,7 +3,6 @@ import { CreditStatusBadge } from '@/components/atoms/CreditStatusBadge';
 import { Text } from '@/components/atoms/Text';
 import type { CreditHolding } from '@/lib/types/credits';
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 interface CreditRowProps {
   credit: CreditHolding;
   onTrade: (credit: CreditHolding) => void;

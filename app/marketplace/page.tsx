@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useMemo } from 'react';
+import { Suspense, useState, useCallback, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { MarketplaceGrid } from '@/components/organisms/MarketplaceGrid/MarketplaceGrid';
 import { MarketplaceFilters } from '@/components/molecules/MarketplaceFilters';
@@ -22,7 +22,7 @@ import type { ProjectType, SortOption } from '@/lib/types/marketplace';
  *
  * Requirements: Issue #23 - Marketplace Listings
  */
-export default function MarketplacePage() {
+function MarketplaceContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -156,10 +156,25 @@ export default function MarketplacePage() {
             currentPage={data.pagination.currentPage}
             totalPages={data.pagination.totalPages}
             currentCategory={null}
-            onPageChange={handlePageChange}
           />
         </div>
       )}
     </main>
+  );
+}
+
+export default function MarketplacePage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="container mx-auto px-4 py-8 max-w-7xl">
+          <Text variant="h2" as="h1" className="mb-2">
+            Loading...
+          </Text>
+        </div>
+      }
+    >
+      <MarketplaceContent />
+    </Suspense>
   );
 }

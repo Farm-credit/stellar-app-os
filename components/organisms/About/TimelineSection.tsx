@@ -1,30 +1,30 @@
-import React from "react";
+import React from 'react';
 
 const milestones = [
   {
-    year: "2023",
-    title: "Foundation",
-    description: "FarmCredit was founded with a vision to democratize agricultural credit.",
-    achievements: ["Team formed", "Research completed", "Seed funding secured"]
+    year: '2023',
+    title: 'Foundation',
+    description: 'FarmCredit was founded with a vision to democratize agricultural credit.',
+    achievements: ['Team formed', 'Research completed', 'Seed funding secured'],
   },
   {
-    year: "2024",
-    title: "Launch",
-    description: "Platform launched on Stellar mainnet, onboarding first partners.",
-    achievements: ["Mainnet launch", "5 partners", "1,000 farmers"]
+    year: '2024',
+    title: 'Launch',
+    description: 'Platform launched on Stellar mainnet, onboarding first partners.',
+    achievements: ['Mainnet launch', '5 partners', '1,000 farmers'],
   },
   {
-    year: "2025",
-    title: "Growth",
-    description: "Rapid expansion across multiple continents with significant adoption.",
-    achievements: ["10,000 farmers", "15 countries", "$10M+ credit"]
+    year: '2025',
+    title: 'Growth',
+    description: 'Rapid expansion across multiple continents with significant adoption.',
+    achievements: ['10,000 farmers', '15 countries', '$10M+ credit'],
   },
   {
-    year: "2026",
-    title: "Scale",
-    description: "Aiming for global presence with 100,000+ farmers served.",
-    achievements: ["Target: 100K farmers", "Target: 30 countries", "Target: $100M credit"]
-  }
+    year: '2026',
+    title: 'Scale',
+    description: 'Aiming for global presence with 100,000+ farmers served.',
+    achievements: ['Target: 100K farmers', 'Target: 30 countries', 'Target: $100M credit'],
+  },
 ];
 
 export function TimelineSection() {
@@ -64,7 +64,10 @@ export function TimelineSection() {
                 </p>
                 <ul className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   {milestone.achievements.map((achievement) => (
-                    <li key={achievement} className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-2">
+                    <li
+                      key={achievement}
+                      className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-2"
+                    >
                       <span className="w-1.5 h-1.5 bg-stellar-blue rounded-full" />
                       {achievement}
                     </li>

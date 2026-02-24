@@ -50,9 +50,7 @@ export function Step2ProjectParameters() {
       <Card>
         <CardHeader>
           <CardTitle>Carbon Credits Estimation</CardTitle>
-          <CardDescription>
-            Estimate the carbon credits your project will generate
-          </CardDescription>
+          <CardDescription>Estimate the carbon credits your project will generate</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="space-y-3">
@@ -97,9 +95,7 @@ export function Step2ProjectParameters() {
             {errors.pricePerCredit && (
               <p className="text-sm text-red-600">{errors.pricePerCredit.message}</p>
             )}
-            <p className="text-sm text-gray-500">
-              Current market rate or your target price
-            </p>
+            <p className="text-sm text-gray-500">Current market rate or your target price</p>
           </div>
         </CardContent>
       </Card>
@@ -107,9 +103,7 @@ export function Step2ProjectParameters() {
       <Card>
         <CardHeader>
           <CardTitle>Project Specifications</CardTitle>
-          <CardDescription>
-            Define the scope and timeline of your project
-          </CardDescription>
+          <CardDescription>Define the scope and timeline of your project</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="space-y-3">
@@ -131,9 +125,7 @@ export function Step2ProjectParameters() {
             {errors.projectSize && (
               <p className="text-sm text-red-600">{errors.projectSize.message}</p>
             )}
-            <p className="text-sm text-gray-500">
-              Total land area dedicated to the project
-            </p>
+            <p className="text-sm text-gray-500">Total land area dedicated to the project</p>
           </div>
 
           <div className="space-y-4">
@@ -155,9 +147,7 @@ export function Step2ProjectParameters() {
               <span>6 months</span>
               <span>10 years</span>
             </div>
-            <p className="text-sm text-gray-500">
-              Expected timeframe for project completion
-            </p>
+            <p className="text-sm text-gray-500">Expected timeframe for project completion</p>
           </div>
         </CardContent>
       </Card>

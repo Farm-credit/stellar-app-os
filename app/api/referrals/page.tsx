@@ -39,10 +39,7 @@ export default function ReferralProgramPage() {
 
       <ReferralLinkCard referralLink={stats.referralLink} />
 
-      <StatsDisplay
-        referralsCount={stats.referralsCount}
-        totalEarnings={stats.totalEarnings}
-      />
+      <StatsDisplay referralsCount={stats.referralsCount} totalEarnings={stats.totalEarnings} />
 
       <RewardTiers tiers={stats.tiers} />
 

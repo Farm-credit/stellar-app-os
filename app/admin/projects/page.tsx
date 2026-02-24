@@ -1,3 +1,5 @@
+'use client';
+
 import type { ReactNode } from 'react';
 import { Text } from '@/components/atoms/Text';
 import { AdminProjectTable } from '@/components/organisms/AdminProjectTable/AdminProjectTable';

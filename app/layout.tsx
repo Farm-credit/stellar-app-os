@@ -1,10 +1,9 @@
-import type { Metadata, Viewport } from "next";
-import { Inter } from "next/font/google";
-import { Header } from "@/components/organisms/Header/Header";
-import { Footer } from "@/components/organisms/Footer/Footer";
-import "./globals.css";
-import { WalletProviderWrapper } from "@/components/providers/WalletProviderWrapper";
+import type { Metadata, Viewport } from 'next';
+import { Inter } from 'next/font/google';
+import { Header } from '@/components/organisms/Header/Header';
+import { Footer } from '@/components/organisms/Footer/Footer';
 import './globals.css';
+import { WalletProviderWrapper } from '@/components/providers/WalletProviderWrapper';
 
 const inter = Inter({
   variable: '--font-inter',
@@ -48,9 +47,23 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const themeInitScript = `
+    (function () {
+      try {
+        var storedTheme = localStorage.getItem("theme");
+        var prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+        var useDark = storedTheme ? storedTheme === "dark" : prefersDark;
+        document.documentElement.classList.toggle("dark", useDark);
+      } catch {
+        document.documentElement.classList.remove("dark");
+      }
+    })();
+  `;
+
   return (
     <html lang="en">
       <head>
+        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
         <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
@@ -60,7 +73,9 @@ export default function RootLayout({
       <body className={`${inter.variable} font-sans antialiased`}>
         <WalletProviderWrapper>
           <Header />
-          {children}
+          <main id="main-content" className="min-h-[calc(100vh-4rem)]">
+            {children}
+          </main>
           <Footer />
         </WalletProviderWrapper>
       </body>

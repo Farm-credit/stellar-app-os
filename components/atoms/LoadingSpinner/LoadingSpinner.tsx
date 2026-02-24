@@ -1,24 +1,24 @@
-"use client";
+'use client';
 
-import { cn } from "@/lib/utils";
+import { cn } from '@/lib/utils';
 
 interface LoadingSpinnerProps {
-  size?: "xs" | "sm" | "md" | "lg";
+  size?: 'xs' | 'sm' | 'md' | 'lg';
   className?: string;
 }
 
 const sizeClasses = {
-  xs: "w-3 h-3",
-  sm: "w-4 h-4",
-  md: "w-6 h-6",
-  lg: "w-8 h-8",
+  xs: 'w-3 h-3',
+  sm: 'w-4 h-4',
+  md: 'w-6 h-6',
+  lg: 'w-8 h-8',
 };
 
-export function LoadingSpinner({ size = "md", className }: LoadingSpinnerProps) {
+export function LoadingSpinner({ size = 'md', className }: LoadingSpinnerProps) {
   return (
     <div
       className={cn(
-        "animate-spin border-2 border-current border-t-transparent rounded-full",
+        'animate-spin border-2 border-current border-t-transparent rounded-full',
         sizeClasses[size],
         className
       )}

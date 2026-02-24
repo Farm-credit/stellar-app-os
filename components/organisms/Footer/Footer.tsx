@@ -15,9 +15,9 @@ interface FooterSection {
 const aboutSection: FooterSection = {
   title: 'About',
   links: [
-    { label: "About FarmCredit", href: "/about" },
-    { label: "Blog", href: "/blog" },
-    { label: "Documentation", href: "#docs" },
+    { label: 'About FarmCredit', href: '/about' },
+    { label: 'Blog', href: '/blog' },
+    { label: 'Documentation', href: '#docs' },
   ],
 };
 

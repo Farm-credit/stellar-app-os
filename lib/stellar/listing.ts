@@ -1,8 +1,8 @@
-import type { Credit, ListingResult, MarketPriceData } from "@/lib/types/listing";
+import type { Credit, ListingResult, MarketPriceData } from '@/lib/types/listing';
 
 interface WalletState {
   publicKey: string;
-  network: "mainnet" | "testnet";
+  network: 'mainnet' | 'testnet';
   isConnected: boolean;
   type: string;
 }
@@ -11,29 +11,29 @@ export async function fetchUserCredits(publicKey: string): Promise<Credit[]> {
   // Mock implementation - replace with actual Stellar SDK calls later
   return [
     {
-      id: "CARBON_SOLAR_001",
-      type: "Solar Carbon Credit",
+      id: 'CARBON_SOLAR_001',
+      type: 'Solar Carbon Credit',
       amount: 100,
-      issuer: "GCXAMPLE1234567890ABCDEF",
-      vintage: "2024",
+      issuer: 'GCXAMPLE1234567890ABCDEF',
+      vintage: '2024',
       metadata: {
-        projectName: "Solar Farm Project Alpha",
-        location: "California, USA",
-        methodology: "VCS",
-        verificationStandard: "Verified Carbon Standard",
+        projectName: 'Solar Farm Project Alpha',
+        location: 'California, USA',
+        methodology: 'VCS',
+        verificationStandard: 'Verified Carbon Standard',
       },
     },
     {
-      id: "CARBON_WIND_002", 
-      type: "Wind Carbon Credit",
+      id: 'CARBON_WIND_002',
+      type: 'Wind Carbon Credit',
       amount: 75,
-      issuer: "GCXAMPLE1234567890ABCDEF",
-      vintage: "2024",
+      issuer: 'GCXAMPLE1234567890ABCDEF',
+      vintage: '2024',
       metadata: {
-        projectName: "Wind Farm Project Beta",
-        location: "Texas, USA", 
-        methodology: "CDM",
-        verificationStandard: "Clean Development Mechanism",
+        projectName: 'Wind Farm Project Beta',
+        location: 'Texas, USA',
+        methodology: 'CDM',
+        verificationStandard: 'Clean Development Mechanism',
       },
     },
   ];
@@ -55,15 +55,15 @@ export async function createListing(
   params: { credit: Credit; pricePerCredit: number; quantity: number }
 ): Promise<ListingResult> {
   // Mock implementation - simulate API delay
-  await new Promise(resolve => setTimeout(resolve, 2000));
-  
+  await new Promise((resolve) => setTimeout(resolve, 2000));
+
   return {
-    hash: "TXHASH" + Math.random().toString(36).substring(7),
-    listingId: "LIST" + Math.random().toString(36).substring(7),
+    hash: 'TXHASH' + Math.random().toString(36).substring(7),
+    listingId: 'LIST' + Math.random().toString(36).substring(7),
     offerData: {
-      offerId: "offer_" + Date.now(),
+      offerId: 'offer_' + Date.now(),
       selling: params.credit.id,
-      buying: "XLM",
+      buying: 'XLM',
       amount: params.quantity.toString(),
       price: params.pricePerCredit.toString(),
     },
@@ -79,10 +79,7 @@ export async function validateCreditOwnership(
   return true;
 }
 
-export async function checkExistingListings(
-  publicKey: string,
-  creditId: string
-): Promise<boolean> {
+export async function checkExistingListings(publicKey: string, creditId: string): Promise<boolean> {
   // Mock check - always return false for demo
   return false;
 }

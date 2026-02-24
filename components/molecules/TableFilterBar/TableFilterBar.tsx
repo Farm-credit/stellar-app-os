@@ -5,12 +5,11 @@ import { Input } from '@/components/atoms/Input';
 import { Button } from '@/components/atoms/Button';
 import { Text } from '@/components/atoms/Text';
 import type { TableFilterState } from '@/lib/types/admin';
-import type { 
-  AdminProjectType, 
-  AdminProjectLifecycleStatus, 
-  AdminRiskRating 
+import type {
+  AdminProjectType,
+  AdminProjectLifecycleStatus,
+  AdminRiskRating,
 } from '@/lib/types/adminProject';
-
 
 interface TableFilterBarProps {
   filters: TableFilterState;
@@ -67,7 +66,9 @@ export function TableFilterBar({
             id="lifecycle-filter"
             value={filters.lifecycleStatus}
             onChange={(e) =>
-              onFilterChange({ lifecycleStatus: e.target.value as AdminProjectLifecycleStatus | 'all' })
+              onFilterChange({
+                lifecycleStatus: e.target.value as AdminProjectLifecycleStatus | 'all',
+              })
             }
             className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
@@ -88,7 +89,9 @@ export function TableFilterBar({
           <select
             id="type-filter"
             value={filters.projectType}
-            onChange={(e) => onFilterChange({ projectType: e.target.value as AdminProjectType | 'all' })}
+            onChange={(e) =>
+              onFilterChange({ projectType: e.target.value as AdminProjectType | 'all' })
+            }
             className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <option value="all">All Types</option>

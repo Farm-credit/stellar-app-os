@@ -1,9 +1,9 @@
-"use client";
+'use client';
 
-import { Text } from "@/components/atoms/Text";
-import { LoadingSpinner } from "@/components/atoms/LoadingSpinner/LoadingSpinner";
-import { CreditCard } from "@/components/molecules/CreditCard/CreditCard";
-import type { Credit } from "@/lib/types/listing";
+import { Text } from '@/components/atoms/Text';
+import { LoadingSpinner } from '@/components/atoms/LoadingSpinner/LoadingSpinner';
+import { CreditCard } from '@/components/molecules/CreditCard/CreditCard';
+import type { Credit } from '@/lib/types/listing';
 
 interface CreditSelectorProps {
   credits: Credit[];
@@ -18,7 +18,7 @@ export function CreditSelector({
   selectedCredit,
   onSelect,
   isLoading = false,
-  error
+  error,
 }: CreditSelectorProps) {
   if (isLoading) {
     return (
@@ -29,7 +29,9 @@ export function CreditSelector({
         <div className="flex items-center justify-center p-8 border border-dashed border-border rounded-lg">
           <div className="flex items-center gap-3 text-muted-foreground">
             <LoadingSpinner size="md" />
-            <Text variant="small" as="span">Loading your credits...</Text>
+            <Text variant="small" as="span">
+              Loading your credits...
+            </Text>
           </div>
         </div>
       </div>
@@ -60,8 +62,18 @@ export function CreditSelector({
         <div className="p-8 border border-dashed border-border rounded-lg text-center">
           <div className="space-y-3">
             <div className="w-12 h-12 mx-auto bg-muted rounded-full flex items-center justify-center">
-              <svg className="w-6 h-6 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              <svg
+                className="w-6 h-6 text-muted-foreground"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                />
               </svg>
             </div>
             <div>
@@ -83,7 +95,7 @@ export function CreditSelector({
       <label htmlFor="credit-selector" className="block text-sm font-medium">
         Select Credit to List
       </label>
-      
+
       <div className="grid gap-3" role="radiogroup" aria-labelledby="credit-selector">
         {credits.map((credit) => (
           <CreditCard

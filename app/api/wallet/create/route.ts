@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { randomBytes } from 'crypto';
+import { Keypair } from '@stellar/stellar-sdk';
 
 export async function POST(request: Request) {
   try {

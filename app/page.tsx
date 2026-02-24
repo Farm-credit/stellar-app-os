@@ -74,7 +74,12 @@ export default function Home() {
           >
             <Link href="/credits/purchase">Purchase Carbon Credits</Link>
           </Button>
-          <Button asChild variant="default" size="lg" className="w-full bg-green-500 hover:bg-green-600">
+          <Button
+            asChild
+            variant="default"
+            size="lg"
+            className="w-full bg-green-500 hover:bg-green-600"
+          >
             <Link href="/donate">Make a Donation</Link>
           </Button>
         </CardContent>

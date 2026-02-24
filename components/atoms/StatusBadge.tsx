@@ -10,11 +10,11 @@ interface StatusBadgeProps {
 }
 
 const statusDescriptions: Record<AdminProjectLifecycleStatus, string> = {
-  'Draft': 'Project in initial draft state',
+  Draft: 'Project in initial draft state',
   'Under Review': 'Project submitted for admin review',
-  'Approved': 'Project approved and active',
-  'Paused': 'Project temporarily paused',
-  'Archived': 'Project archived and inactive',
+  Approved: 'Project approved and active',
+  Paused: 'Project temporarily paused',
+  Archived: 'Project archived and inactive',
 };
 
 export function StatusBadge({ status, className = '', size = 'md' }: StatusBadgeProps): ReactNode {
@@ -25,9 +25,11 @@ export function StatusBadge({ status, className = '', size = 'md' }: StatusBadge
 
   return (
     <div className="flex items-center gap-2">
-      <Badge 
-        variant={variant as 'default' | 'secondary' | 'accent' | 'destructive' | 'outline' | 'success'} 
-        className={`${sizeClass} ${className}`} 
+      <Badge
+        variant={
+          variant as 'default' | 'secondary' | 'accent' | 'destructive' | 'outline' | 'success'
+        }
+        className={`${sizeClass} ${className}`}
         title={description}
       >
         {status}

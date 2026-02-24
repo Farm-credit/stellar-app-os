@@ -1,5 +1,6 @@
 import type { CreditSelectionState } from '@/lib/types/carbon';
 import type { WalletConnection } from '@/lib/types/wallet';
+
 export type TransactionStatus =
   | 'idle'
   | 'preparing'
@@ -44,4 +45,33 @@ export interface BuildTransactionRequest {
 export interface BuildTransactionResponse {
   transactionXdr: string;
   networkPassphrase: string;
+}
+
+export function PaymentMintingStep({
+  selection,
+  wallet,
+  onComplete,
+  onError,
+}: PaymentMintingProps) {
+  return (
+    <div className="space-y-6">
+      <div className="rounded-lg border border-gray-200 bg-white p-6">
+        <h3 className="text-lg font-semibold mb-4">Transaction Summary</h3>
+        <div className="space-y-2 text-sm">
+          <div className="flex justify-between">
+            <span className="text-gray-600">Project ID:</span>
+            <span className="font-medium">{selection?.projectId || 'N/A'}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-gray-600">Quantity:</span>
+            <span className="font-medium">{selection?.quantity || 0} tonnes</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-gray-600">Total Amount:</span>
+            <span className="font-medium">${selection?.calculatedPrice || 0}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }

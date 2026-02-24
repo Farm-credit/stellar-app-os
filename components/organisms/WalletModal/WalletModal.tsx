@@ -97,7 +97,7 @@ export function WalletModal({ isOpen, onOpenChange, onSuccess }: WalletModalProp
       setConnectionError(null);
 
       try {
-        await connect();
+        await connect(walletType);
         setShowSuccess(true);
         setTimeout(() => {
           onOpenChange(false);
@@ -241,7 +241,7 @@ interface WalletOptionCardProps {
 }
 
 function WalletOptionCard({
-  _walletType,
+  walletType,
   icon,
   name,
   description,

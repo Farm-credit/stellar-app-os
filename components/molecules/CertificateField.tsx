@@ -32,7 +32,7 @@ function CertificateField({
         className={cn(
           'rounded-md bg-muted px-3 py-2 text-foreground',
           mono && 'break-all font-mono text-xs',
-          truncated && 'truncate',
+          truncated && 'truncate'
         )}
         title={value}
       >
