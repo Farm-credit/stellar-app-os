@@ -1,4 +1,4 @@
-import type { NextConfig } from "next";
+import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
   images: {
@@ -6,8 +6,8 @@ const nextConfig: NextConfig = {
       {
         // Allow any HTTPS image source — the CMS will provide the actual domain.
         // Restrict this to specific domains once the CMS URL is known.
-        protocol: "https",
-        hostname: "**",
+        protocol: 'https',
+        hostname: '**',
       },
     ],
   },

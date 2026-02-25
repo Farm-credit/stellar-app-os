@@ -11,11 +11,13 @@
 **Problem:** pnpm is not installed globally.
 
 **Solution:**
+
 ```bash
 npm install -g pnpm
 ```
 
 **Alternative:** Use npm instead:
+
 ```bash
 # Instead of: pnpm install
 npm install
@@ -34,6 +36,7 @@ npm run build
 **Problem:** Sharp package not installed (needed for icon generation).
 
 **Solution:**
+
 ```bash
 pnpm add -D sharp
 # or
@@ -47,6 +50,7 @@ npm install --save-dev sharp
 **Problem:** Windows PowerShell blocks script execution.
 
 **Solution:**
+
 ```powershell
 # Run PowerShell as Administrator
 Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
@@ -63,11 +67,13 @@ Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 **Problem:** Dependencies not installed, React types missing.
 
 **Symptoms:**
+
 - "Cannot find module 'react'"
 - "JSX element implicitly has type 'any'"
 - Red underlines everywhere
 
 **Solution:**
+
 ```bash
 # Install dependencies
 pnpm install
@@ -85,7 +91,9 @@ pnpm install
 **Problem:** Path alias not recognized.
 
 **Solution:**
+
 1. Check `tsconfig.json` has:
+
 ```json
 {
   "compilerOptions": {
@@ -123,6 +131,7 @@ pnpm install
    - If enabled, counters show final number instantly (this is correct behavior)
 
 **Debug steps:**
+
 ```javascript
 // Open browser console (F12)
 // Check for errors
@@ -139,6 +148,7 @@ console.log('IntersectionObserver supported:', 'IntersectionObserver' in window)
 **Problem:** Locale formatting not working.
 
 **Check:**
+
 ```javascript
 // Test in browser console
 console.log((1234567).toLocaleString('en-US'));
@@ -194,6 +204,7 @@ console.log((1234567).toLocaleString('en-US'));
    - Firefox has limited PWA support
 
 **Debug steps:**
+
 ```javascript
 // Check in browser console
 console.log('Service Worker supported:', 'serviceWorker' in navigator);
@@ -205,6 +216,7 @@ console.log('Manifest:', document.querySelector('link[rel="manifest"]'));
 ### Issue: Service Worker not registering
 
 **Symptoms:**
+
 - No service worker in DevTools
 - Offline mode doesn't work
 
@@ -226,11 +238,13 @@ console.log('Manifest:', document.querySelector('link[rel="manifest"]'));
    - Service workers require HTTPS (except localhost)
 
 **Manual registration test:**
+
 ```javascript
 // Run in browser console
-navigator.serviceWorker.register('/sw.js')
-  .then(reg => console.log('Registered:', reg))
-  .catch(err => console.error('Failed:', err));
+navigator.serviceWorker
+  .register('/sw.js')
+  .then((reg) => console.log('Registered:', reg))
+  .catch((err) => console.error('Failed:', err));
 ```
 
 ---
@@ -252,6 +266,7 @@ navigator.serviceWorker.register('/sw.js')
    - Visit site online first, then go offline
 
 **Test offline mode:**
+
 1. Visit site while online
 2. DevTools → Network tab
 3. Check "Offline" checkbox
@@ -267,6 +282,7 @@ navigator.serviceWorker.register('/sw.js')
 **Solutions:**
 
 1. **Sharp not installed**
+
 ```bash
 pnpm add -D sharp
 ```
@@ -278,6 +294,7 @@ pnpm add -D sharp
 3. **Update script for SVG**
    - Script expects PNG by default
    - Modify `scripts/generate-icons.js`:
+
 ```javascript
 // Change this line:
 const sourceIcon = path.join(__dirname, '../public/icon-source.png');
@@ -286,6 +303,7 @@ const sourceIcon = path.join(__dirname, '../public/icon-source.svg');
 ```
 
 4. **Run script**
+
 ```bash
 node scripts/generate-icons.js
 ```
@@ -295,6 +313,7 @@ node scripts/generate-icons.js
 ### Issue: Icons don't appear in manifest
 
 **Check:**
+
 1. Icons generated in `public/icons/`
 2. Manifest references correct paths
 3. Clear browser cache
@@ -309,6 +328,7 @@ node scripts/generate-icons.js
 **Common causes:**
 
 1. **TypeScript errors**
+
 ```bash
 # Check for errors
 pnpm build
@@ -318,6 +338,7 @@ pnpm build
 ```
 
 2. **Missing dependencies**
+
 ```bash
 # Reinstall dependencies
 rm -rf node_modules
@@ -325,6 +346,7 @@ pnpm install
 ```
 
 3. **Corrupted cache**
+
 ```bash
 # Clear Next.js cache
 rm -rf .next
@@ -332,6 +354,7 @@ pnpm build
 ```
 
 4. **Out of memory**
+
 ```bash
 # Increase Node memory
 NODE_OPTIONS=--max_old_space_size=4096 pnpm build
@@ -342,6 +365,7 @@ NODE_OPTIONS=--max_old_space_size=4096 pnpm build
 ### Issue: "Module not found" during build
 
 **Solution:**
+
 ```bash
 # Clear everything and reinstall
 rm -rf node_modules .next
@@ -356,6 +380,7 @@ pnpm build
 ### Issue: Features work in Chrome but not Safari
 
 **PWA differences:**
+
 - Safari has limited PWA support
 - Install prompt works differently
 - Some features may not be available
@@ -367,6 +392,7 @@ pnpm build
 ### Issue: Features work in Firefox but not Edge
 
 **Check:**
+
 1. Browser version (update to latest)
 2. Browser settings (JavaScript enabled, etc.)
 3. Console errors (F12)
@@ -378,6 +404,7 @@ pnpm build
 ### Enable Verbose Logging
 
 Add to `lib/pwa.ts`:
+
 ```typescript
 export function registerServiceWorker(): void {
   if (typeof window === 'undefined' || !('serviceWorker' in navigator)) {
@@ -386,7 +413,7 @@ export function registerServiceWorker(): void {
   }
 
   console.log('Registering Service Worker...');
-  
+
   window.addEventListener('load', () => {
     navigator.serviceWorker
       .register('/sw.js')
@@ -407,7 +434,7 @@ export function registerServiceWorker(): void {
 
 ```javascript
 // Run in browser console
-navigator.serviceWorker.getRegistration().then(reg => {
+navigator.serviceWorker.getRegistration().then((reg) => {
   if (reg) {
     console.log('Service Worker:', reg.active ? 'Active' : 'Not Active');
     console.log('Scope:', reg.scope);
@@ -424,12 +451,15 @@ navigator.serviceWorker.getRegistration().then(reg => {
 
 ```javascript
 // Run in browser console
-caches.keys().then(keys => {
+caches.keys().then((keys) => {
   console.log('Cache names:', keys);
-  keys.forEach(key => {
-    caches.open(key).then(cache => {
-      cache.keys().then(requests => {
-        console.log(`Cache "${key}":`, requests.map(r => r.url));
+  keys.forEach((key) => {
+    caches.open(key).then((cache) => {
+      cache.keys().then((requests) => {
+        console.log(
+          `Cache "${key}":`,
+          requests.map((r) => r.url)
+        );
       });
     });
   });
@@ -443,7 +473,7 @@ caches.keys().then(keys => {
 ```javascript
 // Run in browser console
 // Force counter to animate again
-document.querySelectorAll('[class*="Counter"]').forEach(el => {
+document.querySelectorAll('[class*="Counter"]').forEach((el) => {
   el.scrollIntoView({ behavior: 'smooth' });
 });
 ```
@@ -529,6 +559,7 @@ pnpm dev
 ---
 
 Most issues are solved by:
+
 1. Installing dependencies
 2. Clearing caches
 3. Restarting the dev server

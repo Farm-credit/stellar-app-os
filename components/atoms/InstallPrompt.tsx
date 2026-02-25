@@ -101,20 +101,10 @@ export function InstallPrompt() {
             </div>
           </div>
           <div className="flex gap-2">
-            <Button
-              variant="default"
-              size="sm"
-              className="flex-1"
-              onClick={handleInstall}
-            >
+            <Button variant="default" size="sm" className="flex-1" onClick={handleInstall}>
               Install
             </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="flex-1"
-              onClick={handleDismiss}
-            >
+            <Button variant="outline" size="sm" className="flex-1" onClick={handleDismiss}>
               Not Now
             </Button>
           </div>

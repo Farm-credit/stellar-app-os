@@ -1,31 +1,27 @@
-"use client";
+'use client';
 
-import type { CarbonProject } from "@/lib/types/carbon";
-import { Text } from "@/components/atoms/Text";
-import { Badge } from "@/components/atoms/Badge";
-import { Button } from "@/components/atoms/Button";
-import { cn } from "@/lib/utils";
+import type { CarbonProject } from '@/lib/types/carbon';
+import { Text } from '@/components/atoms/Text';
+import { Badge } from '@/components/atoms/Badge';
+import { Button } from '@/components/atoms/Button';
+import { cn } from '@/lib/utils';
 
 export interface ComparisonTableProps {
   projects: CarbonProject[];
-  onAddToCart?: (projectId: string) => void;
+  onAddToCart?: (_projectId: string) => void;
   className?: string;
 }
 
 function formatPrice(price: number): string {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(price);
 }
 
-export function ComparisonTable({
-  projects,
-  onAddToCart,
-  className,
-}: ComparisonTableProps) {
+export function ComparisonTable({ projects, onAddToCart, className }: ComparisonTableProps) {
   if (projects.length === 0) {
     return (
       <div className="text-center py-12">
@@ -37,7 +33,7 @@ export function ComparisonTable({
   }
 
   return (
-    <div className={cn("overflow-x-auto", className)}>
+    <div className={cn('overflow-x-auto', className)}>
       <table className="w-full border-collapse">
         <thead>
           <tr className="border-b border-border">
@@ -177,7 +173,7 @@ export function ComparisonTable({
                     disabled={project.isOutOfStock}
                     aria-label={`Add ${project.name} to cart`}
                   >
-                    {project.isOutOfStock ? "Out of Stock" : "Add to Cart"}
+                    {project.isOutOfStock ? 'Out of Stock' : 'Add to Cart'}
                   </Button>
                 </td>
               ))}

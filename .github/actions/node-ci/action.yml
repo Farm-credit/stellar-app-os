@@ -1,8 +1,8 @@
-name: "Node CI"
-description: "Setup Node 20 + pnpm + install + lint + build"
+name: 'Node CI'
+description: 'Setup Node 20 + pnpm + install + lint + build'
 
 runs:
-  using: "composite"
+  using: 'composite'
   steps:
     - name: Setup Node.js
       uses: actions/setup-node@v4

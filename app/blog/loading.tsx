@@ -65,10 +65,7 @@ export default function BlogLoading() {
       {/* Category filter skeleton */}
       <div className="mb-8 flex gap-2" aria-hidden="true">
         {Array.from({ length: 5 }).map((_, i) => (
-          <div
-            key={i}
-            className="h-11 w-24 rounded-md bg-muted animate-pulse"
-          />
+          <div key={i} className="h-11 w-24 rounded-md bg-muted animate-pulse" />
         ))}
       </div>
 

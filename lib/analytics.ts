@@ -14,7 +14,7 @@ export interface AnalyticsEvent {
  * @param properties - Optional event properties
  */
 export function trackEvent(event: string, properties?: Record<string, unknown>): void {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return;
   }
 
@@ -27,14 +27,9 @@ export function trackEvent(event: string, properties?: Record<string, unknown>):
     // - PostHog
     // etc.
 
-    const analyticsEvent: AnalyticsEvent = {
-      event,
-      properties,
-    };
-
     // Log to console for development
-    if (process.env.NODE_ENV === "development") {
-      console.log("[Analytics]", analyticsEvent);
+    if (process.env.NODE_ENV === 'development') {
+      console.info('[Analytics]', event, properties);
     }
 
     // Example: Send to analytics service
@@ -46,12 +41,12 @@ export function trackEvent(event: string, properties?: Record<string, unknown>):
     // fetch("/api/analytics", {
     //   method: "POST",
     //   headers: { "Content-Type": "application/json" },
-    //   body: JSON.stringify(analyticsEvent),
+    //   body: JSON.stringify({ event, properties }),
     // }).catch(console.error);
   } catch (error) {
     // Silently fail analytics tracking to not break user experience
-    if (process.env.NODE_ENV === "development") {
-      console.error("[Analytics Error]", error);
+    if (process.env.NODE_ENV === 'development') {
+      console.error('[Analytics Error]', error);
     }
   }
 }

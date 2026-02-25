@@ -1,6 +1,21 @@
-export type ProjectType = "Reforestation" | "Renewable Energy" | "Mangrove Restoration" | "Sustainable Agriculture" | "Other";
+export type ProjectType =
+  | 'Reforestation'
+  | 'Renewable Energy'
+  | 'Mangrove Restoration'
+  | 'Sustainable Agriculture'
+  | 'Other';
 
-export type VerificationStatus = "Gold Standard" | "Verra (VCS)" | "Climate Action Reserve" | "Plan Vivo" | "Pending";
+export type VerificationStatus =
+  | 'Gold Standard'
+  | 'Verra (VCS)'
+  | 'Climate Action Reserve'
+  | 'Plan Vivo'
+  | 'Pending';
+
+export interface ProjectCoordinates {
+  latitude: number;
+  longitude: number;
+}
 
 export interface CarbonProject {
   id: string;
@@ -12,6 +27,7 @@ export interface CarbonProject {
   isOutOfStock: boolean;
   type: ProjectType;
   location: string;
+  coordinates: ProjectCoordinates;
   coBenefits: string[];
   verificationStatus: VerificationStatus;
 }
@@ -24,5 +40,6 @@ export interface CreditSelectionState {
 
 export interface CreditSelectionProps {
   projects: CarbonProject[];
-  onSelectionChange?: (selection: CreditSelectionState) => void;
+  // eslint-disable-next-line no-unused-vars
+  onSelectionChange?: (newSelection: CreditSelectionState) => void;
 }

@@ -1,6 +1,7 @@
 # Action Plan - What You Need To Do Now
 
 ## 🎯 Goal
+
 Get both the Counter feature and PWA implementation tested and submitted as PRs.
 
 ---
@@ -8,6 +9,7 @@ Get both the Counter feature and PWA implementation tested and submitted as PRs.
 ## ⚡ Quick Start (5 Minutes)
 
 ### Step 1: Install Dependencies
+
 ```bash
 # Install pnpm
 npm install -g pnpm
@@ -20,11 +22,13 @@ pnpm add -D sharp
 ```
 
 ### Step 2: Generate PWA Icons
+
 ```bash
 node scripts/generate-icons.js
 ```
 
 ### Step 3: Start Development Server
+
 ```bash
 pnpm dev
 ```
@@ -91,14 +95,18 @@ Both commands should complete without errors.
 ## 🎥 Record Demos (10 Minutes)
 
 ### Counter Demo
+
 Record your screen showing:
+
 1. Opening the homepage
 2. Scrolling down to trigger animations
 3. Numbers counting up with commas
 4. Testing on different screen sizes (resize browser)
 
 ### PWA Demo
+
 Record your screen showing:
+
 1. Install prompt appearing
 2. Clicking install button
 3. App opening in standalone mode
@@ -108,6 +116,7 @@ Record your screen showing:
 7. Network status badge
 
 **Tools for recording:**
+
 - Windows: Xbox Game Bar (Win + G)
 - Mac: QuickTime Player or Cmd + Shift + 5
 - Chrome: Built-in screen recorder in DevTools
@@ -138,6 +147,7 @@ git push origin feat/issue-68-stat-counters
 ```
 
 **On GitHub:**
+
 1. Create Pull Request
 2. Copy content from `PR_DESCRIPTION.md`
 3. Add `Closes #68` in description
@@ -171,6 +181,7 @@ git push origin feat/pwa-implementation
 ```
 
 **On GitHub:**
+
 1. Create Pull Request
 2. Copy content from `PWA_PR_DESCRIPTION.md`
 3. Add issue reference if applicable
@@ -199,6 +210,7 @@ git push origin feat/counter-and-pwa
 ```
 
 **On GitHub:**
+
 1. Create Pull Request
 2. Combine content from both PR description files
 3. Attach both demo videos
@@ -226,30 +238,36 @@ Before submitting, verify:
 ## 🆘 Troubleshooting
 
 ### "pnpm: command not found"
+
 ```bash
 npm install -g pnpm
 ```
 
 ### "Cannot find module 'sharp'"
+
 ```bash
 pnpm add -D sharp
 ```
 
 ### TypeScript errors in IDE
+
 - Normal until you run `pnpm install`
 - Errors will disappear after installation
 
 ### Service Worker not registering
+
 - Must use HTTPS or localhost
 - Check browser console for errors
 - Clear browser cache and try again
 
 ### Icons not generating
+
 - Verify `public/icon-source.svg` exists
 - Install sharp: `pnpm add -D sharp`
 - Run: `node scripts/generate-icons.js`
 
 ### Build fails
+
 - Delete `.next` folder
 - Run `pnpm install` again
 - Try `pnpm build` again
@@ -259,17 +277,20 @@ pnpm add -D sharp
 ## 📚 Reference Documents
 
 **For Counter Feature:**
+
 - `COUNTER_IMPLEMENTATION.md` - Technical details
 - `PR_DESCRIPTION.md` - PR template
 - `QUICK_START.md` - Quick guide
 
 **For PWA Feature:**
+
 - `PWA_IMPLEMENTATION_SUMMARY.md` - Overview
 - `PWA_PR_DESCRIPTION.md` - PR template
 - `PWA_QUICK_REFERENCE.md` - Quick reference
 - `TESTING_CHECKLIST.md` - Detailed testing
 
 **For Everything:**
+
 - `COMPLETE_PROJECT_STATUS.md` - Full project status
 - `README.md` - Project overview
 

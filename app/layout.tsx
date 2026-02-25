@@ -1,40 +1,43 @@
-import type { Metadata, Viewport } from "next";
-import { Inter } from "next/font/google";
-import { Footer } from "@/components/organisms/Footer/Footer";
-import "./globals.css";
+import type { Metadata, Viewport } from 'next';
+import { Inter } from 'next/font/google';
+import './globals.css';
+import { Header } from '@/components/organisms/Header/Header';
+import { Footer } from '@/components/organisms/Footer/Footer';
+import { WalletProviderWrapper } from '@/components/providers/WalletProviderWrapper';
+import { ToastProvider } from '@/components/ui/toast/toast-provider';
 
 const inter = Inter({
-  variable: "--font-inter",
-  subsets: ["latin"],
+  variable: '--font-inter',
+  subsets: ['latin'],
 });
 
 export const metadata: Metadata = {
-  title: "FarmCredit",
-  description: "FarmCredit - Decentralized agricultural credit on Stellar",
-  manifest: "/manifest.json",
+  title: 'FarmCredit',
+  description: 'FarmCredit - Decentralized agricultural credit on Stellar',
+  manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
-    statusBarStyle: "default",
-    title: "FarmCredit",
+    statusBarStyle: 'default',
+    title: 'FarmCredit',
   },
   formatDetection: {
     telephone: false,
   },
   icons: {
     icon: [
-      { url: "/icons/icon-192x192.png", sizes: "192x192", type: "image/png" },
-      { url: "/icons/icon-512x512.png", sizes: "512x512", type: "image/png" },
+      { url: '/icons/icon-192x192.png', sizes: '192x192', type: 'image/png' },
+      { url: '/icons/icon-512x512.png', sizes: '512x512', type: 'image/png' },
     ],
     apple: [
-      { url: "/icons/icon-152x152.png", sizes: "152x152", type: "image/png" },
-      { url: "/icons/icon-192x192.png", sizes: "192x192", type: "image/png" },
+      { url: '/icons/icon-152x152.png', sizes: '152x152', type: 'image/png' },
+      { url: '/icons/icon-192x192.png', sizes: '192x192', type: 'image/png' },
     ],
   },
 };
 
 export const viewport: Viewport = {
-  themeColor: "#14B6E7",
-  width: "device-width",
+  themeColor: '#14B6E7',
+  width: 'device-width',
   initialScale: 1,
   maximumScale: 5,
   userScalable: true,
@@ -55,8 +58,13 @@ export default function RootLayout({
         <meta name="mobile-web-app-capable" content="yes" />
       </head>
       <body className={`${inter.variable} font-sans antialiased`}>
-        {children}
-        <Footer />
+        <ToastProvider>
+          <WalletProviderWrapper>
+            <Header />
+            {children}
+            <Footer />
+          </WalletProviderWrapper>
+        </ToastProvider>
       </body>
     </html>
   );

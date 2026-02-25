@@ -1,13 +1,13 @@
 /**
  * Zod validation schemas for blog data models
- * 
+ *
  * This file contains runtime validation schemas using Zod for:
  * - BlogPost: Core blog post data structure validation
  * - BlogListResponse: API response validation for blog listing
- * 
+ *
  * These schemas provide runtime type safety for external data sources (CMS API)
  * and export inferred TypeScript types.
- * 
+ *
  * Requirements: 8.4, 8.6
  */
 

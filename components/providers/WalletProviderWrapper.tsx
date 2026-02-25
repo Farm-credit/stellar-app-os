@@ -1,11 +1,7 @@
-"use client";
+'use client';
 
-import { WalletProvider } from "@/contexts/WalletContext";
+import { WalletProvider } from '@/contexts/WalletContext';
 
-export function WalletProviderWrapper({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export function WalletProviderWrapper({ children }: { children: React.ReactNode }) {
   return <WalletProvider>{children}</WalletProvider>;
 }

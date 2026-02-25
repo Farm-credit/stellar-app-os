@@ -13,6 +13,7 @@ Use this checklist when testing the comparison tool feature. Check off each item
 ## Test 1: Navigation
 
 ### From Purchase Page
+
 - [ ] Navigate to `http://localhost:3000/credits/purchase`
 - [ ] Verify "Compare Projects" button is visible in top right
 - [ ] Click "Compare Projects" button
@@ -20,6 +21,7 @@ Use this checklist when testing the comparison tool feature. Check off each item
 - [ ] Verify page loads without errors
 
 ### Direct Access
+
 - [ ] Navigate directly to `http://localhost:3000/credits/compare`
 - [ ] Verify page loads correctly
 - [ ] Verify all projects are displayed
@@ -27,12 +29,14 @@ Use this checklist when testing the comparison tool feature. Check off each item
 ## Test 2: Project Selection
 
 ### Basic Selection
+
 - [ ] Click checkbox on "Amazon Rainforest Reforestation"
 - [ ] Verify checkbox is checked
 - [ ] Verify counter shows "1 / 3 selected"
 - [ ] Verify counter text is gray
 
 ### Multiple Selection
+
 - [ ] Click checkbox on "Wind Energy Farm - Texas"
 - [ ] Verify counter shows "2 / 3 selected"
 - [ ] Click checkbox on "Mangrove Restoration - Indonesia"
@@ -40,18 +44,21 @@ Use this checklist when testing the comparison tool feature. Check off each item
 - [ ] Verify counter text turns blue and bold
 
 ### Selection Limit
+
 - [ ] Try to click checkbox on "Sustainable Agriculture - Kenya"
 - [ ] Verify checkbox does NOT check
 - [ ] Verify counter stays at "3 / 3 selected"
 - [ ] Verify the card appears slightly dimmed/disabled
 
 ### Deselection
+
 - [ ] Click checkbox on "Wind Energy Farm - Texas" to deselect
 - [ ] Verify checkbox is unchecked
 - [ ] Verify counter shows "2 / 3 selected"
 - [ ] Verify "Sustainable Agriculture - Kenya" is now selectable
 
 ### Out of Stock
+
 - [ ] Verify "Solar Power Initiative - India" has "Out of Stock" badge
 - [ ] Verify its checkbox is disabled (grayed out)
 - [ ] Try to click it - verify nothing happens
@@ -59,12 +66,14 @@ Use this checklist when testing the comparison tool feature. Check off each item
 ## Test 3: Comparison Table
 
 ### Table Appearance
+
 - [ ] With 2-3 projects selected, scroll down to comparison section
 - [ ] Verify "Comparison" heading is visible
 - [ ] Verify table has proper borders and styling
 - [ ] Verify table is readable
 
 ### Table Content - Row by Row
+
 - [ ] **Price per Ton**: Verify shows "$XX.XX" format in blue
 - [ ] **Type**: Verify shows badge with project type
 - [ ] **Location**: Verify shows location text
@@ -75,6 +84,7 @@ Use this checklist when testing the comparison tool feature. Check off each item
 - [ ] **Actions**: Verify shows "Add to Cart" buttons
 
 ### Table Accuracy
+
 - [ ] Compare table data with project cards above
 - [ ] Verify all prices match
 - [ ] Verify all types match
@@ -83,6 +93,7 @@ Use this checklist when testing the comparison tool feature. Check off each item
 ## Test 4: Add to Cart
 
 ### Working Projects
+
 - [ ] Click "Add to Cart" on first project in comparison
 - [ ] Verify navigation to `/credits/purchase?projectId=proj-XXX`
 - [ ] Verify URL contains correct project ID
@@ -90,6 +101,7 @@ Use this checklist when testing the comparison tool feature. Check off each item
 - [ ] Verify selections are maintained
 
 ### Out of Stock (if selected before)
+
 - [ ] If "Solar Power Initiative" is in comparison
 - [ ] Verify button shows "Out of Stock"
 - [ ] Verify button is disabled (grayed out)
@@ -98,12 +110,14 @@ Use this checklist when testing the comparison tool feature. Check off each item
 ## Test 5: PDF Export
 
 ### Export Functionality
+
 - [ ] Click "Export as PDF" button
 - [ ] Verify download starts immediately
 - [ ] Verify file downloads to Downloads folder
 - [ ] Verify filename format: `carbon-projects-comparison-YYYY-MM-DD.pdf`
 
 ### PDF Content
+
 - [ ] Open the downloaded PDF file
 - [ ] Verify title: "Carbon Credit Projects Comparison"
 - [ ] Verify generation date is present
@@ -123,6 +137,7 @@ Use this checklist when testing the comparison tool feature. Check off each item
 ## Test 6: Clear Selection
 
 ### Clear Functionality
+
 - [ ] With projects selected, click "Clear Selection" button
 - [ ] Verify all checkboxes become unchecked
 - [ ] Verify counter shows "0 / 3 selected"
@@ -130,6 +145,7 @@ Use this checklist when testing the comparison tool feature. Check off each item
 - [ ] Verify empty state message appears: "Select projects above to start comparing"
 
 ### Re-selection After Clear
+
 - [ ] Select projects again
 - [ ] Verify comparison table reappears
 - [ ] Verify everything works as before
@@ -137,6 +153,7 @@ Use this checklist when testing the comparison tool feature. Check off each item
 ## Test 7: Responsive Design
 
 ### Mobile View (375px)
+
 - [ ] Open DevTools (F12)
 - [ ] Click device toolbar icon (Ctrl+Shift+M)
 - [ ] Select "iPhone SE" or set width to 375px
@@ -148,6 +165,7 @@ Use this checklist when testing the comparison tool feature. Check off each item
 - [ ] Verify text is readable (not too small)
 
 ### Tablet View (768px)
+
 - [ ] Set width to 768px (iPad)
 - [ ] Verify project cards are in 2-column grid
 - [ ] Verify cards have proper spacing
@@ -155,6 +173,7 @@ Use this checklist when testing the comparison tool feature. Check off each item
 - [ ] Verify buttons are properly sized
 
 ### Desktop View (1920px)
+
 - [ ] Set width to 1920px or maximize window
 - [ ] Verify project cards are in 3-column grid
 - [ ] Verify comparison table uses full width
@@ -162,6 +181,7 @@ Use this checklist when testing the comparison tool feature. Check off each item
 - [ ] Verify content is centered with max-width
 
 ### Breakpoint Transitions
+
 - [ ] Slowly resize browser from 375px to 1920px
 - [ ] Verify smooth transitions between layouts
 - [ ] Verify no layout breaks or overlaps
@@ -170,6 +190,7 @@ Use this checklist when testing the comparison tool feature. Check off each item
 ## Test 8: Accessibility
 
 ### Keyboard Navigation
+
 - [ ] Close DevTools
 - [ ] Click in address bar, then press Tab
 - [ ] Verify focus moves to "Compare Projects" link (if on purchase page)
@@ -182,6 +203,7 @@ Use this checklist when testing the comparison tool feature. Check off each item
 - [ ] Verify focus indicator has good contrast
 
 ### Keyboard Interaction
+
 - [ ] Tab to a project checkbox
 - [ ] Press Space to check/uncheck
 - [ ] Verify checkbox toggles
@@ -190,6 +212,7 @@ Use this checklist when testing the comparison tool feature. Check off each item
 - [ ] Verify selection clears
 
 ### Screen Reader (Optional)
+
 - [ ] Enable screen reader (NVDA, JAWS, or VoiceOver)
 - [ ] Navigate through page
 - [ ] Verify all elements are announced
@@ -197,6 +220,7 @@ Use this checklist when testing the comparison tool feature. Check off each item
 - [ ] Verify button labels are descriptive
 
 ### ARIA Attributes
+
 - [ ] Right-click on selection counter → Inspect
 - [ ] Verify `aria-live="polite"` attribute exists
 - [ ] Right-click on checkbox → Inspect
@@ -207,24 +231,28 @@ Use this checklist when testing the comparison tool feature. Check off each item
 ## Test 9: Edge Cases
 
 ### No Selection
+
 - [ ] Clear all selections
 - [ ] Verify empty state message is shown
 - [ ] Verify no comparison table is visible
 - [ ] Verify "Export PDF" button is not visible
 
 ### Single Selection
+
 - [ ] Select only 1 project
 - [ ] Verify comparison table shows with 1 column
 - [ ] Verify "Export PDF" works with 1 project
 - [ ] Verify "Add to Cart" works
 
 ### Maximum Selection
+
 - [ ] Select exactly 3 projects
 - [ ] Verify all 4th+ projects are disabled
 - [ ] Verify comparison table shows 3 columns
 - [ ] Verify table is readable with 3 columns
 
 ### Rapid Clicking
+
 - [ ] Rapidly click checkboxes on/off
 - [ ] Verify counter updates correctly
 - [ ] Verify no UI glitches
@@ -233,41 +261,52 @@ Use this checklist when testing the comparison tool feature. Check off each item
 ## Test 10: Browser Compatibility
 
 ### Chrome/Edge
+
 - [ ] Test all features in Chrome or Edge
 - [ ] Verify everything works
-- [ ] Note any issues: _______________
+- [ ] Note any issues: **\*\***\_\_\_**\*\***
+- [ ] Note any issues: ******\_\_\_******
 
 ### Firefox
+
 - [ ] Test all features in Firefox
 - [ ] Verify everything works
-- [ ] Note any issues: _______________
+- [ ] Note any issues: **\*\***\_\_\_**\*\***
+- [ ] Note any issues: ******\_\_\_******
 
 ### Safari (if available)
+
 - [ ] Test all features in Safari
 - [ ] Verify everything works
-- [ ] Note any issues: _______________
+- [ ] Note any issues: **\*\***\_\_\_**\*\***
+- [ ] Note any issues: ******\_\_\_******
 
 ### Mobile Browser
+
 - [ ] Test on actual mobile device or emulator
 - [ ] Verify touch interactions work
 - [ ] Verify scrolling is smooth
-- [ ] Note any issues: _______________
+- [ ] Note any issues: **\*\***\_\_\_**\*\***
+- [ ] Note any issues: ******\_\_\_******
 
 ## Test 11: Performance
 
 ### Load Time
+
 - [ ] Clear browser cache
 - [ ] Navigate to `/credits/compare`
 - [ ] Verify page loads in < 2 seconds
 - [ ] Verify no loading spinners or delays
 
 ### Interaction Speed
+
 - [ ] Click checkboxes rapidly
 - [ ] Verify immediate visual feedback
 - [ ] Verify no lag or delay
 - [ ] Verify smooth animations
 
 ### Memory Usage
+
 - [ ] Open DevTools → Performance tab
 - [ ] Record while interacting with page
 - [ ] Verify no memory leaks
@@ -276,12 +315,14 @@ Use this checklist when testing the comparison tool feature. Check off each item
 ## Test 12: Error Handling
 
 ### Network Issues (Optional)
+
 - [ ] Open DevTools → Network tab
 - [ ] Set throttling to "Offline"
 - [ ] Try to use the page
 - [ ] Verify graceful degradation (since using mock data, should still work)
 
 ### Console Errors
+
 - [ ] Open DevTools → Console tab
 - [ ] Interact with all features
 - [ ] Verify NO errors in console
@@ -290,16 +331,19 @@ Use this checklist when testing the comparison tool feature. Check off each item
 ## Final Verification
 
 ### Code Quality
+
 - [ ] Run `npm run lint` - verify no errors
 - [ ] Run `npm run build` - verify build succeeds
 - [ ] Run `npx tsc --noEmit` - verify no TypeScript errors
 
 ### Documentation
+
 - [ ] Read `COMPARISON_TOOL_IMPLEMENTATION.md`
 - [ ] Verify documentation matches implementation
 - [ ] Verify all features documented are present
 
 ### Acceptance Criteria
+
 - [ ] Up to 3 projects selectable ✅
 - [ ] Comparison table accurate ✅
 - [ ] Add to Cart works per project ✅
@@ -313,16 +357,20 @@ Use this checklist when testing the comparison tool feature. Check off each item
 
 Document any issues found during testing:
 
-1. _______________________________________________
-2. _______________________________________________
-3. _______________________________________________
+1. ***
+2. ***
+3. ***
 
 ## Testing Sign-Off
 
-- **Tester Name**: _______________
-- **Date**: _______________
-- **Browser(s) Tested**: _______________
-- **Device(s) Tested**: _______________
+- **Tester Name**: **\*\***\_\_\_**\*\***
+- **Date**: **\*\***\_\_\_**\*\***
+- **Browser(s) Tested**: **\*\***\_\_\_**\*\***
+- **Device(s) Tested**: **\*\***\_\_\_**\*\***
+- **Tester Name**: ******\_\_\_******
+- **Date**: ******\_\_\_******
+- **Browser(s) Tested**: ******\_\_\_******
+- **Device(s) Tested**: ******\_\_\_******
 - **Overall Status**: [ ] PASS [ ] FAIL
 - **Ready for PR**: [ ] YES [ ] NO
 
@@ -330,6 +378,8 @@ Document any issues found during testing:
 
 Additional observations or comments:
 
-_______________________________________________
-_______________________________________________
-_______________________________________________
+---
+
+---
+
+---

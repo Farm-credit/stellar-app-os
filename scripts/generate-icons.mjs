@@ -1,12 +1,12 @@
 /**
  * Icon Generation Script for PWA
- * 
+ *
  * This script generates PWA icons from a source image.
- * 
+ *
  * Requirements:
  * - Install sharp: npm install sharp
  * - Place a source icon (icon-source.png) in the public folder (minimum 512x512px)
- * 
+ *
  * Usage:
  * node scripts/generate-icons.js
  */
@@ -39,7 +39,7 @@ async function generateIcons() {
 
   for (const size of sizes) {
     const outputPath = path.join(outputDir, `icon-${size}x${size}.png`);
-    
+
     await sharp(sourceIcon)
       .resize(size, size, {
         fit: 'contain',
@@ -47,7 +47,7 @@ async function generateIcons() {
       })
       .png()
       .toFile(outputPath);
-    
+
     console.log(`✓ Generated ${size}x${size} icon`);
   }
 

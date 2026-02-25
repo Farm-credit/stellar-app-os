@@ -39,12 +39,7 @@ export function FeaturedPostHero({ post }: FeaturedPostHeroProps) {
       </div>
 
       {/* Featured blog card — horizontal layout on desktop */}
-      <BlogCard
-        post={post}
-        variant="featured"
-        priority={true}
-        className="w-full"
-      />
+      <BlogCard post={post} variant="featured" priority={true} className="w-full" />
     </section>
   );
 }

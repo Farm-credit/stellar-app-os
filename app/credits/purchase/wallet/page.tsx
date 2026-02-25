@@ -1,17 +1,17 @@
-"use client";
+'use client';
 
-import { Suspense, useState, useEffect, useMemo } from "react";
-import { useRouter, useSearchParams, usePathname } from "next/navigation";
-import { WalletConnectionStep } from "@/components/organisms/WalletConnectionStep/WalletConnectionStep";
-import { ProgressStepper } from "@/components/molecules/ProgressStepper/ProgressStepper";
-import { Button } from "@/components/atoms/Button";
-import { Text } from "@/components/atoms/Text";
+import { Suspense, useState, useEffect, useMemo } from 'react';
+import { useRouter, useSearchParams, usePathname } from 'next/navigation';
+import { WalletConnectionStep } from '@/components/organisms/WalletConnectionStep/WalletConnectionStep';
+import { ProgressStepper } from '@/components/molecules/ProgressStepper/ProgressStepper';
+import { Button } from '@/components/atoms/Button';
+import { Text } from '@/components/atoms/Text';
 import {
   buildPurchaseFlowSteps,
   getCurrentStepFromPath,
   getCompletedSteps,
-} from "@/lib/utils/purchaseFlow";
-import type { WalletConnection } from "@/lib/types/wallet";
+} from '@/lib/utils/purchaseFlow';
+import type { WalletConnection } from '@/lib/types/wallet';
 
 function WalletContent() {
   const router = useRouter();
@@ -21,18 +21,17 @@ function WalletContent() {
   const [selectionParam, setSelectionParam] = useState<string | null>(null);
 
   useEffect(() => {
-    const param = searchParams.get("selection");
+    const param = searchParams.get('selection');
     if (param) {
       setSelectionParam(param);
     } else {
-      router.push("/credits/purchase");
+      router.push('/credits/purchase');
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
   const handleConnectionChange = (connection: WalletConnection | null) => {
     setWallet(connection);
-    console.log("Wallet connection changed:", connection);
   };
 
   const handleNext = () => {
@@ -42,11 +41,7 @@ function WalletContent() {
   };
 
   const currentStepId = getCurrentStepFromPath(pathname);
-  const completedSteps = getCompletedSteps(
-    currentStepId,
-    !!selectionParam,
-    !!wallet?.isConnected
-  );
+  const completedSteps = getCompletedSteps(currentStepId, !!selectionParam, !!wallet?.isConnected);
   const steps = useMemo(
     () => buildPurchaseFlowSteps(currentStepId, completedSteps, selectionParam),
     [currentStepId, completedSteps, selectionParam]
@@ -60,12 +55,7 @@ function WalletContent() {
       <WalletConnectionStep onConnectionChange={handleConnectionChange} />
       {wallet?.isConnected && (
         <div className="flex justify-end pt-6">
-          <Button
-            stellar="primary"
-            size="lg"
-            onClick={handleNext}
-            aria-label="Continue to payment"
-          >
+          <Button stellar="primary" size="lg" onClick={handleNext} aria-label="Continue to payment">
             Next
           </Button>
         </div>

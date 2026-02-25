@@ -1,11 +1,12 @@
-"use client";
+'use client';
 
-import { useState, useEffect, useCallback } from "react";
-import { Input } from "@/components/atoms/Input";
-import { Select } from "@/components/atoms/Select";
-import { Badge } from "@/components/atoms/Badge";
-import { Text } from "@/components/atoms/Text";
-import type { CreditSelectionProps } from "@/lib/types/carbon";
+import { useState, useEffect, useCallback } from 'react';
+import { Input } from '@/components/atoms/Input';
+import { Select } from '@/components/atoms/Select';
+import { Badge } from '@/components/atoms/Badge';
+import { Text } from '@/components/atoms/Text';
+import { ProjectLocationMap } from '@/components/organisms/ProjectLocationMap/ProjectLocationMap';
+import type { CreditSelectionProps } from '@/lib/types/carbon';
 
 const MIN_QUANTITY = 0.1;
 const PRICE_PRECISION = 2;
@@ -16,9 +17,9 @@ function calculatePrice(quantity: number, pricePerTon: number): number {
 }
 
 function formatPrice(price: number): string {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
     minimumFractionDigits: PRICE_PRECISION,
     maximumFractionDigits: PRICE_PRECISION,
   }).format(price);
@@ -29,24 +30,21 @@ function calculateAvailabilityPercentage(available: number, max: number): number
   return Math.min(100, Math.round((available / max) * 100));
 }
 
-export function CreditSelectionStep({
-  projects,
-  onSelectionChange,
-}: CreditSelectionProps) {
-  const [selectedProjectId, setSelectedProjectId] = useState<string>("");
-  const [quantity, setQuantity] = useState<string>("");
-  const [quantityError, setQuantityError] = useState<string>("");
+export function CreditSelectionStep({ projects, onSelectionChange }: CreditSelectionProps) {
+  const [selectedProjectId, setSelectedProjectId] = useState<string>('');
+  const [quantity, setQuantity] = useState<string>('');
+  const [quantityError, setQuantityError] = useState<string>('');
 
   const selectedProject = projects.find((p) => p.id === selectedProjectId) || null;
 
   const validateQuantity = useCallback(
     (value: string): string => {
-      if (!selectedProject) return "";
-      if (!value) return "";
+      if (!selectedProject) return '';
+      if (!value) return '';
 
       const numValue = parseFloat(value);
       if (isNaN(numValue) || numValue <= 0) {
-        return "Quantity must be greater than 0";
+        return 'Quantity must be greater than 0';
       }
       if (numValue < MIN_QUANTITY) {
         return `Minimum quantity is ${MIN_QUANTITY} ton CO₂`;
@@ -54,7 +52,7 @@ export function CreditSelectionStep({
       if (numValue > selectedProject.availableSupply) {
         return `Maximum quantity is ${selectedProject.availableSupply.toFixed(2)} tons CO₂`;
       }
-      return "";
+      return '';
     },
     [selectedProject]
   );
@@ -65,7 +63,7 @@ export function CreditSelectionStep({
       setQuantity(value);
 
       if (!selectedProject) {
-        setQuantityError("");
+        setQuantityError('');
         return;
       }
 
@@ -79,8 +77,8 @@ export function CreditSelectionStep({
     (e: React.ChangeEvent<HTMLSelectElement>) => {
       const newProjectId = e.target.value;
       setSelectedProjectId(newProjectId);
-      setQuantity("");
-      setQuantityError("");
+      setQuantity('');
+      setQuantityError('');
 
       if (newProjectId && onSelectionChange) {
         const project = projects.find((p) => p.id === newProjectId);
@@ -136,9 +134,7 @@ export function CreditSelectionStep({
       : 0;
 
   const availableProjects = projects.filter((p) => !p.isOutOfStock);
-  const maxSupply = selectedProject
-    ? Math.max(...projects.map((p) => p.availableSupply))
-    : 0;
+  const maxSupply = selectedProject ? Math.max(...projects.map((p) => p.availableSupply)) : 0;
   const availabilityPercentage = selectedProject
     ? calculateAvailabilityPercentage(selectedProject.availableSupply, maxSupply)
     : 0;
@@ -225,7 +221,23 @@ export function CreditSelectionStep({
                   {formatPrice(selectedProject.pricePerTon)}
                 </Text>
               </div>
+
+              <div className="flex items-center justify-between">
+                <Text variant="small" as="span" className="font-semibold">
+                  Location
+                </Text>
+                <Text variant="small" as="span" className="text-right">
+                  {selectedProject.location}
+                </Text>
+              </div>
             </div>
+
+            <ProjectLocationMap
+              projectName={selectedProject.name}
+              locationLabel={selectedProject.location}
+              coordinates={selectedProject.coordinates}
+              className="rounded-lg border border-stellar-blue/20 bg-background p-4"
+            />
 
             <div>
               <label htmlFor="quantity-input" className="block mb-2">
@@ -244,12 +256,12 @@ export function CreditSelectionStep({
                 max={selectedProject.availableSupply}
                 value={quantity}
                 onChange={handleQuantityChange}
-                variant={quantityError ? "destructive" : "primary"}
+                variant={quantityError ? 'destructive' : 'primary'}
                 placeholder="0.1"
                 aria-label="Enter quantity in tons CO₂"
                 aria-required="true"
                 aria-invalid={!!quantityError}
-                aria-describedby={quantityError ? "quantity-error" : undefined}
+                aria-describedby={quantityError ? 'quantity-error' : undefined}
               />
               {quantityError && (
                 <Text
@@ -275,7 +287,8 @@ export function CreditSelectionStep({
                   </Text>
                 </div>
                 <Text variant="muted" as="p" className="mt-1 text-xs">
-                  {parseFloat(quantity).toFixed(2)} tons × {formatPrice(selectedProject.pricePerTon)} per ton
+                  {parseFloat(quantity).toFixed(2)} tons ×{' '}
+                  {formatPrice(selectedProject.pricePerTon)} per ton
                 </Text>
               </div>
             )}

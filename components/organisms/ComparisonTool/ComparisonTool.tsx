@@ -1,52 +1,45 @@
-"use client";
+'use client';
 
-import { useState, useCallback } from "react";
-import type { CarbonProject } from "@/lib/types/carbon";
-import { ProjectSelectionCard } from "@/components/molecules/ProjectSelectionCard";
-import { ComparisonTable } from "@/components/molecules/ComparisonTable";
-import { Button } from "@/components/atoms/Button";
-import { Text } from "@/components/atoms/Text";
-import { generateComparisonPDF } from "@/lib/utils/pdf";
+import { useState, useCallback } from 'react';
+import type { CarbonProject } from '@/lib/types/carbon';
+import { ProjectSelectionCard } from '@/components/molecules/ProjectSelectionCard';
+import { ComparisonTable } from '@/components/molecules/ComparisonTable';
+import { Button } from '@/components/atoms/Button';
+import { Text } from '@/components/atoms/Text';
+import { generateComparisonPDF } from '@/lib/utils/pdf';
 
 const MAX_COMPARISON = 3;
 
 export interface ComparisonToolProps {
   projects: CarbonProject[];
-  onAddToCart?: (projectId: string) => void;
+  onAddToCart?: (_projectId: string) => void;
 }
 
 export function ComparisonTool({ projects, onAddToCart }: ComparisonToolProps) {
   const [selectedProjectIds, setSelectedProjectIds] = useState<string[]>([]);
 
-  const handleSelectionChange = useCallback(
-    (projectId: string, selected: boolean) => {
-      setSelectedProjectIds((prev: string[]) => {
-        if (selected) {
-          if (prev.length >= MAX_COMPARISON) {
-            return prev;
-          }
-          return [...prev, projectId];
+  const handleSelectionChange = useCallback((projectId: string, selected: boolean) => {
+    setSelectedProjectIds((prev: string[]) => {
+      if (selected) {
+        if (prev.length >= MAX_COMPARISON) {
+          return prev;
         }
-        return prev.filter((id: string) => id !== projectId);
-      });
-    },
-    []
-  );
+        return [...prev, projectId];
+      }
+      return prev.filter((id: string) => id !== projectId);
+    });
+  }, []);
 
   const handleClearSelection = useCallback(() => {
     setSelectedProjectIds([]);
   }, []);
 
   const handleExportPDF = useCallback(() => {
-    const selectedProjects = projects.filter((p) =>
-      selectedProjectIds.includes(p.id)
-    );
+    const selectedProjects = projects.filter((p) => selectedProjectIds.includes(p.id));
     generateComparisonPDF(selectedProjects);
   }, [projects, selectedProjectIds]);
 
-  const selectedProjects = projects.filter((p) =>
-    selectedProjectIds.includes(p.id)
-  );
+  const selectedProjects = projects.filter((p) => selectedProjectIds.includes(p.id));
 
   const availableProjects = projects.filter((p) => !p.isOutOfStock);
 
@@ -67,8 +60,8 @@ export function ComparisonTool({ projects, onAddToCart }: ComparisonToolProps) {
             as="span"
             className={
               selectedProjectIds.length >= MAX_COMPARISON
-                ? "text-stellar-blue font-semibold"
-                : "text-muted-foreground"
+                ? 'text-stellar-blue font-semibold'
+                : 'text-muted-foreground'
             }
             aria-live="polite"
           >
@@ -119,10 +112,7 @@ export function ComparisonTool({ projects, onAddToCart }: ComparisonToolProps) {
           </div>
 
           <div className="rounded-lg border border-border overflow-hidden">
-            <ComparisonTable
-              projects={selectedProjects}
-              onAddToCart={onAddToCart}
-            />
+            <ComparisonTable projects={selectedProjects} onAddToCart={onAddToCart} />
           </div>
         </div>
       )}
