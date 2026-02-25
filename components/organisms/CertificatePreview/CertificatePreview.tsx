@@ -60,10 +60,7 @@ function CertificatePreview({ data, className }: CertificatePreviewProps) {
 
   return (
     <Card
-      className={cn(
-        'mx-auto w-full max-w-2xl overflow-hidden print:shadow-none',
-        className,
-      )}
+      className={cn('mx-auto w-full max-w-2xl overflow-hidden print:shadow-none', className)}
       role="region"
       aria-label="Retirement Certificate Preview"
     >
@@ -128,8 +125,8 @@ function CertificatePreview({ data, className }: CertificatePreviewProps) {
               className="text-center font-bold"
               style={{ color: 'var(--stellar-navy)' }}
             >
-              {data.quantityRetired.toLocaleString()}{' '}
-              Carbon Credit{data.quantityRetired !== 1 ? 's' : ''}
+              {data.quantityRetired.toLocaleString()} Carbon Credit
+              {data.quantityRetired !== 1 ? 's' : ''}
             </Text>
           </div>
           <Text variant="body" className="text-muted-foreground">
@@ -162,15 +159,8 @@ function CertificatePreview({ data, className }: CertificatePreviewProps) {
         <div className="flex flex-col gap-6 sm:flex-row sm:items-start sm:gap-8">
           {/* Left: fields */}
           <div className="flex flex-1 flex-col gap-4">
-            <CertificateField
-              label="Transaction Hash"
-              value={data.transactionHash}
-              mono
-            />
-            <CertificateField
-              label="Retirement Date"
-              value={formattedDate}
-            />
+            <CertificateField label="Transaction Hash" value={data.transactionHash} mono />
+            <CertificateField label="Retirement Date" value={formattedDate} />
             <CertificateField
               label="Quantity Retired"
               value={`${data.quantityRetired.toLocaleString()} tCO₂e`}

@@ -1,5 +1,5 @@
-import { ArrowLeft, ArrowRight } from "lucide-react";
-import React from "react";
+import { ArrowLeft, ArrowRight } from 'lucide-react';
+import React from 'react';
 
 interface PaginationProps {
   currentPage: number;
@@ -12,7 +12,7 @@ export function Pagination({
   currentPage,
   totalPages,
   onPageChange,
-  className = "",
+  className = '',
 }: PaginationProps): React.ReactNode {
   const canGoPrev = currentPage > 1;
   const canGoNext = currentPage < totalPages;
@@ -38,7 +38,7 @@ export function Pagination({
       pages.push(1);
 
       if (currentPage > 3) {
-        pages.push("...");
+        pages.push('...');
       }
 
       const start = Math.max(2, currentPage - 1);
@@ -49,7 +49,7 @@ export function Pagination({
       }
 
       if (currentPage < totalPages - 2) {
-        pages.push("...");
+        pages.push('...');
       }
 
       pages.push(totalPages);
@@ -76,7 +76,7 @@ export function Pagination({
 
       <div className="flex gap-1 flex-wrap justify-center">
         {pageNumbers.map((page, idx) => {
-          if (page === "...") {
+          if (page === '...') {
             return (
               <span key={`ellipsis-${idx}`} className="px-2 py-2 text-muted-foreground">
                 ...
@@ -92,11 +92,11 @@ export function Pagination({
               key={pageNum}
               onClick={() => onPageChange(pageNum)}
               aria-label={`Go to page ${pageNum}`}
-              aria-current={isActive ? "page" : undefined}
+              aria-current={isActive ? 'page' : undefined}
               className={`px-3 cursor-pointer py-2 rounded-lg border transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stellar-blue ${
                 isActive
-                  ? "bg-stellar-blue text-white border-stellar-blue"
-                  : "border-border text-foreground hover:bg-muted"
+                  ? 'bg-stellar-blue text-white border-stellar-blue'
+                  : 'border-border text-foreground hover:bg-muted'
               }`}
             >
               {pageNum}

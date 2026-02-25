@@ -27,7 +27,8 @@ export function ProjectWizard() {
             Submit Your Environmental Project
           </h1>
           <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-            List your carbon credit or tree-planting project to connect with buyers and donors worldwide
+            List your carbon credit or tree-planting project to connect with buyers and donors
+            worldwide
           </p>
         </div>
 
@@ -57,12 +58,10 @@ export function ProjectWizard() {
                       >
                         {step.title}
                       </p>
-                      <p className="text-xs text-gray-500 mt-1">
-                        {step.description}
-                      </p>
+                      <p className="text-xs text-gray-500 mt-1">{step.description}</p>
                     </div>
                   </div>
-                  
+
                   {index < steps.length - 1 && (
                     <div className="flex-1 h-1 mx-2 md:mx-4 -mt-8 md:-mt-16">
                       <div
@@ -78,15 +77,11 @@ export function ProjectWizard() {
             </div>
 
             <Progress value={progressPercentage} className="h-2" />
-            
+
             {/* Mobile step indicator */}
             <div className="md:hidden text-center">
-              <p className="text-sm font-semibold text-gray-900">
-                {steps[currentStep - 1].title}
-              </p>
-              <p className="text-xs text-gray-500">
-                {steps[currentStep - 1].description}
-              </p>
+              <p className="text-sm font-semibold text-gray-900">{steps[currentStep - 1].title}</p>
+              <p className="text-xs text-gray-500">{steps[currentStep - 1].description}</p>
             </div>
           </div>
         </Card>

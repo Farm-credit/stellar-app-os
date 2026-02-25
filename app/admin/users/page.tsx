@@ -11,7 +11,8 @@ export default function AdminUsersPage(): ReactNode {
         users={mockAdminUsers}
         onUserAction={async (userId, action, reason) => {
           // TODO: Replace with real API call
-          console.log('User action:', { userId, action, reason });
+          console.info('User action:', { userId, action, reason });
+          return Promise.resolve();
         }}
       />
     </div>

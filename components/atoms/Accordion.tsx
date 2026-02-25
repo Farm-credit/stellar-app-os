@@ -1,8 +1,8 @@
-"use client";
+'use client';
 
-import React, { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { ChevronDown } from "lucide-react";
+import React, { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { ChevronDown } from 'lucide-react';
 
 interface AccordionItem {
   id: string;
@@ -14,7 +14,7 @@ interface AccordionProps {
   className?: string;
 }
 
-export function Accordion({ items, className = "" }: AccordionProps): React.ReactNode {
+export function Accordion({ items, className = '' }: AccordionProps): React.ReactNode {
   const [openId, setOpenId] = useState<string | null>(null);
 
   const toggleAccordion = (id: string): void => {
@@ -37,7 +37,6 @@ export function Accordion({ items, className = "" }: AccordionProps): React.Reac
               transition={{ duration: 0.3 }}
               className="text-stellar-blue"
             >
-              
               <ChevronDown className="w-4 h-4" />
             </motion.span>
           </button>
@@ -47,7 +46,7 @@ export function Accordion({ items, className = "" }: AccordionProps): React.Reac
               <motion.div
                 id={`accordion-content-${item.id}`}
                 initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: "auto" }}
+                animate={{ opacity: 1, height: 'auto' }}
                 exit={{ opacity: 0, height: 0 }}
                 transition={{ duration: 0.3 }}
                 className="overflow-hidden"

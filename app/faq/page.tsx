@@ -1,22 +1,22 @@
-"use client";
+'use client';
 
-import React, { useState, useMemo } from "react";
-import { Accordion } from "@/components/atoms/Accordion";
-import { Input } from "@/components/atoms/Input";
-import { faqItems, searchFAQs, getFAQsByCategory, type FAQItem } from "@/lib/faq";
+import React, { useState, useMemo } from 'react';
+import { Accordion } from '@/components/atoms/Accordion';
+import { Input } from '@/components/atoms/Input';
+import { faqItems, searchFAQs, type FAQItem } from '@/lib/faq';
 
-type Category = "All" | "General" | "Donations" | "Credits" | "Technical";
+type Category = 'All' | 'General' | 'Donations' | 'Credits' | 'Technical';
 
-const categories: Category[] = ["All", "General", "Donations", "Credits", "Technical"];
+const categories: Category[] = ['All', 'General', 'Donations', 'Credits', 'Technical'];
 
 export default function FAQPage(): React.ReactNode {
-  const [searchQuery, setSearchQuery] = useState<string>("");
-  const [selectedCategory, setSelectedCategory] = useState<Category>("All");
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [selectedCategory, setSelectedCategory] = useState<Category>('All');
 
   const filteredFAQs = useMemo((): FAQItem[] => {
     let results = searchQuery.trim() ? searchFAQs(searchQuery) : faqItems;
 
-    if (selectedCategory !== "All") {
+    if (selectedCategory !== 'All') {
       results = results.filter((item) => item.category === selectedCategory);
     }
 
@@ -32,8 +32,14 @@ export default function FAQPage(): React.ReactNode {
   return (
     <main className="min-h-screen bg-background">
       {/* Hero Section */}
-      <section aria-labelledby="faq-heading" className="px-4 py-12 md:px-8 md:py-16 max-w-4xl mx-auto">
-        <h1 id="faq-heading" className="text-3xl md:text-4xl font-bold text-center mb-4 text-stellar-blue">
+      <section
+        aria-labelledby="faq-heading"
+        className="px-4 py-12 md:px-8 md:py-16 max-w-4xl mx-auto"
+      >
+        <h1
+          id="faq-heading"
+          className="text-3xl md:text-4xl font-bold text-center mb-4 text-stellar-blue"
+        >
           Frequently Asked Questions
         </h1>
         <p className="text-center text-muted-foreground text-lg mb-8">
@@ -63,8 +69,8 @@ export default function FAQPage(): React.ReactNode {
               aria-pressed={selectedCategory === category}
               className={`px-4 py-2 rounded-lg font-medium transition-colors ${
                 selectedCategory === category
-                  ? "bg-stellar-blue text-white"
-                  : "bg-card border border-border text-foreground hover:border-stellar-blue hover:text-stellar-blue"
+                  ? 'bg-stellar-blue text-white'
+                  : 'bg-card border border-border text-foreground hover:border-stellar-blue hover:text-stellar-blue'
               } focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stellar-blue`}
             >
               {category}
@@ -75,7 +81,7 @@ export default function FAQPage(): React.ReactNode {
         {/* Results Count */}
         {searchQuery && (
           <p className="text-sm text-muted-foreground mb-6 text-center">
-            Found {filteredFAQs.length} {filteredFAQs.length === 1 ? "result" : "results"}
+            Found {filteredFAQs.length} {filteredFAQs.length === 1 ? 'result' : 'results'}
           </p>
         )}
 
@@ -92,9 +98,15 @@ export default function FAQPage(): React.ReactNode {
       </section>
 
       {/* Contact CTA Section */}
-      <section aria-labelledby="contact-cta-heading" className="px-4 py-12 md:px-8 md:py-16 bg-card border-t border-border">
+      <section
+        aria-labelledby="contact-cta-heading"
+        className="px-4 py-12 md:px-8 md:py-16 bg-card border-t border-border"
+      >
         <div className="max-w-2xl mx-auto text-center">
-          <h2 id="contact-cta-heading" className="text-2xl md:text-3xl font-bold mb-4 text-stellar-blue">
+          <h2
+            id="contact-cta-heading"
+            className="text-2xl md:text-3xl font-bold mb-4 text-stellar-blue"
+          >
             Still have questions?
           </h2>
           <p className="text-muted-foreground mb-6">

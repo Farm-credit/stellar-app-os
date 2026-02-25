@@ -1,3 +1,5 @@
+'use client';
+
 import type { ReactNode } from 'react';
 import { Text } from '@/components/atoms/Text';
 import { WebhookEventLogsViewer } from '@/components/organisms/WebhookEventLogsViewer/WebhookEventLogsViewer';
@@ -18,7 +20,7 @@ export default function AdminWebhooksPage(): ReactNode {
       <WebhookEventLogsViewer
         events={mockWebhookEvents}
         onRetryEvent={async (eventId) => {
-          console.log('Retrying event:', eventId);
+          console.info('Retrying event:', eventId);
           // TODO: Implement API call to retry webhook
           await new Promise((resolve) => setTimeout(resolve, 1000));
         }}

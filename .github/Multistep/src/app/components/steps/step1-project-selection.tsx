@@ -5,7 +5,7 @@ import { Input } from '../ui/input';
 import { Button } from '../ui/button';
 import { RadioGroup, RadioGroupItem } from '../ui/radio-group';
 import { Leaf, Trees } from 'lucide-react';
-import { useWizardStore, ProjectType } from '../../store/wizard-store';
+import { useWizardStore, type ProjectType } from '../../store/wizard-store';
 import { useEffect } from 'react';
 
 interface Step1FormData {
@@ -60,11 +60,7 @@ export function Step1ProjectSelection() {
               className="grid grid-cols-1 md:grid-cols-2 gap-4"
             >
               <div>
-                <RadioGroupItem
-                  value="carbon-credit"
-                  id="carbon-credit"
-                  className="peer sr-only"
-                />
+                <RadioGroupItem value="carbon-credit" id="carbon-credit" className="peer sr-only" />
                 <Label
                   htmlFor="carbon-credit"
                   className="flex flex-col items-center justify-between rounded-xl border-2 border-gray-300 bg-white p-6 hover:bg-gray-50 peer-data-[state=checked]:border-green-600 peer-data-[state=checked]:bg-green-50 cursor-pointer transition-all min-h-[160px]"
@@ -72,19 +68,13 @@ export function Step1ProjectSelection() {
                   <Leaf className="w-12 h-12 text-green-600 mb-3" />
                   <div className="text-center space-y-1">
                     <p className="font-semibold text-lg">Carbon Credit Project</p>
-                    <p className="text-sm text-gray-600">
-                      Earn from verified carbon offsetting
-                    </p>
+                    <p className="text-sm text-gray-600">Earn from verified carbon offsetting</p>
                   </div>
                 </Label>
               </div>
 
               <div>
-                <RadioGroupItem
-                  value="tree-planting"
-                  id="tree-planting"
-                  className="peer sr-only"
-                />
+                <RadioGroupItem value="tree-planting" id="tree-planting" className="peer sr-only" />
                 <Label
                   htmlFor="tree-planting"
                   className="flex flex-col items-center justify-between rounded-xl border-2 border-gray-300 bg-white p-6 hover:bg-gray-50 peer-data-[state=checked]:border-emerald-600 peer-data-[state=checked]:bg-emerald-50 cursor-pointer transition-all min-h-[160px]"
@@ -92,17 +82,13 @@ export function Step1ProjectSelection() {
                   <Trees className="w-12 h-12 text-emerald-600 mb-3" />
                   <div className="text-center space-y-1">
                     <p className="font-semibold text-lg">Tree Planting Project</p>
-                    <p className="text-sm text-gray-600">
-                      Receive support for reforestation
-                    </p>
+                    <p className="text-sm text-gray-600">Receive support for reforestation</p>
                   </div>
                 </Label>
               </div>
             </RadioGroup>
             {errors.projectType && (
-              <p className="text-sm text-red-600 mt-2">
-                {errors.projectType.message}
-              </p>
+              <p className="text-sm text-red-600 mt-2">{errors.projectType.message}</p>
             )}
           </div>
         </CardContent>
@@ -111,9 +97,7 @@ export function Step1ProjectSelection() {
       <Card>
         <CardHeader>
           <CardTitle>Basic Project Details</CardTitle>
-          <CardDescription>
-            Provide essential information about your project
-          </CardDescription>
+          <CardDescription>Provide essential information about your project</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="space-y-2">
@@ -153,12 +137,8 @@ export function Step1ProjectSelection() {
                 },
               })}
             />
-            {errors.location && (
-              <p className="text-sm text-red-600">{errors.location.message}</p>
-            )}
-            <p className="text-sm text-gray-500">
-              City, State/Province, Country
-            </p>
+            {errors.location && <p className="text-sm text-red-600">{errors.location.message}</p>}
+            <p className="text-sm text-gray-500">City, State/Province, Country</p>
           </div>
         </CardContent>
       </Card>

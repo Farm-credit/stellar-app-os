@@ -4,19 +4,24 @@ import { useState, useCallback, useMemo, type ReactNode } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/atoms/Button';
 import { Text } from '@/components/atoms/Text';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/molecules/Card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/molecules/Card';
 import { ProjectTableRow } from '@/components/molecules/ProjectTableRow/ProjectTableRow';
 import { TableFilterBar } from '@/components/molecules/TableFilterBar/TableFilterBar';
 import { BulkActionsBar } from '@/components/molecules/BulkActionsBar/BulkActionsBar';
-import { ConfirmationModal } from '@/components/molecules/ConfirmationModal/ConfirmationModal'
+import { ConfirmationModal } from '@/components/molecules/ConfirmationModal/ConfirmationModal';
 import type { AdminProjectDetail } from '@/lib/types/adminProject';
-import type { TableFilterState, ConfirmationModalState, BulkActionPayload } from '@/lib/types/admin';
-import {
-  filterProjects,
-  getProjectTypes,
-  getRiskRatings,
-} from '@/lib/admin/projectFilters';
-
+import type {
+  TableFilterState,
+  ConfirmationModalState,
+  BulkActionPayload,
+} from '@/lib/types/admin';
+import { filterProjects, getProjectTypes, getRiskRatings } from '@/lib/admin/projectFilters';
 
 interface AdminProjectTableProps {
   projects: AdminProjectDetail[];
@@ -51,10 +56,7 @@ export function AdminProjectTable({
   const [isLoading, setIsLoading] = useState(false);
 
   // Filter and sort projects
-  const filteredProjects = useMemo(
-    () => filterProjects(projects, filters),
-    [projects, filters]
-  );
+  const filteredProjects = useMemo(() => filterProjects(projects, filters), [projects, filters]);
 
   const projectTypes = useMemo(() => getProjectTypes(projects), [projects]);
   const riskRatings = useMemo(() => getRiskRatings(projects), [projects]);
@@ -333,7 +335,10 @@ export function AdminProjectTable({
                     <th className="w-12 px-4 py-3 text-left font-medium">
                       <input
                         type="checkbox"
-                        checked={selectedProjectIds.size === filteredProjects.length && filteredProjects.length > 0}
+                        checked={
+                          selectedProjectIds.size === filteredProjects.length &&
+                          filteredProjects.length > 0
+                        }
                         onChange={() =>
                           selectedProjectIds.size === filteredProjects.length
                             ? handleClearSelection()
@@ -391,8 +396,7 @@ export function AdminProjectTable({
               ? {
                   label: 'Reason (optional)',
                   value: confirmModal.reason || '',
-                  onChange: (reason: string) =>
-                    setConfirmModal({ ...confirmModal, reason }),
+                  onChange: (reason: string) => setConfirmModal({ ...confirmModal, reason }),
                   placeholder: 'Explain why you are taking this action...',
                 }
               : undefined

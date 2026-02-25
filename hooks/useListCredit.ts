@@ -1,7 +1,7 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { createListing } from "@/lib/stellar/listing";
-import { useWalletContext } from "@/contexts/WalletContext";
-import type { Credit, ListingResult } from "@/lib/types/listing";
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { createListing } from '@/lib/stellar/listing';
+import { useWalletContext } from '@/contexts/WalletContext';
+import type { Credit, ListingResult } from '@/lib/types/listing';
 
 interface ListCreditParams {
   credit: Credit;
@@ -16,14 +16,14 @@ export function useListCredit() {
   return useMutation({
     mutationFn: async (params: ListCreditParams): Promise<ListingResult> => {
       if (!wallet?.publicKey) {
-        throw new Error("Wallet not connected");
+        throw new Error('Wallet not connected');
       }
-      return createListing(wallet, params);
+      return await createListing(wallet, params);
     },
     onSuccess: () => {
       // Invalidate related queries
-      queryClient.invalidateQueries({ queryKey: ["user-credits"] });
-      queryClient.invalidateQueries({ queryKey: ["marketplace-listings"] });
+      queryClient.invalidateQueries({ queryKey: ['user-credits'] });
+      queryClient.invalidateQueries({ queryKey: ['marketplace-listings'] });
     },
   });
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, JSX } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { CreditSelectionStep } from '@/components/organisms/CreditSelectionStep/CreditSelectionStep';
 import { ProgressStepper } from '@/components/molecules/ProgressStepper/ProgressStepper';
@@ -11,18 +11,20 @@ import {
   getCurrentStepFromPath,
   getCompletedSteps,
 } from '@/lib/utils/purchaseFlow';
+import { useAppTranslation } from '@/hooks/useTranslation';
 import type { CreditSelectionState } from '@/lib/types/carbon';
 
-export default function PurchasePage() {
+export default function PurchasePage(): JSX.Element {
   const router = useRouter();
   const pathname = usePathname();
+  const { t } = useAppTranslation();
   const [selection, setSelection] = useState<CreditSelectionState | null>(null);
 
-  const handleSelectionChange = useCallback((newSelection: CreditSelectionState) => {
+  const handleSelectionChange = useCallback((newSelection: CreditSelectionState): void => {
     setSelection(newSelection);
   }, []);
 
-  const handleNext = () => {
+  const handleNext = (): void => {
     if (selection) {
       const selectionParam = encodeURIComponent(JSON.stringify(selection));
       router.push(`/credits/purchase/wallet?selection=${selectionParam}`);
@@ -36,7 +38,7 @@ export default function PurchasePage() {
   const completedSteps = getCompletedSteps(currentStepId, !!selection, false);
   const steps = useMemo(
     () => buildPurchaseFlowSteps(currentStepId, completedSteps, null),
-    [currentStepId, completedSteps]
+    [currentStepId, completedSteps],
   );
 
   return (
@@ -54,9 +56,9 @@ export default function PurchasePage() {
           size="lg"
           onClick={handleNext}
           disabled={!canProceed}
-          aria-label="Continue to wallet connection"
+          aria-label={t('purchase.nextAriaLabel')}
         >
-          Next
+          {t('purchase.nextButton')}
         </Button>
       </div>
     </div>

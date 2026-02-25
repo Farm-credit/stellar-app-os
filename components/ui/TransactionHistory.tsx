@@ -1,33 +1,33 @@
-import { useEffect, useState } from "react";
-import type { TransactionItem } from "../../lib/types/transaction";
-import { CardContent } from "../molecules/Card";
-import { Button } from "../atoms/Button";
+import { useEffect, useState } from 'react';
+import type { TransactionItem } from '../../lib/types/transaction';
+import { CardContent } from '../molecules/Card';
+import { Button } from '../atoms/Button';
 
 // sample static transactions that simulate a small history
 const MOCK_TRANSACTIONS: TransactionItem[] = [
   {
-    id: "abcdef1234567890",
-    status: "confirmed",
+    id: 'abcdef1234567890',
+    status: 'confirmed',
     timestamp: new Date().toISOString(),
-    sourceAddress: "GABC...SOURCE1",
-    destinationAddress: "GDEF...DEST1",
-    amount: "100.0 XLM",
+    sourceAddress: 'GABC...SOURCE1',
+    destinationAddress: 'GDEF...DEST1',
+    amount: '100.0 XLM',
   },
   {
-    id: "deadbeef987654321",
-    status: "pending",
+    id: 'deadbeef987654321',
+    status: 'pending',
     timestamp: new Date(Date.now() - 3600_000).toISOString(),
-    sourceAddress: "GABC...SOURCE2",
-    destinationAddress: "GDEF...DEST2",
-    amount: "42.5 XLM",
+    sourceAddress: 'GABC...SOURCE2',
+    destinationAddress: 'GDEF...DEST2',
+    amount: '42.5 XLM',
   },
   {
-    id: "feedfacecafebeef",
-    status: "failed",
+    id: 'feedfacecafebeef',
+    status: 'failed',
     timestamp: new Date(Date.now() - 7200_000).toISOString(),
-    sourceAddress: "GABC...SOURCE3",
-    destinationAddress: "GDEF...DEST3",
-    amount: "0.0001 XLM",
+    sourceAddress: 'GABC...SOURCE3',
+    destinationAddress: 'GDEF...DEST3',
+    amount: '0.0001 XLM',
   },
 ];
 
@@ -49,16 +49,16 @@ export function TransactionHistory() {
     const timer = setTimeout(() => {
       setTx(MOCK_TRANSACTIONS);
     }, 500);
-    
+
     return () => clearTimeout(timer);
   }, []);
 
   const statusColor = (status: string) =>
-    status === "pending"
-      ? "bg-yellow-500 p-2  rounded-sm"
-      : status === "confirmed"
-      ? "bg-green-500 p-2 rounded-sm"
-      : "bg-red-500 p-2 rounded-sm";
+    status === 'pending'
+      ? 'bg-yellow-500 p-2  rounded-sm'
+      : status === 'confirmed'
+        ? 'bg-green-500 p-2 rounded-sm'
+        : 'bg-red-500 p-2 rounded-sm';
 
   return (
     <div className="space-y-4">
@@ -101,10 +101,12 @@ export function TransactionHistory() {
 
             <div className="flex-1 mt-2 sm:mt-0 sm:px-4">
               <div className="text-sm">
-                <span className="font-semibold">From:</span> <span className="break-all">{tx.sourceAddress}</span>
+                <span className="font-semibold">From:</span>{' '}
+                <span className="break-all">{tx.sourceAddress}</span>
               </div>
               <div className="text-sm">
-                <span className="font-semibold">To:</span> <span className="break-all">{tx.destinationAddress}</span>
+                <span className="font-semibold">To:</span>{' '}
+                <span className="break-all">{tx.destinationAddress}</span>
               </div>
               <div className="text-sm">
                 <span className="font-semibold">Amount:</span> <span>{tx.amount}</span>
@@ -112,9 +114,7 @@ export function TransactionHistory() {
             </div>
 
             <div className="flex flex-col items-end">
-              <span
-                className={`badge ${statusColor(tx.status)} text-white capitalize`}
-              >
+              <span className={`badge ${statusColor(tx.status)} text-white capitalize`}>
                 {tx.status}
               </span>
               <span className="text-xs text-muted mt-1">

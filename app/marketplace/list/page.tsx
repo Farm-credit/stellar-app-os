@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
-import { Text } from "@/components/atoms/Text";
-import { ListCreditForm } from "@/components/organisms/ListCreditForm/ListCreditForm";
+import { Text } from '@/components/atoms/Text';
+import { ListCreditForm } from '@/components/organisms/ListCreditForm/ListCreditForm';
 
 export const metadata: Metadata = {
   title: 'List Credits for Sale | Stellar Farm Credit',
@@ -19,7 +19,7 @@ export default function ListCreditPage() {
             Create a listing to sell your farm credits in the marketplace
           </Text>
         </div>
-        
+
         <ListCreditForm />
       </div>
     </div>

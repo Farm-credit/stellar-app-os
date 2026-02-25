@@ -3,12 +3,7 @@
 import { type ReactNode } from 'react';
 import { Button } from '@/components/atoms/Button';
 import { Text } from '@/components/atoms/Text';
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from '@/components/molecules/Card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/molecules/Card';
 import type { AdminUser, AdminUserStatus } from '@/lib/types/adminUser';
 import {
   maskEmail,
@@ -95,9 +90,7 @@ export function UserDetailModal({ user, onClose }: UserDetailModalProps): ReactN
                 </dd>
               </div>
               <div className="rounded-lg bg-muted/50 p-3">
-                <dt className="mb-0.5 text-xs font-medium text-muted-foreground">
-                  Wallet Address
-                </dt>
+                <dt className="mb-0.5 text-xs font-medium text-muted-foreground">Wallet Address</dt>
                 <dd
                   className="font-mono text-xs font-medium"
                   title="Wallet address masked for privacy"
@@ -116,9 +109,7 @@ export function UserDetailModal({ user, onClose }: UserDetailModalProps): ReactN
                 </dd>
               </div>
               <div className="rounded-lg bg-muted/50 p-3">
-                <dt className="mb-0.5 text-xs font-medium text-muted-foreground">
-                  Member Since
-                </dt>
+                <dt className="mb-0.5 text-xs font-medium text-muted-foreground">Member Since</dt>
                 <dd className="text-sm font-medium">{formatUserDate(user.joinedAt)}</dd>
               </div>
               <div className="rounded-lg bg-muted/50 p-3">
@@ -130,20 +121,14 @@ export function UserDetailModal({ user, onClose }: UserDetailModalProps): ReactN
                 </dd>
               </div>
               <div className="rounded-lg bg-muted/50 p-3">
-                <dt className="mb-0.5 text-xs font-medium text-muted-foreground">
-                  Total Credits
-                </dt>
+                <dt className="mb-0.5 text-xs font-medium text-muted-foreground">Total Credits</dt>
                 <dd className="text-sm font-semibold text-stellar-blue">
                   {user.totalCredits.toLocaleString()} credits
                 </dd>
               </div>
               <div className="col-span-1 rounded-lg bg-muted/50 p-3 sm:col-span-2">
-                <dt className="mb-0.5 text-xs font-medium text-muted-foreground">
-                  Last Active
-                </dt>
-                <dd className="text-sm font-medium">
-                  {formatUserDateTime(user.lastActiveAt)}
-                </dd>
+                <dt className="mb-0.5 text-xs font-medium text-muted-foreground">Last Active</dt>
+                <dd className="text-sm font-medium">{formatUserDateTime(user.lastActiveAt)}</dd>
               </div>
             </dl>
           </div>
@@ -164,9 +149,7 @@ export function UserDetailModal({ user, onClose }: UserDetailModalProps): ReactN
                     <tr className="border-b border-border bg-muted/50">
                       <th className="px-3 py-2 text-left text-xs font-medium">Date</th>
                       <th className="px-3 py-2 text-left text-xs font-medium">Type</th>
-                      <th className="px-3 py-2 text-left text-xs font-medium">
-                        Description
-                      </th>
+                      <th className="px-3 py-2 text-left text-xs font-medium">Description</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -205,9 +188,7 @@ export function UserDetailModal({ user, onClose }: UserDetailModalProps): ReactN
                     <tr className="border-b border-border bg-muted/50">
                       <th className="px-3 py-2 text-left text-xs font-medium">Date</th>
                       <th className="px-3 py-2 text-left text-xs font-medium">Action</th>
-                      <th className="px-3 py-2 text-left text-xs font-medium">
-                        Performed By
-                      </th>
+                      <th className="px-3 py-2 text-left text-xs font-medium">Performed By</th>
                       <th className="px-3 py-2 text-left text-xs font-medium">Reason</th>
                     </tr>
                   </thead>

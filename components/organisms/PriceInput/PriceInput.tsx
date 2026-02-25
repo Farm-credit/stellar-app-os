@@ -1,10 +1,10 @@
-"use client";
+'use client';
 
-import { forwardRef, ChangeEvent } from "react";
-import { Input } from "@/components/atoms/Input";
-import { Text } from "@/components/atoms/Text";
-import { PriceSuggestion } from "@/components/molecules/PriceSuggestion/PriceSuggestion";
-import type { MarketPriceData } from "@/lib/types/listing";
+import { forwardRef, type ChangeEvent } from 'react';
+import { Input } from '@/components/atoms/Input';
+import { Text } from '@/components/atoms/Text';
+import { PriceSuggestion } from '@/components/molecules/PriceSuggestion/PriceSuggestion';
+import type { MarketPriceData } from '@/lib/types/listing';
 
 interface PriceInputProps {
   marketPrice?: MarketPriceData;
@@ -19,15 +19,17 @@ export const PriceInput = forwardRef<HTMLInputElement, PriceInputProps>(
       onChange(value);
     };
 
-    const quickPrices = marketPrice ? [
-      { label: "Market", value: marketPrice.current },
-      { label: "Below Market", value: marketPrice.current * 0.95 },
-      { label: "Above Market", value: marketPrice.current * 1.05 },
-    ] : [
-      { label: "Conservative", value: 8.5 },
-      { label: "Market Rate", value: 10.0 },
-      { label: "Premium", value: 12.0 },
-    ];
+    const quickPrices = marketPrice
+      ? [
+          { label: 'Market', value: marketPrice.current },
+          { label: 'Below Market', value: marketPrice.current * 0.95 },
+          { label: 'Above Market', value: marketPrice.current * 1.05 },
+        ]
+      : [
+          { label: 'Conservative', value: 8.5 },
+          { label: 'Market Rate', value: 10.0 },
+          { label: 'Premium', value: 12.0 },
+        ];
 
     return (
       <div className="space-y-4">
@@ -35,11 +37,14 @@ export const PriceInput = forwardRef<HTMLInputElement, PriceInputProps>(
           <label htmlFor="price-input" className="block text-sm font-medium">
             Price per Credit (XLM)
           </label>
-          
+
           {marketPrice && (
             <div className="p-3 bg-muted/50 rounded-lg">
               <Text variant="small" as="p" className="text-muted-foreground text-xs mb-1">
-                Current Market Price: <span className="font-medium text-foreground">{marketPrice.current.toFixed(4)} XLM</span>
+                Current Market Price:{' '}
+                <span className="font-medium text-foreground">
+                  {marketPrice.current.toFixed(4)} XLM
+                </span>
               </Text>
               <Text variant="small" as="p" className="text-muted-foreground text-xs">
                 24h Range: {marketPrice.low24h.toFixed(4)} - {marketPrice.high24h.toFixed(4)} XLM
@@ -73,13 +78,18 @@ export const PriceInput = forwardRef<HTMLInputElement, PriceInputProps>(
             min="0"
             placeholder="Enter custom price"
             onChange={handleChange}
-            className={error ? "border-red-500 focus:border-red-500 focus:ring-red-500" : ""}
-            aria-describedby={error ? "price-error" : undefined}
+            className={error ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}
+            aria-describedby={error ? 'price-error' : undefined}
             {...props}
           />
-          
+
           {error && (
-            <Text variant="small" as="p" id="price-error" className="text-red-600 dark:text-red-400 text-xs">
+            <Text
+              variant="small"
+              as="p"
+              id="price-error"
+              className="text-red-600 dark:text-red-400 text-xs"
+            >
               {error}
             </Text>
           )}
@@ -100,4 +110,4 @@ export const PriceInput = forwardRef<HTMLInputElement, PriceInputProps>(
   }
 );
 
-PriceInput.displayName = "PriceInput";
+PriceInput.displayName = 'PriceInput';

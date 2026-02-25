@@ -103,12 +103,7 @@ export function ConfirmationModal({
           )}
 
           <div className="flex gap-3">
-            <Button
-              onClick={onCancel}
-              disabled={isLoading}
-              className="flex-1"
-              variant="outline"
-            >
+            <Button onClick={onCancel} disabled={isLoading} className="flex-1" variant="outline">
               Cancel
             </Button>
             <Button

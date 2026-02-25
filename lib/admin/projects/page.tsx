@@ -7,12 +7,13 @@ export default function AdminProjectsPage(): ReactNode {
     <div className="container mx-auto max-w-7xl px-4 py-8 sm:py-10">
       <AdminProjectTable
         projects={mockAdminProjectDetails}
-        onProjectUpdate={async (payload) => {
-          console.log('Project update:', payload);
+        onProjectUpdate={(payload) => {
+          console.info('Project update:', payload);
           // TODO: Implement API call to update projects
+          return Promise.resolve();
         }}
         onNavigateDetail={(projectId) => {
-          console.log('Navigate to detail view:', projectId);
+          console.info('Navigate to detail view:', projectId);
           // TODO: Implement navigation to detail page
         }}
       />

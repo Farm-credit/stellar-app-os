@@ -10,9 +10,9 @@ interface RiskBadgeProps {
 }
 
 const riskDescriptions: Record<AdminRiskRating, string> = {
-  'Low': 'Low risk project',
-  'Medium': 'Medium risk project',
-  'High': 'High risk project',
+  Low: 'Low risk project',
+  Medium: 'Medium risk project',
+  High: 'High risk project',
 };
 
 export function RiskBadge({ risk, className = '', size = 'md' }: RiskBadgeProps): ReactNode {
@@ -22,9 +22,11 @@ export function RiskBadge({ risk, className = '', size = 'md' }: RiskBadgeProps)
   const sizeClass = size === 'sm' ? 'text-xs px-2 py-1' : '';
 
   return (
-    <Badge 
-      variant={variant as 'default' | 'secondary' | 'accent' | 'destructive' | 'outline' | 'success'} 
-      className={`${sizeClass} ${className}`} 
+    <Badge
+      variant={
+        variant as 'default' | 'secondary' | 'accent' | 'destructive' | 'outline' | 'success'
+      }
+      className={`${sizeClass} ${className}`}
       title={description}
     >
       {risk} Risk

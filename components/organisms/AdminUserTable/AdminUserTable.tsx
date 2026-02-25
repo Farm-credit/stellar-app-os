@@ -19,7 +19,11 @@ import { filterUsers } from '@/lib/admin/userFilters';
 
 interface AdminUserTableProps {
   users: AdminUser[];
-  onUserAction?: (userId: string, action: 'suspend' | 'unsuspend' | 'delete', reason?: string) => Promise<void>;
+  onUserAction?: (
+    userId: string,
+    action: 'suspend' | 'unsuspend' | 'delete',
+    reason?: string
+  ) => Promise<void>;
 }
 
 const DEFAULT_FILTERS: UserTableFilterState = {
@@ -77,12 +81,9 @@ export function AdminUserTable({ users, onUserAction }: AdminUserTableProps): Re
     setFilters((prev) => ({ ...prev, ...partial }));
   }, []);
 
-  const openAction = useCallback(
-    (userId: string, action: 'suspend' | 'unsuspend' | 'delete') => {
-      setActionModal({ isOpen: true, action, userId, reason: '' });
-    },
-    []
-  );
+  const openAction = useCallback((userId: string, action: 'suspend' | 'unsuspend' | 'delete') => {
+    setActionModal({ isOpen: true, action, userId, reason: '' });
+  }, []);
 
   const handleConfirm = useCallback(async () => {
     if (!actionModal.action || !actionModal.userId) return;
@@ -112,8 +113,7 @@ export function AdminUserTable({ users, onUserAction }: AdminUserTableProps): Re
           User Management
         </Text>
         <Text variant="muted">
-          View, suspend, and manage platform users. Sensitive data is masked for privacy
-          compliance.
+          View, suspend, and manage platform users. Sensitive data is masked for privacy compliance.
         </Text>
       </div>
 
@@ -200,9 +200,7 @@ export function AdminUserTable({ users, onUserAction }: AdminUserTableProps): Re
       </Card>
 
       {/* User Detail Modal */}
-      {detailUser && (
-        <UserDetailModal user={detailUser} onClose={() => setDetailUserId(null)} />
-      )}
+      {detailUser && <UserDetailModal user={detailUser} onClose={() => setDetailUserId(null)} />}
 
       {/* Action Confirmation Modal */}
       {modalConfig && (

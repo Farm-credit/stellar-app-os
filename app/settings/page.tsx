@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/atoms/Button';
@@ -16,11 +16,7 @@ import { hasCompletedOnboardingTour, requestOnboardingTourRestart } from '@/lib/
 
 export default function SettingsPage(): React.ReactNode {
   const router = useRouter();
-  const [tourCompleted, setTourCompleted] = useState(false);
-
-  useEffect(() => {
-    setTourCompleted(hasCompletedOnboardingTour());
-  }, []);
+  const [tourCompleted, setTourCompleted] = useState(() => hasCompletedOnboardingTour());
 
   const restartTour = () => {
     requestOnboardingTourRestart();

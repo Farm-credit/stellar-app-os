@@ -41,10 +41,7 @@ export function formatDonations(amount: number): string {
   });
 }
 
-export function filterUsers(
-  users: AdminUser[],
-  filters: UserTableFilterState
-): AdminUser[] {
+export function filterUsers(users: AdminUser[], filters: UserTableFilterState): AdminUser[] {
   let filtered = [...users];
 
   if (filters.search.trim()) {
@@ -72,8 +69,7 @@ export function filterUsers(
         comparison = new Date(a.joinedAt).getTime() - new Date(b.joinedAt).getTime();
         break;
       case 'lastActiveAt':
-        comparison =
-          new Date(a.lastActiveAt).getTime() - new Date(b.lastActiveAt).getTime();
+        comparison = new Date(a.lastActiveAt).getTime() - new Date(b.lastActiveAt).getTime();
         break;
       case 'donations':
         comparison = a.totalDonations - b.totalDonations;

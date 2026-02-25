@@ -4,12 +4,7 @@ import { type ReactNode } from 'react';
 import { Button } from '@/components/atoms/Button';
 import { Text } from '@/components/atoms/Text';
 import type { AdminUser, AdminUserStatus } from '@/lib/types/adminUser';
-import {
-  maskEmail,
-  maskWallet,
-  formatUserDate,
-  formatDonations,
-} from '@/lib/admin/userFilters';
+import { maskEmail, maskWallet, formatUserDate, formatDonations } from '@/lib/admin/userFilters';
 
 const statusStyles: Record<AdminUserStatus, string> = {
   Active: 'bg-stellar-green/10 text-stellar-green border border-stellar-green/30',

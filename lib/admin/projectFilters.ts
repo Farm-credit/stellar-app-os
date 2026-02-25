@@ -1,12 +1,10 @@
-import type { 
-  AdminProjectDetail, 
-  AdminProjectLifecycleStatus, 
-  AdminProjectType, 
-  AdminRiskRating 
+import type {
+  AdminProjectDetail,
+  AdminProjectLifecycleStatus,
+  AdminProjectType,
+  AdminRiskRating,
 } from '@/lib/types/adminProject';
 import type { TableFilterState } from '@/lib/types/admin';
-
-
 
 export function filterProjects(
   projects: AdminProjectDetail[],
@@ -133,11 +131,11 @@ export function getNextLifecycleStatus(
   current: AdminProjectLifecycleStatus
 ): AdminProjectLifecycleStatus | null {
   const statusFlow: Record<AdminProjectLifecycleStatus, AdminProjectLifecycleStatus | null> = {
-    'Draft': 'Under Review',
+    Draft: 'Under Review',
     'Under Review': 'Approved',
-    'Approved': 'Paused',
-    'Paused': 'Approved',
-    'Archived': null,
+    Approved: 'Paused',
+    Paused: 'Approved',
+    Archived: null,
   };
 
   return statusFlow[current] || null;

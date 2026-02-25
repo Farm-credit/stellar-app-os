@@ -1,3 +1,5 @@
+'use client';
+
 /**
  * BlogPageTemplate template component
  *
@@ -11,7 +13,9 @@ import { FeaturedPostHero } from '@/components/organisms/FeaturedPostHero';
 import { CategoryFilter } from '@/components/molecules/CategoryFilter';
 import { BlogGrid } from '@/components/organisms/BlogGrid';
 import { PaginationControl } from '@/components/molecules/PaginationControl';
+import { useAppTranslation } from '@/hooks/useTranslation';
 import type { BlogPageTemplateProps } from '@/lib/types/blog';
+import { JSX } from 'react';
 
 export function BlogPageTemplate({
   featuredPost,
@@ -21,17 +25,18 @@ export function BlogPageTemplate({
   currentPage,
   totalPages,
   postCounts,
-}: BlogPageTemplateProps) {
+}: BlogPageTemplateProps): JSX.Element {
+  const { t } = useAppTranslation();
+
   return (
     <div className="mx-auto w-full max-w-[1280px] px-4 sm:px-6 lg:px-8 py-12">
       {/* Page header */}
       <header className="mb-12 text-center">
         <h1 className="text-4xl sm:text-5xl font-bold tracking-tight text-foreground mb-4">
-          FarmCredit Blog
+          {t('blog.featuredBlogTitle')}
         </h1>
         <p className="max-w-2xl mx-auto text-lg text-muted-foreground">
-          Insights on carbon credits, sustainable farming, climate technology, and agricultural
-          policy.
+          {t('blog.pageSubtitle')}
         </p>
       </header>
 
@@ -44,7 +49,7 @@ export function BlogPageTemplate({
 
       {/* Category filter */}
       {categories.length > 0 && (
-        <section className="mb-8" aria-label="Category filters">
+        <section className="mb-8" aria-label={t('blog.categoryFiltersLabel')}>
           <CategoryFilter
             categories={categories}
             selectedCategory={selectedCategory}

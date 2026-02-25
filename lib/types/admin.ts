@@ -1,8 +1,8 @@
-import type { 
-  AdminProjectDetail, 
-  AdminProjectLifecycleStatus, 
+import type {
+  AdminProjectDetail,
+  AdminProjectLifecycleStatus,
   AdminProjectType,
-  AdminRiskRating 
+  AdminRiskRating,
 } from '@/lib/types/adminProject';
 
 export type { AdminProjectDetail, AdminProjectLifecycleStatus, AdminProjectType, AdminRiskRating };

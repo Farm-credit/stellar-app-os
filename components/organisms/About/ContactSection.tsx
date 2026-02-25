@@ -1,7 +1,7 @@
-import Link from "next/link";
+import Link from 'next/link';
 // import { FaTwitter, FaGithub, FaDiscord, FaLinkedinIn } from "react-icons/fa";
-import { HiOutlineMail, HiOutlinePhone, HiOutlineLocationMarker } from "react-icons/hi";
-import { FaXTwitter, FaGithub, FaDiscord, FaLinkedinIn } from "react-icons/fa6";
+import { HiOutlineMail, HiOutlinePhone, HiOutlineLocationMarker } from 'react-icons/hi';
+import { FaXTwitter, FaGithub, FaDiscord, FaLinkedinIn } from 'react-icons/fa6';
 
 export function ContactSection() {
   return (
@@ -15,7 +15,8 @@ export function ContactSection() {
           Get in Touch
         </h2>
         <p className="text-xl text-gray-600 dark:text-gray-300 max-w-2xl mx-auto mb-12">
-          Have questions? We'd love to hear from you. Send us a message and we'll respond as soon as possible.
+          Have questions? We'd love to hear from you. Send us a message and we'll respond as soon as
+          possible.
         </p>
 
         {/* Contact Cards */}
@@ -28,9 +29,7 @@ export function ContactSection() {
             <Link href="mailto:hello@farmcredit.app" className="text-stellar-blue hover:underline">
               hello@farmcredit.app
             </Link>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
-              Response within 24h
-            </p>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">Response within 24h</p>
           </div>
 
           <div className="p-6 bg-gray-50 dark:bg-gray-800 rounded-xl">
@@ -41,9 +40,7 @@ export function ContactSection() {
             <Link href="tel:+18005551234" className="text-stellar-blue hover:underline">
               +1 (800) 555-1234
             </Link>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
-              Mon-Fri, 9am-6pm EST
-            </p>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">Mon-Fri, 9am-6pm EST</p>
           </div>
 
           <div className="p-6 bg-gray-50 dark:bg-gray-800 rounded-xl">
@@ -52,7 +49,8 @@ export function ContactSection() {
             </div>
             <h3 className="font-semibold text-gray-900 dark:text-white mb-2">Office</h3>
             <address className="not-italic text-gray-600 dark:text-gray-300">
-              123 Innovation Dr.<br />
+              123 Innovation Dr.
+              <br />
               San Francisco, CA 94105
             </address>
           </div>
@@ -60,9 +58,7 @@ export function ContactSection() {
 
         {/* Social Links */}
         <div className="mb-12">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-            Follow Us
-          </h3>
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Follow Us</h3>
           <div className="flex justify-center gap-4">
             <Link
               href="https://twitter.com/farmcredit"

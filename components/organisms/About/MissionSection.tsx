@@ -1,24 +1,24 @@
-import { HiOutlineGlobe, HiOutlineLightBulb } from "react-icons/hi";
-import { FaHandHoldingHeart } from "react-icons/fa";
+import { HiOutlineGlobe, HiOutlineLightBulb } from 'react-icons/hi';
+import { FaHandHoldingHeart } from 'react-icons/fa';
 
 const values = [
   {
     icon: FaHandHoldingHeart,
-    title: "Financial Inclusion",
+    title: 'Financial Inclusion',
     description:
-      "Providing accessible agricultural credit to underserved farmers and communities through decentralized finance.",
+      'Providing accessible agricultural credit to underserved farmers and communities through decentralized finance.',
   },
   {
     icon: HiOutlineGlobe,
-    title: "Global Sustainability",
+    title: 'Global Sustainability',
     description:
-      "Enabling transparent funding that supports sustainable farming practices and long‑term environmental impact.",
+      'Enabling transparent funding that supports sustainable farming practices and long‑term environmental impact.',
   },
   {
     icon: HiOutlineLightBulb,
-    title: "Innovation",
+    title: 'Innovation',
     description:
-      "Leveraging blockchain infrastructure on Stellar to deliver secure, efficient, and inclusive financing solutions.",
+      'Leveraging blockchain infrastructure on Stellar to deliver secure, efficient, and inclusive financing solutions.',
   },
 ];
 
@@ -46,8 +46,8 @@ export function MissionSection() {
           </h2>
 
           <p className="mt-6 text-lg md:text-xl text-gray-600 dark:text-gray-300 leading-relaxed">
-            We empower farmers and agricultural communities with transparent and
-            accessible credit infrastructure built on the Stellar network.
+            We empower farmers and agricultural communities with transparent and accessible credit
+            infrastructure built on the Stellar network.
           </p>
         </div>
 

@@ -1,30 +1,30 @@
-"use client";
+'use client';
 
-import React, { useState, useMemo } from "react";
-import { useSearchParams } from "next/navigation";
-import { ResultHighlight } from "@/components/molecules/ResultHighlight";
-import { Pagination } from "@/components/molecules/Pagination";
-import { performSearch, type ContentType, type SearchResult } from "@/lib/search";
-import { ArrowRight } from "lucide-react";
+import React, { useState, useMemo, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { ResultHighlight } from '@/components/molecules/ResultHighlight';
+import { Pagination } from '@/components/molecules/Pagination';
+import { performSearch, type ContentType } from '@/lib/search';
+import { ArrowRight } from 'lucide-react';
 
 const RESULTS_PER_PAGE = 10;
-const CONTENT_TYPES: ContentType[] = ["projects", "docs", "blog"];
+const CONTENT_TYPES: ContentType[] = ['projects', 'docs', 'blog'];
 
 const contentTypeLabels: Record<ContentType, string> = {
-  projects: "Projects",
-  docs: "Documentation",
-  blog: "Blog Posts",
+  projects: 'Projects',
+  docs: 'Documentation',
+  blog: 'Blog Posts',
 };
 
 const contentTypeIcons: Record<ContentType, string> = {
-  projects: "📦",
-  docs: "📚",
-  blog: "📝",
+  projects: '📦',
+  docs: '📚',
+  blog: '📝',
 };
 
-export default function SearchResultsPage(): React.ReactNode {
+function SearchResultsPageContent(): React.ReactNode {
   const searchParams = useSearchParams();
-  const query = searchParams.get("q") || "";
+  const query = searchParams.get('q') || '';
 
   const [selectedTypes, setSelectedTypes] = useState<ContentType[]>(CONTENT_TYPES);
   const [currentPage, setCurrentPage] = useState<number>(1);
@@ -52,7 +52,7 @@ export default function SearchResultsPage(): React.ReactNode {
   const handlePageChange = (page: number): void => {
     setCurrentPage(page);
     // Scroll to top of results
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   return (
@@ -66,14 +66,17 @@ export default function SearchResultsPage(): React.ReactNode {
           {query && (
             <p className="text-lg text-muted-foreground">
               {total > 0
-                ? `Found ${total} ${total === 1 ? "result" : "results"} for "${query}"`
+                ? `Found ${total} ${total === 1 ? 'result' : 'results'} for "${query}"`
                 : `No results found for "${query}"`}
             </p>
           )}
         </section>
 
         {/* Filters */}
-        <section aria-labelledby="filter-heading" className="mb-8 p-4 bg-card rounded-lg border border-border">
+        <section
+          aria-labelledby="filter-heading"
+          className="mb-8 p-4 bg-card rounded-lg border border-border"
+        >
           <h2 id="filter-heading" className="text-lg font-semibold mb-4 text-foreground">
             Filter by Type
           </h2>
@@ -85,8 +88,8 @@ export default function SearchResultsPage(): React.ReactNode {
                 aria-pressed={selectedTypes.includes(type)}
                 className={`px-4 py-2 rounded-lg font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stellar-blue ${
                   selectedTypes.includes(type)
-                    ? "bg-stellar-blue text-white"
-                    : "bg-background border border-border text-foreground hover:border-stellar-blue"
+                    ? 'bg-stellar-blue text-white'
+                    : 'bg-background border border-border text-foreground hover:border-stellar-blue'
                 }`}
               >
                 <span className="mr-2">{contentTypeIcons[type]}</span>
@@ -139,21 +142,23 @@ export default function SearchResultsPage(): React.ReactNode {
                           {result.author && <span>By {result.author}</span>}
                           {result.date && (
                             <span>
-                              {new Date(result.date).toLocaleDateString("en-US", {
-                                year: "numeric",
-                                month: "short",
-                                day: "numeric",
+                              {new Date(result.date).toLocaleDateString('en-US', {
+                                year: 'numeric',
+                                month: 'short',
+                                day: 'numeric',
                               })}
                             </span>
                           )}
                           {result.tags && result.tags.length > 0 && (
-                            <span>Tags: {result.tags.join(", ")}</span>
+                            <span>Tags: {result.tags.join(', ')}</span>
                           )}
                         </div>
                       </div>
 
                       {/* Arrow Icon */}
-                      <span className="text-xl text-stellar-blue flex-shrink-0"><ArrowRight className="w-4 h-4" /></span>
+                      <span className="text-xl text-stellar-blue flex-shrink-0">
+                        <ArrowRight className="w-4 h-4" />
+                      </span>
                     </div>
                   </li>
                 ))}
@@ -180,7 +185,7 @@ export default function SearchResultsPage(): React.ReactNode {
             <p className="text-muted-foreground mb-6 max-w-md mx-auto">
               {query
                 ? `We couldn't find anything matching "${query}". Try different keywords or browse our resources.`
-                : "Enter a search query to find projects, documentation, and blog posts."}
+                : 'Enter a search query to find projects, documentation, and blog posts.'}
             </p>
 
             {/* Suggestions */}
@@ -224,5 +229,13 @@ export default function SearchResultsPage(): React.ReactNode {
         )}
       </div>
     </main>
+  );
+}
+
+export default function SearchResultsPage(): React.ReactNode {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <SearchResultsPageContent />
+    </Suspense>
   );
 }

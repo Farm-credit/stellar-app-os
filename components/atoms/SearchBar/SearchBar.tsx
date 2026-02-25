@@ -13,8 +13,10 @@ export interface SearchBarProps {
   /** Initial value for the search input */
   initialValue?: string;
   /** Callback triggered when the input value changes */
+  // eslint-disable-next-line no-unused-vars
   onChange?: (value: string) => void;
   /** Callback triggered when the debounced value changes */
+  // eslint-disable-next-line no-unused-vars
   onSearch?: (debouncedValue: string) => void;
   /** Delay for debouncing in milliseconds (initialValue 300ms) */
   debounceDelay?: number;

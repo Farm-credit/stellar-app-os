@@ -1,7 +1,7 @@
-"use client";
+'use client';
 
-import { Button } from "@/components/atoms/Button";
-import { Text } from "@/components/atoms/Text";
+import { Button } from '@/components/atoms/Button';
+import { Text } from '@/components/atoms/Text';
 
 interface PriceSuggestionProps {
   label: string;

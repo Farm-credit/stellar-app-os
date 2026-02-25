@@ -15,7 +15,6 @@ import {
 import { mockAdminProjectDetails } from '@/lib/api/mock/adminProjectDetails';
 import type { TableFilterState } from '@/lib/types/admin';
 
-
 describe('Project Filters', () => {
   const defaultFilters: TableFilterState = {
     search: '',
@@ -155,7 +154,7 @@ describe('Project Filters', () => {
 
   describe('formatPrice', () => {
     it('should format price as USD currency', () => {
-      const price = formatPrice(45.50);
+      const price = formatPrice(45.5);
       expect(price).toMatch(/\$45\.50/);
     });
   });

@@ -1,5 +1,5 @@
-import { Toast } from "./toast";
-import { ToastData, ToastPosition } from "./types";
+import { Toast } from './toast';
+import { type ToastData, type ToastPosition } from './types';
 
 interface Props {
   toasts: ToastData[];
@@ -9,10 +9,10 @@ interface Props {
 
 export function ToastContainer({ toasts, remove, position }: Props) {
   const pos = {
-    "top-right": "top-4 right-4",
-    "top-left": "top-4 left-4",
-    "bottom-right": "bottom-4 right-4",
-    "bottom-left": "bottom-4 left-4",
+    'top-right': 'top-4 right-4',
+    'top-left': 'top-4 left-4',
+    'bottom-right': 'bottom-4 right-4',
+    'bottom-left': 'bottom-4 left-4',
   }[position];
 
   return (

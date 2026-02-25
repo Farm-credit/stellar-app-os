@@ -1,32 +1,23 @@
 'use client';
 
-/**
- * Blog page error boundary — Next.js App Router error component
- *
- * Catches unhandled errors in the blog route segment and displays a
- * user-friendly error message with a retry button.
- *
- * Requirements: 1.4, 10.2, 10.6
- */
-
-import { useEffect } from 'react';
+import { JSX, useEffect } from 'react';
 import { Button } from '@/components/atoms/Button';
+import { useAppTranslation } from '@/hooks/useTranslation';
 
 interface BlogErrorProps {
   error: Error & { digest?: string };
   reset: () => void;
 }
 
-export default function BlogError({ error, reset }: BlogErrorProps) {
+export default function BlogError({ error, reset }: BlogErrorProps): JSX.Element {
+  const { t } = useAppTranslation();
+
   useEffect(() => {
-    // Log error to console for debugging; in production this would go to an
-    // error tracking service (e.g. Sentry)
     console.error('[Blog] Unhandled error:', error);
   }, [error]);
 
   return (
     <main className="mx-auto flex min-h-[60vh] w-full max-w-[1280px] flex-col items-center justify-center px-4 py-24 text-center">
-      {/* Error icon */}
       <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-destructive/10">
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -45,25 +36,23 @@ export default function BlogError({ error, reset }: BlogErrorProps) {
         </svg>
       </div>
 
-      <h1 className="mb-3 text-2xl font-bold text-foreground">Something went wrong</h1>
+      <h1 className="mb-3 text-2xl font-bold text-foreground">{t('blog.errorTitle')}</h1>
 
-      <p className="mb-2 max-w-md text-muted-foreground">
-        We couldn&apos;t load the blog posts right now. This might be a temporary issue — please try
-        again.
-      </p>
+      <p className="mb-2 max-w-md text-muted-foreground">{t('blog.errorDesc')}</p>
 
-      {/* Show digest for support references in production */}
       {error.digest && (
-        <p className="mb-6 text-xs text-muted-foreground/60">Error reference: {error.digest}</p>
+        <p className="mb-6 text-xs text-muted-foreground/60">
+          {t('blog.errorReference', { digest: error.digest })}
+        </p>
       )}
 
       <Button
         stellar="primary"
         onClick={reset}
         className="min-h-[44px] px-8"
-        aria-label="Try loading the blog page again"
+        aria-label={t('blog.tryAgainAriaLabel')}
       >
-        Try again
+        {t('blog.tryAgain')}
       </Button>
     </main>
   );

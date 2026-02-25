@@ -37,7 +37,7 @@ function QrCode({ value, size = 128, className, onGenerated, onError }: QrCodePr
       <div
         className={cn(
           'flex items-center justify-center rounded border border-dashed border-border bg-muted text-xs text-muted-foreground',
-          className,
+          className
         )}
         style={{ width: size, height: size }}
         role="img"

@@ -1,20 +1,20 @@
-"use client";
+'use client';
 
-import { useState, useCallback } from "react";
-import { ToastData, ToastPosition } from "./types";
-import { ToastContext } from "./hooks";
-import { ToastContainer } from "./toast-container";
+import { useState, useCallback } from 'react';
+import { type ToastData, type ToastPosition } from './types';
+import { ToastContext } from './hooks';
+import { ToastContainer } from './toast-container';
 
 export function ToastProvider({
   children,
-  position = "top-right",
+  position = 'top-right',
 }: {
   children: React.ReactNode;
   position?: ToastPosition;
 }) {
   const [toasts, setToasts] = useState<ToastData[]>([]);
 
-  const addToast = useCallback((toast: Omit<ToastData, "id">) => {
+  const addToast = useCallback((toast: Omit<ToastData, 'id'>) => {
     const id = crypto.randomUUID();
     setToasts((prev) => [...prev, { id, ...toast }]);
   }, []);
@@ -27,11 +27,7 @@ export function ToastProvider({
     <ToastContext.Provider value={{ addToast, removeToast }}>
       {children}
 
-      <ToastContainer
-        toasts={toasts}
-        remove={removeToast}
-        position={position}
-      />
+      <ToastContainer toasts={toasts} remove={removeToast} position={position} />
     </ToastContext.Provider>
   );
 }

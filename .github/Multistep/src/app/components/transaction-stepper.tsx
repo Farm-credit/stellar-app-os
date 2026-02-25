@@ -30,19 +30,19 @@ const steps: { id: TransactionStep; label: string; description: string }[] = [
 export function TransactionStepper({ currentStep, stepStatuses }: TransactionStepperProps) {
   const getStepIcon = (stepId: TransactionStep) => {
     const status = stepStatuses[stepId];
-    
+
     if (status === 'completed') {
       return <CheckCircle2 className="w-6 h-6 text-green-600" />;
     }
-    
+
     if (status === 'active') {
       return <Loader2 className="w-6 h-6 text-blue-600 animate-spin" />;
     }
-    
+
     if (status === 'error') {
       return <Circle className="w-6 h-6 text-red-600" />;
     }
-    
+
     return <Circle className="w-6 h-6 text-gray-300" />;
   };
 
@@ -66,10 +66,8 @@ export function TransactionStepper({ currentStep, stepStatuses }: TransactionSte
                 !isActive && !isCompleted && !isError && 'border-gray-200 bg-gray-50'
               )}
             >
-              <div className="flex-shrink-0 mt-1">
-                {getStepIcon(step.id)}
-              </div>
-              
+              <div className="flex-shrink-0 mt-1">{getStepIcon(step.id)}</div>
+
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between">
                   <h3
@@ -83,26 +81,26 @@ export function TransactionStepper({ currentStep, stepStatuses }: TransactionSte
                   >
                     {step.label}
                   </h3>
-                  
+
                   {isActive && (
                     <span className="text-xs font-medium text-blue-700 bg-blue-100 px-3 py-1 rounded-full">
                       In Progress
                     </span>
                   )}
-                  
+
                   {isCompleted && (
                     <span className="text-xs font-medium text-green-700 bg-green-100 px-3 py-1 rounded-full">
                       Completed
                     </span>
                   )}
-                  
+
                   {isError && (
                     <span className="text-xs font-medium text-red-700 bg-red-100 px-3 py-1 rounded-full">
                       Failed
                     </span>
                   )}
                 </div>
-                
+
                 <p
                   className={cn(
                     'text-sm mt-1',
@@ -117,9 +115,7 @@ export function TransactionStepper({ currentStep, stepStatuses }: TransactionSte
               </div>
             </div>
 
-            {!isLast && (
-              <div className="ml-7 h-8 w-0.5 bg-gray-200" />
-            )}
+            {!isLast && <div className="ml-7 h-8 w-0.5 bg-gray-200" />}
           </div>
         );
       })}

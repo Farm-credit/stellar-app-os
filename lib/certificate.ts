@@ -49,10 +49,7 @@ export function getDisplayName(data: Pick<CertificateData, 'userName' | 'walletA
   return data.userName?.trim() || data.walletAddress;
 }
 
-export async function generateCertificatePdf({
-  qrDataUrl,
-  data,
-}: GenerateCertificateOptions): Promise<void> {
+export function generateCertificatePdf({ qrDataUrl, data }: GenerateCertificateOptions): void {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
 
   const displayName = getDisplayName(data);
@@ -124,7 +121,7 @@ export async function generateCertificatePdf({
     `${data.quantityRetired.toLocaleString()} Carbon Credit${data.quantityRetired !== 1 ? 's' : ''}`,
     PAGE_W / 2,
     y + 4,
-    { align: 'center' },
+    { align: 'center' }
   );
 
   y += 22;
@@ -205,10 +202,14 @@ export async function generateCertificatePdf({
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8);
   doc.setTextColor(WHITE);
-  doc.text('Powered by Stellar Network · Immutable · Verifiable · Permanent', PAGE_W / 2, PAGE_H - 10, {
-    align: 'center',
-  });
-
+  doc.text(
+    'Powered by Stellar Network · Immutable · Verifiable · Permanent',
+    PAGE_W / 2,
+    PAGE_H - 10,
+    {
+      align: 'center',
+    }
+  );
 
   const safeName = displayName.replace(/[^a-z0-9]/gi, '_').slice(0, 30);
   doc.save(`retirement-certificate-${safeName}.pdf`);

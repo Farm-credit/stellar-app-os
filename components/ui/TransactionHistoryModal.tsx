@@ -1,5 +1,5 @@
-import { Modal } from "./Modal";
-import { TransactionHistory } from "./TransactionHistory";
+import { Modal } from './Modal';
+import { TransactionHistory } from './TransactionHistory';
 
 interface TXModalProps {
   open: boolean;

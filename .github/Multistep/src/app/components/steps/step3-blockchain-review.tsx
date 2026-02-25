@@ -3,12 +3,21 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { useWizardStore } from '../../store/wizard-store';
-import { TransactionStepper, TransactionStep, StepStatus } from '../transaction-stepper';
-import { ArrowLeft, Leaf, Trees, MapPin, Calendar, Maximize2, DollarSign, CheckCircle } from 'lucide-react';
+import { TransactionStepper, type TransactionStep, type StepStatus } from '../transaction-stepper';
+import {
+  ArrowLeft,
+  Leaf,
+  Trees,
+  MapPin,
+  Calendar,
+  Maximize2,
+  DollarSign,
+  CheckCircle,
+} from 'lucide-react';
 
 export function Step3BlockchainReview() {
   const { projectData, prevStep, resetWizard } = useWizardStore();
-  
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCompleted, setIsCompleted] = useState(false);
   const [currentTransactionStep, setCurrentTransactionStep] = useState<TransactionStep>('approve');
@@ -28,29 +37,29 @@ export function Step3BlockchainReview() {
       confirm: 'pending',
     });
     setCurrentTransactionStep('approve');
-    
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
+
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+
     setStepStatuses({
       approve: 'completed',
       sign: 'active',
       confirm: 'pending',
     });
     setCurrentTransactionStep('sign');
-    
+
     // Step 2: Sign Transaction
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+
     setStepStatuses({
       approve: 'completed',
       sign: 'completed',
       confirm: 'active',
     });
     setCurrentTransactionStep('confirm');
-    
+
     // Step 3: Confirm
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+
     setStepStatuses({
       approve: 'completed',
       sign: 'completed',
@@ -79,7 +88,9 @@ export function Step3BlockchainReview() {
                   Project Submitted Successfully!
                 </h2>
                 <p className="text-lg text-green-700">
-                  Your {projectData.projectType === 'carbon-credit' ? 'Carbon Credit' : 'Tree Planting'} project has been published on the blockchain.
+                  Your{' '}
+                  {projectData.projectType === 'carbon-credit' ? 'Carbon Credit' : 'Tree Planting'}{' '}
+                  project has been published on the blockchain.
                 </p>
               </div>
               <div className="pt-4">
@@ -108,7 +119,7 @@ export function Step3BlockchainReview() {
                   </p>
                 </div>
               </div>
-              
+
               <div className="flex items-start gap-3">
                 <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
                   <span className="text-sm font-bold text-blue-700">2</span>
@@ -120,7 +131,7 @@ export function Step3BlockchainReview() {
                   </p>
                 </div>
               </div>
-              
+
               <div className="flex items-start gap-3">
                 <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
                   <span className="text-sm font-bold text-blue-700">3</span>
@@ -137,11 +148,7 @@ export function Step3BlockchainReview() {
         </Card>
 
         <div className="flex justify-center">
-          <Button
-            size="lg"
-            onClick={resetWizard}
-            className="h-12 px-8 text-base"
-          >
+          <Button size="lg" onClick={resetWizard} className="h-12 px-8 text-base">
             Submit Another Project
           </Button>
         </div>
@@ -172,7 +179,9 @@ export function Step3BlockchainReview() {
                 <div className="flex items-center gap-2 mb-1">
                   <h3 className="font-semibold text-lg">{projectData.projectName}</h3>
                   <Badge variant="outline" className="text-xs">
-                    {projectData.projectType === 'carbon-credit' ? 'Carbon Credit' : 'Tree Planting'}
+                    {projectData.projectType === 'carbon-credit'
+                      ? 'Carbon Credit'
+                      : 'Tree Planting'}
                   </Badge>
                 </div>
                 <div className="flex items-center gap-1 text-sm text-gray-600">
@@ -245,15 +254,10 @@ export function Step3BlockchainReview() {
         <Card className="border-2 border-blue-500">
           <CardHeader>
             <CardTitle>Blockchain Transaction Progress</CardTitle>
-            <CardDescription>
-              Please wait while we process your submission
-            </CardDescription>
+            <CardDescription>Please wait while we process your submission</CardDescription>
           </CardHeader>
           <CardContent>
-            <TransactionStepper
-              currentStep={currentTransactionStep}
-              stepStatuses={stepStatuses}
-            />
+            <TransactionStepper currentStep={currentTransactionStep} stepStatuses={stepStatuses} />
           </CardContent>
         </Card>
       )}

@@ -1,5 +1,5 @@
-import React from "react";
-import { highlightMatches } from "@/lib/search";
+import React from 'react';
+import { highlightMatches } from '@/lib/search';
 
 interface ResultHighlightProps {
   text: string;
@@ -7,7 +7,11 @@ interface ResultHighlightProps {
   className?: string;
 }
 
-export function ResultHighlight({ text, query, className = "" }: ResultHighlightProps): React.ReactNode {
+export function ResultHighlight({
+  text,
+  query,
+  className = '',
+}: ResultHighlightProps): React.ReactNode {
   const parts = highlightMatches(text, query);
 
   return (

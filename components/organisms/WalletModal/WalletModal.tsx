@@ -46,6 +46,7 @@ const WALLET_DESCRIPTIONS: Record<WalletType, string> = {
 
 interface WalletModalProps {
   isOpen: boolean;
+  // eslint-disable-next-line no-unused-vars
   onOpenChange: (open: boolean) => void;
   onSuccess?: () => void;
 }
@@ -97,7 +98,7 @@ export function WalletModal({ isOpen, onOpenChange, onSuccess }: WalletModalProp
       setConnectionError(null);
 
       try {
-        await connect();
+        await connect(walletType);
         setShowSuccess(true);
         setTimeout(() => {
           onOpenChange(false);
@@ -241,7 +242,8 @@ interface WalletOptionCardProps {
 }
 
 function WalletOptionCard({
-  _walletType,
+  // eslint-disable-next-line no-unused-vars
+  walletType: _walletType,
   icon,
   name,
   description,

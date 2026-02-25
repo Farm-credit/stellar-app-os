@@ -1,3 +1,5 @@
+'use client';
+
 import type { ReactNode } from 'react';
 import { Text } from '@/components/atoms/Text';
 import { AdminProjectTable } from '@/components/organisms/AdminProjectTable/AdminProjectTable';
@@ -19,11 +21,12 @@ export default function AdminProjectsPage(): ReactNode {
       <AdminProjectTable
         projects={mockAdminProjectDetails}
         onProjectUpdate={async (payload) => {
-          console.log('Project update:', payload);
+          console.info('Project update:', payload);
           // TODO: Implement API call to update projects
+          return Promise.resolve();
         }}
         onNavigateDetail={(projectId) => {
-          console.log('Navigate to detail view:', projectId);
+          console.info('Navigate to detail view:', projectId);
           // TODO: Implement navigation to detail page
         }}
       />

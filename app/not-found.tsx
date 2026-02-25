@@ -1,14 +1,13 @@
-"use client";
+'use client';
 
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { FormEvent, useState } from "react";
-import { motion } from "framer-motion";
-
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { type FormEvent, useState } from 'react';
+import { motion } from 'framer-motion';
 
 export default function NotFound() {
   const router = useRouter();
-  const [query, setQuery] = useState<string>("");
+  const [query, setQuery] = useState<string>('');
 
   const handleSearch = (e: FormEvent<HTMLFormElement>): void => {
     e.preventDefault();
@@ -19,36 +18,31 @@ export default function NotFound() {
 
   return (
     <main
-    className="min-h-screen flex flex-col items-center justify-center px-6 py-10 text-center"
-    aria-labelledby="page-title"
+      className="min-h-screen flex flex-col items-center justify-center px-6 py-10 text-center"
+      aria-labelledby="page-title"
     >
       <motion.div
         initial={{ y: -10 }}
         animate={{ y: 10 }}
         transition={{
           repeat: Infinity,
-          repeatType: "reverse",
+          repeatType: 'reverse',
           duration: 2,
-          ease: "easeInOut",
+          ease: 'easeInOut',
         }}
         className="mb-8"
         aria-hidden="true"
       >
-        <div className="text-8xl font-bold opacity-20 select-none md:text-9xl">
-          404
-        </div>
+        <div className="text-8xl font-bold opacity-20 select-none md:text-9xl">404</div>
       </motion.div>
 
-      <h1
-        id="page-title"
-        className="text-3xl md:text-4xl font-bold mb-4"
-      >
+      <h1 id="page-title" className="text-3xl md:text-4xl font-bold mb-4">
         Page not found
       </h1>
 
       <p className="text-muted-foreground max-w-md mb-8">
-        Oops — the page you're looking for doesn’t exist or may have been moved.
-        Try searching or explore one of the links below.
+        Oops — the page you're looking for doesn’t exist or may have been moved. Try searching or
+        explore one of the links below.
       </p>
 
       <form
@@ -79,11 +73,7 @@ export default function NotFound() {
         </div>
       </form>
 
-      <nav
-        aria-label="Popular pages"
-        className="flex flex-wrap justify-center gap-2 mb-8 md:gap-4"
-      >
-
+      <nav aria-label="Popular pages" className="flex flex-wrap justify-center gap-2 mb-8 md:gap-4">
         <Link
           href="/blog"
           className="px-5 py-3 rounded-xl border hover:bg-muted transition focus:outline-none focus:ring-2 focus:ring-primary"

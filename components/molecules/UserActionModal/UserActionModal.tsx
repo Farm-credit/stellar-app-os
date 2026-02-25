@@ -94,12 +94,7 @@ export function UserActionModal({
 
         {/* Actions */}
         <div className="flex gap-3">
-          <Button
-            onClick={onCancel}
-            disabled={isLoading}
-            variant="outline"
-            className="flex-1"
-          >
+          <Button onClick={onCancel} disabled={isLoading} variant="outline" className="flex-1">
             Cancel
           </Button>
           <button

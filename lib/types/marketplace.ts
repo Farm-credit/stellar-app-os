@@ -134,11 +134,14 @@ export interface MarketplaceFiltersProps {
   searchQuery: string;
 
   /** Callback when project type filter changes */
+  // eslint-disable-next-line no-unused-vars
   onTypeChange: (type: ProjectType | null) => void;
 
   /** Callback when sort option changes */
+  // eslint-disable-next-line no-unused-vars
   onSortChange: (sort: SortOption) => void;
 
   /** Callback when search query changes */
+  // eslint-disable-next-line no-unused-vars
   onSearchChange: (query: string) => void;
 }
