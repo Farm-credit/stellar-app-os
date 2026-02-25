@@ -1,7 +1,7 @@
-import { notFound } from "next/navigation";
-import type { ReactNode } from "react";
-import { AdminProjectDetailView } from "@/components/organisms/AdminProjectDetail/AdminProjectDetailView";
-import { getMockAdminProjectDetailById } from "@/lib/api/mock/adminProjectDetails";
+import { notFound } from 'next/navigation';
+import type { ReactNode } from 'react';
+import { AdminProjectDetailView } from '@/components/organisms/AdminProjectDetail/AdminProjectDetailView';
+import { getMockAdminProjectDetailById } from '@/lib/api/mock/adminProjectDetails';
 
 interface AdminProjectDetailPageProps {
   params: Promise<{

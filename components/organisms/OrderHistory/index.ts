@@ -1,1 +1,1 @@
-export { OrderHistoryTable } from "./OrderHistoryTable";
+export { OrderHistoryTable } from './OrderHistoryTable';

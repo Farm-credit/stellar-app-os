@@ -1,49 +1,43 @@
+'use client';
+
 /**
- * Blog page loading state — Next.js Suspense fallback
- *
- * Displays skeleton cards in the same grid layout as the real blog grid
- * while the server fetches data. Shows 12 skeleton cards to fill the viewport.
- *
- * Requirements: 1.5, 10.1
+ * loading.tsx must be 'use client' to access the translation hook
+ * for the accessible aria-label on the loading grid.
  */
 
-function BlogCardSkeleton() {
+import { useAppTranslation } from '@/hooks/useTranslation';
+import { JSX } from 'react';
+
+function BlogCardSkeleton(): JSX.Element {
   return (
     <div
       className="flex flex-col overflow-hidden rounded-xl border border-border bg-card animate-pulse"
       aria-hidden="true"
     >
-      {/* Image placeholder */}
       <div className="h-48 w-full bg-muted" />
-
-      {/* Content placeholder */}
       <div className="flex flex-col gap-3 p-6">
-        {/* Badge */}
         <div className="h-5 w-24 rounded-full bg-muted" />
-        {/* Title */}
         <div className="h-6 w-full rounded bg-muted" />
         <div className="h-6 w-3/4 rounded bg-muted" />
-        {/* Excerpt */}
         <div className="mt-1 h-4 w-full rounded bg-muted" />
         <div className="h-4 w-5/6 rounded bg-muted" />
         <div className="h-4 w-4/6 rounded bg-muted" />
-        {/* Meta */}
         <div className="mt-2 h-4 w-32 rounded bg-muted" />
       </div>
     </div>
   );
 }
 
-export default function BlogLoading() {
+export default function BlogLoading(): JSX.Element {
+  const { t } = useAppTranslation();
+
   return (
     <div className="mx-auto w-full max-w-[1280px] px-4 sm:px-6 lg:px-8 py-12">
-      {/* Page header skeleton */}
       <div className="mb-12 flex flex-col items-center gap-4" aria-hidden="true">
         <div className="h-10 w-64 rounded-lg bg-muted animate-pulse" />
         <div className="h-5 w-96 max-w-full rounded bg-muted animate-pulse" />
       </div>
 
-      {/* Featured post hero skeleton */}
       <div
         className="mb-12 overflow-hidden rounded-xl border border-border bg-card animate-pulse"
         aria-hidden="true"
@@ -62,18 +56,16 @@ export default function BlogLoading() {
         </div>
       </div>
 
-      {/* Category filter skeleton */}
       <div className="mb-8 flex gap-2" aria-hidden="true">
         {Array.from({ length: 5 }).map((_, i) => (
           <div key={i} className="h-11 w-24 rounded-md bg-muted animate-pulse" />
         ))}
       </div>
 
-      {/* Blog grid skeleton — 12 cards */}
       <div
         className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"
         role="status"
-        aria-label="Loading blog posts"
+        aria-label={t('blog.loadingAriaLabel')}
       >
         {Array.from({ length: 12 }).map((_, i) => (
           <BlogCardSkeleton key={i} />

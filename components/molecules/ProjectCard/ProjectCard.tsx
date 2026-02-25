@@ -1,15 +1,10 @@
-import * as React from "react";
-import Image from "next/image";
-import { Badge } from "@/components/atoms/Badge";
-import { Button } from "@/components/atoms/Button";
-import { Text } from "@/components/atoms/Text";
-import {
-  Card,
-  CardContent,
-  CardFooter,
-  CardHeader,
-} from "@/components/molecules/Card";
-import { MapPin, ImageOff } from "lucide-react";
+import * as React from 'react';
+import Image from 'next/image';
+import { Badge } from '@/components/atoms/Badge';
+import { Button } from '@/components/atoms/Button';
+import { Text } from '@/components/atoms/Text';
+import { Card, CardContent, CardFooter, CardHeader } from '@/components/molecules/Card';
+import { MapPin, ImageOff } from 'lucide-react';
 
 export interface ProjectCardProps {
   id: string | number;
@@ -17,20 +12,20 @@ export interface ProjectCardProps {
   location: string;
   description: string;
   imageUrl: string | null;
-  type: "reforestation" | "renewable" | "conservation";
+  type: 'reforestation' | 'renewable' | 'conservation';
   progress: number;
   price: number;
   availableCredits: number;
 }
 
 const typeConfig = {
-  reforestation: { label: "Reforestation", colorClass: "bg-stellar-green" },
-  renewable: { label: "Renewable Energy", colorClass: "bg-stellar-cyan text-stellar-navy" },
-  conservation: { label: "Conservation", colorClass: "bg-stellar-purple" },
+  reforestation: { label: 'Reforestation', colorClass: 'bg-stellar-green' },
+  renewable: { label: 'Renewable Energy', colorClass: 'bg-stellar-cyan text-stellar-navy' },
+  conservation: { label: 'Conservation', colorClass: 'bg-stellar-purple' },
 };
 
 export function ProjectCard({
-  id,
+  id: _id,
   title,
   location,
   description,
@@ -63,12 +58,10 @@ export function ProjectCard({
             <Text variant="small">No image available</Text>
           </div>
         )}
-        
+
         {/* Type Badge */}
         <div className="absolute top-3 right-3 z-10">
-          <Badge className={`border-none ${badgeConfig.colorClass}`}>
-            {badgeConfig.label}
-          </Badge>
+          <Badge className={`border-none ${badgeConfig.colorClass}`}>{badgeConfig.label}</Badge>
         </div>
       </div>
 
@@ -79,7 +72,11 @@ export function ProjectCard({
             {location}
           </Text>
         </div>
-        <Text as="h3" variant="h4" className="line-clamp-1 group-hover:text-stellar-blue transition-colors">
+        <Text
+          as="h3"
+          variant="h4"
+          className="line-clamp-1 group-hover:text-stellar-blue transition-colors"
+        >
           {title}
         </Text>
       </CardHeader>
@@ -92,16 +89,18 @@ export function ProjectCard({
         {/* Progress Area */}
         <div className="space-y-2 mt-auto">
           <div className="flex justify-between items-end">
-             <Text variant="small" className="font-medium">
-               {clampedProgress}% Funded
-             </Text>
-             <Text variant="small" className="text-xs text-muted-foreground">
-               {availableCredits > 0 ? `${availableCredits.toLocaleString()} credits left` : "0 credits left"}
-             </Text>
+            <Text variant="small" className="font-medium">
+              {clampedProgress}% Funded
+            </Text>
+            <Text variant="small" className="text-xs text-muted-foreground">
+              {availableCredits > 0
+                ? `${availableCredits.toLocaleString()} credits left`
+                : '0 credits left'}
+            </Text>
           </div>
-          
+
           <div className="h-2 w-full bg-secondary rounded-full overflow-hidden">
-            <div 
+            <div
               className="h-full bg-stellar-green transition-all duration-1000 ease-out rounded-full"
               style={{ width: `${clampedProgress}%` }}
             />
@@ -111,19 +110,19 @@ export function ProjectCard({
 
       <CardFooter className="p-5 pt-4 border-t bg-muted/20 flex items-center justify-between flex-none gap-3">
         <div className="flex flex-col">
-          <Text variant="small" className="text-muted-foreground text-xs leading-tight">Price</Text>
+          <Text variant="small" className="text-muted-foreground text-xs leading-tight">
+            Price
+          </Text>
           <div className="flex items-baseline gap-1">
             <Text variant="h4">${price.toFixed(2)}</Text>
-            <Text variant="small" className="text-muted-foreground text-xs">/unit</Text>
+            <Text variant="small" className="text-muted-foreground text-xs">
+              /unit
+            </Text>
           </div>
         </div>
-        
-        <Button 
-          stellar="primary" 
-          disabled={isSoldOut}
-          className="w-full sm:w-auto font-semibold"
-        >
-          {isSoldOut ? "Sold Out" : "Donate"}
+
+        <Button stellar="primary" disabled={isSoldOut} className="w-full sm:w-auto font-semibold">
+          {isSoldOut ? 'Sold Out' : 'Donate'}
         </Button>
       </CardFooter>
     </Card>

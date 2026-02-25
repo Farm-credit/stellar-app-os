@@ -102,6 +102,14 @@ const eslintConfig = defineConfig([
     'public/**',
     'coverage/**',
     '*.min.js',
+    '*.md',
+    '!README.md',
+    'fix-*.js',
+    'fix-*.bat',
+    'fix-*.ps1',
+    'emergency-*.ps1',
+    'emergency-*.cmd',
+    'generate-*.bat',
   ]),
 ]);
 

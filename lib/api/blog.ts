@@ -13,8 +13,17 @@
  * Requirements: 1.1, 8.4, 10.2
  */
 
-import { BlogListResponseSchema, type BlogListResponse } from '@/lib/schemas/blog';
-import { getMockBlogData } from '@/lib/api/mock/blogData';
+import {
+  BlogListResponseSchema,
+  BlogPostSchema,
+  type BlogListResponse,
+  type BlogPost,
+} from '@/lib/schemas/blog';
+import {
+  getMockBlogData,
+  getMockBlogPostBySlug,
+  getAllMockBlogPosts,
+} from '@/lib/api/mock/blogData';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -113,4 +122,76 @@ export async function fetchBlogPosts(params: {
     // Re-throw validation or unexpected errors
     throw error;
   }
+}
+
+/**
+ * Fetches an individual blog post by slug.
+ */
+export async function fetchBlogPostBySlug(slug: string): Promise<BlogPost | null> {
+  if (shouldUseMock()) {
+    return getMockBlogPostBySlug(slug);
+  }
+
+  const apiUrl = process.env.CMS_API_URL!;
+  const url = `${apiUrl}/blog/${encodeURIComponent(slug)}`;
+
+  try {
+    const response = await fetch(url, {
+      next: { revalidate: 300 },
+    });
+
+    if (response.status === 404) {
+      return null;
+    }
+
+    if (!response.ok) {
+      throw new Error(
+        `CMS API request failed: ${response.status} ${response.statusText} (URL: ${url})`
+      );
+    }
+
+    const data = await response.json();
+    return BlogPostSchema.parse(data);
+  } catch (error) {
+    const isNetworkError =
+      error instanceof TypeError && error.message.toLowerCase().includes('fetch');
+
+    if (isNetworkError) {
+      console.warn(
+        `[Blog API] Network error contacting ${url}. Falling back to mock data.`
+      );
+      return getMockBlogPostBySlug(slug);
+    }
+
+    throw error;
+  }
+}
+
+/**
+ * Fetches all posts for related-posts and static path generation.
+ */
+export async function fetchAllBlogPosts(): Promise<BlogPost[]> {
+  if (shouldUseMock()) {
+    return getAllMockBlogPosts();
+  }
+
+  const firstPage = await fetchBlogPosts({ page: 1 });
+  if (firstPage.pagination.totalPages <= 1) {
+    return firstPage.posts;
+  }
+
+  const pagePromises: Array<Promise<BlogListResponse>> = [];
+  for (let page = 2; page <= firstPage.pagination.totalPages; page += 1) {
+    pagePromises.push(fetchBlogPosts({ page }));
+  }
+
+  const otherPages = await Promise.all(pagePromises);
+  const combined = [...firstPage.posts, ...otherPages.flatMap((page) => page.posts)];
+
+  const deduped = new Map<string, BlogPost>();
+  for (const post of combined) {
+    deduped.set(post.slug, post);
+  }
+
+  return Array.from(deduped.values());
 }
