@@ -7,13 +7,16 @@ This document describes the implementation of Issue #56: Carbon Credit Compariso
 ## Features Implemented
 
 ### 1. Project Selection (Up to 3 Projects)
+
 - Users can select up to 3 carbon credit projects for comparison
 - Visual feedback when selection limit is reached
 - Checkbox-based selection interface
 - Out-of-stock projects are disabled and cannot be selected
 
 ### 2. Comparison Table
+
 The comparison table displays the following attributes side-by-side:
+
 - **Price per Ton**: Formatted in USD currency
 - **Type**: Project category (Reforestation, Renewable Energy, etc.)
 - **Location**: Geographic location of the project
@@ -23,23 +26,27 @@ The comparison table displays the following attributes side-by-side:
 - **Available Supply**: Quantity available in tons CO₂
 
 ### 3. Add to Cart from Comparison View
+
 - Each project in the comparison table has an "Add to Cart" button
 - Clicking redirects to the purchase page with the selected project
 - Out-of-stock projects show "Out of Stock" instead of the button
 
 ### 4. PDF Export
+
 - "Export as PDF" button generates a downloadable comparison document
 - PDF includes all selected projects with complete details
 - Filename includes generation date for easy organization
 - Plain text format for universal compatibility
 
 ### 5. Responsive Design
+
 - **Mobile**: Single column layout with horizontal scroll for comparison table
 - **Tablet**: 2-column grid for project selection cards
 - **Desktop**: 3-column grid for optimal viewing
 - Comparison table scrolls horizontally on smaller screens
 
 ### 6. Accessibility (WCAG 2.1 AA)
+
 - All interactive elements have proper ARIA labels
 - Keyboard navigation fully supported
 - Screen reader friendly with semantic HTML
@@ -48,6 +55,7 @@ The comparison table displays the following attributes side-by-side:
 - Proper heading hierarchy
 
 ### 7. TypeScript Strict Mode
+
 - No `any` types used
 - All props properly typed with interfaces
 - Strict null checks enabled
@@ -88,6 +96,7 @@ app/
 ### Type Extensions
 
 Added to `CarbonProject` interface:
+
 ```typescript
 type: ProjectType;
 location: string;
@@ -98,6 +107,7 @@ verificationStatus: VerificationStatus;
 ### Component Architecture
 
 Following atomic design pattern:
+
 - **Atom**: `Checkbox` - Reusable checkbox with label support
 - **Molecules**: `ComparisonTable`, `ProjectSelectionCard` - Composed UI elements
 - **Organism**: `ComparisonTool` - Complete feature with state management
@@ -120,6 +130,7 @@ Following atomic design pattern:
 ### Manual Testing Checklist
 
 #### Project Selection
+
 - [ ] Can select up to 3 projects
 - [ ] Selection counter updates correctly (X / 3 selected)
 - [ ] Cannot select more than 3 projects
@@ -128,6 +139,7 @@ Following atomic design pattern:
 - [ ] Checkbox states are visually clear
 
 #### Comparison Table
+
 - [ ] Table displays all selected projects
 - [ ] All attributes are correctly displayed
 - [ ] Price formatting is correct (USD currency)
@@ -136,12 +148,14 @@ Following atomic design pattern:
 - [ ] Horizontal scroll works on mobile
 
 #### Add to Cart
+
 - [ ] "Add to Cart" button works for each project
 - [ ] Redirects to purchase page with correct project
 - [ ] Out-of-stock projects show "Out of Stock"
 - [ ] Button is disabled for out-of-stock projects
 
 #### PDF Export
+
 - [ ] "Export as PDF" button is visible
 - [ ] PDF downloads successfully
 - [ ] PDF contains all selected projects
@@ -149,6 +163,7 @@ Following atomic design pattern:
 - [ ] PDF content is readable
 
 #### Responsive Design
+
 - [ ] Mobile (< 768px): Single column, horizontal scroll
 - [ ] Tablet (768px - 1024px): 2-column grid
 - [ ] Desktop (> 1024px): 3-column grid
@@ -156,6 +171,7 @@ Following atomic design pattern:
 - [ ] Touch targets are adequate on mobile (min 44x44px)
 
 #### Accessibility
+
 - [ ] Tab navigation works through all elements
 - [ ] Focus indicators are visible
 - [ ] Screen reader announces selection changes
@@ -164,6 +180,7 @@ Following atomic design pattern:
 - [ ] Heading hierarchy is logical (h1 → h2 → h3)
 
 #### TypeScript
+
 - [ ] No TypeScript errors in build
 - [ ] No `any` types used
 - [ ] All props are properly typed
@@ -171,6 +188,7 @@ Following atomic design pattern:
 ### Browser Testing
 
 Test in the following browsers:
+
 - [ ] Chrome/Edge (latest)
 - [ ] Firefox (latest)
 - [ ] Safari (latest)
@@ -193,6 +211,7 @@ npm run build
 ## How to Test Locally
 
 1. **Start the development server**:
+
    ```bash
    npm run dev
    ```

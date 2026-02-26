@@ -31,8 +31,10 @@ export interface TransactionPreview {
 export interface PaymentMintingProps {
   selection: CreditSelectionState;
   wallet: WalletConnection | null;
-  onComplete?: () => void;
-  onError?: () => void;
+  // eslint-disable-next-line no-unused-vars
+  onComplete?: (transactionHash: string) => void;
+  // eslint-disable-next-line no-unused-vars
+  onError?: (error: string) => void;
 }
 
 export interface BuildTransactionRequest {

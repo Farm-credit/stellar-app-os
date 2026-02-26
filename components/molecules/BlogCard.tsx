@@ -1,3 +1,5 @@
+'use client';
+
 import { forwardRef, type HTMLAttributes } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -5,6 +7,7 @@ import { cn } from '@/lib/utils';
 import { Card } from '@/components/molecules/Card';
 import { Badge } from '@/components/atoms/Badge';
 import { Text } from '@/components/atoms/Text';
+import { useAppTranslation } from '@/hooks/useTranslation';
 import type { BlogCardProps } from '@/lib/types/blog';
 
 /**
@@ -20,8 +23,10 @@ const BlogCard = forwardRef<
   HTMLAnchorElement,
   BlogCardProps & Omit<HTMLAttributes<HTMLAnchorElement>, 'href'>
 >(({ post, variant = 'standard', priority = false, className, ...props }, ref) => {
-  // Format date as "MMM DD, YYYY"
-  const formattedDate = new Date(post.publishedAt).toLocaleDateString('en-US', {
+  const { t, formatDate } = useAppTranslation();
+
+  // Format date using the locale-aware formatter from useAppTranslation
+  const formattedDate = formatDate(new Date(post.publishedAt), {
     year: 'numeric',
     month: 'short',
     day: '2-digit',
@@ -38,7 +43,7 @@ const BlogCard = forwardRef<
         'hover:scale-[1.02] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
         className
       )}
-      aria-label={`Read blog post: ${post.title}`}
+      aria-label={t('blog.readPost', { title: post.title })}
       {...props}
     >
       <Card

@@ -1,8 +1,8 @@
 'use client';
 
-import { Suspense, useState, useEffect, useMemo } from 'react';
+import { Suspense, useState, useEffect, useMemo, type JSX } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
-import { PaymentMintingStep } from '@/components/organisms/PaymentMintingStep/PaymentMintingStep';
+import { PaymentMintingStep } from '@/components/organisms/PaymentMintingStep';
 import { ProgressStepper } from '@/components/molecules/ProgressStepper/ProgressStepper';
 import { Text } from '@/components/atoms/Text';
 import { useWalletContext } from '@/contexts/WalletContext';
@@ -11,13 +11,15 @@ import {
   getCurrentStepFromPath,
   getCompletedSteps,
 } from '@/lib/utils/purchaseFlow';
+import { useAppTranslation } from '@/hooks/useTranslation';
 import type { CreditSelectionState } from '@/lib/types/carbon';
 
-function PaymentContent() {
+function PaymentContent(): JSX.Element {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { wallet } = useWalletContext();
+  const { t } = useAppTranslation();
   const [selection, setSelection] = useState<CreditSelectionState | null>(null);
   const [selectionParam, setSelectionParam] = useState<string | null>(null);
 
@@ -38,18 +40,16 @@ function PaymentContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
-  const handleComplete = (transactionHash: string) => {
-    // Navigate to confirmation page with transaction details
+  const handleComplete = (transactionHash: string): void => {
     if (selection && wallet) {
       const param = encodeURIComponent(JSON.stringify(selection));
-      const networkParam = wallet.network;
       router.push(
-        `/credits/purchase/confirmation?selection=${param}&hash=${transactionHash}&network=${networkParam}`
+        `/credits/purchase/confirmation?selection=${param}&hash=${transactionHash}&network=${wallet.network}`
       );
     }
   };
 
-  const handleError = (error: string) => {
+  const handleError = (error: string): void => {
     console.error('Transaction error:', error);
   };
 
@@ -68,7 +68,7 @@ function PaymentContent() {
         </div>
         <div className="text-center">
           <Text variant="h3" as="h2" className="mb-2">
-            Loading...
+            {t('purchase.loading')}
           </Text>
         </div>
       </div>
@@ -90,14 +90,15 @@ function PaymentContent() {
   );
 }
 
-export default function PaymentPage() {
+export default function PaymentPage(): JSX.Element {
+  const { t } = useAppTranslation();
   return (
     <Suspense
       fallback={
         <div className="container mx-auto px-4 py-8 max-w-4xl">
           <div className="text-center">
             <Text variant="h3" as="h2" className="mb-2">
-              Loading...
+              {t('purchase.loading')}
             </Text>
           </div>
         </div>

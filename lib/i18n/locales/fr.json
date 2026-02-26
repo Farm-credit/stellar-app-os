@@ -1,0 +1,93 @@
+{
+  "nav": {
+    "home": "Accueil",
+    "blog": "Blog",
+    "purchaseCredits": "Acheter des Crédits",
+    "dashboard": "Tableau de Bord"
+  },
+  "header": {
+    "connectWallet": "Connecter le Portefeuille",
+    "openMenu": "Ouvrir le menu de navigation",
+    "languageSelector": "Sélectionner la langue"
+  },
+  "mobile": {
+    "closeMenu": "Fermer le menu de navigation",
+    "tapToDisconnect": "Appuyez pour déconnecter"
+  },
+  "footer": {
+    "stayUpdated": "Restez Informé",
+    "stayUpdatedDesc": "Recevez les dernières mises à jour sur FarmCredit et le réseau Stellar.",
+    "about": "À propos",
+    "resources": "Ressources",
+    "legal": "Légal",
+    "aboutFarmCredit": "À propos de FarmCredit",
+    "blog": "Blog",
+    "documentation": "Documentation",
+    "apiDocs": "Documentation API",
+    "devGuide": "Guide du Développeur",
+    "community": "Communauté",
+    "terms": "Conditions d'Utilisation",
+    "privacy": "Politique de Confidentialité",
+    "cookies": "Politique des Cookies",
+    "copyright": "© {{year}} FarmCredit. Tous droits réservés.",
+    "followTwitter": "Suivez-nous sur Twitter/X",
+    "viewGithub": "Voir notre dépôt GitHub",
+    "joinDiscord": "Rejoindre notre communauté Discord",
+    "twitter": "Twitter",
+    "github": "GitHub",
+    "discord": "Discord"
+  },
+  "newsletter": {
+    "emailPlaceholder": "Entrez votre email",
+    "emailAriaLabel": "Adresse email pour l'abonnement à la newsletter",
+    "subscribe": "S'abonner",
+    "emailRequired": "L'email est requis",
+    "invalidEmail": "Veuillez entrer une adresse email valide",
+    "successMessage": "Vous êtes abonné 🎉",
+    "errorMessage": "Quelque chose s'est mal passé. Réessayez."
+  },
+  "blog": {
+    "pageTitle": "Blog",
+    "pageSubtitle": "Perspectives sur les crédits carbone, l'agriculture durable, la technologie climatique et la politique agricole.",
+    "featuredBlogTitle": "Blog FarmCredit",
+    "categoryFiltersLabel": "Filtres par catégorie",
+    "readPost": "Lire l'article : {{title}}",
+    "loadingAriaLabel": "Chargement des articles de blog",
+    "errorTitle": "Une erreur s'est produite",
+    "errorDesc": "Nous n'avons pas pu charger les articles de blog pour l'instant. Il peut s'agir d'un problème temporaire, veuillez réessayer.",
+    "errorReference": "Référence de l'erreur : {{digest}}",
+    "tryAgain": "Réessayer",
+    "tryAgainAriaLabel": "Réessayer de charger la page du blog"
+  },
+  "purchase": {
+    "nextButton": "Suivant",
+    "nextAriaLabel": "Continuer vers la connexion du portefeuille",
+    "continueToPayment": "Continuer vers le paiement",
+    "loading": "Chargement...",
+    "compareTitle": "Comparer les Projets de Crédits Carbone",
+    "compareSubtitle": "Sélectionnez jusqu'à 3 projets pour comparer leurs caractéristiques, prix et avantages côte à côte"
+  },
+  "home": {
+    "badge": "Propulsé par Stellar",
+    "title": "FarmCredit",
+    "subtitle": "Plateforme de crédit agricole décentralisée construite sur le réseau Stellar.",
+    "totalCreditIssued": "Crédit Total Émis",
+    "activeFarmers": "Agriculteurs Actifs",
+    "repaymentRate": "Taux de Remboursement",
+    "getStarted": "Commencer",
+    "getStartedDescription": "Connectez votre portefeuille pour accéder aux services de crédit agricole.",
+    "connectWallet": "Connecter le Portefeuille",
+    "readBlog": "Lire notre Blog",
+    "purchaseCarbon": "Acheter des Crédits Carbone",
+    "makeDonation": "Faire un Don",
+    "showToast": "Afficher la Notification",
+    "transactions": "Transactions",
+    "profileSaved": "Profil enregistré !"
+  },
+  "languages": {
+    "en": "Anglais",
+    "es": "Espagnol",
+    "fr": "Français",
+    "pt": "Portugais"
+  }
+}

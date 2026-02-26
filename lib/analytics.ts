@@ -48,7 +48,7 @@ export function trackEvent(event: string, properties?: Record<string, unknown>):
     // fetch("/api/analytics", {
     //   method: "POST",
     //   headers: { "Content-Type": "application/json" },
-    //   body: JSON.stringify(analyticsEvent),
+    //   body: JSON.stringify({ event, properties }),
     // }).catch(console.error);
   } catch (error) {
     // Silently fail analytics tracking to not break user experience

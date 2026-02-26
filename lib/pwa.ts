@@ -68,9 +68,10 @@ export async function checkOnlineStatus(): Promise<boolean> {
   }
 }
 
-export function subscribeToNetworkStatus(callback: () => void): () => void {
-  const handleOnline = () => callback();
-  const handleOffline = () => callback();
+// eslint-disable-next-line no-unused-vars
+export function subscribeToNetworkStatus(callback: (_isOnline: boolean) => void): () => void {
+  const handleOnline = () => callback(true);
+  const handleOffline = () => callback(false);
 
   window.addEventListener('online', handleOnline);
   window.addEventListener('offline', handleOffline);

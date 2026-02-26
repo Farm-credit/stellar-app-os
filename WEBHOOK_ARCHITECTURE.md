@@ -1,0 +1,434 @@
+# Webhook Event Logs Viewer - Architecture Diagram
+
+## 🏗️ System Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                         USER INTERFACE                          │
+│                    /admin/webhooks (Page)                       │
+└────────────────────────────┬────────────────────────────────────┘
+                             │
+                             ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                    ORGANISM COMPONENT                           │
+│              WebhookEventLogsViewer.tsx                         │
+│  ┌──────────────────────────────────────────────────────────┐  │
+│  │ State Management:                                        │  │
+│  │ • events (WebhookEvent[])                               │  │
+│  │ • filters (WebhookFilterState)                          │  │
+│  │ • selectedEvent (WebhookEvent | null)                   │  │
+│  │ • retryingEventId (string | null)                       │  │
+│  └──────────────────────────────────────────────────────────┘  │
+└───┬─────────────────┬─────────────────┬────────────────────────┘
+    │                 │                 │
+    ▼                 ▼                 ▼
+┌─────────┐    ┌──────────┐    ┌──────────────┐
+│ Filter  │    │  Event   │    │   Details    │
+│  Bar    │    │  Rows    │    │    Modal     │
+│(Molecule│    │(Molecule)│    │  (Molecule)  │
+└─────────┘    └──────────┘    └──────────────┘
+    │               │                  │
+    ▼               ▼                  ▼
+┌─────────────────────────────────────────────┐
+│           ATOM COMPONENTS                   │
+│  • Input                                    │
+│  • Select                                   │
+│  • Button                                   │
+│  • Text                                     │
+│  • WebhookStatusBadge                       │
+│  • Card                                     │
+└─────────────────────────────────────────────┘
+```
+
+## 📊 Data Flow
+
+```
+┌──────────────┐
+│  Mock Data   │
+│ webhookEvents│
+│    .ts       │
+└──────┬───────┘
+       │
+       ▼
+┌──────────────────────────────────────┐
+│     Page Component                   │
+│  • Fetches initial data              │
+│  • Passes to WebhookEventLogsViewer  │
+└──────┬───────────────────────────────┘
+       │
+       ▼
+┌──────────────────────────────────────┐
+│  WebhookEventLogsViewer              │
+│  • Receives events prop              │
+│  • Manages local state               │
+│  • Applies filters                   │
+│  • Handles user interactions         │
+└──────┬───────────────────────────────┘
+       │
+       ├─────────────────┬──────────────┐
+       ▼                 ▼              ▼
+┌─────────────┐  ┌──────────────┐  ┌────────────┐
+│ Filter Bar  │  │ Event Rows   │  │   Modal    │
+│ • Search    │  │ • Display    │  │ • Details  │
+│ • Status    │  │ • Actions    │  │ • JSON     │
+│ • Type      │  │ • Preview    │  │ • Copy     │
+│ • Sort      │  │              │  │            │
+└─────────────┘  └──────────────┘  └────────────┘
+```
+
+## 🔄 User Interaction Flow
+
+```
+USER ACTION                 COMPONENT                   RESULT
+───────────────────────────────────────────────────────────────
+1. Load page          →    Page.tsx              →    Fetch events
+                           ↓
+2. Display table      →    WebhookEventLogsViewer →   Render rows
+                           ↓
+3. Type in search     →    WebhookFilterBar      →    Update filters
+                           ↓
+4. Filter events      →    webhookFilters.ts     →    Filtered list
+                           ↓
+5. Click "View"       →    WebhookEventRow       →    Open modal
+                           ↓
+6. Show details       →    WebhookDetailsModal   →    Display JSON
+                           ↓
+7. Click "Copy"       →    Modal                 →    Copy to clipboard
+                           ↓
+8. Close modal        →    Modal                 →    Return focus
+                           ↓
+9. Click "Retry"      →    WebhookEventRow       →    Call API
+                           ↓
+10. Update status     →    WebhookEventLogsViewer →   Optimistic update
+```
+
+## 🗂️ File Organization
+
+```
+project-root/
+│
+├── app/
+│   ├── admin/
+│   │   └── webhooks/
+│   │       └── page.tsx                    # Main page
+│   │
+│   └── api/
+│       └── webhooks/
+│           ├── events/
+│           │   └── route.ts                # GET events
+│           └── retry/
+│               └── route.ts                # POST retry
+│
+├── components/
+│   ├── atoms/
+│   │   ├── Button.tsx
+│   │   ├── Input.tsx
+│   │   ├── Select.tsx
+│   │   ├── Text.tsx
+│   │   ├── Badge.tsx
+│   │   └── WebhookStatusBadge.tsx          # New
+│   │
+│   ├── molecules/
+│   │   ├── Card.tsx
+│   │   ├── WebhookEventRow/                # New
+│   │   │   ├── WebhookEventRow.tsx
+│   │   │   └── index.ts
+│   │   ├── WebhookDetailsModal/            # New
+│   │   │   ├── WebhookDetailsModal.tsx
+│   │   │   └── index.ts
+│   │   └── WebhookFilterBar/               # New
+│   │       ├── WebhookFilterBar.tsx
+│   │       └── index.ts
+│   │
+│   └── organisms/
+│       └── WebhookEventLogsViewer/         # New
+│           ├── WebhookEventLogsViewer.tsx
+│           └── index.ts
+│
+├── lib/
+│   ├── types/
+│   │   └── webhook.ts                      # New
+│   │
+│   ├── api/
+│   │   └── mock/
+│   │       └── webhookEvents.ts            # New
+│   │
+│   └── webhook/
+│       └── webhookFilters.ts               # New
+│
+└── docs/
+    ├── WEBHOOK_IMPLEMENTATION.md
+    ├── WEBHOOK_QUICKSTART.md
+    ├── WEBHOOK_ACCEPTANCE_CRITERIA.md
+    ├── WEBHOOK_TESTING_GUIDE.md
+    ├── WEBHOOK_INTEGRATION_EXAMPLE.md
+    ├── WEBHOOK_COMPLETE_SUMMARY.md
+    └── WEBHOOK_ARCHITECTURE.md             # This file
+```
+
+## 🔌 API Integration Points
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    Frontend (Next.js)                       │
+│                                                             │
+│  ┌──────────────────────────────────────────────────────┐  │
+│  │  WebhookEventLogsViewer                              │  │
+│  │  • Displays events                                   │  │
+│  │  • Handles user interactions                         │  │
+│  └────────────┬─────────────────────────┬───────────────┘  │
+│               │                         │                   │
+└───────────────┼─────────────────────────┼───────────────────┘
+                │                         │
+                ▼                         ▼
+        ┌───────────────┐         ┌──────────────┐
+        │ GET /api/     │         │ POST /api/   │
+        │ webhooks/     │         │ webhooks/    │
+        │ events        │         │ retry        │
+        └───────┬───────┘         └──────┬───────┘
+                │                        │
+                ▼                        ▼
+┌─────────────────────────────────────────────────────────────┐
+│                    Backend (API Routes)                     │
+│                                                             │
+│  ┌──────────────────────┐      ┌──────────────────────┐   │
+│  │ events/route.ts      │      │ retry/route.ts       │   │
+│  │ • Query database     │      │ • Validate event     │   │
+│  │ • Apply filters      │      │ • Send webhook       │   │
+│  │ • Return JSON        │      │ • Update status      │   │
+│  └──────────┬───────────┘      └──────┬───────────────┘   │
+│             │                         │                    │
+└─────────────┼─────────────────────────┼────────────────────┘
+              │                         │
+              ▼                         ▼
+      ┌───────────────┐         ┌──────────────┐
+      │   Database    │         │  Webhook     │
+      │   (Events)    │         │  Endpoint    │
+      └───────────────┘         └──────────────┘
+```
+
+## 🎨 Component Hierarchy
+
+```
+WebhookEventLogsViewer (Organism)
+│
+├── Card (Molecule)
+│   ├── CardHeader
+│   │   ├── CardTitle
+│   │   └── CardDescription
+│   │
+│   └── CardContent
+│       │
+│       ├── WebhookFilterBar (Molecule)
+│       │   ├── Input (Atom) - Search
+│       │   ├── Select (Atom) - Status filter
+│       │   ├── Select (Atom) - Event type filter
+│       │   ├── Select (Atom) - Sort by
+│       │   ├── Select (Atom) - Sort order
+│       │   └── Text (Atom) - Results count
+│       │
+│       └── Table
+│           ├── thead
+│           │   └── tr
+│           │       └── th × 7
+│           │
+│           └── tbody
+│               └── WebhookEventRow (Molecule) × N
+│                   ├── td - Timestamp
+│                   │   └── Text (Atom)
+│                   ├── td - Event Type
+│                   │   └── Text (Atom)
+│                   ├── td - Status
+│                   │   └── WebhookStatusBadge (Atom)
+│                   ├── td - HTTP Status
+│                   │   └── Text (Atom)
+│                   ├── td - Payload Preview
+│                   │   └── Text (Atom)
+│                   ├── td - Retry Count
+│                   │   └── Text (Atom)
+│                   └── td - Actions
+│                       ├── Button (Atom) - View
+│                       └── Button (Atom) - Retry
+│
+└── WebhookDetailsModal (Molecule)
+    └── Card (Molecule)
+        ├── CardHeader
+        │   ├── CardTitle
+        │   ├── Text (Atom) - Event ID
+        │   └── Button (Atom) - Close
+        │
+        ├── CardContent
+        │   ├── Metadata Grid
+        │   │   └── Text (Atom) × N
+        │   ├── Error Message
+        │   │   └── Text (Atom)
+        │   ├── Payload Section
+        │   │   ├── Button (Atom) - Copy
+        │   │   └── pre - JSON
+        │   └── Response Section
+        │       ├── Button (Atom) - Copy
+        │       └── pre - JSON
+        │
+        └── CardFooter
+            └── Button (Atom) - Close
+```
+
+## 🔐 Security Architecture
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                      User Request                           │
+│                  /admin/webhooks                            │
+└────────────────────────┬────────────────────────────────────┘
+                         │
+                         ▼
+                ┌────────────────┐
+                │  Middleware    │
+                │  • Check auth  │
+                │  • Verify role │
+                └────────┬───────┘
+                         │
+                    ┌────┴────┐
+                    │         │
+                    ▼         ▼
+            ┌──────────┐  ┌──────────┐
+            │ Allowed  │  │ Denied   │
+            └────┬─────┘  └────┬─────┘
+                 │             │
+                 ▼             ▼
+         ┌──────────────┐  ┌──────────┐
+         │ Render Page  │  │ Redirect │
+         └──────────────┘  │ to Login │
+                           └──────────┘
+```
+
+## 📈 Performance Optimization
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                   Performance Strategy                      │
+│                                                             │
+│  1. Memoization                                            │
+│     • useMemo for filtered events                          │
+│     • useMemo for event types list                         │
+│     • useCallback for event handlers                       │
+│                                                             │
+│  2. Optimistic Updates                                     │
+│     • Update UI immediately on retry                       │
+│     • Revert on error                                      │
+│                                                             │
+│  3. Lazy Loading                                           │
+│     • Modal content loaded on demand                       │
+│     • JSON formatting only when visible                    │
+│                                                             │
+│  4. Efficient Rendering                                    │
+│     • Key props on list items                              │
+│     • Conditional rendering                                │
+│     • Minimal re-renders                                   │
+│                                                             │
+│  5. Code Splitting                                         │
+│     • Separate route for admin                             │
+│     • Dynamic imports for heavy components                 │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+## 🔄 State Management Flow
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│              WebhookEventLogsViewer State                   │
+│                                                             │
+│  ┌──────────────────────────────────────────────────────┐  │
+│  │ events: WebhookEvent[]                               │  │
+│  │ • Initial: from props                                │  │
+│  │ • Updates: real-time polling                         │  │
+│  │ • Mutations: optimistic retry updates               │  │
+│  └──────────────────────────────────────────────────────┘  │
+│                                                             │
+│  ┌──────────────────────────────────────────────────────┐  │
+│  │ filters: WebhookFilterState                          │  │
+│  │ • search: string                                     │  │
+│  │ • status: 'all' | WebhookEventStatus                 │  │
+│  │ • eventType: 'all' | WebhookEventType                │  │
+│  │ • sortBy: 'timestamp' | 'eventType' | 'status'       │  │
+│  │ • sortOrder: 'asc' | 'desc'                          │  │
+│  └──────────────────────────────────────────────────────┘  │
+│                                                             │
+│  ┌──────────────────────────────────────────────────────┐  │
+│  │ selectedEvent: WebhookEvent | null                   │  │
+│  │ • null: modal closed                                 │  │
+│  │ • WebhookEvent: modal open with event details        │  │
+│  └──────────────────────────────────────────────────────┘  │
+│                                                             │
+│  ┌──────────────────────────────────────────────────────┐  │
+│  │ retryingEventId: string | null                       │  │
+│  │ • null: no retry in progress                         │  │
+│  │ • string: event ID being retried                     │  │
+│  └──────────────────────────────────────────────────────┘  │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+## 🎯 Event Flow Diagram
+
+```
+User Action          Component              State Change           UI Update
+─────────────────────────────────────────────────────────────────────────────
+Type in search  →   FilterBar          →   filters.search     →   Table filters
+                                            updated
+
+Select status   →   FilterBar          →   filters.status     →   Table filters
+                                            updated
+
+Click "View"    →   EventRow           →   selectedEvent      →   Modal opens
+                                            set
+
+Click "Copy"    →   DetailsModal       →   copiedField        →   Button text
+                                            set                    changes
+
+Press ESC       →   DetailsModal       →   selectedEvent      →   Modal closes
+                                            null
+
+Click "Retry"   →   EventRow           →   retryingEventId    →   Button
+                                            set                    disabled
+
+API success     →   EventLogsViewer    →   event.status       →   Badge
+                                            updated                updates
+
+Real-time       →   EventLogsViewer    →   events array       →   Table
+poll                                        updated                re-renders
+```
+
+---
+
+## 📝 Architecture Notes
+
+### Design Patterns Used
+
+- **Atomic Design**: Component hierarchy (atoms → molecules → organisms)
+- **Container/Presenter**: Page fetches data, component presents
+- **Controlled Components**: All form inputs controlled by React state
+- **Optimistic UI**: Update UI before API response
+- **Memoization**: Prevent unnecessary re-renders
+
+### Best Practices Followed
+
+- **Single Responsibility**: Each component has one job
+- **DRY**: Reusable filter logic, status badge
+- **Type Safety**: Full TypeScript coverage
+- **Accessibility**: WCAG 2.1 AA compliant
+- **Performance**: Optimized rendering
+
+### Scalability Considerations
+
+- **Pagination Ready**: Can add pagination easily
+- **Virtual Scrolling**: Can add for large lists
+- **Real-time Ready**: WebSocket integration path clear
+- **Extensible**: Easy to add new event types
+- **Testable**: Components are unit-testable
+
+---
+
+**Architecture designed for**: Production use, scalability, maintainability
+**Last updated**: February 24, 2026

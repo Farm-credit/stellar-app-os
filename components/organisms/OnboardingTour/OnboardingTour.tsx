@@ -49,7 +49,9 @@ export function OnboardingTour(): React.ReactNode {
 
   useEffect(() => {
     if (consumeOnboardingTourRestartRequest()) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setCurrentStepIndex(0);
+
       setIsOpen(true);
       return;
     }
@@ -66,7 +68,9 @@ export function OnboardingTour(): React.ReactNode {
 
     const element = document.querySelector<HTMLElement>(currentStep.target);
     if (!element) {
-      setTargetRect(null);
+      requestAnimationFrame(() => {
+        setTargetRect(null);
+      });
       return;
     }
 
@@ -79,6 +83,7 @@ export function OnboardingTour(): React.ReactNode {
   }, [currentStep.target, isOpen]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     updateTargetRect();
 
     if (!isOpen) {

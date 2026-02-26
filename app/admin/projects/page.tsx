@@ -14,7 +14,7 @@ import { mockAdminProjectDetails } from '@/lib/api/mock/adminProjectDetails';
 
 export default function AdminProjectsPage(): ReactNode {
   return (
-    <div className="container mx-auto max-w-6xl px-4 py-8 sm:py-10">
+    <div className="container mx-auto max-w-7xl px-4 py-8 sm:py-10">
       <div className="mb-8">
         <Text as="h1" variant="h2" className="mb-2">
           Admin Projects

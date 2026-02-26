@@ -25,7 +25,7 @@ const typeConfig = {
 };
 
 export function ProjectCard({
-  id,
+  id: _id,
   title,
   location,
   description,

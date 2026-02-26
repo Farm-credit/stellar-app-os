@@ -40,5 +40,6 @@ export interface CreditSelectionState {
 
 export interface CreditSelectionProps {
   projects: CarbonProject[];
-  onSelectionChange?: () => void;
+  // eslint-disable-next-line no-unused-vars
+  onSelectionChange?: (newSelection: CreditSelectionState) => void;
 }

@@ -125,6 +125,47 @@ export async function submitTransaction(
   return result.hash;
 }
 
+export async function buildDonationTransaction(
+  amount: number,
+  sourcePublicKey: string,
+  network: NetworkType,
+  idempotencyKey: string
+): Promise<{ transactionXdr: string; networkPassphrase: string }> {
+  if (amount <= 0) {
+    throw new Error('Donation amount must be greater than zero');
+  }
+
+  const networkPassphrase = getNetworkPassphrase(network);
+  const horizonUrl =
+    network === 'mainnet' ? 'https://horizon.stellar.org' : 'https://horizon-testnet.stellar.org';
+
+  const server = new Horizon.Server(horizonUrl);
+  const sourceAccount = await server.loadAccount(sourcePublicKey);
+  const usdcAsset = getUsdcAsset(network);
+
+  const recipientAddress = 'GABEMKJNR4GK7M4FROGA7I7PG63N2CKE3EGDSBSISG56SVL2O3KRNDXA';
+
+  const transaction = new TransactionBuilder(sourceAccount, {
+    fee: '100',
+    networkPassphrase,
+  })
+    .addOperation(
+      Operation.payment({
+        destination: recipientAddress,
+        asset: usdcAsset,
+        amount: amount.toFixed(7),
+      })
+    )
+    .addMemo(Memo.text(`donate:${idempotencyKey.slice(0, 20)}`))
+    .setTimeout(300)
+    .build();
+
+  return {
+    transactionXdr: transaction.toXDR(),
+    networkPassphrase,
+  };
+}
+
 export function getStellarExplorerUrl(transactionHash: string, network: NetworkType): string {
   const networkParam = network === 'mainnet' ? 'public' : 'testnet';
   return `https://stellar.expert/explorer/${networkParam}/tx/${transactionHash}`;

@@ -12,7 +12,7 @@ const MAX_COMPARISON = 3;
 
 export interface ComparisonToolProps {
   projects: CarbonProject[];
-  onAddToCart?: (projectId: string) => void;
+  onAddToCart?: (_projectId: string) => void;
 }
 
 export function ComparisonTool({ projects, onAddToCart }: ComparisonToolProps) {

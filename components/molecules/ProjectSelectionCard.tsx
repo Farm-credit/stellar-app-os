@@ -15,7 +15,7 @@ import { Text } from '@/components/atoms/Text';
 export interface ProjectSelectionCardProps {
   project: CarbonProject;
   isSelected: boolean;
-  onSelectionChange: (projectId: string, selected: boolean) => void;
+  onSelectionChange: (_projectId: string, _selected: boolean) => void;
   disabled?: boolean;
 }
 

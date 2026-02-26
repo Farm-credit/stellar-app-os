@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils';
 
 export interface ComparisonTableProps {
   projects: CarbonProject[];
-  onAddToCart?: (projectId: string) => void;
+  onAddToCart?: (_projectId: string) => void;
   className?: string;
 }
 
