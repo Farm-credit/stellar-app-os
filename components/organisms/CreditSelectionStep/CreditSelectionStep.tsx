@@ -5,6 +5,7 @@ import { Input } from '@/components/atoms/Input';
 import { Select } from '@/components/atoms/Select';
 import { Badge } from '@/components/atoms/Badge';
 import { Text } from '@/components/atoms/Text';
+import { ProjectLocationMap } from '@/components/organisms/ProjectLocationMap/ProjectLocationMap';
 import type { CreditSelectionProps } from '@/lib/types/carbon';
 
 const MIN_QUANTITY = 0.1;
@@ -220,7 +221,23 @@ export function CreditSelectionStep({ projects, onSelectionChange }: CreditSelec
                   {formatPrice(selectedProject.pricePerTon)}
                 </Text>
               </div>
+
+              <div className="flex items-center justify-between">
+                <Text variant="small" as="span" className="font-semibold">
+                  Location
+                </Text>
+                <Text variant="small" as="span" className="text-right">
+                  {selectedProject.location}
+                </Text>
+              </div>
             </div>
+
+            <ProjectLocationMap
+              projectName={selectedProject.name}
+              locationLabel={selectedProject.location}
+              coordinates={selectedProject.coordinates}
+              className="rounded-lg border border-stellar-blue/20 bg-background p-4"
+            />
 
             <div>
               <label htmlFor="quantity-input" className="block mb-2">

@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useState, useEffect, useMemo } from 'react';
+import { Suspense, useState, useEffect, useMemo, JSX } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { CreditConfirmation } from '@/components/organisms/CreditConfirmation/CreditConfirmation';
 import { ProgressStepper } from '@/components/molecules/ProgressStepper/ProgressStepper';
@@ -10,13 +10,15 @@ import {
   getCurrentStepFromPath,
   getCompletedSteps,
 } from '@/lib/utils/purchaseFlow';
+import { useAppTranslation } from '@/hooks/useTranslation';
 import type { CreditSelectionState } from '@/lib/types/carbon';
 import type { NetworkType } from '@/lib/types/wallet';
 
-function ConfirmationContent() {
+function ConfirmationContent(): JSX.Element {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const { t } = useAppTranslation();
   const [selection, setSelection] = useState<CreditSelectionState | null>(null);
   const [transactionHash, setTransactionHash] = useState<string | null>(null);
   const [network, setNetwork] = useState<NetworkType | null>(null);
@@ -28,7 +30,6 @@ function ConfirmationContent() {
     const networkParam = searchParams.get('network') as NetworkType | null;
 
     if (!param || !hashParam) {
-      // Missing required parameters, redirect to purchase page
       router.push('/credits/purchase');
       return;
     }
@@ -38,7 +39,7 @@ function ConfirmationContent() {
       const parsed = JSON.parse(decodeURIComponent(param)) as CreditSelectionState;
       setSelection(parsed);
       setTransactionHash(hashParam);
-      setNetwork(networkParam || 'testnet');
+      setNetwork(networkParam ?? 'testnet');
     } catch (err) {
       console.error('Failed to parse confirmation data:', err);
       router.push('/credits/purchase');
@@ -50,7 +51,7 @@ function ConfirmationContent() {
   const completedSteps = getCompletedSteps(currentStepId, !!selection, true);
   const steps = useMemo(
     () => buildPurchaseFlowSteps(currentStepId, completedSteps, selectionParam),
-    [currentStepId, completedSteps, selectionParam]
+    [currentStepId, completedSteps, selectionParam],
   );
 
   if (!selection || !transactionHash || !network) {
@@ -61,7 +62,7 @@ function ConfirmationContent() {
         </div>
         <div className="text-center">
           <Text variant="h3" as="h2" className="mb-2">
-            Loading...
+            {t('purchase.loading')}
           </Text>
         </div>
       </div>
@@ -82,14 +83,15 @@ function ConfirmationContent() {
   );
 }
 
-export default function ConfirmationPage() {
+export default function ConfirmationPage(): JSX.Element {
+  const { t } = useAppTranslation();
   return (
     <Suspense
       fallback={
         <div className="container mx-auto px-4 py-8 max-w-4xl">
           <div className="text-center">
             <Text variant="h3" as="h2" className="mb-2">
-              Loading...
+              {t('purchase.loading')}
             </Text>
           </div>
         </div>

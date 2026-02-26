@@ -1,6 +1,7 @@
 # Screen Recording Script for Issue #56
 
 ## Recording Setup
+
 - Screen resolution: 1920x1080 or 1280x720
 - Browser: Chrome or Edge (latest version)
 - Duration: 2-3 minutes
@@ -10,14 +11,17 @@
 ## Recording Script
 
 ### 1. Introduction (5 seconds)
+
 - Show the purchase page at `http://localhost:3000/credits/purchase`
 - Highlight the "Compare Projects" button in the top right
 
 ### 2. Navigate to Comparison Tool (5 seconds)
+
 - Click "Compare Projects" button
 - Show the comparison page loading
 
 ### 3. Project Selection (30 seconds)
+
 - Show the project selection cards grid
 - Point out the selection counter "0 / 3 selected"
 - Select the first project (Amazon Rainforest Reforestation)
@@ -34,6 +38,7 @@
 - Reselect to have 3 projects selected
 
 ### 4. Comparison Table (45 seconds)
+
 - Scroll down to show the comparison table
 - Highlight the table headers showing project names
 - Scroll through the comparison attributes:
@@ -47,23 +52,27 @@
 - Show the "Add to Cart" buttons at the bottom
 
 ### 5. Add to Cart (15 seconds)
+
 - Click "Add to Cart" for one of the projects
 - Show navigation to purchase page with project pre-selected
 - Use browser back button to return to comparison
 
 ### 6. PDF Export (20 seconds)
+
 - Click "Export as PDF" button
 - Show the download starting
 - Open the downloaded PDF file
 - Scroll through the PDF content showing all project details
 
 ### 7. Clear Selection (10 seconds)
+
 - Click "Clear Selection" button
 - Show all checkboxes becoming unchecked
 - Show comparison table disappearing
 - Show the empty state message
 
 ### 8. Responsive Design (30 seconds)
+
 - Open DevTools (F12)
 - Toggle device toolbar
 - Show mobile view (375px width)
@@ -76,6 +85,7 @@
 - Close DevTools
 
 ### 9. Accessibility Demo (20 seconds)
+
 - Close any open menus
 - Press Tab key repeatedly to show focus indicators
 - Navigate through:
@@ -87,6 +97,7 @@
 - Show focus indicators are clearly visible
 
 ### 10. Conclusion (5 seconds)
+
 - Show the full comparison page one more time
 - End recording
 
@@ -109,6 +120,7 @@
 ## Alternative: GIF Recording
 
 If video is too large, create a GIF:
+
 - Use tools like ScreenToGif or LICEcap
 - Focus on key interactions only
 - Keep under 10MB

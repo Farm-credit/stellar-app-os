@@ -1,9 +1,14 @@
 import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
-import './globals.css';
+import { Header } from '@/components/organisms/Header/Header';
 import { Footer } from '@/components/organisms/Footer/Footer';
+import './globals.css';
 import { WalletProviderWrapper } from '@/components/providers/WalletProviderWrapper';
-import NavigationBreadcrumbs from '@/components/organisms/NavigationBreadcrumbs';
+// import type { Metadata, Viewport } from 'next';
+// import { Inter } from 'next/font/google';
+// import './globals.css';
+import { ToastProvider } from '@/components/ui/toast/toast-provider';
+import { I18nProvider } from '@/components/providers/I18nProvider';
 
 const inter = Inter({
   variable: '--font-inter',
@@ -48,21 +53,25 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <WalletProviderWrapper>
-      <html lang="en">
-        <head>
-          <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
-          <meta name="apple-mobile-web-app-capable" content="yes" />
-          <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-          <meta name="apple-mobile-web-app-title" content="FarmCredit" />
-          <meta name="mobile-web-app-capable" content="yes" />
-        </head>
-        <body className={`${inter.variable} font-sans antialiased`}>
-          <NavigationBreadcrumbs />
-          {children}
-          <Footer />
-        </body>
-      </html>
-    </WalletProviderWrapper>
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+        <meta name="apple-mobile-web-app-title" content="FarmCredit" />
+        <meta name="mobile-web-app-capable" content="yes" />
+      </head>
+      <body className={`${inter.variable} font-sans antialiased`}>
+        <I18nProvider>
+          <ToastProvider>
+            <WalletProviderWrapper>
+              <Header />
+              {children}
+              <Footer />
+            </WalletProviderWrapper>
+          </ToastProvider>
+        </I18nProvider>
+      </body>
+    </html>
   );
 }
