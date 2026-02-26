@@ -1,14 +1,16 @@
 'use client';
 
 import { type JSX, useState } from 'react';
+
+import { Button } from '@/components/atoms/Button';
+import { LanguageSelector } from '@/components/organisms/Header/LanguageSelector';
 import Link from 'next/link';
 import { Menu } from 'lucide-react';
-import { Button } from '@/components/atoms/Button';
-import { Text } from '@/components/atoms/Text';
 import { MobileDrawer } from '@/components/organisms/Header/MobileDrawer';
-import { LanguageSelector } from '@/components/organisms/Header/LanguageSelector';
-import { useWalletContext } from '@/contexts/WalletContext';
+import NavigationBreadcrumbs from '@/components/organisms/NavigationBreadcrumbs';
+import { Text } from '@/components/atoms/Text';
 import { useAppTranslation } from '@/hooks/useTranslation';
+import { useWalletContext } from '@/contexts/WalletContext';
 
 export function Header(): JSX.Element {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
@@ -90,6 +92,8 @@ export function Header(): JSX.Element {
       </header>
 
       <MobileDrawer isOpen={isDrawerOpen} onClose={() => setIsDrawerOpen(false)} />
+
+      <NavigationBreadcrumbs />
     </>
   );
 }
