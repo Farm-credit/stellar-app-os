@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 import {
   Breadcrumb,
@@ -7,11 +7,11 @@ import {
   BreadcrumbList,
   BreadcrumbPage,
   BreadcrumbSeparator,
-} from "../ui/breadcrumb";
+} from '../ui/breadcrumb';
 
-import React from "react";
-import { routes } from "next-routes-list";
-import { usePathname } from "next/navigation";
+import React from 'react';
+import { routes } from 'next-routes-list';
+import { usePathname } from 'next/navigation';
 
 export default function NavigationBreadcrumbs() {
   const pathname = usePathname();
@@ -26,18 +26,16 @@ export default function NavigationBreadcrumbs() {
 
   // Always start with Home
   const breadcrumbs = [
-    { href: "/", label: "Home" },
+    { href: '/', label: 'Home' },
     ...nearestRoutes
-      .filter((route) => route !== "/")
+      .filter((route) => route !== '/')
       .map((route) => {
         // Convert route to label, e.g. /dashboard/credits -> Dashboard > Credits
-        const parts = route.split("/").filter(Boolean);
+        const parts = route.split('/').filter(Boolean);
         const label =
           parts.length > 0
-            ? parts[parts.length - 1]
-                .replace(/-/g, " ")
-                .replace(/\b\w/g, (c) => c.toUpperCase())
-            : "Home";
+            ? parts[parts.length - 1].replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+            : 'Home';
         return { href: route, label };
       }),
   ];
@@ -52,9 +50,7 @@ export default function NavigationBreadcrumbs() {
                 {idx === breadcrumbs.length - 1 ? (
                   <BreadcrumbPage>{crumb.label}</BreadcrumbPage>
                 ) : (
-                  <BreadcrumbLink href={crumb.href}>
-                    {crumb.label}
-                  </BreadcrumbLink>
+                  <BreadcrumbLink href={crumb.href}>{crumb.label}</BreadcrumbLink>
                 )}
               </BreadcrumbItem>
               {idx < breadcrumbs.length - 1 && <BreadcrumbSeparator />}

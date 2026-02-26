@@ -1,4 +1,4 @@
-import { Listing } from '../types/marketplace';
+import { type Listing } from '../types/marketplace';
 
 // Mock data generator for listings
 const MOCK_LISTINGS: Record<string, Listing> = {

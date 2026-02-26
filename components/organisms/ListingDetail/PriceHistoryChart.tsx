@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { PriceHistoryPoint } from '@/lib/types/marketplace';
+import { type PriceHistoryPoint } from '@/lib/types/marketplace';
 import { Text } from '@/components/atoms/Text';
 
 interface PriceHistoryChartProps {

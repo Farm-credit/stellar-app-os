@@ -3,8 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "build": "next build --webpack",
+    "dev": "npm run generate-breadcrumbs; next dev",
+    "build": "npm run generate-breadcrumbs; next build --webpack",
     "start": "next start",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",

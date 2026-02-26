@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useCallback } from 'react';
-import { Listing } from '@/lib/types/marketplace';
+import { type Listing } from '@/lib/types/marketplace';
 import { checkAvailability } from '@/lib/api/marketplace';
 import { Text } from '@/components/atoms/Text';
 import { Badge } from '@/components/atoms/Badge';
