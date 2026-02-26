@@ -1,6 +1,6 @@
 'use client';
 
-import { JSX, useEffect, useRef } from 'react';
+import { type JSX, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { X, Home, BookOpen, ShoppingCart, LayoutDashboard } from 'lucide-react';
@@ -17,7 +17,12 @@ interface MobileDrawerProps {
 
 interface NavLink {
   href: string;
-  labelKey: keyof { 'nav.home': string; 'nav.blog': string; 'nav.purchaseCredits': string; 'nav.dashboard': string };
+  labelKey: keyof {
+    'nav.home': string;
+    'nav.blog': string;
+    'nav.purchaseCredits': string;
+    'nav.dashboard': string;
+  };
   icon: React.ComponentType<{ className?: string }>;
 }
 

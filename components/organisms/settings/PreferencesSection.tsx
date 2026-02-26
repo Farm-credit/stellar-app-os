@@ -1,40 +1,37 @@
-"use client";
+'use client';
 
-import { useForm, Controller } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useState } from "react";
-import { CheckCircle2, Loader2, Monitor, Moon, Sun } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
+import { useForm, Controller } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useState } from 'react';
+import { CheckCircle2, Loader2, Monitor, Moon, Sun } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { SettingsCard } from "@/components/molecules/SettingsCard";
-import {
-  preferencesSchema,
-  type PreferencesFormData,
-} from "@/schemas/settings.schema";
-import { cn } from "@/lib/utils";
-import type { Theme } from "@/types/settings";
+} from '@/components/ui/select';
+import { SettingsCard } from '@/components/molecules/SettingsCard';
+import { preferencesSchema, type PreferencesFormData } from '@/schemas/settings.schema';
+import { cn } from '@/lib/utils';
+import type { Theme } from '@/types/settings';
 
 const LANGUAGES = [
-  { value: "en", label: "English" },
-  { value: "fr", label: "Français" },
-  { value: "es", label: "Español" },
-  { value: "pt", label: "Português" },
-  { value: "de", label: "Deutsch" },
+  { value: 'en', label: 'English' },
+  { value: 'fr', label: 'Français' },
+  { value: 'es', label: 'Español' },
+  { value: 'pt', label: 'Português' },
+  { value: 'de', label: 'Deutsch' },
 ] as const;
 
 const CURRENCIES = [
-  { value: "USD", label: "USD — US Dollar" },
-  { value: "EUR", label: "EUR — Euro" },
-  { value: "GBP", label: "GBP — British Pound" },
-  { value: "NGN", label: "NGN — Nigerian Naira" },
-  { value: "GHS", label: "GHS — Ghanaian Cedi" },
+  { value: 'USD', label: 'USD — US Dollar' },
+  { value: 'EUR', label: 'EUR — Euro' },
+  { value: 'GBP', label: 'GBP — British Pound' },
+  { value: 'NGN', label: 'NGN — Nigerian Naira' },
+  { value: 'GHS', label: 'GHS — Ghanaian Cedi' },
 ] as const;
 
 type ThemeOption = {
@@ -44,36 +41,36 @@ type ThemeOption = {
 };
 
 const THEME_OPTIONS: ThemeOption[] = [
-  { value: "light", label: "Light", icon: <Sun className="h-4 w-4" /> },
-  { value: "dark", label: "Dark", icon: <Moon className="h-4 w-4" /> },
-  { value: "system", label: "System", icon: <Monitor className="h-4 w-4" /> },
+  { value: 'light', label: 'Light', icon: <Sun className="h-4 w-4" /> },
+  { value: 'dark', label: 'Dark', icon: <Moon className="h-4 w-4" /> },
+  { value: 'system', label: 'System', icon: <Monitor className="h-4 w-4" /> },
 ];
 
 export function PreferencesSection() {
   const [saved, setSaved] = useState(false);
 
-  const { handleSubmit, control, formState: { isSubmitting } } =
-    useForm<PreferencesFormData>({
-      resolver: zodResolver(preferencesSchema),
-      defaultValues: {
-        language: "en",
-        currency: "USD",
-        theme: "system",
-      },
-    });
+  const {
+    handleSubmit,
+    control,
+    formState: { isSubmitting },
+  } = useForm<PreferencesFormData>({
+    resolver: zodResolver(preferencesSchema),
+    defaultValues: {
+      language: 'en',
+      currency: 'USD',
+      theme: 'system',
+    },
+  });
 
   const onSubmit = async (data: PreferencesFormData) => {
     await new Promise((r) => setTimeout(r, 800));
-    console.log("Preferences saved:", data);
+    console.log('Preferences saved:', data);
     setSaved(true);
     setTimeout(() => setSaved(false), 2500);
   };
 
   return (
-    <SettingsCard
-      title="Preferences"
-      description="Set your language, currency, and display theme."
-    >
+    <SettingsCard title="Preferences" description="Set your language, currency, and display theme.">
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
         {/* Language */}
         <div className="space-y-1.5">
@@ -135,10 +132,10 @@ export function PreferencesSection() {
                     type="button"
                     onClick={() => field.onChange(option.value)}
                     className={cn(
-                      "flex items-center justify-center gap-2 rounded-lg border px-3 py-2.5 text-sm font-medium transition-all",
+                      'flex items-center justify-center gap-2 rounded-lg border px-3 py-2.5 text-sm font-medium transition-all',
                       field.value === option.value
-                        ? "border-primary bg-primary/10 text-primary"
-                        : "border-border text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                        ? 'border-primary bg-primary/10 text-primary'
+                        : 'border-border text-muted-foreground hover:border-primary/40 hover:text-foreground'
                     )}
                   >
                     {option.icon}
@@ -148,9 +145,7 @@ export function PreferencesSection() {
               </div>
             )}
           />
-          <p className="text-xs text-muted-foreground">
-            Theme change applies immediately.
-          </p>
+          <p className="text-xs text-muted-foreground">Theme change applies immediately.</p>
         </div>
 
         {/* Submit */}
@@ -172,7 +167,7 @@ export function PreferencesSection() {
                 Saving...
               </>
             ) : (
-              "Save Preferences"
+              'Save Preferences'
             )}
           </Button>
         </div>
@@ -181,4 +176,4 @@ export function PreferencesSection() {
   );
 }
 
-PreferencesSection.displayName = "PreferencesSection";
+PreferencesSection.displayName = 'PreferencesSection';

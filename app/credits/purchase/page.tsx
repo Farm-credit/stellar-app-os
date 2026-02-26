@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useMemo, JSX } from 'react';
+import { useState, useCallback, useMemo, type JSX } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { CreditSelectionStep } from '@/components/organisms/CreditSelectionStep/CreditSelectionStep';
 import { ProgressStepper } from '@/components/molecules/ProgressStepper/ProgressStepper';
@@ -38,7 +38,7 @@ export default function PurchasePage(): JSX.Element {
   const completedSteps = getCompletedSteps(currentStepId, !!selection, false);
   const steps = useMemo(
     () => buildPurchaseFlowSteps(currentStepId, completedSteps, null),
-    [currentStepId, completedSteps],
+    [currentStepId, completedSteps]
   );
 
   return (

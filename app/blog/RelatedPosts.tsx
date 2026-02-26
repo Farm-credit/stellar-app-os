@@ -8,11 +8,7 @@ interface RelatedPostsProps {
   currentCategory: string;
 }
 
-export function RelatedPosts({
-  posts,
-  currentSlug,
-  currentCategory,
-}: RelatedPostsProps) {
+export function RelatedPosts({ posts, currentSlug, currentCategory }: RelatedPostsProps) {
   const categoryMatches = posts.filter(
     (post) => post.slug !== currentSlug && post.category === currentCategory
   );
@@ -33,14 +29,11 @@ export function RelatedPosts({
 
       <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {relatedPosts.map((post) => {
-          const formattedDate = new Date(post.publishedAt).toLocaleDateString(
-            'en-US',
-            {
-              year: 'numeric',
-              month: 'short',
-              day: '2-digit',
-            }
-          );
+          const formattedDate = new Date(post.publishedAt).toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'short',
+            day: '2-digit',
+          });
 
           return (
             <li key={post.id}>

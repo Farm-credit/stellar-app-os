@@ -21,11 +21,11 @@ export default function NewsletterSignup(): React.ReactElement {
 
   const validate = (): boolean => {
     if (!emailRegex.test(state.email)) {
-      setState(s => ({ ...s, status: 'error', message: 'Enter a valid email address.' }));
+      setState((s) => ({ ...s, status: 'error', message: 'Enter a valid email address.' }));
       return false;
     }
     if (!state.consent) {
-      setState(s => ({ ...s, status: 'error', message: 'Consent is required.' }));
+      setState((s) => ({ ...s, status: 'error', message: 'Consent is required.' }));
       return false;
     }
     return true;
@@ -35,7 +35,7 @@ export default function NewsletterSignup(): React.ReactElement {
     e.preventDefault();
     if (!validate()) return;
 
-    setState(s => ({ ...s, status: 'loading', message: '' }));
+    setState((s) => ({ ...s, status: 'loading', message: '' }));
 
     try {
       const res = await fetch('/api/newsletter', {
@@ -53,7 +53,7 @@ export default function NewsletterSignup(): React.ReactElement {
         message: 'Check your inbox to confirm subscription.',
       });
     } catch {
-      setState(s => ({
+      setState((s) => ({
         ...s,
         status: 'error',
         message: 'Subscription failed. Please try again.',
@@ -63,7 +63,7 @@ export default function NewsletterSignup(): React.ReactElement {
 
   const handleChange = (e: ChangeEvent<HTMLInputElement>): void => {
     const { name, value, checked, type } = e.target;
-    setState(s => ({
+    setState((s) => ({
       ...s,
       [name]: type === 'checkbox' ? checked : value,
       message: '',

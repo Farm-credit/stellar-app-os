@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useState, useEffect, useMemo, JSX } from 'react';
+import { Suspense, useState, useEffect, useMemo, type JSX } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { CreditConfirmation } from '@/components/organisms/CreditConfirmation/CreditConfirmation';
 import { ProgressStepper } from '@/components/molecules/ProgressStepper/ProgressStepper';
@@ -51,7 +51,7 @@ function ConfirmationContent(): JSX.Element {
   const completedSteps = getCompletedSteps(currentStepId, !!selection, true);
   const steps = useMemo(
     () => buildPurchaseFlowSteps(currentStepId, completedSteps, selectionParam),
-    [currentStepId, completedSteps, selectionParam],
+    [currentStepId, completedSteps, selectionParam]
   );
 
   if (!selection || !transactionHash || !network) {

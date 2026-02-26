@@ -311,7 +311,7 @@ export const MOCK_BLOG_DATA: BlogListResponse = {
  * Returns a paginated + optionally filtered slice of the mock data.
  * Mirrors the filtering/pagination logic a real API would perform.
  */
-export function getMockBlogData (params: {
+export function getMockBlogData(params: {
   page?: number;
   category?: string;
   postsPerPage?: number;
@@ -341,10 +341,10 @@ export function getMockBlogData (params: {
   };
 }
 
-export function getAllMockBlogPosts () {
+export function getAllMockBlogPosts() {
   return [...MOCK_BLOG_DATA.posts];
 }
 
-export function getMockBlogPostBySlug (slug: string) {
+export function getMockBlogPostBySlug(slug: string) {
   return MOCK_BLOG_DATA.posts.find((post) => post.slug === slug) ?? null;
 }

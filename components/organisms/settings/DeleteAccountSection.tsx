@@ -1,10 +1,10 @@
-"use client";
+'use client';
 
-import { useState } from "react";
-import { AlertTriangle, Loader2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { useState } from 'react';
+import { AlertTriangle, Loader2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
   Dialog,
   DialogContent,
@@ -13,14 +13,14 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@/components/ui/dialog";
-import { SettingsCard } from "@/components/molecules/SettingsCard";
+} from '@/components/ui/dialog';
+import { SettingsCard } from '@/components/molecules/SettingsCard';
 
-const CONFIRM_TEXT = "delete my account";
+const CONFIRM_TEXT = 'delete my account';
 
 export function DeleteAccountSection() {
   const [open, setOpen] = useState(false);
-  const [input, setInput] = useState("");
+  const [input, setInput] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
 
   const isConfirmed = input.toLowerCase() === CONFIRM_TEXT;
@@ -29,37 +29,29 @@ export function DeleteAccountSection() {
     if (!isConfirmed) return;
     setIsDeleting(true);
     await new Promise((r) => setTimeout(r, 1500));
-    console.log("Account deleted");
+    console.log('Account deleted');
     setIsDeleting(false);
     setOpen(false);
   };
 
   const handleOpenChange = (value: boolean) => {
     setOpen(value);
-    if (!value) setInput("");
+    if (!value) setInput('');
   };
 
   return (
-    <SettingsCard
-      variant="danger"
-      title="Danger Zone"
-      description=""
-    >
+    <SettingsCard variant="danger" title="Danger Zone" description="">
       <div className="flex flex-col gap-3 ">
         <div>
           <p className="text-sm font-medium text-foreground">Delete Account</p>
           <p className="text-sm text-muted-foreground">
-            Permanently delete your account, all data, and access. This cannot
-            be undone.
+            Permanently delete your account, all data, and access. This cannot be undone.
           </p>
         </div>
 
         <Dialog open={open} onOpenChange={handleOpenChange}>
           <DialogTrigger asChild>
-            <Button
-              variant="destructive"
-              className="shrink-0 sm:w-50 mt-4 "
-            >
+            <Button variant="destructive" className="shrink-0 sm:w-50 mt-4 ">
               Delete Account
             </Button>
           </DialogTrigger>
@@ -81,18 +73,14 @@ export function DeleteAccountSection() {
 
             <div className="space-y-4 py-2">
               <p className="text-sm text-muted-foreground">
-                Your account, all associated data, loan history, and access will
-                be permanently removed from FarmCredit. There is no way to
-                recover this.
+                Your account, all associated data, loan history, and access will be permanently
+                removed from FarmCredit. There is no way to recover this.
               </p>
 
               <div className="space-y-1.5">
                 <Label htmlFor="confirm-delete" className="text-sm">
-                  Type{" "}
-                  <span className="font-semibold text-foreground">
-                    {CONFIRM_TEXT}
-                  </span>{" "}
-                  to confirm
+                  Type <span className="font-semibold text-foreground">{CONFIRM_TEXT}</span> to
+                  confirm
                 </Label>
                 <Input
                   id="confirm-delete"
@@ -124,7 +112,7 @@ export function DeleteAccountSection() {
                     Deleting...
                   </>
                 ) : (
-                  "Delete My Account"
+                  'Delete My Account'
                 )}
               </Button>
             </DialogFooter>
@@ -135,4 +123,4 @@ export function DeleteAccountSection() {
   );
 }
 
-DeleteAccountSection.displayName = "DeleteAccountSection";
+DeleteAccountSection.displayName = 'DeleteAccountSection';

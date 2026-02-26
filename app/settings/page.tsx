@@ -19,7 +19,7 @@ import { PreferencesSection } from '@/components/organisms/settings/PreferencesS
 import { ProfileSection } from '@/components/organisms/settings/ProfileSection';
 import { User, Bell, Sliders, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { NavItem, SECTION_TITLES, TabId } from '@/types/settings';
+import { type NavItem, SECTION_TITLES, type TabId } from '@/types/settings';
 
 const NAV_ITEMS: NavItem[] = [
   { id: 'profile', label: 'My Profile', icon: <User className="h-4 w-4" /> },
@@ -36,7 +36,6 @@ export default function SettingsPage(): React.ReactNode {
   useEffect(() => {
     setTourCompleted(hasCompletedOnboardingTour());
   }, []);
-
 
   const restartTour = () => {
     requestOnboardingTourRestart();
