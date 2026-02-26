@@ -7,6 +7,7 @@
 A fully functional mobile navigation drawer with the following features:
 
 #### 1. Header Component (`components/organisms/Header/Header.tsx`)
+
 - Sticky header with backdrop blur effect
 - Desktop horizontal navigation (hidden on mobile)
 - Desktop wallet connect button
@@ -14,6 +15,7 @@ A fully functional mobile navigation drawer with the following features:
 - Responsive design with `md` breakpoint (768px)
 
 #### 2. Mobile Drawer Component (`components/organisms/Header/MobileDrawer.tsx`)
+
 - Slide-in animation from left (300ms ease-in-out)
 - Semi-transparent backdrop with blur
 - Navigation links with icons and active states
@@ -24,11 +26,13 @@ A fully functional mobile navigation drawer with the following features:
 ### Key Features
 
 #### Animations ✨
+
 - Smooth slide-in/out transitions
 - Backdrop fade effects
 - Transform-based animations for performance
 
 #### Accessibility ♿ (WCAG 2.1 AA)
+
 - Focus trap when drawer is open
 - Keyboard navigation (Tab, Shift+Tab, Escape)
 - ARIA attributes for screen readers
@@ -37,6 +41,7 @@ A fully functional mobile navigation drawer with the following features:
 - Semantic HTML structure
 
 #### User Experience 🎯
+
 - Backdrop click to close
 - Link click auto-closes drawer
 - Body scroll prevention when open
@@ -45,6 +50,7 @@ A fully functional mobile navigation drawer with the following features:
 - Touch-friendly tap targets (44px+)
 
 #### Responsive Design 📱
+
 - Mobile: Full drawer functionality (< 768px)
 - Tablet: Drawer available up to 768px
 - Desktop: Traditional horizontal navigation (≥ 768px)
@@ -61,6 +67,7 @@ Home (/)
 ### Wallet Integration
 
 The drawer integrates seamlessly with the existing WalletContext:
+
 - Shows "Connect Wallet" when disconnected
 - Displays truncated public key when connected (e.g., "GABC...XYZ9")
 - Connects via Freighter wallet
@@ -70,16 +77,19 @@ The drawer integrates seamlessly with the existing WalletContext:
 ### Files Created/Modified
 
 #### Created:
+
 1. `components/organisms/Header/Header.tsx` - Main header component
 2. `components/organisms/Header/MobileDrawer.tsx` - Mobile drawer component
 3. `components/organisms/Header/README.md` - Component documentation
 
 #### Modified:
+
 1. `app/layout.tsx` - Added Header component and wrapped with WalletProviderWrapper
 
 ### TypeScript Compliance
 
 All code is strictly typed:
+
 - No `any` types used
 - Proper interface definitions
 - Type-safe props and state
@@ -90,6 +100,7 @@ All code is strictly typed:
 Use this checklist to verify the implementation:
 
 #### Functionality
+
 - [ ] Hamburger menu opens drawer
 - [ ] Backdrop click closes drawer
 - [ ] Link click closes drawer
@@ -99,6 +110,7 @@ Use this checklist to verify the implementation:
 - [ ] Wallet connect/disconnect works
 
 #### Accessibility
+
 - [ ] Focus trapped in drawer when open
 - [ ] Tab navigation cycles through elements
 - [ ] Shift+Tab works in reverse
@@ -107,6 +119,7 @@ Use this checklist to verify the implementation:
 - [ ] ARIA labels are present
 
 #### Visual/UX
+
 - [ ] Smooth slide-in animation
 - [ ] Backdrop fades in/out
 - [ ] Body scroll prevented when open
@@ -115,6 +128,7 @@ Use this checklist to verify the implementation:
 - [ ] Wallet status shows correctly
 
 #### Responsive
+
 - [ ] Works on mobile (< 768px)
 - [ ] Works on tablet (768px - 1024px)
 - [ ] Desktop nav shows (≥ 768px)
@@ -124,6 +138,7 @@ Use this checklist to verify the implementation:
 ### How to Test
 
 1. **Start the development server:**
+
    ```bash
    npm run dev
    ```
@@ -153,6 +168,7 @@ Use this checklist to verify the implementation:
 ### Browser Support
 
 Tested and working on:
+
 - Chrome/Edge (latest)
 - Firefox (latest)
 - Safari (latest)
@@ -179,27 +195,31 @@ Tested and working on:
 To customize the drawer:
 
 **Change animation duration:**
+
 ```tsx
 // In MobileDrawer.tsx
-className="... transition-transform duration-300 ..." // Change 300 to desired ms
+className = '... transition-transform duration-300 ...'; // Change 300 to desired ms
 ```
 
 **Change drawer width:**
+
 ```tsx
 // In MobileDrawer.tsx
-className="... w-[280px] ..." // Change 280px to desired width
+className = '... w-[280px] ...'; // Change 280px to desired width
 ```
 
 **Add more navigation links:**
+
 ```tsx
 // In MobileDrawer.tsx
 const navLinks: NavLink[] = [
   // ... existing links
-  { href: "/new-page", label: "New Page", icon: YourIcon },
+  { href: '/new-page', label: 'New Page', icon: YourIcon },
 ];
 ```
 
 **Change colors:**
+
 ```tsx
 // Use Tailwind classes with Stellar theme colors:
 // text-stellar-blue, bg-stellar-navy, border-stellar-purple, etc.
@@ -208,6 +228,7 @@ const navLinks: NavLink[] = [
 ### Support
 
 For issues or questions:
+
 1. Check the README in `components/organisms/Header/`
 2. Review the component code comments
 3. Test with the checklist above

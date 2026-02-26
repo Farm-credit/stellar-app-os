@@ -2,10 +2,7 @@ import type { Metadata } from 'next';
 import Image from 'next/image';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import {
-  fetchAllBlogPosts,
-  fetchBlogPostBySlug,
-} from '@/lib/api/blog';
+import { fetchAllBlogPosts, fetchBlogPostBySlug } from '@/lib/api/blog';
 import { CommentSection } from '@/app/blog/CommentSection';
 import { MarkdownRenderer } from '@/app/blog/MarkdownRenderer';
 import { RelatedPosts } from '@/app/blog/RelatedPosts';
@@ -25,9 +22,7 @@ export async function generateStaticParams() {
   return posts.map((post) => ({ slug: post.slug }));
 }
 
-export async function generateMetadata({
-  params,
-}: BlogPostPageProps): Promise<Metadata> {
+export async function generateMetadata({ params }: BlogPostPageProps): Promise<Metadata> {
   const { slug } = await params;
   const post = await fetchBlogPostBySlug(slug);
   if (!post) {
@@ -134,11 +129,7 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
           <ShareButtons title={post.title} url={canonicalUrl} />
         </div>
 
-        <RelatedPosts
-          posts={allPosts}
-          currentSlug={post.slug}
-          currentCategory={post.category}
-        />
+        <RelatedPosts posts={allPosts} currentSlug={post.slug} currentCategory={post.category} />
         <CommentSection enabled={commentsEnabled} />
       </article>
 

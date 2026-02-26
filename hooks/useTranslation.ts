@@ -26,9 +26,7 @@ export function useAppTranslation(): UseAppTranslationReturn {
   const { t, i18n } = useI18nTranslation();
 
   const language = (
-    SUPPORTED_LANGUAGES.includes(i18n.language as SupportedLanguage)
-      ? i18n.language
-      : 'en'
+    SUPPORTED_LANGUAGES.includes(i18n.language as SupportedLanguage) ? i18n.language : 'en'
   ) as SupportedLanguage;
 
   const locale = LOCALE_MAP[language];

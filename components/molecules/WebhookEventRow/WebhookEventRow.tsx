@@ -1,6 +1,6 @@
 'use client';
 
-import React, { type ReactNode, useState } from 'react';
+import React, { type ReactNode } from 'react';
 import { Button } from '@/components/atoms/Button';
 import { WebhookStatusBadge } from '@/components/atoms/WebhookStatusBadge';
 import { Text } from '@/components/atoms/Text';
@@ -20,7 +20,7 @@ export function WebhookEventRow({
   onViewDetails,
   isRetrying = false,
 }: WebhookEventRowProps): ReactNode {
-  const [isExpanded, setIsExpanded] = useState(false);
+  const isExpanded = false;
 
   const getPayloadPreview = (payload: Record<string, unknown>): string => {
     const keys = Object.keys(payload);

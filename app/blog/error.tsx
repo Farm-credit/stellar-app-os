@@ -1,6 +1,6 @@
 'use client';
 
-import { JSX, useEffect } from 'react';
+import { type JSX, useEffect } from 'react';
 import { Button } from '@/components/atoms/Button';
 import { useAppTranslation } from '@/hooks/useTranslation';
 

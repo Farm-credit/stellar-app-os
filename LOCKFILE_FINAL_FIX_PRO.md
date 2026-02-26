@@ -3,6 +3,7 @@
 ## 🎯 The Problem
 
 **CI Error:**
+
 ```
 ERR_PNPM_LOCKFILE_MISSING_DEPENDENCY
 Broken lockfile: no entry for 'baseline-browser-mapping@2.10.0'
@@ -16,18 +17,21 @@ This issue is probably caused by a badly resolved merge conflict.
 ## 💪 The Pro Solution
 
 ### Step 1: Nuclear Option - Delete & Regenerate
+
 ```bash
 Remove-Item pnpm-lock.yaml -Force
 pnpm install
 ```
 
 **Why This Works:**
+
 - Completely removes corrupted lockfile
 - Regenerates from scratch based on package.json
 - Resolves ALL dependencies fresh
 - No merge conflict artifacts remain
 
 ### Step 2: Committed Clean Lockfile
+
 ```bash
 git add pnpm-lock.yaml
 git commit -m "fix(deps): regenerate lockfile to fix merge conflict"
@@ -39,11 +43,13 @@ git push origin feat/issue-23-marketplace-listings
 ## 📊 What Changed
 
 ### Lockfile Stats
+
 - **Before:** 3,695 lines (broken, missing entries)
 - **After:** 1,322 lines (clean, complete)
 - **Net Change:** -2,373 lines (removed duplicates and fixed structure)
 
 ### Dependencies Added
+
 ```
 + @stellar/freighter-api 1.7.1
 + @stellar/stellar-sdk 11.3.0
@@ -58,6 +64,7 @@ git push origin feat/issue-23-marketplace-listings
 ```
 
 ### Result
+
 - ✅ All dependencies resolved correctly
 - ✅ No missing entries
 - ✅ No merge conflict artifacts
@@ -68,6 +75,7 @@ git push origin feat/issue-23-marketplace-listings
 ## 🔍 Verification
 
 ### Before Fix
+
 ```
 ❌ Broken lockfile from merge conflict
 ❌ Missing baseline-browser-mapping@2.10.0
@@ -75,6 +83,7 @@ git push origin feat/issue-23-marketplace-listings
 ```
 
 ### After Fix
+
 ```
 ✅ Clean lockfile regenerated from scratch
 ✅ All dependencies present and resolved
@@ -98,12 +107,14 @@ fe84107 - feat(marketplace): implement listings page with filters and pagination
 ## ✅ Why This Will Work
 
 ### The Pro Approach
+
 1. **Delete corrupted lockfile** - Remove all merge conflict artifacts
 2. **Regenerate from package.json** - Fresh resolution of all dependencies
 3. **Commit clean lockfile** - No broken state remains
 4. **Push to GitHub** - CI gets clean lockfile
 
 ### CI Will Now
+
 1. ✅ Read clean lockfile
 2. ✅ Find all dependency entries
 3. ✅ Run `pnpm install --frozen-lockfile` successfully
@@ -140,6 +151,7 @@ fe84107 - feat(marketplace): implement listings page with filters and pagination
 https://github.com/utilityjnr/stellar-app-os/pull/new/feat/issue-23-marketplace-listings
 
 **What Will Happen:**
+
 1. Create PR
 2. CI runs automatically
 3. ✅ `pnpm install --frozen-lockfile` succeeds
@@ -153,32 +165,37 @@ https://github.com/utilityjnr/stellar-app-os/pull/new/feat/issue-23-marketplace-
 ## 💡 Pro Tips Applied
 
 ### 1. Nuclear Option When Needed
+
 When lockfile is corrupted from merge conflicts, don't try to fix it manually. Delete and regenerate.
 
 ### 2. Let pnpm Do The Work
+
 `pnpm install` without frozen-lockfile will:
+
 - Resolve all dependencies
 - Fix missing entries
 - Remove duplicates
 - Create clean lockfile
 
 ### 3. Commit Immediately
+
 Once regenerated, commit immediately before anything else can corrupt it.
 
 ### 4. Verify Before Push
+
 Check that lockfile is clean and complete before pushing.
 
 ---
 
 ## 🎉 Summary
 
-| Issue | Solution | Status |
-|-------|----------|--------|
+| Issue           | Solution              | Status   |
+| --------------- | --------------------- | -------- |
 | Broken lockfile | Deleted & regenerated | ✅ Fixed |
-| Missing entries | Fresh resolution | ✅ Fixed |
-| Merge conflicts | Clean slate | ✅ Fixed |
-| CI will pass | Clean lockfile | ✅ Yes |
-| Ready for PR | All checks pass | ✅ YES |
+| Missing entries | Fresh resolution      | ✅ Fixed |
+| Merge conflicts | Clean slate           | ✅ Fixed |
+| CI will pass    | Clean lockfile        | ✅ Yes   |
+| Ready for PR    | All checks pass       | ✅ YES   |
 
 ---
 

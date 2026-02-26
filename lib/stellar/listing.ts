@@ -7,6 +7,7 @@ interface WalletState {
   type: string;
 }
 
+export async function fetchUserCredits(_publicKey: string): Promise<Credit[]> {
 // eslint-disable-next-line no-unused-vars
 export function fetchUserCredits(_publicKey: string): Promise<Credit[]> {
   // Mock implementation - replace with actual Stellar SDK calls later
@@ -40,6 +41,7 @@ export function fetchUserCredits(_publicKey: string): Promise<Credit[]> {
   ]);
 }
 
+export async function fetchMarketPrice(_creditType: string): Promise<MarketPriceData> {
 // eslint-disable-next-line no-unused-vars
 export function fetchMarketPrice(_creditType: string): Promise<MarketPriceData> {
   // Mock implementation
@@ -72,6 +74,9 @@ export async function createListing(
   };
 }
 
+export async function validateCreditOwnership(
+  _publicKey: string,
+  _creditId: string,
 export function validateCreditOwnership(
   // eslint-disable-next-line no-unused-vars
   _publicKey: string,
@@ -84,6 +89,12 @@ export function validateCreditOwnership(
   return Promise.resolve(true);
 }
 
+export async function checkExistingListings(
+  _publicKey: string,
+  _creditId: string
+): Promise<boolean> {
+  // Mock check - always return false for demo
+  return false;
 // eslint-disable-next-line no-unused-vars
 export function checkExistingListings(_publicKey: string, _creditId: string): Promise<boolean> {
   // Mock check - always return false for demo

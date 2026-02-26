@@ -67,9 +67,7 @@ export function ShareButtons({ title, url }: ShareButtonsProps) {
         <button
           type="button"
           onClick={() =>
-            openSharePopup(
-              `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`
-            )
+            openSharePopup(`https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`)
           }
           className="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
           aria-label="Share this post on Facebook"
@@ -81,9 +79,7 @@ export function ShareButtons({ title, url }: ShareButtonsProps) {
         <button
           type="button"
           onClick={() =>
-            openSharePopup(
-              `https://www.linkedin.com/sharing/share-offsite/?url=${encodedUrl}`
-            )
+            openSharePopup(`https://www.linkedin.com/sharing/share-offsite/?url=${encodedUrl}`)
           }
           className="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
           aria-label="Share this post on LinkedIn"

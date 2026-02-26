@@ -46,19 +46,19 @@
     "successMessage": "You're subscribed 🎉",
     "errorMessage": "Something went wrong. Try again."
   },
-"blog": {
-  "pageTitle": "Blog",
-  "pageSubtitle": "Insights on carbon credits, sustainable farming, climate technology, and agricultural policy.",
-  "featuredBlogTitle": "FarmCredit Blog",
-  "categoryFiltersLabel": "Category filters",
-  "readPost": "Read blog post: {{title}}",
-  "loadingAriaLabel": "Loading blog posts",
-  "errorTitle": "Something went wrong",
-  "errorDesc": "We couldn't load the blog posts right now. This might be a temporary issue — please try again.",
-  "errorReference": "Error reference: {{digest}}",
-  "tryAgain": "Try again",
-  "tryAgainAriaLabel": "Try loading the blog page again"
-},
+  "blog": {
+    "pageTitle": "Blog",
+    "pageSubtitle": "Insights on carbon credits, sustainable farming, climate technology, and agricultural policy.",
+    "featuredBlogTitle": "FarmCredit Blog",
+    "categoryFiltersLabel": "Category filters",
+    "readPost": "Read blog post: {{title}}",
+    "loadingAriaLabel": "Loading blog posts",
+    "errorTitle": "Something went wrong",
+    "errorDesc": "We couldn't load the blog posts right now. This might be a temporary issue — please try again.",
+    "errorReference": "Error reference: {{digest}}",
+    "tryAgain": "Try again",
+    "tryAgainAriaLabel": "Try loading the blog page again"
+  },
   "purchase": {
     "nextButton": "Next",
     "nextAriaLabel": "Continue to wallet connection",

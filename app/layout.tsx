@@ -9,6 +9,8 @@ import { WalletProviderWrapper } from '@/components/providers/WalletProviderWrap
 // import './globals.css';
 import { ToastProvider } from '@/components/ui/toast/toast-provider';
 import { I18nProvider } from '@/components/providers/I18nProvider';
+import { Toaster } from 'sonner';
+import { FavoritesProvider } from '@/contexts/FavouritesContext';
 
 const inter = Inter({
   variable: '--font-inter',
@@ -65,12 +67,15 @@ export default function RootLayout({
         <I18nProvider>
           <ToastProvider>
             <WalletProviderWrapper>
-              <Header />
-              {children}
-              <Footer />
+              <FavoritesProvider>
+                <Header />
+                {children}
+                <Footer />
+              </FavoritesProvider>
             </WalletProviderWrapper>
           </ToastProvider>
         </I18nProvider>
+        <Toaster position="top-right" toastOptions={{ duration: 2000 }} />
       </body>
     </html>
   );

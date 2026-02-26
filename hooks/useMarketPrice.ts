@@ -5,6 +5,10 @@ import type { MarketPriceData } from '@/lib/types/listing';
 export function useMarketPrice(creditType: string | undefined) {
   return useQuery({
     queryKey: ['market-price', creditType],
+    queryFn: async (): Promise<MarketPriceData | undefined> => {
+      if (!creditType) return undefined;
+      const result = await fetchMarketPrice(creditType);
+      return result;
     queryFn: (): Promise<MarketPriceData | undefined> => {
       if (!creditType) return Promise.resolve(undefined);
       return fetchMarketPrice(creditType);

@@ -37,7 +37,6 @@ export default function SettingsPage(): React.ReactNode {
     setTourCompleted(hasCompletedOnboardingTour());
   }, []);
 
-
   const restartTour = () => {
     requestOnboardingTourRestart();
     setTourCompleted(false);

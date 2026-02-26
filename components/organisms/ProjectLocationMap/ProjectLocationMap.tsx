@@ -29,6 +29,7 @@ interface LeafletLayer {
   bindPopup?: (content: string) => LeafletLayer;
 }
 
+type LeafletTileLayer = LeafletLayer;
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
 interface LeafletTileLayer extends LeafletLayer {}
 

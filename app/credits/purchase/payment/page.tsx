@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useState, useEffect, useMemo, JSX } from 'react';
+import { Suspense, useState, useEffect, useMemo, type JSX } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { PaymentMintingStep } from '@/components/organisms/PaymentMintingStep';
 import { ProgressStepper } from '@/components/molecules/ProgressStepper/ProgressStepper';
@@ -44,7 +44,7 @@ function PaymentContent(): JSX.Element {
     if (selection && wallet) {
       const param = encodeURIComponent(JSON.stringify(selection));
       router.push(
-        `/credits/purchase/confirmation?selection=${param}&hash=${transactionHash}&network=${wallet.network}`,
+        `/credits/purchase/confirmation?selection=${param}&hash=${transactionHash}&network=${wallet.network}`
       );
     }
   };
@@ -57,7 +57,7 @@ function PaymentContent(): JSX.Element {
   const completedSteps = getCompletedSteps(currentStepId, !!selection, !!wallet?.isConnected);
   const steps = useMemo(
     () => buildPurchaseFlowSteps(currentStepId, completedSteps, selectionParam),
-    [currentStepId, completedSteps, selectionParam],
+    [currentStepId, completedSteps, selectionParam]
   );
 
   if (!selection || !wallet?.isConnected) {

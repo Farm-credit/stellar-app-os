@@ -46,19 +46,19 @@
     "successMessage": "Vous êtes abonné 🎉",
     "errorMessage": "Quelque chose s'est mal passé. Réessayez."
   },
-"blog": {
-  "pageTitle": "Blog",
-  "pageSubtitle": "Perspectives sur les crédits carbone, l'agriculture durable, la technologie climatique et la politique agricole.",
-  "featuredBlogTitle": "Blog FarmCredit",
-  "categoryFiltersLabel": "Filtres par catégorie",
-  "readPost": "Lire l'article : {{title}}",
-  "loadingAriaLabel": "Chargement des articles de blog",
-  "errorTitle": "Une erreur s'est produite",
-  "errorDesc": "Nous n'avons pas pu charger les articles de blog pour l'instant. Il peut s'agir d'un problème temporaire, veuillez réessayer.",
-  "errorReference": "Référence de l'erreur : {{digest}}",
-  "tryAgain": "Réessayer",
-  "tryAgainAriaLabel": "Réessayer de charger la page du blog"
-},
+  "blog": {
+    "pageTitle": "Blog",
+    "pageSubtitle": "Perspectives sur les crédits carbone, l'agriculture durable, la technologie climatique et la politique agricole.",
+    "featuredBlogTitle": "Blog FarmCredit",
+    "categoryFiltersLabel": "Filtres par catégorie",
+    "readPost": "Lire l'article : {{title}}",
+    "loadingAriaLabel": "Chargement des articles de blog",
+    "errorTitle": "Une erreur s'est produite",
+    "errorDesc": "Nous n'avons pas pu charger les articles de blog pour l'instant. Il peut s'agir d'un problème temporaire, veuillez réessayer.",
+    "errorReference": "Référence de l'erreur : {{digest}}",
+    "tryAgain": "Réessayer",
+    "tryAgainAriaLabel": "Réessayer de charger la page du blog"
+  },
   "purchase": {
     "nextButton": "Suivant",
     "nextAriaLabel": "Continuer vers la connexion du portefeuille",

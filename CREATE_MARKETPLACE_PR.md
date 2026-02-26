@@ -30,7 +30,7 @@ feat(marketplace): Implement listings page with filters and pagination
 
 ## 📋 PR Description (Copy & Paste)
 
-```markdown
+````markdown
 # Marketplace Listings - Secondary Market for Carbon Credits
 
 Closes #23
@@ -42,6 +42,7 @@ Implementation of the marketplace listings page - a secondary market for carbon 
 ## What Was Implemented
 
 ### Core Features
+
 - **Listings Grid:** Responsive 3-column grid displaying available carbon credit listings with seller info, quantity, pricing, and project details
 - **Project Type Filter:** Dropdown filter to show listings by project type (Reforestation, Renewable Energy, Mangrove Restoration, Sustainable Agriculture, Other)
 - **Sort Functionality:** Sort listings by price (ascending/descending) and date (newest/oldest)
@@ -51,6 +52,7 @@ Implementation of the marketplace listings page - a secondary market for carbon 
 - **URL State Management:** All filters, sort, search, and page number stored in URL params for shareability
 
 ### Components Created
+
 1. **Types:** `lib/types/marketplace.ts` - TypeScript interfaces for marketplace data
 2. **Mock API:** `lib/api/mock/marketplaceListings.ts` - Mock data with 12 diverse listings
 3. **MarketplaceGrid:** `components/organisms/MarketplaceGrid/MarketplaceGrid.tsx` - Grid layout with empty state
@@ -64,17 +66,20 @@ Implementation of the marketplace listings page - a secondary market for carbon 
 ### Architecture Decisions
 
 **Client-Side Rendering**
+
 - Chosen for real-time filtering/sorting without page reloads
 - Better UX with instant feedback
 - Follows existing patterns in the codebase (blog, comparison tool)
 
 **URL State Management**
+
 - All filters, sort, search, and pagination stored in URL parameters
 - Enables shareable filtered views
 - Supports browser back/forward navigation
 - SEO-friendly structure ready for future SSR
 
 **Component Structure**
+
 - Follows atomic design principles (atoms → molecules → organisms)
 - Reuses existing components (Button, Input, Select, Badge, Card, Text)
 - Consistent with codebase patterns
@@ -112,10 +117,12 @@ Implementation of the marketplace listings page - a secondary market for carbon 
 ## How to Test
 
 ### Prerequisites
+
 ```bash
 pnpm dev
 # Open http://localhost:3000/marketplace
 ```
+````
 
 ### Test Scenarios
 
@@ -131,6 +138,7 @@ pnpm dev
 10. **Keyboard Navigation** - Tab through page, press Enter on buttons
 
 ### Expected Results
+
 - ✅ All filters, sort, and search work correctly
 - ✅ Pagination preserves state
 - ✅ Detail pages load correctly
@@ -142,6 +150,7 @@ pnpm dev
 ## Files Changed
 
 ### New Files (7)
+
 - `lib/types/marketplace.ts` - Type definitions
 - `lib/api/mock/marketplaceListings.ts` - Mock API data
 - `components/organisms/MarketplaceGrid/MarketplaceGrid.tsx` - Grid component
@@ -182,6 +191,7 @@ Ready for review and testing!
 
 **Complexity:** Medium (150 pts)
 **Implementation Date:** February 23, 2026
+
 ```
 
 ---
@@ -236,3 +246,4 @@ https://github.com/utilityjnr/stellar-app-os/pull/new/feat/issue-23-marketplace-
 ---
 
 **Status:** ✅ Branch pushed, ready to create PR!
+```

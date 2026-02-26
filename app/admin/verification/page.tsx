@@ -1,17 +1,36 @@
-"use client";
+'use client';
 
-import { useEffect, useMemo, useState } from "react";
-import Image from "next/image";
-import { AlertTriangle, CheckCircle2, Clock3, FileText, Image as ImageIcon, MessageSquare, XCircle } from "lucide-react";
-import { Badge } from "@/components/atoms/Badge";
-import { Button } from "@/components/atoms/Button";
-import { Input } from "@/components/atoms/Input";
-import { Select } from "@/components/atoms/Select";
-import { Text } from "@/components/atoms/Text";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/molecules/Card";
-import { mockVerificationComments, mockVerificationQueue } from "@/lib/api/mock/verificationQueue";
-import { requestNotificationPermission, showNotification } from "@/lib/notifications";
-import type { VerificationComment, VerificationDecision, VerificationDocument, VerificationProject } from "@/lib/types/verification";
+import { useEffect, useMemo, useState } from 'react';
+import Image from 'next/image';
+import {
+  AlertTriangle,
+  CheckCircle2,
+  Clock3,
+  FileText,
+  Image as ImageIcon,
+  MessageSquare,
+  XCircle,
+} from 'lucide-react';
+import { Badge } from '@/components/atoms/Badge';
+import { Button } from '@/components/atoms/Button';
+import { Input } from '@/components/atoms/Input';
+import { Select } from '@/components/atoms/Select';
+import { Text } from '@/components/atoms/Text';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/molecules/Card';
+import { mockVerificationComments, mockVerificationQueue } from '@/lib/api/mock/verificationQueue';
+import { requestNotificationPermission, showNotification } from '@/lib/notifications';
+import type {
+  VerificationComment,
+  VerificationDecision,
+  VerificationDocument,
+  VerificationProject,
+} from '@/lib/types/verification';
 
 interface NotificationEvent {
   id: string;
@@ -20,28 +39,30 @@ interface NotificationEvent {
   createdAt: string;
 }
 
-const CURRENT_REVIEWER = "Admin Reviewer";
+const CURRENT_REVIEWER = 'Admin Reviewer';
 
 function formatDateTime(value: string): string {
-  return new Date(value).toLocaleString("en-US", {
-    year: "numeric",
-    month: "short",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
+  return new Date(value).toLocaleString('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
   });
 }
 
 function formatDateOnly(value: string): string {
-  return new Date(value).toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "short",
-    day: "2-digit",
+  return new Date(value).toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: '2-digit',
   });
 }
 
 function sortPendingProjects(projects: VerificationProject[]): VerificationProject[] {
-  const pending = projects.filter((project) => project.queueStatus === "pending" || project.queueStatus === "resubmitted");
+  const pending = projects.filter(
+    (project) => project.queueStatus === 'pending' || project.queueStatus === 'resubmitted'
+  );
   return [...pending].sort((a, b) => {
     if (a.flagged !== b.flagged) {
       return Number(b.flagged) - Number(a.flagged);
@@ -53,7 +74,10 @@ function sortPendingProjects(projects: VerificationProject[]): VerificationProje
   });
 }
 
-function buildDecisionMessage(project: VerificationProject, decision: VerificationDecision): string {
+function buildDecisionMessage(
+  project: VerificationProject,
+  decision: VerificationDecision
+): string {
   return `Project ${project.projectName} has been ${decision}.`;
 }
 
@@ -74,11 +98,13 @@ export default function VerificationQueuePage(): React.ReactNode {
   const [comments, setComments] = useState<VerificationComment[]>(mockVerificationComments);
   const [notifications, setNotifications] = useState<NotificationEvent[]>([]);
   const sortedPendingProjects = useMemo(() => sortPendingProjects(projects), [projects]);
-  const [selectedProjectId, setSelectedProjectId] = useState<string>(() => (sortedPendingProjects[0] ? sortedPendingProjects[0].id : ""));
-  const [selectedDocumentId, setSelectedDocumentId] = useState<string>("");
-  const [decisionReason, setDecisionReason] = useState<string>("");
-  const [decisionError, setDecisionError] = useState<string>("");
-  const [newComment, setNewComment] = useState<string>("");
+  const [selectedProjectId, setSelectedProjectId] = useState<string>(() =>
+    sortedPendingProjects[0] ? sortedPendingProjects[0].id : ''
+  );
+  const [selectedDocumentId, setSelectedDocumentId] = useState<string>('');
+  const [decisionReason, setDecisionReason] = useState<string>('');
+  const [decisionError, setDecisionError] = useState<string>('');
+  const [newComment, setNewComment] = useState<string>('');
   const [replyDrafts, setReplyDrafts] = useState<Record<string, string>>({});
 
   useEffect(() => {
@@ -86,28 +112,38 @@ export default function VerificationQueuePage(): React.ReactNode {
   }, []);
 
   const effectiveSelectedProjectId = useMemo(() => {
-    if (selectedProjectId && sortedPendingProjects.some((project) => project.id === selectedProjectId)) {
+    if (
+      selectedProjectId &&
+      sortedPendingProjects.some((project) => project.id === selectedProjectId)
+    ) {
       return selectedProjectId;
     }
 
-    return sortedPendingProjects[0]?.id ?? "";
+    return sortedPendingProjects[0]?.id ?? '';
   }, [selectedProjectId, sortedPendingProjects]);
 
   const selectedProject = useMemo(
-    () => sortedPendingProjects.find((project) => project.id === effectiveSelectedProjectId) ?? null,
+    () =>
+      sortedPendingProjects.find((project) => project.id === effectiveSelectedProjectId) ?? null,
     [effectiveSelectedProjectId, sortedPendingProjects]
   );
 
   const effectiveSelectedDocumentId = useMemo(() => {
-    if (selectedProject && selectedDocumentId && selectedProject.documents.some((document) => document.id === selectedDocumentId)) {
+    if (
+      selectedProject &&
+      selectedDocumentId &&
+      selectedProject.documents.some((document) => document.id === selectedDocumentId)
+    ) {
       return selectedDocumentId;
     }
 
-    return selectedProject?.documents[0]?.id ?? "";
+    return selectedProject?.documents[0]?.id ?? '';
   }, [selectedDocumentId, selectedProject]);
 
   const selectedDocument = useMemo(
-    () => selectedProject?.documents.find((document) => document.id === effectiveSelectedDocumentId) ?? null,
+    () =>
+      selectedProject?.documents.find((document) => document.id === effectiveSelectedDocumentId) ??
+      null,
     [effectiveSelectedDocumentId, selectedProject]
   );
 
@@ -117,7 +153,10 @@ export default function VerificationQueuePage(): React.ReactNode {
   );
 
   const rootComments = useMemo(
-    () => projectComments.filter((comment) => comment.parentId === null).sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()),
+    () =>
+      projectComments
+        .filter((comment) => comment.parentId === null)
+        .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()),
     [projectComments]
   );
 
@@ -140,18 +179,22 @@ export default function VerificationQueuePage(): React.ReactNode {
     return map;
   }, [projectComments]);
 
-  const blockedByLock = selectedProject ? Boolean(selectedProject.lockOwner && selectedProject.lockOwner !== CURRENT_REVIEWER) : false;
+  const blockedByLock = selectedProject
+    ? Boolean(selectedProject.lockOwner && selectedProject.lockOwner !== CURRENT_REVIEWER)
+    : false;
   const hasMissingFields = selectedProject ? selectedProject.missingFields.length > 0 : false;
 
   const decisionBlockedMessage = blockedByLock
     ? `This project is currently locked by ${selectedProject?.lockOwner}.`
     : hasMissingFields
-      ? "Approval is blocked until required fields are completed."
-      : "";
+      ? 'Approval is blocked until required fields are completed.'
+      : '';
 
   const queueStats = useMemo(() => {
     const flagged = sortedPendingProjects.filter((project) => project.flagged).length;
-    const resubmitted = sortedPendingProjects.filter((project) => project.queueStatus === "resubmitted").length;
+    const resubmitted = sortedPendingProjects.filter(
+      (project) => project.queueStatus === 'resubmitted'
+    ).length;
 
     return {
       total: sortedPendingProjects.length,
@@ -167,12 +210,12 @@ export default function VerificationQueuePage(): React.ReactNode {
 
     const trimmedReason = decisionReason.trim();
     if (!trimmedReason) {
-      setDecisionError("Reason is required before approving or rejecting.");
+      setDecisionError('Reason is required before approving or rejecting.');
       return;
     }
 
-    if (blockedByLock || (decision === "approved" && hasMissingFields)) {
-      setDecisionError(decisionBlockedMessage || "Decision cannot be submitted at this time.");
+    if (blockedByLock || (decision === 'approved' && hasMissingFields)) {
+      setDecisionError(decisionBlockedMessage || 'Decision cannot be submitted at this time.');
       return;
     }
 
@@ -199,7 +242,7 @@ export default function VerificationQueuePage(): React.ReactNode {
     );
 
     const message = buildDecisionMessage(selectedProject, decision);
-    showNotification("Verification decision submitted", { body: message });
+    showNotification('Verification decision submitted', { body: message });
     setNotifications((previousNotifications) => [
       {
         id: nextNotificationId(previousNotifications),
@@ -210,8 +253,8 @@ export default function VerificationQueuePage(): React.ReactNode {
       ...previousNotifications,
     ]);
 
-    setDecisionReason("");
-    setDecisionError("");
+    setDecisionReason('');
+    setDecisionError('');
   };
 
   const addComment = (content: string, parentId: string | null): void => {
@@ -239,13 +282,13 @@ export default function VerificationQueuePage(): React.ReactNode {
 
   const handleCreateComment = (): void => {
     addComment(newComment, null);
-    setNewComment("");
+    setNewComment('');
   };
 
   const handleCreateReply = (parentId: string): void => {
-    const draft = replyDrafts[parentId] ?? "";
+    const draft = replyDrafts[parentId] ?? '';
     addComment(draft, parentId);
-    setReplyDrafts((currentDrafts) => ({ ...currentDrafts, [parentId]: "" }));
+    setReplyDrafts((currentDrafts) => ({ ...currentDrafts, [parentId]: '' }));
   };
 
   return (
@@ -254,7 +297,9 @@ export default function VerificationQueuePage(): React.ReactNode {
         <Text as="h1" variant="h2">
           Admin Verification Queue
         </Text>
-        <Text variant="muted">Review submitted projects, annotate findings, and make final verification decisions.</Text>
+        <Text variant="muted">
+          Review submitted projects, annotate findings, and make final verification decisions.
+        </Text>
       </header>
 
       <section aria-label="Queue summary" className="mb-6 grid gap-4 sm:grid-cols-3">
@@ -282,12 +327,16 @@ export default function VerificationQueuePage(): React.ReactNode {
         <Card>
           <CardHeader>
             <CardTitle className="text-xl">Pending Projects</CardTitle>
-            <CardDescription>Sorted by flagged status, then oldest submission date.</CardDescription>
+            <CardDescription>
+              Sorted by flagged status, then oldest submission date.
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <ul aria-label="Pending verification projects" className="space-y-3">
               {sortedPendingProjects.length === 0 ? (
-                <li className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">No pending projects in queue.</li>
+                <li className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
+                  No pending projects in queue.
+                </li>
               ) : (
                 sortedPendingProjects.map((project, index) => {
                   const isSelected = project.id === effectiveSelectedProjectId;
@@ -298,31 +347,43 @@ export default function VerificationQueuePage(): React.ReactNode {
                         type="button"
                         onClick={() => {
                           setSelectedProjectId(project.id);
-                          setSelectedDocumentId("");
-                          setDecisionError("");
-                          setDecisionReason("");
-                          setNewComment("");
+                          setSelectedDocumentId('');
+                          setDecisionError('');
+                          setDecisionReason('');
+                          setNewComment('');
                         }}
-                          className={`w-full rounded-lg border p-3 text-left transition-colors ${
-                          isSelected ? "border-stellar-blue bg-stellar-blue/5" : "border-border hover:border-stellar-blue/40"
+                        className={`w-full rounded-lg border p-3 text-left transition-colors ${
+                          isSelected
+                            ? 'border-stellar-blue bg-stellar-blue/5'
+                            : 'border-border hover:border-stellar-blue/40'
                         }`}
                         aria-pressed={isSelected}
                         aria-label={`Select ${project.projectName}`}
                       >
                         <div className="mb-2 flex items-center justify-between gap-2">
-                          <span className="text-xs text-muted-foreground">Priority #{index + 1}</span>
+                          <span className="text-xs text-muted-foreground">
+                            Priority #{index + 1}
+                          </span>
                           <div className="flex items-center gap-2">
                             {project.flagged ? <Badge variant="destructive">Flagged</Badge> : null}
-                            {project.queueStatus === "resubmitted" ? <Badge variant="outline">Resubmitted</Badge> : null}
+                            {project.queueStatus === 'resubmitted' ? (
+                              <Badge variant="outline">Resubmitted</Badge>
+                            ) : null}
                           </div>
                         </div>
                         <p className="font-medium">{project.projectName}</p>
-                        <p className="mt-1 text-sm text-muted-foreground">{project.applicantName}</p>
-                        <p className="mt-1 text-xs text-muted-foreground">Submitted {formatDateOnly(project.submittedAt)}</p>
+                        <p className="mt-1 text-sm text-muted-foreground">
+                          {project.applicantName}
+                        </p>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          Submitted {formatDateOnly(project.submittedAt)}
+                        </p>
                         {needsAttention ? (
                           <p className="mt-2 text-xs text-destructive">
                             Requires attention
-                            {project.missingFields.length > 0 ? `: ${project.missingFields.length} field(s) incomplete` : ""}
+                            {project.missingFields.length > 0
+                              ? `: ${project.missingFields.length} field(s) incomplete`
+                              : ''}
                           </p>
                         ) : null}
                       </button>
@@ -363,10 +424,16 @@ export default function VerificationQueuePage(): React.ReactNode {
                 <CardContent className="space-y-4">
                   <div className="grid gap-3 text-sm text-muted-foreground sm:grid-cols-2">
                     <p>
-                      Resubmissions: <span className="font-medium text-foreground">{selectedProject.resubmissionCount}</span>
+                      Resubmissions:{' '}
+                      <span className="font-medium text-foreground">
+                        {selectedProject.resubmissionCount}
+                      </span>
                     </p>
                     <p>
-                      Active reviewers: <span className="font-medium text-foreground">{selectedProject.activeReviewers.length}</span>
+                      Active reviewers:{' '}
+                      <span className="font-medium text-foreground">
+                        {selectedProject.activeReviewers.length}
+                      </span>
                     </p>
                   </div>
 
@@ -378,7 +445,9 @@ export default function VerificationQueuePage(): React.ReactNode {
 
                   {selectedProject.missingFields.length > 0 ? (
                     <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-3">
-                      <p className="mb-2 text-sm font-medium text-destructive">Partially filled application</p>
+                      <p className="mb-2 text-sm font-medium text-destructive">
+                        Partially filled application
+                      </p>
                       <ul className="list-disc space-y-1 pl-5 text-sm text-destructive">
                         {selectedProject.missingFields.map((field) => (
                           <li key={field}>{field}</li>
@@ -392,8 +461,12 @@ export default function VerificationQueuePage(): React.ReactNode {
                       <p className="mb-2 text-sm font-medium">Previous decisions</p>
                       <ul className="space-y-2 text-sm text-muted-foreground">
                         {selectedProject.decisionHistory.map((record) => (
-                          <li key={`${record.decidedAt}-${record.decidedBy}`} className="rounded-md bg-muted/50 p-2">
-                            {record.decision.toUpperCase()} by {record.decidedBy} on {formatDateTime(record.decidedAt)}. Reason: {record.reason}
+                          <li
+                            key={`${record.decidedAt}-${record.decidedBy}`}
+                            className="rounded-md bg-muted/50 p-2"
+                          >
+                            {record.decision.toUpperCase()} by {record.decidedBy} on{' '}
+                            {formatDateTime(record.decidedAt)}. Reason: {record.reason}
                           </li>
                         ))}
                       </ul>
@@ -405,7 +478,9 @@ export default function VerificationQueuePage(): React.ReactNode {
               <Card>
                 <CardHeader>
                   <CardTitle className="text-xl">Submitted Documents</CardTitle>
-                  <CardDescription>Preview PDFs and images inline for faster decisions.</CardDescription>
+                  <CardDescription>
+                    Preview PDFs and images inline for faster decisions.
+                  </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <label className="block text-sm font-medium" htmlFor="document-picker">
@@ -419,7 +494,8 @@ export default function VerificationQueuePage(): React.ReactNode {
                   >
                     {selectedProject.documents.map((document) => (
                       <option key={document.id} value={document.id}>
-                        {document.name} ({document.type.toUpperCase()}, {document.sizeMb.toFixed(1)} MB)
+                        {document.name} ({document.type.toUpperCase()}, {document.sizeMb.toFixed(1)}{' '}
+                        MB)
                       </option>
                     ))}
                   </Select>
@@ -428,7 +504,7 @@ export default function VerificationQueuePage(): React.ReactNode {
                     <div className="rounded-xl border p-4">
                       <div className="mb-3 flex flex-wrap items-center gap-2">
                         <Badge variant="outline">
-                          {selectedDocument.type === "pdf" ? (
+                          {selectedDocument.type === 'pdf' ? (
                             <FileText className="mr-1 h-3.5 w-3.5" />
                           ) : (
                             <ImageIcon className="mr-1 h-3.5 w-3.5" />
@@ -436,8 +512,12 @@ export default function VerificationQueuePage(): React.ReactNode {
                           {selectedDocument.type.toUpperCase()}
                         </Badge>
                         <Badge variant="outline">{selectedDocument.sizeMb.toFixed(1)} MB</Badge>
-                        {selectedDocument.pageCount ? <Badge variant="outline">{selectedDocument.pageCount} pages</Badge> : null}
-                        <span className="text-xs text-muted-foreground">Uploaded {formatDateTime(selectedDocument.uploadedAt)}</span>
+                        {selectedDocument.pageCount ? (
+                          <Badge variant="outline">{selectedDocument.pageCount} pages</Badge>
+                        ) : null}
+                        <span className="text-xs text-muted-foreground">
+                          Uploaded {formatDateTime(selectedDocument.uploadedAt)}
+                        </span>
                       </div>
 
                       {isLargeDocument(selectedDocument) ? (
@@ -446,7 +526,7 @@ export default function VerificationQueuePage(): React.ReactNode {
                         </p>
                       ) : null}
 
-                      {selectedDocument.type === "pdf" ? (
+                      {selectedDocument.type === 'pdf' ? (
                         <iframe
                           title={`Preview of ${selectedDocument.name}`}
                           src={selectedDocument.url}
@@ -480,7 +560,10 @@ export default function VerificationQueuePage(): React.ReactNode {
               <Card>
                 <CardHeader>
                   <CardTitle className="text-xl">Decision</CardTitle>
-                  <CardDescription>Approve or reject. Reason is required for audit history and applicant notification.</CardDescription>
+                  <CardDescription>
+                    Approve or reject. Reason is required for audit history and applicant
+                    notification.
+                  </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <label className="block text-sm font-medium" htmlFor="decision-reason">
@@ -492,7 +575,7 @@ export default function VerificationQueuePage(): React.ReactNode {
                     onChange={(event) => {
                       setDecisionReason(event.target.value);
                       if (decisionError) {
-                        setDecisionError("");
+                        setDecisionError('');
                       }
                     }}
                     aria-required="true"
@@ -516,14 +599,19 @@ export default function VerificationQueuePage(): React.ReactNode {
                   <div className="flex flex-col gap-3 sm:flex-row">
                     <Button
                       stellar="success"
-                      onClick={() => handleDecision("approved")}
+                      onClick={() => handleDecision('approved')}
                       disabled={blockedByLock || hasMissingFields}
                       aria-label="Approve project"
                     >
                       <CheckCircle2 className="h-4 w-4" />
                       Approve
                     </Button>
-                    <Button stellar="primary-outline" onClick={() => handleDecision("rejected")} disabled={blockedByLock} aria-label="Reject project">
+                    <Button
+                      stellar="primary-outline"
+                      onClick={() => handleDecision('rejected')}
+                      disabled={blockedByLock}
+                      aria-label="Reject project"
+                    >
                       <XCircle className="h-4 w-4" />
                       Reject
                     </Button>
@@ -534,7 +622,9 @@ export default function VerificationQueuePage(): React.ReactNode {
               <Card>
                 <CardHeader>
                   <CardTitle className="text-xl">Threaded Comments</CardTitle>
-                  <CardDescription>Use comments for review feedback before final decisions.</CardDescription>
+                  <CardDescription>
+                    Use comments for review feedback before final decisions.
+                  </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
@@ -548,7 +638,11 @@ export default function VerificationQueuePage(): React.ReactNode {
                       placeholder="Add review feedback for this application."
                       aria-label="Write a new comment"
                     />
-                    <Button stellar="primary" onClick={handleCreateComment} aria-label="Post comment">
+                    <Button
+                      stellar="primary"
+                      onClick={handleCreateComment}
+                      aria-label="Post comment"
+                    >
                       <MessageSquare className="h-4 w-4" />
                       Post comment
                     </Button>
@@ -556,19 +650,25 @@ export default function VerificationQueuePage(): React.ReactNode {
 
                   <ul className="space-y-3" aria-live="polite">
                     {rootComments.length === 0 ? (
-                      <li className="rounded-lg border border-dashed p-3 text-sm text-muted-foreground">No comments yet for this project.</li>
+                      <li className="rounded-lg border border-dashed p-3 text-sm text-muted-foreground">
+                        No comments yet for this project.
+                      </li>
                     ) : (
                       rootComments.map((comment) => (
                         <li key={comment.id} className="rounded-lg border p-3">
                           <p className="text-sm font-medium">{comment.author}</p>
-                          <p className="text-xs text-muted-foreground">{formatDateTime(comment.createdAt)}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {formatDateTime(comment.createdAt)}
+                          </p>
                           <p className="mt-2 text-sm">{comment.content}</p>
 
                           <div className="mt-3 space-y-2 border-l pl-3">
                             {(commentsByParent[comment.id] ?? []).map((reply) => (
                               <div key={reply.id} className="rounded-md bg-muted/60 p-2">
                                 <p className="text-sm font-medium">{reply.author}</p>
-                                <p className="text-xs text-muted-foreground">{formatDateTime(reply.createdAt)}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  {formatDateTime(reply.createdAt)}
+                                </p>
                                 <p className="mt-1 text-sm">{reply.content}</p>
                               </div>
                             ))}
@@ -576,7 +676,7 @@ export default function VerificationQueuePage(): React.ReactNode {
 
                           <div className="mt-3 flex flex-col gap-2 sm:flex-row">
                             <Input
-                              value={replyDrafts[comment.id] ?? ""}
+                              value={replyDrafts[comment.id] ?? ''}
                               onChange={(event) =>
                                 setReplyDrafts((currentDrafts) => ({
                                   ...currentDrafts,
@@ -586,7 +686,11 @@ export default function VerificationQueuePage(): React.ReactNode {
                               placeholder="Reply to this comment"
                               aria-label={`Reply to comment by ${comment.author}`}
                             />
-                            <Button variant="outline" onClick={() => handleCreateReply(comment.id)} aria-label="Post reply">
+                            <Button
+                              variant="outline"
+                              onClick={() => handleCreateReply(comment.id)}
+                              aria-label="Post reply"
+                            >
                               Reply
                             </Button>
                           </div>
@@ -617,12 +721,16 @@ export default function VerificationQueuePage(): React.ReactNode {
           <CardContent>
             <ul className="space-y-2">
               {notifications.length === 0 ? (
-                <li className="text-sm text-muted-foreground">No notifications sent in this session.</li>
+                <li className="text-sm text-muted-foreground">
+                  No notifications sent in this session.
+                </li>
               ) : (
                 notifications.map((notification) => (
                   <li key={notification.id} className="rounded-md border p-2 text-sm">
                     <span className="font-medium">{notification.message}</span>
-                    <span className="ml-2 text-muted-foreground">{formatDateTime(notification.createdAt)}</span>
+                    <span className="ml-2 text-muted-foreground">
+                      {formatDateTime(notification.createdAt)}
+                    </span>
                   </li>
                 ))
               )}

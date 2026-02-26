@@ -1,4 +1,4 @@
-import i18n from 'i18next';
+import i18n, { InitOptions } from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import LanguageDetector from 'i18next-browser-languagedetector';
 import enTranslations from '@/lib/i18n/locales/en.json';
@@ -23,29 +23,31 @@ export function isRTL(lang: string): boolean {
   return RTL_LANGUAGES.includes(lang);
 }
 
+const i18nConfig: InitOptions = {
+  resources: {
+    en: { translation: enTranslations },
+    es: { translation: esTranslations },
+    fr: { translation: frTranslations },
+    pt: { translation: ptTranslations },
+  },
+  fallbackLng: 'en',
+  supportedLngs: [...SUPPORTED_LANGUAGES],
+  interpolation: {
+    escapeValue: false,
+  },
+  detection: {
+    // Order matters: localStorage first so persisted choice wins
+    order: ['localStorage', 'navigator', 'htmlTag'],
+    lookupLocalStorage: 'farmcredit-language',
+    caches: ['localStorage'], // This replaces 'cacheUserLanguage: true'
+  },
+};
+
 if (!i18n.isInitialized) {
   i18n
     .use(LanguageDetector)
     .use(initReactI18next)
-    .init({
-      resources: {
-        en: { translation: enTranslations },
-        es: { translation: esTranslations },
-        fr: { translation: frTranslations },
-        pt: { translation: ptTranslations },
-      },
-      fallbackLng: 'en',
-      supportedLngs: [...SUPPORTED_LANGUAGES],
-      interpolation: {
-        escapeValue: false,
-      },
-      detection: {
-        // Order matters: localStorage first so persisted choice wins
-        order: ['localStorage', 'navigator', 'htmlTag'],
-        lookupLocalStorage: 'farmcredit-language',
-      },
-      cacheUserLanguage: true,
-    });
+    .init(i18nConfig);
 }
 
 export default i18n;

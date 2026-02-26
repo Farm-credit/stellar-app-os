@@ -12,6 +12,7 @@
 ## 🚀 Quick Start
 
 ### 1. Access the Feature
+
 ```bash
 # Start your development server
 npm run dev
@@ -23,12 +24,14 @@ http://localhost:3000/admin/webhooks
 ```
 
 ### 2. What You'll See
+
 - **Events Table**: 10 sample webhook events with full details
 - **Filters**: Search, status, event type, and sorting controls
 - **Actions**: View full details, retry failed webhooks
 - **Real-time**: Live updates every 5 seconds
 
 ### 3. Try It Out
+
 1. Search for "credit" to filter events
 2. Click "View" to see full JSON payload
 3. Click "Retry" on a failed event
@@ -38,21 +41,22 @@ http://localhost:3000/admin/webhooks
 
 ## 📚 Documentation
 
-| Document | Purpose | Audience |
-|----------|---------|----------|
-| **[WEBHOOK_QUICKSTART.md](WEBHOOK_QUICKSTART.md)** | Get started quickly | Everyone |
-| **[WEBHOOK_IMPLEMENTATION.md](WEBHOOK_IMPLEMENTATION.md)** | Technical details | Developers |
-| **[WEBHOOK_INTEGRATION_EXAMPLE.md](WEBHOOK_INTEGRATION_EXAMPLE.md)** | Integration guide | Developers |
-| **[WEBHOOK_TESTING_GUIDE.md](WEBHOOK_TESTING_GUIDE.md)** | Test procedures | QA/Testers |
-| **[WEBHOOK_ACCEPTANCE_CRITERIA.md](WEBHOOK_ACCEPTANCE_CRITERIA.md)** | Requirements checklist | PM/QA |
-| **[WEBHOOK_ARCHITECTURE.md](WEBHOOK_ARCHITECTURE.md)** | System architecture | Architects |
-| **[WEBHOOK_COMPLETE_SUMMARY.md](WEBHOOK_COMPLETE_SUMMARY.md)** | Executive summary | Everyone |
+| Document                                                             | Purpose                | Audience   |
+| -------------------------------------------------------------------- | ---------------------- | ---------- |
+| **[WEBHOOK_QUICKSTART.md](WEBHOOK_QUICKSTART.md)**                   | Get started quickly    | Everyone   |
+| **[WEBHOOK_IMPLEMENTATION.md](WEBHOOK_IMPLEMENTATION.md)**           | Technical details      | Developers |
+| **[WEBHOOK_INTEGRATION_EXAMPLE.md](WEBHOOK_INTEGRATION_EXAMPLE.md)** | Integration guide      | Developers |
+| **[WEBHOOK_TESTING_GUIDE.md](WEBHOOK_TESTING_GUIDE.md)**             | Test procedures        | QA/Testers |
+| **[WEBHOOK_ACCEPTANCE_CRITERIA.md](WEBHOOK_ACCEPTANCE_CRITERIA.md)** | Requirements checklist | PM/QA      |
+| **[WEBHOOK_ARCHITECTURE.md](WEBHOOK_ARCHITECTURE.md)**               | System architecture    | Architects |
+| **[WEBHOOK_COMPLETE_SUMMARY.md](WEBHOOK_COMPLETE_SUMMARY.md)**       | Executive summary      | Everyone   |
 
 ---
 
 ## ✨ Features
 
 ### Core Functionality
+
 - ✅ **Events Table** - Timestamp, event type, status, HTTP status, payload preview, retry count
 - ✅ **Advanced Filtering** - Search, status filter, event type filter, sorting
 - ✅ **Retry Failed Webhooks** - One-click retry with loading states
@@ -60,6 +64,7 @@ http://localhost:3000/admin/webhooks
 - ✅ **Real-time Updates** - Live monitoring with automatic status updates
 
 ### User Experience
+
 - ✅ **Responsive Design** - Works on mobile, tablet, and desktop
 - ✅ **Accessibility** - WCAG 2.1 AA compliant, keyboard navigation
 - ✅ **Loading States** - Clear feedback during operations
@@ -67,6 +72,7 @@ http://localhost:3000/admin/webhooks
 - ✅ **Error Handling** - Clear error messages and recovery
 
 ### Technical Excellence
+
 - ✅ **TypeScript Strict** - 100% type coverage, zero `any` types
 - ✅ **Performance** - Memoized filters, optimistic updates
 - ✅ **Maintainability** - Atomic design, clean code
@@ -78,6 +84,7 @@ http://localhost:3000/admin/webhooks
 ## 📦 What's Included
 
 ### Components (17 files)
+
 ```
 components/
 ├── atoms/
@@ -91,6 +98,7 @@ components/
 ```
 
 ### Pages & API Routes
+
 ```
 app/
 ├── admin/webhooks/page.tsx
@@ -100,6 +108,7 @@ app/
 ```
 
 ### Types & Logic
+
 ```
 lib/
 ├── types/webhook.ts
@@ -111,34 +120,37 @@ lib/
 
 ## 🎯 Requirements Met
 
-| Requirement | Status | Details |
-|------------|--------|---------|
-| Events table with all columns | ✅ | 7 columns: timestamp, type, status, HTTP, payload, retries, actions |
-| Filter by status | ✅ | Dropdown: All, Success, Failed, Pending, Retrying |
-| Retry failed webhooks | ✅ | Button with loading state, API integration |
-| View raw JSON | ✅ | Modal with formatted JSON, copy-to-clipboard |
-| Real-time updates | ✅ | Live indicator, 5-second polling |
-| Responsive design | ✅ | Mobile/tablet/desktop layouts |
-| WCAG 2.1 AA accessible | ✅ | Keyboard navigation, ARIA labels, screen reader support |
-| TypeScript strict | ✅ | Zero `any` types, full type coverage |
+| Requirement                   | Status | Details                                                             |
+| ----------------------------- | ------ | ------------------------------------------------------------------- |
+| Events table with all columns | ✅     | 7 columns: timestamp, type, status, HTTP, payload, retries, actions |
+| Filter by status              | ✅     | Dropdown: All, Success, Failed, Pending, Retrying                   |
+| Retry failed webhooks         | ✅     | Button with loading state, API integration                          |
+| View raw JSON                 | ✅     | Modal with formatted JSON, copy-to-clipboard                        |
+| Real-time updates             | ✅     | Live indicator, 5-second polling                                    |
+| Responsive design             | ✅     | Mobile/tablet/desktop layouts                                       |
+| WCAG 2.1 AA accessible        | ✅     | Keyboard navigation, ARIA labels, screen reader support             |
+| TypeScript strict             | ✅     | Zero `any` types, full type coverage                                |
 
 ---
 
 ## 🔧 Integration
 
 ### Step 1: Add to Navigation
+
 ```tsx
 // app/admin/layout.tsx
 <Link href="/admin/webhooks">Webhook Logs</Link>
 ```
 
 ### Step 2: Connect to Database
+
 ```typescript
 // Replace mock data with real queries
 const events = await db.webhookEvents.findMany();
 ```
 
 ### Step 3: Implement Retry Logic
+
 ```typescript
 // app/api/webhooks/retry/route.ts
 export async function POST(request) {
@@ -149,6 +161,7 @@ export async function POST(request) {
 ```
 
 ### Step 4: Add Authentication
+
 ```typescript
 // middleware.ts
 if (request.nextUrl.pathname.startsWith('/admin')) {
@@ -163,7 +176,9 @@ See **[WEBHOOK_INTEGRATION_EXAMPLE.md](WEBHOOK_INTEGRATION_EXAMPLE.md)** for com
 ## 🧪 Testing
 
 ### Manual Testing
+
 Follow the **[WEBHOOK_TESTING_GUIDE.md](WEBHOOK_TESTING_GUIDE.md)** for 20 comprehensive test cases covering:
+
 - Functional testing
 - Responsive design
 - Keyboard navigation
@@ -171,6 +186,7 @@ Follow the **[WEBHOOK_TESTING_GUIDE.md](WEBHOOK_TESTING_GUIDE.md)** for 20 compr
 - Performance testing
 
 ### Quick Smoke Test
+
 1. ✅ Page loads without errors
 2. ✅ Table displays 10 events
 3. ✅ Search filters work
@@ -185,6 +201,7 @@ Follow the **[WEBHOOK_TESTING_GUIDE.md](WEBHOOK_TESTING_GUIDE.md)** for 20 compr
 ## 📱 Screenshots
 
 ### Desktop View
+
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │ Webhook Event Logs                                          │
@@ -203,6 +220,7 @@ Follow the **[WEBHOOK_TESTING_GUIDE.md](WEBHOOK_TESTING_GUIDE.md)** for 20 compr
 ```
 
 ### Mobile View
+
 ```
 ┌──────────────────────┐
 │ Webhook Event Logs   │
@@ -222,20 +240,21 @@ Follow the **[WEBHOOK_TESTING_GUIDE.md](WEBHOOK_TESTING_GUIDE.md)** for 20 compr
 ## 🎨 Customization
 
 ### Change Event Types
+
 ```typescript
 // lib/types/webhook.ts
-export type WebhookEventType =
-  | 'credit.issued'
-  | 'your.custom.type'; // Add here
+export type WebhookEventType = 'credit.issued' | 'your.custom.type'; // Add here
 ```
 
 ### Adjust Retry Limits
+
 ```typescript
 // lib/api/mock/webhookEvents.ts
 maxRetries: 5, // Change from 3
 ```
 
 ### Customize Colors
+
 ```typescript
 // lib/webhook/webhookFilters.ts
 export function getStatusColor(status) {
@@ -290,11 +309,13 @@ See **[WEBHOOK_TESTING_GUIDE.md](WEBHOOK_TESTING_GUIDE.md)** for more debugging 
 ## 🔐 Security
 
 ### Current Implementation
+
 - Uses mock data (no sensitive information)
 - Client-side filtering (no data exposure)
 - No authentication (add before production)
 
 ### Production Recommendations
+
 - Add authentication middleware
 - Implement role-based access control
 - Rate limit retry endpoint
@@ -307,6 +328,7 @@ See **[WEBHOOK_TESTING_GUIDE.md](WEBHOOK_TESTING_GUIDE.md)** for more debugging 
 ## 🚀 Deployment
 
 ### Pre-deployment Checklist
+
 - [ ] Replace mock data with database
 - [ ] Implement authentication
 - [ ] Add retry logic to API
@@ -324,6 +346,7 @@ See **[WEBHOOK_INTEGRATION_EXAMPLE.md](WEBHOOK_INTEGRATION_EXAMPLE.md)** for dep
 ## 📈 Future Enhancements
 
 ### Planned Features
+
 - Pagination for large datasets
 - Bulk retry for multiple events
 - Export to CSV/JSON
@@ -334,6 +357,7 @@ See **[WEBHOOK_INTEGRATION_EXAMPLE.md](WEBHOOK_INTEGRATION_EXAMPLE.md)** for dep
 - Webhook signature verification
 
 ### Nice to Have
+
 - Real-time WebSocket updates
 - Event replay functionality
 - Integration with monitoring tools
@@ -346,6 +370,7 @@ See **[WEBHOOK_INTEGRATION_EXAMPLE.md](WEBHOOK_INTEGRATION_EXAMPLE.md)** for dep
 ## 🤝 Contributing
 
 ### Code Style
+
 - Follow existing patterns
 - Use TypeScript strict mode
 - Add JSDoc comments
@@ -353,6 +378,7 @@ See **[WEBHOOK_INTEGRATION_EXAMPLE.md](WEBHOOK_INTEGRATION_EXAMPLE.md)** for dep
 - Update documentation
 
 ### Pull Request Process
+
 1. Create feature branch
 2. Implement changes
 3. Add tests
@@ -379,6 +405,7 @@ This implementation is part of your project and follows your project's license.
 ## 📞 Support
 
 ### Getting Help
+
 1. Check documentation files
 2. Review code comments
 3. Search existing issues
@@ -386,7 +413,9 @@ This implementation is part of your project and follows your project's license.
 5. Check browser console
 
 ### Reporting Issues
+
 Include:
+
 - Browser and version
 - Steps to reproduce
 - Expected vs actual behavior

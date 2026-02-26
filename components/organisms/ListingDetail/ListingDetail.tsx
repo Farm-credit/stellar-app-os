@@ -12,7 +12,9 @@ import dynamic from 'next/dynamic';
 const PriceHistoryChart = dynamic(() => import('./PriceHistoryChart'), {
   loading: () => (
     <div className="flex h-48 w-full animate-pulse items-center justify-center rounded-xl bg-white/5">
-      <Text variant="body" className="text-white/40">Loading chart...</Text>
+      <Text variant="body" className="text-white/40">
+        Loading chart...
+      </Text>
     </div>
   ),
   ssr: false,
@@ -64,17 +66,24 @@ export function ListingDetail({ listing }: ListingDetailProps) {
       <div className="flex flex-col space-y-8 lg:col-span-2">
         <div className="flex flex-col space-y-6 rounded-2xl border border-white/10 bg-black/40 p-6 backdrop-blur-md sm:p-8">
           <div className="flex items-center justify-between">
-            <Badge variant="success" className="bg-stellar-green/20 text-stellar-green border-stellar-green/30">
+            <Badge
+              variant="success"
+              className="bg-stellar-green/20 text-stellar-green border-stellar-green/30"
+            >
               Verified Project
             </Badge>
             <div className="flex items-center space-x-2 text-white/60">
               <ShieldCheck className="h-4 w-4" />
-              <span className="text-sm font-medium">Seller: {formatAddress(listing.sellerAddress)}</span>
+              <span className="text-sm font-medium">
+                Seller: {formatAddress(listing.sellerAddress)}
+              </span>
             </div>
           </div>
 
           <div className="space-y-2">
-            <Text variant="h2" className="text-white">{listing.project.name}</Text>
+            <Text variant="h2" className="text-white">
+              {listing.project.name}
+            </Text>
             <Text variant="body" className="text-white/70">
               Support this verified environmental project by purchasing carbon credits.
             </Text>
@@ -86,18 +95,26 @@ export function ListingDetail({ listing }: ListingDetailProps) {
                 <Leaf className="h-5 w-5" />
               </div>
               <div>
-                <Text variant="small" className="text-white/50">Project Type</Text>
-                <Text variant="body" className="font-medium text-white">{listing.project.type}</Text>
+                <Text variant="small" className="text-white/50">
+                  Project Type
+                </Text>
+                <Text variant="body" className="font-medium text-white">
+                  {listing.project.type}
+                </Text>
               </div>
             </div>
-            
+
             <div className="flex items-center space-x-3 rounded-lg bg-white/5 p-4 mix-blend-screen">
               <div className="flex h-10 w-10 items-center justify-center rounded-full bg-stellar-purple/20 text-stellar-purple">
                 <Calendar className="h-5 w-5" />
               </div>
               <div>
-                <Text variant="small" className="text-white/50">Vintage Year</Text>
-                <Text variant="body" className="font-medium text-white">{listing.project.vintage}</Text>
+                <Text variant="small" className="text-white/50">
+                  Vintage Year
+                </Text>
+                <Text variant="body" className="font-medium text-white">
+                  {listing.project.vintage}
+                </Text>
               </div>
             </div>
           </div>
@@ -113,20 +130,30 @@ export function ListingDetail({ listing }: ListingDetailProps) {
       <div className="lg:col-span-1">
         <div className="sticky top-24 flex flex-col rounded-2xl border border-white/10 bg-gradient-to-b from-white/5 to-transparent p-6 backdrop-blur-md">
           <div className="mb-6 flex flex-col space-y-1">
-            <Text variant="h3" className="text-white">${listing.pricePerCredit.toFixed(2)}</Text>
-            <Text variant="small" className="text-white/50">Price per credit</Text>
+            <Text variant="h3" className="text-white">
+              ${listing.pricePerCredit.toFixed(2)}
+            </Text>
+            <Text variant="small" className="text-white/50">
+              Price per credit
+            </Text>
           </div>
 
           <div className="mb-6 h-[1px] w-full bg-white/10" />
 
           <div className="mb-6 space-y-4">
             <div className="flex items-center justify-between">
-              <Text variant="body" className="text-white/80">Available</Text>
-              <Text variant="body" className="font-semibold text-white">{listing.availableQuantity} units</Text>
+              <Text variant="body" className="text-white/80">
+                Available
+              </Text>
+              <Text variant="body" className="font-semibold text-white">
+                {listing.availableQuantity} units
+              </Text>
             </div>
 
             <div className="space-y-2">
-              <Text variant="small" className="text-white/70">Quantity</Text>
+              <Text variant="small" className="text-white/70">
+                Quantity
+              </Text>
               <div className="flex w-full items-center justify-between rounded-lg border border-white/20 bg-black/50 p-1">
                 <button
                   onClick={() => handleQuantityChange(quantity - 1)}
@@ -152,8 +179,12 @@ export function ListingDetail({ listing }: ListingDetailProps) {
           <div className="mb-6 h-[1px] w-full bg-white/10" />
 
           <div className="mb-6 flex items-center justify-between">
-            <Text variant="body" className="font-medium text-white">Total Price</Text>
-            <Text variant="h3" className="text-stellar-blue">${totalPrice.toFixed(2)}</Text>
+            <Text variant="body" className="font-medium text-white">
+              Total Price
+            </Text>
+            <Text variant="h3" className="text-stellar-blue">
+              ${totalPrice.toFixed(2)}
+            </Text>
           </div>
 
           {error && (

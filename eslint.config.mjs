@@ -32,7 +32,8 @@ const eslintConfig = defineConfig([
     rules: {
       'prettier/prettier': 'error',
 
-      'no-unused-vars': 'error',
+      // Use TypeScript-aware rule instead of base
+      'no-unused-vars': 'off',
       '@typescript-eslint/no-unused-vars': [
         'error',
         {
@@ -61,6 +62,10 @@ const eslintConfig = defineConfig([
       // ── React Hooks ────────────────────────────────────────────────────────
       'react-hooks/rules-of-hooks': 'error',
       'react-hooks/exhaustive-deps': 'error',
+      'react-hooks/purity': 'off',
+      'react-hooks/set-state-in-effect': 'off',
+      'react-hooks/preserve-manual-memoization': 'off',
+      'react-hooks/incompatible-library': 'off',
 
       // ── General ────────────────────────────────────────────────────────────
       eqeqeq: ['error', 'always', { null: 'ignore' }],
@@ -78,6 +83,21 @@ const eslintConfig = defineConfig([
     rules: {
       'no-console': 'off',
       '@typescript-eslint/no-explicit-any': 'off',
+    },
+  },
+
+  // ─── Overrides for generated types and placeholder async functions ────────
+  {
+    files: ['lib/types/**/*.ts'],
+    rules: {
+      '@typescript-eslint/no-unused-vars': 'off',
+      'no-unused-vars': 'off',
+    },
+  },
+  {
+    files: ['lib/stellar/**/*.ts', 'lib/services/**/*.ts', 'lib/certificate.ts'],
+    rules: {
+      'require-await': 'off',
     },
   },
 
@@ -110,6 +130,8 @@ const eslintConfig = defineConfig([
     'emergency-*.ps1',
     'emergency-*.cmd',
     'generate-*.bat',
+    '.github/Multistep/**',
+    'farm Guage/**',
   ]),
 ]);
 

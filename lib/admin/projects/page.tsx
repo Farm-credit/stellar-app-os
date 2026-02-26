@@ -7,6 +7,7 @@ export default function AdminProjectsPage(): ReactNode {
     <div className="container mx-auto max-w-7xl px-4 py-8 sm:py-10">
       <AdminProjectTable
         projects={mockAdminProjectDetails}
+        onProjectUpdate={async (payload) => {
         onProjectUpdate={(payload) => {
           console.info('Project update:', payload);
           // TODO: Implement API call to update projects

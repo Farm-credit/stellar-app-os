@@ -16,7 +16,7 @@ Closes #
 
 ## Implementation Details
 
-<!-- 
+<!--
 Explain key decisions:
 - Which atomic design level did this land at (atom/molecule/organism/template)?
 - Why did you structure it this way?
@@ -31,28 +31,28 @@ Explain key decisions:
 
 <!-- REQUIRED: Screen recording showing the feature working end-to-end -->
 
-| Before | After |
-|--------|--------|
+| Before            | After              |
+| ----------------- | ------------------ |
 | N/A (new feature) | _attach recording_ |
 
 ## How to Test
 
-1. Checkout this branch  
-2. Run `pnpm dev`  
-3. Navigate to:  
-4. Verify:  
+1. Checkout this branch
+2. Run `pnpm dev`
+3. Navigate to:
+4. Verify:
 
 ## Checklist
 
-- [ ] My code follows the atomic commit convention  
-- [ ] Each commit message follows Conventional Commits (`feat:`, `fix:`, etc.)  
-- [ ] I have performed a self-review of my code  
-- [ ] My changes build successfully (`pnpm build`)  
-- [ ] My changes pass linting (`pnpm lint`)  
-- [ ] I have added/updated relevant documentation  
-- [ ] New components follow the atomic design pattern (atoms → molecules → organisms)  
-- [ ] Components use `forwardRef` where needed and export a `displayName`  
-- [ ] No barrel exports — imports reference the file directly  
-- [ ] Stellar color tokens used instead of raw hex values  
-- [ ] UI is responsive and tested on mobile viewports  
-- [ ] Screen recording attached 
+- [ ] My code follows the atomic commit convention
+- [ ] Each commit message follows Conventional Commits (`feat:`, `fix:`, etc.)
+- [ ] I have performed a self-review of my code
+- [ ] My changes build successfully (`pnpm build`)
+- [ ] My changes pass linting (`pnpm lint`)
+- [ ] I have added/updated relevant documentation
+- [ ] New components follow the atomic design pattern (atoms → molecules → organisms)
+- [ ] Components use `forwardRef` where needed and export a `displayName`
+- [ ] No barrel exports — imports reference the file directly
+- [ ] Stellar color tokens used instead of raw hex values
+- [ ] UI is responsive and tested on mobile viewports
+- [ ] Screen recording attached

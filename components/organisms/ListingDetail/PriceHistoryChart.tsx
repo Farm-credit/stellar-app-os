@@ -27,7 +27,9 @@ export default function PriceHistoryChart({ data }: PriceHistoryChartProps) {
 
   return (
     <div className="flex flex-col space-y-4 rounded-xl border border-white/10 bg-white/5 p-6">
-      <Text variant="h4" className="text-white">Price History</Text>
+      <Text variant="h4" className="text-white">
+        Price History
+      </Text>
       <div className="relative flex h-48 w-full items-end justify-between gap-2 pt-8">
         {data.map((point, index) => {
           const heightPercentage = 10 + ((point.price - minPrice) / range) * 90; // Min 10% height
@@ -36,7 +38,10 @@ export default function PriceHistoryChart({ data }: PriceHistoryChartProps) {
             year: 'numeric',
           });
           return (
-            <div key={index} className="group relative flex w-full flex-col items-center justify-end">
+            <div
+              key={index}
+              className="group relative flex w-full flex-col items-center justify-end"
+            >
               <div
                 className="w-full rounded-t-sm bg-stellar-blue/50 transition-all group-hover:bg-stellar-blue"
                 style={{ height: `${heightPercentage}%` }}

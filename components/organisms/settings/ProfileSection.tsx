@@ -1,14 +1,14 @@
-"use client";
+'use client';
 
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useState } from "react";
-import { CheckCircle2, Loader2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { SettingsCard } from "@/components/molecules/SettingsCard";
-import { profileSchema, type ProfileFormData } from "@/schemas/settings.schema";
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useState } from 'react';
+import { CheckCircle2, Loader2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { SettingsCard } from '@/components/molecules/SettingsCard';
+import { profileSchema, type ProfileFormData } from '@/schemas/settings.schema';
 
 export function ProfileSection() {
   const [saved, setSaved] = useState(false);
@@ -20,24 +20,20 @@ export function ProfileSection() {
   } = useForm<ProfileFormData>({
     resolver: zodResolver(profileSchema),
     defaultValues: {
-      name: "Alex Johnson",
-      email: "alex@farmcredit.io",
+      name: 'Alex Johnson',
+      email: 'alex@farmcredit.io',
     },
   });
 
   const onSubmit = async (data: ProfileFormData) => {
-
     await new Promise((r) => setTimeout(r, 800));
-    console.log("Profile saved:", data);
+    console.log('Profile saved:', data);
     setSaved(true);
     setTimeout(() => setSaved(false), 2500);
   };
 
   return (
-    <SettingsCard
-      title="Profile Information"
-      description=""
-    >
+    <SettingsCard title="Profile Information" description="">
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
         {/* Name */}
         <div className="space-y-1.5">
@@ -45,12 +41,10 @@ export function ProfileSection() {
           <Input
             id="name"
             placeholder="Enter your full name"
-            {...register("name")}
-            className={errors.name ? "border-destructive focus-visible:ring-destructive" : ""}
+            {...register('name')}
+            className={errors.name ? 'border-destructive focus-visible:ring-destructive' : ''}
           />
-          {errors.name && (
-            <p className="text-xs text-destructive">{errors.name.message}</p>
-          )}
+          {errors.name && <p className="text-xs text-destructive">{errors.name.message}</p>}
         </div>
 
         {/* Email */}
@@ -60,17 +54,14 @@ export function ProfileSection() {
             id="email"
             type="email"
             placeholder="Enter your email"
-            {...register("email")}
-            className={errors.email ? "border-destructive focus-visible:ring-destructive" : ""}
+            {...register('email')}
+            className={errors.email ? 'border-destructive focus-visible:ring-destructive' : ''}
           />
-          {errors.email && (
-            <p className="text-xs text-destructive">{errors.email.message}</p>
-          )}
+          {errors.email && <p className="text-xs text-destructive">{errors.email.message}</p>}
           <p className="text-xs text-muted-foreground">
             Changing your email will require verification.
           </p>
         </div>
-
 
         <div className="flex items-center justify-end gap-3 pt-2">
           {saved && (
@@ -90,7 +81,7 @@ export function ProfileSection() {
                 Saving...
               </>
             ) : (
-              "Save Changes"
+              'Save Changes'
             )}
           </Button>
         </div>
@@ -99,4 +90,4 @@ export function ProfileSection() {
   );
 }
 
-ProfileSection.displayName = "ProfileSection";
+ProfileSection.displayName = 'ProfileSection';

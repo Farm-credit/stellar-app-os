@@ -149,6 +149,7 @@ Before deploying, ensure:
 ### 3. Share Your Site
 
 Your site is now live! Share it:
+
 - Production URL: `https://your-project.vercel.app`
 - Custom domain (if configured): `https://your-domain.com`
 
@@ -170,6 +171,7 @@ npm run lint
 ### PowerShell Script Error
 
 Run as Administrator:
+
 ```powershell
 Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
 ```

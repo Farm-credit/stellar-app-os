@@ -1,9 +1,8 @@
+export type Theme = 'light' | 'dark' | 'system';
 
-export type Theme = "light" | "dark" | "system";
+export type Language = 'en' | 'fr' | 'es' | 'pt' | 'de';
 
-export type Language = "en" | "fr" | "es" | "pt" | "de";
-
-export type Currency = "USD" | "EUR" | "GBP" | "NGN" | "GHS";
+export type Currency = 'USD' | 'EUR' | 'GBP' | 'NGN' | 'GHS';
 
 export type NotificationPreferences = {
   emailBookings: boolean;
@@ -28,7 +27,7 @@ export type SettingsFormData = UserSettings & {
   confirmPassword?: string;
 };
 
-export type TabId = "profile" | "notifications" | "preferences" | "danger";
+export type TabId = 'profile' | 'notifications' | 'preferences' | 'danger';
 
 export type NavItem = {
   id: TabId;
@@ -37,8 +36,8 @@ export type NavItem = {
 };
 
 export const SECTION_TITLES: Record<TabId, string> = {
-  profile:       "My Profile",
-  notifications: "Notifications",
-  preferences:   "Preferences",
-  danger:        "Delete Account",
+  profile: 'My Profile',
+  notifications: 'Notifications',
+  preferences: 'Preferences',
+  danger: 'Delete Account',
 };

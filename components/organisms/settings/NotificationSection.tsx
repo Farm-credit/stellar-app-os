@@ -1,72 +1,72 @@
-"use client";
+'use client';
 
-import { useForm, Controller } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useState } from "react";
-import { CheckCircle2, Loader2 } from "lucide-react";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
-import { Button } from "@/components/ui/button";
-import { SettingsCard } from "@/components/molecules/SettingsCard";
-import {
-  notificationsSchema,
-  type NotificationsFormData,
-} from "@/schemas/settings.schema";
+import { useForm, Controller } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useState } from 'react';
+import { CheckCircle2, Loader2 } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
+import { Button } from '@/components/ui/button';
+import { SettingsCard } from '@/components/molecules/SettingsCard';
+import { notificationsSchema, type NotificationsFormData } from '@/schemas/settings.schema';
 
 type NotificationItem = {
-  id: keyof NotificationsFormData["notifications"];
+  id: keyof NotificationsFormData['notifications'];
   label: string;
   description: string;
 };
 
 const NOTIFICATION_ITEMS: NotificationItem[] = [
   {
-    id: "emailBookings",
-    label: "Booking confirmations",
-    description: "Receive emails when a booking is confirmed or cancelled.",
+    id: 'emailBookings',
+    label: 'Booking confirmations',
+    description: 'Receive emails when a booking is confirmed or cancelled.',
   },
   {
-    id: "emailMarketing",
-    label: "Product updates & news",
-    description: "Hear about new features and platform announcements.",
+    id: 'emailMarketing',
+    label: 'Product updates & news',
+    description: 'Hear about new features and platform announcements.',
   },
   {
-    id: "pushPayments",
-    label: "Payment alerts",
-    description: "Get notified instantly when a payment is received.",
+    id: 'pushPayments',
+    label: 'Payment alerts',
+    description: 'Get notified instantly when a payment is received.',
   },
   {
-    id: "pushUpdates",
-    label: "Application updates",
-    description: "Receive push notifications for status changes.",
+    id: 'pushUpdates',
+    label: 'Application updates',
+    description: 'Receive push notifications for status changes.',
   },
   {
-    id: "smsAlerts",
-    label: "SMS alerts",
-    description: "Critical alerts sent directly to your phone number.",
+    id: 'smsAlerts',
+    label: 'SMS alerts',
+    description: 'Critical alerts sent directly to your phone number.',
   },
 ];
 
 export function NotificationSection() {
   const [saved, setSaved] = useState(false);
 
-  const { handleSubmit, control, formState: { isSubmitting } } =
-    useForm<NotificationsFormData>({
-      resolver: zodResolver(notificationsSchema),
-      defaultValues: {
-        notifications: {
-          emailBookings: true,
-          emailMarketing: false,
-          pushPayments: true,
-          pushUpdates: true,
-          smsAlerts: false,
-        },
+  const {
+    handleSubmit,
+    control,
+    formState: { isSubmitting },
+  } = useForm<NotificationsFormData>({
+    resolver: zodResolver(notificationsSchema),
+    defaultValues: {
+      notifications: {
+        emailBookings: true,
+        emailMarketing: false,
+        pushPayments: true,
+        pushUpdates: true,
+        smsAlerts: false,
       },
-    });
+    },
+  });
 
   const onSubmit = async (data: NotificationsFormData) => {
     await new Promise((r) => setTimeout(r, 800));
-    console.log("Notifications saved:", data);
+    console.log('Notifications saved:', data);
     setSaved(true);
     setTimeout(() => setSaved(false), 2500);
   };
@@ -81,9 +81,7 @@ export function NotificationSection() {
           <div
             key={item.id}
             className={`flex items-center justify-between py-4 ${
-              index < NOTIFICATION_ITEMS.length - 1
-                ? "border-b border-border"
-                : ""
+              index < NOTIFICATION_ITEMS.length - 1 ? 'border-b border-border' : ''
             }`}
           >
             <div className="space-y-0.5 pr-8">
@@ -125,7 +123,7 @@ export function NotificationSection() {
                 Saving...
               </>
             ) : (
-              "Save Preferences"
+              'Save Preferences'
             )}
           </Button>
         </div>
@@ -134,4 +132,4 @@ export function NotificationSection() {
   );
 }
 
-NotificationSection.displayName = "NotificationSection";
+NotificationSection.displayName = 'NotificationSection';

@@ -17,6 +17,7 @@ http://localhost:3000/marketplace
 ## Test Scenarios
 
 ### ✅ Basic Display
+
 1. Navigate to `/marketplace`
 2. Verify 9 listings display in 3x3 grid
 3. Check each card shows:
@@ -33,6 +34,7 @@ http://localhost:3000/marketplace
    - "View Details" button
 
 ### ✅ Project Type Filter
+
 1. Click "All Project Types" dropdown
 2. Select "Renewable Energy"
 3. Verify only Renewable Energy listings show
@@ -42,6 +44,7 @@ http://localhost:3000/marketplace
 7. Verify all listings return
 
 ### ✅ Sort by Price
+
 1. Click "Newest First" dropdown
 2. Select "Price: Low to High"
 3. Verify listings sorted by price ascending
@@ -51,6 +54,7 @@ http://localhost:3000/marketplace
 7. Check URL has `?sort=price-desc`
 
 ### ✅ Sort by Date
+
 1. Click sort dropdown
 2. Select "Oldest First"
 3. Verify listings sorted by date ascending
@@ -59,6 +63,7 @@ http://localhost:3000/marketplace
 6. Verify listings sorted by date descending (default)
 
 ### ✅ Search Functionality
+
 1. Type "amazon" in search box
 2. Verify only Amazon-related listings show
 3. Check results count updates
@@ -69,6 +74,7 @@ http://localhost:3000/marketplace
 8. Verify all listings return
 
 ### ✅ Combined Filters
+
 1. Select "Reforestation" type
 2. Type "brazil" in search
 3. Select "Price: Low to High"
@@ -77,6 +83,7 @@ http://localhost:3000/marketplace
 6. Verify results match all criteria
 
 ### ✅ Active Filters Display
+
 1. Apply project type filter
 2. Verify filter chip appears below filters
 3. Click X on chip
@@ -87,6 +94,7 @@ http://localhost:3000/marketplace
 8. Verify search cleared
 
 ### ✅ Pagination
+
 1. Scroll to bottom of page
 2. Verify pagination controls visible
 3. Click "Next" button
@@ -98,6 +106,7 @@ http://localhost:3000/marketplace
 9. Click "Previous" button (should be disabled on page 1)
 
 ### ✅ Pagination with Filters
+
 1. Apply a filter (e.g., "Renewable Energy")
 2. Navigate to page 2
 3. Verify filter preserved in URL
@@ -106,6 +115,7 @@ http://localhost:3000/marketplace
 6. Verify resets to page 1
 
 ### ✅ Detail Page
+
 1. Click "View Details" on any listing
 2. Verify navigates to `/marketplace/[id]`
 3. Check detail page shows:
@@ -121,6 +131,7 @@ http://localhost:3000/marketplace
 7. Verify returns to listings page
 
 ### ✅ Invalid Listing ID
+
 1. Navigate to `/marketplace/invalid-id`
 2. Verify 404 page displays
 3. Check shows "Listing Not Found" message
@@ -128,6 +139,7 @@ http://localhost:3000/marketplace
 5. Verify returns to listings page
 
 ### ✅ Empty State
+
 1. Type "xyz123" in search (no results)
 2. Verify empty state displays
 3. Check shows icon and message
@@ -135,6 +147,7 @@ http://localhost:3000/marketplace
 5. Verify listings return
 
 ### ✅ URL State Management
+
 1. Apply filters: type=Reforestation, sort=price-asc, search=amazon, page=2
 2. Copy URL from address bar
 3. Open new tab
@@ -146,6 +159,7 @@ http://localhost:3000/marketplace
 9. Verify next state restored
 
 ### ✅ Responsive - Mobile (< 640px)
+
 1. Resize browser to 375px width
 2. Verify 1 column grid
 3. Verify filters stack vertically
@@ -155,12 +169,14 @@ http://localhost:3000/marketplace
 7. Verify no horizontal scroll
 
 ### ✅ Responsive - Tablet (640-1024px)
+
 1. Resize browser to 768px width
 2. Verify 2 column grid
 3. Verify filters side-by-side
 4. Verify pagination shows page numbers
 
 ### ✅ Responsive - Desktop (> 1024px)
+
 1. Resize browser to 1280px width
 2. Verify 3 column grid
 3. Verify filters side-by-side
@@ -168,6 +184,7 @@ http://localhost:3000/marketplace
 5. Verify detail page sidebar is sticky
 
 ### ✅ Keyboard Navigation
+
 1. Press Tab repeatedly
 2. Verify focus moves through:
    - Search input
@@ -185,6 +202,7 @@ http://localhost:3000/marketplace
 8. Verify returns to listings
 
 ### ✅ Screen Reader (Optional)
+
 1. Enable screen reader (NVDA/JAWS/VoiceOver)
 2. Navigate to marketplace
 3. Verify announces "Marketplace listings"
@@ -196,6 +214,7 @@ http://localhost:3000/marketplace
 9. Verify announces page structure
 
 ### ✅ Performance
+
 1. Open DevTools Network tab
 2. Navigate to marketplace
 3. Verify page loads < 2 seconds
@@ -207,6 +226,7 @@ http://localhost:3000/marketplace
 9. Verify instant update
 
 ### ✅ Console Errors
+
 1. Open DevTools Console
 2. Navigate to marketplace
 3. Verify no errors
@@ -221,39 +241,45 @@ http://localhost:3000/marketplace
 
 ## Expected Results Summary
 
-| Feature | Expected Behavior |
-|---------|------------------|
-| Grid Display | 3x3 grid on desktop, 2x2 on tablet, 1 col on mobile |
-| Project Filter | Filters listings, updates URL, resets to page 1 |
-| Sort | Reorders listings, updates URL, resets to page 1 |
-| Search | Filters by name/seller/location, updates URL, resets to page 1 |
-| Pagination | 9 items per page, preserves filters, smooth scroll |
-| Detail Page | Shows full listing info, purchase button, back nav |
-| URL State | All params in URL, shareable, back/forward works |
-| Responsive | Adapts layout at breakpoints, no horizontal scroll |
-| Accessibility | Keyboard nav, ARIA labels, screen reader friendly |
-| Performance | Instant updates, no loading states needed |
+| Feature        | Expected Behavior                                              |
+| -------------- | -------------------------------------------------------------- |
+| Grid Display   | 3x3 grid on desktop, 2x2 on tablet, 1 col on mobile            |
+| Project Filter | Filters listings, updates URL, resets to page 1                |
+| Sort           | Reorders listings, updates URL, resets to page 1               |
+| Search         | Filters by name/seller/location, updates URL, resets to page 1 |
+| Pagination     | 9 items per page, preserves filters, smooth scroll             |
+| Detail Page    | Shows full listing info, purchase button, back nav             |
+| URL State      | All params in URL, shareable, back/forward works               |
+| Responsive     | Adapts layout at breakpoints, no horizontal scroll             |
+| Accessibility  | Keyboard nav, ARIA labels, screen reader friendly              |
+| Performance    | Instant updates, no loading states needed                      |
 
 ---
 
 ## Common Issues & Solutions
 
 ### Issue: Listings not displaying
+
 **Solution:** Check mock data is imported correctly in `app/marketplace/page.tsx`
 
 ### Issue: Filters not working
+
 **Solution:** Check URL params are updating in browser address bar
 
 ### Issue: Pagination not working
+
 **Solution:** Verify `PaginationControl` component is receiving correct props
 
 ### Issue: Detail page 404
+
 **Solution:** Check listing ID exists in mock data
 
 ### Issue: Responsive layout broken
+
 **Solution:** Check Tailwind breakpoints: sm (640px), md (768px), lg (1024px)
 
 ### Issue: TypeScript errors
+
 **Solution:** Run `getDiagnostics` on all marketplace files
 
 ---
@@ -261,6 +287,7 @@ http://localhost:3000/marketplace
 ## Browser Testing
 
 Test in these browsers:
+
 - [ ] Chrome (latest)
 - [ ] Firefox (latest)
 - [ ] Safari (latest)
@@ -292,6 +319,7 @@ Test in these browsers:
 ## Sign-Off Checklist
 
 Before creating PR:
+
 - [ ] All test scenarios pass
 - [ ] No console errors
 - [ ] Responsive on all breakpoints
@@ -308,6 +336,7 @@ Before creating PR:
 ## Screen Recording Checklist
 
 Record these in order:
+
 1. [ ] Initial page load
 2. [ ] Filter by project type
 3. [ ] Sort by price

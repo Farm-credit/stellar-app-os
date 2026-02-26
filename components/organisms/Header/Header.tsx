@@ -1,6 +1,6 @@
 'use client';
 
-import { JSX, useState } from 'react';
+import { type JSX, useState } from 'react';
 
 import { Button } from '@/components/atoms/Button';
 import { LanguageSelector } from '@/components/organisms/Header/LanguageSelector';

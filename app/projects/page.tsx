@@ -16,6 +16,9 @@ import {
 import { createDefaultFilters } from '@/lib/types/filters';
 import type { ProjectFilters } from '@/lib/types/filters';
 import type { CarbonProject } from '@/lib/types/carbon';
+import { HeartIcon } from 'lucide-react';
+import { toast } from 'sonner';
+import { useFavorites } from '@/contexts/FavouritesContext';
 
 function ProjectsContent() {
   const router = useRouter();
@@ -159,9 +162,41 @@ function ProjectsContent() {
   );
 }
 
-function ProjectCard({ project }: { project: CarbonProject }) {
+export function ProjectCard({ project }: { project: CarbonProject }) {
+  const { isFavorited, toggleFavorite, undoRemove } = useFavorites();
+
+  const handleToggle = (projectId: string) => {
+    const alreadyFavorited = isFavorited(projectId);
+
+    toggleFavorite(projectId);
+
+    toast(
+      alreadyFavorited
+        ? `${project.name} removed from favorites`
+        : `${project.name} added to favorites!`,
+      {
+        action: {
+          label: 'Undo',
+          onClick: () => undoRemove(),
+        },
+      }
+    );
+  };
   return (
     <div className="rounded-lg border bg-card p-6 space-y-4 hover:shadow-lg transition-shadow">
+      <div className="flex justify-end">
+        <button
+          onClick={() => handleToggle(project.id)}
+          aria-label={isFavorited(project.id) ? 'Remove from favorites' : 'Add to favorites'}
+          aria-pressed={isFavorited(project.id)}
+        >
+          <HeartIcon
+            className={
+              isFavorited(project.id) ? 'fill-red-500 stroke-red-500' : 'fill-none stroke-current'
+            }
+          />
+        </button>
+      </div>
       <div>
         <div className="flex items-start justify-between mb-2">
           <Text variant="h4" as="h3" className="font-semibold">

@@ -10,7 +10,7 @@ export function PaymentMintingStep({
   selection,
   wallet,
   onComplete,
-  onError,
+  onError: _onError,
 }: PaymentMintingProps) {
   const [status, setStatus] = useState<TransactionStatus>('idle');
 

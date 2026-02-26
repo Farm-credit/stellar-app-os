@@ -59,6 +59,8 @@ const QRCodeScanner: React.FC<QRCodeScannerProps> = ({
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         // small play guard
+
+        videoRef.current.play();
         void videoRef.current.play();
       }
       setScanning(true);

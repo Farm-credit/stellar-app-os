@@ -42,7 +42,7 @@ const MOCK_LISTINGS: Record<string, Listing> = {
 export async function getListingById(id: string): Promise<Listing | null> {
   // Simulate network delay
   await new Promise((resolve) => setTimeout(resolve, 500));
-  
+
   const listing = MOCK_LISTINGS[id];
   return listing || null;
 }
@@ -54,9 +54,9 @@ export async function getListingById(id: string): Promise<Listing | null> {
 export async function checkAvailability(id: string, requestedQuantity: number): Promise<boolean> {
   // Simulate network delay
   await new Promise((resolve) => setTimeout(resolve, 300));
-  
+
   const listing = MOCK_LISTINGS[id];
   if (!listing) return false;
-  
+
   return listing.availableQuantity >= requestedQuantity;
 }

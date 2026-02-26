@@ -1,5 +1,5 @@
-import type { ReactNode } from "react";
-import { requireAdminAccess } from "@/lib/auth/admin";
+import type { ReactNode } from 'react';
+import { requireAdminAccess } from '@/lib/auth/admin';
 
 interface AdminLayoutProps {
   children: ReactNode;

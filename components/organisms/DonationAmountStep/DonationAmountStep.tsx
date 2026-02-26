@@ -9,27 +9,16 @@ import { Badge } from '@/components/atoms/Badge';
 import { ProgressStepper } from '@/components/molecules/ProgressStepper/ProgressStepper';
 import { useDonationContext } from '@/contexts/DonationContext';
 import { Trees, Mountain, Leaf } from 'lucide-react';
+import {
+  MINIMUM_DONATION,
+  TREES_PER_DOLLAR,
+  HECTARES_PER_DOLLAR,
+  CO2_PER_DOLLAR,
+  formatCurrency,
+  formatNumber,
+} from '@/lib/constants/donation';
 
 const QUICK_AMOUNTS = [10, 25, 50, 100];
-const MINIMUM_DONATION = 5;
-const TREES_PER_DOLLAR = 1; // 1 tree per dollar
-const HECTARES_PER_DOLLAR = 0.018; // 0.018 hectares per dollar
-const CO2_PER_DOLLAR = 0.048; // 0.048 tons CO2 per dollar
-
-// Currency formatter for USD
-const formatCurrency = (amount: number): string => {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 2,
-  }).format(amount);
-};
-
-// Format large numbers with commas
-const formatNumber = (num: number): string => {
-  return new Intl.NumberFormat('en-US').format(num);
-};
 
 export function DonationAmountStep() {
   const router = useRouter();
@@ -119,7 +108,7 @@ export function DonationAmountStep() {
     { id: 'amount', label: 'AMOUNT', path: '/donate', status: 'current' as const },
     { id: 'info', label: 'YOUR INFO', path: '/donate/info', status: 'upcoming' as const },
     { id: 'payment', label: 'PAYMENT', path: '/donate/payment', status: 'upcoming' as const },
-    { id: 'success', label: 'SUCCESS', path: '/donate/success', status: 'upcoming' as const },
+    { id: 'success', label: 'SUCCESS', path: '/donate/confirmation', status: 'upcoming' as const },
   ];
 
   return (
@@ -150,11 +139,10 @@ export function DonationAmountStep() {
                 onClick={() => handleQuickSelect(amount)}
                 variant={selectedAmount === amount && !isCustom ? 'default' : 'outline'}
                 size="lg"
-                className={`relative p-6 h-auto ${
-                  selectedAmount === amount && !isCustom
+                className={`relative p-6 h-auto ${selectedAmount === amount && !isCustom
                     ? 'border-stellar-blue bg-stellar-blue/10 text-stellar-blue hover:bg-stellar-blue/20'
                     : ''
-                }`}
+                  }`}
                 aria-pressed={selectedAmount === amount && !isCustom}
                 aria-label={`Select ${formatCurrency(amount)} donation`}
               >
@@ -175,11 +163,10 @@ export function DonationAmountStep() {
               onClick={handleCustomClick}
               variant={isCustom ? 'default' : 'outline'}
               size="lg"
-              className={`relative p-6 h-auto ${
-                isCustom
+              className={`relative p-6 h-auto ${isCustom
                   ? 'border-stellar-blue bg-stellar-blue/10 text-stellar-blue hover:bg-stellar-blue/20'
                   : ''
-              }`}
+                }`}
               aria-pressed={isCustom}
               aria-label="Enter custom donation amount"
             >
@@ -241,14 +228,12 @@ export function DonationAmountStep() {
               role="switch"
               aria-checked={isMonthly}
               aria-label="Make this a monthly recurring donation"
-              className={`relative w-12 h-6 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-stellar-green focus:ring-offset-2 ${
-                isMonthly ? 'bg-stellar-green' : 'bg-gray-300'
-              }`}
+              className={`relative w-12 h-6 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-stellar-green focus:ring-offset-2 ${isMonthly ? 'bg-stellar-green' : 'bg-gray-300'
+                }`}
             >
               <span
-                className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${
-                  isMonthly ? 'translate-x-6' : ''
-                }`}
+                className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${isMonthly ? 'translate-x-6' : ''
+                  }`}
               />
             </button>
           </div>
