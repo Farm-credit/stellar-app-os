@@ -9,6 +9,7 @@ import { MobileDrawer } from '@/components/organisms/Header/MobileDrawer';
 import { LanguageSelector } from '@/components/organisms/Header/LanguageSelector';
 import { useWalletContext } from '@/contexts/WalletContext';
 import { useAppTranslation } from '@/hooks/useTranslation';
+import NavigationBreadcrumbs from './NavigationBreadcrumbs';
 
 export function Header(): JSX.Element {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
@@ -90,6 +91,7 @@ export function Header(): JSX.Element {
       </header>
 
       <MobileDrawer isOpen={isDrawerOpen} onClose={() => setIsDrawerOpen(false)} />
+      <NavigationBreadcrumbs />
     </>
   );
 }

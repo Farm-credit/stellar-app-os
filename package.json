@@ -3,14 +3,15 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "build": "next build --webpack",
+    "dev": "npm run generate-breadcrumbs && next dev",
+    "build": "npm run generate-breadcrumbs && next build --webpack",
     "start": "next start",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "generate-icons": "node scripts/generate-icons.mjs",
+    "generate-breadcrumbs": "generate-next-routes-list",
     "prepare": "husky"
   },
   "dependencies": {
@@ -31,6 +32,7 @@
     "jsqr": "^1.4.0",
     "lucide-react": "^0.574.0",
     "next": "16.1.6",
+    "next-routes-list": "^1.2.0",
     "next-themes": "^0.4.6",
     "qrcode": "^1.5.4",
     "radix-ui": "^1.4.3",

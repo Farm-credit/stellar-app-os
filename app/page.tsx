@@ -15,11 +15,6 @@ import {
   CardDescription,
   CardContent,
 } from '@/components/molecules/Card';
-import { OnboardingTour } from '@/components/organisms/OnboardingTour';
-
-import { useToast } from '@/components/ui/toast/hooks';
-import { TransactionHistoryModal } from '../components/ui/TransactionHistoryModal';
-import { useState } from 'react';
 import { OnboardingTour } from '@/components/organisms/OnboardingTour/OnboardingTour';
 import { useToast } from '@/components/ui/toast/hooks';
 import { TransactionHistoryModal } from '@/components/ui/TransactionHistoryModal';
@@ -122,8 +117,15 @@ export default function Home(): JSX.Element {
           <Button asChild variant="outline" size="lg" className="w-full">
             <Link href="/api-docs">Explore API Documentation</Link>
           </Button>
-          <Button data-tour-id="purchase-credits-button" asChild variant="outline" size="lg" className="w-full">
+          <Button
+            data-tour-id="purchase-credits-button"
+            asChild
+            variant="outline"
+            size="lg"
+            className="w-full"
+          >
             <Link href="/credits/purchase">Purchase Carbon Credits</Link>
+          </Button>
           <Button
             asChild
             variant="default"
