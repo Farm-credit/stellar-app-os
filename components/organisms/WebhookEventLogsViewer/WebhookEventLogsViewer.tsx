@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState, useCallback, useMemo, useEffect, type ReactNode } from 'react';
-import { Button } from '@/components/atoms/Button';
 import { Text } from '@/components/atoms/Text';
 import {
   Card,

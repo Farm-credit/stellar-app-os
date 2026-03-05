@@ -5,6 +5,7 @@
 ### Core Requirements
 
 #### ✅ Events Table with All Columns
+
 - [x] **Timestamp**: Formatted date/time display (e.g., "Feb 24, 2026, 02:32:15 PM")
 - [x] **Event Type**: Display event type (credit.issued, transaction.completed, etc.)
 - [x] **Status**: Visual badge with icon (✓ success, ✕ failed, ○ pending, ↻ retrying)
@@ -16,6 +17,7 @@
 **Implementation**: `components/molecules/WebhookEventRow/WebhookEventRow.tsx`
 
 #### ✅ Filter by Status
+
 - [x] Dropdown with options: All, Success, Failed, Pending, Retrying
 - [x] Filters events in real-time
 - [x] Shows filtered count vs total count
@@ -24,6 +26,7 @@
 **Implementation**: `components/molecules/WebhookFilterBar/WebhookFilterBar.tsx`
 
 #### ✅ Retry Failed Webhooks
+
 - [x] Retry button only visible for failed events
 - [x] Button disabled during retry operation
 - [x] Shows loading state ("Retrying...")
@@ -31,12 +34,14 @@
 - [x] Optimistic UI update (status changes to "retrying")
 - [x] Error handling with console logging
 
-**Implementation**: 
+**Implementation**:
+
 - Component: `components/molecules/WebhookEventRow/WebhookEventRow.tsx`
 - API: `app/api/webhooks/retry/route.ts`
 - Logic: `components/organisms/WebhookEventLogsViewer/WebhookEventLogsViewer.tsx`
 
 #### ✅ View Raw JSON in Expandable Panel
+
 - [x] "View" button on each row
 - [x] Opens full-screen modal
 - [x] Displays complete event metadata
@@ -52,6 +57,7 @@
 ### Additional Features
 
 #### ✅ Real-time New Events
+
 - [x] Optional `enableRealtime` prop
 - [x] Live indicator with pulsing dot
 - [x] Polls for updates every 5 seconds
@@ -61,6 +67,7 @@
 **Implementation**: `components/organisms/WebhookEventLogsViewer/WebhookEventLogsViewer.tsx` (lines 35-52)
 
 #### ✅ Responsive Across Mobile/Tablet/Desktop
+
 - [x] **Mobile (< 640px)**:
   - Stacked filter controls
   - Horizontal scrolling table
@@ -78,6 +85,7 @@
 **Implementation**: Tailwind responsive classes throughout all components
 
 #### ✅ Accessible (WCAG 2.1 AA)
+
 - [x] **Semantic HTML**: Proper `<table>`, `<thead>`, `<tbody>` structure
 - [x] **ARIA Labels**: All buttons have descriptive `aria-label` or `title`
 - [x] **Keyboard Navigation**: Tab through all interactive elements
@@ -91,6 +99,7 @@
 **Verification**: All components use semantic HTML and ARIA attributes
 
 #### ✅ TypeScript Strict — No `any` Types
+
 - [x] All function parameters typed
 - [x] All component props typed with interfaces
 - [x] All state variables typed
@@ -105,6 +114,7 @@
 ## 📋 Detailed Feature Checklist
 
 ### Events Table
+
 - [x] Table header with column labels
 - [x] Sortable columns (timestamp, event type, status)
 - [x] Hover effect on rows
@@ -113,6 +123,7 @@
 - [x] Sticky header on scroll (can be added)
 
 ### Filtering
+
 - [x] Search input (by ID, event type, endpoint, error)
 - [x] Status dropdown filter
 - [x] Event type dropdown filter
@@ -122,6 +133,7 @@
 - [x] Clear filters button (implicit via "All" options)
 
 ### Retry Functionality
+
 - [x] Conditional button visibility (only for failed events)
 - [x] Loading state during retry
 - [x] Success feedback (status update)
@@ -131,6 +143,7 @@
 - [x] API integration ready
 
 ### JSON Viewer
+
 - [x] Modal overlay with backdrop
 - [x] Event metadata grid
 - [x] Formatted JSON payload
@@ -144,6 +157,7 @@
 - [x] Backdrop click handler
 
 ### Real-time Updates
+
 - [x] Live indicator
 - [x] Polling mechanism
 - [x] Status change detection
@@ -151,6 +165,7 @@
 - [x] Configurable via prop
 
 ### Responsive Design
+
 - [x] Mobile-first approach
 - [x] Breakpoint-based layouts
 - [x] Touch-friendly interactions
@@ -159,6 +174,7 @@
 - [x] Flexible grid layouts
 
 ### Accessibility
+
 - [x] Semantic HTML elements
 - [x] ARIA labels and roles
 - [x] Keyboard navigation
@@ -169,6 +185,7 @@
 - [x] Focus trap in modal
 
 ### TypeScript
+
 - [x] Strict mode enabled
 - [x] All types defined
 - [x] No `any` types
@@ -179,6 +196,7 @@
 ## 🎯 Test Scenarios
 
 ### Functional Tests
+
 1. ✅ Load page → Table displays 10 events
 2. ✅ Search "credit" → Filters to 3 events
 3. ✅ Filter by "Failed" → Shows 2 events
@@ -195,6 +213,7 @@
 14. ✅ Wait 5 seconds → Events update automatically
 
 ### Responsive Tests
+
 1. ✅ Resize to 375px → Table scrolls horizontally
 2. ✅ Resize to 768px → Filters in 2 columns
 3. ✅ Resize to 1440px → Filters in 4 columns
@@ -202,6 +221,7 @@
 5. ✅ Modal on mobile → Full width, scrollable
 
 ### Accessibility Tests
+
 1. ✅ Tab through page → All elements focusable
 2. ✅ Press Enter on button → Action triggers
 3. ✅ Screen reader → Announces status changes
@@ -210,6 +230,7 @@
 6. ✅ Focus visible → Clear focus indicators
 
 ### TypeScript Tests
+
 1. ✅ Build project → No type errors
 2. ✅ Hover over variable → Type shown correctly
 3. ✅ Pass wrong prop type → Error caught
@@ -250,6 +271,7 @@
 ## ✨ Bonus Features Implemented
 
 Beyond the requirements:
+
 - [x] Copy to clipboard functionality
 - [x] Optimistic UI updates
 - [x] Loading states

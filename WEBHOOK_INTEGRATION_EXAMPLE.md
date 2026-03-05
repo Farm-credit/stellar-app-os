@@ -3,6 +3,7 @@
 ## 🔗 Adding to Admin Navigation
 
 ### Option 1: Update Admin Layout
+
 If you have an admin layout component:
 
 ```tsx
@@ -14,16 +15,10 @@ export default function AdminLayout({ children }) {
     <div className="flex min-h-screen">
       <aside className="w-64 bg-muted border-r">
         <nav className="p-4 space-y-2">
-          <Link 
-            href="/admin/projects"
-            className="block px-4 py-2 rounded hover:bg-accent"
-          >
+          <Link href="/admin/projects" className="block px-4 py-2 rounded hover:bg-accent">
             Projects
           </Link>
-          <Link 
-            href="/admin/webhooks"
-            className="block px-4 py-2 rounded hover:bg-accent"
-          >
+          <Link href="/admin/webhooks" className="block px-4 py-2 rounded hover:bg-accent">
             Webhook Logs
           </Link>
           {/* Other admin links */}
@@ -36,6 +31,7 @@ export default function AdminLayout({ children }) {
 ```
 
 ### Option 2: Add to Existing Navigation
+
 ```tsx
 // components/organisms/AdminNav.tsx
 const adminNavItems = [
@@ -150,7 +146,7 @@ import { getWebhookEvents } from '@/lib/db/webhookEvents';
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
-    
+
     const events = await getWebhookEvents({
       status: searchParams.get('status') || undefined,
       eventType: searchParams.get('eventType') || undefined,
@@ -164,10 +160,7 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error('Failed to fetch webhook events:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch events' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to fetch events' }, { status: 500 });
   }
 }
 ```
@@ -182,10 +175,7 @@ export async function POST(request: NextRequest) {
     const { eventId } = await request.json();
 
     if (!eventId) {
-      return NextResponse.json(
-        { error: 'Event ID is required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Event ID is required' }, { status: 400 });
     }
 
     await retryWebhookEvent(eventId);
@@ -198,9 +188,9 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Webhook retry failed:', error);
     return NextResponse.json(
-      { 
+      {
         error: 'Retry failed',
-        details: error instanceof Error ? error.message : 'Unknown error'
+        details: error instanceof Error ? error.message : 'Unknown error',
       },
       { status: 500 }
     );
@@ -377,7 +367,7 @@ export function middleware(request: NextRequest) {
   // Check if accessing admin routes
   if (request.nextUrl.pathname.startsWith('/admin')) {
     const session = request.cookies.get('session');
-    
+
     if (!session) {
       return NextResponse.redirect(new URL('/login', request.url));
     }
@@ -452,31 +442,45 @@ export function WebhookMetrics({ metrics }) {
     <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
       <Card>
         <CardContent className="pt-6">
-          <Text variant="muted" className="text-sm">Total</Text>
+          <Text variant="muted" className="text-sm">
+            Total
+          </Text>
           <Text variant="h3">{metrics.total}</Text>
         </CardContent>
       </Card>
       <Card>
         <CardContent className="pt-6">
-          <Text variant="muted" className="text-sm">Success</Text>
-          <Text variant="h3" className="text-stellar-green">{metrics.successful}</Text>
+          <Text variant="muted" className="text-sm">
+            Success
+          </Text>
+          <Text variant="h3" className="text-stellar-green">
+            {metrics.successful}
+          </Text>
         </CardContent>
       </Card>
       <Card>
         <CardContent className="pt-6">
-          <Text variant="muted" className="text-sm">Failed</Text>
-          <Text variant="h3" className="text-destructive">{metrics.failed}</Text>
+          <Text variant="muted" className="text-sm">
+            Failed
+          </Text>
+          <Text variant="h3" className="text-destructive">
+            {metrics.failed}
+          </Text>
         </CardContent>
       </Card>
       <Card>
         <CardContent className="pt-6">
-          <Text variant="muted" className="text-sm">Pending</Text>
+          <Text variant="muted" className="text-sm">
+            Pending
+          </Text>
           <Text variant="h3">{metrics.pending}</Text>
         </CardContent>
       </Card>
       <Card>
         <CardContent className="pt-6">
-          <Text variant="muted" className="text-sm">Success Rate</Text>
+          <Text variant="muted" className="text-sm">
+            Success Rate
+          </Text>
           <Text variant="h3">{metrics.successRate}%</Text>
         </CardContent>
       </Card>

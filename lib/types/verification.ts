@@ -1,8 +1,8 @@
-export type QueueStatus = "pending" | "resubmitted" | "approved" | "rejected";
+export type QueueStatus = 'pending' | 'resubmitted' | 'approved' | 'rejected';
 
-export type VerificationDocumentType = "pdf" | "image";
+export type VerificationDocumentType = 'pdf' | 'image';
 
-export type VerificationDecision = "approved" | "rejected";
+export type VerificationDecision = 'approved' | 'rejected';
 
 export interface ReviewerPresence {
   reviewerName: string;

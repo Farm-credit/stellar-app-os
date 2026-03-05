@@ -1,6 +1,6 @@
 'use client';
 
-import { JSX, useState } from 'react';
+import { type JSX, useState } from 'react';
 import Link from 'next/link';
 import { Menu } from 'lucide-react';
 import { Button } from '@/components/atoms/Button';

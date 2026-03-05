@@ -35,12 +35,20 @@ export default function AdminDashboardLoading() {
         ))}
       </div>
 
-      <div className="mb-8 rounded-xl border border-border bg-card p-6" role="status" aria-label="Loading trend chart">
+      <div
+        className="mb-8 rounded-xl border border-border bg-card p-6"
+        role="status"
+        aria-label="Loading trend chart"
+      >
         <div className="mb-5 h-5 w-40 animate-pulse rounded bg-muted" aria-hidden="true" />
         <div className="h-[260px] animate-pulse rounded-lg bg-muted" aria-hidden="true" />
       </div>
 
-      <div className="rounded-xl border border-border bg-card p-6" role="status" aria-label="Loading recent activity">
+      <div
+        className="rounded-xl border border-border bg-card p-6"
+        role="status"
+        aria-label="Loading recent activity"
+      >
         <div className="mb-5 h-5 w-44 animate-pulse rounded bg-muted" aria-hidden="true" />
         <ul className="space-y-4">
           {Array.from({ length: 5 }).map((_, index) => (

@@ -265,21 +265,21 @@ Use this checklist when testing the comparison tool feature. Check off each item
 - [ ] Test all features in Chrome or Edge
 - [ ] Verify everything works
 - [ ] Note any issues: **\*\***\_\_\_**\*\***
-- [ ] Note any issues: ******\_\_\_******
+- [ ] Note any issues: **\*\***\_\_\_**\*\***
 
 ### Firefox
 
 - [ ] Test all features in Firefox
 - [ ] Verify everything works
 - [ ] Note any issues: **\*\***\_\_\_**\*\***
-- [ ] Note any issues: ******\_\_\_******
+- [ ] Note any issues: **\*\***\_\_\_**\*\***
 
 ### Safari (if available)
 
 - [ ] Test all features in Safari
 - [ ] Verify everything works
 - [ ] Note any issues: **\*\***\_\_\_**\*\***
-- [ ] Note any issues: ******\_\_\_******
+- [ ] Note any issues: **\*\***\_\_\_**\*\***
 
 ### Mobile Browser
 
@@ -287,7 +287,7 @@ Use this checklist when testing the comparison tool feature. Check off each item
 - [ ] Verify touch interactions work
 - [ ] Verify scrolling is smooth
 - [ ] Note any issues: **\*\***\_\_\_**\*\***
-- [ ] Note any issues: ******\_\_\_******
+- [ ] Note any issues: **\*\***\_\_\_**\*\***
 
 ## Test 11: Performance
 
@@ -367,10 +367,10 @@ Document any issues found during testing:
 - **Date**: **\*\***\_\_\_**\*\***
 - **Browser(s) Tested**: **\*\***\_\_\_**\*\***
 - **Device(s) Tested**: **\*\***\_\_\_**\*\***
-- **Tester Name**: ******\_\_\_******
-- **Date**: ******\_\_\_******
-- **Browser(s) Tested**: ******\_\_\_******
-- **Device(s) Tested**: ******\_\_\_******
+- **Tester Name**: **\*\***\_\_\_**\*\***
+- **Date**: **\*\***\_\_\_**\*\***
+- **Browser(s) Tested**: **\*\***\_\_\_**\*\***
+- **Device(s) Tested**: **\*\***\_\_\_**\*\***
 - **Overall Status**: [ ] PASS [ ] FAIL
 - **Ready for PR**: [ ] YES [ ] NO
 

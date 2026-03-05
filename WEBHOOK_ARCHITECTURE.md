@@ -405,6 +405,7 @@ poll                                        updated                re-renders
 ## 📝 Architecture Notes
 
 ### Design Patterns Used
+
 - **Atomic Design**: Component hierarchy (atoms → molecules → organisms)
 - **Container/Presenter**: Page fetches data, component presents
 - **Controlled Components**: All form inputs controlled by React state
@@ -412,6 +413,7 @@ poll                                        updated                re-renders
 - **Memoization**: Prevent unnecessary re-renders
 
 ### Best Practices Followed
+
 - **Single Responsibility**: Each component has one job
 - **DRY**: Reusable filter logic, status badge
 - **Type Safety**: Full TypeScript coverage
@@ -419,6 +421,7 @@ poll                                        updated                re-renders
 - **Performance**: Optimized rendering
 
 ### Scalability Considerations
+
 - **Pagination Ready**: Can add pagination easily
 - **Virtual Scrolling**: Can add for large lists
 - **Real-time Ready**: WebSocket integration path clear

@@ -1,12 +1,15 @@
 # Mobile Navigation Drawer - Issue #47
 
 ## Overview
+
 A fully accessible mobile navigation drawer with wallet integration for the FarmCredit application.
 
 ## Components
 
 ### Header.tsx
+
 Main header component with:
+
 - Sticky positioning with backdrop blur
 - Desktop navigation (hidden on mobile)
 - Desktop wallet connect button
@@ -14,7 +17,9 @@ Main header component with:
 - Responsive breakpoints at `md` (768px)
 
 ### MobileDrawer.tsx
+
 Slide-out navigation drawer with:
+
 - Smooth slide-in animation from left (300ms duration)
 - Semi-transparent backdrop with blur effect
 - Navigation links with active state indicators
@@ -24,11 +29,13 @@ Slide-out navigation drawer with:
 ## Features
 
 ### Animations
+
 - Slide-in from left using CSS transforms
 - Backdrop fade-in/out
 - Smooth transitions (300ms ease-in-out)
 
 ### Accessibility (WCAG 2.1 AA Compliant)
+
 - Focus trap when drawer is open
 - Keyboard navigation (Tab, Shift+Tab, Escape)
 - ARIA attributes (`role="dialog"`, `aria-modal`, `aria-label`)
@@ -37,6 +44,7 @@ Slide-out navigation drawer with:
 - Active page indication with `aria-current="page"`
 
 ### User Experience
+
 - Backdrop click to close
 - Link click auto-closes drawer
 - Body scroll prevention when open
@@ -45,6 +53,7 @@ Slide-out navigation drawer with:
 - Touch-friendly tap targets (44px minimum)
 
 ### Responsive Design
+
 - Mobile: Full drawer functionality
 - Tablet: Drawer available up to 768px
 - Desktop: Traditional horizontal navigation
@@ -59,6 +68,7 @@ Slide-out navigation drawer with:
 ## Wallet Integration
 
 The drawer integrates with the WalletContext to:
+
 - Display connection status
 - Show truncated public key when connected
 - Connect via Freighter wallet
@@ -68,6 +78,7 @@ The drawer integrates with the WalletContext to:
 ## TypeScript
 
 All components are strictly typed with:
+
 - No `any` types
 - Proper interface definitions
 - Type-safe props
@@ -78,7 +89,7 @@ All components are strictly typed with:
 The Header component is automatically included in the root layout:
 
 ```tsx
-import { Header } from "@/components/organisms/Header/Header";
+import { Header } from '@/components/organisms/Header/Header';
 
 export default function RootLayout({ children }) {
   return (

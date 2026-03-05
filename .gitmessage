@@ -1,0 +1,18 @@
+# <type>(<scope>): <short description>
+# |<----  Using a Maximum Of 50 Characters  ---->|
+#
+# Explain why this change is being made
+# |<----   Try To Limit Each Line to a Maximum Of 72 Characters   ---->|
+#
+# Provide links to any relevant tickets, articles or other resources
+# Example: Closes #123
+#
+# --- COMMIT GUIDELINES ---
+# Allowed Types: feat, fix, docs, style, refactor, perf, test, build, ci, chore
+# Allowed Scopes: auth, wallet, dashboard, marketplace, admin, donation, carbon, ui, layout, nav, config, deps
+#
+# --- ATOMIC COMMIT RULES ---
+# 1. One concern per commit
+# 2. Each commit must build
+# 3. Each commit must be revertable
+# 4. Order matters

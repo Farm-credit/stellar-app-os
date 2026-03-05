@@ -26,18 +26,18 @@ Closes #
 
 <!-- Step-by-step instructions for reviewers to verify the changes -->
 
-1. 
-2. 
-3. 
+1.
+2.
+3.
 
 ## Checklist
 
-- [ ] My code follows the atomic commit convention  
-- [ ] Each commit message follows Conventional Commits (`feat:`, `fix:`, etc.)  
-- [ ] I have performed a self-review of my code  
-- [ ] My changes build successfully (`pnpm build`)  
-- [ ] My changes pass linting (`pnpm lint`)  
-- [ ] I have added/updated relevant documentation  
-- [ ] New components follow the atomic design pattern (atoms → molecules → organisms)  
-- [ ] UI changes are responsive and tested on mobile viewports  
-- [ ] I have added screenshots/recordings for UI changes  
+- [ ] My code follows the atomic commit convention
+- [ ] Each commit message follows Conventional Commits (`feat:`, `fix:`, etc.)
+- [ ] I have performed a self-review of my code
+- [ ] My changes build successfully (`pnpm build`)
+- [ ] My changes pass linting (`pnpm lint`)
+- [ ] I have added/updated relevant documentation
+- [ ] New components follow the atomic design pattern (atoms → molecules → organisms)
+- [ ] UI changes are responsive and tested on mobile viewports
+- [ ] I have added screenshots/recordings for UI changes

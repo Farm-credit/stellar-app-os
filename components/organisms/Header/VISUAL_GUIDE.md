@@ -14,6 +14,7 @@
 ## Mobile View (< 768px)
 
 ### Closed State
+
 ```
 ┌─────────────────────────────────────────┐
 │  ┌──────┐  FarmCredit          ☰        │
@@ -25,6 +26,7 @@
 ```
 
 ### Open State
+
 ```
 ┌──────────────┐ ┌─────────────────────────┐
 │              │ │  FarmCredit        ✕    │
@@ -60,6 +62,7 @@
 ## Animation Flow
 
 ### Opening Sequence
+
 ```
 1. User clicks hamburger (☰)
    ↓
@@ -73,6 +76,7 @@
 ```
 
 ### Closing Sequence
+
 ```
 1. User clicks backdrop/link/escape
    ↓
@@ -90,6 +94,7 @@
 ### Navigation Link States
 
 #### Default
+
 ```
 ┌─────────────────────────┐
 │  🏠 Home                │  ← Gray text
@@ -97,6 +102,7 @@
 ```
 
 #### Hover
+
 ```
 ┌─────────────────────────┐
 │  🏠 Home                │  ← Blue text, gray bg
@@ -104,6 +110,7 @@
 ```
 
 #### Active (Current Page)
+
 ```
 ┌─────────────────────────┐
 │  🏠 Home                │  ← Blue text, blue bg
@@ -113,6 +120,7 @@
 ### Wallet Button States
 
 #### Disconnected
+
 ```
 ┌─────────────────────────┐
 │   Connect Wallet        │  ← Blue bg, white text
@@ -120,6 +128,7 @@
 ```
 
 #### Connected
+
 ```
 ┌─────────────────────────┐
 │   GABC...XYZ9           │  ← Outline, blue text
@@ -170,6 +179,7 @@ Desktop:   1024px ─────────► ∞
 ## Color Scheme
 
 ### Light Mode
+
 ```
 Background:     #FFFFFF (white)
 Text:           #0D0B21 (stellar-navy)
@@ -179,6 +189,7 @@ Hover:          #F1F5F9 (muted)
 ```
 
 ### Dark Mode
+
 ```
 Background:     #0D0B21 (stellar-navy)
 Text:           #F1F5F9 (light gray)
@@ -190,6 +201,7 @@ Hover:          #1E1B3A (dark purple)
 ## Accessibility Features
 
 ### ARIA Structure
+
 ```
 <header>
   <nav aria-label="Main navigation">
@@ -203,11 +215,11 @@ Hover:          #1E1B3A (dark purple)
 <div role="dialog"
      aria-modal="true"
      aria-label="Mobile navigation menu">
-  
+
   <button aria-label="Close navigation menu">
     ✕
   </button>
-  
+
   <nav aria-label="Main navigation">
     <a href="/" aria-current="page">Home</a>
     <a href="/blog">Blog</a>
@@ -217,6 +229,7 @@ Hover:          #1E1B3A (dark purple)
 ```
 
 ### Keyboard Shortcuts
+
 ```
 Tab         → Move focus forward
 Shift+Tab   → Move focus backward

@@ -19,6 +19,18 @@ export interface PaginationControlProps {
 
   /** Current category filter to preserve in URLs (optional) */
   currentCategory?: string | null;
+
+  /**
+   * Optional callback for client-driven pagination (non-link navigation).
+   * When provided, pagination controls will call this function on click.
+   */
+  onPageChange?: (page: number) => void;
+
+  /**
+   * Optional function to generate hrefs for each page.
+   * When provided, the component will use this for the Link href instead of the default blog URL builder.
+   */
+  hrefForPage?: (page: number) => string;
 }
 
 /**
@@ -38,6 +50,8 @@ export function PaginationControl({
   currentPage,
   totalPages,
   currentCategory,
+  onPageChange,
+  hrefForPage,
 }: PaginationControlProps) {
   // Scroll to top when page changes
   useEffect(() => {
@@ -108,20 +122,29 @@ export function PaginationControl({
     >
       {/* Previous button */}
       <Button
-        asChild={!isPrevDisabled}
+        asChild={!isPrevDisabled && !onPageChange}
         disabled={isPrevDisabled}
         variant="outline"
         size="icon"
         aria-label="Go to previous page"
         className={cn('h-10 w-10', isPrevDisabled && 'cursor-not-allowed opacity-50')}
+        onClick={onPageChange && !isPrevDisabled ? () => onPageChange(currentPage - 1) : undefined}
       >
         {isPrevDisabled ? (
           <span>
             <ChevronLeft className="h-4 w-4" />
           </span>
+        ) : onPageChange ? (
+          <span>
+            <ChevronLeft className="h-4 w-4" />
+          </span>
         ) : (
           <Link
-            href={buildPaginationUrl(currentPage - 1, currentCategory)}
+            href={
+              hrefForPage
+                ? hrefForPage(currentPage - 1)
+                : buildPaginationUrl(currentPage - 1, currentCategory)
+            }
             aria-label={`Go to page ${currentPage - 1}`}
           >
             <ChevronLeft className="h-4 w-4" />
@@ -149,7 +172,7 @@ export function PaginationControl({
           return (
             <Button
               key={page}
-              asChild={!isCurrentPage}
+              asChild={!isCurrentPage && !onPageChange}
               variant={isCurrentPage ? 'default' : 'outline'}
               size="icon"
               aria-label={`Go to page ${page}`}
@@ -158,11 +181,18 @@ export function PaginationControl({
                 'h-10 w-10',
                 isCurrentPage && 'bg-stellar-blue hover:bg-stellar-blue/90'
               )}
+              onClick={onPageChange && !isCurrentPage ? () => onPageChange(page) : undefined}
             >
               {isCurrentPage ? (
                 <span>{page}</span>
+              ) : onPageChange ? (
+                <span>{page}</span>
               ) : (
-                <Link href={buildPaginationUrl(page, currentCategory)}>{page}</Link>
+                <Link
+                  href={hrefForPage ? hrefForPage(page) : buildPaginationUrl(page, currentCategory)}
+                >
+                  {page}
+                </Link>
               )}
             </Button>
           );
@@ -178,20 +208,29 @@ export function PaginationControl({
 
       {/* Next button */}
       <Button
-        asChild={!isNextDisabled}
+        asChild={!isNextDisabled && !onPageChange}
         disabled={isNextDisabled}
         variant="outline"
         size="icon"
         aria-label="Go to next page"
         className={cn('h-10 w-10', isNextDisabled && 'cursor-not-allowed opacity-50')}
+        onClick={onPageChange && !isNextDisabled ? () => onPageChange(currentPage + 1) : undefined}
       >
         {isNextDisabled ? (
           <span>
             <ChevronRight className="h-4 w-4" />
           </span>
+        ) : onPageChange ? (
+          <span>
+            <ChevronRight className="h-4 w-4" />
+          </span>
         ) : (
           <Link
-            href={buildPaginationUrl(currentPage + 1, currentCategory)}
+            href={
+              hrefForPage
+                ? hrefForPage(currentPage + 1)
+                : buildPaginationUrl(currentPage + 1, currentCategory)
+            }
             aria-label={`Go to page ${currentPage + 1}`}
           >
             <ChevronRight className="h-4 w-4" />

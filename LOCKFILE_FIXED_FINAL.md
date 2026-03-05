@@ -3,8 +3,9 @@
 ## 🎯 Problem Solved
 
 **Issue:** CI was failing with:
+
 ```
-ERR_PNPM_OUTDATED_LOCKFILE  Cannot install with "frozen-lockfile" 
+ERR_PNPM_OUTDATED_LOCKFILE  Cannot install with "frozen-lockfile"
 because pnpm-lock.yaml is not up to date with package.json
 
 specifiers in the lockfile don't match specifiers in package.json:
@@ -12,6 +13,7 @@ specifiers in the lockfile don't match specifiers in package.json:
 ```
 
 **Root Cause:** The lockfile contained dependencies that weren't in package.json:
+
 - `react-icons@^5.5.0`
 - `@stellar/freighter-api@^1.7.0`
 - `@stellar/stellar-sdk@^11.2.2`
@@ -23,21 +25,25 @@ These were in the lockfile but NOT in package.json, causing a mismatch.
 ## ✅ Solution Applied
 
 ### 1. Deleted Old Lockfile
+
 ```bash
 Remove-Item pnpm-lock.yaml -Force
 ```
 
 ### 2. Regenerated Lockfile
+
 ```bash
 pnpm install --no-frozen-lockfile
 ```
 
 **Result:**
+
 - Removed unused dependencies from lockfile
 - Lockfile now matches package.json exactly
 - 739 packages resolved correctly
 
 ### 3. Committed Fix
+
 ```bash
 git add pnpm-lock.yaml
 git commit -m "fix(deps): update pnpm-lock.yaml to match package.json"
@@ -49,11 +55,13 @@ git push origin feat/issue-23-marketplace-listings
 ## 📊 Changes Made
 
 ### Removed from Lockfile
+
 - ❌ `react-icons@5.5.0` (not in package.json, not used in code)
 - ❌ `@stellar/freighter-api@1.7.1` (not in package.json, not used in code)
 - ❌ `@stellar/stellar-sdk@11.3.0` (not in package.json, not used in code)
 
 ### Current Dependencies (Correct)
+
 ✅ All dependencies in package.json are in lockfile
 ✅ No extra dependencies in lockfile
 ✅ Lockfile is in sync with package.json
@@ -63,6 +71,7 @@ git push origin feat/issue-23-marketplace-listings
 ## 🔍 Verification
 
 ### Package.json Dependencies
+
 ```json
 {
   "dependencies": {
@@ -80,6 +89,7 @@ git push origin feat/issue-23-marketplace-listings
 ```
 
 ### Lockfile Status
+
 - ✅ Matches package.json exactly
 - ✅ No extra dependencies
 - ✅ All versions resolved correctly
@@ -90,6 +100,7 @@ git push origin feat/issue-23-marketplace-listings
 ## 🚀 CI Status
 
 ### Before Fix
+
 ```
 ❌ ERR_PNPM_OUTDATED_LOCKFILE
 ❌ Cannot install with "frozen-lockfile"
@@ -97,6 +108,7 @@ git push origin feat/issue-23-marketplace-listings
 ```
 
 ### After Fix
+
 ```
 ✅ Lockfile matches package.json
 ✅ CI will pass with frozen-lockfile
@@ -108,11 +120,13 @@ git push origin feat/issue-23-marketplace-listings
 ## 📝 Commits
 
 ### Commit 1: Marketplace Implementation
+
 ```
 fe84107 - feat(marketplace): implement listings page with filters and pagination
 ```
 
 ### Commit 2: Lockfile Fix
+
 ```
 304995e - fix(deps): update pnpm-lock.yaml to match package.json
 ```
@@ -122,15 +136,19 @@ fe84107 - feat(marketplace): implement listings page with filters and pagination
 ## 🎯 Next Steps
 
 ### 1. CI Will Now Pass ✅
+
 The next CI run will succeed because:
+
 - Lockfile matches package.json
 - No dependency mismatches
 - All packages resolve correctly
 
 ### 2. Create PR
+
 **PR Link:** https://github.com/utilityjnr/stellar-app-os/pull/new/feat/issue-23-marketplace-listings
 
 ### 3. Verify CI Passes
+
 Once PR is created, CI will run and should pass all checks.
 
 ---
@@ -138,18 +156,21 @@ Once PR is created, CI will run and should pass all checks.
 ## 🔧 How This Was Fixed
 
 ### Step 1: Identified the Problem
+
 ```bash
 # CI error showed:
 # react-icons@^5.5.0 was in lockfile but not in package.json
 ```
 
 ### Step 2: Verified Not Used
+
 ```bash
 # Searched codebase - react-icons not imported anywhere
 # Searched codebase - @stellar packages not imported anywhere
 ```
 
 ### Step 3: Regenerated Lockfile
+
 ```bash
 # Deleted old lockfile
 Remove-Item pnpm-lock.yaml -Force
@@ -159,6 +180,7 @@ pnpm install --no-frozen-lockfile
 ```
 
 ### Step 4: Committed and Pushed
+
 ```bash
 git add pnpm-lock.yaml
 git commit -m "fix(deps): update pnpm-lock.yaml to match package.json"
@@ -197,6 +219,7 @@ git push origin feat/issue-23-marketplace-listings
 https://github.com/utilityjnr/stellar-app-os/pull/new/feat/issue-23-marketplace-listings
 
 **What to Expect:**
+
 1. Create PR using the link above
 2. CI will run automatically
 3. CI will pass ✅ (lockfile is now correct)

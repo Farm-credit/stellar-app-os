@@ -81,7 +81,7 @@ export function CreditSelector({
                 No Credits Available
               </Text>
               <Text variant="small" as="p" className="text-muted-foreground mt-1">
-                You don't have any carbon credits in your wallet to list.
+                You don&apos;t have any carbon credits in your wallet to list.
               </Text>
             </div>
           </div>

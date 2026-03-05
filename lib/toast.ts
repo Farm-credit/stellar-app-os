@@ -1,4 +1,3 @@
-/* eslint-disable no-unused-vars */
 /**
  * Toast utility for user feedback
  * Provides simple toast notifications without external dependencies

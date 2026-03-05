@@ -235,7 +235,7 @@ components/atoms/
 **Import:**
 
 ```tsx
-import { Button } from "@/components/atoms/Button";
+import { Button } from '@/components/atoms/Button';
 ```
 
 #### Molecules
@@ -370,17 +370,17 @@ stellar-app-os/
 **Correct:**
 
 ```tsx
-import { Button } from "@/components/atoms/Button";
-import { Card, CardHeader } from "@/components/molecules/Card";
-import { useWallet } from "@/hooks/useWallet";
+import { Button } from '@/components/atoms/Button';
+import { Card, CardHeader } from '@/components/molecules/Card';
+import { useWallet } from '@/hooks/useWallet';
 ```
 
 **Wrong:**
 
 ```tsx
 // ❌ Do not use barrel exports
-import { Button } from "@/components/atoms";
-import { useWallet } from "@/hooks";
+import { Button } from '@/components/atoms';
+import { useWallet } from '@/hooks';
 ```
 
 ### Why This Matters
@@ -406,7 +406,7 @@ const handleClick = (e: any) => {
 };
 
 // ✅ Correct
-import { ChangeEvent, FC } from "react";
+import { ChangeEvent, FC } from 'react';
 
 const handleClick = (e: ChangeEvent<HTMLInputElement>) => {
   console.log(e.target.value);
@@ -432,24 +432,22 @@ return <div>{needed}</div>;
 If your component passes a ref to a DOM element, use `forwardRef`:
 
 ```tsx
-import { forwardRef, InputHTMLAttributes } from "react";
+import { forwardRef, InputHTMLAttributes } from 'react';
 
 interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   label: string;
   error?: string;
 }
 
-export const Input = forwardRef<HTMLInputElement, InputProps>(
-  ({ label, error, ...props }, ref) => (
-    <div>
-      <label>{label}</label>
-      <input ref={ref} {...props} />
-      {error && <span className="text-red-500">{error}</span>}
-    </div>
-  ),
-);
+export const Input = forwardRef<HTMLInputElement, InputProps>(({ label, error, ...props }, ref) => (
+  <div>
+    <label>{label}</label>
+    <input ref={ref} {...props} />
+    {error && <span className="text-red-500">{error}</span>}
+  </div>
+));
 
-Input.displayName = "Input";
+Input.displayName = 'Input';
 ```
 
 #### Always Set `displayName`
@@ -461,7 +459,7 @@ export const MyComponent = forwardRef<HTMLDivElement, Props>((props, ref) => (
   <div ref={ref} {...props} />
 ));
 
-MyComponent.displayName = "MyComponent";
+MyComponent.displayName = 'MyComponent';
 ```
 
 #### Export Named Types
@@ -470,17 +468,17 @@ Always export the props interface:
 
 ```tsx
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: "primary" | "secondary";
-  size?: "sm" | "md" | "lg";
+  variant?: 'primary' | 'secondary';
+  size?: 'sm' | 'md' | 'lg';
 }
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ variant = "primary", size = "md", ...props }, ref) => (
+  ({ variant = 'primary', size = 'md', ...props }, ref) => (
     <button ref={ref} className={`btn-${variant} btn-${size}`} {...props} />
-  ),
+  )
 );
 
-Button.displayName = "Button";
+Button.displayName = 'Button';
 ```
 
 ### Naming Conventions
@@ -524,23 +522,23 @@ shadcn/ui components in `components/ui/` provide base styles. Wrap them in atoms
 
 ```tsx
 // components/atoms/Button.tsx
-import { Button as BaseButton } from "@/components/ui/button";
-import { forwardRef, ButtonHTMLAttributes } from "react";
+import { Button as BaseButton } from '@/components/ui/button';
+import { forwardRef, ButtonHTMLAttributes } from 'react';
 
 export const Button = forwardRef<
   HTMLButtonElement,
   ButtonHTMLAttributes<HTMLButtonElement> & {
-    variant?: "primary" | "secondary";
+    variant?: 'primary' | 'secondary';
   }
->(({ variant = "primary", ...props }, ref) => (
+>(({ variant = 'primary', ...props }, ref) => (
   <BaseButton
     ref={ref}
-    className={variant === "primary" ? "bg-stellar-blue" : "bg-stellar-purple"}
+    className={variant === 'primary' ? 'bg-stellar-blue' : 'bg-stellar-purple'}
     {...props}
   />
 ));
 
-Button.displayName = "Button";
+Button.displayName = 'Button';
 ```
 
 #### Use `cn()` for Conditional Classes
@@ -548,13 +546,10 @@ Button.displayName = "Button";
 The `cn()` utility merges class names while respecting Tailwind precedence:
 
 ```tsx
-import { cn } from "@/lib/utils";
+import { cn } from '@/lib/utils';
 
 export const Card = ({ className, ...props }: any) => (
-  <div
-    className={cn("rounded-lg border bg-white p-4 shadow", className)}
-    {...props}
-  />
+  <div className={cn('rounded-lg border bg-white p-4 shadow', className)} {...props} />
 );
 ```
 
@@ -641,6 +636,14 @@ refactor(dashboard): extract credit cards into separate component
 
 # Good chore commit
 chore(deps): update TypeScript to 5.3.3
+```
+
+### Using the Commit Message Template
+
+To help you follow these conventions, we provide a `.gitmessage` template in the root of the repository. To configure Git to use it for all commits in this repository, run:
+
+```bash
+git config commit.template .gitmessage
 ```
 
 ### Atomic Commit Rules

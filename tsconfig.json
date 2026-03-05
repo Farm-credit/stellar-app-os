@@ -24,12 +24,20 @@
   },
   "include": [
     "next-env.d.ts",
-    "**/*.ts",
-    "**/*.tsx",
+    "app/**/*.ts",
+    "app/**/*.tsx",
+    "components/**/*.ts",
+    "components/**/*.tsx",
+    "lib/**/*.ts",
+    "lib/**/*.tsx",
+    "hooks/**/*.ts",
+    "hooks/**/*.tsx",
+    "contexts/**/*.ts",
+    "contexts/**/*.tsx",
+    "types/**/*.d.ts",
     ".next/types/**/*.ts",
-    ".next/dev/types/**/*.ts",
-    "**/*.mts",
-    "types/**/*.d.ts"
+    ".next/dev/types/**/*.ts"
   ],
+  "exclude": ["node_modules", "farm Guage/**", ".github/Multistep/**"]
   "exclude": ["node_modules", "farm Guage", ".github"]
 }

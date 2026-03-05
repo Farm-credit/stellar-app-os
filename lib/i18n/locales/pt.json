@@ -46,19 +46,19 @@
     "successMessage": "Você está inscrito 🎉",
     "errorMessage": "Algo deu errado. Tente novamente."
   },
-"blog": {
-  "pageTitle": "Blog",
-  "pageSubtitle": "Perspectivas sobre créditos de carbono, agricultura sustentável, tecnologia climática e política agrícola.",
-  "featuredBlogTitle": "Blog FarmCredit",
-  "categoryFiltersLabel": "Filtros de categoria",
-  "readPost": "Ler publicação: {{title}}",
-  "loadingAriaLabel": "Carregando publicações do blog",
-  "errorTitle": "Algo deu errado",
-  "errorDesc": "Não conseguimos carregar as publicações do blog agora. Isso pode ser um problema temporário, por favor tente novamente.",
-  "errorReference": "Referência do erro: {{digest}}",
-  "tryAgain": "Tentar novamente",
-  "tryAgainAriaLabel": "Tentar carregar a página do blog novamente"
-},
+  "blog": {
+    "pageTitle": "Blog",
+    "pageSubtitle": "Perspectivas sobre créditos de carbono, agricultura sustentável, tecnologia climática e política agrícola.",
+    "featuredBlogTitle": "Blog FarmCredit",
+    "categoryFiltersLabel": "Filtros de categoria",
+    "readPost": "Ler publicação: {{title}}",
+    "loadingAriaLabel": "Carregando publicações do blog",
+    "errorTitle": "Algo deu errado",
+    "errorDesc": "Não conseguimos carregar as publicações do blog agora. Isso pode ser um problema temporário, por favor tente novamente.",
+    "errorReference": "Referência do erro: {{digest}}",
+    "tryAgain": "Tentar novamente",
+    "tryAgainAriaLabel": "Tentar carregar a página do blog novamente"
+  },
   "purchase": {
     "nextButton": "Próximo",
     "nextAriaLabel": "Continuar para conexão da carteira",

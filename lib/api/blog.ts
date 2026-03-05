@@ -157,9 +157,7 @@ export async function fetchBlogPostBySlug(slug: string): Promise<BlogPost | null
       error instanceof TypeError && error.message.toLowerCase().includes('fetch');
 
     if (isNetworkError) {
-      console.warn(
-        `[Blog API] Network error contacting ${url}. Falling back to mock data.`
-      );
+      console.warn(`[Blog API] Network error contacting ${url}. Falling back to mock data.`);
       return getMockBlogPostBySlug(slug);
     }
 

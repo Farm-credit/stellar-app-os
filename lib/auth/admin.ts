@@ -1,8 +1,8 @@
-import { cookies } from "next/headers";
-import { redirect } from "next/navigation";
+import { cookies } from 'next/headers';
+import { redirect } from 'next/navigation';
 
-const ADMIN_ROLE_COOKIE_NAME = "farmcredit_role";
-const ADMIN_ROLE_VALUE = "admin";
+const ADMIN_ROLE_COOKIE_NAME = 'farmcredit_role';
+const ADMIN_ROLE_VALUE = 'admin';
 
 export async function isAdminRequest(): Promise<boolean> {
   const cookieStore = await cookies();
@@ -15,6 +15,6 @@ export async function requireAdminAccess(): Promise<void> {
   const isAdmin = await isAdminRequest();
 
   if (!isAdmin) {
-    redirect("/");
+    redirect('/');
   }
 }

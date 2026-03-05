@@ -15,7 +15,7 @@ import { BlogGrid } from '@/components/organisms/BlogGrid';
 import { PaginationControl } from '@/components/molecules/PaginationControl';
 import { useAppTranslation } from '@/hooks/useTranslation';
 import type { BlogPageTemplateProps } from '@/lib/types/blog';
-import { JSX } from 'react';
+import { type JSX } from 'react';
 
 export function BlogPageTemplate({
   featuredPost,
@@ -35,9 +35,7 @@ export function BlogPageTemplate({
         <h1 className="text-4xl sm:text-5xl font-bold tracking-tight text-foreground mb-4">
           {t('blog.featuredBlogTitle')}
         </h1>
-        <p className="max-w-2xl mx-auto text-lg text-muted-foreground">
-          {t('blog.pageSubtitle')}
-        </p>
+        <p className="max-w-2xl mx-auto text-lg text-muted-foreground">{t('blog.pageSubtitle')}</p>
       </header>
 
       {/* Featured post hero — only renders when a featured post exists */}

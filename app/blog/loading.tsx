@@ -6,7 +6,7 @@
  */
 
 import { useAppTranslation } from '@/hooks/useTranslation';
-import { JSX } from 'react';
+import { type JSX } from 'react';
 
 function BlogCardSkeleton(): JSX.Element {
   return (

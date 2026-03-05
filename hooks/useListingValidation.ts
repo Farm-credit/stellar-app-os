@@ -38,6 +38,7 @@ export function useListingValidation(selectedCredit: Credit | null) {
         }
 
         return true;
+      } catch (_error) {
       } catch (error) {
         setValidationError('Validation failed. Please try again.');
         return false;

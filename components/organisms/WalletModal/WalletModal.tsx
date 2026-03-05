@@ -98,6 +98,7 @@ export function WalletModal({ isOpen, onOpenChange, onSuccess }: WalletModalProp
       setConnectionError(null);
 
       try {
+        await connect(walletType, 'testnet');
         await connect(walletType);
         setShowSuccess(true);
         setTimeout(() => {

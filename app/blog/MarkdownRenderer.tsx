@@ -44,10 +44,7 @@ function renderHeading(level: number, text: string, key: string) {
     );
   }
   return (
-    <h6
-      key={key}
-      className="text-sm font-semibold uppercase tracking-wide text-muted-foreground"
-    >
+    <h6 key={key} className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
       {content}
     </h6>
   );
@@ -140,9 +137,7 @@ export function MarkdownRenderer({ content }: MarkdownRendererProps) {
       index += 1;
       blocks.push(
         <pre key={`pre-${blocks.length}`} className="overflow-x-auto rounded-lg bg-muted p-4">
-          <code className="text-sm leading-relaxed text-foreground">
-            {codeLines.join('\n')}
-          </code>
+          <code className="text-sm leading-relaxed text-foreground">{codeLines.join('\n')}</code>
         </pre>
       );
       continue;

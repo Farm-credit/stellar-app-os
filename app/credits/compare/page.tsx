@@ -1,6 +1,6 @@
 'use client';
 
-import { JSX, useCallback } from 'react';
+import { type JSX, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { ComparisonTool } from '@/components/organisms/ComparisonTool/ComparisonTool';
 import { mockCarbonProjects } from '@/lib/api/mock/carbonProjects';
@@ -15,7 +15,7 @@ export default function ComparePage(): JSX.Element {
     (projectId: string): void => {
       router.push(`/credits/purchase?projectId=${projectId}`);
     },
-    [router],
+    [router]
   );
 
   return (

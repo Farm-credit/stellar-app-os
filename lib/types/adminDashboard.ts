@@ -1,4 +1,4 @@
-export type AdminProjectStatus = "active" | "pending" | "archived";
+export type AdminProjectStatus = 'active' | 'pending' | 'archived';
 
 export interface AdminProject {
   id: string;
@@ -23,7 +23,7 @@ export interface DashboardTrendPoint {
   credits: number;
 }
 
-export type ActivityType = "project" | "donation" | "mint" | "retire";
+export type ActivityType = 'project' | 'donation' | 'mint' | 'retire';
 
 export interface DashboardActivity {
   id: string;

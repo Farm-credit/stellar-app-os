@@ -7,6 +7,8 @@ export function useUserCredits(publicKey: string | null) {
     queryKey: ['user-credits', publicKey],
     queryFn: async (): Promise<Credit[]> => {
       if (!publicKey) return [];
+      const result = await fetchUserCredits(publicKey);
+      return result;
       return await fetchUserCredits(publicKey);
     },
     enabled: !!publicKey,

@@ -1,6 +1,7 @@
 # Fix CI Build - pnpm Lockfile Out of Sync
 
 ## Problem
+
 The CI is failing because `pnpm-lock.yaml` is out of sync with `package.json`. The package.json has `react-icons@^5.5.0` but the lockfile doesn't include it.
 
 ## Solution
@@ -44,6 +45,7 @@ git push origin feat/issue-56-comparison-tool
 ## After Fixing
 
 The CI checks should pass and you'll see:
+
 - ✅ Build successful
 - ✅ Lint passed
 - ✅ Type check passed

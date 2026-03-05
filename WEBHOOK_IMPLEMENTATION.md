@@ -1,11 +1,13 @@
 # Webhook Event Logs Viewer Implementation
 
 ## Overview
+
 A comprehensive admin interface for monitoring webhook deliveries, debugging integration issues, and retrying failed events.
 
 ## Features Implemented
 
 ### ✅ Core Requirements
+
 - **Events Table**: Displays timestamp, event type, status, HTTP status, payload preview, and retry count
 - **Status Filtering**: Filter by success, failed, pending, or retrying status
 - **Event Type Filtering**: Filter by specific webhook event types
@@ -61,6 +63,7 @@ lib/
 ## Type Definitions
 
 ### WebhookEvent
+
 ```typescript
 interface WebhookEvent {
   id: string;
@@ -79,6 +82,7 @@ interface WebhookEvent {
 ```
 
 ### Event Types
+
 - `credit.issued`
 - `credit.retired`
 - `credit.transferred`
@@ -91,6 +95,7 @@ interface WebhookEvent {
 - `payment.failed`
 
 ### Status Types
+
 - `success` - Event delivered successfully
 - `failed` - Event delivery failed
 - `pending` - Event pending delivery
@@ -99,43 +104,52 @@ interface WebhookEvent {
 ## Components
 
 ### WebhookEventLogsViewer (Organism)
+
 Main container component that orchestrates the entire webhook logs interface.
 
 **Props:**
+
 - `events: WebhookEvent[]` - Array of webhook events
 - `onRetryEvent?: (eventId: string) => Promise<void>` - Callback for retry action
 - `enableRealtime?: boolean` - Enable real-time updates
 
 **Features:**
+
 - State management for filters, selection, and modal
 - Real-time event updates (simulated)
 - Optimistic UI updates on retry
 - Empty state handling
 
 ### WebhookEventRow (Molecule)
+
 Individual table row displaying webhook event summary.
 
 **Props:**
+
 - `event: WebhookEvent` - Event data
 - `onRetry: (eventId: string) => void` - Retry callback
 - `onViewDetails: (event: WebhookEvent) => void` - View details callback
 - `isRetrying?: boolean` - Loading state for retry button
 
 **Features:**
+
 - Payload preview (first 3 keys)
 - Conditional retry button (only for failed events)
 - Color-coded HTTP status
 - Accessible table structure
 
 ### WebhookDetailsModal (Molecule)
+
 Full-screen modal displaying complete event details.
 
 **Props:**
+
 - `isOpen: boolean` - Modal visibility
 - `event: WebhookEvent | null` - Event to display
 - `onClose: () => void` - Close callback
 
 **Features:**
+
 - Formatted JSON display with syntax highlighting
 - Copy to clipboard functionality
 - Metadata grid layout
@@ -143,9 +157,11 @@ Full-screen modal displaying complete event details.
 - Keyboard accessible (ESC to close)
 
 ### WebhookFilterBar (Molecule)
+
 Filter and search controls for the events table.
 
 **Props:**
+
 - `filters: WebhookFilterState` - Current filter state
 - `onFilterChange: (filters: Partial<WebhookFilterState>) => void` - Filter change callback
 - `eventTypes: WebhookEventType[]` - Available event types
@@ -153,6 +169,7 @@ Filter and search controls for the events table.
 - `totalCount: number` - Total events count
 
 **Features:**
+
 - Search by ID, event type, endpoint, or error
 - Status dropdown filter
 - Event type dropdown filter
@@ -161,14 +178,17 @@ Filter and search controls for the events table.
 - Results count display
 
 ### WebhookStatusBadge (Atom)
+
 Visual status indicator with icon and color coding.
 
 **Props:**
+
 - `status: WebhookEventStatus` - Event status
 - `className?: string` - Additional CSS classes
 - `size?: 'sm' | 'md'` - Badge size
 
 **Features:**
+
 - Status-specific icons (✓, ✕, ○, ↻)
 - Color-coded variants
 - Tooltip with description
@@ -176,14 +196,17 @@ Visual status indicator with icon and color coding.
 ## API Routes
 
 ### GET /api/webhooks/events
+
 Fetch webhook events with optional filtering.
 
 **Query Parameters:**
+
 - `status?: string` - Filter by status
 - `eventType?: string` - Filter by event type
 - `limit?: number` - Limit results (default: 100)
 
 **Response:**
+
 ```json
 {
   "events": WebhookEvent[],
@@ -193,9 +216,11 @@ Fetch webhook events with optional filtering.
 ```
 
 ### POST /api/webhooks/retry
+
 Retry a failed webhook event.
 
 **Request Body:**
+
 ```json
 {
   "eventId": string
@@ -203,6 +228,7 @@ Retry a failed webhook event.
 ```
 
 **Response:**
+
 ```json
 {
   "success": boolean,
@@ -225,17 +251,20 @@ Retry a failed webhook event.
 ## Responsive Design
 
 ### Mobile (< 640px)
+
 - Stacked filter controls
 - Horizontal scrolling table
 - Full-width modal
 - Touch-friendly button sizes
 
 ### Tablet (640px - 1024px)
+
 - 2-column filter grid
 - Optimized table layout
 - Adjusted modal width
 
 ### Desktop (> 1024px)
+
 - 4-column filter grid
 - Full table visibility
 - Large modal with side-by-side layout
@@ -243,6 +272,7 @@ Retry a failed webhook event.
 ## Real-time Updates
 
 When `enableRealtime={true}`:
+
 - Polls for status changes every 5 seconds
 - Updates retrying events to success/failed
 - Visual "Live" indicator with pulsing dot
@@ -251,6 +281,7 @@ When `enableRealtime={true}`:
 ## Mock Data
 
 10 sample webhook events covering all event types and statuses:
+
 - 5 successful events
 - 2 failed events
 - 1 retrying event
@@ -260,11 +291,13 @@ When `enableRealtime={true}`:
 ## Integration Guide
 
 ### 1. Add to Admin Navigation
+
 ```tsx
 <Link href="/admin/webhooks">Webhook Logs</Link>
 ```
 
 ### 2. Replace Mock Data with Real API
+
 ```tsx
 // In app/admin/webhooks/page.tsx
 const { data } = await fetch('/api/webhooks/events');
@@ -278,10 +311,11 @@ const { data } = await fetch('/api/webhooks/events');
     });
   }}
   enableRealtime={true}
-/>
+/>;
 ```
 
 ### 3. Implement Backend Logic
+
 - Connect to database for event storage
 - Implement webhook delivery system
 - Add retry queue with exponential backoff

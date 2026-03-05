@@ -9,8 +9,9 @@ The Carbon Credit Comparison Tool (Issue #56) is **fully implemented** with all 
 The CI is failing due to an **outdated pnpm-lock.yaml** file. This is NOT related to our implementation - someone added `react-icons` to package.json without updating the lockfile.
 
 ### Error Message:
+
 ```
-ERR_PNPM_OUTDATED_LOCKFILE Cannot install with "frozen-lockfile" 
+ERR_PNPM_OUTDATED_LOCKFILE Cannot install with "frozen-lockfile"
 because pnpm-lock.yaml is not up to date with package.json
 Failure reason: 1 dependencies were added: react-icons@^5.5.0
 ```
@@ -18,6 +19,7 @@ Failure reason: 1 dependencies were added: react-icons@^5.5.0
 ## 🔧 How to Fix (Choose One Method)
 
 ### Method 1: Automated Script (Recommended)
+
 ```powershell
 # Close any open vim editors first (ESC, :q!, ENTER)
 # Then run:
@@ -25,6 +27,7 @@ Failure reason: 1 dependencies were added: react-icons@^5.5.0
 ```
 
 ### Method 2: Manual Steps (5 Commands)
+
 ```powershell
 # 1. Clean state
 git merge --abort ; git reset --hard HEAD
@@ -44,6 +47,7 @@ git push origin feat/issue-56-comparison-tool
 ```
 
 ### Method 3: Fresh Start
+
 ```powershell
 # Open NEW terminal window
 cd C:\Users\Dell\Documents\stellar-app-os
@@ -64,14 +68,18 @@ git push origin feat/issue-56-comparison-tool
 ## 🚀 After CI Passes
 
 ### 1. Verify CI Status
+
 Go to: https://github.com/utilityjnr/stellar-app-os/actions
+
 - Wait for green checkmarks ✅
 - All checks should pass
 
 ### 2. Create Pull Request
+
 Go to: **https://github.com/utilityjnr/stellar-app-os/pull/new/feat/issue-56-comparison-tool**
 
 **PR Title:**
+
 ```
 feat: Carbon Credit Comparison Tool (Issue #56)
 ```
@@ -80,16 +88,20 @@ feat: Carbon Credit Comparison Tool (Issue #56)
 Copy the entire content from `PR_COMPARISON_TOOL.md` (it's comprehensive and ready to use)
 
 Or use this summary:
+
 ```markdown
 # Carbon Credit Comparison Tool
 
 ## Summary
+
 Implements a comprehensive comparison tool that allows users to select up to 3 carbon credit projects and compare them side-by-side.
 
 ## Related Issue
+
 Closes #56
 
 ## What Was Implemented
+
 - ✅ Project selection (up to 3 projects)
 - ✅ Comparison table with 7 attributes
 - ✅ Add to Cart functionality
@@ -99,27 +111,33 @@ Closes #56
 - ✅ TypeScript strict mode
 
 ## Components Created
+
 - Checkbox (Atom)
 - ProjectSelectionCard (Molecule)
 - ComparisonTable (Molecule)
 - ComparisonTool (Organism)
 
 ## Files Changed
+
 - 17 files changed
 - 2,793 lines added
 - 15 atomic commits
 
 ## Testing
+
 See `TEST_CHECKLIST.md` for comprehensive testing guide.
 
 ## Documentation
+
 - COMPARISON_TOOL_IMPLEMENTATION.md
 - TEST_CHECKLIST.md
 - SCREEN_RECORDING_SCRIPT.md
 ```
 
 ### 3. Record Demo (Optional but Recommended)
+
 Follow `SCREEN_RECORDING_SCRIPT.md` to create a 2-3 minute demo showing:
+
 - Project selection
 - Comparison table
 - PDF export
@@ -128,6 +146,7 @@ Follow `SCREEN_RECORDING_SCRIPT.md` to create a 2-3 minute demo showing:
 - Accessibility features
 
 ### 4. Request Review
+
 - Assign a maintainer as reviewer
 - Add labels: `enhancement`, `Stellar Wave`
 - Wait for approval
@@ -135,12 +154,14 @@ Follow `SCREEN_RECORDING_SCRIPT.md` to create a 2-3 minute demo showing:
 ## 📊 Implementation Summary
 
 ### What Was Built
+
 - **4 new components** (Checkbox, ProjectSelectionCard, ComparisonTable, ComparisonTool)
 - **1 new page** (/credits/compare)
 - **1 utility** (PDF export)
 - **Extended data model** (CarbonProject with comparison fields)
 
 ### Code Quality
+
 - ✅ TypeScript strict mode (zero `any` types)
 - ✅ WCAG 2.1 AA accessibility
 - ✅ Responsive design (3 breakpoints)
@@ -149,6 +170,7 @@ Follow `SCREEN_RECORDING_SCRIPT.md` to create a 2-3 minute demo showing:
 - ✅ Comprehensive documentation
 
 ### Acceptance Criteria (8/8)
+
 - ✅ Up to 3 projects selectable
 - ✅ Comparison table accurate
 - ✅ Add to Cart works per project
@@ -226,4 +248,4 @@ This is exactly how a senior developer would handle this feature - with attentio
 **PR Link**: https://github.com/utilityjnr/stellar-app-os/pull/new/feat/issue-56-comparison-tool  
 **Issue**: Closes #56  
 **Complexity**: High (200 pts)  
-**Quality**: Production-Ready  
+**Quality**: Production-Ready

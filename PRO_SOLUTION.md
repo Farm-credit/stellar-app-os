@@ -1,6 +1,7 @@
 # 🔧 PRO SOLUTION: Fix CI Lockfile Issue
 
 ## Problem Analysis
+
 - **Issue**: `ERR_PNPM_OUTDATED_LOCKFILE` - pnpm-lock.yaml is out of sync
 - **Root Cause**: `react-icons@^5.5.0` was added to package.json but lockfile wasn't updated
 - **Impact**: CI failing, blocking PR merge
@@ -9,20 +10,25 @@
 ## 🚀 PRO SOLUTION (Multiple Methods)
 
 ### Method 1: Batch File (Recommended)
+
 ```cmd
 # Double-click or run:
 fix-lockfile.bat
 ```
+
 This will:
+
 - Kill blocking processes
 - Clean git state
 - Update lockfile
 - Commit and push
 
 ### Method 2: New Terminal Window
+
 1. **Close current terminal completely**
 2. **Open NEW PowerShell window**
 3. **Run these commands:**
+
 ```powershell
 cd C:\Users\Dell\Documents\stellar-app-os
 git checkout feat/issue-56-comparison-tool
@@ -34,12 +40,14 @@ git push origin feat/issue-56-comparison-tool
 ```
 
 ### Method 3: PowerShell Script
+
 ```powershell
 # Run the automated script:
 .\fix-ci-lockfile.ps1
 ```
 
 ### Method 4: Manual Git Reset
+
 ```powershell
 # Force clean state
 git checkout .
@@ -62,6 +70,7 @@ git push origin feat/issue-56-comparison-tool
 ## ✅ Expected Results
 
 After running any method:
+
 - ✅ pnpm-lock.yaml updated with react-icons@^5.5.0
 - ✅ Git state clean
 - ✅ Changes pushed to GitHub
@@ -77,6 +86,7 @@ After running any method:
 ## 🚀 After CI Passes
 
 ### Create Pull Request
+
 **Link**: https://github.com/utilityjnr/stellar-app-os/pull/new/feat/issue-56-comparison-tool
 
 **Title**: `feat: Carbon Credit Comparison Tool (Issue #56)`
@@ -86,17 +96,20 @@ After running any method:
 ## 🛠️ Troubleshooting
 
 ### If pnpm not installed:
+
 ```powershell
 npm install -g pnpm
 ```
 
 ### If git push fails:
+
 ```powershell
 git pull origin feat/issue-56-comparison-tool --rebase
 git push origin feat/issue-56-comparison-tool
 ```
 
 ### If still blocked by vim:
+
 1. **Restart computer** (nuclear option)
 2. **Use Method 2** (new terminal)
 3. **Use fix-lockfile.bat** (bypasses terminal)
@@ -104,6 +117,7 @@ git push origin feat/issue-56-comparison-tool
 ## 📊 Technical Details
 
 ### What's in the lockfile update:
+
 ```yaml
 react-icons:
   specifier: ^5.5.0
@@ -111,11 +125,13 @@ react-icons:
 ```
 
 ### Why this fixes CI:
+
 - CI uses `pnpm install --frozen-lockfile`
 - This requires lockfile to match package.json exactly
 - Adding react-icons entry resolves the mismatch
 
 ### Files changed:
+
 - `pnpm-lock.yaml` (updated with react-icons)
 - No other files affected
 

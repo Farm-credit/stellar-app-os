@@ -18,6 +18,8 @@ export function useListCredit() {
       if (!wallet?.publicKey) {
         throw new Error('Wallet not connected');
       }
+      const result = await createListing(wallet, params);
+      return result;
       return await createListing(wallet, params);
     },
     onSuccess: () => {

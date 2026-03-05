@@ -14,9 +14,9 @@ Closes #
 
 ## Motivation
 
-<!-- 
-Why was this documentation needed? 
-Was something unclear, missing, or outdated? 
+<!--
+Why was this documentation needed?
+Was something unclear, missing, or outdated?
 -->
 
 ## Checklist

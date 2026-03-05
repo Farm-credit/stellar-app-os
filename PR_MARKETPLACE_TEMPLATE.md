@@ -9,6 +9,7 @@ Implementation of the marketplace listings page - a secondary market for carbon 
 ## What Was Implemented
 
 ### Core Features
+
 - **Listings Grid:** Responsive 3-column grid displaying available carbon credit listings with seller info, quantity, pricing, and project details
 - **Project Type Filter:** Dropdown filter to show listings by project type (Reforestation, Renewable Energy, Mangrove Restoration, Sustainable Agriculture, Other)
 - **Sort Functionality:** Sort listings by price (ascending/descending) and date (newest/oldest)
@@ -18,6 +19,7 @@ Implementation of the marketplace listings page - a secondary market for carbon 
 - **URL State Management:** All filters, sort, search, and page number stored in URL params for shareability
 
 ### Components Created
+
 1. **Types:** `lib/types/marketplace.ts` - TypeScript interfaces for marketplace data
 2. **Mock API:** `lib/api/mock/marketplaceListings.ts` - Mock data with 12 diverse listings
 3. **MarketplaceGrid:** `components/organisms/MarketplaceGrid/MarketplaceGrid.tsx` - Grid layout with empty state
@@ -31,23 +33,27 @@ Implementation of the marketplace listings page - a secondary market for carbon 
 ### Architecture Decisions
 
 **Client-Side Rendering**
+
 - Chosen for real-time filtering/sorting without page reloads
 - Better UX with instant feedback
 - Follows existing patterns in the codebase (blog, comparison tool)
 
 **URL State Management**
+
 - All filters, sort, search, and pagination stored in URL parameters
 - Enables shareable filtered views
 - Supports browser back/forward navigation
 - SEO-friendly structure ready for future SSR
 
 **Mock Data Pattern**
+
 - Follows existing project pattern (blog, carbon projects)
 - Enables development without backend dependency
 - Easy to swap for real API integration
 - Consistent test data for development
 
 **Component Structure**
+
 - Follows atomic design principles (atoms → molecules → organisms)
 - Reuses existing components (Button, Input, Select, Badge, Card, Text)
 - Consistent with codebase patterns
@@ -56,6 +62,7 @@ Implementation of the marketplace listings page - a secondary market for carbon 
 ### Technical Implementation
 
 **Filtering & Sorting**
+
 ```typescript
 // Server-side simulation in mock API
 - Project type filtering
@@ -65,6 +72,7 @@ Implementation of the marketplace listings page - a secondary market for carbon 
 ```
 
 **State Management**
+
 ```typescript
 // URL params for all state
 ?type=Reforestation&sort=price-asc&search=amazon&page=2
@@ -77,6 +85,7 @@ Implementation of the marketplace listings page - a secondary market for carbon 
 ```
 
 **Responsive Design**
+
 ```typescript
 // Tailwind breakpoints
 - Mobile (< 640px): 1 column grid, stacked filters
@@ -118,6 +127,7 @@ Implementation of the marketplace listings page - a secondary market for carbon 
 ## How to Test
 
 ### Prerequisites
+
 ```bash
 # Start development server
 pnpm dev
@@ -129,12 +139,14 @@ http://localhost:3000/marketplace
 ### Test Scenarios
 
 #### 1. Basic Display (30 seconds)
+
 - Navigate to `/marketplace`
 - Verify 9 listings display in 3x3 grid
 - Check each card shows all required information
 - Verify responsive layout (resize browser)
 
 #### 2. Filtering (1 minute)
+
 - Select "Renewable Energy" from project type dropdown
 - Verify only Renewable Energy listings show
 - Check results count updates
@@ -142,6 +154,7 @@ http://localhost:3000/marketplace
 - Select "All Project Types" to clear filter
 
 #### 3. Sorting (1 minute)
+
 - Select "Price: Low to High" from sort dropdown
 - Verify listings reorder correctly
 - Check URL updates: `?sort=price-asc`
@@ -151,6 +164,7 @@ http://localhost:3000/marketplace
   - Oldest First
 
 #### 4. Search (1 minute)
+
 - Type "amazon" in search box
 - Verify only Amazon-related listings show
 - Check results count updates
@@ -159,6 +173,7 @@ http://localhost:3000/marketplace
 - Try searching for seller names and locations
 
 #### 5. Combined Filters (1 minute)
+
 - Apply project type filter
 - Add search query
 - Change sort option
@@ -167,6 +182,7 @@ http://localhost:3000/marketplace
 - Verify results match all criteria
 
 #### 6. Pagination (1 minute)
+
 - Scroll to bottom
 - Click "Next" button
 - Verify page 2 loads
@@ -176,6 +192,7 @@ http://localhost:3000/marketplace
 - Verify filters preserved across pages
 
 #### 7. Detail Page (1 minute)
+
 - Click "View Details" on any listing
 - Verify detail page loads
 - Check all information displays correctly
@@ -185,6 +202,7 @@ http://localhost:3000/marketplace
 - Verify returns to listings with state preserved
 
 #### 8. URL State (30 seconds)
+
 - Apply multiple filters
 - Copy URL from address bar
 - Open new tab and paste URL
@@ -193,6 +211,7 @@ http://localhost:3000/marketplace
 - Verify state changes correctly
 
 #### 9. Responsive (1 minute)
+
 - Resize browser to mobile width (375px)
 - Verify 1 column grid
 - Verify filters stack vertically
@@ -203,6 +222,7 @@ http://localhost:3000/marketplace
 - Verify 3 column grid
 
 #### 10. Keyboard Navigation (1 minute)
+
 - Press Tab to navigate through page
 - Verify focus indicators visible
 - Press Enter on "View Details"
@@ -212,6 +232,7 @@ http://localhost:3000/marketplace
 - Verify returns to listings
 
 #### 11. Edge Cases (1 minute)
+
 - Search for "xyz123" (no results)
 - Verify empty state displays
 - Navigate to `/marketplace/invalid-id`
@@ -220,6 +241,7 @@ http://localhost:3000/marketplace
 - Verify empty state with active filters
 
 ### Expected Results
+
 - ✅ All filters, sort, and search work correctly
 - ✅ Pagination preserves state
 - ✅ Detail pages load correctly
@@ -236,6 +258,7 @@ http://localhost:3000/marketplace
 [ATTACH SCREEN RECORDING HERE]
 
 **Recording includes:**
+
 1. Initial page load and grid display
 2. Project type filtering
 3. Sort by price and date
@@ -253,6 +276,7 @@ http://localhost:3000/marketplace
 ## Files Changed
 
 ### New Files (7)
+
 - `lib/types/marketplace.ts` - Type definitions
 - `lib/api/mock/marketplaceListings.ts` - Mock API data
 - `components/organisms/MarketplaceGrid/MarketplaceGrid.tsx` - Grid component
@@ -262,6 +286,7 @@ http://localhost:3000/marketplace
 - `app/marketplace/[id]/page.tsx` - Detail page
 
 ### Documentation (3)
+
 - `MARKETPLACE_IMPLEMENTATION.md` - Complete implementation guide
 - `MARKETPLACE_TESTING_GUIDE.md` - Testing checklist
 - `PR_MARKETPLACE_TEMPLATE.md` - This PR template
@@ -269,12 +294,14 @@ http://localhost:3000/marketplace
 ## Integration Points
 
 ### Ready for Integration
+
 1. **Authentication:** Replace `currentUserId={null}` with actual user ID from auth context
 2. **Purchase Flow:** Implement purchase handler in detail page
 3. **Real API:** Replace mock data with actual API calls
 4. **Wallet Integration:** Connect purchase button to Stellar wallet
 
 ### Future Enhancements
+
 - Real-time price updates via WebSocket
 - Favorite/watchlist functionality
 - Price alerts
@@ -295,6 +322,7 @@ http://localhost:3000/marketplace
 ## Browser Compatibility
 
 Tested and working in:
+
 - ✅ Chrome (latest)
 - ✅ Firefox (latest)
 - ✅ Safari (latest)
@@ -362,6 +390,7 @@ None. This is a new feature with no impact on existing functionality.
 ## Dependencies
 
 No new dependencies added. Uses existing project dependencies:
+
 - Next.js 16.1.6
 - React 19.2.3
 - TypeScript 5

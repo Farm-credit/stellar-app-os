@@ -1,11 +1,11 @@
-"use client";
+'use client';
 
-import { useMemo, useState } from "react";
-import { Button } from "@/components/atoms/Button";
-import type { DashboardTrendPoint } from "@/lib/types/adminDashboard";
+import { useMemo, useState } from 'react';
+import { Button } from '@/components/atoms/Button';
+import type { DashboardTrendPoint } from '@/lib/types/adminDashboard';
 
-type MetricType = "donations" | "credits";
-type RangeType = "6m" | "12m";
+type MetricType = 'donations' | 'credits';
+type RangeType = '6m' | '12m';
 
 interface TrendChartProps {
   points: DashboardTrendPoint[];
@@ -16,23 +16,23 @@ const CHART_HEIGHT = 260;
 const PADDING = 32;
 
 function formatMetricValue(value: number, metric: MetricType): string {
-  if (metric === "donations") {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
+  if (metric === 'donations') {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
       maximumFractionDigits: 0,
     }).format(value);
   }
 
-  return new Intl.NumberFormat("en-US").format(value);
+  return new Intl.NumberFormat('en-US').format(value);
 }
 
 export function TrendChart({ points }: TrendChartProps) {
-  const [metric, setMetric] = useState<MetricType>("donations");
-  const [range, setRange] = useState<RangeType>("12m");
+  const [metric, setMetric] = useState<MetricType>('donations');
+  const [range, setRange] = useState<RangeType>('12m');
 
   const filteredPoints = useMemo(() => {
-    if (range === "6m") {
+    if (range === '6m') {
       return points.slice(-6);
     }
 
@@ -63,13 +63,13 @@ export function TrendChart({ points }: TrendChartProps) {
     });
 
     const linePath = coordinates
-      .map((coordinate, index) => `${index === 0 ? "M" : "L"}${coordinate.x},${coordinate.y}`)
-      .join(" ");
+      .map((coordinate, index) => `${index === 0 ? 'M' : 'L'}${coordinate.x},${coordinate.y}`)
+      .join(' ');
 
     const areaPath =
       coordinates.length > 0
         ? `${linePath} L${coordinates[coordinates.length - 1].x},${CHART_HEIGHT - PADDING} L${coordinates[0].x},${CHART_HEIGHT - PADDING} Z`
-        : "";
+        : '';
 
     const firstValue = coordinates[0]?.value ?? 0;
     const lastValue = coordinates[coordinates.length - 1]?.value ?? 0;
@@ -93,46 +93,54 @@ export function TrendChart({ points }: TrendChartProps) {
             Trend charts
           </h2>
           <p className="text-sm text-muted-foreground">
-            {metric === "donations" ? "Donations processed" : "Credits minted"} over time ({range})
+            {metric === 'donations' ? 'Donations processed' : 'Credits minted'} over time ({range})
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <div className="inline-flex rounded-md border border-border p-1" role="group" aria-label="Chart metric toggle">
+          <div
+            className="inline-flex rounded-md border border-border p-1"
+            role="group"
+            aria-label="Chart metric toggle"
+          >
             <Button
               type="button"
               size="sm"
-              variant={metric === "donations" ? "default" : "ghost"}
-              aria-pressed={metric === "donations"}
-              onClick={() => setMetric("donations")}
+              variant={metric === 'donations' ? 'default' : 'ghost'}
+              aria-pressed={metric === 'donations'}
+              onClick={() => setMetric('donations')}
             >
               Donations
             </Button>
             <Button
               type="button"
               size="sm"
-              variant={metric === "credits" ? "default" : "ghost"}
-              aria-pressed={metric === "credits"}
-              onClick={() => setMetric("credits")}
+              variant={metric === 'credits' ? 'default' : 'ghost'}
+              aria-pressed={metric === 'credits'}
+              onClick={() => setMetric('credits')}
             >
               Credits
             </Button>
           </div>
-          <div className="inline-flex rounded-md border border-border p-1" role="group" aria-label="Chart range toggle">
+          <div
+            className="inline-flex rounded-md border border-border p-1"
+            role="group"
+            aria-label="Chart range toggle"
+          >
             <Button
               type="button"
               size="sm"
-              variant={range === "6m" ? "outline" : "ghost"}
-              aria-pressed={range === "6m"}
-              onClick={() => setRange("6m")}
+              variant={range === '6m' ? 'outline' : 'ghost'}
+              aria-pressed={range === '6m'}
+              onClick={() => setRange('6m')}
             >
               6M
             </Button>
             <Button
               type="button"
               size="sm"
-              variant={range === "12m" ? "outline" : "ghost"}
-              aria-pressed={range === "12m"}
-              onClick={() => setRange("12m")}
+              variant={range === '12m' ? 'outline' : 'ghost'}
+              aria-pressed={range === '12m'}
+              onClick={() => setRange('12m')}
             >
               12M
             </Button>
@@ -206,13 +214,22 @@ export function TrendChart({ points }: TrendChartProps) {
 
         <div className="mt-4 grid gap-2 border-t border-border pt-4 text-sm text-muted-foreground sm:grid-cols-3">
           <p>
-            Min: <span className="font-medium text-foreground">{formatMetricValue(chartData.minValue, metric)}</span>
+            Min:{' '}
+            <span className="font-medium text-foreground">
+              {formatMetricValue(chartData.minValue, metric)}
+            </span>
           </p>
           <p>
-            Max: <span className="font-medium text-foreground">{formatMetricValue(chartData.maxValue, metric)}</span>
+            Max:{' '}
+            <span className="font-medium text-foreground">
+              {formatMetricValue(chartData.maxValue, metric)}
+            </span>
           </p>
           <p>
-            Trend: <span className="font-medium text-foreground">{chartData.trendPercent.toFixed(1)}%</span>
+            Trend:{' '}
+            <span className="font-medium text-foreground">
+              {chartData.trendPercent.toFixed(1)}%
+            </span>
           </p>
         </div>
       </div>
