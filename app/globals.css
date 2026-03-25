@@ -231,3 +231,21 @@
     background: var(--muted);
   }
 }
+
+/* ===== DARK MODE TRANSITION ===== */
+html {
+  color-scheme: light dark;
+}
+
+*,
+*::before,
+*::after {
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+/* Disable transition on page load to prevent flash */
+html.no-transitions *,
+html.no-transitions *::before,
+html.no-transitions *::after {
+  transition: none !important;
+}
