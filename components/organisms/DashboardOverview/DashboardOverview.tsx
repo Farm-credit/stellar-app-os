@@ -1,15 +1,37 @@
 'use client';
 
 import { useUserDashboard } from '@/hooks/useUserDashboard';
+import { useMemo } from 'react';
 import { StatCard, StatCardSkeleton } from './StatCard';
 import { RecentActivity, RecentActivitySkeleton } from './RecentActivity';
 import { QuickActions } from './QuickActions';
+import { AnalyticsWidget, type ChartDataPoint } from '@/components/AnalyticsWidget';
 import { Text } from '@/components/atoms/Text';
 import { Card, CardContent } from '@/components/molecules/Card';
 import { Heart, Coins, Wind, Zap } from 'lucide-react';
 
 export function DashboardOverview() {
   const { data, isLoading, error, retry } = useUserDashboard();
+
+  /**
+   * Generate mock analytics data for the last 30 days
+   */
+  const analyticsData = useMemo((): ChartDataPoint[] => {
+    const days: ChartDataPoint[] = [];
+    for (let i = 29; i >= 0; i--) {
+      const date = new Date();
+      date.setDate(date.getDate() - i);
+      const dayName = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+      days.push({
+        name: dayName,
+        donations: Math.floor(Math.random() * 500) + 100,
+        carbonCredits: Math.floor(Math.random() * 50) + 10,
+        transactions: Math.floor(Math.random() * 100) + 20,
+      });
+    }
+    return days;
+  }, []);
 
   if (error) {
     return (
@@ -84,6 +106,38 @@ export function DashboardOverview() {
         </div>
         <div className="lg:col-span-1">
           <QuickActions />
+        </div>
+      </section>
+
+      {/* Analytics Section */}
+      <section className="space-y-8">
+        <div className="flex flex-col space-y-2">
+          <Text variant="h2" className="text-2xl font-bold tracking-tight">Activity Analytics</Text>
+          <Text variant="muted" className="text-sm font-medium opacity-70">Your 30-day activity trends and metrics</Text>
+        </div>
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          <AnalyticsWidget
+            chartType="line"
+            title="Donations Over Time"
+            data={analyticsData}
+            dataKeys={['donations']}
+            colors={['#3b82f6']}
+            showDateRange
+            showExport
+            showLegend
+            height={300}
+          />
+          <AnalyticsWidget
+            chartType="bar"
+            title="Carbon Credits & Transactions"
+            data={analyticsData}
+            dataKeys={['carbonCredits', 'transactions']}
+            colors={['#10b981', '#f59e0b']}
+            showDateRange
+            showExport
+            showLegend
+            height={300}
+          />
         </div>
       </section>
     </div>
