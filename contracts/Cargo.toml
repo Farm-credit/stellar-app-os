@@ -1,3 +1,3 @@
 [workspace]
-members = ["nullifier-registry"]
+members = ["nullifier-registry", "escrow-milestone"]
 resolver = "2"
