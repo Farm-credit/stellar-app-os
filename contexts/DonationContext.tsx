@@ -9,9 +9,10 @@ import {
 
 interface DonationContextValue {
   state: DonationFlowState;
-  setAmount: (amount: number) => void; // eslint-disable-line no-unused-vars
-  setIsMonthly: (isMonthly: boolean) => void; // eslint-disable-line no-unused-vars
-  setDonorInfo: (info: Partial<DonorInfo>) => void; // eslint-disable-line no-unused-vars
+  setAmount: (_amount: number) => void;
+  setTreeCount: (_count: number) => void;
+  setIsMonthly: (_isMonthly: boolean) => void;
+  setDonorInfo: (_info: Partial<DonorInfo>) => void;
   resetFlow: () => void;
 }
 
@@ -24,6 +25,10 @@ export function DonationProvider({ children }: { children: ReactNode }) {
 
   const setAmount = useCallback((amount: number) => {
     setState((prev) => ({ ...prev, amount }));
+  }, []);
+
+  const setTreeCount = useCallback((treeCount: number) => {
+    setState((prev) => ({ ...prev, treeCount }));
   }, []);
 
   const setIsMonthly = useCallback((isMonthly: boolean) => {
@@ -42,8 +47,8 @@ export function DonationProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo(
-    () => ({ state, setAmount, setIsMonthly, setDonorInfo, resetFlow }),
-    [state, setAmount, setIsMonthly, setDonorInfo, resetFlow]
+    () => ({ state, setAmount, setTreeCount, setIsMonthly, setDonorInfo, resetFlow }),
+    [state, setAmount, setTreeCount, setIsMonthly, setDonorInfo, resetFlow]
   );
 
   return <DonationContext.Provider value={value}>{children}</DonationContext.Provider>;

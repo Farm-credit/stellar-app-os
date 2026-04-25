@@ -11,7 +11,7 @@
 //!                              ↘ Disputed / Refunded
 
 use soroban_sdk::{
-    contract, contractimpl, contracttype, symbol_short, token, Address, BytesN, Env,
+    contract, contractimpl, contracttype, symbol_short, token, Address, BytesN, Env, Vec,
 };
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -24,6 +24,9 @@ const BPS_DENOM: i128     = 10_000;
 
 /// 6 months in seconds (approx 26 weeks)
 const SIX_MONTHS_SECS: u64 = 60 * 60 * 24 * 7 * 26;
+
+/// Maximum trees per batch deposit (Stellar operation limit safety margin)
+const MAX_BATCH_SIZE: u32 = 50;
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -55,6 +58,14 @@ pub struct EscrowRecord {
     pub planting_proof:     Option<BytesN<32>>,
     /// SHA-256 of GPS + photo proof submitted at survival check
     pub survival_proof:     Option<BytesN<32>>,
+}
+
+/// A single slot in a batch deposit: one farmer address and the amount for that tree.
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct BatchSlot {
+    pub farmer: Address,
+    pub amount: i128,
 }
 
 // ── Contract ──────────────────────────────────────────────────────────────────
@@ -108,6 +119,70 @@ impl TreeEscrow {
         });
 
         env.events().publish((symbol_short!("deposit"), farmer), amount);
+    }
+
+    /// Batch deposit: donor funds N tree slots in a single contract invocation.
+    ///
+    /// Gas efficiency: one token transfer for the total, then N storage writes.
+    /// Each slot maps to one farmer escrow record in the next planting cycle.
+    ///
+    /// Constraints:
+    ///   - All slots must use the same token.
+    ///   - No farmer in the batch may already have an active escrow.
+    ///   - Batch size is capped at MAX_BATCH_SIZE (50) to stay within ledger limits.
+    pub fn batch_deposit(
+        env: Env,
+        donor: Address,
+        token: Address,
+        slots: Vec<BatchSlot>,
+    ) {
+        donor.require_auth();
+
+        let n = slots.len();
+        if n == 0 {
+            panic!("batch must contain at least one slot");
+        }
+        if n > MAX_BATCH_SIZE {
+            panic!("batch exceeds maximum size of 50");
+        }
+
+        // Validate all slots and compute total in a single pass
+        let mut total: i128 = 0;
+        for i in 0..n {
+            let slot = slots.get(i).unwrap();
+            if slot.amount <= 0 {
+                panic!("each slot amount must be positive");
+            }
+            let key = Self::record_key(&env, &slot.farmer);
+            if env.storage().persistent().has(&key) {
+                panic!("active escrow already exists for a farmer in this batch");
+            }
+            total += slot.amount;
+        }
+
+        // Single token transfer for the entire batch — gas-efficient
+        token::Client::new(&env, &token)
+            .transfer(&donor, &env.current_contract_address(), &total);
+
+        // Write one escrow record per slot
+        for i in 0..n {
+            let slot = slots.get(i).unwrap();
+            let key = Self::record_key(&env, &slot.farmer);
+            env.storage().persistent().set(&key, &EscrowRecord {
+                donor:          donor.clone(),
+                farmer:         slot.farmer.clone(),
+                token:          token.clone(),
+                total_amount:   slot.amount,
+                released:       0,
+                status:         EscrowStatus::Funded,
+                planted_at:     None,
+                planting_proof: None,
+                survival_proof: None,
+            });
+            env.events().publish((symbol_short!("deposit"), slot.farmer), slot.amount);
+        }
+
+        env.events().publish((symbol_short!("batch"), donor), total);
     }
 
     /// Verifier calls this after GPS + photo proof of planting is validated.
@@ -229,7 +304,7 @@ impl TreeEscrow {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use soroban_sdk::{testutils::Address as _, token, Address, BytesN, Env};
+    use soroban_sdk::{testutils::Address as _, token, vec, Address, BytesN, Env};
 
     fn setup() -> (Env, Address, Address, Address, Address, TreeEscrowClient<'static>) {
         let env = Env::default();
@@ -317,5 +392,64 @@ mod tests {
         client.deposit(&donor, &farmer, &token, &10_000);
         client.verify_planting(&farmer, &proof(&env, 1));
         client.refund(&farmer); // must panic
+    }
+
+    #[test]
+    fn test_batch_deposit_three_trees() {
+        let (env, _admin, donor, _farmer, token, client) = setup();
+
+        // Mint enough for 3 trees
+        token::StellarAssetClient::new(&env, &token).mint(&donor, &20_000);
+
+        let farmer_a = Address::generate(&env);
+        let farmer_b = Address::generate(&env);
+        let farmer_c = Address::generate(&env);
+
+        let slots = vec![
+            &env,
+            BatchSlot { farmer: farmer_a.clone(), amount: 3_000 },
+            BatchSlot { farmer: farmer_b.clone(), amount: 3_000 },
+            BatchSlot { farmer: farmer_c.clone(), amount: 4_000 },
+        ];
+
+        client.batch_deposit(&donor, &token, &slots);
+
+        assert_eq!(client.get_record(&farmer_a).unwrap().total_amount, 3_000);
+        assert_eq!(client.get_record(&farmer_b).unwrap().total_amount, 3_000);
+        assert_eq!(client.get_record(&farmer_c).unwrap().total_amount, 4_000);
+        assert_eq!(client.get_record(&farmer_a).unwrap().status, EscrowStatus::Funded);
+    }
+
+    #[test]
+    #[should_panic(expected = "batch exceeds maximum size")]
+    fn test_batch_too_large_rejected() {
+        let (env, _admin, donor, _farmer, token, client) = setup();
+
+        // Build 51 slots
+        let mut slots = Vec::new(&env);
+        for _ in 0..51 {
+            slots.push_back(BatchSlot {
+                farmer: Address::generate(&env),
+                amount: 100,
+            });
+        }
+
+        client.batch_deposit(&donor, &token, &slots);
+    }
+
+    #[test]
+    #[should_panic(expected = "active escrow already exists for a farmer in this batch")]
+    fn test_batch_duplicate_farmer_rejected() {
+        let (env, _admin, donor, farmer, token, client) = setup();
+
+        // farmer already has an escrow from a prior deposit
+        client.deposit(&donor, &farmer, &token, &1_000);
+
+        let slots = vec![
+            &env,
+            BatchSlot { farmer: farmer.clone(), amount: 1_000 },
+        ];
+
+        client.batch_deposit(&donor, &token, &slots);
     }
 }

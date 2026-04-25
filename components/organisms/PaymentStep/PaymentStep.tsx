@@ -78,7 +78,7 @@ export function PaymentStep() {
           <div className="rounded-2xl border border-border bg-card p-6 sm:p-8 shadow-sm">
             {paymentState.method === 'card' ? (
               <StripePaymentForm
-                amount={donationState.amount}
+                amount={donationState.amount * donationState.treeCount}
                 isMonthly={donationState.isMonthly}
                 donorEmail={donationState.donorInfo.email}
                 donorName={donationState.donorInfo.name}
@@ -90,7 +90,7 @@ export function PaymentStep() {
               />
             ) : (
               <StellarPaymentSection
-                amount={donationState.amount}
+                amount={donationState.amount * donationState.treeCount}
                 wallet={wallet}
                 status={paymentState.status}
                 error={paymentState.error}
@@ -121,6 +121,7 @@ export function PaymentStep() {
             amount={donationState.amount}
             isMonthly={donationState.isMonthly}
             paymentMethod={paymentState.method}
+            treeCount={donationState.treeCount}
           />
         </div>
       </div>
