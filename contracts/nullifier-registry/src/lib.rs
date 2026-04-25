@@ -2,7 +2,7 @@
 
 use soroban_sdk::{
     contract, contractimpl, contracttype, crypto::Hash, symbol_short, vec, xdr::ToXdr, Address, Bytes,
-    BytesN, Env, String,
+    BytesN, Env, String, Symbol,
 };
 
 // Storage key namespace
@@ -74,7 +74,7 @@ impl NullifierRegistry {
 
         // Emit event for indexers
         env.events().publish(
-            (symbol_short!("register"), input.farmer_id),
+            (Symbol::new(&env, "FarmerRegistered"), input.farmer_id),
             commitment.clone(),
         );
 

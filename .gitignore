@@ -44,4 +44,5 @@ FarmCredit*
 
 # rust
 /contracts/target/
+**/test_snapshots/
 .claude

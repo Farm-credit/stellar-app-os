@@ -9,7 +9,7 @@
 //!   4. Remaining 25% stays locked until final milestone or dispute resolution
 
 use soroban_sdk::{
-    contract, contractimpl, contracttype, symbol_short, token, Address, Bytes, Env, IntoVal,
+    contract, contractimpl, contracttype, symbol_short, token, Address, Bytes, Env, IntoVal, Symbol,
 };
 
 // ── Storage keys ──────────────────────────────────────────────────────────────
@@ -81,8 +81,8 @@ impl EscrowMilestone {
 
         let state = EscrowState {
             farmer:            farmer.clone(),
-            funder,
-            token,
+            funder:            funder.clone(),
+            token:             token.clone(),
             total_amount:      amount,
             released:          0,
             status:            EscrowStatus::Funded,
@@ -92,8 +92,8 @@ impl EscrowMilestone {
         env.storage().persistent().set(&key, &state);
 
         env.events().publish(
-            (symbol_short!("deposit"), farmer),
-            amount,
+            (Symbol::new(&env, "DonationReceived"), funder, farmer),
+            (amount, token),
         );
     }
 
@@ -136,8 +136,8 @@ impl EscrowMilestone {
         env.storage().persistent().set(&key, &state);
 
         env.events().publish(
-            (symbol_short!("m1release"), farmer),
-            release_amount,
+            (Symbol::new(&env, "PlantingVerified"), farmer),
+            (release_amount, verification_hash),
         );
     }
 
@@ -174,7 +174,7 @@ impl EscrowMilestone {
         env.storage().persistent().set(&key, &state);
 
         env.events().publish(
-            (symbol_short!("complete"), farmer),
+            (Symbol::new(&env, "MilestonePaymentReleased"), farmer),
             remainder,
         );
     }
@@ -205,7 +205,7 @@ impl EscrowMilestone {
         env.storage().persistent().set(&key, &state);
 
         env.events().publish(
-            (symbol_short!("refund"), farmer),
+            (Symbol::new(&env, "DonationRefunded"), state.funder, farmer),
             state.total_amount,
         );
     }
