@@ -1,13 +1,9 @@
 #![no_std]
 
 use soroban_sdk::{
-    contract, contractimpl, contracttype, crypto::Hash, symbol_short, vec, Address, Bytes,
-    BytesN, Env, String,
+    contract, contractimpl, contracttype, symbol_short, Address, Bytes,
+    BytesN, Env, String, xdr::ToXdr,
 };
-
-// Storage key namespace
-const NULLIFIER: &str = "NULL";
-const ADMIN: &str = "ADMIN";
 
 #[contracttype]
 #[derive(Clone, Debug, PartialEq)]
@@ -33,34 +29,87 @@ pub struct NullifierRegistry;
 
 #[contractimpl]
 impl NullifierRegistry {
-    /// Initialize the contract with an admin address.
+    /// One-time init — sets the admin and initialises the pause flag.
     pub fn initialize(env: Env, admin: Address) {
         if env.storage().instance().has(&symbol_short!("ADMIN")) {
             panic!("already initialized");
         }
         env.storage().instance().set(&symbol_short!("ADMIN"), &admin);
+        env.storage().instance().set(&symbol_short!("PAUSED"), &false);
     }
 
+    // ── Emergency pause ───────────────────────────────────────────────────────
+
+    /// Halt all registrations immediately. Admin only.
+    pub fn pause(env: Env) {
+        Self::require_admin(&env);
+        env.storage().instance().set(&symbol_short!("PAUSED"), &true);
+        env.events().publish((symbol_short!("pause"),), ());
+    }
+
+    /// Resume registrations. Admin only.
+    pub fn unpause(env: Env) {
+        Self::require_admin(&env);
+        env.storage().instance().set(&symbol_short!("PAUSED"), &false);
+        env.events().publish((symbol_short!("unpause"),), ());
+    }
+
+    /// Returns true if the contract is currently paused.
+    pub fn is_paused(env: Env) -> bool {
+        env.storage()
+            .instance()
+            .get(&symbol_short!("PAUSED"))
+            .unwrap_or(false)
+    }
+
+    // ── Admin transfer (2-step) ───────────────────────────────────────────────
+
+    /// Step 1: current admin nominates a successor.
+    /// The admin account should be a Stellar multisig account (M-of-N) for mainnet.
+    pub fn propose_admin(env: Env, new_admin: Address) {
+        Self::require_admin(&env);
+        env.storage()
+            .instance()
+            .set(&symbol_short!("PADMIN"), &new_admin);
+        env.events()
+            .publish((symbol_short!("propAdmin"),), new_admin);
+    }
+
+    /// Step 2: nominated admin accepts ownership. Clears the pending slot.
+    pub fn accept_admin(env: Env) {
+        let pending: Address = env
+            .storage()
+            .instance()
+            .get(&symbol_short!("PADMIN"))
+            .expect("no pending admin");
+        pending.require_auth();
+        env.storage()
+            .instance()
+            .set(&symbol_short!("ADMIN"), &pending);
+        env.storage()
+            .instance()
+            .remove(&symbol_short!("PADMIN"));
+        env.events()
+            .publish((symbol_short!("admAccept"),), pending);
+    }
+
+    // ── Core functions ────────────────────────────────────────────────────────
+
     /// Compute a SHA-256 commitment from GPS + timestamp + farmer_id.
-    /// Returns the 32-byte hash.
     pub fn compute_commitment(env: Env, input: TreeCommitmentInput) -> BytesN<32> {
         Self::_compute_commitment(&env, &input)
     }
 
     /// Register a tree commitment on-chain.
     /// Panics if the commitment already exists (double-count prevention).
+    /// Panics if the contract is paused.
     pub fn register(env: Env, input: TreeCommitmentInput) -> BytesN<32> {
-        // Caller must be the farmer themselves
+        Self::require_not_paused(&env);
         input.farmer_id.require_auth();
 
         let commitment = Self::_compute_commitment(&env, &input);
 
-        // Reject if already registered — nullifier check
-        if env
-            .storage()
-            .persistent()
-            .has(&commitment)
-        {
+        if env.storage().persistent().has(&commitment) {
             panic!("commitment already registered: double-counting rejected");
         }
 
@@ -72,7 +121,6 @@ impl NullifierRegistry {
 
         env.storage().persistent().set(&commitment, &entry);
 
-        // Emit event for indexers
         env.events().publish(
             (symbol_short!("register"), input.farmer_id),
             commitment.clone(),
@@ -93,18 +141,37 @@ impl NullifierRegistry {
 
     // ── internal ──────────────────────────────────────────────────────────────
 
+    fn require_not_paused(env: &Env) {
+        if env
+            .storage()
+            .instance()
+            .get(&symbol_short!("PAUSED"))
+            .unwrap_or(false)
+        {
+            panic!("contract is paused");
+        }
+    }
+
+    fn require_admin(env: &Env) {
+        let admin: Address = env
+            .storage()
+            .instance()
+            .get(&symbol_short!("ADMIN"))
+            .expect("contract not initialized");
+        admin.require_auth();
+    }
+
     fn _compute_commitment(env: &Env, input: &TreeCommitmentInput) -> BytesN<32> {
-        // Encode: gps_bytes | timestamp_be_8_bytes | farmer_id_bytes
-        let gps_bytes = input.gps.to_xdr(env);
+        let gps_bytes = input.gps.clone().to_xdr(env);
         let ts_bytes = input.timestamp.to_be_bytes();
-        let farmer_bytes = input.farmer_id.to_xdr(env);
+        let farmer_bytes = input.farmer_id.clone().to_xdr(env);
 
         let mut preimage = Bytes::new(env);
         preimage.append(&gps_bytes);
         preimage.extend_from_array(&ts_bytes);
         preimage.append(&farmer_bytes);
 
-        env.crypto().sha256(&preimage)
+        env.crypto().sha256(&preimage).into()
     }
 }
 
@@ -154,7 +221,6 @@ mod tests {
         let input = sample_input(&env, &farmer);
 
         client.register(&input);
-        // Second call with identical input must panic
         client.register(&input);
     }
 
@@ -184,5 +250,48 @@ mod tests {
         let c1 = client.compute_commitment(&input);
         let c2 = client.compute_commitment(&input);
         assert_eq!(c1, c2);
+    }
+
+    // ── Pause tests ───────────────────────────────────────────────────────────
+
+    #[test]
+    #[should_panic(expected = "contract is paused")]
+    fn test_pause_blocks_register() {
+        let (env, _, client) = setup();
+        let farmer = Address::generate(&env);
+
+        client.pause();
+        assert!(client.is_paused());
+
+        client.register(&sample_input(&env, &farmer));
+    }
+
+    #[test]
+    fn test_unpause_restores_register() {
+        let (env, _, client) = setup();
+        let farmer = Address::generate(&env);
+
+        client.pause();
+        client.unpause();
+        assert!(!client.is_paused());
+
+        // Should succeed after unpause
+        let commitment = client.register(&sample_input(&env, &farmer));
+        assert!(client.is_registered(&commitment));
+    }
+
+    // ── Admin transfer tests ──────────────────────────────────────────────────
+
+    #[test]
+    fn test_propose_and_accept_admin() {
+        let (env, _old_admin, client) = setup();
+        let new_admin = Address::generate(&env);
+
+        client.propose_admin(&new_admin);
+        client.accept_admin();
+
+        // New admin can pause — verifies they are now the active admin
+        client.pause();
+        assert!(client.is_paused());
     }
 }

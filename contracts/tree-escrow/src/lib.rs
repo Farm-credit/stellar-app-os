@@ -11,7 +11,7 @@
 //!                              ↘ Disputed / Refunded
 
 use soroban_sdk::{
-    contract, contractimpl, contracttype, symbol_short, token, Address, BytesN, Env,
+    contract, contractimpl, contracttype, symbol_short, token, Address, BytesN, Env, IntoVal,
 };
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -43,18 +43,18 @@ pub enum EscrowStatus {
 #[contracttype]
 #[derive(Clone, Debug)]
 pub struct EscrowRecord {
-    pub donor:              Address,
-    pub farmer:             Address,
-    pub token:              Address,
-    pub total_amount:       i128,
-    pub released:           i128,
-    pub status:             EscrowStatus,
+    pub donor:          Address,
+    pub farmer:         Address,
+    pub token:          Address,
+    pub total_amount:   i128,
+    pub released:       i128,
+    pub status:         EscrowStatus,
     /// Ledger timestamp when planting was verified
-    pub planted_at:         Option<u64>,
-    /// SHA-256 of GPS + photo proof submitted at planting
-    pub planting_proof:     Option<BytesN<32>>,
-    /// SHA-256 of GPS + photo proof submitted at survival check
-    pub survival_proof:     Option<BytesN<32>>,
+    pub planted_at:     Option<u64>,
+    /// SHA-256 of GPS + photo proof submitted at planting. All-zero until set.
+    pub planting_proof: BytesN<32>,
+    /// SHA-256 of GPS + photo proof submitted at survival check. All-zero until set.
+    pub survival_proof: BytesN<32>,
 }
 
 // ── Contract ──────────────────────────────────────────────────────────────────
@@ -70,9 +70,69 @@ impl TreeEscrow {
             panic!("already initialized");
         }
         env.storage().instance().set(&symbol_short!("ADMIN"), &admin);
+        env.storage().instance().set(&symbol_short!("PAUSED"), &false);
     }
 
+    // ── Emergency pause ───────────────────────────────────────────────────────
+
+    /// Halt deposits and verification releases immediately. Admin only.
+    /// `refund()` remains available during a pause so donors can retrieve funds.
+    pub fn pause(env: Env) {
+        Self::require_admin(&env);
+        env.storage().instance().set(&symbol_short!("PAUSED"), &true);
+        env.events().publish((symbol_short!("pause"),), ());
+    }
+
+    /// Resume normal operations. Admin only.
+    pub fn unpause(env: Env) {
+        Self::require_admin(&env);
+        env.storage().instance().set(&symbol_short!("PAUSED"), &false);
+        env.events().publish((symbol_short!("unpause"),), ());
+    }
+
+    /// Returns true if the contract is currently paused.
+    pub fn is_paused(env: Env) -> bool {
+        env.storage()
+            .instance()
+            .get(&symbol_short!("PAUSED"))
+            .unwrap_or(false)
+    }
+
+    // ── Admin transfer (2-step) ───────────────────────────────────────────────
+
+    /// Step 1: current admin nominates a successor.
+    /// The admin account should be a Stellar multisig account (M-of-N) for mainnet.
+    pub fn propose_admin(env: Env, new_admin: Address) {
+        Self::require_admin(&env);
+        env.storage()
+            .instance()
+            .set(&symbol_short!("PADMIN"), &new_admin);
+        env.events()
+            .publish((symbol_short!("propAdmin"),), new_admin);
+    }
+
+    /// Step 2: nominated admin accepts ownership. Clears the pending slot.
+    pub fn accept_admin(env: Env) {
+        let pending: Address = env
+            .storage()
+            .instance()
+            .get(&symbol_short!("PADMIN"))
+            .expect("no pending admin");
+        pending.require_auth();
+        env.storage()
+            .instance()
+            .set(&symbol_short!("ADMIN"), &pending);
+        env.storage()
+            .instance()
+            .remove(&symbol_short!("PADMIN"));
+        env.events()
+            .publish((symbol_short!("admAccept"),), pending);
+    }
+
+    // ── Core functions ────────────────────────────────────────────────────────
+
     /// Donor deposits `amount` of `token` into escrow for `farmer`.
+    /// Blocked while paused.
     pub fn deposit(
         env: Env,
         donor: Address,
@@ -80,6 +140,7 @@ impl TreeEscrow {
         token: Address,
         amount: i128,
     ) {
+        Self::require_not_paused(&env);
         donor.require_auth();
 
         if amount <= 0 {
@@ -91,7 +152,6 @@ impl TreeEscrow {
             panic!("active escrow already exists for this farmer");
         }
 
-        // Pull funds from donor into contract
         token::Client::new(&env, &token)
             .transfer(&donor, &env.current_contract_address(), &amount);
 
@@ -103,8 +163,8 @@ impl TreeEscrow {
             released:       0,
             status:         EscrowStatus::Funded,
             planted_at:     None,
-            planting_proof: None,
-            survival_proof: None,
+            planting_proof: BytesN::from_array(&env, &[0u8; 32]),
+            survival_proof: BytesN::from_array(&env, &[0u8; 32]),
         });
 
         env.events().publish((symbol_short!("deposit"), farmer), amount);
@@ -112,11 +172,13 @@ impl TreeEscrow {
 
     /// Verifier calls this after GPS + photo proof of planting is validated.
     /// Releases 75% of escrowed funds instantly to the farmer.
+    /// Blocked while paused.
     pub fn verify_planting(
         env: Env,
         farmer: Address,
         proof_hash: BytesN<32>,
     ) {
+        Self::require_not_paused(&env);
         Self::require_admin(&env);
 
         let key = Self::record_key(&env, &farmer);
@@ -135,7 +197,7 @@ impl TreeEscrow {
         rec.released       += tranche1;
         rec.status          = EscrowStatus::Planted;
         rec.planted_at      = Some(env.ledger().timestamp());
-        rec.planting_proof  = Some(proof_hash.clone());
+        rec.planting_proof  = proof_hash.clone();
 
         env.storage().persistent().set(&key, &rec);
 
@@ -145,11 +207,13 @@ impl TreeEscrow {
     /// Verifier calls this after 6-month survival check passes.
     /// Releases remaining 25% to the farmer.
     /// Enforces that at least 6 months have elapsed since planting verification.
+    /// Blocked while paused.
     pub fn verify_survival(
         env: Env,
         farmer: Address,
         proof_hash: BytesN<32>,
     ) {
+        Self::require_not_paused(&env);
         Self::require_admin(&env);
 
         let key = Self::record_key(&env, &farmer);
@@ -160,7 +224,6 @@ impl TreeEscrow {
             panic!("planting not yet verified");
         }
 
-        // Enforce 6-month lock
         let planted_at = rec.planted_at.expect("planted_at missing");
         let now        = env.ledger().timestamp();
         if now < planted_at + SIX_MONTHS_SECS {
@@ -177,7 +240,7 @@ impl TreeEscrow {
 
         rec.released      += tranche2;
         rec.status         = EscrowStatus::Completed;
-        rec.survival_proof = Some(proof_hash);
+        rec.survival_proof = proof_hash;
 
         env.storage().persistent().set(&key, &rec);
 
@@ -185,6 +248,7 @@ impl TreeEscrow {
     }
 
     /// Refund full amount to donor — only allowed before planting is verified.
+    /// Intentionally allowed while paused so donors can always retrieve funds.
     pub fn refund(env: Env, farmer: Address) {
         Self::require_admin(&env);
 
@@ -216,6 +280,17 @@ impl TreeEscrow {
         (symbol_short!("ESC"), farmer.clone()).into_val(env)
     }
 
+    fn require_not_paused(env: &Env) {
+        if env
+            .storage()
+            .instance()
+            .get(&symbol_short!("PAUSED"))
+            .unwrap_or(false)
+        {
+            panic!("contract is paused");
+        }
+    }
+
     fn require_admin(env: &Env) {
         let admin: Address = env.storage().instance()
             .get(&symbol_short!("ADMIN"))
@@ -229,7 +304,7 @@ impl TreeEscrow {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use soroban_sdk::{testutils::Address as _, token, Address, BytesN, Env};
+    use soroban_sdk::{testutils::{Address as _, Ledger}, token, Address, BytesN, Env};
 
     fn setup() -> (Env, Address, Address, Address, Address, TreeEscrowClient<'static>) {
         let env = Env::default();
@@ -257,20 +332,16 @@ mod tests {
     fn test_full_lifecycle() {
         let (env, _admin, donor, farmer, token, client) = setup();
 
-        // Deposit
         client.deposit(&donor, &farmer, &token, &10_000);
         assert_eq!(client.get_record(&farmer).unwrap().status, EscrowStatus::Funded);
 
-        // Verify planting → 75% released
         client.verify_planting(&farmer, &proof(&env, 1));
         let rec = client.get_record(&farmer).unwrap();
         assert_eq!(rec.released, 7_500);
         assert_eq!(rec.status, EscrowStatus::Planted);
 
-        // Fast-forward ledger by 6 months
         env.ledger().with_mut(|l| l.timestamp += SIX_MONTHS_SECS + 1);
 
-        // Verify survival → remaining 25% released
         client.verify_survival(&farmer, &proof(&env, 2));
         let rec = client.get_record(&farmer).unwrap();
         assert_eq!(rec.released, 10_000);
@@ -285,7 +356,6 @@ mod tests {
         client.deposit(&donor, &farmer, &token, &10_000);
         client.verify_planting(&farmer, &proof(&env, 1));
 
-        // Only 1 day later — should panic
         env.ledger().with_mut(|l| l.timestamp += 86_400);
         client.verify_survival(&farmer, &proof(&env, 2));
     }
@@ -297,7 +367,7 @@ mod tests {
 
         client.deposit(&donor, &farmer, &token, &10_000);
         client.verify_planting(&farmer, &proof(&env, 1));
-        client.verify_planting(&farmer, &proof(&env, 1)); // must panic
+        client.verify_planting(&farmer, &proof(&env, 1));
     }
 
     #[test]
@@ -316,6 +386,69 @@ mod tests {
 
         client.deposit(&donor, &farmer, &token, &10_000);
         client.verify_planting(&farmer, &proof(&env, 1));
-        client.refund(&farmer); // must panic
+        client.refund(&farmer);
+    }
+
+    // ── Pause tests ───────────────────────────────────────────────────────────
+
+    #[test]
+    #[should_panic(expected = "contract is paused")]
+    fn test_pause_blocks_deposit() {
+        let (_env, _admin, donor, farmer, token, client) = setup();
+
+        client.pause();
+        assert!(client.is_paused());
+        client.deposit(&donor, &farmer, &token, &10_000);
+    }
+
+    #[test]
+    #[should_panic(expected = "contract is paused")]
+    fn test_pause_blocks_verify_planting() {
+        let (env, _admin, donor, farmer, token, client) = setup();
+
+        client.deposit(&donor, &farmer, &token, &10_000);
+        client.pause();
+        client.verify_planting(&farmer, &proof(&env, 1));
+    }
+
+    #[test]
+    fn test_refund_allowed_while_paused() {
+        let (_env, _admin, donor, farmer, token, client) = setup();
+
+        client.deposit(&donor, &farmer, &token, &10_000);
+        client.pause();
+
+        // Refund must still work during a pause — donors can always retrieve funds
+        client.refund(&farmer);
+        assert_eq!(client.get_record(&farmer).unwrap().status, EscrowStatus::Refunded);
+    }
+
+    #[test]
+    fn test_unpause_restores_operations() {
+        let (env, _admin, donor, farmer, token, client) = setup();
+
+        client.pause();
+        client.unpause();
+        assert!(!client.is_paused());
+
+        client.deposit(&donor, &farmer, &token, &10_000);
+        client.verify_planting(&farmer, &proof(&env, 1));
+        let rec = client.get_record(&farmer).unwrap();
+        assert_eq!(rec.status, EscrowStatus::Planted);
+    }
+
+    // ── Admin transfer tests ──────────────────────────────────────────────────
+
+    #[test]
+    fn test_propose_and_accept_admin() {
+        let (env, _old_admin, _donor, _farmer, _token, client) = setup();
+        let new_admin = Address::generate(&env);
+
+        client.propose_admin(&new_admin);
+        client.accept_admin();
+
+        // New admin can pause — verifies they hold the active admin role
+        client.pause();
+        assert!(client.is_paused());
     }
 }
