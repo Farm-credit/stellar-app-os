@@ -341,6 +341,14 @@
                         "val": {
                           "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4"
                         }
+                      },
+                      {
+                        "key": {
+                          "symbol": "PAUSED"
+                        },
+                        "val": {
+                          "bool": false
+                        }
                       }
                     ]
                   }
@@ -1480,7 +1488,7 @@
             "data": {
               "vec": [
                 {
-                  "string": "caught panic 'milestone already processed or escrow not in funded state' from contract function 'Symbol(obj#367)'"
+                  "string": "caught panic 'milestone already processed or escrow not in funded state' from contract function 'Symbol(obj#373)'"
                 },
                 {
                   "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAITA4"
