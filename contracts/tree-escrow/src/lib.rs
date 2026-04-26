@@ -12,6 +12,7 @@
 
 use soroban_sdk::{
     contract, contractimpl, contracttype, symbol_short, token, Address, BytesN, Env, IntoVal,
+    Symbol,
 };
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -158,7 +159,7 @@ impl TreeEscrow {
         env.storage().persistent().set(&key, &EscrowRecord {
             donor:          donor.clone(),
             farmer:         farmer.clone(),
-            token,
+            token: token.clone(),
             total_amount:   amount,
             released:       0,
             status:         EscrowStatus::Funded,
@@ -167,7 +168,10 @@ impl TreeEscrow {
             survival_proof: BytesN::from_array(&env, &[0u8; 32]),
         });
 
-        env.events().publish((symbol_short!("deposit"), farmer), amount);
+        env.events().publish(
+            (Symbol::new(&env, "DonationReceived"), donor, farmer),
+            (amount, token),
+        );
     }
 
     /// Verifier calls this after GPS + photo proof of planting is validated.
@@ -201,7 +205,10 @@ impl TreeEscrow {
 
         env.storage().persistent().set(&key, &rec);
 
-        env.events().publish((symbol_short!("planted"), farmer), tranche1);
+        env.events().publish(
+            (Symbol::new(&env, "PlantingVerified"), farmer),
+            (tranche1, proof_hash),
+        );
     }
 
     /// Verifier calls this after 6-month survival check passes.
@@ -240,11 +247,14 @@ impl TreeEscrow {
 
         rec.released      += tranche2;
         rec.status         = EscrowStatus::Completed;
-        rec.survival_proof = proof_hash;
+        rec.survival_proof = proof_hash.clone();
 
         env.storage().persistent().set(&key, &rec);
 
-        env.events().publish((symbol_short!("survived"), farmer), tranche2);
+        env.events().publish(
+            (Symbol::new(&env, "SurvivalVerified"), farmer),
+            (tranche2, proof_hash),
+        );
     }
 
     /// Refund full amount to donor — only allowed before planting is verified.
@@ -266,7 +276,10 @@ impl TreeEscrow {
         rec.status = EscrowStatus::Refunded;
         env.storage().persistent().set(&key, &rec);
 
-        env.events().publish((symbol_short!("refund"), farmer), rec.total_amount);
+        env.events().publish(
+            (Symbol::new(&env, "DonationRefunded"), rec.donor, farmer),
+            rec.total_amount,
+        );
     }
 
     /// Read escrow record for a farmer.
@@ -325,7 +338,7 @@ mod tests {
     }
 
     fn proof(env: &Env, seed: u8) -> BytesN<32> {
-        BytesN::from_array(env, &[seed; 32])
+        BytesN::from_array(env, &[seed; 32]).into()
     }
 
     #[test]

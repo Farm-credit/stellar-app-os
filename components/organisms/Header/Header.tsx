@@ -122,6 +122,25 @@ export function Header(): JSX.Element {
 
             <LanguageSelector variant="desktop" />
 
+            {wallet?.isConnected && (
+              <div className="flex items-center gap-3 mr-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10">
+                <div className="flex flex-col items-end">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] font-bold text-stellar-blue uppercase tracking-wider">XLM</span>
+                    <span className="text-xs font-mono font-bold text-white">
+                      {parseFloat(wallet.balance.xlm).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] font-bold text-stellar-cyan uppercase tracking-wider">USDC</span>
+                    <span className="text-xs font-mono font-bold text-white">
+                      {parseFloat(wallet.balance.usdc).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <Button
               variant={wallet?.publicKey ? 'outline' : 'default'}
               size="sm"
@@ -131,7 +150,7 @@ export function Header(): JSX.Element {
                   ? `Wallet connected: ${wallet.publicKey}. Click to disconnect.`
                   : 'Connect your Stellar wallet'
               }
-              className="font-mono"
+              className="font-mono border-white/20 hover:border-stellar-blue/50"
             >
               {walletLabel}
             </Button>
