@@ -295,7 +295,9 @@
                       "key": {
                         "symbol": "verification_hash"
                       },
-                      "val": "void"
+                      "val": {
+                        "bytes": "0000000000000000000000000000000000000000000000000000000000000000"
+                      }
                     }
                   ]
                 }
@@ -335,6 +337,14 @@
                         },
                         "val": {
                           "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4"
+                        }
+                      },
+                      {
+                        "key": {
+                          "symbol": "PAUSED"
+                        },
+                        "val": {
+                          "bool": false
                         }
                       }
                     ]
@@ -1448,7 +1458,9 @@
                   "key": {
                     "symbol": "verification_hash"
                   },
-                  "val": "void"
+                  "val": {
+                    "bytes": "0000000000000000000000000000000000000000000000000000000000000000"
+                  }
                 }
               ]
             }

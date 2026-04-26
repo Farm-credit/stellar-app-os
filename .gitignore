@@ -40,6 +40,10 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# soroban contract test snapshots and build artifacts
+test_snapshots/
+contracts/target/
+
 FarmCredit*
 
 # rust

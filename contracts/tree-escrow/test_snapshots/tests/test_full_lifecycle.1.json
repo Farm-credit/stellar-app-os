@@ -381,6 +381,14 @@
                         "val": {
                           "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4"
                         }
+                      },
+                      {
+                        "key": {
+                          "symbol": "PAUSED"
+                        },
+                        "val": {
+                          "bool": false
+                        }
                       }
                     ]
                   }
@@ -1395,7 +1403,9 @@
                   "key": {
                     "symbol": "planting_proof"
                   },
-                  "val": "void"
+                  "val": {
+                    "bytes": "0000000000000000000000000000000000000000000000000000000000000000"
+                  }
                 },
                 {
                   "key": {
@@ -1424,7 +1434,9 @@
                   "key": {
                     "symbol": "survival_proof"
                   },
-                  "val": "void"
+                  "val": {
+                    "bytes": "0000000000000000000000000000000000000000000000000000000000000000"
+                  }
                 },
                 {
                   "key": {
@@ -1733,7 +1745,9 @@
                   "key": {
                     "symbol": "survival_proof"
                   },
-                  "val": "void"
+                  "val": {
+                    "bytes": "0000000000000000000000000000000000000000000000000000000000000000"
+                  }
                 },
                 {
                   "key": {
