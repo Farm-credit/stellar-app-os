@@ -86,7 +86,6 @@ export function ListCreditForm() {
 
   const handlePreview = useCallback(
     (_data: ListingFormData) => {
-    async (data: ListingFormData) => {
       if (!selectedCredit) return;
       setStep('preview');
     },

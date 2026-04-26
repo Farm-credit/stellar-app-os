@@ -9,7 +9,7 @@
 //!   4. Remaining 25% stays locked until final milestone or dispute resolution
 
 use soroban_sdk::{
-    contract, contractimpl, contracttype, symbol_short, token, Address, Env,
+    contract, contractimpl, contracttype, symbol_short, token, Address, Bytes, Env, IntoVal, Symbol,
 };
 
 // ── Storage keys ──────────────────────────────────────────────────────────────
@@ -38,7 +38,7 @@ pub struct EscrowState {
     pub total_amount:  i128,
     pub released:      i128,
     pub status:        EscrowStatus,
-    pub verification_hash: Option<soroban_sdk::BytesN<32>>,
+    pub verification_hash: Option<Bytes>,
 }
 
 #[contract]
@@ -81,8 +81,8 @@ impl EscrowMilestone {
 
         let state = EscrowState {
             farmer:            farmer.clone(),
-            funder,
-            token,
+            funder:            funder.clone(),
+            token:             token.clone(),
             total_amount:      amount,
             released:          0,
             status:            EscrowStatus::Funded,
@@ -92,8 +92,8 @@ impl EscrowMilestone {
         env.storage().persistent().set(&key, &state);
 
         env.events().publish(
-            (symbol_short!("deposit"), farmer),
-            amount,
+            (Symbol::new(&env, "DonationReceived"), funder, farmer),
+            (amount, token),
         );
     }
 
@@ -131,13 +131,13 @@ impl EscrowMilestone {
 
         state.released          = release_amount;
         state.status            = EscrowStatus::Milestone1Released;
-        state.verification_hash = Some(verification_hash.clone());
+        state.verification_hash = Some(verification_hash.clone().into());
 
         env.storage().persistent().set(&key, &state);
 
         env.events().publish(
-            (symbol_short!("m1release"), farmer),
-            release_amount,
+            (Symbol::new(&env, "PlantingVerified"), farmer),
+            (release_amount, verification_hash),
         );
     }
 
@@ -174,7 +174,7 @@ impl EscrowMilestone {
         env.storage().persistent().set(&key, &state);
 
         env.events().publish(
-            (symbol_short!("complete"), farmer),
+            (Symbol::new(&env, "MilestonePaymentReleased"), farmer),
             remainder,
         );
     }
@@ -205,7 +205,7 @@ impl EscrowMilestone {
         env.storage().persistent().set(&key, &state);
 
         env.events().publish(
-            (symbol_short!("refund"), farmer),
+            (Symbol::new(&env, "DonationRefunded"), state.funder, farmer),
             state.total_amount,
         );
     }
@@ -237,7 +237,7 @@ impl EscrowMilestone {
 mod tests {
     use super::*;
     use soroban_sdk::{
-        testutils::{Address as _, AuthorizedFunction, AuthorizedInvocation},
+        testutils::{Address as _, AuthorizedFunction, AuthorizedInvocation, Ledger},
         token, Address, BytesN, Env,
     };
 
@@ -263,7 +263,7 @@ mod tests {
     }
 
     fn dummy_hash(env: &Env) -> BytesN<32> {
-        BytesN::from_array(env, &[1u8; 32])
+        BytesN::from_array(env, &[1u8; 32]).into()
     }
 
     #[test]
