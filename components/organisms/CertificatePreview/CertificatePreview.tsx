@@ -26,11 +26,19 @@ function CertificatePreview({ data, className }: CertificatePreviewProps) {
   const [qrError, setQrError] = useState<boolean>(false);
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
   const [downloadError, setDownloadError] = useState<string | null>(null);
+  const [isAnonymous, setIsAnonymous] = useState<boolean>(data.isAnonymous || false);
 
   const explorerUrl = getExplorerUrl(data.transactionHash, data.explorerBaseUrl);
-  const displayName = getDisplayName(data);
+  const currentData = { ...data, isAnonymous };
+  const displayName = getDisplayName(currentData);
 
   const formattedDate = data.retirementDate.toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
+
+  const formattedPlantingDate = data.plantingDate.toLocaleDateString('en-US', {
     year: 'numeric',
     month: 'long',
     day: 'numeric',
@@ -50,19 +58,19 @@ function CertificatePreview({ data, className }: CertificatePreviewProps) {
     setDownloadError(null);
 
     try {
-      await generateCertificatePdf({ qrDataUrl, data });
+      await generateCertificatePdf({ qrDataUrl, data: currentData });
     } catch {
       setDownloadError('Failed to generate PDF. Please try again.');
     } finally {
       setIsGenerating(false);
     }
-  }, [qrDataUrl, data]);
+  }, [qrDataUrl, currentData]);
 
   return (
     <Card
       className={cn('mx-auto w-full max-w-2xl overflow-hidden print:shadow-none', className)}
       role="region"
-      aria-label="Retirement Certificate Preview"
+      aria-label="Impact Certificate Preview"
     >
       {/* ── Header ── */}
       <CardHeader
@@ -73,7 +81,7 @@ function CertificatePreview({ data, className }: CertificatePreviewProps) {
         <div className="absolute right-4 top-4">
           <Badge variant="success" className="gap-1 text-xs">
             <CheckCircle className="h-3 w-3" aria-hidden="true" />
-            Verified
+            Verified Impact
           </Badge>
         </div>
 
@@ -89,13 +97,13 @@ function CertificatePreview({ data, className }: CertificatePreviewProps) {
           as="h1"
           className="text-center text-2xl font-bold tracking-widest text-white sm:text-3xl"
         >
-          RETIREMENT CERTIFICATE
+          IMPACT CERTIFICATE
         </Text>
         <Text variant="small" className="text-center text-white/70">
-          Carbon Credit Retirement on the Stellar Network
+          Environmental Restoration Verified on Stellar
         </Text>
         <Text variant="muted" className="text-white/50">
-          Issued: {formattedDate}
+          Certificate ID: {data.transactionHash.slice(0, 12)}...
         </Text>
       </CardHeader>
 
@@ -116,21 +124,36 @@ function CertificatePreview({ data, className }: CertificatePreviewProps) {
             {displayName}
           </Text>
           <Text variant="body" className="text-muted-foreground">
-            has permanently retired
+            has successfully contributed to
           </Text>
-          <div className="rounded-lg bg-muted px-8 py-4">
-            <Text
-              variant="h2"
-              as="p"
-              className="text-center font-bold"
-              style={{ color: 'var(--stellar-navy)' }}
-            >
-              {data.quantityRetired.toLocaleString()} Carbon Credit
-              {data.quantityRetired !== 1 ? 's' : ''}
-            </Text>
+          
+          <div className="grid grid-cols-2 gap-4 w-full max-w-md my-2">
+            <div className="rounded-lg bg-muted p-4 flex flex-col items-center">
+              <Text
+                variant="h3"
+                as="p"
+                className="font-bold"
+                style={{ color: 'var(--stellar-navy)' }}
+              >
+                {data.treeCount.toLocaleString()}
+              </Text>
+              <Text variant="small" className="text-muted-foreground">Trees Planted</Text>
+            </div>
+            <div className="rounded-lg bg-muted p-4 flex flex-col items-center">
+              <Text
+                variant="h3"
+                as="p"
+                className="font-bold"
+                style={{ color: 'var(--stellar-navy)' }}
+              >
+                {data.co2Offset.toLocaleString()} t
+              </Text>
+              <Text variant="small" className="text-muted-foreground">CO2 Offset</Text>
+            </div>
           </div>
+
           <Text variant="body" className="text-muted-foreground">
-            from the project
+            Project:
           </Text>
           <Text
             variant="h4"
@@ -141,11 +164,15 @@ function CertificatePreview({ data, className }: CertificatePreviewProps) {
           >
             {data.projectName}
           </Text>
-          {data.projectDescription && (
-            <Text variant="muted" className="max-w-md text-center italic">
-              {data.projectDescription}
-            </Text>
-          )}
+          
+          <div className="flex gap-4 text-sm mt-1">
+            <Badge variant="outline" className="border-stellar-blue/30 text-stellar-blue">
+              {data.region}
+            </Badge>
+            <Badge variant="outline" className="border-stellar-blue/30 text-stellar-blue">
+              Planted {formattedPlantingDate}
+            </Badge>
+          </div>
         </div>
 
         {/* Divider */}
@@ -160,22 +187,30 @@ function CertificatePreview({ data, className }: CertificatePreviewProps) {
           {/* Left: fields */}
           <div className="flex flex-1 flex-col gap-4">
             <CertificateField label="Transaction Hash" value={data.transactionHash} mono />
-            <CertificateField label="Retirement Date" value={formattedDate} />
-            <CertificateField
-              label="Quantity Retired"
-              value={`${data.quantityRetired.toLocaleString()} tCO₂e`}
-            />
+            <CertificateField label="Verification Date" value={formattedDate} />
+            <div className="flex items-center gap-2 mt-2">
+              <input 
+                type="checkbox" 
+                id="anonymous-toggle" 
+                checked={isAnonymous}
+                onChange={(e) => setIsAnonymous(e.target.checked)}
+                className="h-4 w-4 rounded border-gray-300 text-stellar-blue focus:ring-stellar-blue"
+              />
+              <label htmlFor="anonymous-toggle" className="text-sm text-muted-foreground cursor-pointer">
+                Anonymous Certificate
+              </label>
+            </div>
 
             <a
               href={explorerUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="inline-flex items-center gap-1 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring mt-2"
               style={{ color: 'var(--stellar-blue)' }}
-              aria-label="View transaction on Stellar explorer (opens in new tab)"
+              aria-label="View verification on Stellar explorer (opens in new tab)"
             >
               <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
-              View on Stellar Explorer
+              Verify on-chain
             </a>
           </div>
 
@@ -183,18 +218,13 @@ function CertificatePreview({ data, className }: CertificatePreviewProps) {
           <div className="flex flex-col items-center gap-2">
             <QrCode
               value={explorerUrl}
-              size={140}
+              size={120}
               onGenerated={handleQrGenerated}
               onError={handleQrError}
               aria-label="QR code linking to Stellar blockchain explorer"
             />
-            {qrError && (
-              <Text variant="muted" className="text-center text-xs text-destructive">
-                QR code unavailable
-              </Text>
-            )}
-            <Text variant="muted" className="text-center text-xs">
-              Scan to verify on-chain
+            <Text variant="muted" className="text-center text-[10px]">
+              Scan to verify impact authenticity
             </Text>
           </div>
         </div>
@@ -206,15 +236,15 @@ function CertificatePreview({ data, className }: CertificatePreviewProps) {
         style={{ background: 'var(--stellar-navy)' }}
       >
         <Text variant="small" className="text-center text-white/60 sm:text-left">
-          Powered by Stellar Network · Immutable · Verifiable · Permanent
+          Powered by Stellar · Verifiable Environmental Restoration
         </Text>
 
         <div className="flex flex-col items-center gap-1">
           <Button
             onClick={handleDownload}
             disabled={isGenerating}
-            className="gap-2 print:hidden"
-            aria-label="Download retirement certificate as PDF"
+            className="gap-2 print:hidden bg-stellar-blue hover:bg-stellar-blue/90"
+            aria-label="Download impact certificate as PDF"
           >
             {isGenerating ? (
               <>

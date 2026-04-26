@@ -3,11 +3,16 @@ import jsPDF from 'jspdf';
 export interface CertificateData {
   userName: string | null;
   walletAddress: string;
-  quantityRetired: number;
+  quantityRetired: number; // For compatibility
+  treeCount: number;
+  co2Offset: number; // in tCO2e
+  plantingDate: Date;
+  region: string;
   projectName: string;
   projectDescription: string;
   transactionHash: string;
   retirementDate: Date;
+  isAnonymous?: boolean;
   explorerBaseUrl?: string;
 }
 
@@ -45,7 +50,8 @@ export function getExplorerUrl(txHash: string, baseUrl?: string): string {
   return `${base}/${txHash}`;
 }
 
-export function getDisplayName(data: Pick<CertificateData, 'userName' | 'walletAddress'>): string {
+export function getDisplayName(data: Pick<CertificateData, 'userName' | 'walletAddress' | 'isAnonymous'>): string {
+  if (data.isAnonymous) return 'Anonymous Donor';
   return data.userName?.trim() || data.walletAddress;
 }
 
@@ -67,11 +73,11 @@ export function generateCertificatePdf({ qrDataUrl, data }: GenerateCertificateO
   doc.setTextColor(WHITE);
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(22);
-  doc.text('RETIREMENT CERTIFICATE', PAGE_W / 2, 22, { align: 'center' });
+  doc.text('IMPACT CERTIFICATE', PAGE_W / 2, 22, { align: 'center' });
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(11);
-  doc.text('Carbon Credit Retirement on the Stellar Network', PAGE_W / 2, 32, {
+  doc.text('Environmental Impact Verification on Stellar', PAGE_W / 2, 32, {
     align: 'center',
   });
 
@@ -108,33 +114,54 @@ export function generateCertificatePdf({ qrDataUrl, data }: GenerateCertificateO
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(11);
   doc.setTextColor(STELLAR_NAVY);
-  doc.text('has permanently retired', PAGE_W / 2, y, { align: 'center' });
+  doc.text('has contributed to environmental restoration through', PAGE_W / 2, y, { align: 'center' });
 
-  // Quantity
+  // Impact Stats
   y += 12;
   doc.setFillColor(LIGHT_GRAY);
-  doc.roundedRect(MARGIN, y - 7, CONTENT_W, 16, 3, 3, 'F');
+  doc.roundedRect(MARGIN, y - 7, CONTENT_W, 24, 3, 3, 'F');
+  
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(20);
+  doc.setFontSize(18);
   doc.setTextColor(STELLAR_NAVY);
   doc.text(
-    `${data.quantityRetired.toLocaleString()} Carbon Credit${data.quantityRetired !== 1 ? 's' : ''}`,
-    PAGE_W / 2,
+    `${data.treeCount.toLocaleString()} Trees Planted`,
+    PAGE_W / 4 + 10,
     y + 4,
     { align: 'center' }
   );
 
-  y += 22;
+  doc.text(
+    `${data.co2Offset.toLocaleString()} tCO2e Offset`,
+    (PAGE_W * 3) / 4 - 10,
+    y + 4,
+    { align: 'center' }
+  );
+  
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  doc.setTextColor(MID_GRAY);
+  doc.text('Reforestation Impact', PAGE_W / 4 + 10, y + 10, { align: 'center' });
+  doc.text('Estimated CO2 Sequestration', (PAGE_W * 3) / 4 - 10, y + 10, { align: 'center' });
+
+  y += 30;
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(11);
-  doc.text('from the project', PAGE_W / 2, y, { align: 'center' });
+  doc.setTextColor(STELLAR_NAVY);
+  doc.text('Location & Timeline', PAGE_W / 2, y, { align: 'center' });
 
-  // Project name
+  // Project details
   y += 9;
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(13);
   doc.setTextColor(STELLAR_BLUE);
-  doc.text(projectLabel, PAGE_W / 2, y, { align: 'center' });
+  doc.text(`${data.region} · Planted ${formatDate(data.plantingDate)}`, PAGE_W / 2, y, { align: 'center' });
+
+  y += 8;
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(11);
+  doc.setTextColor(STELLAR_NAVY);
+  doc.text('Project: ' + projectLabel, PAGE_W / 2, y, { align: 'center' });
 
   // Project description
   if (data.projectDescription) {

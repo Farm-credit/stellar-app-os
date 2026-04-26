@@ -11,7 +11,8 @@
 //!                              ↘ Disputed / Refunded
 
 use soroban_sdk::{
-    contract, contractimpl, contracttype, symbol_short, token, Address, BytesN, Env, Vec,
+    contract, contractimpl, contracttype, symbol_short, token, Address, Bytes, BytesN, Env, IntoVal,
+    Symbol,
 };
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -55,9 +56,9 @@ pub struct EscrowRecord {
     /// Ledger timestamp when planting was verified
     pub planted_at:         Option<u64>,
     /// SHA-256 of GPS + photo proof submitted at planting
-    pub planting_proof:     Option<BytesN<32>>,
+    pub planting_proof:     Option<Bytes>,
     /// SHA-256 of GPS + photo proof submitted at survival check
-    pub survival_proof:     Option<BytesN<32>>,
+    pub survival_proof:     Option<Bytes>,
 }
 
 /// A single slot in a batch deposit: one farmer address and the amount for that tree.
@@ -110,7 +111,7 @@ impl TreeEscrow {
         env.storage().persistent().set(&key, &EscrowRecord {
             donor:          donor.clone(),
             farmer:         farmer.clone(),
-            token,
+            token: token.clone(),
             total_amount:   amount,
             released:       0,
             status:         EscrowStatus::Funded,
@@ -119,7 +120,10 @@ impl TreeEscrow {
             survival_proof: None,
         });
 
-        env.events().publish((symbol_short!("deposit"), farmer), amount);
+        env.events().publish(
+            (Symbol::new(&env, "DonationReceived"), donor, farmer),
+            (amount, token),
+        );
     }
 
     /// Batch deposit: donor funds N tree slots in a single contract invocation.
@@ -211,17 +215,14 @@ impl TreeEscrow {
         rec.released       += tranche1;
         rec.status          = EscrowStatus::Planted;
         rec.planted_at      = Some(env.ledger().timestamp());
-        rec.planting_proof  = Some(proof_hash.clone());
+        rec.planting_proof  = Some(proof_hash.clone().into());
 
         env.storage().persistent().set(&key, &rec);
 
-        // Mint 1 TREE token to the donor for each verified tree
-        let tree_token: Address = env.storage().instance()
-            .get(&symbol_short!("TREE"))
-            .expect("tree token not set");
-        token::StellarAssetClient::new(&env, &tree_token).mint(&rec.donor, &1);
-
-        env.events().publish((symbol_short!("planted"), farmer), tranche1);
+        env.events().publish(
+            (Symbol::new(&env, "PlantingVerified"), farmer),
+            (tranche1, proof_hash),
+        );
     }
 
     /// Verifier calls this after 6-month survival check passes.
@@ -259,11 +260,14 @@ impl TreeEscrow {
 
         rec.released      += tranche2;
         rec.status         = EscrowStatus::Completed;
-        rec.survival_proof = Some(proof_hash);
+        rec.survival_proof = Some(proof_hash.clone().into());
 
         env.storage().persistent().set(&key, &rec);
 
-        env.events().publish((symbol_short!("survived"), farmer), tranche2);
+        env.events().publish(
+            (Symbol::new(&env, "SurvivalVerified"), farmer),
+            (tranche2, proof_hash),
+        );
     }
 
     /// Refund full amount to donor — only allowed before planting is verified.
@@ -284,7 +288,10 @@ impl TreeEscrow {
         rec.status = EscrowStatus::Refunded;
         env.storage().persistent().set(&key, &rec);
 
-        env.events().publish((symbol_short!("refund"), farmer), rec.total_amount);
+        env.events().publish(
+            (Symbol::new(&env, "DonationRefunded"), rec.donor, farmer),
+            rec.total_amount,
+        );
     }
 
     /// Read escrow record for a farmer.
@@ -311,7 +318,7 @@ impl TreeEscrow {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use soroban_sdk::{testutils::Address as _, token, vec, Address, BytesN, Env};
+    use soroban_sdk::{testutils::{Address as _, Ledger}, token, Address, BytesN, Env};
 
     fn setup() -> (Env, Address, Address, Address, Address, Address, TreeEscrowClient<'static>) {
         let env = Env::default();
@@ -335,7 +342,7 @@ mod tests {
     }
 
     fn proof(env: &Env, seed: u8) -> BytesN<32> {
-        BytesN::from_array(env, &[seed; 32])
+        BytesN::from_array(env, &[seed; 32]).into()
     }
 
     #[test]
