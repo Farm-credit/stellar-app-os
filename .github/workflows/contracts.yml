@@ -1,0 +1,129 @@
+name: Contracts
+
+on:
+  pull_request:
+    paths:
+      - 'contracts/**'
+      - '.github/workflows/contracts.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'contracts/**'
+      - '.github/workflows/contracts.yml'
+
+env:
+  CARGO_TERM_COLOR: always
+  SOROBAN_CLI_VERSION: 22.0.1
+
+jobs:
+  # ── Build & Test ─────────────────────────────────────────────────────────────
+  build-and-test:
+    name: Build WASM + Cargo tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust + wasm32 target
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - name: Cache Cargo registry + build
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            contracts/target
+          key: cargo-${{ runner.os }}-${{ hashFiles('contracts/Cargo.lock') }}
+          restore-keys: cargo-${{ runner.os }}-
+
+      - name: Build WASM (release)
+        working-directory: contracts
+        run: cargo build --release --target wasm32-unknown-unknown
+
+      - name: Run contract tests
+        working-directory: contracts
+        run: cargo test
+
+      - name: Upload WASM artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: soroban-wasm
+          path: contracts/target/wasm32-unknown-unknown/release/*.wasm
+          retention-days: 7
+
+  # ── Deploy to Testnet (main only) ────────────────────────────────────────────
+  deploy-testnet:
+    name: Deploy to Stellar Testnet
+    needs: build-and-test
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    environment: testnet
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download WASM artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: soroban-wasm
+          path: wasm
+
+      - name: Install Stellar CLI
+        run: |
+          curl -sSL https://github.com/stellar/stellar-cli/releases/download/v${{ env.SOROBAN_CLI_VERSION }}/stellar-cli-${{ env.SOROBAN_CLI_VERSION }}-x86_64-unknown-linux-gnu.tar.gz \
+            | tar -xz -C /usr/local/bin
+
+      - name: Configure testnet identity
+        run: |
+          stellar keys generate deployer --network testnet --fund
+        env:
+          STELLAR_SECRET_KEY: ${{ secrets.TESTNET_DEPLOYER_SECRET }}
+
+      - name: Deploy tree-escrow
+        id: deploy_tree_escrow
+        run: |
+          CONTRACT_ID=$(stellar contract deploy \
+            --wasm wasm/tree_escrow.wasm \
+            --source deployer \
+            --network testnet)
+          echo "contract_id=$CONTRACT_ID" >> "$GITHUB_OUTPUT"
+          echo "TREE_ESCROW_CONTRACT_ID=$CONTRACT_ID" >> "$GITHUB_ENV"
+
+      - name: Deploy escrow-milestone
+        id: deploy_escrow_milestone
+        run: |
+          CONTRACT_ID=$(stellar contract deploy \
+            --wasm wasm/escrow_milestone.wasm \
+            --source deployer \
+            --network testnet)
+          echo "contract_id=$CONTRACT_ID" >> "$GITHUB_OUTPUT"
+          echo "ESCROW_MILESTONE_CONTRACT_ID=$CONTRACT_ID" >> "$GITHUB_ENV"
+
+      - name: Deploy location-proof
+        id: deploy_location_proof
+        run: |
+          CONTRACT_ID=$(stellar contract deploy \
+            --wasm wasm/location_proof.wasm \
+            --source deployer \
+            --network testnet)
+          echo "contract_id=$CONTRACT_ID" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy nullifier-registry
+        id: deploy_nullifier_registry
+        run: |
+          CONTRACT_ID=$(stellar contract deploy \
+            --wasm wasm/nullifier_registry.wasm \
+            --source deployer \
+            --network testnet)
+          echo "contract_id=$CONTRACT_ID" >> "$GITHUB_OUTPUT"
+
+      - name: Summary
+        run: |
+          echo "## Testnet Contract Deployments" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Contract | ID |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|---|---|" >> "$GITHUB_STEP_SUMMARY"
+          echo "| tree-escrow | ${{ steps.deploy_tree_escrow.outputs.contract_id }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| escrow-milestone | ${{ steps.deploy_escrow_milestone.outputs.contract_id }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| location-proof | ${{ steps.deploy_location_proof.outputs.contract_id }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| nullifier-registry | ${{ steps.deploy_nullifier_registry.outputs.contract_id }} |" >> "$GITHUB_STEP_SUMMARY"
