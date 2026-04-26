@@ -2,22 +2,52 @@ name: Deploy
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
 
 jobs:
   deploy:
+    name: Deploy to Vercel
     runs-on: ubuntu-latest
+    outputs:
+      deployment-url: ${{ steps.vercel.outputs.preview-url }}
     steps:
-      - name: Checkout Repo
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Node CI (shared composite)
-        uses: ./.github/actions/node-ci
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
 
-      - name: Deploy to Vercel
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Get pnpm store path
+        id: pnpm-cache
+        run: echo "dir=$(pnpm store path)" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ${{ steps.pnpm-cache.outputs.dir }}
+            .next/cache
+          key: pnpm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-nextjs-${{ hashFiles('**/*.[jt]s', '**/*.[jt]sx') }}
+          restore-keys: pnpm-${{ runner.os }}-
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Deploy to Vercel (production)
+        id: vercel
         uses: amondnet/vercel-action@v25
         with:
           vercel-token: ${{ secrets.VERCEL_TOKEN }}
           vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
           vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          vercel-args: '--prod'
+
+  smoke-tests:
+    name: Smoke tests
+    needs: deploy
+    uses: ./.github/workflows/smoke-tests.yml
+    with:
+      base-url: ${{ needs.deploy.outputs.deployment-url }}
+    secrets: inherit
