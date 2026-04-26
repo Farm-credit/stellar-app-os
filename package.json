@@ -4,7 +4,11 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "dev:testnet": "dotenvx run --env-file=.env.testnet -- next dev",
+    "dev:mainnet": "dotenvx run --env-file=.env.mainnet -- next dev",
     "build": "next build --webpack",
+    "build:testnet": "dotenvx run --env-file=.env.testnet -- next build --webpack",
+    "build:mainnet": "dotenvx run --env-file=.env.mainnet -- next build --webpack",
     "start": "next start",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
