@@ -1,7 +1,11 @@
-import { Networks, TransactionBuilder, Asset, Operation, Memo } from '@stellar/stellar-sdk';
+import { Networks, TransactionBuilder, Asset, Operation, Memo, hash } from '@stellar/stellar-sdk';
 import { Horizon } from '@stellar/stellar-sdk';
 import type { NetworkType } from '@/lib/types/wallet';
-import type { CreditSelectionState } from '@/lib/types/carbon';
+import type {
+  CreditSelectionState,
+  BulkPurchaseOrder,
+  BulkPurchaseResult,
+} from '@/lib/types/carbon';
 import { calculateDonationAllocation } from '@/lib/constants/donation';
 
 const USDC_ISSUER_MAINNET = 'GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN';
@@ -185,4 +189,88 @@ export async function buildDonationTransaction(
 export function getStellarExplorerUrl(transactionHash: string, network: NetworkType): string {
   const networkParam = network === 'mainnet' ? 'public' : 'testnet';
   return `https://stellar.expert/explorer/${networkParam}/tx/${transactionHash}`;
+}
+
+// ─── Bulk / Corporate Purchase ────────────────────────────────────────────────
+
+const BULK_RECIPIENT_MAINNET = 'GABEMKJNR4GK7M4FROGA7I7PG63N2CKE3EGDSBSISG56SVL2O3KRNDXA';
+const BULK_RECIPIENT_TESTNET = 'GABEMKJNR4GK7M4FROGA7I7PG63N2CKE3EGDSBSISG56SVL2O3KRNDXA';
+
+/**
+ * Builds a bulk-purchase transaction for corporate buyers (≥ 1 000 tokens).
+ *
+ * Metadata handling:
+ *  - 'on-chain'  → SHA-256 hash of the JSON metadata is embedded as a Memo.hash
+ *  - 'ipfs'      → caller is expected to pin the metadata first; the returned
+ *                  `memoValue` is the first 28 chars of the CID for the memo text
+ *  - 'none'      → plain text memo with the order reference
+ */
+export async function buildBulkPurchaseTransaction(
+  order: BulkPurchaseOrder
+): Promise<BulkPurchaseResult> {
+  const { projectId, quantity, totalPrice, buyerPublicKey, network, metadata } = order;
+
+  if (quantity < 1000) throw new Error('Bulk purchase requires at least 1 000 tokens');
+  if (totalPrice <= 0) throw new Error('Total price must be greater than zero');
+
+  const networkPassphrase = getNetworkPassphrase(network);
+  const horizonUrl =
+    network === 'mainnet' ? 'https://horizon.stellar.org' : 'https://horizon-testnet.stellar.org';
+
+  const server = new Horizon.Server(horizonUrl);
+  const sourceAccount = await server.loadAccount(buyerPublicKey);
+  const usdcAsset = getUsdcAsset(network);
+  const recipient = network === 'mainnet' ? BULK_RECIPIENT_MAINNET : BULK_RECIPIENT_TESTNET;
+
+  // Build memo based on metadata storage preference
+  let memo: Memo;
+  let ipfsCid: string | undefined;
+  let memoValue: string | undefined;
+
+  if (metadata?.storageType === 'on-chain') {
+    // Hash the metadata JSON and embed it as a 32-byte memo hash
+    const metaJson = JSON.stringify({
+      companyName: metadata.companyName,
+      initiativeDescription: metadata.initiativeDescription,
+      initiativeUrl: metadata.initiativeUrl,
+      projectId,
+      quantity,
+    });
+    const metaHash = hash(Buffer.from(metaJson, 'utf8'));
+    memo = Memo.hash(metaHash.toString('hex'));
+    memoValue = metaHash.toString('hex');
+  } else if (metadata?.storageType === 'ipfs') {
+    // The IPFS CID is provided via metadata.storageRef (pinned before calling this fn)
+    const cid = metadata.storageRef ?? '';
+    ipfsCid = cid;
+    // Stellar memo text is max 28 bytes; prefix with 'ipfs:' and truncate
+    memoValue = `ipfs:${cid}`.slice(0, 28);
+    memo = Memo.text(memoValue);
+  } else {
+    // No metadata — simple reference memo
+    memoValue = `bulk:${projectId}`.slice(0, 28);
+    memo = Memo.text(memoValue);
+  }
+
+  const transaction = new TransactionBuilder(sourceAccount, {
+    fee: '1000', // higher base fee for bulk ops
+    networkPassphrase,
+  })
+    .addOperation(
+      Operation.payment({
+        destination: recipient,
+        asset: usdcAsset,
+        amount: totalPrice.toFixed(7),
+      })
+    )
+    .addMemo(memo)
+    .setTimeout(300)
+    .build();
+
+  return {
+    transactionXdr: transaction.toXDR(),
+    networkPassphrase,
+    ipfsCid,
+    memoValue,
+  };
 }
