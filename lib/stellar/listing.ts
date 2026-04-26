@@ -1,12 +1,5 @@
 import type { Credit, ListingResult, MarketPriceData } from '@/lib/types/listing';
 
-interface WalletState {
-  publicKey: string;
-  network: 'mainnet' | 'testnet';
-  isConnected: boolean;
-  type: string;
-}
-
 export function fetchUserCredits(_publicKey: string): Promise<Credit[]> {
   return Promise.resolve([
     {
@@ -49,7 +42,7 @@ export function fetchMarketPrice(_creditType: string): Promise<MarketPriceData> 
 }
 
 export async function createListing(
-  _wallet: WalletState,
+  _wallet: unknown,
   params: { credit: Credit; pricePerCredit: number; quantity: number }
 ): Promise<ListingResult> {
   await new Promise((resolve) => setTimeout(resolve, 2000));
