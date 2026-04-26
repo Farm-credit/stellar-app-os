@@ -68,6 +68,12 @@ function RetireCertificateContent(): JSX.Element {
       userName: null,
       walletAddress: selection.walletAddress ?? wallet?.publicKey ?? 'Stellar Wallet',
       quantityRetired: selection.quantity,
+      treeCount: selection.treeCount ?? selection.quantity * 10, // Mock: 10 trees per credit if not provided
+      co2Offset: selection.co2Offset ?? selection.quantity, // Mock: 1 ton per credit if not provided
+      plantingDate: selection.plantingDate
+        ? new Date(selection.plantingDate)
+        : new Date(Date.now() - 31536000000), // Mock: 1 year ago
+      region: selection.region ?? 'Amazon Basin, Brazil',
       projectName: selection.projectName,
       projectDescription: selection.projectDescription,
       transactionHash,
