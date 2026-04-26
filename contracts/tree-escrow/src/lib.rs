@@ -5,10 +5,11 @@
 //! Holds donor funds and releases them in two tranches:
 //!   • Tranche 1 (75%) — released on verified planting (GPS + photo proof)
 //!   • Tranche 2 (25%) — released after 6-month survival verification
+//!                        ONLY when oracle-confirmed survival rate >= 70%
 //!
 //! State machine:
 //!   Funded → Planted (75% out) → Survived (25% out, Completed)
-//!                              ↘ Disputed / Refunded
+//!                              ↘ Disputed (survival rate < 70%, 25% held)
 
 use soroban_sdk::{
     contract, contractimpl, contracttype, symbol_short, token, Address, BytesN, Env,
@@ -25,6 +26,10 @@ const BPS_DENOM: i128     = 10_000;
 /// 6 months in seconds (approx 26 weeks)
 const SIX_MONTHS_SECS: u64 = 60 * 60 * 24 * 7 * 26;
 
+/// Minimum survival rate (percentage, 0–100) required to release Tranche 2.
+/// Oracle must confirm >= 70% of planted trees survived.
+const MIN_SURVIVAL_RATE: u32 = 70;
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 #[contracttype]
@@ -34,8 +39,10 @@ pub enum EscrowStatus {
     Funded,
     /// Planting verified, 75% released — awaiting 6-month survival check
     Planted,
-    /// Survival verified, 25% released — fully complete
+    /// Survival verified at >= 70% rate, 25% released — fully complete
     Completed,
+    /// Survival rate < 70% — Tranche 2 held pending dispute resolution
+    Disputed,
     /// Refunded to donor (only before Planted)
     Refunded,
 }
@@ -55,6 +62,8 @@ pub struct EscrowRecord {
     pub planting_proof:     Option<BytesN<32>>,
     /// SHA-256 of GPS + photo proof submitted at survival check
     pub survival_proof:     Option<BytesN<32>>,
+    /// Oracle-confirmed survival rate (0–100) recorded at survival check
+    pub survival_rate:      Option<u32>,
 }
 
 // ── Contract ──────────────────────────────────────────────────────────────────
@@ -105,6 +114,7 @@ impl TreeEscrow {
             planted_at:     None,
             planting_proof: None,
             survival_proof: None,
+            survival_rate:  None,
         });
 
         env.events().publish((symbol_short!("deposit"), farmer), amount);
@@ -143,14 +153,25 @@ impl TreeEscrow {
     }
 
     /// Verifier calls this after 6-month survival check passes.
-    /// Releases remaining 25% to the farmer.
+    ///
+    /// `survival_rate` is the oracle-confirmed percentage (0–100) of planted
+    /// trees that survived.  Must be >= 70% to release Tranche 2.
+    ///
+    /// - survival_rate >= 70% → releases remaining 25%, status → Completed
+    /// - survival_rate <  70% → status → Disputed, Tranche 2 held
+    ///
     /// Enforces that at least 6 months have elapsed since planting verification.
     pub fn verify_survival(
         env: Env,
         farmer: Address,
         proof_hash: BytesN<32>,
+        survival_rate: u32,
     ) {
         Self::require_admin(&env);
+
+        if survival_rate > 100 {
+            panic!("survival_rate must be between 0 and 100");
+        }
 
         let key = Self::record_key(&env, &farmer);
         let mut rec: EscrowRecord = env.storage().persistent()
@@ -167,21 +188,76 @@ impl TreeEscrow {
             panic!("6-month survival period not yet elapsed");
         }
 
-        let tranche2 = rec.total_amount - rec.released;
-        if tranche2 <= 0 {
+        // Record proof and rate regardless of outcome
+        rec.survival_proof = Some(proof_hash.clone());
+        rec.survival_rate  = Some(survival_rate);
+
+        if survival_rate >= MIN_SURVIVAL_RATE {
+            // ── Happy path: release Tranche 2 (25%) ──────────────────────────
+            let tranche2 = rec.total_amount - rec.released;
+            if tranche2 <= 0 {
+                panic!("nothing left to release");
+            }
+
+            token::Client::new(&env, &rec.token)
+                .transfer(&env.current_contract_address(), &rec.farmer, &tranche2);
+
+            rec.released += tranche2;
+            rec.status    = EscrowStatus::Completed;
+
+            env.storage().persistent().set(&key, &rec);
+
+            env.events().publish(
+                (symbol_short!("survived"), farmer.clone()),
+                (tranche2, survival_rate),
+            );
+        } else {
+            // ── Below threshold: mark Disputed, hold Tranche 2 ───────────────
+            rec.status = EscrowStatus::Disputed;
+
+            env.storage().persistent().set(&key, &rec);
+
+            env.events().publish(
+                (symbol_short!("disputed"), farmer.clone()),
+                survival_rate,
+            );
+        }
+    }
+
+    /// Admin resolves a Disputed escrow.
+    ///
+    /// `release_to_farmer` — if true, releases the held 25% to the farmer
+    /// (e.g. after manual review).  If false, refunds it to the donor.
+    pub fn resolve_dispute(env: Env, farmer: Address, release_to_farmer: bool) {
+        Self::require_admin(&env);
+
+        let key = Self::record_key(&env, &farmer);
+        let mut rec: EscrowRecord = env.storage().persistent()
+            .get(&key).expect("no escrow for farmer");
+
+        if rec.status != EscrowStatus::Disputed {
+            panic!("escrow is not in Disputed state");
+        }
+
+        let remainder = rec.total_amount - rec.released;
+        if remainder <= 0 {
             panic!("nothing left to release");
         }
 
-        token::Client::new(&env, &rec.token)
-            .transfer(&env.current_contract_address(), &rec.farmer, &tranche2);
+        let recipient = if release_to_farmer { &rec.farmer } else { &rec.donor };
 
-        rec.released      += tranche2;
-        rec.status         = EscrowStatus::Completed;
-        rec.survival_proof = Some(proof_hash);
+        token::Client::new(&env, &rec.token)
+            .transfer(&env.current_contract_address(), recipient, &remainder);
+
+        rec.released += remainder;
+        rec.status    = EscrowStatus::Completed;
 
         env.storage().persistent().set(&key, &rec);
 
-        env.events().publish((symbol_short!("survived"), farmer), tranche2);
+        env.events().publish(
+            (symbol_short!("resolved"), farmer),
+            (remainder, release_to_farmer),
+        );
     }
 
     /// Refund full amount to donor — only allowed before planting is verified.
@@ -254,10 +330,9 @@ mod tests {
     }
 
     #[test]
-    fn test_full_lifecycle() {
+    fn test_full_lifecycle_passing_survival() {
         let (env, _admin, donor, farmer, token, client) = setup();
 
-        // Deposit
         client.deposit(&donor, &farmer, &token, &10_000);
         assert_eq!(client.get_record(&farmer).unwrap().status, EscrowStatus::Funded);
 
@@ -270,11 +345,78 @@ mod tests {
         // Fast-forward ledger by 6 months
         env.ledger().with_mut(|l| l.timestamp += SIX_MONTHS_SECS + 1);
 
-        // Verify survival → remaining 25% released
-        client.verify_survival(&farmer, &proof(&env, 2));
+        // Verify survival at 85% → Tranche 2 released
+        client.verify_survival(&farmer, &proof(&env, 2), &85u32);
         let rec = client.get_record(&farmer).unwrap();
         assert_eq!(rec.released, 10_000);
         assert_eq!(rec.status, EscrowStatus::Completed);
+        assert_eq!(rec.survival_rate, Some(85u32));
+    }
+
+    #[test]
+    fn test_survival_at_exactly_70_percent_passes() {
+        let (env, _admin, donor, farmer, token, client) = setup();
+
+        client.deposit(&donor, &farmer, &token, &10_000);
+        client.verify_planting(&farmer, &proof(&env, 1));
+        env.ledger().with_mut(|l| l.timestamp += SIX_MONTHS_SECS + 1);
+
+        // Exactly 70% — boundary condition, must pass
+        client.verify_survival(&farmer, &proof(&env, 2), &70u32);
+        let rec = client.get_record(&farmer).unwrap();
+        assert_eq!(rec.status, EscrowStatus::Completed);
+        assert_eq!(rec.released, 10_000);
+    }
+
+    #[test]
+    fn test_survival_below_70_percent_disputes() {
+        let (env, _admin, donor, farmer, token, client) = setup();
+
+        client.deposit(&donor, &farmer, &token, &10_000);
+        client.verify_planting(&farmer, &proof(&env, 1));
+        env.ledger().with_mut(|l| l.timestamp += SIX_MONTHS_SECS + 1);
+
+        // 69% — below threshold, must move to Disputed
+        client.verify_survival(&farmer, &proof(&env, 2), &69u32);
+        let rec = client.get_record(&farmer).unwrap();
+        assert_eq!(rec.status, EscrowStatus::Disputed);
+        // Only Tranche 1 released — Tranche 2 still held
+        assert_eq!(rec.released, 7_500);
+        assert_eq!(rec.survival_rate, Some(69u32));
+    }
+
+    #[test]
+    fn test_dispute_resolved_to_farmer() {
+        let (env, _admin, donor, farmer, token, client) = setup();
+
+        client.deposit(&donor, &farmer, &token, &10_000);
+        client.verify_planting(&farmer, &proof(&env, 1));
+        env.ledger().with_mut(|l| l.timestamp += SIX_MONTHS_SECS + 1);
+        client.verify_survival(&farmer, &proof(&env, 2), &60u32);
+
+        assert_eq!(client.get_record(&farmer).unwrap().status, EscrowStatus::Disputed);
+
+        // Admin resolves in farmer's favour
+        client.resolve_dispute(&farmer, &true);
+        let rec = client.get_record(&farmer).unwrap();
+        assert_eq!(rec.status, EscrowStatus::Completed);
+        assert_eq!(rec.released, 10_000);
+    }
+
+    #[test]
+    fn test_dispute_resolved_to_donor() {
+        let (env, _admin, donor, farmer, token, client) = setup();
+
+        client.deposit(&donor, &farmer, &token, &10_000);
+        client.verify_planting(&farmer, &proof(&env, 1));
+        env.ledger().with_mut(|l| l.timestamp += SIX_MONTHS_SECS + 1);
+        client.verify_survival(&farmer, &proof(&env, 2), &50u32);
+
+        // Admin refunds Tranche 2 to donor
+        client.resolve_dispute(&farmer, &false);
+        let rec = client.get_record(&farmer).unwrap();
+        assert_eq!(rec.status, EscrowStatus::Completed);
+        assert_eq!(rec.released, 10_000); // total accounted for
     }
 
     #[test]
@@ -285,9 +427,8 @@ mod tests {
         client.deposit(&donor, &farmer, &token, &10_000);
         client.verify_planting(&farmer, &proof(&env, 1));
 
-        // Only 1 day later — should panic
         env.ledger().with_mut(|l| l.timestamp += 86_400);
-        client.verify_survival(&farmer, &proof(&env, 2));
+        client.verify_survival(&farmer, &proof(&env, 2), &80u32);
     }
 
     #[test]
@@ -297,7 +438,18 @@ mod tests {
 
         client.deposit(&donor, &farmer, &token, &10_000);
         client.verify_planting(&farmer, &proof(&env, 1));
-        client.verify_planting(&farmer, &proof(&env, 1)); // must panic
+        client.verify_planting(&farmer, &proof(&env, 1));
+    }
+
+    #[test]
+    #[should_panic(expected = "survival_rate must be between 0 and 100")]
+    fn test_invalid_survival_rate_rejected() {
+        let (env, _admin, donor, farmer, token, client) = setup();
+
+        client.deposit(&donor, &farmer, &token, &10_000);
+        client.verify_planting(&farmer, &proof(&env, 1));
+        env.ledger().with_mut(|l| l.timestamp += SIX_MONTHS_SECS + 1);
+        client.verify_survival(&farmer, &proof(&env, 2), &101u32);
     }
 
     #[test]
@@ -316,6 +468,6 @@ mod tests {
 
         client.deposit(&donor, &farmer, &token, &10_000);
         client.verify_planting(&farmer, &proof(&env, 1));
-        client.refund(&farmer); // must panic
+        client.refund(&farmer);
     }
 }
