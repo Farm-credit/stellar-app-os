@@ -1,3 +1,3 @@
 [workspace]
-members = ["nullifier-registry", "escrow-milestone", "tree-escrow"]
+members = ["nullifier-registry", "escrow-milestone", "tree-escrow", "zk-verifier"]
 resolver = "2"
