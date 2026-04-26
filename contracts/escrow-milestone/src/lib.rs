@@ -9,7 +9,7 @@
 //!   4. Remaining 25% stays locked until final milestone or dispute resolution
 
 use soroban_sdk::{
-    contract, contractimpl, contracttype, symbol_short, token, Address, BytesN, Env, IntoVal,
+    contract, contractimpl, contracttype, symbol_short, token, Address, Bytes, Env, IntoVal, Symbol,
 };
 
 const MILESTONE_1_BPS: i128 = 7_500;
@@ -39,13 +39,13 @@ pub enum EscrowStatus {
 #[contracttype]
 #[derive(Clone, Debug)]
 pub struct EscrowState {
-    pub farmer:            Address,
-    pub funder:            Address,
-    pub token:             Address,
-    pub total_amount:      i128,
-    pub released:          i128,
-    pub status:            EscrowStatus,
-    pub verification_hash: OptProof,
+    pub farmer:        Address,
+    pub funder:        Address,
+    pub token:         Address,
+    pub total_amount:  i128,
+    pub released:      i128,
+    pub status:        EscrowStatus,
+    pub verification_hash: Option<Bytes>,
 }
 
 #[contract]
@@ -74,15 +74,20 @@ impl EscrowMilestone {
 
         env.storage().persistent().set(&key, &EscrowState {
             farmer:            farmer.clone(),
-            funder,
-            token,
+            funder:            funder.clone(),
+            token:             token.clone(),
             total_amount:      amount,
             released:          0,
             status:            EscrowStatus::Funded,
             verification_hash: OptProof::None,
         });
 
-        env.events().publish((symbol_short!("deposit"), farmer), amount);
+        env.storage().persistent().set(&key, &state);
+
+        env.events().publish(
+            (Symbol::new(&env, "DonationReceived"), funder, farmer),
+            (amount, token),
+        );
     }
 
     pub fn verify_milestone(env: Env, farmer: Address, verification_hash: BytesN<32>) {
@@ -103,10 +108,14 @@ impl EscrowMilestone {
 
         state.released          = release_amount;
         state.status            = EscrowStatus::Milestone1Released;
-        state.verification_hash = OptProof::Some(verification_hash);
+        state.verification_hash = Some(verification_hash.clone().into());
 
         env.storage().persistent().set(&key, &state);
-        env.events().publish((symbol_short!("m1release"), farmer), release_amount);
+
+        env.events().publish(
+            (Symbol::new(&env, "PlantingVerified"), farmer),
+            (release_amount, verification_hash),
+        );
     }
 
     pub fn release_remainder(env: Env, farmer: Address) {
@@ -130,7 +139,11 @@ impl EscrowMilestone {
         state.status    = EscrowStatus::Completed;
 
         env.storage().persistent().set(&key, &state);
-        env.events().publish((symbol_short!("complete"), farmer), remainder);
+
+        env.events().publish(
+            (Symbol::new(&env, "MilestonePaymentReleased"), farmer),
+            remainder,
+        );
     }
 
     pub fn refund(env: Env, farmer: Address) {
@@ -149,7 +162,11 @@ impl EscrowMilestone {
 
         state.status = EscrowStatus::Refunded;
         env.storage().persistent().set(&key, &state);
-        env.events().publish((symbol_short!("refund"), farmer), state.total_amount);
+
+        env.events().publish(
+            (Symbol::new(&env, "DonationRefunded"), state.funder, farmer),
+            state.total_amount,
+        );
     }
 
     pub fn get_escrow(env: Env, farmer: Address) -> Option<EscrowState> {
@@ -173,16 +190,10 @@ impl EscrowMilestone {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use soroban_sdk::{testutils::Address as _, token, Address, BytesN, Env};
-
-    struct Ctx {
-        env:      Env,
-        client:   EscrowMilestoneClient<'static>,
-        token:    Address,
-        funder:   Address,
-        farmer:   Address,
-        contract: Address,
-    }
+    use soroban_sdk::{
+        testutils::{Address as _, AuthorizedFunction, AuthorizedInvocation, Ledger},
+        token, Address, BytesN, Env,
+    };
 
     fn setup() -> Ctx {
         let env = Env::default();
@@ -203,7 +214,7 @@ mod tests {
     }
 
     fn dummy_hash(env: &Env) -> BytesN<32> {
-        BytesN::from_array(env, &[1u8; 32])
+        BytesN::from_array(env, &[1u8; 32]).into()
     }
 
     fn balance(env: &Env, token: &Address, who: &Address) -> i128 {

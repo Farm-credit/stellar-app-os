@@ -116,10 +116,25 @@ export async function isFreighterInstalled(): Promise<boolean> {
 
   try {
     const { isConnected } = await import('@stellar/freighter-api');
-    await isConnected();
-    return true;
+    return await isConnected();
   } catch {
     return false;
+  }
+}
+
+export async function getFreighterNetwork(): Promise<NetworkType | null> {
+  if (typeof window === 'undefined') return null;
+
+  try {
+    const { getNetwork } = await import('@stellar/freighter-api');
+    const network = await getNetwork();
+
+    if (network === 'PUBLIC') return 'mainnet';
+    if (network === 'TESTNET') return 'testnet';
+    return null;
+  } catch (error) {
+    console.error('Error getting Freighter network:', error);
+    return null;
   }
 }
 
