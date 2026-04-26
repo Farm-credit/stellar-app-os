@@ -298,7 +298,6 @@ mod tests {
     fn test_full_lifecycle() {
         let (env, _admin, donor, farmer, token, client) = setup();
 
-        // Deposit
         client.deposit(&donor, &farmer, &token, &10_000);
         assert_eq!(
             client.get_record(&farmer).unwrap().status,
