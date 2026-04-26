@@ -1,7 +1,8 @@
 #![no_std]
 
 use soroban_sdk::{
-    contract, contractimpl, contracttype, symbol_short, Address, Bytes, BytesN, Env, String,
+    contract, contractimpl, contracttype, crypto::Hash, symbol_short, vec, xdr::ToXdr, Address, Bytes,
+    BytesN, Env, String, Symbol,
 };
 use soroban_sdk::xdr::ToXdr;
 
@@ -62,7 +63,7 @@ impl NullifierRegistry {
         env.storage().persistent().set(&commitment, &entry);
 
         env.events().publish(
-            (symbol_short!("register"), input.farmer_id),
+            (Symbol::new(&env, "FarmerRegistered"), input.farmer_id),
             commitment.clone(),
         );
 
@@ -80,6 +81,7 @@ impl NullifierRegistry {
     }
 
     fn _compute_commitment(env: &Env, input: &TreeCommitmentInput) -> BytesN<32> {
+        // Encode: gps_bytes | timestamp_be_8_bytes | farmer_id_bytes
         let gps_bytes = input.gps.clone().to_xdr(env);
         let ts_bytes = input.timestamp.to_be_bytes();
         let farmer_bytes = input.farmer_id.clone().to_xdr(env);

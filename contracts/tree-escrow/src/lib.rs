@@ -11,7 +11,8 @@
 //!                              ↘ Disputed / Refunded
 
 use soroban_sdk::{
-    contract, contractimpl, contracttype, symbol_short, token, Address, BytesN, Env, IntoVal,
+    contract, contractimpl, contracttype, symbol_short, token, Address, Bytes, BytesN, Env, IntoVal,
+    Symbol,
 };
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -65,15 +66,18 @@ pub enum EscrowStatus {
 #[contracttype]
 #[derive(Clone, Debug)]
 pub struct EscrowRecord {
-    pub donor:          Address,
-    pub farmer:         Address,
-    pub token:          Address,
-    pub total_amount:   i128,
-    pub released:       i128,
-    pub status:         EscrowStatus,
-    pub planted_at:     OptU64,
-    pub planting_proof: OptProof,
-    pub survival_proof: OptProof,
+    pub donor:              Address,
+    pub farmer:             Address,
+    pub token:              Address,
+    pub total_amount:       i128,
+    pub released:           i128,
+    pub status:             EscrowStatus,
+    /// Ledger timestamp when planting was verified
+    pub planted_at:         Option<u64>,
+    /// SHA-256 of GPS + photo proof submitted at planting
+    pub planting_proof:     Option<Bytes>,
+    /// SHA-256 of GPS + photo proof submitted at survival check
+    pub survival_proof:     Option<Bytes>,
 }
 
 // ── Contract ──────────────────────────────────────────────────────────────────
@@ -105,7 +109,7 @@ impl TreeEscrow {
         env.storage().persistent().set(&key, &EscrowRecord {
             donor:          donor.clone(),
             farmer:         farmer.clone(),
-            token,
+            token: token.clone(),
             total_amount:   amount,
             released:       0,
             status:         EscrowStatus::Funded,
@@ -114,7 +118,10 @@ impl TreeEscrow {
             survival_proof: OptProof::None,
         });
 
-        env.events().publish((symbol_short!("deposit"), farmer), amount);
+        env.events().publish(
+            (Symbol::new(&env, "DonationReceived"), donor, farmer),
+            (amount, token),
+        );
     }
 
     pub fn verify_planting(env: Env, farmer: Address, proof_hash: BytesN<32>) {
@@ -135,11 +142,15 @@ impl TreeEscrow {
 
         rec.released       += tranche1;
         rec.status          = EscrowStatus::Planted;
-        rec.planted_at      = OptU64::Some(env.ledger().timestamp());
-        rec.planting_proof  = OptProof::Some(proof_hash);
+        rec.planted_at      = Some(env.ledger().timestamp());
+        rec.planting_proof  = Some(proof_hash.clone().into());
 
         env.storage().persistent().set(&key, &rec);
-        env.events().publish((symbol_short!("planted"), farmer), tranche1);
+
+        env.events().publish(
+            (Symbol::new(&env, "PlantingVerified"), farmer),
+            (tranche1, proof_hash),
+        );
     }
 
     pub fn verify_survival(env: Env, farmer: Address, proof_hash: BytesN<32>) {
@@ -167,10 +178,14 @@ impl TreeEscrow {
 
         rec.released      += tranche2;
         rec.status         = EscrowStatus::Completed;
-        rec.survival_proof = OptProof::Some(proof_hash);
+        rec.survival_proof = Some(proof_hash.clone().into());
 
         env.storage().persistent().set(&key, &rec);
-        env.events().publish((symbol_short!("survived"), farmer), tranche2);
+
+        env.events().publish(
+            (Symbol::new(&env, "SurvivalVerified"), farmer),
+            (tranche2, proof_hash),
+        );
     }
 
     pub fn refund(env: Env, farmer: Address) {
@@ -189,7 +204,11 @@ impl TreeEscrow {
 
         rec.status = EscrowStatus::Refunded;
         env.storage().persistent().set(&key, &rec);
-        env.events().publish((symbol_short!("refund"), farmer), rec.total_amount);
+
+        env.events().publish(
+            (Symbol::new(&env, "DonationRefunded"), rec.donor, farmer),
+            rec.total_amount,
+        );
     }
 
     pub fn get_record(env: Env, farmer: Address) -> Option<EscrowRecord> {
@@ -213,19 +232,7 @@ impl TreeEscrow {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use soroban_sdk::{
-        testutils::{Address as _, Ledger},
-        token, Address, BytesN, Env,
-    };
-
-    struct Ctx {
-        env:      Env,
-        client:   TreeEscrowClient<'static>,
-        token:    Address,
-        donor:    Address,
-        farmer:   Address,
-        contract: Address,
-    }
+    use soroban_sdk::{testutils::{Address as _, Ledger}, token, Address, BytesN, Env};
 
     fn setup() -> Ctx {
         let env = Env::default();
@@ -246,7 +253,7 @@ mod tests {
     }
 
     fn proof(env: &Env, seed: u8) -> BytesN<32> {
-        BytesN::from_array(env, &[seed; 32])
+        BytesN::from_array(env, &[seed; 32]).into()
     }
 
     fn balance(env: &Env, token: &Address, who: &Address) -> i128 {
