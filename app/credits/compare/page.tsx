@@ -1,10 +1,12 @@
 'use client';
 
+import type { JSX } from 'react';
 import { useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { ComparisonTool } from '@/components/organisms/ComparisonTool/ComparisonTool';
 import { mockCarbonProjects } from '@/lib/api/mock/carbonProjects';
 import { Text } from '@/components/atoms/Text';
+import { useAppTranslation } from '@/hooks/useTranslation';
 
 export default function ComparePage(): JSX.Element {
   const router = useRouter();
@@ -12,7 +14,6 @@ export default function ComparePage(): JSX.Element {
 
   const handleAddToCart = useCallback(
     (projectId: string) => {
-      console.log('Adding project to cart:', projectId);
       router.push(`/credits/purchase?projectId=${projectId}`);
     },
     [router]
