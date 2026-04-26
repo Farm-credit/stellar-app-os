@@ -254,6 +254,14 @@
                     },
                     {
                       "key": {
+                        "symbol": "milestone1_verified_at"
+                      },
+                      "val": {
+                        "u64": 0
+                      }
+                    },
+                    {
+                      "key": {
                         "symbol": "released"
                       },
                       "val": {
@@ -273,6 +281,22 @@
                             "symbol": "Milestone1Released"
                           }
                         ]
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "survival_rate_percent"
+                      },
+                      "val": {
+                        "u32": 0
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "survival_verification_hash"
+                      },
+                      "val": {
+                        "bytes": "0000000000000000000000000000000000000000000000000000000000000000"
                       }
                     },
                     {
@@ -1205,27 +1229,17 @@
           "v0": {
             "topics": [
               {
-                "symbol": "DonationReceived"
-              },
-              {
-                "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"
+                "symbol": "deposit"
               },
               {
                 "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAITA4"
               }
             ],
             "data": {
-              "vec": [
-                {
-                  "i128": {
-                    "hi": 0,
-                    "lo": 10000
-                  }
-                },
-                {
-                  "address": "CDLDVFKHEZ2RVB3NG4UQA4VPD3TSHV6XMHXMHP2BSGCJ2IIWVTOHGDSG"
-                }
-              ]
+              "i128": {
+                "hi": 0,
+                "lo": 10000
+              }
             }
           }
         }
@@ -1387,24 +1401,17 @@
           "v0": {
             "topics": [
               {
-                "symbol": "PlantingVerified"
+                "symbol": "m1release"
               },
               {
                 "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAITA4"
               }
             ],
             "data": {
-              "vec": [
-                {
-                  "i128": {
-                    "hi": 0,
-                    "lo": 7500
-                  }
-                },
-                {
-                  "bytes": "0101010101010101010101010101010101010101010101010101010101010101"
-                }
-              ]
+              "i128": {
+                "hi": 0,
+                "lo": 7500
+              }
             }
           }
         }

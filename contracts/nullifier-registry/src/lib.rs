@@ -1,10 +1,9 @@
 #![no_std]
 
 use soroban_sdk::{
-    contract, contractimpl, contracttype, crypto::Hash, symbol_short, vec, xdr::ToXdr, Address, Bytes,
-    BytesN, Env, String, Symbol,
+    contract, contractimpl, contracttype, symbol_short, xdr::ToXdr, Address, Bytes, BytesN, Env,
+    String,
 };
-use soroban_sdk::xdr::ToXdr;
 
 #[contracttype]
 #[derive(Clone, Debug, PartialEq)]
@@ -35,7 +34,9 @@ impl NullifierRegistry {
         if env.storage().instance().has(&symbol_short!("ADMIN")) {
             panic!("already initialized");
         }
-        env.storage().instance().set(&symbol_short!("ADMIN"), &admin);
+        env.storage()
+            .instance()
+            .set(&symbol_short!("ADMIN"), &admin);
     }
 
     /// Compute a SHA-256 commitment from GPS + timestamp + farmer_id.
@@ -50,6 +51,7 @@ impl NullifierRegistry {
 
         let commitment = Self::_compute_commitment(&env, &input);
 
+        // Reject if already registered — nullifier check
         if env.storage().persistent().has(&commitment) {
             panic!("commitment already registered: double-counting rejected");
         }
