@@ -304,7 +304,7 @@ mod tests {
             EscrowStatus::Funded
         );
 
-        // Verify planting → 75% released
+        //
         client.verify_planting(&farmer, &proof(&env, 1));
         let rec = client.get_record(&farmer).unwrap();
         assert_eq!(rec.released, 7_500);
