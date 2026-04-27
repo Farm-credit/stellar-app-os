@@ -1,6 +1,7 @@
 'use client';
 
-import { Suspense, useEffect, useMemo, useState } from 'react';
+import type { JSX } from 'react';
+import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { ProgressStepper } from '@/components/molecules/ProgressStepper/ProgressStepper';
 import { Button } from '@/components/atoms/Button';
@@ -81,26 +82,29 @@ function RetireSelectionContent(): JSX.Element {
     setHasPrefilled(true);
   }, [activeCredits, searchParams, hasPrefilled]);
 
-  const validateQuantity = (value: string): string => {
-    if (!selectedCredit) return '';
-    if (!value) return '';
+  const validateQuantity = useCallback(
+    (value: string): string => {
+      if (!selectedCredit) return '';
+      if (!value) return '';
 
-    const numeric = Number.parseFloat(value);
-    if (Number.isNaN(numeric) || numeric <= 0) {
-      return 'Quantity must be greater than 0';
-    }
-    if (numeric < MIN_RETIRE_QUANTITY) {
-      return `Minimum quantity is ${MIN_RETIRE_QUANTITY} tons CO₂`;
-    }
-    if (numeric > selectedCredit.quantity) {
-      return `Maximum available is ${selectedCredit.quantity.toFixed(2)} tons CO₂`;
-    }
-    return '';
-  };
+      const numeric = Number.parseFloat(value);
+      if (Number.isNaN(numeric) || numeric <= 0) {
+        return 'Quantity must be greater than 0';
+      }
+      if (numeric < MIN_RETIRE_QUANTITY) {
+        return `Minimum quantity is ${MIN_RETIRE_QUANTITY} tons CO₂`;
+      }
+      if (numeric > selectedCredit.quantity) {
+        return `Maximum available is ${selectedCredit.quantity.toFixed(2)} tons CO₂`;
+      }
+      return '';
+    },
+    [selectedCredit]
+  );
 
   useEffect(() => {
     setQuantityError(validateQuantity(quantityInput));
-  }, [quantityInput, selectedCredit]);
+  }, [quantityInput, validateQuantity]);
 
   const selection = useMemo(() => {
     if (!selectedCredit) return null;

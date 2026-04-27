@@ -10,6 +10,10 @@ export interface RetirementSelection {
   pricePerTon: number;
   walletAddress?: string;
   retirementDate?: string;
+  treeCount?: number;
+  co2Offset?: number;
+  plantingDate?: string;
+  region?: string;
 }
 
 export type RetirementTransactionStatus =
