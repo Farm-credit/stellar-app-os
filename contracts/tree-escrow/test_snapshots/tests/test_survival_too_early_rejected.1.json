@@ -295,17 +295,7 @@
                       "key": {
                         "symbol": "survival_proof"
                       },
-                      "val": {
-                        "bytes": "0000000000000000000000000000000000000000000000000000000000000000"
-                      }
-                    },
-                    {
-                      "key": {
-                        "symbol": "survival_rate_percent"
-                      },
-                      "val": {
-                        "u32": 0
-                      }
+                      "val": "void"
                     },
                     {
                       "key": {
@@ -1464,9 +1454,6 @@
                 },
                 {
                   "bytes": "0202020202020202020202020202020202020202020202020202020202020202"
-                },
-                {
-                  "u32": 80
                 }
               ]
             }
@@ -1490,16 +1477,13 @@
             "data": {
               "vec": [
                 {
-                  "string": "caught panic '6-month survival period not yet elapsed' from contract function 'Symbol(obj#381)'"
+                  "string": "caught panic '6-month survival period not yet elapsed' from contract function 'Symbol(obj#369)'"
                 },
                 {
                   "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAITA4"
                 },
                 {
                   "bytes": "0202020202020202020202020202020202020202020202020202020202020202"
-                },
-                {
-                  "u32": 80
                 }
               ]
             }
@@ -1565,9 +1549,6 @@
                     },
                     {
                       "bytes": "0202020202020202020202020202020202020202020202020202020202020202"
-                    },
-                    {
-                      "u32": 80
                     }
                   ]
                 }

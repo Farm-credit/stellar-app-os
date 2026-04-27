@@ -154,16 +154,23 @@ impl TreeEscrow {
             &tranche1,
         );
 
-        rec.released += tranche1;
-        rec.status = EscrowStatus::Planted;
-        rec.planted_at = OptU64::Some(env.ledger().timestamp());
-        rec.planting_proof = OptProof::Some(proof_hash);
+        rec.released       += tranche1;
+        rec.status          = EscrowStatus::Planted;
+        rec.planted_at      = OptU64::Some(env.ledger().timestamp());
+        rec.planting_proof  = OptProof::Some(proof_hash.clone());
 
         env.storage().persistent().set(&key, &rec);
 
         env.events()
             .publish((symbol_short!("planted"), farmer), tranche1);
     }
+
+    pub fn verify_survival(
+        env: Env,
+        farmer: Address,
+        proof_hash: BytesN<32>,
+        survival_rate_percent: u32,
+    ) {
         Self::require_admin(&env);
 
         let key = Self::record_key(&env, &farmer);
@@ -260,10 +267,7 @@ impl TreeEscrow {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use soroban_sdk::{
-        testutils::{Address as _, Ledger},
-        token, Address, BytesN, Env,
-    };
+    use soroban_sdk::{testutils::{Address as _, Ledger}, token, Address, BytesN, Env};
 
     struct Ctx {
         env:      Env,
@@ -293,7 +297,7 @@ mod tests {
     }
 
     fn proof(env: &Env, seed: u8) -> BytesN<32> {
-        BytesN::from_array(env, &[seed; 32])
+        BytesN::from_array(env, &[seed; 32]).into()
     }
 
     fn balance(env: &Env, token: &Address, who: &Address) -> i128 {
@@ -412,7 +416,6 @@ mod tests {
 
         advance_ledger(&env, SIX_MONTHS_SECS + 1);
         client.verify_survival(&farmer, &proof(&env, 2), &69);
-    }
     }
 
     #[test]

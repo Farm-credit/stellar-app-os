@@ -252,44 +252,13 @@ mod tests {
         BytesN::from_array(env, &[seed; 32])
     }
 
-<<<<<<< HEAD
-    #[test]
-    fn test_deposit_and_verify_milestone() {
-        let (env, _admin, funder, farmer, token, client) = setup();
-
-        client.deposit(&funder, &farmer, &token, &10_000);
-
-        let state = client.get_escrow(&farmer).unwrap();
-        assert_eq!(state.total_amount, 10_000);
-        assert_eq!(state.status, EscrowStatus::Funded);
-
-        client.verify_milestone(&farmer, &dummy_hash(&env, 1));
-
-        let state = client.get_escrow(&farmer).unwrap();
-        // 75% of 10_000 = 7_500 released
-        assert_eq!(state.released, 7_500);
-        assert_eq!(state.status, EscrowStatus::Milestone1Released);
-        assert_eq!(state.milestone1_verified_at, env.ledger().timestamp());
-=======
     fn balance(env: &Env, token: &Address, who: &Address) -> i128 {
         token::Client::new(env, token).balance(who)
->>>>>>> a148e47 (test(ui): add full escrow lifecycle tests with balance assertions)
     }
 
     // ── Full lifecycle with balance assertions ────────────────────────────────
 
     #[test]
-<<<<<<< HEAD
-    fn test_verify_survival_releases_remainder() {
-        let (env, _admin, funder, farmer, token, client) = setup();
-
-        client.deposit(&funder, &farmer, &token, &10_000);
-        client.verify_milestone(&farmer, &dummy_hash(&env, 1));
-
-        env.ledger()
-            .with_mut(|l| l.timestamp += SIX_MONTHS_SECS + 1);
-        client.verify_survival(&farmer, &dummy_hash(&env, 2), &70);
-=======
     fn test_full_lifecycle_with_balances() {
         let Ctx { env, client, token, funder, farmer, contract } = setup();
 
@@ -310,7 +279,7 @@ mod tests {
         assert_eq!(state.released,     0);
 
         // Step 2: Planting verification → 75% released
-        client.verify_milestone(&farmer, &dummy_hash(&env));
+        client.verify_milestone(&farmer, &dummy_hash(&env, 1));
 
         assert_eq!(balance(&env, &token, &contract), 2_500, "25% still locked");
         assert_eq!(balance(&env, &token, &farmer),   7_500, "farmer received 75%");
@@ -322,7 +291,6 @@ mod tests {
 
         // Step 3: Survival verification → remaining 25% released
         client.verify_survival(&farmer, &dummy_hash(&env, 2), 80);
->>>>>>> a148e47 (test(ui): add full escrow lifecycle tests with balance assertions)
 
         assert_eq!(balance(&env, &token, &contract), 0,      "contract fully drained");
         assert_eq!(balance(&env, &token, &farmer),   10_000, "farmer received 100%");
@@ -331,7 +299,6 @@ mod tests {
         assert_eq!(state.status,   EscrowStatus::Completed);
         assert_eq!(state.released, 10_000);
     }
-    }
 
     #[test]
     fn test_tranche_amounts_non_round_deposit() {
@@ -339,11 +306,13 @@ mod tests {
         token::StellarAssetClient::new(&env, &token).mint(&funder, &999);
         client.deposit(&funder, &farmer, &token, &999);
 
-        client.verify_milestone(&farmer, &dummy_hash(&env));
+        client.verify_milestone(&farmer, &dummy_hash(&env, 1));
         let tranche1 = (999_i128 * 7_500) / 10_000; // = 749
         assert_eq!(balance(&env, &token, &farmer), tranche1);
 
-        client.release_remainder(&farmer);
+        // Advance time for survival check
+        env.ledger().with_mut(|l| l.timestamp += SIX_MONTHS_SECS + 1);
+        client.verify_survival(&farmer, &dummy_hash(&env, 2), 80);
         assert_eq!(balance(&env, &token, &farmer),   999);
         assert_eq!(balance(&env, &token, &contract), 0);
     }
@@ -362,9 +331,9 @@ mod tests {
     #[test]
     #[should_panic(expected = "first milestone not yet verified")]
     fn test_verify_survival_before_milestone_rejected() {
-        let Ctx { client, token, funder, farmer, .. } = setup();
+        let Ctx { env, client, token, funder, farmer, .. } = setup();
         client.deposit(&funder, &farmer, &token, &10_000);
-        client.verify_survival(&farmer, &dummy_hash(&client.env, 2), 80);
+        client.verify_survival(&farmer, &dummy_hash(&env, 2), 80);
     }
 
     #[test]

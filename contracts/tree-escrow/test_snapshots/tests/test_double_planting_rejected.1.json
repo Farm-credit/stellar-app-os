@@ -295,17 +295,7 @@
                       "key": {
                         "symbol": "survival_proof"
                       },
-                      "val": {
-                        "bytes": "0000000000000000000000000000000000000000000000000000000000000000"
-                      }
-                    },
-                    {
-                      "key": {
-                        "symbol": "survival_rate_percent"
-                      },
-                      "val": {
-                        "u32": 0
-                      }
+                      "val": "void"
                     },
                     {
                       "key": {
@@ -1487,7 +1477,7 @@
             "data": {
               "vec": [
                 {
-                  "string": "caught panic 'planting already verified or escrow not active' from contract function 'Symbol(obj#381)'"
+                  "string": "caught panic 'planting already verified or escrow not active' from contract function 'Symbol(obj#369)'"
                 },
                 {
                   "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAITA4"
