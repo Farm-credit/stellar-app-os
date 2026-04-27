@@ -128,7 +128,7 @@ impl TreeEscrow {
 
         env.events()
             .publish((symbol_short!("deposit"), farmer), amount);
-    }
+
 
     /// Verifier calls this after GPS + photo proof of planting is validated.
     /// Releases 75% of escrowed funds instantly to the farmer.
@@ -195,9 +195,6 @@ impl TreeEscrow {
             panic!("survival rate below minimum");
         }
 
-        let tranche2 = rec.total_amount - rec.released;
-        if tranche2 <= 0 { panic!("nothing left to release"); }
-
         token::Client::new(&env, &rec.token).transfer(
             &env.current_contract_address(),
             &rec.farmer,
@@ -213,7 +210,7 @@ impl TreeEscrow {
 
         env.events()
             .publish((symbol_short!("survived"), farmer), tranche2);
-    }
+
 
     pub fn refund(env: Env, farmer: Address) {
         Self::require_admin(&env);
@@ -240,7 +237,7 @@ impl TreeEscrow {
 
         env.events()
             .publish((symbol_short!("refund"), farmer), rec.total_amount);
-    }
+
 
     pub fn get_record(env: Env, farmer: Address) -> Option<EscrowRecord> {
         env.storage()

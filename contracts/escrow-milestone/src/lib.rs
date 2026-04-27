@@ -99,7 +99,7 @@ impl EscrowMilestone {
 
         env.events()
             .publish((symbol_short!("deposit"), farmer), amount);
-    }
+
     /// Called by the admin/verifier after GPS + photo validation passes.
     /// Releases 75% of escrowed funds instantly to the farmer wallet.
     /// `verification_hash` is the SHA-256 of the submitted GPS + photo proof.
@@ -194,7 +194,7 @@ impl EscrowMilestone {
 
         env.events()
             .publish((symbol_short!("refund"), farmer), state.total_amount);
-    }
+
 
     pub fn get_escrow(env: Env, farmer: Address) -> Option<EscrowState> {
         env.storage()

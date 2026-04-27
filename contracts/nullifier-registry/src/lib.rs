@@ -65,7 +65,7 @@ impl NullifierRegistry {
         env.storage().persistent().set(&commitment, &entry);
 
         env.events().publish(
-            (symbol_short!("register"), input.farmer_id),
+            (Symbol::new(&env, "FarmerRegistered"), input.farmer_id),
             commitment.clone(),
         );
 

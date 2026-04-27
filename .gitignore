@@ -41,14 +41,9 @@ yarn-error.log*
 next-env.d.ts
 
 FarmCredit*
-<<<<<<< HEAD
+
 .claude
 .codex
 
 contracts/**/test_snapshots/
-=======
 
-# rust
-/contracts/target/
-.claude
->>>>>>> 32be403 (feat(donation): deploy and verify tree-escrow and TREE token on testnet)
