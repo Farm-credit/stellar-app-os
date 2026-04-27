@@ -1,62 +1,46 @@
-import { Listing } from '../types/marketplace';
+import type { MarketplaceListing as Listing } from '../types/marketplace';
 
-// Mock data generator for listings
 const MOCK_LISTINGS: Record<string, Listing> = {
   '1': {
     id: '1',
-    sellerAddress: '0x1234567890abcdef1234567890abcdef12345678',
-    pricePerCredit: 12.5,
-    availableQuantity: 500,
-    project: {
-      id: 'proj-1',
-      name: 'Amazon Rainforest Reforestation',
-      type: 'Nature-Based',
-      vintage: 2022,
-    },
-    priceHistory: [
-      { date: '2023-01-01T00:00:00Z', price: 10.0 },
-      { date: '2023-06-01T00:00:00Z', price: 11.5 },
-      { date: '2024-01-01T00:00:00Z', price: 12.0 },
-      { date: '2024-02-01T00:00:00Z', price: 12.5 },
-    ],
+    sellerId: 'GCXAMPLE1234567890ABCDEF',
+    sellerName: 'GreenEarth Fund',
+    projectName: 'Amazon Rainforest Reforestation',
+    projectType: 'Reforestation',
+    quantity: 500,
+    pricePerTon: 12.5,
+    totalPrice: 6250,
+    vintageYear: 2022,
+    verificationStatus: 'Verra (VCS)',
+    listedAt: '2024-01-15T00:00:00Z',
+    location: 'Amazon Basin, Brazil',
+    isActive: true,
   },
   '2': {
     id: '2',
-    sellerAddress: '0xabcdef1234567890abcdef1234567890abcdef12',
-    pricePerCredit: 15.0,
-    availableQuantity: 100,
-    project: {
-      id: 'proj-2',
-      name: 'Sahara Solar Farm Expansion',
-      type: 'Renewable Energy',
-      vintage: 2023,
-    },
-    // No price history for this one
+    sellerId: 'GCXAMPLE9876543210FEDCBA',
+    sellerName: 'SolarVerde Corp',
+    projectName: 'Sahara Solar Farm Expansion',
+    projectType: 'Renewable Energy',
+    quantity: 100,
+    pricePerTon: 15.0,
+    totalPrice: 1500,
+    vintageYear: 2023,
+    verificationStatus: 'Gold Standard',
+    listedAt: '2024-02-01T00:00:00Z',
+    location: 'Sahara Desert, Morocco',
+    isActive: true,
   },
 };
 
-/**
- * Fetches a listing by its ID.
- * Returns null if the listing is not found.
- */
 export async function getListingById(id: string): Promise<Listing | null> {
-  // Simulate network delay
   await new Promise((resolve) => setTimeout(resolve, 500));
-
-  const listing = MOCK_LISTINGS[id];
-  return listing || null;
+  return MOCK_LISTINGS[id] ?? null;
 }
 
-/**
- * Checks if the requested quantity is available for the given listing.
- * Returns true if available, false otherwise.
- */
 export async function checkAvailability(id: string, requestedQuantity: number): Promise<boolean> {
-  // Simulate network delay
   await new Promise((resolve) => setTimeout(resolve, 300));
-
   const listing = MOCK_LISTINGS[id];
   if (!listing) return false;
-
-  return listing.availableQuantity >= requestedQuantity;
+  return listing.quantity >= requestedQuantity;
 }

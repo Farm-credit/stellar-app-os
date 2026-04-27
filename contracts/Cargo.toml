@@ -1,5 +1,5 @@
 [workspace]
-members = ["nullifier-registry", "escrow-milestone", "tree-escrow", "location-proof"]
+members = ["nullifier-registry", "escrow-milestone", "tree-escrow", "location-proof", "naira-payout"]
 resolver = "2"
 
 [profile.release]

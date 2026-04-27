@@ -3,21 +3,58 @@ name: CI
 on:
   pull_request:
   push:
-    branches:
-      - main
+    branches: [main]
 
 jobs:
-  build:
+  lint-and-build:
+    name: Lint + Build
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Repo
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Node CI (shared composite)
-        uses: ./.github/actions/node-ci
-
-      - name: Cache Next.js build
-        uses: actions/cache@v4
+      - uses: actions/setup-node@v4
         with:
-          path: .next/cache
-          key: nextjs-${{ runner.os }}-${{ hashFiles('**/*.[jt]s', '**/*.[jt]sx') }}
+          node-version: 20
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Get pnpm store path
+        id: pnpm-cache
+        run: echo "dir=$(pnpm store path)" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ${{ steps.pnpm-cache.outputs.dir }}
+            .next/cache
+          key: pnpm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-nextjs-${{ hashFiles('**/*.[jt]s', '**/*.[jt]sx') }}
+          restore-keys: |
+            pnpm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-
+            pnpm-${{ runner.os }}-
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm lint
+
+      - run: pnpm build
+        env:
+          # Provide stub env vars so Next.js config doesn't throw at build time
+          NEXT_PUBLIC_STELLAR_NETWORK: testnet
+          NEXT_PUBLIC_HORIZON_URL: https://horizon-testnet.stellar.org
+          NEXT_PUBLIC_SOROBAN_RPC_URL: https://soroban-testnet.stellar.org
+          NEXT_PUBLIC_NETWORK_PASSPHRASE: "Test SDF Network ; September 2015"
+          NEXT_PUBLIC_USDC_ISSUER: GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5
+          NEXT_PUBLIC_TREE_ISSUER: GCIBUILD000000000000000000000000000000000000000000000000
+          NEXT_PUBLIC_CARBON_CREDIT_ISSUER: GDUKMGUGDORQJH6YWY4RHDE6GV3NCYCBN3MORXYL43TSJPCCZFLNOA5H
+          NEXT_PUBLIC_CONTRACT_TREE_ESCROW: CBUILD0000000000000000000000000000000000000000000000000000
+          NEXT_PUBLIC_CONTRACT_ESCROW_MILESTONE: CBUILD0000000000000000000000000000000000000000000000000000
+          NEXT_PUBLIC_CONTRACT_LOCATION_PROOF: CBUILD0000000000000000000000000000000000000000000000000000
+          NEXT_PUBLIC_CONTRACT_NULLIFIER_REGISTRY: CBUILD0000000000000000000000000000000000000000000000000000
+          NEXT_PUBLIC_PLANTING_ADDRESS: GABEMKJNR4GK7M4FROGA7I7PG63N2CKE3EGDSBSISG56SVL2O3KRNDXA
+          NEXT_PUBLIC_REPLANTING_BUFFER_ADDRESS: GBUQWP3BOUZX34TOND2QV7QQ7K7VJTG6VSE62MFPXXXIAGKZ6YTDCXI
+          NEXT_PUBLIC_BULK_RECIPIENT_ADDRESS: GABEMKJNR4GK7M4FROGA7I7PG63N2CKE3EGDSBSISG56SVL2O3KRNDXA
+          NEXT_PUBLIC_ANCHOR_API_URL: https://testanchor.stellar.org
+          NEXT_PUBLIC_ANCHOR_HOME_DOMAIN: testanchor.stellar.org
+          NEXT_PUBLIC_APP_URL: http://localhost:3000

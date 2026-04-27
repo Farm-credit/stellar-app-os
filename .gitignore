@@ -42,8 +42,8 @@ next-env.d.ts
 
 FarmCredit*
 
-.claude
+# rust
 .codex
-
-contracts/**/test_snapshots/
-
+/contracts/target/
+**/test_snapshots/
+.claude

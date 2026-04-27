@@ -140,6 +140,19 @@ impl EscrowMilestone {
         survival_verification_hash: BytesN<32>,
         survival_rate_percent: u32,
     ) {
+        state.released          = release_amount;
+        state.status            = EscrowStatus::Milestone1Released;
+        state.verification_hash = Some(verification_hash.clone().into());
+
+        env.storage().persistent().set(&key, &state);
+
+        env.events().publish(
+            (Symbol::new(&env, "PlantingVerified"), farmer),
+            (release_amount, verification_hash),
+        );
+    }
+
+    pub fn release_remainder(env: Env, farmer: Address) {
         Self::require_admin(&env);
 
         let key = Self::escrow_key(&env, &farmer);
@@ -319,6 +332,8 @@ mod tests {
 
     // ── Error paths ───────────────────────────────────────────────────────────
 
+    // ── Error paths ───────────────────────────────────────────────────────────
+
     #[test]
     #[should_panic(expected = "milestone already processed")]
     fn test_double_verify_rejected() {
@@ -335,6 +350,23 @@ mod tests {
         client.deposit(&funder, &farmer, &token, &10_000);
         client.verify_survival(&farmer, &dummy_hash(&env, 2), 80);
     }
+
+    #[test]
+    #[should_panic(expected = "amount must be positive")]
+    fn test_deposit_zero_rejected() {
+        let Ctx { client, token, funder, farmer, .. } = setup();
+        client.deposit(&funder, &farmer, &token, &0);
+    }
+
+    #[test]
+    #[should_panic(expected = "active escrow already exists")]
+    fn test_duplicate_deposit_rejected() {
+        let Ctx { client, token, funder, farmer, .. } = setup();
+        client.deposit(&funder, &farmer, &token, &5_000);
+        client.deposit(&funder, &farmer, &token, &5_000);
+    }
+
+    // ── Refund paths ──────────────────────────────────────────────────────────
 
     #[test]
     #[should_panic(expected = "amount must be positive")]
