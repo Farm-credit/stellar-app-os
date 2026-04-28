@@ -10,7 +10,7 @@
  * ────────────────────────────────────────────────────────────
  */
 
-import { JSX, useState } from 'react';
+import { type JSX, useState } from 'react';
 import { useRateLimit } from '@/hooks/useRateLimit';
 import type { RateLimitInfo } from '@/hooks/useRateLimit';
 import { RateLimitBanner } from '@/components/RateLimitBanner';
@@ -32,7 +32,7 @@ const MOCK_RATE_LIMIT_INFO: RateLimitInfo = {
 //   const info = parseRateLimitHeaders(response.headers);
 // ---------------------------------------------------------------------------
 
-export function parseRateLimitHeaders(headers: Headers): RateLimitInfo | null {
+function parseRateLimitHeaders(headers: Headers): RateLimitInfo | null {
   const limit = headers.get('X-RateLimit-Limit');
   const remaining = headers.get('X-RateLimit-Remaining');
   const reset = headers.get('X-RateLimit-Reset'); // unix epoch seconds
@@ -53,9 +53,7 @@ export function parseRateLimitHeaders(headers: Headers): RateLimitInfo | null {
 // ---------------------------------------------------------------------------
 
 export default function ExampleFeaturePage(): JSX.Element {
-  const [rateLimitInfo, setRateLimitInfo] = useState<RateLimitInfo | null>(
-    MOCK_RATE_LIMIT_INFO,
-  );
+  const [rateLimitInfo, setRateLimitInfo] = useState<RateLimitInfo | null>(MOCK_RATE_LIMIT_INFO);
   const [status, setStatus] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(false);
 

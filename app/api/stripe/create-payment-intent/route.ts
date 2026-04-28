@@ -2,15 +2,15 @@ import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import type { StripePaymentIntentRequest } from '@/lib/types/donation-payment';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY ?? '', {
-  apiVersion: '2025-04-30.basil',
-});
-
 export async function POST(request: Request) {
   try {
     if (!process.env.STRIPE_SECRET_KEY) {
       return NextResponse.json({ error: 'Stripe is not configured' }, { status: 503 });
     }
+
+    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
+      apiVersion: '2026-02-25.clover',
+    });
 
     const body = (await request.json()) as StripePaymentIntentRequest;
     const { amount, currency, donorEmail, donorName, isMonthly, idempotencyKey } = body;

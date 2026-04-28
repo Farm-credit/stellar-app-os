@@ -1,27 +1,24 @@
-import { Networks, TransactionBuilder, Asset, Operation, Memo } from '@stellar/stellar-sdk';
+import { TransactionBuilder, Asset, Operation, Memo, hash } from '@stellar/stellar-sdk';
 import { Horizon } from '@stellar/stellar-sdk';
 import type { NetworkType } from '@/lib/types/wallet';
-import type { CreditSelectionState } from '@/lib/types/carbon';
+import type {
+  CreditSelectionState,
+  BulkPurchaseOrder,
+  BulkPurchaseResult,
+} from '@/lib/types/carbon';
 import { calculateDonationAllocation } from '@/lib/constants/donation';
+import { networkConfig } from '@/lib/config/network';
 
-const USDC_ISSUER_MAINNET = 'GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN';
-const USDC_ISSUER_TESTNET = 'GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5';
-const CARBON_CREDIT_ISSUER_MAINNET = 'GDUKMGUGDORQJH6YWY4RHDE6GV3NCYCBN3MORXYL43TSJPCCZFLNOA5H';
-const CARBON_CREDIT_ISSUER_TESTNET = 'GDUKMGUGDORQJH6YWY4RHDE6GV3NCYCBN3MORXYL43TSJPCCZFLNOA5H';
-
-export function getNetworkPassphrase(network: NetworkType): string {
-  return network === 'mainnet' ? Networks.PUBLIC : Networks.TESTNET;
+export function getNetworkPassphrase(_network?: NetworkType): string {
+  return networkConfig.networkPassphrase;
 }
 
-export function getUsdcAsset(network: NetworkType): Asset {
-  const issuer = network === 'mainnet' ? USDC_ISSUER_MAINNET : USDC_ISSUER_TESTNET;
-  return new Asset('USDC', issuer);
+export function getUsdcAsset(_network?: NetworkType): Asset {
+  return new Asset('USDC', networkConfig.usdcIssuer);
 }
 
-export function getCarbonCreditAsset(network: NetworkType): Asset {
-  const issuer =
-    network === 'mainnet' ? CARBON_CREDIT_ISSUER_MAINNET : CARBON_CREDIT_ISSUER_TESTNET;
-  return new Asset('CARBON', issuer);
+export function getCarbonCreditAsset(_network?: NetworkType): Asset {
+  return new Asset('CARBON', networkConfig.carbonCreditIssuer);
 }
 
 export async function buildPaymentTransaction(
@@ -35,15 +32,11 @@ export async function buildPaymentTransaction(
   }
 
   const networkPassphrase = getNetworkPassphrase(network);
-  const horizonUrl =
-    network === 'mainnet' ? 'https://horizon.stellar.org' : 'https://horizon-testnet.stellar.org';
-
-  const server = new Horizon.Server(horizonUrl);
+  const server = new Horizon.Server(networkConfig.horizonUrl);
   const sourceAccount = await server.loadAccount(sourcePublicKey);
 
   const usdcAsset = getUsdcAsset(network);
-  // Test destination address
-  const recipientAddress = 'GABEMKJNR4GK7M4FROGA7I7PG63N2CKE3EGDSBSISG56SVL2O3KRNDXA';
+  const recipientAddress = networkConfig.addresses.bulkRecipient;
 
   // Dev version: Only process payment, skip carbon credit minting (no asset exists yet)
   const transaction = new TransactionBuilder(sourceAccount, {
@@ -69,10 +62,9 @@ export async function buildPaymentTransaction(
 
 export async function submitTransaction(
   signedTransactionXdr: string,
-  network: NetworkType
+  _network?: NetworkType
 ): Promise<string> {
-  const horizonUrl =
-    network === 'mainnet' ? 'https://horizon.stellar.org' : 'https://horizon-testnet.stellar.org';
+  const horizonUrl = networkConfig.horizonUrl;
 
   const response = await fetch(`${horizonUrl}/transactions`, {
     method: 'POST',
@@ -127,7 +119,7 @@ export async function submitTransaction(
 }
 
 // Replanting buffer fund address — receives 30% of each donation
-const REPLANTING_BUFFER_ADDRESS = 'GBUQWP3BOUZX34TOND2QV7QQ7K7VJTG6VSE62MFPXXXIAGKZ6YTDCXI';
+const REPLANTING_BUFFER_ADDRESS = networkConfig.addresses.replantingBuffer;
 
 export async function buildDonationTransaction(
   amount: number,
@@ -140,14 +132,11 @@ export async function buildDonationTransaction(
   }
 
   const networkPassphrase = getNetworkPassphrase(network);
-  const horizonUrl =
-    network === 'mainnet' ? 'https://horizon.stellar.org' : 'https://horizon-testnet.stellar.org';
-
-  const server = new Horizon.Server(horizonUrl);
+  const server = new Horizon.Server(networkConfig.horizonUrl);
   const sourceAccount = await server.loadAccount(sourcePublicKey);
   const usdcAsset = getUsdcAsset(network);
 
-  const plantingAddress = 'GABEMKJNR4GK7M4FROGA7I7PG63N2CKE3EGDSBSISG56SVL2O3KRNDXA';
+  const plantingAddress = networkConfig.addresses.planting;
 
   // Split: 70% to planting, 30% to replanting buffer fund
   const { planting, buffer } = calculateDonationAllocation(amount);
@@ -182,7 +171,86 @@ export async function buildDonationTransaction(
   };
 }
 
-export function getStellarExplorerUrl(transactionHash: string, network: NetworkType): string {
-  const networkParam = network === 'mainnet' ? 'public' : 'testnet';
+export function getStellarExplorerUrl(transactionHash: string, network?: NetworkType): string {
+  const net = network ?? networkConfig.network;
+  const networkParam = net === 'mainnet' ? 'public' : 'testnet';
   return `https://stellar.expert/explorer/${networkParam}/tx/${transactionHash}`;
+}
+
+// ─── Bulk / Corporate Purchase ────────────────────────────────────────────────
+
+/**
+ * Builds a bulk-purchase transaction for corporate buyers (≥ 1 000 tokens).
+ *
+ * Metadata handling:
+ *  - 'on-chain'  → SHA-256 hash of the JSON metadata is embedded as a Memo.hash
+ *  - 'ipfs'      → caller is expected to pin the metadata first; the returned
+ *                  `memoValue` is the first 28 chars of the CID for the memo text
+ *  - 'none'      → plain text memo with the order reference
+ */
+export async function buildBulkPurchaseTransaction(
+  order: BulkPurchaseOrder
+): Promise<BulkPurchaseResult> {
+  const { projectId, quantity, totalPrice, buyerPublicKey, network, metadata } = order;
+
+  if (quantity < 1000) throw new Error('Bulk purchase requires at least 1 000 tokens');
+  if (totalPrice <= 0) throw new Error('Total price must be greater than zero');
+
+  const networkPassphrase = getNetworkPassphrase(network);
+  const server = new Horizon.Server(networkConfig.horizonUrl);
+  const sourceAccount = await server.loadAccount(buyerPublicKey);
+  const usdcAsset = getUsdcAsset(network);
+  const recipient = networkConfig.addresses.bulkRecipient;
+
+  // Build memo based on metadata storage preference
+  let memo: Memo;
+  let ipfsCid: string | undefined;
+  let memoValue: string | undefined;
+
+  if (metadata?.storageType === 'on-chain') {
+    // Hash the metadata JSON and embed it as a 32-byte memo hash
+    const metaJson = JSON.stringify({
+      companyName: metadata.companyName,
+      initiativeDescription: metadata.initiativeDescription,
+      initiativeUrl: metadata.initiativeUrl,
+      projectId,
+      quantity,
+    });
+    const metaHash = hash(Buffer.from(metaJson, 'utf8'));
+    memo = Memo.hash(metaHash.toString('hex'));
+    memoValue = metaHash.toString('hex');
+  } else if (metadata?.storageType === 'ipfs') {
+    // The IPFS CID is provided via metadata.storageRef (pinned before calling this fn)
+    const cid = metadata.storageRef ?? '';
+    ipfsCid = cid;
+    // Stellar memo text is max 28 bytes; prefix with 'ipfs:' and truncate
+    memoValue = `ipfs:${cid}`.slice(0, 28);
+    memo = Memo.text(memoValue);
+  } else {
+    // No metadata — simple reference memo
+    memoValue = `bulk:${projectId}`.slice(0, 28);
+    memo = Memo.text(memoValue);
+  }
+
+  const transaction = new TransactionBuilder(sourceAccount, {
+    fee: '1000', // higher base fee for bulk ops
+    networkPassphrase,
+  })
+    .addOperation(
+      Operation.payment({
+        destination: recipient,
+        asset: usdcAsset,
+        amount: totalPrice.toFixed(7),
+      })
+    )
+    .addMemo(memo)
+    .setTimeout(300)
+    .build();
+
+  return {
+    transactionXdr: transaction.toXDR(),
+    networkPassphrase,
+    ipfsCid,
+    memoValue,
+  };
 }

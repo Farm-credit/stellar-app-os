@@ -20,7 +20,6 @@ export function useListCredit() {
       }
       const result = await createListing(wallet, params);
       return result;
-      return await createListing(wallet, params);
     },
     onSuccess: () => {
       // Invalidate related queries

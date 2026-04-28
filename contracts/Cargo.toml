@@ -1,3 +1,9 @@
 [workspace]
-members = ["nullifier-registry", "escrow-milestone", "tree-escrow", "farmer-registry"]
+members = ["donation-escrow", "nullifier-registry", "escrow-milestone", "tree-escrow", "location-proof", "naira-payout", "farmer-registry"]
 resolver = "2"
+
+[profile.release]
+overflow-checks = true
+lto = true
+codegen-units = 1
+panic = "abort"

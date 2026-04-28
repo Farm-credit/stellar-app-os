@@ -1,24 +1,12 @@
 'use client';
 
 import React, { useState, useCallback } from 'react';
-import { Listing } from '@/lib/types/marketplace';
+import type { MarketplaceListing as Listing } from '@/lib/types/marketplace';
 import { checkAvailability } from '@/lib/api/marketplace';
 import { Text } from '@/components/atoms/Text';
 import { Badge } from '@/components/atoms/Badge';
 import { Button } from '@/components/atoms/Button';
 import { ShoppingCart, Leaf, Calendar, ShieldCheck, AlertCircle } from 'lucide-react';
-import dynamic from 'next/dynamic';
-
-const PriceHistoryChart = dynamic(() => import('./PriceHistoryChart'), {
-  loading: () => (
-    <div className="flex h-48 w-full animate-pulse items-center justify-center rounded-xl bg-white/5">
-      <Text variant="body" className="text-white/40">
-        Loading chart...
-      </Text>
-    </div>
-  ),
-  ssr: false,
-});
 
 interface ListingDetailProps {
   listing: Listing;
@@ -35,7 +23,7 @@ export function ListingDetail({ listing }: ListingDetailProps) {
 
   const handleQuantityChange = (newQty: number) => {
     if (newQty < 1) newQty = 1;
-    if (newQty > listing.availableQuantity) newQty = listing.availableQuantity;
+    if (newQty > listing.quantity) newQty = listing.quantity;
     setQuantity(newQty);
     setError(null);
   };
@@ -51,14 +39,14 @@ export function ListingDetail({ listing }: ListingDetailProps) {
       } else {
         setError('Requested quantity is no longer available.');
       }
-    } catch (err) {
+    } catch {
       setError('An error occurred while checking availability. Please try again.');
     } finally {
       setIsChecking(false);
     }
   }, [listing.id, quantity]);
 
-  const totalPrice = quantity * listing.pricePerCredit;
+  const totalPrice = quantity * listing.pricePerTon;
 
   return (
     <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
@@ -74,15 +62,13 @@ export function ListingDetail({ listing }: ListingDetailProps) {
             </Badge>
             <div className="flex items-center space-x-2 text-white/60">
               <ShieldCheck className="h-4 w-4" />
-              <span className="text-sm font-medium">
-                Seller: {formatAddress(listing.sellerAddress)}
-              </span>
+              <span className="text-sm font-medium">Seller: {formatAddress(listing.sellerId)}</span>
             </div>
           </div>
 
           <div className="space-y-2">
             <Text variant="h2" className="text-white">
-              {listing.project.name}
+              {listing.projectName}
             </Text>
             <Text variant="body" className="text-white/70">
               Support this verified environmental project by purchasing carbon credits.
@@ -99,7 +85,7 @@ export function ListingDetail({ listing }: ListingDetailProps) {
                   Project Type
                 </Text>
                 <Text variant="body" className="font-medium text-white">
-                  {listing.project.type}
+                  {listing.projectType}
                 </Text>
               </div>
             </div>
@@ -113,7 +99,7 @@ export function ListingDetail({ listing }: ListingDetailProps) {
                   Vintage Year
                 </Text>
                 <Text variant="body" className="font-medium text-white">
-                  {listing.project.vintage}
+                  {listing.vintageYear}
                 </Text>
               </div>
             </div>
@@ -121,9 +107,7 @@ export function ListingDetail({ listing }: ListingDetailProps) {
         </div>
 
         {/* Price History Chart (Lazy Loaded) */}
-        {listing.priceHistory && listing.priceHistory.length > 0 && (
-          <PriceHistoryChart data={listing.priceHistory} />
-        )}
+        {null}
       </div>
 
       {/* Right Column: Checkout Card */}
@@ -131,7 +115,7 @@ export function ListingDetail({ listing }: ListingDetailProps) {
         <div className="sticky top-24 flex flex-col rounded-2xl border border-white/10 bg-gradient-to-b from-white/5 to-transparent p-6 backdrop-blur-md">
           <div className="mb-6 flex flex-col space-y-1">
             <Text variant="h3" className="text-white">
-              ${listing.pricePerCredit.toFixed(2)}
+              ${listing.pricePerTon.toFixed(2)}
             </Text>
             <Text variant="small" className="text-white/50">
               Price per credit
@@ -146,7 +130,7 @@ export function ListingDetail({ listing }: ListingDetailProps) {
                 Available
               </Text>
               <Text variant="body" className="font-semibold text-white">
-                {listing.availableQuantity} units
+                {listing.quantity} units
               </Text>
             </div>
 
@@ -166,7 +150,7 @@ export function ListingDetail({ listing }: ListingDetailProps) {
                 <span className="w-16 text-center font-medium text-white">{quantity}</span>
                 <button
                   onClick={() => handleQuantityChange(quantity + 1)}
-                  disabled={quantity >= listing.availableQuantity}
+                  disabled={quantity >= listing.quantity}
                   className="flex h-10 w-10 items-center justify-center rounded-md text-white/70 transition-colors hover:bg-white/10 hover:text-white disabled:opacity-50"
                   aria-label="Increase quantity"
                 >
@@ -197,7 +181,7 @@ export function ListingDetail({ listing }: ListingDetailProps) {
           <Button
             stellar="primary"
             onClick={handleBuyNow}
-            disabled={isChecking || listing.availableQuantity === 0}
+            disabled={isChecking || listing.quantity === 0}
             className="w-full py-6 text-lg"
           >
             {isChecking ? (
@@ -205,7 +189,7 @@ export function ListingDetail({ listing }: ListingDetailProps) {
                 <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/20 border-t-white" />
                 <span>Checking...</span>
               </span>
-            ) : listing.availableQuantity === 0 ? (
+            ) : listing.quantity === 0 ? (
               'Sold Out'
             ) : (
               <span className="flex items-center space-x-2">

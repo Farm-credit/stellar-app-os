@@ -1,0 +1,34 @@
+name: Smoke Tests
+
+on:
+  workflow_call:
+    inputs:
+      base-url:
+        required: true
+        type: string
+  # Allow manual trigger against any URL
+  workflow_dispatch:
+    inputs:
+      base-url:
+        description: 'Base URL to test (e.g. https://farmcredit.io)'
+        required: true
+        type: string
+
+jobs:
+  smoke:
+    name: Smoke tests against ${{ inputs.base-url }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install test dependencies
+        run: npm install --no-save node-fetch@3
+
+      - name: Run smoke tests
+        env:
+          BASE_URL: ${{ inputs.base-url }}
+        run: node .github/scripts/smoke-tests.mjs

@@ -43,7 +43,7 @@ export default function ReferralProgramPage() {
 
       <RewardTiers tiers={stats.tiers} />
 
-      <SocialShareButtons referralLink={stats.referralLink} />
+      <SocialShareButtons url={stats.referralLink} title="Join me on Stellar Farm Credit" />
     </main>
   );
 }

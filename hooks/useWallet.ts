@@ -1,11 +1,43 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import type { WalletType, NetworkType, WalletConnection } from '@/lib/types/wallet';
-import { connectFreighter, connectAlbedo, fetchBalance } from '@/lib/stellar/wallet';
+import {
+  connectFreighter,
+  connectAlbedo,
+  fetchBalance,
+  getFreighterNetwork,
+} from '@/lib/stellar/wallet';
+import { signTransactionWithFreighter, signTransactionWithAlbedo } from '@/lib/stellar/signing';
 
 export function useWallet() {
   const [wallet, setWallet] = useState<WalletConnection | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Poll for network changes in Freighter
+  useEffect(() => {
+    if (wallet?.type === 'freighter') {
+      const interval = setInterval(async () => {
+        try {
+          const freighterNetwork = await getFreighterNetwork();
+          if (freighterNetwork && freighterNetwork !== wallet.network) {
+            console.log(`Freighter network changed: ${freighterNetwork}`);
+            // Auto-switch network if it changes in Freighter
+            const balance = await fetchBalance(wallet.publicKey, freighterNetwork);
+            const updatedWallet: WalletConnection = {
+              ...wallet,
+              network: freighterNetwork,
+              balance,
+            };
+            setWallet(updatedWallet);
+            localStorage.setItem('wallet_connection', JSON.stringify(updatedWallet));
+          }
+        } catch (err) {
+          console.error('Error polling Freighter network:', err);
+        }
+      }, 3000);
+      return () => clearInterval(interval);
+    }
+  }, [wallet]);
 
   const connect = useCallback(async (type: WalletType, network: NetworkType = 'testnet') => {
     setIsLoading(true);
@@ -13,13 +45,19 @@ export function useWallet() {
 
     try {
       let publicKey: string;
+      let targetNetwork = network;
 
       switch (type) {
         case 'freighter':
-          publicKey = await connectFreighter(network);
+          // For Freighter, try to detect the network first
+          const freighterNetwork = await getFreighterNetwork();
+          if (freighterNetwork) {
+            targetNetwork = freighterNetwork;
+          }
+          publicKey = await connectFreighter(targetNetwork);
           break;
         case 'albedo':
-          publicKey = await connectAlbedo(network);
+          publicKey = await connectAlbedo(targetNetwork);
           break;
         case 'custodial':
           throw new Error('Custodial wallets are not supported');
@@ -27,12 +65,12 @@ export function useWallet() {
           throw new Error(`Unsupported wallet type: ${type}`);
       }
 
-      const balance = await fetchBalance(publicKey, network);
+      const balance = await fetchBalance(publicKey, targetNetwork);
 
       const connection: WalletConnection = {
         type,
         publicKey,
-        network,
+        network: targetNetwork,
         isConnected: true,
         balance,
       };
@@ -120,6 +158,30 @@ export function useWallet() {
     }
   }, [wallet]);
 
+  const signTransaction = useCallback(
+    async (transactionXdr: string, networkPassphrase: string) => {
+      if (!wallet) {
+        throw new Error('No wallet connected');
+      }
+
+      try {
+        switch (wallet.type) {
+          case 'freighter':
+            return await signTransactionWithFreighter(transactionXdr, networkPassphrase);
+          case 'albedo':
+            return await signTransactionWithAlbedo(transactionXdr, wallet.network);
+          default:
+            throw new Error(`Signing not supported for wallet type: ${wallet.type}`);
+        }
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Failed to sign transaction';
+        setError(errorMessage);
+        throw err;
+      }
+    },
+    [wallet]
+  );
+
   const loadPersistedConnection = useCallback(() => {
     if (typeof window === 'undefined') return;
 
@@ -132,13 +194,19 @@ export function useWallet() {
           return;
         }
         setWallet(connection);
-        refreshBalance();
+        // Balance will be refreshed by the component using the provider if needed
+        // but let's refresh it here too for consistency
+        fetchBalance(connection.publicKey, connection.network)
+          .then((balance) => {
+            setWallet((prev) => (prev ? { ...prev, balance } : null));
+          })
+          .catch(console.error);
       }
     } catch (err) {
       console.error('Failed to load persisted wallet connection:', err);
       localStorage.removeItem('wallet_connection');
     }
-  }, [refreshBalance]);
+  }, []);
 
   return {
     wallet,
@@ -146,6 +214,7 @@ export function useWallet() {
     disconnect,
     switchNetwork,
     refreshBalance,
+    signTransaction,
     isLoading,
     error,
     loadPersistedConnection,

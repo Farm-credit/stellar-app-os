@@ -46,3 +46,4 @@ FarmCredit*
 # Rust/Cargo
 /contracts/target/
 /contracts/Cargo.lock
+**/test_snapshots/
