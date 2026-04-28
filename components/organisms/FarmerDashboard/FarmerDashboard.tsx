@@ -84,21 +84,14 @@ function PlantingBadge({ status }: { status: PlantingRecord['status'] }) {
 // ── Survival rate bar ─────────────────────────────────────────────────────────
 
 function SurvivalBar({ rate }: { rate: number | null }) {
-  if (rate === null)
-    return (
-      <Text size="xs" className="text-muted-foreground">
-        Not yet measured
-      </Text>
-    );
+  if (rate === null) return <Text className="text-muted-foreground">Not yet measured</Text>;
   const color = rate >= 80 ? 'bg-stellar-green' : rate >= 60 ? 'bg-amber-500' : 'bg-destructive';
   return (
     <div className="flex items-center gap-2">
       <div className="h-1.5 w-24 rounded-full bg-muted overflow-hidden">
         <div className={`h-full rounded-full ${color}`} style={{ width: `${rate}%` }} />
       </div>
-      <Text size="xs" weight="semibold">
-        {rate}%
-      </Text>
+      <Text>{rate}%</Text>
     </div>
   );
 }
@@ -126,17 +119,9 @@ function StatCard({
           {icon}
         </div>
         <div>
-          <Text size="xs" className="uppercase tracking-widest text-muted-foreground font-bold">
-            {label}
-          </Text>
-          <Text size="xl" weight="bold" className="leading-tight">
-            {value}
-          </Text>
-          {sub && (
-            <Text size="xs" className="text-muted-foreground">
-              {sub}
-            </Text>
-          )}
+          <Text className="uppercase tracking-widest text-muted-foreground font-bold">{label}</Text>
+          <Text className="leading-tight">{value}</Text>
+          {sub && <Text className="text-muted-foreground">{sub}</Text>}
         </div>
       </CardContent>
     </Card>
@@ -152,12 +137,8 @@ export function FarmerDashboard({ farmerId }: { farmerId?: string }) {
     return (
       <div className="flex flex-col items-center gap-4 py-16 text-center">
         <AlertCircle className="h-10 w-10 text-destructive" />
-        <Text size="lg" weight="semibold">
-          Failed to load dashboard
-        </Text>
-        <Text size="sm" className="text-muted-foreground">
-          {error}
-        </Text>
+        <Text>Failed to load dashboard</Text>
+        <Text className="text-muted-foreground">{error}</Text>
         <button
           onClick={retry}
           className="rounded-full bg-stellar-blue px-6 py-2 text-sm font-semibold text-white hover:bg-stellar-blue/90"
@@ -175,11 +156,9 @@ export function FarmerDashboard({ farmerId }: { farmerId?: string }) {
         {isLoading ? (
           <Skeleton className="h-8 w-48" />
         ) : (
-          <Text as="h1" size="2xl" weight="bold">
-            Welcome, {data?.farmerName}
-          </Text>
+          <Text as="h1">Welcome, {data?.farmerName}</Text>
         )}
-        <Text size="sm" className="text-muted-foreground mt-1">
+        <Text className="text-muted-foreground mt-1">
           Your planting activity and payment overview
         </Text>
       </div>
@@ -253,10 +232,8 @@ export function FarmerDashboard({ farmerId }: { farmerId?: string }) {
                 <div key={rec.id} className="px-6 py-4 space-y-2">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div>
-                      <Text size="sm" weight="semibold">
-                        {rec.projectName}
-                      </Text>
-                      <Text size="xs" className="text-muted-foreground">
+                      <Text>{rec.projectName}</Text>
+                      <Text className="text-muted-foreground">
                         {rec.location} · {fmt(rec.treesPlanted)} trees · {fmtDate(rec.plantedAt)}
                       </Text>
                     </div>
@@ -298,9 +275,7 @@ export function FarmerDashboard({ farmerId }: { farmerId?: string }) {
             </div>
           ) : (data?.nextAssignments.length ?? 0) === 0 ? (
             <div className="px-6 py-8 text-center">
-              <Text size="sm" className="text-muted-foreground">
-                No upcoming assignments
-              </Text>
+              <Text className="text-muted-foreground">No upcoming assignments</Text>
             </div>
           ) : (
             <div className="divide-y">
@@ -310,10 +285,8 @@ export function FarmerDashboard({ farmerId }: { farmerId?: string }) {
                   className="px-6 py-4 flex flex-wrap items-center justify-between gap-3"
                 >
                   <div>
-                    <Text size="sm" weight="semibold">
-                      {a.projectName}
-                    </Text>
-                    <Text size="xs" className="text-muted-foreground">
+                    <Text>{a.projectName}</Text>
+                    <Text className="text-muted-foreground">
                       {a.location} · {fmt(a.treesTarget)} trees · {fmtDate(a.scheduledDate)}
                     </Text>
                   </div>

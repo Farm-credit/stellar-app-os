@@ -1,5 +1,6 @@
 'use client';
 
+import type { JSX } from 'react';
 import { Suspense, useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { ProgressStepper } from '@/components/molecules/ProgressStepper/ProgressStepper';
