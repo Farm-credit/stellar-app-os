@@ -33,6 +33,18 @@ impl OptProof {
     pub fn is_some(&self) -> bool { matches!(self, OptProof::Some(_)) }
 }
 
+/// Soroban #[contracttype] does not support Option<BytesN<32>> directly.
+#[contracttype]
+#[derive(Clone, Debug, PartialEq)]
+pub enum OptProof {
+    None,
+    Some(BytesN<32>),
+}
+
+impl OptProof {
+    pub fn is_some(&self) -> bool { matches!(self, OptProof::Some(_)) }
+}
+
 #[contracttype]
 #[derive(Clone, Debug, PartialEq)]
 pub enum EscrowStatus {
@@ -311,6 +323,9 @@ mod tests {
         assert_eq!(balance(&env, &token, &contract), 2_500, "25% still locked");
         assert_eq!(balance(&env, &token, &farmer),   7_500, "farmer received 75%");
 
+        assert_eq!(balance(&env, &token, &contract), 2_500, "25% still locked");
+        assert_eq!(balance(&env, &token, &farmer),   7_500, "farmer received 75%");
+
         let state = client.get_escrow(&farmer).unwrap();
         assert_eq!(state.status,   EscrowStatus::Milestone1Released);
         assert_eq!(state.released, 7_500);
@@ -335,6 +350,8 @@ mod tests {
         assert_eq!(state.survival_verification_hash, dummy_hash(&env, 2));
         assert_eq!(state.survival_rate_percent, 70);
     }
+
+    // ── Error paths ───────────────────────────────────────────────────────────
 
     #[test]
     #[should_panic(expected = "6-month survival period not yet elapsed")]
