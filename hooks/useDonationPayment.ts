@@ -73,16 +73,20 @@ export function useDonationPayment() {
         paymentState.idempotencyKey,
         (status) => {
           setPaymentState((prev) => ({ ...prev, status, error: null }));
-        }
+        },
+        donationState.treeCount
       );
 
+      const totalAmount = donationState.amount * donationState.treeCount;
       setPaymentState((prev) => ({
         ...prev,
         status: 'success',
         transactionId: result.transactionHash,
       }));
       showToast('Payment successful!', 'success');
-      router.push(`/donate/confirmation?txHash=${result.transactionHash}&method=stellar&amount=${donationState.amount}`);
+      router.push(
+        `/donate/confirmation?txHash=${result.transactionHash}&method=stellar&amount=${totalAmount}&trees=${donationState.treeCount}`
+      );
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Payment failed';
       setPaymentState((prev) => ({
@@ -94,7 +98,7 @@ export function useDonationPayment() {
     } finally {
       isProcessingRef.current = false;
     }
-  }, [wallet, donationState.amount, paymentState.idempotencyKey, router]);
+  }, [wallet, donationState.amount, donationState.treeCount, paymentState.idempotencyKey, router]);
 
   // Stripe callbacks — coordinated with StripePaymentForm
   const onStripeProcessing = useCallback(() => {
@@ -109,9 +113,12 @@ export function useDonationPayment() {
         transactionId: paymentIntentId,
       }));
       showToast('Payment successful!', 'success');
-      router.push(`/donate/confirmation?txId=${paymentIntentId}&method=card&amount=${donationState.amount}`);
+      const totalAmount = donationState.amount * donationState.treeCount;
+      router.push(
+        `/donate/confirmation?txId=${paymentIntentId}&method=card&amount=${totalAmount}&trees=${donationState.treeCount}`
+      );
     },
-    [router]
+    [router, donationState.amount, donationState.treeCount]
   );
 
   const onStripeError = useCallback((message: string) => {

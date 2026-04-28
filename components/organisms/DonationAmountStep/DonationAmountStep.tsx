@@ -19,13 +19,18 @@ import {
   formatCurrency,
   formatNumber,
 } from '@/lib/constants/donation';
+import { MAX_BATCH_TREES } from '@/lib/stellar/transaction';
 
 const QUICK_AMOUNTS = [10, 25, 50, 100];
 
 export function DonationAmountStep() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { setAmount: persistAmount, setIsMonthly: persistIsMonthly } = useDonationContext();
+  const {
+    setAmount: persistAmount,
+    setTreeCount: persistTreeCount,
+    setIsMonthly: persistIsMonthly,
+  } = useDonationContext();
 
   // Initialize from URL params if available
   const [selectedAmount, setSelectedAmount] = useState<number | null>(() => {
@@ -63,18 +68,21 @@ export function DonationAmountStep() {
     return searchParams.get('monthly') === 'true';
   });
 
+  const [treeCount, setTreeCount] = useState<number>(1);
+
   const currentAmount = isCustom ? parseFloat(customAmount) || 0 : selectedAmount || 0;
   const isValidAmount = currentAmount >= MINIMUM_DONATION;
 
   // Handle extremely large amounts (cap display at reasonable values)
   const safeAmount = Math.min(currentAmount, 1000000);
+  const totalAmount = safeAmount * treeCount;
 
   const allocation = calculateDonationAllocation(safeAmount);
 
   const impact = {
-    trees: Math.round(safeAmount * TREES_PER_DOLLAR),
-    hectares: (safeAmount * HECTARES_PER_DOLLAR).toFixed(2),
-    co2: (safeAmount * CO2_PER_DOLLAR).toFixed(1),
+    trees: Math.round(totalAmount * TREES_PER_DOLLAR),
+    hectares: (totalAmount * HECTARES_PER_DOLLAR).toFixed(2),
+    co2: (totalAmount * CO2_PER_DOLLAR).toFixed(1),
   };
 
   const handleQuickSelect = (amount: number) => {
@@ -103,6 +111,7 @@ export function DonationAmountStep() {
   const handleContinue = () => {
     if (isValidAmount) {
       persistAmount(currentAmount);
+      persistTreeCount(treeCount);
       persistIsMonthly(isMonthly);
       router.push('/donate/info');
     }
@@ -246,6 +255,40 @@ export function DonationAmountStep() {
             </button>
           </div>
 
+          {/* Tree Quantity Selector */}
+          <div className="flex items-center gap-3 p-4 rounded-lg border border-gray-200 bg-white">
+            <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-stellar-green/10">
+              <Trees className="w-5 h-5 text-stellar-green" />
+            </div>
+            <div className="flex-1">
+              <Text className="font-medium">Number of trees</Text>
+              <Text variant="muted" className="text-sm">
+                Fund up to {MAX_BATCH_TREES} trees in one transaction
+              </Text>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setTreeCount((n) => Math.max(1, n - 1))}
+                disabled={treeCount <= 1}
+                aria-label="Decrease tree count"
+                className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center text-lg font-bold disabled:opacity-40 hover:bg-gray-100 transition-colors"
+              >
+                −
+              </button>
+              <Text className="w-8 text-center font-semibold tabular-nums">{treeCount}</Text>
+              <button
+                type="button"
+                onClick={() => setTreeCount((n) => Math.min(MAX_BATCH_TREES, n + 1))}
+                disabled={treeCount >= MAX_BATCH_TREES}
+                aria-label="Increase tree count"
+                className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center text-lg font-bold disabled:opacity-40 hover:bg-gray-100 transition-colors"
+              >
+                +
+              </button>
+            </div>
+          </div>
+
           {/* Continue Button */}
           <div className="space-y-3">
             <Button
@@ -337,13 +380,15 @@ export function DonationAmountStep() {
               <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 space-y-3">
                 <div className="flex items-center gap-2">
                   <Sprout className="w-4 h-4 text-amber-600" aria-hidden="true" />
-                  <Text className="text-sm font-semibold text-amber-800">Donation Allocation</Text>
+                  <Text className="text-sm font-semibold text-amber-800">
+                    Donation Allocation{treeCount > 1 ? ` (${treeCount} trees)` : ''}
+                  </Text>
                 </div>
                 <div className="space-y-2">
                   <div className="flex justify-between items-center">
                     <Text className="text-sm text-amber-700">Tree planting (70%)</Text>
                     <Text className="text-sm font-semibold text-amber-900">
-                      {formatCurrency(allocation.planting)}
+                      {formatCurrency(allocation.planting * treeCount)}
                     </Text>
                   </div>
                   <div className="flex justify-between items-center">
@@ -351,13 +396,13 @@ export function DonationAmountStep() {
                       Replanting buffer ({Math.round(REPLANTING_BUFFER_PERCENT * 100)}%)
                     </Text>
                     <Text className="text-sm font-semibold text-amber-900">
-                      {formatCurrency(allocation.buffer)}
+                      {formatCurrency(allocation.buffer * treeCount)}
                     </Text>
                   </div>
                   <div className="border-t border-amber-200 pt-2 flex justify-between items-center">
                     <Text className="text-sm font-semibold text-amber-800">Total</Text>
                     <Text className="text-sm font-bold text-amber-900">
-                      {formatCurrency(allocation.total)}
+                      {formatCurrency(allocation.total * treeCount)}
                     </Text>
                   </div>
                 </div>

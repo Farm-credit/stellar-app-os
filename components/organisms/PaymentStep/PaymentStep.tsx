@@ -149,6 +149,7 @@ export function PaymentStep() {
             amount={donationState.amount}
             isMonthly={donationState.isMonthly}
             paymentMethod={paymentState.method}
+            treeCount={donationState.treeCount}
           />
         </div>
       </div>

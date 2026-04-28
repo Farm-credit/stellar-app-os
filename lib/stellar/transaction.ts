@@ -121,14 +121,33 @@ export async function submitTransaction(
 // Replanting buffer fund address — receives 30% of each donation
 const REPLANTING_BUFFER_ADDRESS = networkConfig.addresses.replantingBuffer;
 
+// Planting escrow address — receives 70% of each donation
+const PLANTING_ADDRESS = 'GABEMKJNR4GK7M4FROGA7I7PG63N2CKE3EGDSBSISG56SVL2O3KRNDXA';
+
+/** Maximum trees per batch — mirrors the contract's MAX_BATCH_SIZE */
+export const MAX_BATCH_TREES = 50;
+
+/**
+ * Build a single Stellar transaction that funds N tree slots.
+ *
+ * Gas efficiency: one transaction, one fee (100 * 2N stroops), one signature.
+ * Each tree produces two operations: 70% to planting escrow, 30% to buffer fund.
+ *
+ * @param amount     - Per-tree donation amount in USD (sent as USDC)
+ * @param treeCount  - Number of trees (1–50)
+ */
 export async function buildDonationTransaction(
   amount: number,
   sourcePublicKey: string,
   network: NetworkType,
-  idempotencyKey: string
+  idempotencyKey: string,
+  treeCount = 1
 ): Promise<{ transactionXdr: string; networkPassphrase: string }> {
   if (amount <= 0) {
     throw new Error('Donation amount must be greater than zero');
+  }
+  if (treeCount < 1 || treeCount > MAX_BATCH_TREES) {
+    throw new Error(`Tree count must be between 1 and ${MAX_BATCH_TREES}`);
   }
 
   const networkPassphrase = getNetworkPassphrase(network);
@@ -141,26 +160,32 @@ export async function buildDonationTransaction(
   // Split: 70% to planting, 30% to replanting buffer fund
   const { planting, buffer } = calculateDonationAllocation(amount);
 
-  const transaction = new TransactionBuilder(sourceAccount, {
-    fee: '100',
+  const builder = new TransactionBuilder(sourceAccount, {
+    fee: baseFee,
     networkPassphrase,
-  })
-    // 70% — direct tree planting
-    .addOperation(
-      Operation.payment({
-        destination: plantingAddress,
-        asset: usdcAsset,
-        amount: planting.toFixed(7),
-      })
-    )
-    // 30% — replanting buffer fund (covers tree failures, ensures survival targets)
-    .addOperation(
-      Operation.payment({
-        destination: REPLANTING_BUFFER_ADDRESS,
-        asset: usdcAsset,
-        amount: buffer.toFixed(7),
-      })
-    )
+  });
+
+  // Add two operations per tree: 70% planting + 30% buffer
+  for (let i = 0; i < treeCount; i++) {
+    const { planting, buffer } = calculateDonationAllocation(amount);
+    builder
+      .addOperation(
+        Operation.payment({
+          destination: PLANTING_ADDRESS,
+          asset: usdcAsset,
+          amount: planting.toFixed(7),
+        })
+      )
+      .addOperation(
+        Operation.payment({
+          destination: REPLANTING_BUFFER_ADDRESS,
+          asset: usdcAsset,
+          amount: buffer.toFixed(7),
+        })
+      );
+  }
+
+  const transaction = builder
     .addMemo(Memo.text(`donate:${idempotencyKey.slice(0, 20)}`))
     .setTimeout(300)
     .build();
