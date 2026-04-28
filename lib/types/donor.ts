@@ -7,6 +7,7 @@ export interface DonorInfo {
 
 export interface DonationFlowState {
   amount: number;
+  treeCount: number;
   isMonthly: boolean;
   donorInfo: DonorInfo;
 }
@@ -20,6 +21,7 @@ export const DEFAULT_DONOR_INFO: DonorInfo = {
 
 export const DEFAULT_DONATION_FLOW_STATE: DonationFlowState = {
   amount: 25,
+  treeCount: 1,
   isMonthly: false,
   donorInfo: { ...DEFAULT_DONOR_INFO },
 };
