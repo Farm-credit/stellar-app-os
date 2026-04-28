@@ -84,10 +84,8 @@ export function BulkPurchaseForm({ projects }: BulkPurchaseFormProps) {
       <Card>
         <CardContent className="flex flex-col items-center gap-4 py-10 text-center">
           <CheckCircle2 className="h-12 w-12 text-stellar-green" aria-hidden="true" />
-          <Text as="h2" size="xl" weight="semibold">
-            Bulk purchase submitted!
-          </Text>
-          <Text size="sm" className="text-muted-foreground max-w-sm">
+          <Text variant="h2">Bulk purchase submitted!</Text>
+          <Text className="text-muted-foreground max-w-sm">
             Your transaction has been broadcast to the Stellar network.
           </Text>
           <a
@@ -99,12 +97,12 @@ export function BulkPurchaseForm({ projects }: BulkPurchaseFormProps) {
             View on Stellar Explorer <ExternalLink className="h-3.5 w-3.5" />
           </a>
           {state.buildResult?.ipfsCid && (
-            <Text size="xs" className="text-muted-foreground">
+            <Text className="text-muted-foreground">
               IPFS CID: <span className="font-mono">{state.buildResult.ipfsCid}</span>
             </Text>
           )}
           {state.buildResult?.memoValue && storageType === 'on-chain' && (
-            <Text size="xs" className="text-muted-foreground">
+            <Text className="text-muted-foreground">
               On-chain memo hash:{' '}
               <span className="font-mono break-all">{state.buildResult.memoValue}</span>
             </Text>
@@ -180,7 +178,7 @@ export function BulkPurchaseForm({ projects }: BulkPurchaseFormProps) {
               aria-required="true"
             />
             {quantityError && (
-              <Text id="qty-error" size="xs" className="text-destructive flex items-center gap-1">
+              <Text id="qty-error" className="text-destructive flex items-center gap-1">
                 <AlertCircle className="h-3.5 w-3.5" aria-hidden="true" />
                 {quantityError}
               </Text>
@@ -190,12 +188,10 @@ export function BulkPurchaseForm({ projects }: BulkPurchaseFormProps) {
           {/* Price summary */}
           {isValidQty && (
             <div className="rounded-lg bg-muted/50 px-4 py-3 flex justify-between items-center">
-              <Text size="sm" className="text-muted-foreground">
+              <Text className="text-muted-foreground">
                 Total ({parsedQty.toLocaleString()} × ${PRICE_PER_TOKEN} USDC)
               </Text>
-              <Text size="lg" weight="semibold" className="text-stellar-green">
-                ${totalPrice.toLocaleString()} USDC
-              </Text>
+              <Text className="text-stellar-green">${totalPrice.toLocaleString()} USDC</Text>
             </div>
           )}
         </CardContent>
@@ -215,9 +211,7 @@ export function BulkPurchaseForm({ projects }: BulkPurchaseFormProps) {
         <CardContent className="space-y-4">
           {/* Storage type */}
           <div className="space-y-1.5">
-            <Text size="sm" weight="medium">
-              Metadata storage
-            </Text>
+            <Text>Metadata storage</Text>
             <div
               className="grid grid-cols-3 gap-2"
               role="radiogroup"
@@ -248,12 +242,12 @@ export function BulkPurchaseForm({ projects }: BulkPurchaseFormProps) {
               ))}
             </div>
             {storageType === 'on-chain' && (
-              <Text size="xs" className="text-muted-foreground">
+              <Text className="text-muted-foreground">
                 A SHA-256 hash of your metadata JSON is embedded as the transaction memo.
               </Text>
             )}
             {storageType === 'ipfs' && (
-              <Text size="xs" className="text-muted-foreground">
+              <Text className="text-muted-foreground">
                 Your metadata is pinned to IPFS; the CID is referenced in the transaction memo.
               </Text>
             )}
@@ -293,7 +287,7 @@ export function BulkPurchaseForm({ projects }: BulkPurchaseFormProps) {
                   aria-required="true"
                   className="flex w-full rounded-lg border border-stellar-blue/30 bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stellar-blue disabled:opacity-50 resize-none"
                 />
-                <Text size="xs" className="text-muted-foreground text-right">
+                <Text className="text-muted-foreground text-right">
                   {initiativeDescription.length}/200
                 </Text>
               </div>
@@ -339,7 +333,6 @@ export function BulkPurchaseForm({ projects }: BulkPurchaseFormProps) {
       {/* ── Submit ────────────────────────────────────────────────────────── */}
       <Button
         stellar="primary"
-        size="lg"
         width="full"
         onClick={handleSubmit}
         disabled={!canSubmit}

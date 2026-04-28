@@ -4,7 +4,7 @@ import * as React from 'react';
 import { motion } from 'framer-motion';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/atoms/Button';
-import { ProjectCard } from '@/app/projects/page';
+import { ProjectCard } from '@/components/molecules/ProjectCard';
 import type { CarbonProject } from '@/lib/types/carbon';
 import { cn } from '@/lib/utils';
 

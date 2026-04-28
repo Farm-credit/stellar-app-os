@@ -8,7 +8,7 @@ import { trackEvent } from '@/lib/analytics';
 /**
  * Share platform configurations
  */
-export const shareConfigs: Record<SharePlatform, Omit<ShareConfig, 'url'>> = {
+export const shareConfigs: Record<SharePlatform, ShareConfig> = {
   twitter: {
     platform: 'twitter',
     url: '',

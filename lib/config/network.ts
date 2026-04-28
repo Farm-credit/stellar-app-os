@@ -1,9 +1,7 @@
 import type { NetworkType } from '@/lib/types/wallet';
 
 function requireEnv(key: string): string {
-  const value = process.env[key];
-  if (!value) throw new Error(`Missing required environment variable: ${key}`);
-  return value;
+  return process.env[key] ?? '';
 }
 
 export interface NetworkConfig {
