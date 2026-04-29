@@ -11,6 +11,7 @@ members = [
     "aggregate-impact-verifier",
     "tree-token",
     "admin-controls",
+    "kyc-attestation",
 ]
 resolver = "2"
 
