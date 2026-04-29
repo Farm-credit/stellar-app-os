@@ -8,6 +8,9 @@ members = [
     "zk-location-verifier",
     "location-proof",
     "naira-payout",
+    "aggregate-impact-verifier",
+    "tree-token",
+    "admin-controls",
 ]
 resolver = "2"
 
