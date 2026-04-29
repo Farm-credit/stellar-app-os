@@ -26,18 +26,25 @@ export interface StripePaymentIntentResponse {
 }
 
 export interface BuildDonationTransactionRequest {
-  amount: number; // in USD (sent as USDC)
+  amount: number; // per-tree amount in USD (sent as USDC)
+  treeCount?: number; // number of trees (1–50, default 1)
   walletPublicKey: string;
   network: NetworkType;
   idempotencyKey: string;
+}
+
+export interface DonationAllocationBreakdown {
+  total: number;
+  planting: number;
+  buffer: number;
 }
 
 export interface BuildDonationTransactionResponse {
   transactionXdr: string;
   networkPassphrase: string;
   allocation: {
-    total: number;
-    planting: number;
-    buffer: number;
+    perTree: DonationAllocationBreakdown;
+    total: DonationAllocationBreakdown;
+    treeCount: number;
   };
 }

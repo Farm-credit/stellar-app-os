@@ -3,17 +3,17 @@
 import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { 
-  CheckCircle, 
-  Download, 
-  Twitter, 
-  Facebook, 
-  Linkedin, 
+import {
+  CheckCircle,
+  Download,
+  Twitter,
+  Facebook,
+  Linkedin,
   RefreshCcw,
   ExternalLink,
   Trees,
   DollarSign,
-  Share2
+  Share2,
 } from 'lucide-react';
 import { Button } from '@/components/atoms/Button';
 import { Text } from '@/components/atoms/Text';
@@ -37,7 +37,7 @@ function DonationConfirmationContent() {
 
   const txHash = searchParams.get('txHash') || searchParams.get('txId') || 'pending';
   const method = searchParams.get('method') || 'card';
-  
+
   // Get donor name and amount from state, fallback to search params or defaults if state lost on refresh
   const donorName = state.donorInfo.name || 'Generous Donor';
   const amount = state.amount || parseFloat(searchParams.get('amount') || '0');
@@ -46,11 +46,11 @@ function DonationConfirmationContent() {
 
   useEffect(() => {
     // Fire analytics event
-    console.log('Analytics Event: donation_completed', {
+    console.info('Analytics Event: donation_completed', {
       transaction_id: txHash,
       amount: amount,
       method: method,
-      trees: trees
+      trees: trees,
     });
 
     // Generate QR code for certificate
@@ -69,25 +69,30 @@ function DonationConfirmationContent() {
     }
   }, [txHash, amount, method, trees]);
 
-  const handleDownloadCertificate = async () => {
+  const handleDownloadCertificate = () => {
     if (!qrDataUrl) return;
-    
+
     setIsGeneratingPdf(true);
     try {
       const certificateData: CertificateData = {
         userName: donorName,
         walletAddress: method === 'stellar' ? 'Stellar Wallet' : 'Stripe Payment',
         quantityRetired: trees,
+        treeCount: trees,
+        co2Offset: parseFloat((trees * 0.022).toFixed(2)),
+        plantingDate: new Date(Date.now() - 86400000),
+        region: 'Amazon Basin, Brazil',
         projectName: projectName,
-        projectDescription: 'Restoring critical biomes by planting native species in the heart of the Amazon rainforest.',
+        projectDescription:
+          'Restoring critical biomes by planting native species in the heart of the Amazon rainforest.',
         transactionHash: txHash,
         retirementDate: new Date(),
-        explorerBaseUrl: 'https://stellar.expert/explorer/public/tx'
+        explorerBaseUrl: 'https://stellar.expert/explorer/public/tx',
       };
 
       generateCertificatePdf({
         qrDataUrl,
-        data: certificateData
+        data: certificateData,
       });
     } catch (err) {
       console.error('Failed to generate certificate', err);
@@ -97,18 +102,28 @@ function DonationConfirmationContent() {
   };
 
   const shareText = `I just donated to help plant ${trees} trees with ${projectName}! Join me in restoring our planet. 🌍🌳`;
-  const shareUrl = typeof window !== 'undefined' ? window.location.origin : 'https://stellar-os.org';
+  const shareUrl =
+    typeof window !== 'undefined' ? window.location.origin : 'https://stellar-os.org';
 
   const shareOnTwitter = () => {
-    window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(shareUrl)}`, '_blank');
+    window.open(
+      `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(shareUrl)}`,
+      '_blank'
+    );
   };
 
   const shareOnFacebook = () => {
-    window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`, '_blank');
+    window.open(
+      `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`,
+      '_blank'
+    );
   };
 
   const shareOnLinkedin = () => {
-    window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}`, '_blank');
+    window.open(
+      `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}`,
+      '_blank'
+    );
   };
 
   const handleDonateAgain = () => {
@@ -128,11 +143,11 @@ function DonationConfirmationContent() {
         <motion.div
           initial={{ scale: 0 }}
           animate={{ scale: 1 }}
-          transition={{ 
-            type: "spring",
+          transition={{
+            type: 'spring',
             stiffness: 260,
             damping: 20,
-            delay: 0.2 
+            delay: 0.2,
           }}
           className="inline-flex items-center justify-center w-24 h-24 rounded-full bg-stellar-green/10 mb-8"
         >
@@ -142,34 +157,42 @@ function DonationConfirmationContent() {
         <Badge variant="success" className="mb-4">
           COMPLETED
         </Badge>
-        
+
         <Text variant="h1" className="text-4xl font-bold mb-4 text-gray-900">
           Thank you for your gift!
         </Text>
-        
+
         <Text variant="muted" className="text-lg mb-10 max-w-lg mx-auto">
-          Your donation has been confirmed and is already working to restore our local ecosystems. 
-          A confirmation email has been sent to your inbox.
+          Your donation has been confirmed and is already working to restore our local ecosystems. A
+          confirmation email has been sent to your inbox.
         </Text>
 
         {/* Donation Summary Card */}
         <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden mb-10">
           <div className="bg-gray-50 px-6 py-4 border-bottom border-gray-200 flex justify-between items-center text-left">
             <Text className="font-semibold text-gray-700">Donation Summary</Text>
-            <Text className="text-xs text-gray-400 font-mono select-all">TX: {txHash.slice(0, 8)}...{txHash.slice(-8)}</Text>
+            <Text className="text-xs text-gray-400 font-mono select-all">
+              TX: {txHash.slice(0, 8)}...{txHash.slice(-8)}
+            </Text>
           </div>
-          
+
           <div className="p-6 sm:p-8 space-y-6">
             <div className="grid grid-cols-2 gap-4">
               <div className="bg-stellar-green/5 p-4 rounded-xl border border-stellar-green/10 text-center">
                 <Trees className="w-6 h-6 text-stellar-green mx-auto mb-2" />
                 <Text className="text-2xl font-bold text-stellar-green">{formatNumber(trees)}</Text>
-                <Text className="text-xs font-medium text-stellar-green uppercase">Trees Planted</Text>
+                <Text className="text-xs font-medium text-stellar-green uppercase">
+                  Trees Planted
+                </Text>
               </div>
               <div className="bg-stellar-blue/5 p-4 rounded-xl border border-stellar-blue/10 text-center">
                 <DollarSign className="w-6 h-6 text-stellar-blue mx-auto mb-2" />
-                <Text className="text-2xl font-bold text-stellar-blue">{formatCurrency(amount)}</Text>
-                <Text className="text-xs font-medium text-stellar-blue uppercase">Total Amount</Text>
+                <Text className="text-2xl font-bold text-stellar-blue">
+                  {formatCurrency(amount)}
+                </Text>
+                <Text className="text-xs font-medium text-stellar-blue uppercase">
+                  Total Amount
+                </Text>
               </div>
             </div>
 
@@ -268,13 +291,15 @@ function DonationConfirmationContent() {
 
 export function DonationConfirmation({ className }: DonationConfirmationProps) {
   return (
-    <div className={cn("min-h-screen bg-gray-50", className)}>
-      <Suspense fallback={
-        <div className="flex flex-col items-center justify-center py-24">
-          <div className="w-12 h-12 border-4 border-stellar-green border-t-transparent rounded-full animate-spin mb-4" />
-          <Text>Verifying your donation...</Text>
-        </div>
-      }>
+    <div className={cn('min-h-screen bg-gray-50', className)}>
+      <Suspense
+        fallback={
+          <div className="flex flex-col items-center justify-center py-24">
+            <div className="w-12 h-12 border-4 border-stellar-green border-t-transparent rounded-full animate-spin mb-4" />
+            <Text>Verifying your donation...</Text>
+          </div>
+        }
+      >
         <DonationConfirmationContent />
       </Suspense>
     </div>

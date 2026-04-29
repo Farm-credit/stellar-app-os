@@ -5,14 +5,12 @@ import type { Credit } from '@/lib/types/listing';
 export function useUserCredits(publicKey: string | null) {
   return useQuery({
     queryKey: ['user-credits', publicKey],
-    queryFn: async (): Promise<Credit[]> => {
-      if (!publicKey) return [];
-      const result = await fetchUserCredits(publicKey);
-      return result;
-      return await fetchUserCredits(publicKey);
+    queryFn: (): Promise<Credit[]> => {
+      if (!publicKey) return Promise.resolve([]);
+      return fetchUserCredits(publicKey);
     },
     enabled: !!publicKey,
-    staleTime: 30000, // 30 seconds
+    staleTime: 30000,
     retry: 2,
   });
 }

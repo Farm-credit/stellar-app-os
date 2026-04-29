@@ -7,13 +7,14 @@ export interface DonationPaymentResult {
   transactionHash: string;
 }
 
-export type DonationStatusCallback = (_status: TransactionStatus) => void; // eslint-disable-line no-unused-vars
+export type DonationStatusCallback = (_status: TransactionStatus) => void;
 
 export async function processDonationPayment(
   amount: number,
   wallet: WalletConnection,
   idempotencyKey: string,
-  onStatusChange?: DonationStatusCallback
+  onStatusChange?: DonationStatusCallback,
+  treeCount = 1
 ): Promise<DonationPaymentResult> {
   // Step 1: Build transaction
   onStatusChange?.('preparing');
@@ -23,6 +24,7 @@ export async function processDonationPayment(
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       amount,
+      treeCount,
       walletPublicKey: wallet.publicKey,
       network: wallet.network,
       idempotencyKey,

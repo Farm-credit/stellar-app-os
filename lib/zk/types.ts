@@ -1,60 +1,55 @@
 /**
- * ZK types shared between the proof generator, API routes, and Soroban client.
- * All byte arrays are hex-encoded strings for JSON transport.
+ * Zero-Knowledge Proof Types for Privacy-Preserving Donations
+ * 
+ * This module defines types for generating and verifying ZK proofs that allow
+ * donors to prove they made a valid donation without revealing their wallet address.
  */
 
-/** Groth16 proof components (BN254). */
-export interface ZkProof {
-  /** G1 point A — 64 bytes hex (128 chars) */
-  a: string;
-  /** G2 point B — 128 bytes hex (256 chars) */
-  b: string;
-  /** G1 point C — 64 bytes hex (128 chars) */
-  c: string;
+export interface ZKProofInput {
+  // Private inputs (not revealed)
+  donorWalletAddress: string;
+  donationAmount: number;
+  randomNonce: string; // Random value for uniqueness
+  
+  // Public inputs (revealed on-chain)
+  donationCommitment: string; // Hash of (walletAddress + amount + nonce)
+  nullifier: string; // Prevents double-spending: Hash(walletAddress + nonce)
+  amountCommitment: string; // Commitment to the amount
 }
 
-/** Public inputs for Circuit 1 (anonymous donation). */
-export interface ProofInputs {
-  /** Pedersen commitment to (amount, donor_secret) — 32 bytes hex */
-  commitment: string;
-  /** H(donor_secret ∥ salt) — 32 bytes hex */
-  nullifierHash: string;
-}
-
-/** Full output from the proof generator. */
-export interface GeneratedProof {
-  proof: ZkProof;
-  inputs: ProofInputs;
-  /** Raw nullifier (kept client-side only, never sent to chain) */
-  nullifier: string;
-}
-
-/** snarkjs Groth16 proof shape (camelCase from snarkjs output). */
-export interface SnarkjsProof {
-  pi_a: [string, string, string];
-  pi_b: [[string, string], [string, string], [string, string]];
-  pi_c: [string, string, string];
-  protocol: string;
-  curve: string;
-}
-
-/** Request body for POST /api/transaction/build-anonymous-donation */
-export interface AnonymousDonationRequest {
-  proof: ZkProof;
-  inputs: ProofInputs;
-  /** Donation amount in USD */
-  amount: number;
-  network: 'testnet' | 'mainnet';
-  idempotencyKey: string;
-}
-
-/** Success response from POST /api/transaction/build-anonymous-donation */
-export interface AnonymousDonationResponse {
-  transactionXdr: string;
-  networkPassphrase: string;
-  allocation: {
-    total: number;
-    planting: number;
-    buffer: number;
+export interface ZKProof {
+  proof: {
+    pi_a: string[];
+    pi_b: string[][];
+    pi_c: string[];
+    protocol: string;
+    curve: string;
   };
+  publicSignals: string[];
+}
+
+export interface AnonymousDonationProof {
+  proof: ZKProof;
+  nullifier: string; // Unique identifier to prevent double-donations
+  donationCommitment: string; // Commitment to the donation
+  amountCommitment: string; // Commitment to the amount
+  timestamp: number;
+}
+
+export interface ZKCircuitConfig {
+  wasmPath: string;
+  zkeyPath: string;
+  verificationKeyPath: string;
+}
+
+export interface ProofGenerationResult {
+  success: boolean;
+  proof?: AnonymousDonationProof;
+  error?: string;
+  generationTimeMs?: number;
+}
+
+export interface ProofVerificationResult {
+  isValid: boolean;
+  error?: string;
 }

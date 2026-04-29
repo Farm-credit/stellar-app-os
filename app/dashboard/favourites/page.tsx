@@ -1,6 +1,6 @@
 'use client';
 
-import { ProjectCard } from '@/app/projects/page';
+import { ProjectCard } from '@/components/molecules/ProjectCard/ProjectCard';
 import { Button } from '@/components/atoms/Button';
 import { Text } from '@/components/atoms/Text';
 import { useFavorites } from '@/contexts/FavouritesContext';

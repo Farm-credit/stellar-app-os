@@ -23,6 +23,8 @@ export interface WalletContextValue {
   // eslint-disable-next-line no-unused-vars
   switchNetwork: (network: NetworkType) => Promise<void>;
   refreshBalance: () => Promise<void>;
+  // eslint-disable-next-line no-unused-vars
+  signTransaction: (transactionXdr: string, networkPassphrase: string) => Promise<string>;
   isLoading: boolean;
   error: string | null;
   loadPersistedConnection: () => void;

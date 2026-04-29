@@ -1,15 +1,8 @@
 import type { NetworkType, WalletBalance } from '@/lib/types/wallet';
-
-const STELLAR_NETWORKS = {
-  testnet: 'https://horizon-testnet.stellar.org',
-  mainnet: 'https://horizon.stellar.org',
-};
+import { networkConfig } from '@/lib/config/network';
 
 const USDC_ASSET_CODE = 'USDC';
-const USDC_ISSUER_MAINNET = 'GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN';
-const USDC_ISSUER_TESTNET = 'GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5';
 
-// eslint-disable-next-line no-unused-vars
 export async function connectFreighter(_network: NetworkType): Promise<string> {
   if (typeof window === 'undefined') {
     throw new Error('Freighter wallet can only be accessed in the browser');
@@ -116,19 +109,34 @@ export async function isFreighterInstalled(): Promise<boolean> {
 
   try {
     const { isConnected } = await import('@stellar/freighter-api');
-    await isConnected();
-    return true;
+    return await isConnected();
   } catch {
     return false;
   }
 }
 
+export async function getFreighterNetwork(): Promise<NetworkType | null> {
+  if (typeof window === 'undefined') return null;
+
+  try {
+    const { getNetwork } = await import('@stellar/freighter-api');
+    const network = await getNetwork();
+
+    if (network === 'PUBLIC') return 'mainnet';
+    if (network === 'TESTNET') return 'testnet';
+    return null;
+  } catch (error) {
+    console.error('Error getting Freighter network:', error);
+    return null;
+  }
+}
+
 export async function fetchBalance(
   publicKey: string,
-  network: NetworkType
+  _network?: NetworkType
 ): Promise<WalletBalance> {
   try {
-    const horizonUrl = STELLAR_NETWORKS[network];
+    const horizonUrl = networkConfig.horizonUrl;
     const response = await fetch(`${horizonUrl}/accounts/${publicKey}`);
 
     if (!response.ok) {
@@ -149,7 +157,7 @@ export async function fetchBalance(
 
     let xlmBalance = '0.0000000';
     let usdcBalance = '0.0000000';
-    const usdcIssuer = network === 'mainnet' ? USDC_ISSUER_MAINNET : USDC_ISSUER_TESTNET;
+    const usdcIssuer = networkConfig.usdcIssuer;
 
     for (const balance of account.balances) {
       if (balance.asset_type === 'native') {

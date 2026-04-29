@@ -1,16 +1,6 @@
 import type { Credit, ListingResult, MarketPriceData } from '@/lib/types/listing';
 
-interface WalletState {
-  publicKey: string;
-  network: 'mainnet' | 'testnet';
-  isConnected: boolean;
-  type: string;
-}
-
-export async function fetchUserCredits(_publicKey: string): Promise<Credit[]> {
-// eslint-disable-next-line no-unused-vars
 export function fetchUserCredits(_publicKey: string): Promise<Credit[]> {
-  // Mock implementation - replace with actual Stellar SDK calls later
   return Promise.resolve([
     {
       id: 'CARBON_SOLAR_001',
@@ -41,10 +31,7 @@ export function fetchUserCredits(_publicKey: string): Promise<Credit[]> {
   ]);
 }
 
-export async function fetchMarketPrice(_creditType: string): Promise<MarketPriceData> {
-// eslint-disable-next-line no-unused-vars
 export function fetchMarketPrice(_creditType: string): Promise<MarketPriceData> {
-  // Mock implementation
   return Promise.resolve({
     current: 10.5,
     high24h: 11.2,
@@ -55,10 +42,9 @@ export function fetchMarketPrice(_creditType: string): Promise<MarketPriceData> 
 }
 
 export async function createListing(
-  wallet: WalletState,
+  _wallet: unknown,
   params: { credit: Credit; pricePerCredit: number; quantity: number }
 ): Promise<ListingResult> {
-  // Mock implementation - simulate API delay
   await new Promise((resolve) => setTimeout(resolve, 2000));
 
   return {
@@ -74,29 +60,14 @@ export async function createListing(
   };
 }
 
-export async function validateCreditOwnership(
-  _publicKey: string,
-  _creditId: string,
 export function validateCreditOwnership(
-  // eslint-disable-next-line no-unused-vars
   _publicKey: string,
-  // eslint-disable-next-line no-unused-vars
   _creditId: string,
-  // eslint-disable-next-line no-unused-vars
   _quantity: number
 ): Promise<boolean> {
-  // Mock validation - always return true for demo
   return Promise.resolve(true);
 }
 
-export async function checkExistingListings(
-  _publicKey: string,
-  _creditId: string
-): Promise<boolean> {
-  // Mock check - always return false for demo
-  return false;
-// eslint-disable-next-line no-unused-vars
 export function checkExistingListings(_publicKey: string, _creditId: string): Promise<boolean> {
-  // Mock check - always return false for demo
   return Promise.resolve(false);
 }
