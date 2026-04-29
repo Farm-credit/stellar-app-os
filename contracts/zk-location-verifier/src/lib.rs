@@ -32,10 +32,17 @@
 //!   a `#[contracttype]` struct in the current SDK version.
 
 use soroban_sdk::{
-    contract, contractimpl, contracttype, symbol_short, Address, BytesN, Env, IntoVal, String,
+    contract, contractimpl, contracttype, symbol_short, xdr::ToXdr, Address, Bytes, BytesN, Env,
+    IntoVal, String,
 };
 
 // ── Types ─────────────────────────────────────────────────────────────────────
+
+/// Default Temporary-storage TTL (ledgers) for cached proof results when the
+/// caller does not specify one at init. Soroban testnet ledger close ≈ 5s, so
+/// this defaults to a short window — the cache exists to absorb retries and
+/// double-submissions, not to provide long-term storage.
+const DEFAULT_PROOF_CACHE_TTL_LEDGERS: u32 = 1;
 
 #[contracttype]
 #[derive(Clone, Debug, PartialEq)]
@@ -45,6 +52,16 @@ pub enum VerificationStatus {
     /// ZK proof verified — location is within Northern Nigeria boundary
     Approved,
     /// Commitment rejected (region outside boundary or proof invalid)
+    Rejected,
+}
+
+/// Cached approval/rejection result for a (commitment, proof_digest) pair,
+/// stored in `Temporary` storage so it auto-expires after `ProofCacheTtl`
+/// ledgers. Lets `approve_location` short-circuit duplicate submissions.
+#[contracttype]
+#[derive(Clone, Debug, PartialEq)]
+pub enum CachedProofResult {
+    Approved,
     Rejected,
 }
 
@@ -74,10 +91,27 @@ pub struct ZkLocationVerifier;
 impl ZkLocationVerifier {
     /// One-time initialisation — sets the admin/verifier address.
     pub fn initialize(env: Env, admin: Address) {
+        Self::initialize_with_cache_ttl(env, admin, DEFAULT_PROOF_CACHE_TTL_LEDGERS);
+    }
+
+    /// Same as `initialize` but with a configurable proof cache TTL (ledgers).
+    /// Pass 0 to disable proof caching entirely.
+    pub fn initialize_with_cache_ttl(env: Env, admin: Address, cache_ttl_ledgers: u32) {
         if env.storage().instance().has(&symbol_short!("ADMIN")) {
             panic!("already initialized");
         }
         env.storage().instance().set(&symbol_short!("ADMIN"), &admin);
+        env.storage()
+            .instance()
+            .set(&symbol_short!("PRFTTL"), &cache_ttl_ledgers);
+    }
+
+    /// Returns the configured proof-cache TTL in ledgers.
+    pub fn get_proof_cache_ttl(env: Env) -> u32 {
+        env.storage()
+            .instance()
+            .get(&symbol_short!("PRFTTL"))
+            .unwrap_or(DEFAULT_PROOF_CACHE_TTL_LEDGERS)
     }
 
     /// Step 1 — Farmer submits a location commitment without revealing coordinates.
@@ -129,12 +163,30 @@ impl ZkLocationVerifier {
     ///
     /// Only callable by the admin. The admin certifies that Circuit 2 confirmed
     /// the committed coordinates are inside the Northern Nigeria boundary.
+    ///
+    /// Idempotent on duplicate submissions: a `(commitment, proof_digest)` pair
+    /// already verified within the proof-cache TTL window short-circuits and
+    /// emits `prfHit` — see #399.
     pub fn approve_location(
         env: Env,
         commitment: BytesN<32>,
         proof_digest: BytesN<32>,
     ) {
         Self::require_admin(&env);
+
+        // Cache hit → return early without re-running verification.
+        let cache_key = Self::cache_key(&env, &commitment, &proof_digest);
+        if let Some(cached) = env
+            .storage()
+            .temporary()
+            .get::<BytesN<32>, CachedProofResult>(&cache_key)
+        {
+            env.events().publish(
+                (symbol_short!("prfHit"), commitment.clone()),
+                cached,
+            );
+            return;
+        }
 
         let key = Self::verif_key(&env, &commitment);
         let mut record: LocationVerification = env
@@ -158,6 +210,8 @@ impl ZkLocationVerifier {
             .persistent()
             .set(&Self::proof_key(&env, &commitment), &proof_digest);
 
+        Self::cache_result(&env, &cache_key, CachedProofResult::Approved);
+
         env.events().publish(
             (symbol_short!("zkApprove"), record.farmer),
             commitment,
@@ -165,8 +219,25 @@ impl ZkLocationVerifier {
     }
 
     /// Admin rejects a commitment (e.g. ZK circuit failed or coordinates out of bounds).
+    /// Idempotent on duplicate submissions via the proof cache — see `approve_location`.
     pub fn reject_location(env: Env, commitment: BytesN<32>) {
         Self::require_admin(&env);
+
+        // Reject lookups don't carry a proof digest, so we cache against
+        // a zero digest so duplicate rejections are still cheap.
+        let zero = BytesN::from_array(&env, &[0u8; 32]);
+        let cache_key = Self::cache_key(&env, &commitment, &zero);
+        if let Some(cached) = env
+            .storage()
+            .temporary()
+            .get::<BytesN<32>, CachedProofResult>(&cache_key)
+        {
+            env.events().publish(
+                (symbol_short!("prfHit"), commitment.clone()),
+                cached,
+            );
+            return;
+        }
 
         let key = Self::verif_key(&env, &commitment);
         let mut record: LocationVerification = env
@@ -183,6 +254,8 @@ impl ZkLocationVerifier {
         record.verified_at = env.ledger().timestamp();
 
         env.storage().persistent().set(&key, &record);
+
+        Self::cache_result(&env, &cache_key, CachedProofResult::Rejected);
 
         env.events().publish(
             (symbol_short!("zkReject"), record.farmer),
@@ -228,6 +301,31 @@ impl ZkLocationVerifier {
 
     fn proof_key(env: &Env, commitment: &BytesN<32>) -> soroban_sdk::Val {
         (symbol_short!("PROOF"), commitment.clone()).into_val(env)
+    }
+
+    /// Cache key = SHA-256(commitment || proof_digest). Hashing combines the
+    /// two so the cache lookup is a single keyspace and identical resubmissions
+    /// resolve to the same slot.
+    fn cache_key(env: &Env, commitment: &BytesN<32>, proof_digest: &BytesN<32>) -> BytesN<32> {
+        let mut buf = Bytes::new(env);
+        buf.append(&commitment.clone().to_xdr(env));
+        buf.append(&proof_digest.clone().to_xdr(env));
+        env.crypto().sha256(&buf).into()
+    }
+
+    fn cache_result(env: &Env, cache_key: &BytesN<32>, result: CachedProofResult) {
+        let ttl: u32 = env
+            .storage()
+            .instance()
+            .get(&symbol_short!("PRFTTL"))
+            .unwrap_or(DEFAULT_PROOF_CACHE_TTL_LEDGERS);
+        if ttl == 0 {
+            return;
+        }
+        env.storage().temporary().set(cache_key, &result);
+        env.storage()
+            .temporary()
+            .extend_ttl(cache_key, ttl, ttl);
     }
 
     /// Approved 2-character geohash prefixes covering Northern Nigeria
@@ -331,16 +429,92 @@ mod tests {
         client.submit_commitment(&farmer, &commitment(&env, 4), &String::from_str(&env, "e7"));
     }
 
+    // ── Proof caching (#399) ──────────────────────────────────────────────────
+
     #[test]
-    #[should_panic(expected = "commitment is not in Pending state")]
-    fn test_double_approve_rejected() {
+    fn test_double_approve_is_idempotent_via_cache() {
+        // Same (commitment, proof_digest) replayed within TTL hits the cache
+        // and short-circuits — no panic, no state change.
         let (env, _, client) = setup();
         let farmer = Address::generate(&env);
         let c = commitment(&env, 5);
 
         client.submit_commitment(&farmer, &c, &String::from_str(&env, "s2"));
-        client.approve_location(&c, &proof_digest(&env, 5));
-        client.approve_location(&c, &proof_digest(&env, 5)); // must panic
+        let pd = proof_digest(&env, 5);
+        client.approve_location(&c, &pd);
+        // Second call must NOT panic; it returns from the cache.
+        client.approve_location(&c, &pd);
+
+        let record = client.get_verification(&c).unwrap();
+        assert_eq!(record.status, VerificationStatus::Approved);
+    }
+
+    #[test]
+    #[should_panic(expected = "commitment is not in Pending state")]
+    fn test_cache_miss_with_different_proof_digest_falls_through() {
+        // A different proof_digest for the same commitment is a cache miss
+        // and falls through to the pre-existing "not Pending" panic — proving
+        // the cache key is keyed on the proof_digest, not just the commitment.
+        let (env, _, client) = setup();
+        let farmer = Address::generate(&env);
+        let c = commitment(&env, 50);
+
+        client.submit_commitment(&farmer, &c, &String::from_str(&env, "s2"));
+        client.approve_location(&c, &proof_digest(&env, 50));
+        client.approve_location(&c, &proof_digest(&env, 51));
+    }
+
+    #[test]
+    fn test_double_reject_is_idempotent_via_cache() {
+        let (env, _, client) = setup();
+        let farmer = Address::generate(&env);
+        let c = commitment(&env, 60);
+
+        client.submit_commitment(&farmer, &c, &String::from_str(&env, "s3"));
+        client.reject_location(&c);
+        client.reject_location(&c); // cache hit — must not panic
+
+        assert_eq!(
+            client.get_verification(&c).unwrap().status,
+            VerificationStatus::Rejected
+        );
+    }
+
+    #[test]
+    fn test_proof_cache_ttl_default_is_one_ledger() {
+        let (_, _, client) = setup();
+        assert_eq!(client.get_proof_cache_ttl(), 1);
+    }
+
+    #[test]
+    fn test_proof_cache_ttl_configurable_at_init() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let contract_id = env.register_contract(None, ZkLocationVerifier);
+        let client = ZkLocationVerifierClient::new(&env, &contract_id);
+        let admin = Address::generate(&env);
+        client.initialize_with_cache_ttl(&admin, &42);
+        assert_eq!(client.get_proof_cache_ttl(), 42);
+    }
+
+    #[test]
+    #[should_panic(expected = "commitment is not in Pending state")]
+    fn test_proof_cache_disabled_when_ttl_zero() {
+        // With TTL=0 the cache is bypassed; replay falls through to the
+        // pre-existing "not Pending" panic.
+        let env = Env::default();
+        env.mock_all_auths();
+        let contract_id = env.register_contract(None, ZkLocationVerifier);
+        let client = ZkLocationVerifierClient::new(&env, &contract_id);
+        let admin = Address::generate(&env);
+        client.initialize_with_cache_ttl(&admin, &0);
+
+        let farmer = Address::generate(&env);
+        let c = commitment(&env, 70);
+        client.submit_commitment(&farmer, &c, &String::from_str(&env, "s1"));
+        let pd = proof_digest(&env, 70);
+        client.approve_location(&c, &pd);
+        client.approve_location(&c, &pd); // must panic — cache disabled
     }
 
     #[test]

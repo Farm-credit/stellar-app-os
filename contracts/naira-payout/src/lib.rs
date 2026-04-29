@@ -316,6 +316,9 @@ mod tests {
         assert_eq!(record.expected_ngn_amount, 16_000_000);
         assert_eq!(record.off_ramp_method, OffRampMethod::MobileMoney);
 
+        // Advance ledger so the confirmation timestamp is non-zero.
+        env.ledger().with_mut(|l| l.timestamp = 1_700_000_000);
+
         // Confirm: anchor delivered NGN
         client.confirm_payout(&farmer, &dummy_hash(&env, 2));
 

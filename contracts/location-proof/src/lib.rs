@@ -134,7 +134,7 @@ mod tests {
         // Simulate SHA-256 output with a fixed seed for tests
         let mut preimage = Bytes::new(env);
         preimage.extend_from_array(&[seed; 64]);
-        env.crypto().sha256(&preimage)
+        env.crypto().sha256(&preimage).into()
     }
 
     #[test]
