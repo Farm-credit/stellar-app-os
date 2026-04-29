@@ -45,12 +45,18 @@ impl OptProof {
     pub fn is_some(&self) -> bool { matches!(self, OptProof::Some(_)) }
 }
 
+/// Minimum oracle-confirmed survival rate (0–100) to release Tranche 2.
+const MIN_SURVIVAL_RATE: u32 = 70;
+
 #[contracttype]
 #[derive(Clone, Debug, PartialEq)]
 pub enum EscrowStatus {
     Funded,
     Milestone1Released,
+    /// Survival rate >= 70%, Tranche 2 released — fully complete
     Completed,
+    /// Survival rate < 70%, Tranche 2 held pending dispute resolution
+    Disputed,
     Refunded,
 }
 
@@ -170,6 +176,10 @@ impl EscrowMilestone {
             .get(&symbol_short!("ADMIN"))
             .expect("contract not initialized");
         admin.require_auth();
+
+        if survival_rate > 100 {
+            panic!("survival_rate must be between 0 and 100");
+        }
 
         let key = Self::escrow_key(&env, &farmer);
         let mut state: EscrowState = env.storage().persistent()
@@ -308,6 +318,7 @@ mod tests {
         assert_eq!(balance(&env, &token, &farmer),   0);
 
         client.deposit(&funder, &farmer, &token, &10_000);
+        assert_eq!(client.get_escrow(&farmer).unwrap().status, EscrowStatus::Funded);
 
         assert_eq!(balance(&env, &token, &funder),   0,      "funder drained");
         assert_eq!(balance(&env, &token, &contract), 10_000, "contract holds full amount");
@@ -326,6 +337,11 @@ mod tests {
         assert_eq!(balance(&env, &token, &contract), 2_500, "25% still locked");
         assert_eq!(balance(&env, &token, &farmer),   7_500, "farmer received 75%");
 
+        client.deposit(&funder, &farmer, &token, &10_000);
+        client.verify_milestone(&farmer, &hash(&env, 1));
+
+        // 80% survival — above threshold
+        client.verify_survival(&farmer, &hash(&env, 2), &80u32);
         let state = client.get_escrow(&farmer).unwrap();
         assert_eq!(state.status,   EscrowStatus::Milestone1Released);
         assert_eq!(state.released, 7_500);
@@ -344,8 +360,22 @@ mod tests {
             .with_mut(|l| l.timestamp += SIX_MONTHS_SECS + 1);
         client.verify_survival(&farmer, &dummy_hash(&env, 2), &70);
 
+        client.resolve_dispute(&farmer, &true);
         let state = client.get_escrow(&farmer).unwrap();
+        assert_eq!(state.status, EscrowStatus::Completed);
         assert_eq!(state.released, 10_000);
+    }
+
+    #[test]
+    fn test_resolve_dispute_to_funder() {
+        let (env, _admin, funder, farmer, token, client) = setup();
+
+        client.deposit(&funder, &farmer, &token, &10_000);
+        client.verify_milestone(&farmer, &hash(&env, 1));
+        client.verify_survival(&farmer, &hash(&env, 2), &50u32);
+
+        client.resolve_dispute(&farmer, &false);
+        let state = client.get_escrow(&farmer).unwrap();
         assert_eq!(state.status, EscrowStatus::Completed);
         assert_eq!(state.survival_verification_hash, dummy_hash(&env, 2));
         assert_eq!(state.survival_rate_percent, 70);
@@ -380,7 +410,7 @@ mod tests {
 
     #[test]
     #[should_panic(expected = "milestone already processed")]
-    fn test_double_verify_rejected() {
+    fn test_double_verify_milestone_rejected() {
         let (env, _admin, funder, farmer, token, client) = setup();
         client.deposit(&funder, &farmer, &token, &10_000);
         client.verify_milestone(&farmer, &dummy_hash(&env, 1));

@@ -1,4 +1,4 @@
-import { TransactionBuilder, Asset, Operation, Memo, hash } from '@stellar/stellar-sdk';
+import { TransactionBuilder, Asset, Operation, Memo, hash, BASE_FEE } from '@stellar/stellar-sdk';
 import { Horizon } from '@stellar/stellar-sdk';
 import type { NetworkType } from '@/lib/types/wallet';
 import type {
@@ -8,6 +8,10 @@ import type {
 } from '@/lib/types/carbon';
 import { calculateDonationAllocation } from '@/lib/constants/donation';
 import { networkConfig } from '@/lib/config/network';
+import { getTreeAsset } from './tree-asset';
+
+// Re-export so callers can import TREE asset helper from this module
+export { getTreeAsset };
 
 export function getNetworkPassphrase(_network?: NetworkType): string {
   return networkConfig.networkPassphrase;
@@ -38,7 +42,10 @@ export async function buildPaymentTransaction(
   const usdcAsset = getUsdcAsset(network);
   const recipientAddress = networkConfig.addresses.bulkRecipient;
 
-  // Dev version: Only process payment, skip carbon credit minting (no asset exists yet)
+  // Payment transaction: transfers USDC to the platform's bulk-recipient address.
+  // TREE token minting (one TREE per credit purchased) is performed server-side
+  // via buildTreeMintTransaction() in lib/stellar/tree-token.ts once this
+  // transaction is confirmed on-chain.
   const transaction = new TransactionBuilder(sourceAccount, {
     fee: '100',
     networkPassphrase,
@@ -156,7 +163,7 @@ export async function buildDonationTransaction(
   const usdcAsset = getUsdcAsset(network);
 
   const builder = new TransactionBuilder(sourceAccount, {
-    fee: '100',
+    fee: BASE_FEE,
     networkPassphrase,
   });
 
