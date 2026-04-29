@@ -6,10 +6,11 @@
 //!   • Tranche 1 (75%) — released on verified planting (GPS + photo proof)
 //!   • TREE reward — 1 TREE token minted to donor per verified tree
 //!   • Tranche 2 (25%) — released after 6-month survival verification
+//!                        ONLY when oracle-confirmed survival rate >= 70%
 //!
 //! State machine:
 //!   Funded → Planted (75% out) → Survived (25% out, Completed)
-//!                              ↘ Disputed / Refunded
+//!                              ↘ Disputed (survival rate < 70%, 25% held)
 
 use soroban_sdk::{
     contract, contractimpl, contracttype, symbol_short, token, Address, BytesN, Env, IntoVal,
@@ -318,7 +319,13 @@ impl TreeEscrow {
     }
 
     /// Verifier calls this after 6-month survival check passes.
-    /// Releases remaining 25% to the farmer.
+    ///
+    /// `survival_rate` is the oracle-confirmed percentage (0–100) of planted
+    /// trees that survived.  Must be >= 70% to release Tranche 2.
+    ///
+    /// - survival_rate >= 70% → releases remaining 25%, status → Completed
+    /// - survival_rate <  70% → status → Disputed, Tranche 2 held
+    ///
     /// Enforces that at least 6 months have elapsed since planting verification.
     /// 
     /// OPTIMIZED: Reduced storage operations
@@ -336,6 +343,10 @@ impl TreeEscrow {
             .expect("contract not initialized");
         
         admin.require_auth();
+
+        if survival_rate > 100 {
+            panic!("survival_rate must be between 0 and 100");
+        }
 
         let key = Self::record_key(&env, &farmer);
         let mut rec: EscrowRecord = env
@@ -577,7 +588,6 @@ mod tests {
         client.deposit(&donor, &farmer, &token, &10_000, &42);
         client.verify_planting(&farmer, &proof(&env, 1), &42);
 
-        // Only 1 day later — should panic
         env.ledger().with_mut(|l| l.timestamp += 86_400);
         client.verify_survival(&farmer, &proof(&env, 2), &80);
     }
