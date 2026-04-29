@@ -1,6 +1,6 @@
 #![no_std]
 
-//! Naira Payout Contract — Closes #333, #420
+//! Naira Payout Contract — Closes #333
 //!
 //! Routes USDC/XLM farmer payouts through a Stellar SEP-24/SEP-31 anchor to
 //! deliver Nigerian Naira via mobile money or bank transfer.
@@ -15,18 +15,11 @@
 //!   4. Admin calls `confirm_payout(farmer, anchor_tx_id)` after the anchor
 //!      confirms NGN delivery, recording the completion on-chain.
 //!   5. Admin may call `cancel_payout(farmer)` before confirmation if needed.
-//!
-//! Multi-currency oracle (Issue #420):
-//!   - Oracle address is registered via `set_oracle` (admin-only).
-//!   - Oracle calls `update_rate(base, quote, rate)` to publish exchange rates.
-//!   - `payout_in_currency(recipient, amount, currency)` converts and transfers NGN.
 
 use soroban_sdk::{
     contract, contractimpl, contracttype, symbol_short, token, Address, BytesN, Env, IntoVal,
     Symbol,
 };
-
-// ── Existing types ────────────────────────────────────────────────────────────
 
 /// Off-ramp delivery method for Nigerian Naira.
 #[contracttype]
@@ -72,32 +65,6 @@ pub struct PayoutRecord {
     pub anchor_tx_id: BytesN<32>,
 }
 
-// ── Multi-currency types (Issue #420) ─────────────────────────────────────────
-
-/// Supported payout currencies.
-#[contracttype]
-#[derive(Clone, Debug, PartialEq)]
-pub enum SupportedCurrency {
-    NGN,
-    USD,
-    GHS,
-    KES,
-}
-
-/// On-chain exchange rate between two currencies.
-/// `rate` is in basis points: 1 base unit = rate/10000 quote units.
-#[contracttype]
-#[derive(Clone, Debug)]
-pub struct ExchangeRate {
-    pub base: Symbol,
-    pub quote: Symbol,
-    pub rate: i128,
-    pub updated_at: u64,
-    pub oracle: Address,
-}
-
-// ── Contract ──────────────────────────────────────────────────────────────────
-
 #[contract]
 pub struct NairaPayout;
 
@@ -105,7 +72,13 @@ pub struct NairaPayout;
 impl NairaPayout {
     /// One-time setup: register the admin and the anchor's on-chain
     /// withdrawal address (the Stellar account operated by the anchor).
-    pub fn initialize(env: Env, admin: Address, anchor_withdrawal: Address) {
+    pub fn initialize(
+        env: Env,
+        admin: Address,
+        anchor_withdrawal: Address,
+        min_interval_secs: u64,
+        max_daily_payout: i128,
+    ) {
         if env.storage().instance().has(&symbol_short!("ADMIN")) {
             panic!("already initialized");
         }
@@ -115,17 +88,23 @@ impl NairaPayout {
         env.storage()
             .instance()
             .set(&symbol_short!("ANCHOR"), &anchor_withdrawal);
-    }
-
-    /// Register or update the oracle address (admin-only).
-    pub fn set_oracle(env: Env, oracle: Address) {
-        Self::require_admin(&env);
         env.storage()
             .instance()
-            .set(&symbol_short!("ORACLE"), &oracle);
+            .set(&Symbol::new(&env, "MinIntervalSecs"), &min_interval_secs);
+        env.storage()
+            .instance()
+            .set(&Symbol::new(&env, "MaxDailyPayout"), &max_daily_payout);
     }
 
     /// Initiate a USDC/XLM → NGN payout for a farmer.
+    ///
+    /// - `funder`: platform wallet that holds the USDC (authorises the transfer)
+    /// - `farmer`: identifies the payout record and the beneficiary
+    /// - `token`: Stellar Asset Contract address for USDC or XLM
+    /// - `usdc_amount`: amount in stroops to transfer to the anchor
+    /// - `expected_ngn_amount`: pre-quoted NGN equivalent (from SEP-38 quote)
+    /// - `off_ramp_method`: mobile money or bank transfer
+    /// - `off_ramp_ref_hash`: SHA-256 of the farmer's off-ramp reference (PII stays off-chain)
     pub fn initiate_payout(
         env: Env,
         funder: Address,
@@ -144,6 +123,43 @@ impl NairaPayout {
         }
         if expected_ngn_amount <= 0 {
             panic!("expected NGN amount must be positive");
+        }
+
+        let min_interval: u64 = env
+            .storage()
+            .instance()
+            .get(&Symbol::new(&env, "MinIntervalSecs"))
+            .unwrap_or(0);
+        let max_daily: i128 = env
+            .storage()
+            .instance()
+            .get(&Symbol::new(&env, "MaxDailyPayout"))
+            .unwrap_or(0);
+
+        let now = env.ledger().timestamp();
+
+        let last_payout_key = (Symbol::new(&env, "LastPayoutTime"), farmer.clone()).into_val(&env);
+        if env.storage().persistent().has(&last_payout_key) {
+            let last_payout_time: u64 = env.storage().persistent().get(&last_payout_key).unwrap();
+            if now < last_payout_time + min_interval {
+                panic!("rate limit: payout interval too short");
+            }
+        }
+
+        let daily_total_key = Symbol::new(&env, "DailyPayoutTotal");
+        let (mut current_total, last_reset_day): (i128, u64) = env
+            .storage()
+            .instance()
+            .get(&daily_total_key)
+            .unwrap_or((0, 0));
+
+        let current_day = now / 86400;
+        if current_day > last_reset_day {
+            current_total = 0;
+        }
+
+        if current_total + usdc_amount > max_daily {
+            panic!("MAX_DAILY_PAYOUT exceeded");
         }
 
         let key = Self::payout_key(&env, &farmer);
@@ -171,12 +187,16 @@ impl NairaPayout {
             off_ramp_method,
             off_ramp_ref_hash,
             status: PayoutStatus::Pending,
-            initiated_at: env.ledger().timestamp(),
+            initiated_at: now,
             completed_at: 0,
             anchor_tx_id: BytesN::from_array(&env, &[0u8; 32]),
         };
 
         env.storage().persistent().set(&key, &record);
+        env.storage().persistent().set(&last_payout_key, &now);
+        env.storage()
+            .instance()
+            .set(&daily_total_key, &(current_total + usdc_amount, current_day));
 
         env.events().publish(
             (symbol_short!("initpay"), farmer),
@@ -185,6 +205,7 @@ impl NairaPayout {
     }
 
     /// Confirm that the anchor has delivered NGN to the farmer's account.
+    /// `anchor_tx_id`: 32-byte anchor transaction identifier (SEP-24/31 tx id hash)
     pub fn confirm_payout(env: Env, farmer: Address, anchor_tx_id: BytesN<32>) {
         Self::require_admin(&env);
 
@@ -210,6 +231,8 @@ impl NairaPayout {
     }
 
     /// Cancel a pending payout before the anchor confirms delivery.
+    /// Does not reverse the on-chain token transfer (that requires a separate
+    /// recovery flow with the anchor); it simply records the cancellation.
     pub fn cancel_payout(env: Env, farmer: Address) {
         Self::require_admin(&env);
 
@@ -238,105 +261,35 @@ impl NairaPayout {
             .get(&Self::payout_key(&env, &farmer))
     }
 
-    // ── Oracle functions (Issue #420) ─────────────────────────────────────────
-
-    /// Publish or update an exchange rate. Caller must be the registered oracle.
-    pub fn update_rate(env: Env, oracle: Address, base: Symbol, quote: Symbol, rate: i128) {
-        oracle.require_auth();
-
-        let registered: Address = env
-            .storage()
-            .instance()
-            .get(&symbol_short!("ORACLE"))
-            .expect("oracle not registered");
-        if oracle != registered {
-            panic!("unauthorized: caller is not the registered oracle");
-        }
-
-        if rate <= 0 {
-            panic!("rate must be positive");
-        }
-
-        let rate_key = Self::rate_key(&env, &base, &quote);
-        let entry = ExchangeRate {
-            base: base.clone(),
-            quote: quote.clone(),
-            rate,
-            updated_at: env.ledger().timestamp(),
-            oracle: oracle.clone(),
-        };
-        env.storage().persistent().set(&rate_key, &entry);
-
-        env.events().publish(
-            (symbol_short!("oracle"), symbol_short!("rateupdtd")),
-            (base, quote, rate, oracle),
-        );
-    }
-
-    /// Transfer NGN to a recipient, converting from `currency` if needed.
-    ///
-    /// Requires the anchor token address to be set (uses ANCHOR as the NGN
-    /// token source — the anchor holds the NGN token balance).
-    pub fn payout_in_currency(
-        env: Env,
-        recipient: Address,
-        amount: i128,
-        currency: Symbol,
-        token: Address,
-    ) {
+    pub fn update_limits(env: Env, min_interval_secs: u64, max_daily_payout: i128) {
         Self::require_admin(&env);
-
-        // Validate currency is supported
-        Self::symbol_to_currency(&currency);
-
-        let ngn_sym = Symbol::new(&env, "NGN");
-        let ngn_amount = if currency == ngn_sym {
-            amount
-        } else {
-            let rate_key = Self::rate_key(&env, &currency, &ngn_sym);
-            let entry: ExchangeRate = env
-                .storage()
-                .persistent()
-                .get(&rate_key)
-                .expect("rate not found for currency pair");
-
-            if env.ledger().timestamp() - entry.updated_at > 3600 {
-                panic!("Exchange rate is stale, must be updated within 1 hour");
-            }
-
-            (amount * entry.rate) / 10000
-        };
-
-        let anchor: Address = env
-            .storage()
+        env.storage()
             .instance()
-            .get(&symbol_short!("ANCHOR"))
-            .expect("contract not initialized");
+            .set(&Symbol::new(&env, "MinIntervalSecs"), &min_interval_secs);
+        env.storage()
+            .instance()
+            .set(&Symbol::new(&env, "MaxDailyPayout"), &max_daily_payout);
+    }
 
-        anchor.require_auth();
-        token::Client::new(&env, &token).transfer(&anchor, &recipient, &ngn_amount);
-
-        env.events().publish(
-            (symbol_short!("payout"), symbol_short!("processd")),
-            (recipient, amount, currency, ngn_amount),
+    pub fn reset_daily_payout(env: Env) {
+        Self::require_admin(&env);
+        let now = env.ledger().timestamp();
+        env.storage().instance().set(
+            &Symbol::new(&env, "DailyPayoutTotal"),
+            &(0i128, now / 86400),
         );
     }
 
-    /// Return the stored exchange rate for a (base, quote) pair, or None.
-    pub fn get_rate(env: Env, base: Symbol, quote: Symbol) -> Option<ExchangeRate> {
-        env.storage()
-            .persistent()
-            .get(&Self::rate_key(&env, &base, &quote))
+    pub fn reset_address_payout_time(env: Env, address: Address) {
+        Self::require_admin(&env);
+        let last_payout_key = (Symbol::new(&env, "LastPayoutTime"), address).into_val(&env);
+        env.storage().persistent().remove(&last_payout_key);
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     fn payout_key(env: &Env, farmer: &Address) -> soroban_sdk::Val {
         (symbol_short!("PAYOUT"), farmer.clone()).into_val(env)
-    }
-
-    fn rate_key(env: &Env, base: &Symbol, quote: &Symbol) -> soroban_sdk::Val {
-        (symbol_short!("EXRATE"), base.clone(), quote.clone()).into_val(env)
     }
 
     fn require_admin(env: &Env) {
@@ -347,23 +300,6 @@ impl NairaPayout {
             .expect("contract not initialized");
         admin.require_auth();
     }
-
-    /// Convert a Symbol to SupportedCurrency; panics with "unsupported currency" if unknown.
-    fn symbol_to_currency(sym: &Symbol) -> SupportedCurrency {
-        // Symbol doesn't implement PartialEq with string literals directly in no_std;
-        // we compare via the short symbol constants.
-        if sym == &symbol_short!("NGN") {
-            SupportedCurrency::NGN
-        } else if sym == &symbol_short!("USD") {
-            SupportedCurrency::USD
-        } else if sym == &symbol_short!("GHS") {
-            SupportedCurrency::GHS
-        } else if sym == &symbol_short!("KES") {
-            SupportedCurrency::KES
-        } else {
-            panic!("unsupported currency");
-        }
-    }
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
@@ -373,13 +309,13 @@ mod tests {
     use super::*;
     use soroban_sdk::{
         testutils::{Address as _, Ledger},
-        token, Address, BytesN, Env, Symbol,
+        token, Address, BytesN, Env,
     };
 
     struct Ctx {
         env: Env,
         client: NairaPayoutClient<'static>,
-        admin: Address,
+        _admin: Address,
         funder: Address,
         farmer: Address,
         token: Address,
@@ -389,7 +325,6 @@ mod tests {
     fn setup() -> Ctx {
         let env = Env::default();
         env.mock_all_auths();
-        env.ledger().with_mut(|l| l.timestamp = 1_000_000);
 
         let contract_id = env.register_contract(None, NairaPayout);
         let client = NairaPayoutClient::new(&env, &contract_id);
@@ -404,12 +339,12 @@ mod tests {
             .address();
         token::StellarAssetClient::new(&env, &token_id).mint(&funder, &100_000);
 
-        client.initialize(&admin, &anchor);
+        client.initialize(&admin, &anchor, &0, &1_000_000_000);
 
         Ctx {
             env,
             client,
-            admin,
+            _admin: admin,
             funder,
             farmer,
             token: token_id,
@@ -424,8 +359,6 @@ mod tests {
     fn balance(env: &Env, token: &Address, who: &Address) -> i128 {
         token::Client::new(env, token).balance(who)
     }
-
-    // ── Existing tests ────────────────────────────────────────────────────────
 
     #[test]
     fn test_full_mobile_money_lifecycle() {
@@ -659,140 +592,114 @@ mod tests {
         client.cancel_payout(&farmer);
     }
 
-    // ── Oracle / multi-currency tests (Issue #420) ────────────────────────────
-
-    fn setup_oracle(ctx: &Ctx) -> Address {
-        let oracle = Address::generate(&ctx.env);
-        ctx.client.set_oracle(&oracle);
-        oracle
-    }
-
-    fn mint_to_anchor(ctx: &Ctx, amount: i128) {
-        token::StellarAssetClient::new(&ctx.env, &ctx.token).mint(&ctx.anchor, &amount);
-    }
-
     #[test]
-    fn test_update_rate_stores_and_emits() {
-        let ctx = setup();
-        let oracle = setup_oracle(&ctx);
+    #[should_panic(expected = "rate limit: payout interval too short")]
+    fn test_rate_limit_per_address() {
+        let Ctx {
+            env,
+            client,
+            funder,
+            farmer,
+            token,
+            ..
+        } = setup();
 
-        let base = Symbol::new(&ctx.env, "USD");
-        let quote = Symbol::new(&ctx.env, "NGN");
-        ctx.client.update_rate(&oracle, &base, &quote, &16000_i128);
+        client.update_limits(&3600, &50_000);
 
-        let entry = ctx.client.get_rate(&base, &quote).unwrap();
-        assert_eq!(entry.rate, 16000);
-        assert_eq!(entry.oracle, oracle);
-        assert_eq!(entry.base, base);
-        assert_eq!(entry.quote, quote);
-    }
+        client.initiate_payout(
+            &funder,
+            &farmer,
+            &token,
+            &5_000,
+            &8_000_000,
+            &OffRampMethod::MobileMoney,
+            &dummy_hash(&env, 1),
+        );
 
-    #[test]
-    #[should_panic(expected = "unauthorized: caller is not the registered oracle")]
-    fn test_update_rate_non_oracle_rejected() {
-        let ctx = setup();
-        setup_oracle(&ctx);
-
-        let impostor = Address::generate(&ctx.env);
-        ctx.client.update_rate(
-            &impostor,
-            &Symbol::new(&ctx.env, "USD"),
-            &Symbol::new(&ctx.env, "NGN"),
-            &16000_i128,
+        client.initiate_payout(
+            &funder,
+            &farmer,
+            &token,
+            &5_000,
+            &8_000_000,
+            &OffRampMethod::MobileMoney,
+            &dummy_hash(&env, 1),
         );
     }
 
     #[test]
-    fn test_payout_ngn_direct_transfer() {
-        let ctx = setup();
-        mint_to_anchor(&ctx, 50_000);
+    #[should_panic(expected = "MAX_DAILY_PAYOUT exceeded")]
+    fn test_global_rate_limit() {
+        let Ctx {
+            env,
+            client,
+            funder,
+            token,
+            ..
+        } = setup();
 
-        let recipient = Address::generate(&ctx.env);
-        ctx.client.payout_in_currency(
-            &recipient,
-            &10_000,
-            &Symbol::new(&ctx.env, "NGN"),
-            &ctx.token,
+        client.update_limits(&0, &10_000);
+
+        let farmer1 = Address::generate(&env);
+        let farmer2 = Address::generate(&env);
+
+        client.initiate_payout(
+            &funder,
+            &farmer1,
+            &token,
+            &6_000,
+            &9_600_000,
+            &OffRampMethod::MobileMoney,
+            &dummy_hash(&env, 1),
         );
 
-        assert_eq!(balance(&ctx.env, &ctx.token, &recipient), 10_000);
-    }
-
-    #[test]
-    fn test_payout_usd_converts_correctly() {
-        let ctx = setup();
-        let oracle = setup_oracle(&ctx);
-        mint_to_anchor(&ctx, 200_000_000);
-
-        // 1 USD = 1600 NGN → rate = 16_000_000 basis points
-        let base = Symbol::new(&ctx.env, "USD");
-        let quote = Symbol::new(&ctx.env, "NGN");
-        ctx.client.update_rate(&oracle, &base, &quote, &16_000_000_i128);
-
-        let recipient = Address::generate(&ctx.env);
-        // Send 1 USD (amount=1), expect 1 * 16_000_000 / 10000 = 1600 NGN
-        ctx.client.payout_in_currency(
-            &recipient,
-            &1_i128,
-            &Symbol::new(&ctx.env, "USD"),
-            &ctx.token,
-        );
-
-        assert_eq!(balance(&ctx.env, &ctx.token, &recipient), 1600);
-    }
-
-    #[test]
-    #[should_panic(expected = "Exchange rate is stale, must be updated within 1 hour")]
-    fn test_payout_stale_rate_rejected() {
-        let ctx = setup();
-        let oracle = setup_oracle(&ctx);
-        mint_to_anchor(&ctx, 200_000_000);
-
-        let base = Symbol::new(&ctx.env, "USD");
-        let quote = Symbol::new(&ctx.env, "NGN");
-        ctx.client.update_rate(&oracle, &base, &quote, &16_000_000_i128);
-
-        // Advance ledger time by more than 1 hour (3601 seconds)
-        ctx.env.ledger().with_mut(|l| {
-            l.timestamp += 3601;
-        });
-
-        let recipient = Address::generate(&ctx.env);
-        ctx.client.payout_in_currency(
-            &recipient,
-            &1_i128,
-            &Symbol::new(&ctx.env, "USD"),
-            &ctx.token,
+        client.initiate_payout(
+            &funder,
+            &farmer2,
+            &token,
+            &5_000,
+            &8_000_000,
+            &OffRampMethod::MobileMoney,
+            &dummy_hash(&env, 2),
         );
     }
 
+    
     #[test]
-    #[should_panic(expected = "unsupported currency")]
-    fn test_payout_unsupported_currency_rejected() {
-        let ctx = setup();
-        let recipient = Address::generate(&ctx.env);
-        ctx.client.payout_in_currency(
-            &recipient,
-            &1_000,
-            &Symbol::new(&ctx.env, "EUR"),
-            &ctx.token,
-        );
-    }
+    fn test_admin_reset_limits() {
+        let Ctx {
+            env,
+            client,
+            funder,
+            farmer,
+            token,
+            ..
+        } = setup();
 
-    #[test]
-    #[should_panic(expected = "rate not found for currency pair")]
-    fn test_payout_missing_rate_rejected() {
-        let ctx = setup();
-        // Oracle registered but no rate set for GHS
-        setup_oracle(&ctx);
-        mint_to_anchor(&ctx, 200_000_000);
+        client.update_limits(&3600, &50_000);
 
-        let recipient = Address::generate(&ctx.env);
-        ctx.client.payout_in_currency(
-            &recipient,
-            &1_000,
-            &Symbol::new(&ctx.env, "GHS"),
-            &ctx.token,
+        client.initiate_payout(
+            &funder,
+            &farmer,
+            &token,
+            &5_000,
+            &8_000_000,
+            &OffRampMethod::MobileMoney,
+            &dummy_hash(&env, 1),
         );
+
+        client.reset_address_payout_time(&farmer);
+
+        client.initiate_payout(
+            &funder,
+            &farmer,
+            &token,
+            &5_000,
+            &8_000_000,
+            &OffRampMethod::MobileMoney,
+            &dummy_hash(&env, 1),
+        );
+
+        client.reset_daily_payout();
     }
 }
