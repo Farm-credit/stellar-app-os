@@ -45,6 +45,8 @@ export const viewport: Viewport = {
   userScalable: true,
 };
 
+import { QueryProvider } from '@/components/providers/QueryProvider';
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -76,14 +78,16 @@ export default function RootLayout({
             })();
           `}
         </Script>
-        <WalletProviderWrapper>
-          <ToastProvider>
-            <CookieBanner />
-            <Header />
-            {children}
-            <Footer />
-          </ToastProvider>
-        </WalletProviderWrapper>
+        <QueryProvider>
+          <WalletProviderWrapper>
+            <ToastProvider>
+              <CookieBanner />
+              <Header />
+              {children}
+              <Footer />
+            </ToastProvider>
+          </WalletProviderWrapper>
+        </QueryProvider>
       </body>
     </html>
   );

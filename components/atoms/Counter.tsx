@@ -93,8 +93,13 @@ export function Counter({
   }, [end, duration, hasAnimated]);
 
   return (
-    <div ref={counterRef} className={className}>
-      <Text variant="h2" aria-live="polite" aria-atomic="true">
+    <div ref={counterRef}>
+      <Text 
+        variant="h2" 
+        className={className} 
+        aria-live="polite" 
+        aria-atomic="true"
+      >
         {prefix}
         {formatNumber(count)}
         {suffix}

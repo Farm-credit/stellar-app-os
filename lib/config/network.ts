@@ -22,6 +22,7 @@ export interface NetworkConfig {
     planting: string;
     replantingBuffer: string;
     bulkRecipient: string;
+    treeDistributor: string;
   };
   anchor: {
     apiUrl: string;
@@ -50,6 +51,7 @@ function loadNetworkConfig(): NetworkConfig {
       planting: requireEnv('NEXT_PUBLIC_PLANTING_ADDRESS'),
       replantingBuffer: requireEnv('NEXT_PUBLIC_REPLANTING_BUFFER_ADDRESS'),
       bulkRecipient: requireEnv('NEXT_PUBLIC_BULK_RECIPIENT_ADDRESS'),
+      treeDistributor: requireEnv('NEXT_PUBLIC_TREE_DISTRIBUTOR'),
     },
     anchor: {
       apiUrl: requireEnv('NEXT_PUBLIC_ANCHOR_API_URL'),
