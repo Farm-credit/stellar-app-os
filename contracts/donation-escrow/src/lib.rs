@@ -31,6 +31,19 @@ pub struct DonationRecord {
     pub status: DonationStatus,
 }
 
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct RecurringDonation {
+    pub donor: Address,
+    pub token: Address,
+    pub project_id: u64,
+    pub amount_per_interval: i128,
+    pub interval_seconds: u64,
+    pub next_release: u64,
+    pub total_released: i128,
+    pub cancelled: bool,
+}
+
 // ── Contract ──────────────────────────────────────────────────────────────────
 
 #[contract]
@@ -49,6 +62,9 @@ impl DonationEscrow {
 
         // (current_batch, seq)
         env.storage().instance().set(&symbol_short!("BATCHSEQ"), &(1u32, 0u64));
+
+        // recurring donation id counter
+        env.storage().instance().set(&symbol_short!("RECSEQ"), &0u64);
     }
 
     /// Donate funds into escrow
@@ -224,10 +240,174 @@ impl DonationEscrow {
         batch_id
     }
 
+    // ── Recurring donations ───────────────────────────────────────────────────
+
+    /// Set up a recurring donation. Locks the first interval's amount into escrow.
+    /// Returns the donation_id.
+    pub fn setup_recurring(
+        env: Env,
+        donor: Address,
+        token: Address,
+        project_id: u64,
+        amount_per_interval: i128,
+        interval_seconds: u64,
+    ) -> u64 {
+        donor.require_auth();
+
+        if amount_per_interval <= 0 {
+            panic!("amount_per_interval must be positive");
+        }
+        if interval_seconds == 0 {
+            panic!("interval_seconds must be positive");
+        }
+
+        let (xlm, usdc): (Address, Address) = env
+            .storage()
+            .instance()
+            .get(&symbol_short!("TOKENS"))
+            .expect("not initialized");
+
+        if token != xlm && token != usdc {
+            panic!("unsupported token");
+        }
+
+        let id: u64 = env
+            .storage()
+            .instance()
+            .get(&symbol_short!("RECSEQ"))
+            .unwrap_or(0u64)
+            + 1;
+
+        env.storage().instance().set(&symbol_short!("RECSEQ"), &id);
+
+        // Lock first interval amount into escrow
+        token::Client::new(&env, &token).transfer(
+            &donor,
+            &env.current_contract_address(),
+            &amount_per_interval,
+        );
+
+        let rec = RecurringDonation {
+            donor: donor.clone(),
+            token,
+            project_id,
+            amount_per_interval,
+            interval_seconds,
+            next_release: env.ledger().timestamp() + interval_seconds,
+            total_released: 0,
+            cancelled: false,
+        };
+
+        env.storage()
+            .persistent()
+            .set(&Self::recurring_key(&env, id), &rec);
+
+        id
+    }
+
+    /// Process a recurring donation interval. Callable by anyone.
+    pub fn process_recurring(env: Env, donation_id: u64) {
+        let key = Self::recurring_key(&env, donation_id);
+
+        let mut rec: RecurringDonation = env
+            .storage()
+            .persistent()
+            .get(&key)
+            .expect("recurring donation not found");
+
+        if rec.cancelled {
+            panic!("CancelledDonation");
+        }
+
+        if env.ledger().timestamp() < rec.next_release {
+            panic!("IntervalNotElapsed");
+        }
+
+        let project: Address = env
+            .storage()
+            .instance()
+            .get(&Self::project_key(&env, rec.project_id))
+            .expect("project not registered");
+
+        token::Client::new(&env, &rec.token).transfer(
+            &env.current_contract_address(),
+            &project,
+            &rec.amount_per_interval,
+        );
+
+        rec.next_release += rec.interval_seconds;
+        rec.total_released += rec.amount_per_interval;
+
+        env.storage().persistent().set(&key, &rec);
+
+        env.events().publish(
+            (symbol_short!("donation"), symbol_short!("rec_proc")),
+            (donation_id, rec.donor, rec.project_id, rec.amount_per_interval),
+        );
+    }
+
+    /// Cancel a recurring donation and refund locked funds to donor.
+    pub fn cancel_recurring(env: Env, donor: Address, donation_id: u64) {
+        donor.require_auth();
+
+        let key = Self::recurring_key(&env, donation_id);
+
+        let mut rec: RecurringDonation = env
+            .storage()
+            .persistent()
+            .get(&key)
+            .expect("recurring donation not found");
+
+        if rec.donor != donor {
+            panic!("not the donor");
+        }
+
+        if rec.cancelled {
+            panic!("already cancelled");
+        }
+
+        rec.cancelled = true;
+
+        // Refund the locked (unreleased) interval amount back to donor
+        token::Client::new(&env, &rec.token).transfer(
+            &env.current_contract_address(),
+            &donor,
+            &rec.amount_per_interval,
+        );
+
+        env.storage().persistent().set(&key, &rec);
+
+        env.events().publish(
+            (symbol_short!("donation"), symbol_short!("rec_cncl")),
+            (donation_id, donor),
+        );
+    }
+
+    /// Get recurring donation by id
+    pub fn get_recurring(env: Env, donation_id: u64) -> Option<RecurringDonation> {
+        env.storage()
+            .persistent()
+            .get(&Self::recurring_key(&env, donation_id))
+    }
+
+    /// Register a project address (admin only)
+    pub fn register_project(env: Env, project_id: u64, project: Address) {
+        Self::require_admin(&env);
+        env.storage().instance().set(&Self::project_key(&env, project_id), &project);
+    }
+
     // ── internal ──────────────────────────────────────────────────────────────
 
     fn donation_key(env: &Env, seq: u64) -> soroban_sdk::Val {
         (symbol_short!("DON"), seq).into_val(env)
+    }
+
+    fn recurring_key(env: &Env, id: u64) -> soroban_sdk::Val {
+        (symbol_short!("RDONATE"), id).into_val(env)
+    }
+
+    fn project_key(env: &Env, project_id: u64) -> soroban_sdk::Val {
+        (symbol_short!("PROJ"), project_id).into_val(env)
     }
 
     fn require_admin(env: &Env) {
@@ -246,7 +426,7 @@ impl DonationEscrow {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use soroban_sdk::{testutils::Address as _, token, Address, Env};
+    use soroban_sdk::{testutils::{Address as _, Ledger as _}, token, Address, Env};
 
     fn setup() -> (Env, Address, Address, Address, Address, DonationEscrowClient<'static>) {
         let env = Env::default();
@@ -308,5 +488,111 @@ mod tests {
         let rec = client.get_donation(&seq).unwrap();
 
         assert_eq!(rec.status, DonationStatus::Refunded);
+    }
+
+    // ── Recurring donation tests ──────────────────────────────────────────────
+
+    fn setup_recurring_env() -> (
+        Env,
+        Address,
+        Address,
+        Address,
+        Address,
+        u64,
+        DonationEscrowClient<'static>,
+    ) {
+        let (env, admin, donor, xlm, usdc, client) = setup();
+
+        let project = Address::generate(&env);
+        let project_id: u64 = 1;
+        client.register_project(&project_id, &project);
+
+        (env, admin, donor, xlm, usdc, project_id, client)
+    }
+
+    #[test]
+    fn test_process_recurring_succeeds_after_interval() {
+        let (env, _admin, donor, xlm, _usdc, project_id, client) = setup_recurring_env();
+
+        let interval: u64 = 1_000;
+        let amount: i128 = 1_000;
+
+        let id = client.setup_recurring(&donor, &xlm, &project_id, &amount, &interval);
+
+        // Advance ledger time past the interval
+        env.ledger().with_mut(|l| l.timestamp += interval + 1);
+
+        client.process_recurring(&id);
+
+        let rec = client.get_recurring(&id).unwrap();
+        assert_eq!(rec.total_released, amount);
+    }
+
+    #[test]
+    #[should_panic(expected = "IntervalNotElapsed")]
+    fn test_process_recurring_fails_before_interval() {
+        let (_env, _admin, donor, xlm, _usdc, project_id, client) = setup_recurring_env();
+
+        let id = client.setup_recurring(&donor, &xlm, &project_id, &1_000, &1_000);
+
+        // Do NOT advance time — should panic
+        client.process_recurring(&id);
+    }
+
+    #[test]
+    fn test_cancel_recurring_refunds_donor() {
+        let (env, _admin, donor, xlm, _usdc, project_id, client) = setup_recurring_env();
+
+        let amount: i128 = 1_000;
+        let id = client.setup_recurring(&donor, &xlm, &project_id, &amount, &1_000);
+
+        let balance_before = token::Client::new(&env, &xlm).balance(&donor);
+
+        client.cancel_recurring(&donor, &id);
+
+        let balance_after = token::Client::new(&env, &xlm).balance(&donor);
+        assert_eq!(balance_after - balance_before, amount);
+
+        let rec = client.get_recurring(&id).unwrap();
+        assert!(rec.cancelled);
+    }
+
+    #[test]
+    #[should_panic(expected = "CancelledDonation")]
+    fn test_process_recurring_on_cancelled_panics() {
+        let (env, _admin, donor, xlm, _usdc, project_id, client) = setup_recurring_env();
+
+        let interval: u64 = 1_000;
+        let id = client.setup_recurring(&donor, &xlm, &project_id, &1_000, &interval);
+
+        client.cancel_recurring(&donor, &id);
+
+        // Advance time past interval
+        env.ledger().with_mut(|l| l.timestamp += interval + 1);
+
+        // Should panic with CancelledDonation
+        client.process_recurring(&id);
+    }
+
+    #[test]
+    fn test_total_released_increments_across_intervals() {
+        let (env, _admin, donor, xlm, _usdc, project_id, client) = setup_recurring_env();
+
+        let interval: u64 = 1_000;
+        let amount: i128 = 500;
+
+        // Mint enough for multiple intervals
+        token::StellarAssetClient::new(&env, &xlm).mint(&donor, &10_000);
+
+        let id = client.setup_recurring(&donor, &xlm, &project_id, &amount, &interval);
+
+        // First interval: advance past next_release (ledger starts at 0, next_release = interval)
+        env.ledger().with_mut(|l| l.timestamp = interval + 1);
+        client.process_recurring(&id);
+
+        let rec = client.get_recurring(&id).unwrap();
+        assert_eq!(rec.total_released, amount);
+        // next_release was interval, after processing it becomes interval + interval = 2*interval
+        assert_eq!(rec.next_release, 2 * interval);
     }
 }
