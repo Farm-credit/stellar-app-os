@@ -41,9 +41,12 @@ yarn-error.log*
 next-env.d.ts
 
 FarmCredit*
+.claude
 
 # rust
 .codex
+# Rust/Cargo
 /contracts/target/
+/contracts/Cargo.lock
 **/test_snapshots/
 .claude

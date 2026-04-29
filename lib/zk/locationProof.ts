@@ -110,3 +110,32 @@ export async function decryptGpsCoordinates(
 
   return parsed as GpsCoordinates;
 }
+
+/**
+ * Encrypt GPS coordinates using AES-256-GCM.
+ * The server-side encryption key is read from the environment variable `GPS_ENCRYPTION_KEY`.
+ */
+export async function encryptGpsCoordinates(
+  coords: GpsCoordinates
+): Promise<import('@/lib/types/location').EncryptedGpsPayload> {
+  const keyHex = process.env.GPS_ENCRYPTION_KEY;
+  if (!keyHex || keyHex.length !== 64) {
+    throw new Error('GPS_ENCRYPTION_KEY env var must be a 64-char hex string (32 bytes)');
+  }
+
+  const { createCipheriv, randomBytes } = await import('crypto');
+
+  const key = Buffer.from(keyHex, 'hex');
+  const iv = randomBytes(12);
+  const cipher = createCipheriv('aes-256-gcm', key, iv);
+
+  const plainBuf = Buffer.from(JSON.stringify(coords), 'utf8');
+  const ciphertext = Buffer.concat([cipher.update(plainBuf), cipher.final()]);
+  const authTag = cipher.getAuthTag();
+
+  return {
+    iv: iv.toString('base64'),
+    ciphertext: ciphertext.toString('base64'),
+    authTag: authTag.toString('base64'),
+  };
+}

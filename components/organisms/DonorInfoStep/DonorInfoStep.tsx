@@ -10,6 +10,7 @@ import { Text } from '@/components/atoms/Text';
 import { Input } from '@/components/atoms/Input';
 import { Checkbox } from '@/components/atoms/Checkbox';
 import { ProgressStepper } from '@/components/molecules/ProgressStepper/ProgressStepper';
+import { AnonymousDonationToggle } from '@/components/molecules/AnonymousDonationToggle/AnonymousDonationToggle';
 import { useDonationContext } from '@/contexts/DonationContext';
 import { donorInfoSchema, type DonorInfoFormData } from '@/lib/schemas/donor';
 
@@ -23,6 +24,8 @@ const steps = [
 export function DonorInfoStep() {
   const router = useRouter();
   const { state, setDonorInfo } = useDonationContext();
+
+  const [isAnonymousMode, setIsAnonymousMode] = useState(false);
 
   const {
     register,
@@ -46,12 +49,12 @@ export function DonorInfoStep() {
       setDonorInfo({
         email: data.email,
         name: data.name || '',
-        anonymous: false,
+        anonymous: isAnonymousMode,
         privacyAccepted: true,
       });
       router.push('/donate/payment');
     },
-    [setDonorInfo, router]
+    [setDonorInfo, router, isAnonymousMode]
   );
 
   const handleAnonymous = useCallback(() => {
@@ -85,6 +88,12 @@ export function DonorInfoStep() {
             We&apos;ll send your tax receipt and impact updates to your email.
           </Text>
         </div>
+
+        {/* Privacy-Preserving Donation Toggle */}
+        <AnonymousDonationToggle
+          isAnonymous={isAnonymousMode}
+          onToggle={setIsAnonymousMode}
+        />
 
         {/* Form Card */}
         <div className="rounded-2xl border border-border bg-card p-6 sm:p-8 shadow-sm">

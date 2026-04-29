@@ -10,7 +10,9 @@ import { PaymentMethodToggle } from '@/components/molecules/PaymentMethodToggle/
 import { OrderSummary } from '@/components/molecules/OrderSummary/OrderSummary';
 import { StripePaymentForm } from '@/components/molecules/StripePaymentForm/StripePaymentForm';
 import { StellarPaymentSection } from '@/components/molecules/StellarPaymentSection/StellarPaymentSection';
+import { AnonymousPaymentSection } from '@/components/molecules/AnonymousPaymentSection/AnonymousPaymentSection';
 import { useDonationPayment } from '@/hooks/useDonationPayment';
+import { useWallet } from '@/contexts/WalletContext';
 
 const steps = [
   { id: 'amount', label: 'AMOUNT', path: '/donate', status: 'completed' as const },
@@ -21,6 +23,7 @@ const steps = [
 
 export function PaymentStep() {
   const router = useRouter();
+  const { connect: connectWallet } = useWallet();
   const {
     paymentState,
     setMethod,
@@ -34,6 +37,9 @@ export function PaymentStep() {
     wallet,
   } = useDonationPayment();
 
+  // Check if this is an anonymous donation
+  const isAnonymous = donationState.donorInfo.anonymous;
+
   // Guard: redirect if Step 2 was not completed
   useEffect(() => {
     if (!donationState.donorInfo.privacyAccepted) {
@@ -45,6 +51,14 @@ export function PaymentStep() {
   if (!donationState.donorInfo.privacyAccepted) {
     return null;
   }
+
+  const handleConnectWallet = async () => {
+    try {
+      await connectWallet('freighter', 'testnet');
+    } catch (error) {
+      console.error('Failed to connect wallet:', error);
+    }
+  };
 
   return (
     <div className="w-full max-w-7xl mx-auto px-4 py-8">
@@ -67,39 +81,53 @@ export function PaymentStep() {
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-8">
         {/* Left Column — Payment Form */}
         <div className="space-y-6">
-          {/* Payment Method Toggle */}
-          <PaymentMethodToggle
-            selected={paymentState.method}
-            onChange={setMethod}
-            disabled={isProcessing}
-          />
-
-          {/* Payment Form Area */}
-          <div className="rounded-2xl border border-border bg-card p-6 sm:p-8 shadow-sm">
-            {paymentState.method === 'card' ? (
-              <StripePaymentForm
-                amount={donationState.amount}
-                isMonthly={donationState.isMonthly}
-                donorEmail={donationState.donorInfo.email}
-                donorName={donationState.donorInfo.name}
-                idempotencyKey={paymentState.idempotencyKey}
-                onProcessing={onStripeProcessing}
-                onSuccess={onStripeSuccess}
-                onError={onStripeError}
-                disabled={isProcessing}
-              />
-            ) : (
-              <StellarPaymentSection
+          {/* Show anonymous payment section if anonymous mode is enabled */}
+          {isAnonymous ? (
+            <div className="rounded-2xl border-2 border-purple-500 bg-purple-50 dark:bg-purple-950/20 p-6 sm:p-8 shadow-sm">
+              <AnonymousPaymentSection
                 amount={donationState.amount}
                 wallet={wallet}
-                status={paymentState.status}
-                error={paymentState.error}
-                onPay={processStellarPayment}
-                onResetError={resetError}
+                onConnectWallet={handleConnectWallet}
                 disabled={isProcessing}
               />
-            )}
-          </div>
+            </div>
+          ) : (
+            <>
+              {/* Payment Method Toggle */}
+              <PaymentMethodToggle
+                selected={paymentState.method}
+                onChange={setMethod}
+                disabled={isProcessing}
+              />
+
+              {/* Payment Form Area */}
+              <div className="rounded-2xl border border-border bg-card p-6 sm:p-8 shadow-sm">
+                {paymentState.method === 'card' ? (
+                  <StripePaymentForm
+                    amount={donationState.amount}
+                    isMonthly={donationState.isMonthly}
+                    donorEmail={donationState.donorInfo.email}
+                    donorName={donationState.donorInfo.name}
+                    idempotencyKey={paymentState.idempotencyKey}
+                    onProcessing={onStripeProcessing}
+                    onSuccess={onStripeSuccess}
+                    onError={onStripeError}
+                    disabled={isProcessing}
+                  />
+                ) : (
+                  <StellarPaymentSection
+                    amount={donationState.amount}
+                    wallet={wallet}
+                    status={paymentState.status}
+                    error={paymentState.error}
+                    onPay={processStellarPayment}
+                    onResetError={resetError}
+                    disabled={isProcessing}
+                  />
+                )}
+              </div>
+            </>
+          )}
 
           {/* Back Button */}
           <Button
@@ -121,6 +149,7 @@ export function PaymentStep() {
             amount={donationState.amount}
             isMonthly={donationState.isMonthly}
             paymentMethod={paymentState.method}
+            treeCount={donationState.treeCount}
           />
         </div>
       </div>

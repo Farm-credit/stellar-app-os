@@ -17,14 +17,21 @@ interface OrderSummaryProps {
   amount: number;
   isMonthly: boolean;
   paymentMethod: DonationPaymentMethod;
+  treeCount?: number;
 }
 
-export function OrderSummary({ amount, isMonthly, paymentMethod }: OrderSummaryProps) {
+export function OrderSummary({
+  amount,
+  isMonthly,
+  paymentMethod,
+  treeCount = 1,
+}: OrderSummaryProps) {
   const safeAmount = Math.min(amount, 1000000);
+  const totalAmount = safeAmount * treeCount;
   const impact = {
-    trees: Math.round(safeAmount * TREES_PER_DOLLAR),
-    hectares: (safeAmount * HECTARES_PER_DOLLAR).toFixed(2),
-    co2: (safeAmount * CO2_PER_DOLLAR).toFixed(1),
+    trees: Math.round(totalAmount * TREES_PER_DOLLAR),
+    hectares: (totalAmount * HECTARES_PER_DOLLAR).toFixed(2),
+    co2: (totalAmount * CO2_PER_DOLLAR).toFixed(1),
   };
 
   return (
@@ -39,11 +46,11 @@ export function OrderSummary({ amount, isMonthly, paymentMethod }: OrderSummaryP
         {/* Donation Amount */}
         <div className="flex items-center justify-between">
           <Text variant="body" className="text-muted-foreground">
-            Donation
+            {treeCount > 1 ? `${treeCount} trees × ${formatCurrency(amount)}` : 'Donation'}
           </Text>
           <div className="flex items-center gap-2">
             <Text variant="body" className="font-semibold">
-              {formatCurrency(amount)}
+              {formatCurrency(amount * treeCount)}
             </Text>
             <Badge variant={isMonthly ? 'default' : 'secondary'} className="text-xs">
               {isMonthly ? 'Monthly' : 'One-time'}
@@ -131,7 +138,7 @@ export function OrderSummary({ amount, isMonthly, paymentMethod }: OrderSummaryP
             Total
           </Text>
           <Text variant="h3" className="text-xl font-bold text-stellar-blue">
-            {formatCurrency(amount)}
+            {formatCurrency(amount * treeCount)}
           </Text>
         </div>
       </CardFooter>
