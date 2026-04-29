@@ -1,6 +1,8 @@
 import { Suspense } from 'react';
 import { DonationAmountStep } from '@/components/organisms/DonationAmountStep/DonationAmountStep';
 
+export const dynamic = 'force-dynamic';
+
 function DonationAmountStepWrapper() {
   return <DonationAmountStep />;
 }

@@ -18,6 +18,8 @@ import { BlogPageTemplate } from '@/components/templates/BlogPageTemplate';
 import { ProjectCardGridSkeleton } from '@/components/molecules/SkeletonLoaders';
 import type { BlogPost } from '@/lib/types/blog';
 
+export const dynamic = 'force-dynamic';
+
 // ── SEO metadata ──────────────────────────────────────────────────────────────
 
 export function generateMetadata(): Metadata {
@@ -35,7 +37,13 @@ interface BlogPageProps {
 
 // ── Blog Content Component ────────────────────────────────────────────────────
 
-async function BlogContent({ selectedCategory, currentPage }: { selectedCategory: string | null; currentPage: number }) {
+async function BlogContent({
+  selectedCategory,
+  currentPage,
+}: {
+  selectedCategory: string | null;
+  currentPage: number;
+}) {
   // Fetch posts from CMS API (cached for 5 minutes via Next.js fetch caching)
   const data = await fetchBlogPosts({
     page: currentPage,

@@ -155,13 +155,8 @@ export async function buildDonationTransaction(
   const sourceAccount = await server.loadAccount(sourcePublicKey);
   const usdcAsset = getUsdcAsset(network);
 
-  const plantingAddress = networkConfig.addresses.planting;
-
-  // Split: 70% to planting, 30% to replanting buffer fund
-  const { planting, buffer } = calculateDonationAllocation(amount);
-
   const builder = new TransactionBuilder(sourceAccount, {
-    fee: baseFee,
+    fee: '100',
     networkPassphrase,
   });
 
