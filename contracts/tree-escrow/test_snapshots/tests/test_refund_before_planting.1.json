@@ -1570,17 +1570,27 @@
           "v0": {
             "topics": [
               {
-                "symbol": "deposit"
+                "symbol": "DonationReceived"
+              },
+              {
+                "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"
               },
               {
                 "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAITA4"
               }
             ],
             "data": {
-              "i128": {
-                "hi": 0,
-                "lo": 10000
-              }
+              "vec": [
+                {
+                  "i128": {
+                    "hi": 0,
+                    "lo": 10000
+                  }
+                },
+                {
+                  "address": "CDLDVFKHEZ2RVB3NG4UQA4VPD3TSHV6XMHXMHP2BSGCJ2IIWVTOHGDSG"
+                }
+              ]
             }
           }
         }
@@ -1735,7 +1745,10 @@
           "v0": {
             "topics": [
               {
-                "symbol": "refund"
+                "symbol": "DonationRefunded"
+              },
+              {
+                "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"
               },
               {
                 "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAITA4"

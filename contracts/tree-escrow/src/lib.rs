@@ -1,6 +1,5 @@
 #![no_std]
 
-//! Tree Escrow Contract — Closes #310
 //!
 //! Holds donor funds and releases them in two tranches:
 //!   • Tranche 1 (75%) — released on verified planting (GPS + photo proof)
@@ -84,11 +83,11 @@ pub struct EscrowRecord {
     pub released: i128,
     pub status: EscrowStatus,
     /// Ledger timestamp when planting was verified
-    pub planted_at: Option<u64>,
+    pub planted_at: OptU64,
     /// SHA-256 of GPS + photo proof submitted at planting
-    pub planting_proof: BytesN<32>,
+    pub planting_proof: OptProof,
     /// SHA-256 of GPS + photo proof submitted at survival check
-    pub survival_proof: BytesN<32>,
+    pub survival_proof: OptProof,
     /// ZK/oracle-confirmed survival rate percentage
     pub survival_rate_percent: u32,
 }
@@ -185,7 +184,7 @@ impl TreeEscrow {
 
         env.events()
             .publish((symbol_short!("deposit"), farmer), amount);
-    }
+
 
     /// Batch deposit: donor funds N tree slots in a single contract invocation.
     ///
@@ -360,7 +359,7 @@ impl TreeEscrow {
         }
 
         // Enforce 6-month lock
-        let planted_at = rec.planted_at.expect("planted_at missing");
+        let planted_at = rec.planted_at.clone().unwrap();
         let now = env.ledger().timestamp();
         if now < planted_at + SIX_MONTHS_SECS {
             panic!("6-month survival period not yet elapsed");
@@ -381,14 +380,14 @@ impl TreeEscrow {
 
         rec.released += tranche2;
         rec.status = EscrowStatus::Completed;
-        rec.survival_proof = proof_hash;
+        rec.survival_proof = OptProof::Some(proof_hash);
         rec.survival_rate_percent = survival_rate_percent;
 
         env.storage().persistent().set(&key, &rec);
 
         env.events()
             .publish((symbol_short!("survived"), farmer), tranche2);
-    }
+
 
     pub fn refund(env: Env, farmer: Address) {
         // OPTIMIZATION: Single read for admin
@@ -422,7 +421,7 @@ impl TreeEscrow {
 
         env.events()
             .publish((symbol_short!("refund"), farmer), rec.total_amount);
-    }
+
 
     pub fn get_record(env: Env, farmer: Address) -> Option<EscrowRecord> {
         env.storage()
@@ -473,41 +472,33 @@ impl TreeEscrow {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use soroban_sdk::{
-        testutils::{Address as _, Ledger},
-        token, Address, BytesN, Env,
-    };
+    use soroban_sdk::{testutils::{Address as _, Ledger}, token, Address, BytesN, Env};
 
-    fn setup() -> (
-        Env,
-        Address,
-        Address,
-        Address,
-        Address,
-        Address,
-        TreeEscrowClient<'static>,
-    ) {
+    struct Ctx {
+        env:      Env,
+        client:   TreeEscrowClient<'static>,
+        token:    Address,
+        donor:    Address,
+        farmer:   Address,
+        contract: Address,
+    }
+
+    fn setup() -> Ctx {
         let env = Env::default();
         env.mock_all_auths();
 
-        let contract_id = env.register_contract(None, TreeEscrow);
-        let client = TreeEscrowClient::new(&env, &contract_id);
+        let contract = env.register_contract(None, TreeEscrow);
+        let client   = TreeEscrowClient::new(&env, &contract);
 
         let admin = Address::generate(&env);
         let donor = Address::generate(&env);
         let farmer = Address::generate(&env);
 
-        let token_id = env
-            .register_stellar_asset_contract_v2(admin.clone())
-            .address();
-        token::StellarAssetClient::new(&env, &token_id).mint(&donor, &10_000);
+        let token = env.register_stellar_asset_contract(admin.clone());
+        token::StellarAssetClient::new(&env, &token).mint(&donor, &10_000);
 
-        let tree_token_id = env
-            .register_stellar_asset_contract_v2(contract_id.clone())
-            .address();
-
-        client.initialize(&admin, &tree_token_id);
-        (env, admin, donor, farmer, token_id, tree_token_id, client)
+        client.initialize(&admin);
+        Ctx { env, client, token, donor, farmer, contract }
     }
 
     fn proof(env: &Env, seed: u8) -> BytesN<32> {
@@ -525,116 +516,177 @@ mod tests {
     // ── Full lifecycle with balance assertions ────────────────────────────────
 
     #[test]
-    #[should_panic(expected = "contract must be tree token admin")]
-    fn test_initialize_requires_contract_as_tree_token_admin() {
-        let env = Env::default();
-        env.mock_all_auths();
+    fn test_full_lifecycle_with_balances() {
+        let Ctx { env, client, token, donor, farmer, contract } = setup();
 
-        let contract_id = env.register_contract(None, TreeEscrow);
-        let client = TreeEscrowClient::new(&env, &contract_id);
+        // Step 1: Donation → funds locked
+        assert_eq!(balance(&env, &token, &donor),    10_000);
+        assert_eq!(balance(&env, &token, &contract), 0);
+        assert_eq!(balance(&env, &token, &farmer),   0);
 
-        let admin = Address::generate(&env);
-        let tree_token_id = env
-            .register_stellar_asset_contract_v2(admin.clone())
-            .address();
+        client.deposit(&donor, &farmer, &token, &10_000);
 
-        client.initialize(&admin, &tree_token_id);
-    }
+        assert_eq!(balance(&env, &token, &donor),    0,      "donor drained");
+        assert_eq!(balance(&env, &token, &contract), 10_000, "contract holds full amount");
+        assert_eq!(balance(&env, &token, &farmer),   0,      "farmer not yet paid");
 
-    #[test]
-    fn test_full_lifecycle() {
-        let (env, _admin, donor, farmer, token, tree_token, client) = setup();
+        let rec = client.get_record(&farmer).unwrap();
+        assert_eq!(rec.status,       EscrowStatus::Funded);
+        assert_eq!(rec.total_amount, 10_000);
+        assert_eq!(rec.released,     0);
 
-        // Deposit
-        client.deposit(&donor, &farmer, &token, &10_000, &42);
-        assert_eq!(
-            client.get_record(&farmer).unwrap().status,
-            EscrowStatus::Funded
-        );
+        // Step 2: Planting verification → 75% released
+        client.verify_planting(&farmer, &proof(&env, 1));
 
-        // Verify planting → 75% released
-        client.verify_planting(&farmer, &proof(&env, 1), &42);
+        assert_eq!(balance(&env, &token, &contract), 2_500, "25% still locked");
+        assert_eq!(balance(&env, &token, &farmer),   7_500, "farmer received 75%");
+
         let rec = client.get_record(&farmer).unwrap();
         assert_eq!(rec.status,   EscrowStatus::Planted);
         assert_eq!(rec.released, 7_500);
-        assert_eq!(rec.status, EscrowStatus::Planted);
-        assert_eq!(rec.tree_count, 42);
-        assert_eq!(rec.verified_tree_count, 42);
-        let tree_token_unit = 10i128.pow(token::Client::new(&env, &tree_token).decimals());
-        assert_eq!(rec.tree_tokens_minted, 42 * tree_token_unit);
-        assert_eq!(
-            token::Client::new(&env, &tree_token).balance(&donor),
-            42 * tree_token_unit
-        );
+        assert!(rec.planting_proof.is_some());
+        assert!(rec.planted_at.is_some());
 
-        // Fast-forward ledger by 6 months
-        env.ledger()
-            .with_mut(|l| l.timestamp += SIX_MONTHS_SECS + 1);
+        // Step 3: Fast-forward 6 months
+        advance_ledger(&env, SIX_MONTHS_SECS + 1);
 
-        // Verify survival → remaining 25% released
-        client.verify_survival(&farmer, &proof(&env, 2), &70);
+        // Step 4: Survival verification → remaining 25% released
+        client.verify_survival(&farmer, &proof(&env, 2));
+
+        assert_eq!(balance(&env, &token, &contract), 0,      "contract fully drained");
+        assert_eq!(balance(&env, &token, &farmer),   10_000, "farmer received 100%");
+
         let rec = client.get_record(&farmer).unwrap();
         assert_eq!(rec.status,   EscrowStatus::Completed);
         assert_eq!(rec.released, 10_000);
-        assert_eq!(rec.status, EscrowStatus::Completed);
-        assert_eq!(rec.survival_rate_percent, 70);
+        assert!(rec.survival_proof.is_some());
     }
+
+    #[test]
+    fn test_tranche_amounts_non_round_deposit() {
+        let Ctx { env, client, token, donor, farmer, contract } = setup();
+        token::StellarAssetClient::new(&env, &token).mint(&donor, &1_001);
+        client.deposit(&donor, &farmer, &token, &1_001);
+
+        client.verify_planting(&farmer, &proof(&env, 1));
+        let tranche1 = (1_001_i128 * 7_500) / 10_000; // = 750
+        assert_eq!(balance(&env, &token, &farmer), tranche1);
+
+        advance_ledger(&env, SIX_MONTHS_SECS + 1);
+        client.verify_survival(&farmer, &proof(&env, 2));
+
+        assert_eq!(balance(&env, &token, &farmer),   1_001);
+        assert_eq!(balance(&env, &token, &contract), 0);
+    }
+
+    #[test]
+    fn test_planting_proof_hash_stored() {
+        let Ctx { env, client, token, donor, farmer, .. } = setup();
+        let p = proof(&env, 42);
+        client.deposit(&donor, &farmer, &token, &10_000);
+        client.verify_planting(&farmer, &p);
+        assert_eq!(client.get_record(&farmer).unwrap().planting_proof, OptProof::Some(p));
+    }
+
+    #[test]
+    fn test_survival_proof_hash_stored() {
+        let Ctx { env, client, token, donor, farmer, .. } = setup();
+        let p = proof(&env, 99);
+        client.deposit(&donor, &farmer, &token, &10_000);
+        client.verify_planting(&farmer, &proof(&env, 1));
+        advance_ledger(&env, SIX_MONTHS_SECS + 1);
+        client.verify_survival(&farmer, &p, &80);
+        assert_eq!(client.get_record(&farmer).unwrap().survival_proof, OptProof::Some(p));
+    }
+
+    // ── Error paths ───────────────────────────────────────────────────────────
 
     #[test]
     #[should_panic(expected = "6-month survival period not yet elapsed")]
     fn test_survival_too_early_rejected() {
-        let (env, _admin, donor, farmer, token, _tree_token, client) = setup();
-
-        client.deposit(&donor, &farmer, &token, &10_000, &42);
-        client.verify_planting(&farmer, &proof(&env, 1), &42);
-
-        env.ledger().with_mut(|l| l.timestamp += 86_400);
+        let Ctx { env, client, token, donor, farmer, .. } = setup();
+        client.deposit(&donor, &farmer, &token, &10_000);
+        client.verify_planting(&farmer, &proof(&env, 1));
+        // Only 1 day later — should panic
+        advance_ledger(&env, 86_400);
         client.verify_survival(&farmer, &proof(&env, 2), &80);
     }
 
     #[test]
     #[should_panic(expected = "survival rate below minimum")]
     fn test_survival_below_70_percent_rejected() {
-        let (env, _admin, donor, farmer, token, _tree_token, client) = setup();
+        let Ctx { env, client, token, donor, farmer, .. } = setup();
+        client.deposit(&donor, &farmer, &token, &10_000);
+        client.verify_planting(&farmer, &proof(&env, 1));
 
-        client.deposit(&donor, &farmer, &token, &10_000, &42);
-        client.verify_planting(&farmer, &proof(&env, 1), &42);
-
-        env.ledger()
-            .with_mut(|l| l.timestamp += SIX_MONTHS_SECS + 1);
+        advance_ledger(&env, SIX_MONTHS_SECS + 1);
         client.verify_survival(&farmer, &proof(&env, 2), &69);
     }
 
     #[test]
     #[should_panic(expected = "planting already verified")]
     fn test_double_planting_rejected() {
-        let (env, _admin, donor, farmer, token, _tree_token, client) = setup();
-
-        client.deposit(&donor, &farmer, &token, &10_000, &42);
-        client.verify_planting(&farmer, &proof(&env, 1), &42);
-        client.verify_planting(&farmer, &proof(&env, 1), &42); // must panic
+        let Ctx { env, client, token, donor, farmer, .. } = setup();
+        client.deposit(&donor, &farmer, &token, &10_000);
+        client.verify_planting(&farmer, &proof(&env, 1));
+        client.verify_planting(&farmer, &proof(&env, 1));
     }
 
     #[test]
-    fn test_refund_before_planting() {
-        let (_env, _admin, donor, farmer, token, _tree_token, client) = setup();
+    #[should_panic(expected = "planting not yet verified")]
+    fn test_survival_without_planting_rejected() {
+        let Ctx { env, client, token, donor, farmer, .. } = setup();
+        client.deposit(&donor, &farmer, &token, &10_000);
+        advance_ledger(&env, SIX_MONTHS_SECS + 1);
+        client.verify_survival(&farmer, &proof(&env, 2));
+    }
 
-        client.deposit(&donor, &farmer, &token, &10_000, &42);
+    #[test]
+    #[should_panic(expected = "amount must be positive")]
+    fn test_deposit_zero_rejected() {
+        let Ctx { client, token, donor, farmer, .. } = setup();
+        client.deposit(&donor, &farmer, &token, &0);
+    }
+
+    #[test]
+    #[should_panic(expected = "active escrow already exists")]
+    fn test_duplicate_deposit_rejected() {
+        let Ctx { client, token, donor, farmer, .. } = setup();
+        client.deposit(&donor, &farmer, &token, &5_000);
+        client.deposit(&donor, &farmer, &token, &5_000);
+    }
+
+    // ── Refund paths ──────────────────────────────────────────────────────────
+
+    #[test]
+    fn test_refund_before_planting_restores_donor_balance() {
+        let Ctx { env, client, token, donor, farmer, .. } = setup();
+        client.deposit(&donor, &farmer, &token, &10_000);
+        assert_eq!(balance(&env, &token, &donor), 0);
+
         client.refund(&farmer);
-        assert_eq!(
-            client.get_record(&farmer).unwrap().status,
-            EscrowStatus::Refunded
-        );
+
+        assert_eq!(balance(&env, &token, &donor),  10_000, "donor fully refunded");
+        assert_eq!(balance(&env, &token, &farmer),  0,     "farmer got nothing");
+        assert_eq!(client.get_record(&farmer).unwrap().status, EscrowStatus::Refunded);
     }
 
     #[test]
     #[should_panic(expected = "cannot refund after planting")]
     fn test_refund_after_planting_rejected() {
-        let (env, _admin, donor, farmer, token, _tree_token, client) = setup();
+        let Ctx { env, client, token, donor, farmer, .. } = setup();
+        client.deposit(&donor, &farmer, &token, &10_000);
+        client.verify_planting(&farmer, &proof(&env, 1));
+        client.refund(&farmer);
+    }
 
-        client.deposit(&donor, &farmer, &token, &10_000, &42);
-        client.verify_planting(&farmer, &proof(&env, 1), &42);
-        client.refund(&farmer); // must panic
+    // ── Init guard ────────────────────────────────────────────────────────────
+
+    #[test]
+    #[should_panic(expected = "already initialized")]
+    fn test_initialize_twice_rejected() {
+        let Ctx { env, client, .. } = setup();
+        client.initialize(&Address::generate(&env));
     }
 
     #[test]

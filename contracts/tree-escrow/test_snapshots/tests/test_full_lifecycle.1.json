@@ -175,9 +175,6 @@
                 },
                 {
                   "bytes": "0202020202020202020202020202020202020202020202020202020202020202"
-                },
-                {
-                  "u32": 70
                 }
               ]
             }
@@ -418,14 +415,6 @@
                       },
                       "val": {
                         "bytes": "0202020202020202020202020202020202020202020202020202020202020202"
-                      }
-                    },
-                    {
-                      "key": {
-                        "symbol": "survival_rate_percent"
-                      },
-                      "val": {
-                        "u32": 70
                       }
                     },
                     {
@@ -1789,17 +1778,27 @@
           "v0": {
             "topics": [
               {
-                "symbol": "deposit"
+                "symbol": "DonationReceived"
+              },
+              {
+                "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"
               },
               {
                 "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAITA4"
               }
             ],
             "data": {
-              "i128": {
-                "hi": 0,
-                "lo": 10000
-              }
+              "vec": [
+                {
+                  "i128": {
+                    "hi": 0,
+                    "lo": 10000
+                  }
+                },
+                {
+                  "address": "CDLDVFKHEZ2RVB3NG4UQA4VPD3TSHV6XMHXMHP2BSGCJ2IIWVTOHGDSG"
+                }
+              ]
             }
           }
         }
@@ -1896,9 +1895,7 @@
                   "key": {
                     "symbol": "planting_proof"
                   },
-                  "val": {
-                    "bytes": "0000000000000000000000000000000000000000000000000000000000000000"
-                  }
+                  "val": "void"
                 },
                 {
                   "key": {
@@ -1927,17 +1924,7 @@
                   "key": {
                     "symbol": "survival_proof"
                   },
-                  "val": {
-                    "bytes": "0000000000000000000000000000000000000000000000000000000000000000"
-                  }
-                },
-                {
-                  "key": {
-                    "symbol": "survival_rate_percent"
-                  },
-                  "val": {
-                    "u32": 0
-                  }
+                  "val": "void"
                 },
                 {
                   "key": {
@@ -2274,17 +2261,24 @@
           "v0": {
             "topics": [
               {
-                "symbol": "planted"
+                "symbol": "PlantingVerified"
               },
               {
                 "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAITA4"
               }
             ],
             "data": {
-              "i128": {
-                "hi": 0,
-                "lo": 7500
-              }
+              "vec": [
+                {
+                  "i128": {
+                    "hi": 0,
+                    "lo": 7500
+                  }
+                },
+                {
+                  "bytes": "0101010101010101010101010101010101010101010101010101010101010101"
+                }
+              ]
             }
           }
         }
@@ -2440,17 +2434,7 @@
                   "key": {
                     "symbol": "survival_proof"
                   },
-                  "val": {
-                    "bytes": "0000000000000000000000000000000000000000000000000000000000000000"
-                  }
-                },
-                {
-                  "key": {
-                    "symbol": "survival_rate_percent"
-                  },
-                  "val": {
-                    "u32": 0
-                  }
+                  "val": "void"
                 },
                 {
                   "key": {
@@ -2747,17 +2731,24 @@
           "v0": {
             "topics": [
               {
-                "symbol": "survived"
+                "symbol": "SurvivalVerified"
               },
               {
                 "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAITA4"
               }
             ],
             "data": {
-              "i128": {
-                "hi": 0,
-                "lo": 2500
-              }
+              "vec": [
+                {
+                  "i128": {
+                    "hi": 0,
+                    "lo": 2500
+                  }
+                },
+                {
+                  "bytes": "0202020202020202020202020202020202020202020202020202020202020202"
+                }
+              ]
             }
           }
         }
@@ -2889,14 +2880,6 @@
                   },
                   "val": {
                     "bytes": "0202020202020202020202020202020202020202020202020202020202020202"
-                  }
-                },
-                {
-                  "key": {
-                    "symbol": "survival_rate_percent"
-                  },
-                  "val": {
-                    "u32": 70
                   }
                 },
                 {
