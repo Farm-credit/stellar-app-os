@@ -12,7 +12,7 @@ import { StripePaymentForm } from '@/components/molecules/StripePaymentForm/Stri
 import { StellarPaymentSection } from '@/components/molecules/StellarPaymentSection/StellarPaymentSection';
 import { AnonymousPaymentSection } from '@/components/molecules/AnonymousPaymentSection/AnonymousPaymentSection';
 import { useDonationPayment } from '@/hooks/useDonationPayment';
-import { useWallet } from '@/contexts/WalletContext';
+import { useWalletContext } from '@/contexts/WalletContext';
 
 const steps = [
   { id: 'amount', label: 'AMOUNT', path: '/donate', status: 'completed' as const },
@@ -23,7 +23,7 @@ const steps = [
 
 export function PaymentStep() {
   const router = useRouter();
-  const { connect: connectWallet } = useWallet();
+  const { connect: connectWallet } = useWalletContext();
   const {
     paymentState,
     setMethod,

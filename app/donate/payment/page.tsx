@@ -1,6 +1,8 @@
 import { Suspense } from 'react';
 import { PaymentStep } from '@/components/organisms/PaymentStep/PaymentStep';
 
+export const dynamic = 'force-dynamic';
+
 function PaymentStepWrapper() {
   return <PaymentStep />;
 }

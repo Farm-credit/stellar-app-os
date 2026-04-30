@@ -4,6 +4,8 @@ import { mockCarbonProjects } from '@/lib/api/mock/carbonProjects';
 import { BULK_PURCHASE_MIN_QUANTITY } from '@/lib/types/carbon';
 import { Building2 } from 'lucide-react';
 
+export const dynamic = 'force-dynamic';
+
 export const metadata = {
   title: 'Bulk Purchase — FarmCredit',
   description: `Purchase ${BULK_PURCHASE_MIN_QUANTITY.toLocaleString()}+ carbon credit tokens for corporate planting initiatives with optional on-chain or IPFS metadata.`,

@@ -2,6 +2,8 @@ import { Suspense } from 'react';
 import { Trees } from 'lucide-react';
 import { TreeDonationForm } from '@/components/organisms/TreeDonationForm/TreeDonationForm';
 
+export const dynamic = 'force-dynamic';
+
 function TreeDonationFormWrapper() {
   return <TreeDonationForm />;
 }

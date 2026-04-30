@@ -2,7 +2,7 @@
 
 import { useEffect, type JSX } from 'react';
 import { MapContainer, TileLayer, CircleMarker, Tooltip } from 'react-leaflet';
-import type { RegionMarker } from '@/app/api/impact/route';
+import type { RegionMarker } from '@/lib/api/impactData';
 import 'leaflet/dist/leaflet.css';
 
 interface ImpactMapProps {

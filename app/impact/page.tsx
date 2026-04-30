@@ -3,19 +3,12 @@ import type { JSX } from 'react';
 import { TreePine, Wind, Users, Globe } from 'lucide-react';
 import { ImpactStatCard } from '@/components/atoms/ImpactStatCard';
 import { ImpactMapClient } from '@/components/organisms/ImpactMap/ImpactMapClient';
-import type { ImpactData } from '@/app/api/impact/route';
+import { IMPACT_DATA } from '@/lib/api/impactData';
 
 import { ImpactMapWrapper } from '@/components/organisms/ImpactMap/ImpactMapWrapper';
 
-async function getImpactData(): Promise<ImpactData> {
-  const base = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
-  const res = await fetch(`${base}/api/impact`, { next: { revalidate: 300 } });
-  if (!res.ok) throw new Error('Failed to fetch impact data');
-  return res.json() as Promise<ImpactData>;
-}
-
-export default async function ImpactPage(): Promise<JSX.Element> {
-  const { stats, regions } = await getImpactData();
+export default function ImpactPage(): JSX.Element {
+  const { stats, regions } = IMPACT_DATA;
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-12">

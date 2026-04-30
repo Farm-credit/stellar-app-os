@@ -6,6 +6,7 @@ import { Footer } from '@/components/organisms/Footer/Footer';
 import { CookieBanner } from '@/components/CookieBanner';
 import { ToastProvider } from '@/components/providers/ToastProvider';
 import { WalletProviderWrapper } from '@/components/providers/WalletProviderWrapper';
+import { FavoritesProvider } from '@/contexts/FavouritesContext';
 import './globals.css';
 
 const inter = Inter({
@@ -79,13 +80,17 @@ export default function RootLayout({
           `}
         </Script>
         <QueryProvider>
-          <WalletProviderWrapper>
+        <WalletProviderWrapper>
+          <FavoritesProvider>
+        
             <ToastProvider>
               <CookieBanner />
               <Header />
               {children}
               <Footer />
             </ToastProvider>
+          </FavoritesProvider>
+        
           </WalletProviderWrapper>
         </QueryProvider>
       </body>
