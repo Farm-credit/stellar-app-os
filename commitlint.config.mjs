@@ -33,6 +33,7 @@ export default {
         'nav',
         'config',
         'deps',
+        'contracts',
       ],
     ],
   },
