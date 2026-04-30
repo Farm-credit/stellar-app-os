@@ -89,7 +89,7 @@
                     },
                     {
                       "key": {
-                        "symbol": "region"
+                        "symbol": "region_geohash"
                       },
                       "val": {
                         "string": "s1"
@@ -105,13 +105,167 @@
                     },
                     {
                       "key": {
-                        "symbol": "wallet"
+                        "symbol": "wallet_address"
                       },
                       "val": {
                         "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"
                       }
                     }
                   ]
+                }
+              }
+            },
+            "ext": "v0"
+          },
+          4095
+        ]
+      ],
+      [
+        {
+          "contract_data": {
+            "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+            "key": {
+              "vec": [
+                {
+                  "symbol": "HIST"
+                },
+                {
+                  "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"
+                },
+                {
+                  "u32": 0
+                }
+              ]
+            },
+            "durability": "persistent"
+          }
+        },
+        [
+          {
+            "last_modified_ledger_seq": 0,
+            "data": {
+              "contract_data": {
+                "ext": "v0",
+                "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+                "key": {
+                  "vec": [
+                    {
+                      "symbol": "HIST"
+                    },
+                    {
+                      "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"
+                    },
+                    {
+                      "u32": 0
+                    }
+                  ]
+                },
+                "durability": "persistent",
+                "val": {
+                  "map": [
+                    {
+                      "key": {
+                        "symbol": "profile"
+                      },
+                      "val": {
+                        "map": [
+                          {
+                            "key": {
+                              "symbol": "land_doc_hash"
+                            },
+                            "val": {
+                              "bytes": "0101010101010101010101010101010101010101010101010101010101010101"
+                            }
+                          },
+                          {
+                            "key": {
+                              "symbol": "region_geohash"
+                            },
+                            "val": {
+                              "string": "s1"
+                            }
+                          },
+                          {
+                            "key": {
+                              "symbol": "registered_at"
+                            },
+                            "val": {
+                              "u64": 0
+                            }
+                          },
+                          {
+                            "key": {
+                              "symbol": "wallet_address"
+                            },
+                            "val": {
+                              "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"
+                            }
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "updated_at"
+                      },
+                      "val": {
+                        "u64": 0
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "version"
+                      },
+                      "val": {
+                        "u32": 0
+                      }
+                    }
+                  ]
+                }
+              }
+            },
+            "ext": "v0"
+          },
+          4095
+        ]
+      ],
+      [
+        {
+          "contract_data": {
+            "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+            "key": {
+              "vec": [
+                {
+                  "symbol": "VER"
+                },
+                {
+                  "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"
+                }
+              ]
+            },
+            "durability": "persistent"
+          }
+        },
+        [
+          {
+            "last_modified_ledger_seq": 0,
+            "data": {
+              "contract_data": {
+                "ext": "v0",
+                "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+                "key": {
+                  "vec": [
+                    {
+                      "symbol": "VER"
+                    },
+                    {
+                      "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"
+                    }
+                  ]
+                },
+                "durability": "persistent",
+                "val": {
+                  "u32": 0
                 }
               }
             },
@@ -317,7 +471,40 @@
               }
             ],
             "data": {
-              "u64": 0
+              "map": [
+                {
+                  "key": {
+                    "symbol": "land_doc_hash"
+                  },
+                  "val": {
+                    "bytes": "0101010101010101010101010101010101010101010101010101010101010101"
+                  }
+                },
+                {
+                  "key": {
+                    "symbol": "region_geohash"
+                  },
+                  "val": {
+                    "string": "s1"
+                  }
+                },
+                {
+                  "key": {
+                    "symbol": "registered_at"
+                  },
+                  "val": {
+                    "u64": 0
+                  }
+                },
+                {
+                  "key": {
+                    "symbol": "wallet_address"
+                  },
+                  "val": {
+                    "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"
+                  }
+                }
+              ]
             }
           }
         }
@@ -339,7 +526,42 @@
                 "symbol": "register_farmer"
               }
             ],
-            "data": "void"
+            "data": {
+              "map": [
+                {
+                  "key": {
+                    "symbol": "land_doc_hash"
+                  },
+                  "val": {
+                    "bytes": "0101010101010101010101010101010101010101010101010101010101010101"
+                  }
+                },
+                {
+                  "key": {
+                    "symbol": "region_geohash"
+                  },
+                  "val": {
+                    "string": "s1"
+                  }
+                },
+                {
+                  "key": {
+                    "symbol": "registered_at"
+                  },
+                  "val": {
+                    "u64": 0
+                  }
+                },
+                {
+                  "key": {
+                    "symbol": "wallet_address"
+                  },
+                  "val": {
+                    "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"
+                  }
+                }
+              ]
+            }
           }
         }
       },
@@ -396,7 +618,7 @@
             "data": {
               "vec": [
                 {
-                  "string": "caught panic 'farmer already registered' from contract function 'Symbol(obj#47)'"
+                  "string": "caught panic 'farmer already registered' from contract function 'Symbol(obj#89)'"
                 },
                 {
                   "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"

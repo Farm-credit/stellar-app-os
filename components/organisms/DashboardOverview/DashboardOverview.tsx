@@ -10,6 +10,8 @@ import { Text } from '@/components/atoms/Text';
 import { Card, CardContent } from '@/components/molecules/Card';
 import { Heart, Coins, Wind, Zap } from 'lucide-react';
 
+import { PlatformImpact } from './PlatformImpact';
+
 export function DashboardOverview() {
   const { data, isLoading, error, retry } = useUserDashboard();
 
@@ -53,10 +55,14 @@ export function DashboardOverview() {
 
   return (
     <div className="space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-700">
+      <section>
+        <PlatformImpact />
+      </section>
+
       <section className="space-y-8">
-        <div className="flex flex-col space-y-2">
-          <Text variant="h2" className="text-4xl font-black tracking-tight">Overview</Text>
-          <Text variant="muted" className="text-lg font-medium opacity-70">Welcome back! Here's your impact at a glance.</Text>
+        <div className="flex flex-col space-y-2 border-t pt-8">
+          <Text variant="h2" className="text-3xl font-black tracking-tight">Your Activity</Text>
+          <Text variant="muted" className="text-lg font-medium opacity-70">Personal environmental contribution and assets.</Text>
         </div>
         
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
