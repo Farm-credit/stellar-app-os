@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import Link from 'next/link';
+import { pdf } from '@react-pdf/renderer';
 import {
   Plane,
   Car,
@@ -15,6 +16,9 @@ import {
   Share2,
   Trees,
   BarChart3,
+  Download,
+  Copy,
+  Check,
 } from 'lucide-react';
 import { Button } from '@/components/atoms/Button';
 import { Text } from '@/components/atoms/Text';
@@ -32,6 +36,7 @@ import {
   DEFAULT_LIFESTYLE,
 } from '@/lib/types/impact-calculator';
 import { calculateImpact } from '@/lib/utils/impactCalculations';
+import { ImpactReportPDF } from './ImpactReportPDF';
 
 const STEPS: { id: CalculatorStep; label: string; icon: typeof Plane }[] = [
   { id: 'travel', label: 'Travel', icon: Plane },
@@ -391,6 +396,9 @@ function ResultsStep({
   lifestyle: LifestyleInput;
   onReset: () => void;
 }) {
+  const [isExporting, setIsExporting] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
+
   const results = useMemo(
     () => calculateImpact(travel, energy, lifestyle),
     [travel, energy, lifestyle]
@@ -399,10 +407,60 @@ function ResultsStep({
   const shareUrl = useMemo(() => {
     if (typeof window === 'undefined') return '';
     const params = new URLSearchParams();
-    params.set('co2', results.totalEmissions.toString());
-    params.set('credits', results.recommendedCredits.toString());
+    // Encode all calculator inputs
+    params.set('sf', travel.shortFlightsPerYear.toString());
+    params.set('lf', travel.longFlightsPerYear.toString());
+    params.set('cm', travel.carMilesPerWeek.toString());
+    params.set('pt', travel.primaryTransport);
+    params.set('el', energy.electricityKwhPerMonth.toString());
+    params.set('ga', energy.gasThermPerMonth.toString());
+    params.set('re', energy.renewablePercentage.toString());
+    params.set('dt', lifestyle.dietType);
+    params.set('sh', lifestyle.shoppingHabits);
     return `${window.location.origin}/impact-calculator?${params.toString()}`;
-  }, [results.totalEmissions, results.recommendedCredits]);
+  }, [travel, energy, lifestyle]);
+
+  const handleExportPDF = useCallback(async () => {
+    setIsExporting(true);
+    try {
+      const generatedDate = new Date().toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+      });
+
+      const blob = await pdf(
+        <ImpactReportPDF
+          travel={travel}
+          energy={energy}
+          lifestyle={lifestyle}
+          results={results}
+          generatedDate={generatedDate}
+        />
+      ).toBlob();
+
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `farmcredit-impact-report-${Date.now()}.pdf`;
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('PDF export failed:', error);
+    } finally {
+      setIsExporting(false);
+    }
+  }, [travel, energy, lifestyle, results]);
+
+  const handleCopyLink = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setLinkCopied(true);
+      setTimeout(() => setLinkCopied(false), 2000);
+    } catch (error) {
+      console.error('Failed to copy link:', error);
+    }
+  }, [shareUrl]);
 
   const handleShare = useCallback(() => {
     if (navigator.share) {
@@ -416,11 +474,9 @@ function ResultsStep({
           /* user cancelled */
         });
     } else {
-      navigator.clipboard.writeText(shareUrl).catch(() => {
-        /* clipboard unavailable */
-      });
+      handleCopyLink();
     }
-  }, [results.totalEmissions, results.recommendedCredits, shareUrl]);
+  }, [results.totalEmissions, results.recommendedCredits, shareUrl, handleCopyLink]);
 
   const categories = [
     {
@@ -521,24 +577,61 @@ function ResultsStep({
       </div>
 
       {/* Actions */}
-      <div className="flex flex-col sm:flex-row gap-3">
-        <Link href="/credits" className="sm:flex-[2]">
-          <Button stellar="primary" size="lg" width="full" aria-label="Offset your carbon now">
-            Offset Now
-            <ArrowRight className="ml-2 h-4 w-4" aria-hidden="true" />
+      <div className="space-y-3">
+        <div className="flex flex-col sm:flex-row gap-3">
+          <Link href="/credits" className="sm:flex-[2]">
+            <Button stellar="primary" size="lg" width="full" aria-label="Offset your carbon now">
+              Offset Now
+              <ArrowRight className="ml-2 h-4 w-4" aria-hidden="true" />
+            </Button>
+          </Link>
+          <Button
+            type="button"
+            variant="outline"
+            size="lg"
+            className="sm:flex-1"
+            onClick={handleShare}
+            aria-label="Share your carbon footprint results"
+          >
+            <Share2 className="mr-2 h-4 w-4" aria-hidden="true" />
+            Share
           </Button>
-        </Link>
-        <Button
-          type="button"
-          variant="outline"
-          size="lg"
-          className="sm:flex-1"
-          onClick={handleShare}
-          aria-label="Share your carbon footprint results"
-        >
-          <Share2 className="mr-2 h-4 w-4" aria-hidden="true" />
-          Share
-        </Button>
+        </div>
+        
+        <div className="flex flex-col sm:flex-row gap-3">
+          <Button
+            type="button"
+            variant="outline"
+            size="lg"
+            className="flex-1"
+            onClick={handleExportPDF}
+            disabled={isExporting}
+            aria-label="Export report as PDF"
+          >
+            <Download className="mr-2 h-4 w-4" aria-hidden="true" />
+            {isExporting ? 'Generating PDF...' : 'Export as PDF'}
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="lg"
+            className="flex-1"
+            onClick={handleCopyLink}
+            aria-label="Copy shareable link"
+          >
+            {linkCopied ? (
+              <>
+                <Check className="mr-2 h-4 w-4" aria-hidden="true" />
+                Link Copied!
+              </>
+            ) : (
+              <>
+                <Copy className="mr-2 h-4 w-4" aria-hidden="true" />
+                Copy Link
+              </>
+            )}
+          </Button>
+        </div>
       </div>
 
       <Button
@@ -559,6 +652,41 @@ export function ImpactCalculator() {
   const [travel, setTravel] = useState<TravelInput>({ ...DEFAULT_TRAVEL });
   const [energy, setEnergy] = useState<EnergyInput>({ ...DEFAULT_ENERGY });
   const [lifestyle, setLifestyle] = useState<LifestyleInput>({ ...DEFAULT_LIFESTYLE });
+
+  // Restore state from URL parameters on mount
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    
+    const params = new URLSearchParams(window.location.search);
+    
+    // Check if we have shared calculator inputs
+    const hasSharedInputs = params.has('sf') || params.has('dt');
+    
+    if (hasSharedInputs) {
+      const restoredTravel: TravelInput = {
+        shortFlightsPerYear: parseInt(params.get('sf') || '0', 10) || DEFAULT_TRAVEL.shortFlightsPerYear,
+        longFlightsPerYear: parseInt(params.get('lf') || '0', 10) || DEFAULT_TRAVEL.longFlightsPerYear,
+        carMilesPerWeek: parseInt(params.get('cm') || '0', 10) || DEFAULT_TRAVEL.carMilesPerWeek,
+        primaryTransport: (params.get('pt') as TravelInput['primaryTransport']) || DEFAULT_TRAVEL.primaryTransport,
+      };
+      
+      const restoredEnergy: EnergyInput = {
+        electricityKwhPerMonth: parseInt(params.get('el') || '0', 10) || DEFAULT_ENERGY.electricityKwhPerMonth,
+        gasThermPerMonth: parseInt(params.get('ga') || '0', 10) || DEFAULT_ENERGY.gasThermPerMonth,
+        renewablePercentage: parseInt(params.get('re') || '0', 10) || DEFAULT_ENERGY.renewablePercentage,
+      };
+      
+      const restoredLifestyle: LifestyleInput = {
+        dietType: (params.get('dt') as LifestyleInput['dietType']) || DEFAULT_LIFESTYLE.dietType,
+        shoppingHabits: (params.get('sh') as LifestyleInput['shoppingHabits']) || DEFAULT_LIFESTYLE.shoppingHabits,
+      };
+      
+      setTravel(restoredTravel);
+      setEnergy(restoredEnergy);
+      setLifestyle(restoredLifestyle);
+      setStep('results');
+    }
+  }, []);
 
   const handleNext = useCallback(() => {
     const order: CalculatorStep[] = ['travel', 'energy', 'lifestyle', 'results'];
