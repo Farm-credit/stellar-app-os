@@ -124,7 +124,7 @@ impl TreeEscrow {
     ///
     /// OPTIMIZED: Cache tree token decimals to avoid repeated calculations
     pub fn initialize(env: Env, admin: Address, tree_token: Address) {
-        if env.storage().instance().has(&symbol_short!("ADMIN")) {
+        if env.storage().instance().has(&symbol_short!("ADMINTREE")) {
             panic!("already initialized");
         }
         if token::StellarAssetClient::new(&env, &tree_token).admin()
@@ -173,7 +173,6 @@ impl TreeEscrow {
         // Pull funds from donor into contract
         token::Client::new(&env, &token).transfer(&donor, &env.current_contract_address(), &amount);
 
-        let empty_hash = BytesN::from_array(&env, &[0; 32]);
         env.storage().persistent().set(
             &key,
             &EscrowRecord {
@@ -186,16 +185,16 @@ impl TreeEscrow {
                 tree_tokens_minted: 0,
                 released: 0,
                 status: EscrowStatus::Funded,
-                planted_at: None,
-                planting_proof: empty_hash.clone(),
-                survival_proof: empty_hash,
+                planted_at: OptU64::None,
+                planting_proof: OptProof::None,
+                survival_proof: OptProof::None,
                 survival_rate_percent: 0,
             },
         );
 
         env.events()
             .publish((symbol_short!("deposit"), farmer), amount);
-
+    }
 
     /// Batch deposit: donor funds N tree slots in a single contract invocation.
     ///
@@ -238,7 +237,6 @@ impl TreeEscrow {
         for i in 0..n {
             let slot = slots.get(i).unwrap();
             let key = Self::record_key(&env, &slot.farmer);
-            let empty_hash = BytesN::from_array(&env, &[0; 32]);
             env.storage().persistent().set(
                 &key,
                 &EscrowRecord {
@@ -251,9 +249,9 @@ impl TreeEscrow {
                     tree_tokens_minted: 0,
                     released: 0,
                     status: EscrowStatus::Funded,
-                    planted_at: None,
-                    planting_proof: empty_hash.clone(),
-                    survival_proof: empty_hash,
+                    planted_at: OptU64::None,
+                    planting_proof: OptProof::None,
+                    survival_proof: OptProof::None,
                     survival_rate_percent: 0,
                 },
             );
@@ -320,8 +318,8 @@ impl TreeEscrow {
         rec.verified_tree_count = verified_tree_count;
         rec.tree_tokens_minted = tree_tokens;
         rec.status = EscrowStatus::Planted;
-        rec.planted_at = Some(env.ledger().timestamp());
-        rec.planting_proof = proof_hash.clone();
+        rec.planted_at = OptU64::Some(env.ledger().timestamp());
+        rec.planting_proof = OptProof::Some(proof_hash.clone());
 
         env.storage().persistent().set(&key, &rec);
 
@@ -403,7 +401,7 @@ impl TreeEscrow {
 
         env.events()
             .publish((symbol_short!("survived"), farmer), tranche2);
-
+    }
 
     pub fn refund(env: Env, farmer: Address) {
         // OPTIMIZATION: Single read for admin
@@ -437,7 +435,7 @@ impl TreeEscrow {
 
         env.events()
             .publish((symbol_short!("refund"), farmer), rec.total_amount);
-
+    }
 
     pub fn get_record(env: Env, farmer: Address) -> Option<EscrowRecord> {
         env.storage()
@@ -491,11 +489,12 @@ mod tests {
     use soroban_sdk::{testutils::{Address as _, Ledger}, token, Address, BytesN, Env};
 
     struct Ctx {
-        env:      Env,
-        client:   TreeEscrowClient<'static>,
-        token:    Address,
-        donor:    Address,
-        farmer:   Address,
+        env: Env,
+        client: TreeEscrowClient<'static>,
+        token: Address,
+        tree_token: Address,
+        donor: Address,
+        farmer: Address,
         contract: Address,
     }
 
@@ -510,11 +509,24 @@ mod tests {
         let donor = Address::generate(&env);
         let farmer = Address::generate(&env);
 
-        let token = env.register_stellar_asset_contract(admin.clone());
+        let token = env
+            .register_stellar_asset_contract_v2(admin.clone())
+            .address();
+        let tree_token = env
+            .register_stellar_asset_contract_v2(contract.clone())
+            .address();
         token::StellarAssetClient::new(&env, &token).mint(&donor, &10_000);
 
-        client.initialize(&admin);
-        Ctx { env, client, token, donor, farmer, contract }
+        client.initialize(&admin, &tree_token);
+        Ctx {
+            env,
+            client,
+            token,
+            tree_token,
+            donor,
+            farmer,
+            contract,
+        }
     }
 
     fn proof(env: &Env, seed: u8) -> BytesN<32> {
@@ -533,14 +545,14 @@ mod tests {
 
     #[test]
     fn test_full_lifecycle_with_balances() {
-        let Ctx { env, client, token, donor, farmer, contract } = setup();
+        let Ctx { env, client, token, donor, farmer, contract, .. } = setup();
 
         // Step 1: Donation → funds locked
         assert_eq!(balance(&env, &token, &donor),    10_000);
         assert_eq!(balance(&env, &token, &contract), 0);
         assert_eq!(balance(&env, &token, &farmer),   0);
 
-        client.deposit(&donor, &farmer, &token, &10_000);
+        client.deposit(&donor, &farmer, &token, &10_000, &1);
 
         assert_eq!(balance(&env, &token, &donor),    0,      "donor drained");
         assert_eq!(balance(&env, &token, &contract), 10_000, "contract holds full amount");
@@ -552,7 +564,7 @@ mod tests {
         assert_eq!(rec.released,     0);
 
         // Step 2: Planting verification → 75% released
-        client.verify_planting(&farmer, &proof(&env, 1));
+        client.verify_planting(&farmer, &proof(&env, 1), &1);
 
         assert_eq!(balance(&env, &token, &contract), 2_500, "25% still locked");
         assert_eq!(balance(&env, &token, &farmer),   7_500, "farmer received 75%");
@@ -567,7 +579,7 @@ mod tests {
         advance_ledger(&env, SIX_MONTHS_SECS + 1);
 
         // Step 4: Survival verification → remaining 25% released
-        client.verify_survival(&farmer, &proof(&env, 2));
+        client.verify_survival(&farmer, &proof(&env, 2), &80);
 
         assert_eq!(balance(&env, &token, &contract), 0,      "contract fully drained");
         assert_eq!(balance(&env, &token, &farmer),   10_000, "farmer received 100%");
@@ -580,16 +592,16 @@ mod tests {
 
     #[test]
     fn test_tranche_amounts_non_round_deposit() {
-        let Ctx { env, client, token, donor, farmer, contract } = setup();
+        let Ctx { env, client, token, donor, farmer, contract, .. } = setup();
         token::StellarAssetClient::new(&env, &token).mint(&donor, &1_001);
-        client.deposit(&donor, &farmer, &token, &1_001);
+        client.deposit(&donor, &farmer, &token, &1_001, &1);
 
-        client.verify_planting(&farmer, &proof(&env, 1));
+        client.verify_planting(&farmer, &proof(&env, 1), &1);
         let tranche1 = (1_001_i128 * 7_500) / 10_000; // = 750
         assert_eq!(balance(&env, &token, &farmer), tranche1);
 
         advance_ledger(&env, SIX_MONTHS_SECS + 1);
-        client.verify_survival(&farmer, &proof(&env, 2));
+        client.verify_survival(&farmer, &proof(&env, 2), &80);
 
         assert_eq!(balance(&env, &token, &farmer),   1_001);
         assert_eq!(balance(&env, &token, &contract), 0);
@@ -599,8 +611,8 @@ mod tests {
     fn test_planting_proof_hash_stored() {
         let Ctx { env, client, token, donor, farmer, .. } = setup();
         let p = proof(&env, 42);
-        client.deposit(&donor, &farmer, &token, &10_000);
-        client.verify_planting(&farmer, &p);
+        client.deposit(&donor, &farmer, &token, &10_000, &1);
+        client.verify_planting(&farmer, &p, &1);
         assert_eq!(client.get_record(&farmer).unwrap().planting_proof, OptProof::Some(p));
     }
 
@@ -608,8 +620,8 @@ mod tests {
     fn test_survival_proof_hash_stored() {
         let Ctx { env, client, token, donor, farmer, .. } = setup();
         let p = proof(&env, 99);
-        client.deposit(&donor, &farmer, &token, &10_000);
-        client.verify_planting(&farmer, &proof(&env, 1));
+        client.deposit(&donor, &farmer, &token, &10_000, &1);
+        client.verify_planting(&farmer, &proof(&env, 1), &1);
         advance_ledger(&env, SIX_MONTHS_SECS + 1);
         client.verify_survival(&farmer, &p, &80);
         assert_eq!(client.get_record(&farmer).unwrap().survival_proof, OptProof::Some(p));
@@ -621,8 +633,8 @@ mod tests {
     #[should_panic(expected = "6-month survival period not yet elapsed")]
     fn test_survival_too_early_rejected() {
         let Ctx { env, client, token, donor, farmer, .. } = setup();
-        client.deposit(&donor, &farmer, &token, &10_000);
-        client.verify_planting(&farmer, &proof(&env, 1));
+        client.deposit(&donor, &farmer, &token, &10_000, &1);
+        client.verify_planting(&farmer, &proof(&env, 1), &1);
         // Only 1 day later — should panic
         advance_ledger(&env, 86_400);
         client.verify_survival(&farmer, &proof(&env, 2), &80);
@@ -632,8 +644,8 @@ mod tests {
     #[should_panic(expected = "survival rate below minimum")]
     fn test_survival_below_70_percent_rejected() {
         let Ctx { env, client, token, donor, farmer, .. } = setup();
-        client.deposit(&donor, &farmer, &token, &10_000);
-        client.verify_planting(&farmer, &proof(&env, 1));
+        client.deposit(&donor, &farmer, &token, &10_000, &1);
+        client.verify_planting(&farmer, &proof(&env, 1), &1);
 
         advance_ledger(&env, SIX_MONTHS_SECS + 1);
         client.verify_survival(&farmer, &proof(&env, 2), &69);
@@ -643,33 +655,33 @@ mod tests {
     #[should_panic(expected = "planting already verified")]
     fn test_double_planting_rejected() {
         let Ctx { env, client, token, donor, farmer, .. } = setup();
-        client.deposit(&donor, &farmer, &token, &10_000);
-        client.verify_planting(&farmer, &proof(&env, 1));
-        client.verify_planting(&farmer, &proof(&env, 1));
+        client.deposit(&donor, &farmer, &token, &10_000, &1);
+        client.verify_planting(&farmer, &proof(&env, 1), &1);
+        client.verify_planting(&farmer, &proof(&env, 1), &1);
     }
 
     #[test]
     #[should_panic(expected = "planting not yet verified")]
     fn test_survival_without_planting_rejected() {
         let Ctx { env, client, token, donor, farmer, .. } = setup();
-        client.deposit(&donor, &farmer, &token, &10_000);
+        client.deposit(&donor, &farmer, &token, &10_000, &1);
         advance_ledger(&env, SIX_MONTHS_SECS + 1);
-        client.verify_survival(&farmer, &proof(&env, 2));
+        client.verify_survival(&farmer, &proof(&env, 2), &80);
     }
 
     #[test]
     #[should_panic(expected = "amount must be positive")]
     fn test_deposit_zero_rejected() {
         let Ctx { client, token, donor, farmer, .. } = setup();
-        client.deposit(&donor, &farmer, &token, &0);
+        client.deposit(&donor, &farmer, &token, &0, &1);
     }
 
     #[test]
     #[should_panic(expected = "active escrow already exists")]
     fn test_duplicate_deposit_rejected() {
         let Ctx { client, token, donor, farmer, .. } = setup();
-        client.deposit(&donor, &farmer, &token, &5_000);
-        client.deposit(&donor, &farmer, &token, &5_000);
+        client.deposit(&donor, &farmer, &token, &5_000, &1);
+        client.deposit(&donor, &farmer, &token, &5_000, &1);
     }
 
     // ── Refund paths ──────────────────────────────────────────────────────────
@@ -677,7 +689,7 @@ mod tests {
     #[test]
     fn test_refund_before_planting_restores_donor_balance() {
         let Ctx { env, client, token, donor, farmer, .. } = setup();
-        client.deposit(&donor, &farmer, &token, &10_000);
+        client.deposit(&donor, &farmer, &token, &10_000, &1);
         assert_eq!(balance(&env, &token, &donor), 0);
 
         client.refund(&farmer);
@@ -691,8 +703,8 @@ mod tests {
     #[should_panic(expected = "cannot refund after planting")]
     fn test_refund_after_planting_rejected() {
         let Ctx { env, client, token, donor, farmer, .. } = setup();
-        client.deposit(&donor, &farmer, &token, &10_000);
-        client.verify_planting(&farmer, &proof(&env, 1));
+        client.deposit(&donor, &farmer, &token, &10_000, &1);
+        client.verify_planting(&farmer, &proof(&env, 1), &1);
         client.refund(&farmer);
     }
 
@@ -701,21 +713,21 @@ mod tests {
     #[test]
     #[should_panic(expected = "already initialized")]
     fn test_initialize_twice_rejected() {
-        let Ctx { env, client, .. } = setup();
-        client.initialize(&Address::generate(&env));
+        let Ctx { env, client, tree_token, .. } = setup();
+        client.initialize(&Address::generate(&env), &tree_token);
     }
 
     #[test]
     #[should_panic(expected = "tree count must be positive")]
     fn test_deposit_rejects_zero_tree_count() {
-        let (_env, _admin, donor, farmer, token, _tree_token, client) = setup();
+        let Ctx { client, token, donor, farmer, .. } = setup();
 
         client.deposit(&donor, &farmer, &token, &10_000, &0);
     }
 
     #[test]
     fn test_verified_tree_count_controls_tree_mint_amount() {
-        let (env, _admin, donor, farmer, token, tree_token, client) = setup();
+        let Ctx { env, client, token, tree_token, donor, farmer, .. } = setup();
 
         client.deposit(&donor, &farmer, &token, &10_000, &42);
         client.verify_planting(&farmer, &proof(&env, 1), &30);
@@ -734,7 +746,7 @@ mod tests {
     #[test]
     #[should_panic(expected = "verified tree count exceeds donation")]
     fn test_verified_tree_count_cannot_exceed_donation() {
-        let (env, _admin, donor, farmer, token, _tree_token, client) = setup();
+        let Ctx { env, client, token, donor, farmer, .. } = setup();
 
         client.deposit(&donor, &farmer, &token, &10_000, &42);
         client.verify_planting(&farmer, &proof(&env, 1), &43);
@@ -743,7 +755,7 @@ mod tests {
     #[test]
     #[should_panic(expected = "verified tree count must be positive")]
     fn test_verified_tree_count_must_be_positive() {
-        let (env, _admin, donor, farmer, token, _tree_token, client) = setup();
+        let Ctx { env, client, token, donor, farmer, .. } = setup();
 
         client.deposit(&donor, &farmer, &token, &10_000, &42);
         client.verify_planting(&farmer, &proof(&env, 1), &0);
