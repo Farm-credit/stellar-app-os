@@ -3,6 +3,7 @@ import type {
   MarketplaceListResponse,
   ProjectType,
   SortOption,
+  FundingStatus,
 } from '@/lib/types/marketplace';
 
 /**
@@ -21,7 +22,9 @@ const mockListings: MarketplaceListing[] = [
     totalPrice: 2121.0,
     vintageYear: 2023,
     verificationStatus: 'Gold Standard',
+    fundingStatus: 'Open',
     listedAt: '2024-02-15T10:30:00Z',
+    closingAt: '2024-03-16T23:59:59Z',
     location: 'Brazil, Amazon Basin',
     isActive: true,
   },
@@ -36,7 +39,9 @@ const mockListings: MarketplaceListing[] = [
     totalPrice: 3550.0,
     vintageYear: 2024,
     verificationStatus: 'Verra (VCS)',
+    fundingStatus: 'Open',
     listedAt: '2024-02-18T14:20:00Z',
+    closingAt: '2024-03-12T23:59:59Z',
     location: 'Texas, USA',
     isActive: true,
   },
@@ -51,7 +56,9 @@ const mockListings: MarketplaceListing[] = [
     totalPrice: 3913.0,
     vintageYear: 2024,
     verificationStatus: 'Plan Vivo',
+    fundingStatus: 'Closing Soon',
     listedAt: '2024-02-20T09:15:00Z',
+    closingAt: '2024-03-05T23:59:59Z',
     location: 'Indonesia, Coastal Regions',
     isActive: true,
   },
@@ -66,7 +73,9 @@ const mockListings: MarketplaceListing[] = [
     totalPrice: 4650.0,
     vintageYear: 2023,
     verificationStatus: 'Climate Action Reserve',
+    fundingStatus: 'Fully Funded',
     listedAt: '2024-02-10T16:45:00Z',
+    closingAt: '2024-02-29T23:59:59Z',
     location: 'Rural India',
     isActive: true,
   },
@@ -81,7 +90,9 @@ const mockListings: MarketplaceListing[] = [
     totalPrice: 990.0,
     vintageYear: 2022,
     verificationStatus: 'Gold Standard',
+    fundingStatus: 'Open',
     listedAt: '2024-02-22T11:00:00Z',
+    closingAt: '2024-04-05T23:59:59Z',
     location: 'Kenya, East Africa',
     isActive: true,
   },
@@ -96,7 +107,9 @@ const mockListings: MarketplaceListing[] = [
     totalPrice: 3782.5,
     vintageYear: 2023,
     verificationStatus: 'Gold Standard',
+    fundingStatus: 'Open',
     listedAt: '2024-02-12T08:30:00Z',
+    closingAt: '2024-03-20T23:59:59Z',
     location: 'Brazil, Amazon Basin',
     isActive: true,
   },
@@ -111,7 +124,9 @@ const mockListings: MarketplaceListing[] = [
     totalPrice: 2400.0,
     vintageYear: 2024,
     verificationStatus: 'Verra (VCS)',
+    fundingStatus: 'Closing Soon',
     listedAt: '2024-02-19T13:20:00Z',
+    closingAt: '2024-03-07T23:59:59Z',
     location: 'Scotland, UK',
     isActive: true,
   },
@@ -126,7 +141,9 @@ const mockListings: MarketplaceListing[] = [
     totalPrice: 2275.0,
     vintageYear: 2023,
     verificationStatus: 'Plan Vivo',
+    fundingStatus: 'Open',
     listedAt: '2024-02-16T10:10:00Z',
+    closingAt: '2024-03-22T23:59:59Z',
     location: 'Bangladesh, Coastal Regions',
     isActive: true,
   },
@@ -141,7 +158,9 @@ const mockListings: MarketplaceListing[] = [
     totalPrice: 1980.0,
     vintageYear: 2024,
     verificationStatus: 'Gold Standard',
+    fundingStatus: 'Open',
     listedAt: '2024-02-21T15:30:00Z',
+    closingAt: '2024-03-25T23:59:59Z',
     location: 'Peru, Andes Region',
     isActive: true,
   },
@@ -156,7 +175,9 @@ const mockListings: MarketplaceListing[] = [
     totalPrice: 3538.75,
     vintageYear: 2024,
     verificationStatus: 'Climate Action Reserve',
+    fundingStatus: 'Open',
     listedAt: '2024-02-14T12:00:00Z',
+    closingAt: '2024-03-18T23:59:59Z',
     location: 'Queensland, Australia',
     isActive: true,
   },
@@ -171,7 +192,9 @@ const mockListings: MarketplaceListing[] = [
     totalPrice: 1640.0,
     vintageYear: 2023,
     verificationStatus: 'Verra (VCS)',
+    fundingStatus: 'Open',
     listedAt: '2024-02-17T09:45:00Z',
+    closingAt: '2024-03-11T23:59:59Z',
     location: 'Vietnam, Central Highlands',
     isActive: true,
   },
@@ -186,11 +209,15 @@ const mockListings: MarketplaceListing[] = [
     totalPrice: 4290.0,
     vintageYear: 2024,
     verificationStatus: 'Gold Standard',
+    fundingStatus: 'Fully Funded',
     listedAt: '2024-02-13T14:15:00Z',
+    closingAt: '2024-03-02T23:59:59Z',
     location: 'Denmark, North Sea',
     isActive: true,
   },
 ];
+
+const DEFAULT_FUNDING_STATUSES: FundingStatus[] = ['Open', 'Closing Soon', 'Fully Funded'];
 
 /**
  * Filters listings by project type
@@ -201,6 +228,28 @@ function filterByType(
 ): MarketplaceListing[] {
   if (!type) return listings;
   return listings.filter((listing) => listing.projectType === type);
+}
+
+/**
+ * Filters listings by location
+ */
+function filterByLocation(
+  listings: MarketplaceListing[],
+  location: string | null
+): MarketplaceListing[] {
+  if (!location) return listings;
+  return listings.filter((listing) => listing.location === location);
+}
+
+/**
+ * Filters listings by funding status
+ */
+function filterByFundingStatus(
+  listings: MarketplaceListing[],
+  status: FundingStatus | null
+): MarketplaceListing[] {
+  if (!status) return listings;
+  return listings.filter((listing) => listing.fundingStatus === status);
 }
 
 /**
@@ -233,6 +282,12 @@ function sortListings(listings: MarketplaceListing[], sortBy: SortOption): Marke
       return sorted.sort((a, b) => new Date(b.listedAt).getTime() - new Date(a.listedAt).getTime());
     case 'date-oldest':
       return sorted.sort((a, b) => new Date(a.listedAt).getTime() - new Date(b.listedAt).getTime());
+    case 'alphabetical':
+      return sorted.sort((a, b) => a.projectName.localeCompare(b.projectName));
+    case 'funded':
+      return sorted.sort((a, b) => b.totalPrice - a.totalPrice);
+    case 'ending-soon':
+      return sorted.sort((a, b) => new Date(a.closingAt).getTime() - new Date(b.closingAt).getTime());
     default:
       return sorted;
   }
@@ -260,16 +315,22 @@ export function getMockMarketplaceListings(params: {
   projectType?: ProjectType | null;
   sortBy?: SortOption;
   searchQuery?: string;
+  location?: string | null;
+  fundingStatus?: FundingStatus | null;
 }): MarketplaceListResponse {
   const page = params.page || 1;
   const perPage = 9; // 3x3 grid
   const projectType = params.projectType || null;
   const sortBy = params.sortBy || 'date-newest';
   const searchQuery = params.searchQuery || '';
+  const location = params.location || null;
+  const fundingStatus = params.fundingStatus || null;
 
   // Apply filters
   let filteredListings = mockListings.filter((listing) => listing.isActive);
   filteredListings = filterByType(filteredListings, projectType);
+  filteredListings = filterByLocation(filteredListings, location);
+  filteredListings = filterByFundingStatus(filteredListings, fundingStatus);
   filteredListings = filterBySearch(filteredListings, searchQuery);
 
   // Apply sorting
@@ -285,6 +346,10 @@ export function getMockMarketplaceListings(params: {
     new Set(mockListings.map((listing) => listing.projectType))
   );
 
+  const locations = Array.from(new Set(mockListings.map((listing) => listing.location))).sort(
+    (a, b) => a.localeCompare(b)
+  );
+
   return {
     listings: paginatedListings,
     pagination: {
@@ -294,5 +359,7 @@ export function getMockMarketplaceListings(params: {
       listingsPerPage: perPage,
     },
     projectTypes,
+    locations,
+    fundingStatuses: DEFAULT_FUNDING_STATUSES,
   };
 }

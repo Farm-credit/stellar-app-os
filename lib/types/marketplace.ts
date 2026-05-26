@@ -23,7 +23,16 @@ export type VerificationStatus =
   | 'Plan Vivo'
   | 'Pending';
 
-export type SortOption = 'price-asc' | 'price-desc' | 'date-newest' | 'date-oldest';
+export type FundingStatus = 'Open' | 'Closing Soon' | 'Fully Funded';
+
+export type SortOption =
+  | 'price-asc'
+  | 'price-desc'
+  | 'date-newest'
+  | 'date-oldest'
+  | 'alphabetical'
+  | 'funded'
+  | 'ending-soon';
 
 /**
  * Core marketplace listing data structure
@@ -59,8 +68,14 @@ export interface MarketplaceListing {
   /** Verification standard */
   verificationStatus: VerificationStatus;
 
+  /** Funding status for the listing */
+  fundingStatus: FundingStatus;
+
   /** ISO 8601 date string when the listing was created */
   listedAt: string;
+
+  /** ISO 8601 date string when the listing closes */
+  closingAt: string;
 
   /** Project location */
   location: string;
@@ -93,6 +108,12 @@ export interface MarketplaceListResponse {
 
   /** Array of all available project types */
   projectTypes: ProjectType[];
+
+  /** Array of available locations */
+  locations: string[];
+
+  /** Available funding statuses */
+  fundingStatuses: FundingStatus[];
 }
 
 /**
@@ -124,8 +145,20 @@ export interface MarketplaceFiltersProps {
   /** Array of available project types */
   projectTypes: ProjectType[];
 
+  /** Array of available locations */
+  locations: string[];
+
+  /** Array of available funding statuses */
+  fundingStatuses: FundingStatus[];
+
   /** Currently selected project type (null means "All") */
   selectedType: ProjectType | null;
+
+  /** Currently selected location (null means "All") */
+  selectedLocation: string | null;
+
+  /** Currently selected funding status (null means "All") */
+  selectedFundingStatus: FundingStatus | null;
 
   /** Current sort option */
   sortBy: SortOption;
@@ -133,17 +166,26 @@ export interface MarketplaceFiltersProps {
   /** Current search query */
   searchQuery: string;
 
-  /** Callback when project type filter changes */
+  /** Number of active filters */
+  activeFilterCount: number;
 
+  /** Callback when project type filter changes */
   onTypeChange: (type: ProjectType | null) => void;
 
-  /** Callback when sort option changes */
+  /** Callback when location filter changes */
+  onLocationChange: (location: string | null) => void;
 
+  /** Callback when funding status filter changes */
+  onFundingStatusChange: (status: FundingStatus | null) => void;
+
+  /** Callback when sort option changes */
   onSortChange: (sort: SortOption) => void;
 
   /** Callback when search query changes */
-
   onSearchChange: (query: string) => void;
+
+  /** Callback to clear all filters */
+  onClearAllFilters: () => void;
 }
 
 export interface PriceHistoryPoint {
