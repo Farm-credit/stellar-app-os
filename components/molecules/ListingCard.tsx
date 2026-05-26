@@ -63,9 +63,16 @@ export function ListingCard({ listing, isOwnListing = false }: ListingCardProps)
     totalPrice,
     vintageYear,
     verificationStatus,
+    fundingStatus,
     listedAt,
+    closingAt,
     location,
   } = listing;
+
+  const formatClosingDate = (isoDate: string) => {
+    const date = new Date(isoDate);
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  };
 
   return (
     <Card
@@ -138,11 +145,16 @@ export function ListingCard({ listing, isOwnListing = false }: ListingCardProps)
         </div>
 
         {/* Metadata */}
-        <div className="flex items-center justify-between text-xs text-muted-foreground">
-          <div className="flex items-center gap-2">
+        <div className="space-y-2 text-xs text-muted-foreground">
+          <div className="flex flex-wrap items-center gap-2">
             <span>Vintage {vintageYear}</span>
             <span>•</span>
             <span>{verificationStatus}</span>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <span>{fundingStatus}</span>
+            <span>•</span>
+            <span>Closes {formatClosingDate(closingAt)}</span>
           </div>
         </div>
 
