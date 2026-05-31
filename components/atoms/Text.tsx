@@ -1,4 +1,4 @@
-import { type HTMLAttributes } from 'react';
+import { forwardRef, type HTMLAttributes } from 'react';
 import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '@/lib/utils';
 
@@ -24,7 +24,7 @@ type TextProps = HTMLAttributes<HTMLElement> &
     as?: 'h1' | 'h2' | 'h3' | 'h4' | 'p' | 'span';
   };
 
-function Text({ className, variant, as, ...props }: TextProps) {
+const Text = forwardRef<HTMLElement, TextProps>(({ className, variant, as, ...props }, ref) => {
   const elementMap = {
     h1: 'h1',
     h2: 'h2',
@@ -35,10 +35,17 @@ function Text({ className, variant, as, ...props }: TextProps) {
     muted: 'p',
   } as const;
 
-  const Component = as || elementMap[variant || 'body'] || 'p';
+  const Component = (as || elementMap[variant || 'body'] || 'p') as 'p';
 
-  return <Component className={cn(textVariants({ variant, className }))} {...props} />;
-}
+  return (
+    <Component
+      ref={ref as React.Ref<HTMLParagraphElement>}
+      className={cn(textVariants({ variant, className }))}
+      {...props}
+    />
+  );
+});
+Text.displayName = 'Text';
 
 export { Text, textVariants };
 export type { TextProps };
