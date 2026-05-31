@@ -454,7 +454,7 @@
           "v0": {
             "topics": [
               {
-                "symbol": "register"
+                "symbol": "FarmerRegistered"
               },
               {
                 "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"
@@ -551,7 +551,7 @@
           "v0": {
             "topics": [
               {
-                "symbol": "register"
+                "symbol": "FarmerRegistered"
               },
               {
                 "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"

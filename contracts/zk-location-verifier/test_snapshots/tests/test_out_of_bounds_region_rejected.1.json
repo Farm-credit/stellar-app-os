@@ -47,6 +47,14 @@
                         "val": {
                           "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4"
                         }
+                      },
+                      {
+                        "key": {
+                          "symbol": "PRFTTL"
+                        },
+                        "val": {
+                          "u32": 1
+                        }
                       }
                     ]
                   }
