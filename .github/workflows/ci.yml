@@ -36,6 +36,10 @@ jobs:
 
       - run: pnpm lint
 
+      - run: pnpm typecheck
+
+      - run: pnpm test
+
       - run: pnpm build
         env:
           # Provide stub env vars so Next.js config doesn't throw at build time

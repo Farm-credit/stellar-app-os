@@ -39,6 +39,9 @@ Open [http://localhost:3000](http://localhost:3000) to see the app.
 | --------------------- | --------------------------------------- |
 | `pnpm dev`            | Start development server                |
 | `pnpm build`          | Production build (also runs type-check) |
+| `pnpm typecheck`      | Run TypeScript type-check without emitting |
+| `pnpm test`           | Run unit tests with Vitest              |
+| `pnpm test:watch`     | Run Vitest in watch mode                |
 | `pnpm start`          | Start production server                 |
 | `pnpm lint`           | Run ESLint                              |
 | `pnpm generate-icons` | Generate PWA icons from source          |
