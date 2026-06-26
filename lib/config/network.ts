@@ -24,10 +24,20 @@ export interface NetworkConfig {
     bulkRecipient: string;
     treeDistributor: string;
   };
+  regionalPlanterPools: Record<string, string[]>;
   anchor: {
     apiUrl: string;
     homeDomain: string;
   };
+}
+
+function parseJsonEnv<T>(value: string, fallback: T): T {
+  try {
+    if (!value) return fallback;
+    return JSON.parse(value) as T;
+  } catch {
+    return fallback;
+  }
 }
 
 function loadNetworkConfig(): NetworkConfig {
@@ -53,6 +63,10 @@ function loadNetworkConfig(): NetworkConfig {
       bulkRecipient: requireEnv('NEXT_PUBLIC_BULK_RECIPIENT_ADDRESS'),
       treeDistributor: requireEnv('NEXT_PUBLIC_TREE_DISTRIBUTOR'),
     },
+    regionalPlanterPools: parseJsonEnv<Record<string, string[]>>(
+      process.env.NEXT_PUBLIC_REGION_PLANTER_POOLS ?? '',
+      {}
+    ),
     anchor: {
       apiUrl: requireEnv('NEXT_PUBLIC_ANCHOR_API_URL'),
       homeDomain: requireEnv('NEXT_PUBLIC_ANCHOR_HOME_DOMAIN'),

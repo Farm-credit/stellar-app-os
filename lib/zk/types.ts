@@ -59,6 +59,7 @@ export interface AnonymousDonationRequest {
   amount: number;
   network: 'testnet' | 'mainnet';
   idempotencyKey: string;
+  region?: string;
 }
 
 export interface AnonymousDonationResponse {

@@ -25,6 +25,30 @@ export function getCarbonCreditAsset(_network?: NetworkType): Asset {
   return new Asset('CARBON', networkConfig.carbonCreditIssuer);
 }
 
+export function getRegionalPlantingAddresses(region?: string): string[] {
+  if (!region) {
+    return [networkConfig.addresses.planting];
+  }
+
+  const normalized = region.trim().toLowerCase();
+  const pool = networkConfig.regionalPlanterPools[normalized];
+  return pool && pool.length > 0 ? pool : [networkConfig.addresses.planting];
+}
+
+export function splitAmountAcrossDestinations(amount: number, count: number): number[] {
+  if (count <= 0) return [];
+
+  const unit = 1e7;
+  const amountInUnits = Math.round(amount * unit);
+  const base = Math.floor(amountInUnits / count);
+  const remainder = amountInUnits - base * count;
+
+  return Array.from({ length: count }, (_, index) => {
+    const extra = index === count - 1 ? remainder : 0;
+    return parseFloat(((base + extra) / unit).toFixed(7));
+  });
+}
+
 export async function buildPaymentTransaction(
   selection: CreditSelectionState,
   sourcePublicKey: string,
@@ -148,7 +172,8 @@ export async function buildDonationTransaction(
   sourcePublicKey: string,
   network: NetworkType,
   idempotencyKey: string,
-  treeCount = 1
+  treeCount = 1,
+  region?: string
 ): Promise<{ transactionXdr: string; networkPassphrase: string }> {
   if (amount <= 0) {
     throw new Error('Donation amount must be greater than zero');
@@ -161,30 +186,35 @@ export async function buildDonationTransaction(
   const server = new Horizon.Server(networkConfig.horizonUrl);
   const sourceAccount = await server.loadAccount(sourcePublicKey);
   const usdcAsset = getUsdcAsset(network);
+  const plantingDestinations = getRegionalPlantingAddresses(region);
 
   const builder = new TransactionBuilder(sourceAccount, {
     fee: BASE_FEE,
     networkPassphrase,
   });
 
-  // Add two operations per tree: 70% planting + 30% buffer
+  // Add planting operations for each selected region pool, then the buffer operation.
   for (let i = 0; i < treeCount; i++) {
     const { planting, buffer } = calculateDonationAllocation(amount);
-    builder
-      .addOperation(
+    const plantingSplits = splitAmountAcrossDestinations(planting, plantingDestinations.length);
+
+    plantingDestinations.forEach((destination, index) => {
+      builder.addOperation(
         Operation.payment({
-          destination: PLANTING_ADDRESS,
+          destination,
           asset: usdcAsset,
-          amount: planting.toFixed(7),
-        })
-      )
-      .addOperation(
-        Operation.payment({
-          destination: REPLANTING_BUFFER_ADDRESS,
-          asset: usdcAsset,
-          amount: buffer.toFixed(7),
+          amount: plantingSplits[index].toFixed(7),
         })
       );
+    });
+
+    builder.addOperation(
+      Operation.payment({
+        destination: REPLANTING_BUFFER_ADDRESS,
+        asset: usdcAsset,
+        amount: buffer.toFixed(7),
+      })
+    );
   }
 
   const transaction = builder

@@ -12,6 +12,7 @@ import type { NetworkType } from '@/lib/types/wallet';
 import type { AnonymousDonationProof } from '@/lib/zk/types';
 import { networkConfig } from '@/lib/config/network';
 import { calculateDonationAllocation } from '@/lib/constants/donation';
+import { getRegionalPlantingAddresses, splitAmountAcrossDestinations } from '@/lib/stellar/transaction';
 
 /**
  * Build an anonymous donation transaction with ZK proof
@@ -26,7 +27,8 @@ export async function buildAnonymousDonationTransaction(
   amount: number,
   proof: AnonymousDonationProof,
   relayerPublicKey: string,
-  network: NetworkType
+  network: NetworkType,
+  region?: string
 ): Promise<{
   transactionXdr: string;
   networkPassphrase: string;
@@ -47,11 +49,12 @@ export async function buildAnonymousDonationTransaction(
   const sourceAccount = await server.loadAccount(relayerPublicKey);
   const usdcAsset = new Asset('USDC', networkConfig.usdcIssuer);
 
-  const plantingAddress = networkConfig.addresses.planting;
+  const plantingDestinations = getRegionalPlantingAddresses(region);
   const replantingBufferAddress = networkConfig.addresses.replantingBuffer;
 
   // Split donation: 70% planting, 30% buffer
   const { planting, buffer } = calculateDonationAllocation(amount);
+  const plantingSplits = splitAmountAcrossDestinations(planting, plantingDestinations.length);
 
   // Encode proof data for memo (truncated for memo size limits)
   const proofData = {
@@ -61,29 +64,30 @@ export async function buildAnonymousDonationTransaction(
   };
   const memoText = `anon:${JSON.stringify(proofData)}`.slice(0, 28);
 
-  const transaction = new TransactionBuilder(sourceAccount, {
+  const transactionBuilder = new TransactionBuilder(sourceAccount, {
     fee: '1000', // Higher fee for anonymous transactions
     networkPassphrase,
-  })
-    // Payment 1: 70% to planting
-    .addOperation(
+  });
+
+  plantingDestinations.forEach((destination, index) => {
+    transactionBuilder.addOperation(
       Operation.payment({
-        destination: plantingAddress,
+        destination,
         asset: usdcAsset,
-        amount: planting.toFixed(7),
+        amount: plantingSplits[index].toFixed(7),
       })
-    )
-    // Payment 2: 30% to replanting buffer
-    .addOperation(
-      Operation.payment({
-        destination: replantingBufferAddress,
-        asset: usdcAsset,
-        amount: buffer.toFixed(7),
-      })
-    )
-    .addMemo(Memo.text(memoText))
-    .setTimeout(300)
-    .build();
+    );
+  });
+
+  transactionBuilder.addOperation(
+    Operation.payment({
+      destination: replantingBufferAddress,
+      asset: usdcAsset,
+      amount: buffer.toFixed(7),
+    })
+  );
+
+  const transaction = transactionBuilder.addMemo(Memo.text(memoText)).setTimeout(300).build();
 
   return {
     transactionXdr: transaction.toXDR(),

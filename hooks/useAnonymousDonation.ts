@@ -45,7 +45,8 @@ interface UseAnonymousDonationReturn {
     amount: number,
     proof: AnonymousDonationProof,
     relayerPublicKey: string,
-    network: NetworkType
+    network: NetworkType,
+    region?: string
   ) => Promise<{ success: boolean; transactionHash?: string; error?: string }>;
   reset: () => void;
 
@@ -126,7 +127,8 @@ export function useAnonymousDonation(): UseAnonymousDonationReturn {
       amount: number,
       donationProof: AnonymousDonationProof,
       relayerPublicKey: string,
-      network: NetworkType
+      network: NetworkType,
+      region?: string
     ): Promise<{ success: boolean; transactionHash?: string; error?: string }> => {
       setStatus('building-transaction');
       setError(null);
@@ -151,7 +153,8 @@ export function useAnonymousDonation(): UseAnonymousDonationReturn {
           amount,
           donationProof,
           relayerPublicKey,
-          network
+          network,
+          region
         );
 
         setStatus('submitting');

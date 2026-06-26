@@ -14,7 +14,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
   }
 
-  const { proof: rawProof, inputs: rawInputs, amount, network, idempotencyKey } = body;
+  const { proof: rawProof, inputs: rawInputs, amount, network, idempotencyKey, region } = body;
 
   // ── Validate required fields ──────────────────────────────────────────────
 
@@ -79,7 +79,9 @@ export async function POST(request: Request) {
       amount,
       feePayerPublicKey,
       network,
-      idempotencyKey
+      idempotencyKey,
+      1,
+      region
     );
 
     const allocation = calculateDonationAllocation(amount);
