@@ -10,7 +10,7 @@ import {
 } from '@/components/molecules/Card';
 import { Text } from '@/components/atoms/Text';
 import { cn } from '@/lib/utils';
-import { Heart, ShoppingCart, BarChart3, ArrowRight } from 'lucide-react';
+import { Heart, ShoppingCart, BarChart3, ArrowRight, TreePine } from 'lucide-react';
 
 export function QuickActions() {
   const router = useRouter();
@@ -31,6 +31,14 @@ export function QuickActions() {
       path: '/marketplace',
       color:
         'bg-stellar-blue/10 text-stellar-blue group-hover:bg-stellar-blue group-hover:text-white',
+    },
+    {
+      label: 'My Trees',
+      icon: <TreePine size={20} />,
+      description: 'Track your forest',
+      path: '/dashboard/trees',
+      color:
+        'bg-stellar-green/10 text-stellar-green group-hover:bg-stellar-green group-hover:text-white',
     },
     {
       label: 'View Portfolio',

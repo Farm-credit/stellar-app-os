@@ -6,7 +6,11 @@
 //! a farmer's KYC status. History is append-only; the latest status is
 //! queryable publicly.
 
-use soroban_sdk::{contract, contractimpl, contracttype, symbol_short, Address, Env, IntoVal, Vec};
+use harvesta_errors::HarvestaError;
+use soroban_sdk::{
+    contract, contractimpl, contracttype, panic_with_error, symbol_short, Address, Env, IntoVal,
+    Vec,
+};
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -50,7 +54,7 @@ impl KycAttestation {
     /// Initialize the contract and set the admin.
     pub fn initialize(env: Env, admin: Address) {
         if env.storage().instance().has(&symbol_short!("ADMIN")) {
-            panic!("already initialized");
+            panic_with_error!(&env, HarvestaError::AlreadyInitialized);
         }
         env.storage()
             .instance()
@@ -64,9 +68,9 @@ impl KycAttestation {
             .storage()
             .instance()
             .get(&symbol_short!("ADMIN"))
-            .expect("not initialized");
+            .unwrap_or_else(|| panic_with_error!(&env, HarvestaError::NotInitialized));
         if admin != stored_admin {
-            panic!("caller is not admin");
+            panic_with_error!(&env, HarvestaError::Unauthorized);
         }
         env.storage()
             .persistent()
@@ -84,7 +88,7 @@ impl KycAttestation {
             .get(&verifier_key(&env, &verifier))
             .unwrap_or(false);
         if !is_verifier {
-            panic!("caller is not a registered verifier");
+            panic_with_error!(&env, HarvestaError::NotVerifier);
         }
 
         let attestation = Attestation {
@@ -165,7 +169,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "caller is not a registered verifier")]
+    #[should_panic(expected = "Error(Contract, #61)")]
     fn test_non_verifier_rejected() {
         let (env, _, _, client) = setup();
         let attacker = Address::generate(&env);

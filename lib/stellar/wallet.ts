@@ -104,6 +104,50 @@ export function connectAlbedo(network: NetworkType): Promise<string> {
   });
 }
 
+export function connectXBull(network: NetworkType): Promise<string> {
+  if (typeof window === 'undefined') {
+    throw new Error('xBull wallet can only be accessed in the browser');
+  }
+
+  return new Promise((resolve, reject) => {
+    const networkPassphrase =
+      network === 'mainnet'
+        ? 'Public Global Stellar Network ; September 2015'
+        : 'Test SDF Network ; September 2015';
+
+    // Check if xBull is installed
+    if (!(window as any).xbull) {
+      reject(new Error('xBull wallet extension not found. Please install it.'));
+      return;
+    }
+
+    try {
+      (window as any).xbull
+        .publicKey()
+        .then((publicKey: string) => {
+          resolve(publicKey);
+        })
+        .catch((error: any) => {
+          if (error?.message?.includes('rejected') || error?.message?.includes('cancel')) {
+            reject(new Error('Connection rejected by user'));
+          } else {
+            reject(
+              new Error(error?.message || 'Failed to get public key from xBull')
+            );
+          }
+        });
+    } catch (error) {
+      reject(new Error('Failed to connect to xBull wallet'));
+    }
+  });
+}
+
+export async function isXBullInstalled(): Promise<boolean> {
+  if (typeof window === 'undefined') return false;
+
+  return !!(window as any).xbull;
+}
+
 export async function isFreighterInstalled(): Promise<boolean> {
   if (typeof window === 'undefined') return false;
 

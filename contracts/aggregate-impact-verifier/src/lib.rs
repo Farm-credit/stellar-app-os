@@ -20,8 +20,10 @@
 //! stored on-chain. Individual farm addresses and GPS coordinates are never
 //! revealed.
 
+use harvesta_errors::HarvestaError;
 use soroban_sdk::{
-    contract, contractimpl, contracttype, symbol_short, Address, BytesN, Env, IntoVal,
+    contract, contractimpl, contracttype, panic_with_error, symbol_short, Address, BytesN, Env,
+    IntoVal,
 };
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -67,7 +69,7 @@ impl AggregateImpactVerifier {
     /// One-time initialisation — sets the admin/oracle address.
     pub fn initialize(env: Env, admin: Address) {
         if env.storage().instance().has(&symbol_short!("ADMIN")) {
-            panic!("already initialized");
+            panic_with_error!(&env, HarvestaError::AlreadyInitialized);
         }
         env.storage()
             .instance()
@@ -91,26 +93,26 @@ impl AggregateImpactVerifier {
         Self::require_admin(&env);
 
         if stats.tree_count == 0 {
-            panic!("tree_count must be positive");
+            panic_with_error!(&env, HarvestaError::TreeCountMustBePositive);
         }
         if stats.farm_count == 0 {
-            panic!("farm_count must be positive");
+            panic_with_error!(&env, HarvestaError::FarmCountMustBePositive);
         }
         if stats.period_end <= stats.period_start {
-            panic!("period_end must be after period_start");
+            panic_with_error!(&env, HarvestaError::PeriodEndBeforeStart);
         }
 
         // Replay protection — each proof digest must be unique
         let digest_key = Self::digest_key(&env, &proof_digest);
         if env.storage().persistent().has(&digest_key) {
-            panic!("proof digest already registered");
+            panic_with_error!(&env, HarvestaError::ProofDigestAlreadyRegistered);
         }
 
         let admin: Address = env
             .storage()
             .instance()
             .get(&symbol_short!("ADMIN"))
-            .expect("not initialized");
+            .unwrap_or_else(|| panic_with_error!(&env, HarvestaError::NotInitialized));
 
         let record = AggregateProofRecord {
             proof_digest: proof_digest.clone(),
@@ -150,10 +152,10 @@ impl AggregateImpactVerifier {
             .storage()
             .persistent()
             .get(&key)
-            .expect("proof not found");
+            .unwrap_or_else(|| panic_with_error!(&env, HarvestaError::ProofNotFound));
 
         if record.revoked {
-            panic!("proof already revoked");
+            panic_with_error!(&env, HarvestaError::ProofAlreadyRevoked);
         }
 
         record.revoked = true;
@@ -201,7 +203,7 @@ impl AggregateImpactVerifier {
             .storage()
             .instance()
             .get(&symbol_short!("ADMIN"))
-            .expect("contract not initialized");
+            .unwrap_or_else(|| panic_with_error!(env, HarvestaError::NotInitialized));
         admin.require_auth();
     }
 
@@ -288,7 +290,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "proof digest already registered")]
+    #[should_panic(expected = "Error(Contract, #57)")]
     fn test_replay_rejected() {
         let (env, _, client) = setup();
         let d = digest(&env, 4);
@@ -298,21 +300,21 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "tree_count must be positive")]
+    #[should_panic(expected = "Error(Contract, #10)")]
     fn test_zero_tree_count_rejected() {
         let (env, _, client) = setup();
         client.submit_aggregate_proof(&digest(&env, 5), &sample_stats(0, 10));
     }
 
     #[test]
-    #[should_panic(expected = "farm_count must be positive")]
+    #[should_panic(expected = "Error(Contract, #55)")]
     fn test_zero_farm_count_rejected() {
         let (env, _, client) = setup();
         client.submit_aggregate_proof(&digest(&env, 6), &sample_stats(1_000, 0));
     }
 
     #[test]
-    #[should_panic(expected = "period_end must be after period_start")]
+    #[should_panic(expected = "Error(Contract, #56)")]
     fn test_invalid_period_rejected() {
         let (env, _, client) = setup();
         let bad_stats = AggregateStats {
@@ -325,7 +327,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "proof already revoked")]
+    #[should_panic(expected = "Error(Contract, #59)")]
     fn test_double_revoke_rejected() {
         let (env, _, client) = setup();
         let d = digest(&env, 8);
@@ -344,7 +346,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "already initialized")]
+    #[should_panic(expected = "Error(Contract, #1)")]
     fn test_double_initialize_rejected() {
         let (env, _, client) = setup();
         let other = Address::generate(&env);

@@ -15,9 +15,10 @@
 //!     the seller (farmer) or refund them to the buyer (funder).
 
 use soroban_sdk::{
-    contract, contractimpl, contracttype, symbol_short, token, Address, BytesN, Env, IntoVal,
-    Symbol,
+    contract, contractimpl, contracttype, panic_with_error, symbol_short, token, Address, BytesN,
+    Env, IntoVal, Symbol,
 };
+use harvesta_errors::HarvestaError;
 
 /// Percentage released on first milestone verification (basis points: 7500 = 75%)
 const MILESTONE_1_BPS: i128 = 7500;
@@ -58,6 +59,7 @@ pub enum EscrowStatus {
 pub struct EscrowState {
     pub farmer: Address,
     pub funder: Address,
+    pub gift_recipient: Option<Address>,
     pub token: Address,
     pub total_amount: i128,
     pub released: i128,
@@ -79,7 +81,7 @@ pub struct EscrowMilestone;
 impl EscrowMilestone {
     pub fn initialize(env: Env, admin: Address) {
         if env.storage().instance().has(&symbol_short!("ADMIN")) {
-            panic!("already initialized");
+            panic_with_error!(&env, HarvestaError::AlreadyInitialized);
         }
         env.storage()
             .instance()
@@ -96,16 +98,48 @@ impl EscrowMilestone {
         amount: i128,
         arbiter: Address,
     ) {
+        Self::deposit_internal(env, funder, None, farmer, token, amount, arbiter);
+    }
+
+    /// Sponsor trees as a gift - NFT receipt and carbon credits go to a different recipient address.
+    ///
+    /// `recipient_wallet` - the address that will receive the benefits
+    /// `farmer` - the farmer to plant the trees
+    /// `token` - the token to use for payment (XLM or USDC)
+    /// `amount` - the total amount to deposit
+    /// `arbiter` - the address authorised to adjudicate disputes
+    pub fn sponsor_as_gift(
+        env: Env,
+        funder: Address,
+        recipient_wallet: Address,
+        farmer: Address,
+        token: Address,
+        amount: i128,
+        arbiter: Address,
+    ) {
+        Self::deposit_internal(env, funder, Some(recipient_wallet), farmer, token, amount, arbiter);
+    }
+
+    fn deposit_internal(
+        env: Env,
+        funder: Address,
+        gift_recipient: Option<Address>,
+        farmer: Address,
+        token: Address,
+        amount: i128,
+        arbiter: Address,
+    ) {
         funder.require_auth();
         if amount <= 0 {
-            panic!("amount must be positive");
+            panic_with_error!(&env, HarvestaError::AmountMustBePositive);
         }
 
         let key = Self::escrow_key(&env, &farmer);
         if env.storage().persistent().has(&key) {
-            panic!("active escrow already exists for this farmer");
+            panic_with_error!(&env, HarvestaError::EscrowAlreadyExists);
         }
 
+        contract_utils::assert_whitelisted(&env, &token);
         token::Client::new(&env, &token).transfer(
             &funder,
             &env.current_contract_address(),
@@ -115,6 +149,7 @@ impl EscrowMilestone {
         env.storage().persistent().set(&key, &EscrowState {
             farmer: farmer.clone(),
             funder,
+            gift_recipient,
             token,
             total_amount: amount,
             released: 0,
@@ -142,14 +177,14 @@ impl EscrowMilestone {
             .storage()
             .instance()
             .get(&symbol_short!("ADMIN"))
-            .expect("contract not initialized");
+            .unwrap_or_else(|| panic_with_error!(&env, HarvestaError::NotInitialized));
         if approver != admin {
-            panic!("only admin can approve releases");
+            panic_with_error!(&env, HarvestaError::Unauthorized);
         }
         approver.require_auth();
 
         if completion_pct > 100 {
-            panic!("completion percentage must be between 0 and 100");
+            panic_with_error!(&env, HarvestaError::CompletionPercentageOutOfRange);
         }
 
         let key = Self::escrow_key(&env, &milestone_id);
@@ -157,12 +192,12 @@ impl EscrowMilestone {
             .storage()
             .persistent()
             .get(&key)
-            .expect("no escrow found for farmer");
+            .unwrap_or_else(|| panic_with_error!(&env, HarvestaError::EscrowNotFound));
 
         let payout = (state.total_amount * completion_pct as i128) / 100;
 
         if state.released + payout > state.total_amount {
-            panic!("total released exceeds milestone amount");
+            panic_with_error!(&env, HarvestaError::TotalReleasedExceedsMilestone);
         }
 
         token::Client::new(&env, &state.token).transfer(
@@ -190,7 +225,7 @@ impl EscrowMilestone {
             .storage()
             .instance()
             .get(&symbol_short!("ADMIN"))
-            .expect("contract not initialized");
+            .unwrap_or_else(|| panic_with_error!(&env, HarvestaError::NotInitialized));
         admin.require_auth();
 
         let key = Self::escrow_key(&env, &farmer);
@@ -198,13 +233,13 @@ impl EscrowMilestone {
             .storage()
             .persistent()
             .get(&key)
-            .expect("no escrow found for farmer");
+            .unwrap_or_else(|| panic_with_error!(&env, HarvestaError::EscrowNotFound));
 
         if state.dispute_open {
-            panic!("milestone release blocked: dispute is open");
+            panic_with_error!(&env, HarvestaError::MilestoneReleaseBlocked);
         }
         if state.status != EscrowStatus::Funded {
-            panic!("milestone already processed or escrow not in funded state");
+            panic_with_error!(&env, HarvestaError::MilestoneAlreadyProcessed);
         }
 
         let release_amount = (state.total_amount * MILESTONE_1_BPS) / BPS_DENOM;
@@ -237,11 +272,11 @@ impl EscrowMilestone {
             .storage()
             .instance()
             .get(&symbol_short!("ADMIN"))
-            .expect("contract not initialized");
+            .unwrap_or_else(|| panic_with_error!(&env, HarvestaError::NotInitialized));
         admin.require_auth();
 
         if survival_rate_percent > 100 {
-            panic!("survival_rate must be between 0 and 100");
+            panic_with_error!(&env, HarvestaError::SurvivalRateOutOfRange);
         }
 
         let key = Self::escrow_key(&env, &farmer);
@@ -249,23 +284,23 @@ impl EscrowMilestone {
             .storage()
             .persistent()
             .get(&key)
-            .expect("no escrow found for farmer");
+            .unwrap_or_else(|| panic_with_error!(&env, HarvestaError::EscrowNotFound));
 
         if state.status != EscrowStatus::Milestone1Released {
-            panic!("first milestone not yet verified");
+            panic_with_error!(&env, HarvestaError::PlantingNotVerified);
         }
 
         if env.ledger().timestamp() < state.milestone1_verified_at + SIX_MONTHS_SECS {
-            panic!("6-month survival period not yet elapsed");
+            panic_with_error!(&env, HarvestaError::SurvivalPeriodNotElapsed);
         }
 
         if survival_rate_percent < MIN_SURVIVAL_RATE_PERCENT {
-            panic!("survival rate below minimum");
+            panic_with_error!(&env, HarvestaError::SurvivalRateBelowMinimum);
         }
 
         let remainder = state.total_amount - state.released;
         if remainder <= 0 {
-            panic!("nothing left to release");
+            panic_with_error!(&env, HarvestaError::NothingToRelease);
         }
 
         token::Client::new(&env, &state.token)
@@ -293,20 +328,20 @@ impl EscrowMilestone {
             .storage()
             .persistent()
             .get(&key)
-            .expect("no escrow found for farmer");
+            .unwrap_or_else(|| panic_with_error!(&env, HarvestaError::EscrowNotFound));
 
         // Only the buyer (funder) or seller (farmer) may raise a dispute
         if caller != state.funder && caller != state.farmer {
-            panic!("only the buyer or seller can raise a dispute");
+            panic_with_error!(&env, HarvestaError::NotBuyerOrSeller);
         }
 
         if state.dispute_open {
-            panic!("a dispute is already open for this escrow");
+            panic_with_error!(&env, HarvestaError::DisputeAlreadyOpen);
         }
 
         // Can only dispute while funds are at rest (not yet fully completed/refunded)
         if state.status == EscrowStatus::Completed || state.status == EscrowStatus::Refunded {
-            panic!("escrow is already finalised; cannot raise dispute");
+            panic_with_error!(&env, HarvestaError::EscrowAlreadyFinalised);
         }
 
         state.dispute_open = true;
@@ -329,14 +364,14 @@ impl EscrowMilestone {
             .storage()
             .persistent()
             .get(&key)
-            .expect("no escrow found for farmer");
+            .unwrap_or_else(|| panic_with_error!(&env, HarvestaError::EscrowNotFound));
 
         if arbiter != state.arbiter {
-            panic!("caller is not the designated arbiter for this escrow");
+            panic_with_error!(&env, HarvestaError::NotArbiter);
         }
 
         if !state.dispute_open {
-            panic!("no open dispute for this escrow");
+            panic_with_error!(&env, HarvestaError::NoOpenDispute);
         }
 
         let remainder = state.total_amount - state.released;
@@ -377,7 +412,7 @@ impl EscrowMilestone {
             .storage()
             .instance()
             .get(&symbol_short!("ADMIN"))
-            .expect("contract not initialized");
+            .unwrap_or_else(|| panic_with_error!(&env, HarvestaError::NotInitialized));
         admin.require_auth();
 
         let key = Self::escrow_key(&env, &farmer);
@@ -385,10 +420,10 @@ impl EscrowMilestone {
             .storage()
             .persistent()
             .get(&key)
-            .expect("no escrow found for farmer");
+            .unwrap_or_else(|| panic_with_error!(&env, HarvestaError::EscrowNotFound));
 
         if state.status != EscrowStatus::Funded {
-            panic!("cannot refund after milestone release");
+            panic_with_error!(&env, HarvestaError::RefundAfterPlanting);
         }
 
         token::Client::new(&env, &state.token).transfer(
@@ -419,8 +454,32 @@ impl EscrowMilestone {
             .storage()
             .instance()
             .get(&symbol_short!("ADMIN"))
-            .expect("contract not initialized");
+            .unwrap_or_else(|| panic_with_error!(env, HarvestaError::NotInitialized));
         admin.require_auth();
+    }
+
+    // ── Whitelist management ──────────────────────────────────────────────────
+
+    /// Add `addr` to the contract whitelist. Restricted to admin.
+    pub fn add_to_whitelist(env: Env, addr: Address) {
+        Self::require_admin(&env);
+        contract_utils::add_to_whitelist(&env, &addr);
+    }
+
+    /// Remove `addr` from the contract whitelist. Restricted to admin.
+    pub fn remove_from_whitelist(env: Env, addr: Address) {
+        Self::require_admin(&env);
+        contract_utils::remove_from_whitelist(&env, &addr);
+    }
+
+    /// Returns `true` if `addr` is whitelisted.
+    pub fn is_whitelisted(env: Env, addr: Address) -> bool {
+        contract_utils::is_whitelisted(&env, &addr)
+    }
+
+    /// Panics if `addr` is not whitelisted.
+    pub fn assert_whitelisted(env: Env, addr: Address) {
+        contract_utils::assert_whitelisted(&env, &addr);
     }
 }
 
@@ -462,6 +521,7 @@ mod tests {
         token::StellarAssetClient::new(&env, &token).mint(&funder, &20_000);
 
         client.initialize(&admin);
+        client.add_to_whitelist(&token);
 
         Ctx {
             env,
@@ -558,7 +618,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "milestone release blocked: dispute is open")]
+    #[should_panic(expected = "Error(Contract, #43)")]
     fn test_verify_milestone_blocked_during_dispute() {
         let Ctx {
             env,
@@ -624,7 +684,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "milestone already processed")]
+    #[should_panic(expected = "Error(Contract, #44)")]
     fn test_double_verify_milestone_rejected() {
         let Ctx {
             env,
@@ -641,7 +701,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "first milestone not yet verified")]
+    #[should_panic(expected = "Error(Contract, #19)")]
     fn test_verify_survival_before_milestone_rejected() {
         let Ctx {
             env,
@@ -657,7 +717,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "6-month survival period not yet elapsed")]
+    #[should_panic(expected = "Error(Contract, #24)")]
     fn test_survival_too_early_rejected() {
         let Ctx {
             env,
@@ -674,7 +734,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "survival rate below minimum")]
+    #[should_panic(expected = "Error(Contract, #23)")]
     fn test_survival_below_70_percent_rejected() {
         let Ctx {
             env,
@@ -693,7 +753,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "amount must be positive")]
+    #[should_panic(expected = "Error(Contract, #9)")]
     fn test_deposit_zero_rejected() {
         let Ctx {
             client,
@@ -707,7 +767,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "active escrow already exists")]
+    #[should_panic(expected = "Error(Contract, #16)")]
     fn test_duplicate_deposit_rejected() {
         let Ctx {
             client,
@@ -751,7 +811,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "cannot refund after milestone release")]
+    #[should_panic(expected = "Error(Contract, #20)")]
     fn test_refund_after_milestone_rejected() {
         let Ctx {
             env,
@@ -797,7 +857,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "total released exceeds milestone amount")]
+    #[should_panic(expected = "Error(Contract, #46)")]
     fn test_partial_release_over_release_attempt() {
         let Ctx {
             admin,
@@ -818,7 +878,7 @@ mod tests {
     // ── Init guard ────────────────────────────────────────────────────────────
 
     #[test]
-    #[should_panic(expected = "already initialized")]
+    #[should_panic(expected = "Error(Contract, #1)")]
     fn test_initialize_twice_rejected() {
         let Ctx { env, client, .. } = setup();
         client.initialize(&Address::generate(&env));

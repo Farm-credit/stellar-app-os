@@ -1,8 +1,9 @@
 #![no_std]
 
+use harvesta_errors::HarvestaError;
 use soroban_sdk::{
-    contract, contractimpl, contracttype, symbol_short, xdr::ToXdr, Address, Bytes, BytesN, Env,
-    String, Symbol, Vec,
+    contract, contractimpl, contracttype, panic_with_error, symbol_short, xdr::ToXdr, Address,
+    Bytes, BytesN, Env, String, Symbol, Vec,
 };
 
 #[contracttype]
@@ -33,7 +34,7 @@ impl NullifierRegistry {
     /// Initialize the contract with an admin address.
     pub fn initialize(env: Env, admin: Address) {
         if env.storage().instance().has(&symbol_short!("ADMIN")) {
-            panic!("already initialized");
+            panic_with_error!(&env, HarvestaError::AlreadyInitialized);
         }
         env.storage()
             .instance()
@@ -55,10 +56,10 @@ impl NullifierRegistry {
             let entry: NullifierEntry = env.storage().persistent().get(&commitment).unwrap();
             if let Some(exp) = entry.expires_at {
                 if env.ledger().timestamp() < exp {
-                    panic!("commitment already registered: double-counting rejected");
+                    panic_with_error!(&env, HarvestaError::CommitmentAlreadyRegistered);
                 }
             } else {
-                panic!("commitment already registered: double-counting rejected");
+                panic_with_error!(&env, HarvestaError::CommitmentAlreadyRegistered);
             }
         }
 
@@ -275,7 +276,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "commitment already registered")]
+    #[should_panic(expected = "Error(Contract, #60)")]
     fn test_double_registration_rejected() {
         let (env, _, client) = setup();
         let farmer = Address::generate(&env);
@@ -286,7 +287,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "commitment already registered")]
+    #[should_panic(expected = "Error(Contract, #60)")]
     fn test_replay_attack_same_input_rejected() {
         let (env, _, client) = setup();
         let farmer = Address::generate(&env);
@@ -402,7 +403,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "already initialized")]
+    #[should_panic(expected = "Error(Contract, #1)")]
     fn test_initialize_twice_rejected() {
         let (env, _, client) = setup();
         let second_admin = Address::generate(&env);

@@ -23,6 +23,8 @@ import { processDonationPayment } from '@/lib/stellar/donation';
 import { generateIdempotencyKey } from '@/lib/constants/donation';
 import { showToast } from '@/lib/toast';
 import type { TransactionStatus } from '@/lib/types/payment';
+import { GiftTreeForm } from '@/components/organisms/GiftTreeForm/GiftTreeForm';
+import { DEFAULT_GIFT_DETAILS, isValidGiftDetails, type GiftDetails } from '@/lib/types/gift';
 
 // 1 tree = 1 USDC / $1 — consistent with TREES_PER_DOLLAR in donation constants
 const USDC_PER_TREE = 1;
@@ -181,11 +183,13 @@ export function TreeDonationForm() {
   const [txId, setTxId] = useState('');
   const [stripeClientSecret, setStripeClientSecret] = useState<string | null>(null);
   const [fetchingIntent, setFetchingIntent] = useState(false);
+  const [gift, setGift] = useState<GiftDetails>({ ...DEFAULT_GIFT_DETAILS });
 
   const isProcessingRef = useRef(false);
 
   const resolvedCount = isCustom ? parseInt(customCount, 10) || 0 : treeCount;
   const isValidCount = resolvedCount >= MINIMUM_TREES;
+  const isValidGift = isValidGiftDetails(gift);
   const totalUsdc = resolvedCount * USDC_PER_TREE;
 
   const isStellarProcessing = ['preparing', 'signing', 'submitting', 'confirming'].includes(
@@ -419,13 +423,17 @@ export function TreeDonationForm() {
         </div>
       )}
 
+      {isValidCount && (
+        <GiftTreeForm treeCount={resolvedCount} gift={gift} onChange={setGift} />
+      )}
+
       {/* ── Step 2: Payment method ─────────────────────────────────────────── */}
       <section aria-labelledby="payment-method-heading">
         <Text id="payment-method-heading" variant="h2" className="text-xl font-bold mb-4">
           Payment method
         </Text>
 
-        <div className="grid grid-cols-2 gap-3 mb-6">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 mb-6">
           <button
             type="button"
             onClick={() => handleMethodChange('stellar')}
@@ -582,7 +590,7 @@ export function TreeDonationForm() {
                   stellar="primary"
                   width="full"
                   onClick={handleStellarPay}
-                  disabled={!isValidCount || isStellarProcessing || !hasSufficientStellar}
+                  disabled={!isValidCount || !isValidGift || isStellarProcessing || !hasSufficientStellar}
                   aria-label={`Donate ${totalUsdc.toFixed(2)} USDC via Stellar`}
                 >
                   {isStellarProcessing ? (
