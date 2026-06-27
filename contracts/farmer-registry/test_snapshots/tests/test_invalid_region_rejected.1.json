@@ -42,7 +42,11 @@
                     "storage": [
                       {
                         "key": {
-                          "symbol": "ADMIN"
+                          "vec": [
+                            {
+                              "symbol": "Admin"
+                            }
+                          ]
                         },
                         "val": {
                           "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4"
@@ -180,7 +184,7 @@
             "data": {
               "vec": [
                 {
-                  "string": "caught panic 'region is not within the approved Northern Nigeria geohash boundary' from contract function 'Symbol(obj#19)'"
+                  "string": "caught panic 'region is not within the approved Northern Nigeria geohash boundary' from contract function 'Symbol(obj#23)'"
                 },
                 {
                   "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"

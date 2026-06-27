@@ -100,3 +100,40 @@ export function signTransactionWithAlbedo(
     }, 120000);
   });
 }
+
+export async function signTransactionWithXBull(
+  transactionXdr: string,
+  networkPassphrase: string
+): Promise<string> {
+  if (typeof window === 'undefined') {
+    throw new Error('xBull wallet can only be accessed in the browser');
+  }
+
+  if (!(window as any).xbull) {
+    throw new Error('xBull wallet not found. Please install the extension.');
+  }
+
+  try {
+    const signedXdr = await (window as any).xbull.signTransaction(transactionXdr, {
+      networkPassphrase,
+    });
+
+    if (!signedXdr) {
+      throw new Error('Transaction signing was cancelled or failed');
+    }
+
+    return signedXdr;
+  } catch (error) {
+    if (error instanceof Error) {
+      if (
+        error.message.includes('rejected') ||
+        error.message.includes('denied') ||
+        error.message.includes('cancel')
+      ) {
+        throw new Error('Transaction signing rejected by user');
+      }
+      throw error;
+    }
+    throw new Error('Failed to sign transaction with xBull');
+  }
+}

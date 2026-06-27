@@ -12,7 +12,7 @@ import {
 import { Card } from '@/components/molecules/Card';
 import { Text } from '@/components/atoms/Text';
 import { useWalletContext } from '@/contexts/WalletContext';
-import { isFreighterInstalled } from '@/lib/stellar/wallet';
+import { isFreighterInstalled, isXBullInstalled } from '@/lib/stellar/wallet';
 import type { WalletType } from '@/lib/types/wallet';
 import { cn } from '@/lib/utils';
 
@@ -29,18 +29,26 @@ const WALLET_ICONS: Record<WalletType, React.ReactNode> = {
       <path d="M8 12h8M12 8v8" stroke="white" strokeWidth="2" strokeLinecap="round" />
     </svg>
   ),
+  xbull: (
+    <svg className="h-12 w-12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect x="2" y="2" width="20" height="20" rx="2" className="fill-current text-stellar-amber" />
+      <path d="M8 8l8 8M16 8l-8 8" stroke="white" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  ),
   custodial: <Wallet className="h-12 w-12 text-stellar-navy" />,
 };
 
 const WALLET_NAMES: Record<WalletType, string> = {
   freighter: 'Freighter',
   albedo: 'Albedo',
+  xbull: 'xBull',
   custodial: 'Custodial',
 };
 
 const WALLET_DESCRIPTIONS: Record<WalletType, string> = {
   freighter: 'Browser extension for Stellar wallet management.',
   albedo: 'Web-based wallet with no extension required.',
+  xbull: 'Browser extension with multi-signature support.',
   custodial: 'Not currently supported.',
 };
 
@@ -60,6 +68,7 @@ export function WalletModal({ isOpen, onOpenChange, onSuccess }: WalletModalProp
   const { connect, isLoading: contextLoading, error: contextError } = useWalletContext();
   const [connectingWallet, setConnectingWallet] = useState<WalletType | null>(null);
   const [freighterInstalled, setFreighterInstalled] = useState(false);
+  const [xbullInstalled, setXbullInstalled] = useState(false);
   const [connectionError, setConnectionError] = useState<ConnectionError | null>(null);
   const [showSuccess, setShowSuccess] = useState(false);
 
@@ -72,16 +81,23 @@ export function WalletModal({ isOpen, onOpenChange, onSuccess }: WalletModalProp
   }, [isOpen]);
 
   useEffect(() => {
-    const checkFreighter = async () => {
+    const checkWallets = async () => {
       try {
-        const installed = await isFreighterInstalled();
-        setFreighterInstalled(installed);
+        const freighterCheck = await isFreighterInstalled();
+        setFreighterInstalled(freighterCheck);
       } catch {
         setFreighterInstalled(false);
       }
+
+      try {
+        const xbullCheck = await isXBullInstalled();
+        setXbullInstalled(xbullCheck);
+      } catch {
+        setXbullInstalled(false);
+      }
     };
 
-    checkFreighter();
+    checkWallets();
   }, []);
 
   const handleWalletConnect = useCallback(
@@ -98,7 +114,6 @@ export function WalletModal({ isOpen, onOpenChange, onSuccess }: WalletModalProp
       setConnectionError(null);
 
       try {
-        await connect(walletType, 'testnet');
         await connect(walletType);
         setShowSuccess(true);
         setTimeout(() => {
@@ -194,8 +209,10 @@ export function WalletModal({ isOpen, onOpenChange, onSuccess }: WalletModalProp
             )}
 
             <div className="space-y-3">
-              {(['freighter', 'albedo'] as const).map((walletType) => {
+              {(['freighter', 'albedo', 'xbull'] as const).map((walletType) => {
                 const isFreighterNotInstalled = walletType === 'freighter' && !freighterInstalled;
+                const isXbullNotInstalled = walletType === 'xbull' && !xbullInstalled;
+                const isDisabled = isFreighterNotInstalled || isXbullNotInstalled;
 
                 return (
                   <WalletOptionCard
@@ -205,9 +222,15 @@ export function WalletModal({ isOpen, onOpenChange, onSuccess }: WalletModalProp
                     name={WALLET_NAMES[walletType]}
                     description={WALLET_DESCRIPTIONS[walletType]}
                     isLoading={connectingWallet === walletType && contextLoading}
-                    disabled={isFreighterNotInstalled}
+                    disabled={isDisabled}
                     onClick={() => handleWalletConnect(walletType)}
-                    installUrl={walletType === 'freighter' ? 'https://freighter.app' : undefined}
+                    installUrl={
+                      walletType === 'freighter'
+                        ? 'https://freighter.app'
+                        : walletType === 'xbull'
+                          ? 'https://xbull.app'
+                          : undefined
+                    }
                   />
                 );
               })}

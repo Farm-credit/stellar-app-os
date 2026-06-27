@@ -6,8 +6,10 @@
 //! keyed by `(farmer_id, version)`. Each update increments a version counter
 //! and emits a `ProfileUpdated` event carrying the old and new data hashes.
 
+use harvesta_errors::HarvestaError;
 use soroban_sdk::{
-    contract, contractimpl, contracttype, symbol_short, Address, BytesN, Env, IntoVal, String,
+    contract, contractimpl, contracttype, panic_with_error, symbol_short, Address, BytesN, Env,
+    IntoVal, String,
 };
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -40,7 +42,7 @@ impl FarmerRegistry {
     /// Initialize contract
     pub fn initialize(env: Env, admin: Address) {
         if env.storage().instance().has(&symbol_short!("ADMIN")) {
-            panic!("already initialized");
+            panic_with_error!(&env, HarvestaError::AlreadyInitialized);
         }
         env.storage()
             .instance()
@@ -61,7 +63,7 @@ impl FarmerRegistry {
         let key = Self::farmer_key(&env, &wallet_address);
 
         if env.storage().persistent().has(&key) {
-            panic!("farmer already registered");
+            panic_with_error!(&env, HarvestaError::FarmerAlreadyRegistered);
         }
 
         let profile = FarmerProfile {
@@ -116,7 +118,7 @@ impl FarmerRegistry {
             .storage()
             .persistent()
             .get(&key)
-            .expect("farmer not registered");
+            .unwrap_or_else(|| panic_with_error!(&env, HarvestaError::FarmerNotRegistered));
 
         // Increment version counter
         let version_key = Self::version_counter_key(&env, &wallet_address);
@@ -183,6 +185,47 @@ impl FarmerRegistry {
             .has(&Self::farmer_key(&env, &wallet_address))
     }
 
+
+    /// Toggle planter availability — planters can pause accepting new jobs
+    /// without being penalised or removed from the registry.
+    ///
+    /// # Parameters
+    /// - `wallet_address`: The planter's wallet (must match the caller).
+    /// - `available`: `true` to accept jobs, `false` to pause.
+    ///
+    /// # Errors
+    /// Panics with "farmer not registered" if the caller has no profile.
+    ///
+    /// # Events
+    /// Emits `(symbol_short!("AvailSet"), wallet_address)` with the new value.
+    pub fn set_available(env: Env, wallet_address: Address, available: bool) {
+        wallet_address.require_auth();
+
+        // Planter must be registered before toggling availability.
+        if !env.storage().persistent().has(&Self::farmer_key(&env, &wallet_address)) {
+            panic!("farmer not registered");
+        }
+
+        let key = Self::availability_key(&env, &wallet_address);
+        env.storage().persistent().set(&key, &available);
+
+        env.events().publish(
+            (symbol_short!("AvailSet"), wallet_address.clone()),
+            available,
+        );
+    }
+
+    /// Returns `true` if the planter is currently accepting jobs.
+    /// Defaults to `true` for registered planters who have never called
+    /// `set_available` — availability is opt-out, not opt-in.
+    pub fn is_available(env: Env, wallet_address: Address) -> bool {
+        let key = Self::availability_key(&env, &wallet_address);
+        env.storage()
+            .persistent()
+            .get(&key)
+            .unwrap_or(true)
+    }
+
     // ── internal ──────────────────────────────────────────────────────────────
 
     fn farmer_key(env: &Env, wallet: &Address) -> soroban_sdk::Val {
@@ -197,6 +240,10 @@ impl FarmerRegistry {
         (symbol_short!("HIST"), wallet.clone(), version).into_val(env)
     }
 
+    fn availability_key(env: &Env, wallet: &Address) -> soroban_sdk::Val {
+        (symbol_short!("AVAIL"), wallet.clone()).into_val(env)
+    }
+
     /// Northern Nigeria geohash validation (2-char prefixes)
     fn assert_valid_region(env: &Env, region: &String) {
         const VALID: [&str; 9] = ["s0", "s1", "s2", "s3", "s4", "s5", "s6", "s7", "s8"];
@@ -207,7 +254,7 @@ impl FarmerRegistry {
             }
         }
 
-        panic!("region is not within the approved Northern Nigeria geohash boundary");
+        panic_with_error!(env, HarvestaError::InvalidRegion);
     }
 }
 
@@ -325,7 +372,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "farmer not registered")]
+    #[should_panic(expected = "Error(Contract, #36)")]
     fn test_update_profile_on_unregistered_farmer_rejected() {
         let (env, _, client) = setup();
         let stranger = Address::generate(&env);
@@ -338,9 +385,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(
-        expected = "region is not within the approved Northern Nigeria geohash boundary"
-    )]
+    #[should_panic(expected = "Error(Contract, #37)")]
     fn test_update_profile_invalid_region_rejected() {
         let (env, _, client) = setup();
         let farmer = Address::generate(&env);
@@ -353,7 +398,7 @@ mod tests {
     // ── existing tests ────────────────────────────────────────────────────────
 
     #[test]
-    #[should_panic(expected = "farmer already registered")]
+    #[should_panic(expected = "Error(Contract, #35)")]
     fn test_double_registration_rejected() {
         let (env, _, client) = setup();
         let farmer = Address::generate(&env);
@@ -363,9 +408,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(
-        expected = "region is not within the approved Northern Nigeria geohash boundary"
-    )]
+    #[should_panic(expected = "Error(Contract, #37)")]
     fn test_invalid_region_rejected() {
         let (env, _, client) = setup();
         let farmer = Address::generate(&env);
@@ -398,4 +441,78 @@ mod tests {
 
         assert!(client.get_farmer(&stranger).is_none());
     }
+    // ── availability tests ───────────────────────────────────────────────────
+
+    #[test]
+    fn test_default_availability_is_true() {
+        let (env, _, client) = setup();
+        let farmer = Address::generate(&env);
+
+        client.register_farmer(&farmer, &land_hash(&env, 1), &String::from_str(&env, "s1"));
+
+        // Planters are available by default — opt-out model.
+        assert!(client.is_available(&farmer));
+    }
+
+    #[test]
+    fn test_set_available_false_pauses_planter() {
+        let (env, _, client) = setup();
+        let farmer = Address::generate(&env);
+
+        client.register_farmer(&farmer, &land_hash(&env, 1), &String::from_str(&env, "s1"));
+        client.set_available(&farmer, &false);
+
+        assert!(!client.is_available(&farmer));
+    }
+
+    #[test]
+    fn test_set_available_true_resumes_planter() {
+        let (env, _, client) = setup();
+        let farmer = Address::generate(&env);
+
+        client.register_farmer(&farmer, &land_hash(&env, 1), &String::from_str(&env, "s1"));
+        client.set_available(&farmer, &false);
+        client.set_available(&farmer, &true);
+
+        assert!(client.is_available(&farmer));
+    }
+
+    #[test]
+    #[should_panic(expected = "farmer not registered")]
+    fn test_set_available_unregistered_panics() {
+        let (env, _, client) = setup();
+        let stranger = Address::generate(&env);
+
+        client.set_available(&stranger, &false);
+    }
+
+    #[test]
+    fn test_availability_toggle_does_not_affect_profile() {
+        let (env, _, client) = setup();
+        let farmer = Address::generate(&env);
+
+        client.register_farmer(&farmer, &land_hash(&env, 1), &String::from_str(&env, "s1"));
+        client.set_available(&farmer, &false);
+
+        // Profile must still be intact after toggling availability.
+        let profile = client.get_farmer(&farmer).unwrap();
+        assert_eq!(profile.wallet_address, farmer);
+    }
+
+    #[test]
+    fn test_multiple_planters_independent_availability() {
+        let (env, _, client) = setup();
+        let farmer_a = Address::generate(&env);
+        let farmer_b = Address::generate(&env);
+
+        client.register_farmer(&farmer_a, &land_hash(&env, 1), &String::from_str(&env, "s1"));
+        client.register_farmer(&farmer_b, &land_hash(&env, 2), &String::from_str(&env, "s2"));
+
+        client.set_available(&farmer_a, &false);
+
+        assert!(!client.is_available(&farmer_a));
+        assert!(client.is_available(&farmer_b));
+    }
+
+
 }

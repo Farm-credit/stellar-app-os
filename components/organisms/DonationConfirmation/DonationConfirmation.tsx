@@ -14,6 +14,7 @@ import {
   Trees,
   DollarSign,
   Share2,
+  MapPin,
 } from 'lucide-react';
 import { Button } from '@/components/atoms/Button';
 import { Text } from '@/components/atoms/Text';
@@ -21,6 +22,7 @@ import { Badge } from '@/components/atoms/Badge';
 import { useDonationContext } from '@/contexts/DonationContext';
 import { formatCurrency, formatNumber, TREES_PER_DOLLAR } from '@/lib/constants/donation';
 import { generateCertificatePdf, type CertificateData } from '@/lib/certificate';
+import { IMPACT_DATA } from '@/lib/api/impactData';
 import QRCode from 'qrcode';
 import { cn } from '@/lib/utils';
 
@@ -43,6 +45,7 @@ function DonationConfirmationContent() {
   const amount = state.amount || parseFloat(searchParams.get('amount') || '0');
   const trees = Math.round(amount * TREES_PER_DOLLAR);
   const projectName = 'Stellar Amazon Reforestation'; // Default or project selection if available
+  const regionAllocations = state.regionAllocations;
 
   useEffect(() => {
     // Fire analytics event
@@ -195,6 +198,28 @@ function DonationConfirmationContent() {
                 </Text>
               </div>
             </div>
+
+            {/* Region Breakdown */}
+            {regionAllocations.length > 0 && (
+              <div className="pt-4 border-t border-gray-100 space-y-3">
+                <div className="flex items-center gap-2 text-sm font-medium text-gray-700">
+                  <MapPin className="w-4 h-4 text-stellar-blue" />
+                  <Text>Region Breakdown</Text>
+                </div>
+                <div className="space-y-2">
+                  {regionAllocations.map((alloc) => {
+                    const region = IMPACT_DATA.regions.find((r) => r.id === alloc.regionId);
+                    if (!region) return null;
+                    return (
+                      <div key={alloc.regionId} className="flex items-center justify-between py-1">
+                        <Text className="text-sm text-gray-600">{region.name}</Text>
+                        <Text className="text-sm font-semibold text-gray-800">{alloc.treeCount} trees</Text>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             <div className="pt-4 border-t border-gray-100 flex items-center justify-between text-left">
               <div>

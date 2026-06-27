@@ -260,7 +260,7 @@ export function FarmerVerificationPortal() {
             <Badge variant="success">Farmer verification</Badge>
             <Badge variant="secondary">Client-side encrypted</Badge>
           </div>
-          <Text as="h1" variant="h1" className="text-3xl md:text-4xl">
+          <Text as="h1" variant="h1" className="text-2xl sm:text-3xl md:text-4xl">
             Planting verification
           </Text>
           <Text className="mt-3 text-muted-foreground">
@@ -268,7 +268,7 @@ export function FarmerVerificationPortal() {
             Stellar verification.
           </Text>
         </div>
-        <div className="grid grid-cols-3 gap-3 rounded-lg border bg-card p-3 text-center shadow-sm">
+        <div className="grid grid-cols-3 gap-2 rounded-lg border bg-card p-2 text-center shadow-sm sm:gap-3 sm:p-3">
           <div className="px-2">
             <Lock className="mx-auto h-5 w-5 text-stellar-blue" />
             <p className="mt-1 text-xs font-semibold">Encrypt</p>
@@ -284,7 +284,7 @@ export function FarmerVerificationPortal() {
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
+      <form onSubmit={handleSubmit} className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem] xl:grid-cols-[minmax(0,1fr)_22rem]">
         <Card className="rounded-lg shadow-sm">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-xl">

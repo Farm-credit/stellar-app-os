@@ -4,6 +4,7 @@ import { uploadImageToS3 } from '@/lib/aws/s3';
 import { decryptClientPayload } from '@/lib/crypto/plantingVerification';
 import { generateLocationProof } from '@/lib/zk/locationProof';
 import { submitLocationProofToContract } from '@/lib/stellar/locationProof';
+import { sendTreeVerifiedEmail } from '@/lib/email/sendgrid';
 import type { ClientEncryptedPayload } from '@/lib/crypto/plantingVerification';
 import type { NetworkType } from '@/lib/types/wallet';
 
@@ -43,6 +44,11 @@ export async function POST(request: Request) {
     const wrappedKey = formData.get('wrappedKey');
     const encryptedGps = parseEncryptedPayload(formData.get('encryptedGps'));
     const encryptedPhoto = formData.get('encryptedPhoto');
+    const treeId = formData.get('treeId') as string | null;
+    const species = formData.get('species') as string | null;
+    const sponsorEmail = formData.get('sponsorEmail') as string | null;
+    const sponsorName = formData.get('sponsorName') as string | null;
+    const co2KgPerYearStr = formData.get('co2KgPerYear') as string | null;
 
     if (
       typeof farmerId !== 'string' ||
@@ -94,6 +100,18 @@ export async function POST(request: Request) {
       contractId,
       network
     );
+
+    // Notify sponsor if contact info provided
+    if (sponsorEmail && sponsorName && treeId && species) {
+      const co2KgPerYear = co2KgPerYearStr ? parseFloat(co2KgPerYearStr) : 0;
+      await sendTreeVerifiedEmail({
+        sponsorEmail,
+        sponsorName,
+        treeId,
+        species,
+        co2KgPerYear,
+      }).catch((err) => console.error('[planting/verification] email error:', err));
+    }
 
     return NextResponse.json(
       {

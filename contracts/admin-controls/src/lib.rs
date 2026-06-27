@@ -14,7 +14,8 @@
 //! - `transfer_admin()` supports multi-sig admin rotation with a two-step
 //!   propose → accept pattern to prevent accidental lockout.
 
-use soroban_sdk::{contract, contractimpl, contracttype, symbol_short, Address, Env};
+use harvesta_errors::HarvestaError;
+use soroban_sdk::{contract, contractimpl, contracttype, panic_with_error, symbol_short, Address, Env};
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -29,12 +30,6 @@ pub enum OptAddress {
 impl OptAddress {
     pub fn is_none(&self) -> bool {
         matches!(self, OptAddress::None)
-    }
-    pub fn unwrap(self) -> Address {
-        match self {
-            OptAddress::Some(v) => v,
-            OptAddress::None => panic!("unwrap on None"),
-        }
     }
 }
 
@@ -65,7 +60,7 @@ impl AdminControls {
     /// `oracle` — initial verification oracle address
     pub fn initialize(env: Env, admin: Address, oracle: Address) {
         if env.storage().instance().has(&symbol_short!("ADMIN")) {
-            panic!("already initialized");
+            panic_with_error!(&env, HarvestaError::AlreadyInitialized);
         }
         env.storage()
             .instance()
@@ -85,7 +80,7 @@ impl AdminControls {
     pub fn pause(env: Env) {
         Self::require_admin(&env);
         if Self::_is_paused(&env) {
-            panic!("already paused");
+            panic_with_error!(&env, HarvestaError::AlreadyPaused);
         }
         env.storage()
             .instance()
@@ -98,7 +93,7 @@ impl AdminControls {
     pub fn unpause(env: Env) {
         Self::require_admin(&env);
         if !Self::_is_paused(&env) {
-            panic!("not paused");
+            panic_with_error!(&env, HarvestaError::NotPaused);
         }
         env.storage()
             .instance()
@@ -116,7 +111,7 @@ impl AdminControls {
     /// state-changing function in dependent contracts.
     pub fn assert_not_paused(env: Env) {
         if Self::_is_paused(&env) {
-            panic!("contract is paused");
+            panic_with_error!(&env, HarvestaError::ContractPaused);
         }
     }
 
@@ -132,7 +127,7 @@ impl AdminControls {
             .storage()
             .instance()
             .get(&symbol_short!("ORACLE"))
-            .expect("not initialized");
+            .unwrap_or_else(|| panic_with_error!(&env, HarvestaError::NotInitialized));
 
         env.storage()
             .instance()
@@ -147,7 +142,36 @@ impl AdminControls {
         env.storage()
             .instance()
             .get(&symbol_short!("ORACLE"))
-            .expect("not initialized")
+            .unwrap_or_else(|| panic_with_error!(&env, HarvestaError::NotInitialized))
+    }
+
+    // ── Whitelist management ──────────────────────────────────────────────────
+
+    /// Add `addr` to the contract whitelist. Restricted to admin multi-sig.
+    /// Whitelisted addresses are allowed as targets for cross-contract calls.
+    pub fn add_to_whitelist(env: Env, addr: Address) {
+        Self::require_admin(&env);
+        contract_utils::add_to_whitelist(&env, &addr);
+        env.events()
+            .publish((symbol_short!("WLAdd"),), addr);
+    }
+
+    /// Remove `addr` from the contract whitelist. Restricted to admin multi-sig.
+    pub fn remove_from_whitelist(env: Env, addr: Address) {
+        Self::require_admin(&env);
+        contract_utils::remove_from_whitelist(&env, &addr);
+        env.events()
+            .publish((symbol_short!("WLRemove"),), addr);
+    }
+
+    /// Returns `true` if `addr` is whitelisted.
+    pub fn is_whitelisted(env: Env, addr: Address) -> bool {
+        contract_utils::is_whitelisted(&env, &addr)
+    }
+
+    /// Panics if `addr` is not whitelisted.
+    pub fn assert_whitelisted(env: Env, addr: Address) {
+        contract_utils::assert_whitelisted(&env, &addr);
     }
 
     // ── Admin rotation (two-step) ─────────────────────────────────────────────
@@ -173,17 +197,17 @@ impl AdminControls {
             .get(&symbol_short!("PENDADMIN"))
             .unwrap_or(OptAddress::None);
 
-        if pending_opt.is_none() {
-            panic!("no pending admin");
-        }
-        let pending = pending_opt.unwrap();
+        let pending = match pending_opt {
+            OptAddress::Some(addr) => addr,
+            OptAddress::None => panic_with_error!(&env, HarvestaError::NoPendingAdmin),
+        };
         pending.require_auth();
 
         let old_admin: Address = env
             .storage()
             .instance()
             .get(&symbol_short!("ADMIN"))
-            .expect("not initialized");
+            .unwrap_or_else(|| panic_with_error!(&env, HarvestaError::NotInitialized));
 
         env.storage()
             .instance()
@@ -202,12 +226,12 @@ impl AdminControls {
             .storage()
             .instance()
             .get(&symbol_short!("ADMIN"))
-            .expect("not initialized");
+            .unwrap_or_else(|| panic_with_error!(&env, HarvestaError::NotInitialized));
         let oracle: Address = env
             .storage()
             .instance()
             .get(&symbol_short!("ORACLE"))
-            .expect("not initialized");
+            .unwrap_or_else(|| panic_with_error!(&env, HarvestaError::NotInitialized));
         let paused: bool = env
             .storage()
             .instance()
@@ -234,7 +258,7 @@ impl AdminControls {
             .storage()
             .instance()
             .get(&symbol_short!("ADMIN"))
-            .expect("not initialized");
+            .unwrap_or_else(|| panic_with_error!(env, HarvestaError::NotInitialized));
         admin.require_auth();
     }
 
@@ -286,7 +310,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "contract is paused")]
+    #[should_panic(expected = "Error(Contract, #4)")]
     fn test_assert_not_paused_panics_when_paused() {
         let (_, _, _, client) = setup();
         client.pause();
@@ -300,7 +324,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "already paused")]
+    #[should_panic(expected = "Error(Contract, #5)")]
     fn test_double_pause_rejected() {
         let (_, _, _, client) = setup();
         client.pause();
@@ -308,7 +332,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "not paused")]
+    #[should_panic(expected = "Error(Contract, #6)")]
     fn test_unpause_when_not_paused_rejected() {
         let (_, _, _, client) = setup();
         client.unpause();
@@ -331,7 +355,7 @@ mod tests {
 
         client.propose_admin(&new_admin);
         let config = client.get_config();
-        assert_eq!(config.pending_admin.clone().unwrap(), new_admin);
+        assert_eq!(config.pending_admin, OptAddress::Some(new_admin.clone()));
 
         client.accept_admin();
         let config = client.get_config();
@@ -340,16 +364,82 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "no pending admin")]
+    #[should_panic(expected = "Error(Contract, #7)")]
     fn test_accept_admin_without_proposal_rejected() {
         let (_, _, _, client) = setup();
         client.accept_admin();
     }
 
     #[test]
-    #[should_panic(expected = "already initialized")]
+    #[should_panic(expected = "Error(Contract, #1)")]
     fn test_double_initialize_rejected() {
         let (env, admin, oracle, client) = setup();
         client.initialize(&admin, &oracle);
+    }
+
+    // ── Whitelist tests ───────────────────────────────────────────────────────
+
+    #[test]
+    fn test_add_to_whitelist() {
+        let (env, _, _, client) = setup();
+        let allowed = Address::generate(&env);
+        assert!(!client.is_whitelisted(&allowed));
+        client.add_to_whitelist(&allowed);
+        assert!(client.is_whitelisted(&allowed));
+    }
+
+    #[test]
+    fn test_remove_from_whitelist() {
+        let (env, _, _, client) = setup();
+        let allowed = Address::generate(&env);
+        client.add_to_whitelist(&allowed);
+        assert!(client.is_whitelisted(&allowed));
+        client.remove_from_whitelist(&allowed);
+        assert!(!client.is_whitelisted(&allowed));
+    }
+
+    #[test]
+    fn test_is_whitelisted_returns_false_for_unlisted() {
+        let (env, _, _, client) = setup();
+        let unknown = Address::generate(&env);
+        assert!(!client.is_whitelisted(&unknown));
+    }
+
+    #[test]
+    fn test_assert_whitelisted_passes_for_listed() {
+        let (env, _, _, client) = setup();
+        let allowed = Address::generate(&env);
+        client.add_to_whitelist(&allowed);
+        client.assert_whitelisted(&allowed);
+    }
+
+    #[test]
+    #[should_panic(expected = "address not whitelisted")]
+    fn test_assert_whitelisted_panics_for_unlisted() {
+        let (env, _, _, client) = setup();
+        let unknown = Address::generate(&env);
+        client.assert_whitelisted(&unknown);
+    }
+
+    #[test]
+    fn test_whitelist_is_independent_per_contract() {
+        let (env, _, _, _) = setup();
+        let addr = Address::generate(&env);
+
+        let contract_a = env.register_contract(None, AdminControls);
+        let client_a = AdminControlsClient::new(&env, &contract_a);
+        let admin_a = Address::generate(&env);
+        let oracle_a = Address::generate(&env);
+        client_a.initialize(&admin_a, &oracle_a);
+
+        let contract_b = env.register_contract(None, AdminControls);
+        let client_b = AdminControlsClient::new(&env, &contract_b);
+        let admin_b = Address::generate(&env);
+        let oracle_b = Address::generate(&env);
+        client_b.initialize(&admin_b, &oracle_b);
+
+        client_a.add_to_whitelist(&addr);
+        assert!(client_a.is_whitelisted(&addr));
+        assert!(!client_b.is_whitelisted(&addr));
     }
 }
