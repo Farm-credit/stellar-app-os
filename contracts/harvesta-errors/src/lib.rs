@@ -88,4 +88,16 @@ pub enum HarvestaError {
     // ── Arithmetic overflows (80–81) ──────────────────────────────────────────
     TreeTokenMintOverflow = 80,
     TokenUnitOverflow = 81,
+
+    // ── KYC / attestation (90) ────────────────────────────────────────────────
+    NotVerifier = 90,
+
+    // ── Naira payout (91–98) ──────────────────────────────────────────────────
+    ExpectedNgnMustBePositive = 91,
+    PayoutIntervalTooShort = 92,
+    MaxDailyPayoutExceeded = 93,
+    PendingPayoutAlreadyExists = 94,
+    PayoutNotFound = 95,
+    PayoutNotPending = 96,
+    CanOnlyCancelPending = 97,
 }
