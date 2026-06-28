@@ -5,7 +5,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, Info } from 'lucide-react';
 
@@ -20,7 +19,7 @@ export function CreateProposalForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setIsSubmitting(true);
@@ -70,8 +69,8 @@ export function CreateProposalForm() {
       <Alert>
         <Info className="h-4 w-4" />
         <AlertDescription>
-          Proposals require community approval. Your TREE token holdings determine your voting power.
-          Ensure CO₂ data is sourced from FAO/IPCC Tier-1 methodologies.
+          Proposals require community approval. Your TREE token holdings determine your voting
+          power. Ensure CO₂ data is sourced from FAO/IPCC Tier-1 methodologies.
         </AlertDescription>
       </Alert>
 
@@ -84,9 +83,7 @@ export function CreateProposalForm() {
           onChange={(e) => setFormData({ ...formData, slug: e.target.value.toLowerCase() })}
           required
         />
-        <p className="text-xs text-muted-foreground">
-          Short identifier (lowercase, no spaces)
-        </p>
+        <p className="text-xs text-muted-foreground">Short identifier (lowercase, no spaces)</p>
       </div>
 
       <div className="space-y-2">
@@ -112,9 +109,7 @@ export function CreateProposalForm() {
             onChange={(e) => setFormData({ ...formData, co2KgPerYear: e.target.value })}
             required
           />
-          <p className="text-xs text-muted-foreground">
-            Based on FAO/IPCC Tier-1 data
-          </p>
+          <p className="text-xs text-muted-foreground">Based on FAO/IPCC Tier-1 data</p>
         </div>
 
         <div className="space-y-2">
@@ -127,9 +122,7 @@ export function CreateProposalForm() {
             onChange={(e) => setFormData({ ...formData, maturityYears: e.target.value })}
             required
           />
-          <p className="text-xs text-muted-foreground">
-            Years to biomass maturity
-          </p>
+          <p className="text-xs text-muted-foreground">Years to biomass maturity</p>
         </div>
       </div>
 

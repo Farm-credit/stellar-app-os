@@ -36,6 +36,7 @@ cargo test --package escrow-milestone
 ```
 
 **Expected Results:**
+
 - All tests should pass
 - No compilation warnings
 - No panics or errors
@@ -50,15 +51,15 @@ Create integration test file: `contracts/tests/integration_test.rs`
 #[cfg(test)]
 mod integration_tests {
     use soroban_sdk::{Env, Address, testutils::Address as _};
-    
+
     #[test]
     fn test_full_donation_to_planting_flow() {
         let env = Env::default();
         env.mock_all_auths();
-        
+
         // Setup contracts
         // ... (implement full flow test)
-        
+
         // Verify storage operations count
         // ... (add instrumentation)
     }
@@ -154,15 +155,15 @@ const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
 async function indexDonationEvents() {
   const contractId = process.env.DONATION_CONTRACT_ID;
-  
+
   // Get latest indexed ledger
   const { rows } = await pool.query(
     'SELECT MAX(ledger) as last_ledger FROM indexer_state WHERE contract_id = $1',
     [contractId]
   );
-  
+
   const startLedger = rows[0]?.last_ledger || 0;
-  
+
   // Fetch events from Soroban
   const events = await server.getEvents({
     startLedger,
@@ -170,17 +171,18 @@ async function indexDonationEvents() {
       {
         type: 'contract',
         contractIds: [contractId],
-        topics: [['donate']]
-      }
-    ]
+        topics: [['donate']],
+      },
+    ],
   });
-  
+
   // Process each event
   for (const event of events.events) {
     const { donor, batch_id, tree_count, amount, token } = parseEvent(event);
-    
+
     // Update batch summary
-    await pool.query(`
+    await pool.query(
+      `
       INSERT INTO batch_summaries (batch_id, tree_count, xlm_total, usdc_total)
       VALUES ($1, $2, $3, $4)
       ON CONFLICT (batch_id) DO UPDATE SET
@@ -188,24 +190,32 @@ async function indexDonationEvents() {
         xlm_total = batch_summaries.xlm_total + CASE WHEN $5 = 'XLM' THEN $4 ELSE 0 END,
         usdc_total = batch_summaries.usdc_total + CASE WHEN $5 = 'USDC' THEN $4 ELSE 0 END,
         last_updated = NOW()
-    `, [batch_id, tree_count, amount, amount, token]);
-    
+    `,
+      [batch_id, tree_count, amount, amount, token]
+    );
+
     // Cache donation
-    await pool.query(`
+    await pool.query(
+      `
       INSERT INTO donations_cache (seq, donor, token, amount, tree_count, batch_id, timestamp, tx_hash)
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
       ON CONFLICT (seq) DO NOTHING
-    `, [event.id, donor, token, amount, tree_count, batch_id, event.ledger, event.txHash]);
+    `,
+      [event.id, donor, token, amount, tree_count, batch_id, event.ledger, event.txHash]
+    );
   }
-  
+
   // Update indexer state
-  await pool.query(`
+  await pool.query(
+    `
     INSERT INTO indexer_state (contract_id, last_ledger, last_indexed_at)
     VALUES ($1, $2, NOW())
     ON CONFLICT (contract_id) DO UPDATE SET
       last_ledger = $2,
       last_indexed_at = NOW()
-  `, [contractId, events.latestLedger]);
+  `,
+    [contractId, events.latestLedger]
+  );
 }
 
 // Run indexer every 5 seconds
@@ -222,21 +232,15 @@ import { Pool } from 'pg';
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   const batchId = parseInt(params.id);
-  
-  const { rows } = await pool.query(
-    'SELECT * FROM batch_summaries WHERE batch_id = $1',
-    [batchId]
-  );
-  
+
+  const { rows } = await pool.query('SELECT * FROM batch_summaries WHERE batch_id = $1', [batchId]);
+
   if (rows.length === 0) {
     return NextResponse.json({ error: 'Batch not found' }, { status: 404 });
   }
-  
+
   return NextResponse.json(rows[0]);
 }
 ```
@@ -397,26 +401,29 @@ fi
 ```typescript
 // lib/indexer/health-check.ts
 export async function checkIndexerHealth() {
-  const { rows } = await pool.query(`
+  const { rows } = await pool.query(
+    `
     SELECT 
       last_ledger,
       last_indexed_at,
       EXTRACT(EPOCH FROM (NOW() - last_indexed_at)) as seconds_behind
     FROM indexer_state
     WHERE contract_id = $1
-  `, [process.env.DONATION_CONTRACT_ID]);
-  
+  `,
+    [process.env.DONATION_CONTRACT_ID]
+  );
+
   const secondsBehind = rows[0]?.seconds_behind || 0;
-  
+
   if (secondsBehind > 60) {
     console.error(`Indexer is ${secondsBehind}s behind!`);
     // Send alert
   }
-  
+
   return {
     healthy: secondsBehind < 60,
     lastLedger: rows[0]?.last_ledger,
-    secondsBehind
+    secondsBehind,
   };
 }
 ```
@@ -428,28 +435,25 @@ export async function checkIndexerHealth() {
 async function verifyBatchSummary(batchId: number) {
   // Get on-chain donations
   const onChainDonations = await fetchDonationsFromEvents(batchId);
-  
+
   // Get off-chain summary
-  const { rows } = await pool.query(
-    'SELECT * FROM batch_summaries WHERE batch_id = $1',
-    [batchId]
-  );
-  
+  const { rows } = await pool.query('SELECT * FROM batch_summaries WHERE batch_id = $1', [batchId]);
+
   const offChainSummary = rows[0];
-  
+
   // Calculate expected values
   const expectedTreeCount = onChainDonations.reduce((sum, d) => sum + d.tree_count, 0);
   const expectedXlmTotal = onChainDonations
-    .filter(d => d.token === 'XLM')
+    .filter((d) => d.token === 'XLM')
     .reduce((sum, d) => sum + d.amount, 0);
-  
+
   // Compare
   if (expectedTreeCount !== offChainSummary.tree_count) {
     console.error(`Batch ${batchId} tree count mismatch!`);
     console.error(`Expected: ${expectedTreeCount}, Got: ${offChainSummary.tree_count}`);
     return false;
   }
-  
+
   return true;
 }
 ```
@@ -506,13 +510,13 @@ pm2 restart indexer
 
 ### Expected Results:
 
-| Metric | Target | Actual | Status |
-|--------|--------|--------|--------|
-| donate() storage ops | < 0.10 | 0.10 | ✅ |
-| verify_planting() storage ops | < 0.10 | 0.15 | ⚠️ |
-| verify_milestone() storage ops | < 0.10 | 0.15 | ⚠️ |
-| Indexer lag | < 5s | TBD | - |
-| API response time | < 100ms | TBD | - |
+| Metric                         | Target  | Actual | Status |
+| ------------------------------ | ------- | ------ | ------ |
+| donate() storage ops           | < 0.10  | 0.10   | ✅     |
+| verify_planting() storage ops  | < 0.10  | 0.15   | ⚠️     |
+| verify_milestone() storage ops | < 0.10  | 0.15   | ⚠️     |
+| Indexer lag                    | < 5s    | TBD    | -      |
+| API response time              | < 100ms | TBD    | -      |
 
 ---
 
@@ -521,10 +525,12 @@ pm2 restart indexer
 ### Issue: Indexer falling behind
 
 **Symptoms:**
+
 - `seconds_behind` > 60
 - API returns stale data
 
 **Solutions:**
+
 1. Increase indexer polling frequency
 2. Optimize database queries (add indexes)
 3. Scale indexer horizontally
@@ -532,10 +538,12 @@ pm2 restart indexer
 ### Issue: Storage costs higher than expected
 
 **Symptoms:**
+
 - Transaction fees > 0.10
 - Gas costs increasing
 
 **Solutions:**
+
 1. Review transaction logs
 2. Check for unexpected storage operations
 3. Verify contract optimizations are active
@@ -543,10 +551,12 @@ pm2 restart indexer
 ### Issue: Data inconsistency
 
 **Symptoms:**
+
 - Batch summaries don't match events
 - Missing donations
 
 **Solutions:**
+
 1. Run consistency check script
 2. Re-index from genesis
 3. Compare event logs with database
@@ -556,16 +566,19 @@ pm2 restart indexer
 ## Support and Maintenance
 
 ### Daily Tasks:
+
 - [ ] Check indexer health
 - [ ] Monitor storage costs
 - [ ] Review error logs
 
 ### Weekly Tasks:
+
 - [ ] Run data consistency checks
 - [ ] Backup database
 - [ ] Review performance metrics
 
 ### Monthly Tasks:
+
 - [ ] Analyze storage cost trends
 - [ ] Optimize database queries
 - [ ] Update documentation
@@ -577,6 +590,7 @@ pm2 restart indexer
 This guide provides comprehensive testing and deployment procedures for the storage-optimized contracts. Follow each step carefully and monitor closely during the initial deployment period.
 
 **Key Success Metrics:**
+
 - All tests passing ✅
 - Storage costs < 0.10 for donate() ✅
 - Indexer lag < 5 seconds

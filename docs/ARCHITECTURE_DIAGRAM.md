@@ -409,6 +409,7 @@ External Dependencies
 ---
 
 **Legend:**
+
 - `→` : Data flow
 - `▼` : Process step
 - `✓` : Validation check

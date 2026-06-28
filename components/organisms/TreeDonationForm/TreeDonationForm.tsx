@@ -423,9 +423,7 @@ export function TreeDonationForm() {
         </div>
       )}
 
-      {isValidCount && (
-        <GiftTreeForm treeCount={resolvedCount} gift={gift} onChange={setGift} />
-      )}
+      {isValidCount && <GiftTreeForm treeCount={resolvedCount} gift={gift} onChange={setGift} />}
 
       {/* ── Step 2: Payment method ─────────────────────────────────────────── */}
       <section aria-labelledby="payment-method-heading">
@@ -590,7 +588,9 @@ export function TreeDonationForm() {
                   stellar="primary"
                   width="full"
                   onClick={handleStellarPay}
-                  disabled={!isValidCount || !isValidGift || isStellarProcessing || !hasSufficientStellar}
+                  disabled={
+                    !isValidCount || !isValidGift || isStellarProcessing || !hasSufficientStellar
+                  }
                   aria-label={`Donate ${totalUsdc.toFixed(2)} USDC via Stellar`}
                 >
                   {isStellarProcessing ? (

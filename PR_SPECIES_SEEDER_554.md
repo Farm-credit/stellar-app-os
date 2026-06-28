@@ -2,7 +2,7 @@
 
 ## Summary
 
-This PR implements issue #554.  It introduces a full pipeline for loading FAO/IPCC Tier-1 biomass CO₂ sequestration rates from a curated CSV into both PostgreSQL and the new Soroban `species-registry` smart contract.
+This PR implements issue #554. It introduces a full pipeline for loading FAO/IPCC Tier-1 biomass CO₂ sequestration rates from a curated CSV into both PostgreSQL and the new Soroban `species-registry` smart contract.
 
 ---
 
@@ -14,16 +14,16 @@ A curated reference dataset of **15 tree species** sourced from FAO FRA 2020 and
 
 Columns:
 
-| Column | Description |
-|---|---|
-| `slug` | Short unique key (`teak`, `moringa`, …) |
-| `common_name` | Human-readable name |
-| `scientific_name` | Latin binomial |
-| `co2_kg_per_year` | Average kg CO₂ sequestered per tree per year |
-| `maturity_years` | Years to biomass maturity |
-| `biome` | Typical biome (e.g. "Tropical moist forest") |
-| `native_regions` | ISO 3166-1 alpha-2 codes of primary planting countries |
-| `source_ref` | Data source citation |
+| Column            | Description                                            |
+| ----------------- | ------------------------------------------------------ |
+| `slug`            | Short unique key (`teak`, `moringa`, …)                |
+| `common_name`     | Human-readable name                                    |
+| `scientific_name` | Latin binomial                                         |
+| `co2_kg_per_year` | Average kg CO₂ sequestered per tree per year           |
+| `maturity_years`  | Years to biomass maturity                              |
+| `biome`           | Typical biome (e.g. "Tropical moist forest")           |
+| `native_regions`  | ISO 3166-1 alpha-2 codes of primary planting countries |
+| `source_ref`      | Data source citation                                   |
 
 Species included: Teak, Moringa, Eucalyptus, Mangrove, Acacia, Neem, African Mahogany, Baobab, Bamboo (Moso), West African Cedar, Caribbean Pine, Iroko, Shea, Cashew, African Locust Bean.
 
@@ -49,16 +49,16 @@ ESM Node.js script that:
 
 1. **Parses** `data/fao_co2_rates.csv` using Node's built-in `readline` (no extra dependencies).
 2. **Upserts** every row into `species_catalogue` via a single `BEGIN`/`COMMIT` transaction (`ON CONFLICT (slug) DO UPDATE`) so re-runs are idempotent.
-3. **Registers** each species on-chain via the `species-registry` Soroban contract (`register_species` invocations), when `SPECIES_REGISTRY_ID` and `ADMIN_SECRET` are set.  Skips on-chain seeding gracefully when either env var is absent — safe for CI/CD environments without a live network.
+3. **Registers** each species on-chain via the `species-registry` Soroban contract (`register_species` invocations), when `SPECIES_REGISTRY_ID` and `ADMIN_SECRET` are set. Skips on-chain seeding gracefully when either env var is absent — safe for CI/CD environments without a live network.
 
 **Required env vars:**
 
-| Var | Purpose |
-|---|---|
-| `DATABASE_URL` | PostgreSQL connection string |
-| `SPECIES_REGISTRY_ID` | Deployed species-registry contract ID *(optional — skips on-chain if unset)* |
-| `STELLAR_NETWORK` | `testnet` \| `mainnet` *(default: testnet)* |
-| `ADMIN_SECRET` | Stellar secret key of the contract admin *(optional)* |
+| Var                   | Purpose                                                                      |
+| --------------------- | ---------------------------------------------------------------------------- |
+| `DATABASE_URL`        | PostgreSQL connection string                                                 |
+| `SPECIES_REGISTRY_ID` | Deployed species-registry contract ID _(optional — skips on-chain if unset)_ |
+| `STELLAR_NETWORK`     | `testnet` \| `mainnet` _(default: testnet)_                                  |
+| `ADMIN_SECRET`        | Stellar secret key of the contract admin _(optional)_                        |
 
 **Usage:**
 
@@ -81,16 +81,16 @@ A minimal, auditable Soroban contract (`#![no_std]`) that stores species records
 - Instance: `ADMIN` → admin `Address`
 - Persistent: `(SPECIES, slug)` → `SpeciesRecord { slug, co2_scaled, maturity_years, updated_at }`
 
-`co2_scaled` is kg CO₂/year × 100 (integer) to avoid floating-point on-chain.  The seeder divides by 100 when displaying or comparing off-chain.
+`co2_scaled` is kg CO₂/year × 100 (integer) to avoid floating-point on-chain. The seeder divides by 100 when displaying or comparing off-chain.
 
 **Public functions:**
 
-| Function | Auth | Description |
-|---|---|---|
-| `initialize(admin)` | — | One-time setup; panics if already initialized |
-| `register_species(slug, co2_scaled, maturity_years)` | admin | Upsert a species record; emits `species/register` event |
-| `get_species(slug)` | public | Returns full `SpeciesRecord`; panics if slug unknown |
-| `get_co2_rate(slug)` | public | Returns `co2_scaled` only (convenience accessor) |
+| Function                                             | Auth   | Description                                             |
+| ---------------------------------------------------- | ------ | ------------------------------------------------------- |
+| `initialize(admin)`                                  | —      | One-time setup; panics if already initialized           |
+| `register_species(slug, co2_scaled, maturity_years)` | admin  | Upsert a species record; emits `species/register` event |
+| `get_species(slug)`                                  | public | Returns full `SpeciesRecord`; panics if slug unknown    |
+| `get_co2_rate(slug)`                                 | public | Returns `co2_scaled` only (convenience accessor)        |
 
 **Tests (3):**
 

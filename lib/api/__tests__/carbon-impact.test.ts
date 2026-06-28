@@ -95,7 +95,9 @@ describe('getSponsorImpact', () => {
   it('bySpecies is sorted descending by treeCount', async () => {
     const result = await getSponsorImpact(VALID_ADDRESS);
     for (let i = 1; i < result.bySpecies.length; i++) {
-      expect(result.bySpecies[i - 1].treeCount).toBeGreaterThanOrEqual(result.bySpecies[i].treeCount);
+      expect(result.bySpecies[i - 1].treeCount).toBeGreaterThanOrEqual(
+        result.bySpecies[i].treeCount
+      );
     }
   });
 

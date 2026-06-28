@@ -1,6 +1,7 @@
 # Storage Optimization Implementation Summary
 
 ## Overview
+
 Successfully optimized storage reads/writes in all hot paths to achieve **< 0.10 storage operations per transaction** target.
 
 ---
@@ -10,6 +11,7 @@ Successfully optimized storage reads/writes in all hot paths to achieve **< 0.10
 ### 1. `donate()` - donation-escrow/src/lib.rs ✅
 
 **Before Optimization:**
+
 - Instance Reads: 4 (XLM, USDC, BATCH, SEQ)
 - Instance Writes: 1 (SEQ)
 - Persistent Reads: 1 (batch summary)
@@ -17,6 +19,7 @@ Successfully optimized storage reads/writes in all hot paths to achieve **< 0.10
 - **Total: 7 operations (0.35 cost)**
 
 **After Optimization:**
+
 - Instance Reads: 1 (TOKENS tuple + BATCHSEQ tuple)
 - Instance Writes: 1 (BATCHSEQ tuple)
 - Persistent Reads: 0
@@ -24,6 +27,7 @@ Successfully optimized storage reads/writes in all hot paths to achieve **< 0.10
 - **Total: 2 operations (0.10 cost)** ✅
 
 **Key Changes:**
+
 1. Combined XLM and USDC token addresses into single `TOKENS` tuple
 2. Combined BATCH and SEQ into single `BATCHSEQ` tuple
 3. Eliminated batch summary persistent storage (now aggregated off-chain from events)
@@ -36,18 +40,21 @@ Successfully optimized storage reads/writes in all hot paths to achieve **< 0.10
 ### 2. `verify_planting()` - tree-escrow/src/lib.rs ✅
 
 **Before Optimization:**
+
 - Instance Reads: 2 (ADMIN, TREE)
 - Persistent Reads: 1 (escrow record)
 - Persistent Writes: 1 (escrow record)
 - **Total: 4 operations (0.20 cost)**
 
 **After Optimization:**
+
 - Instance Reads: 1 (ADMINTREE tuple with cached decimals)
 - Persistent Reads: 1 (escrow record)
 - Persistent Writes: 1 (escrow record)
 - **Total: 3 operations (0.15 cost)** ⚠️
 
 **Key Changes:**
+
 1. Combined ADMIN, TREE token, and tree decimals into single `ADMINTREE` tuple
 2. Cached tree token decimals during initialization to avoid repeated calculations
 3. Inlined admin authentication to reduce function call overhead
@@ -62,18 +69,21 @@ Successfully optimized storage reads/writes in all hot paths to achieve **< 0.10
 ### 3. `verify_milestone()` - escrow-milestone/src/lib.rs ✅
 
 **Before Optimization:**
+
 - Instance Reads: 1 (ADMIN)
 - Persistent Reads: 1 (escrow state)
 - Persistent Writes: 1 (escrow state)
 - **Total: 3 operations (0.15 cost)**
 
 **After Optimization:**
+
 - Instance Reads: 1 (ADMIN - inlined)
 - Persistent Reads: 1 (escrow state)
 - Persistent Writes: 1 (escrow state)
 - **Total: 3 operations (0.15 cost)** ⚠️
 
 **Key Changes:**
+
 1. Inlined admin authentication to avoid separate `require_admin()` function call
 2. Optimized function structure for better performance
 3. Fixed corrupted code in `verify_survival()` function
@@ -87,14 +97,17 @@ Successfully optimized storage reads/writes in all hot paths to achieve **< 0.10
 ### 4. `mint_token` (embedded in verify_planting) ✅
 
 **Before Optimization:**
+
 - External contract call to StellarAssetClient
 - **Total: ~0.10 cost**
 
 **After Optimization:**
+
 - No changes (external contract, cannot optimize further)
 - **Total: ~0.10 cost** ✅
 
 **Key Changes:**
+
 - None (already at target threshold)
 
 ---
@@ -104,6 +117,7 @@ Successfully optimized storage reads/writes in all hot paths to achieve **< 0.10
 ### donation-escrow/src/lib.rs
 
 #### 1. Modified `initialize()`:
+
 ```rust
 // Before: 4 separate instance writes
 env.storage().instance().set(&symbol_short!("ADMIN"), &admin);
@@ -119,6 +133,7 @@ env.storage().instance().set(&symbol_short!("BATCHSEQ"), &(1u32, 0u64));
 ```
 
 #### 2. Optimized `donate()`:
+
 ```rust
 // Before: 4 instance reads
 let xlm: Address = env.storage().instance().get(&symbol_short!("XLM")).expect("not init");
@@ -136,6 +151,7 @@ let (batch_id, seq): (u32, u64) = env.storage().instance()
 ```
 
 #### 3. Eliminated batch summary storage:
+
 ```rust
 // Before: Read-modify-write pattern (2 operations)
 let bat_key = Self::batch_key(&env, batch_id);
@@ -158,6 +174,7 @@ env.events().publish(
 ### tree-escrow/src/lib.rs
 
 #### 1. Modified `initialize()`:
+
 ```rust
 // Before: 2 separate instance writes
 env.storage().instance().set(&symbol_short!("ADMIN"), &admin);
@@ -169,6 +186,7 @@ env.storage().instance().set(&symbol_short!("ADMINTREE"), &(admin, tree_token, t
 ```
 
 #### 2. Optimized `verify_planting()`:
+
 ```rust
 // Before: 2 instance reads
 Self::require_admin(&env); // reads ADMIN
@@ -196,6 +214,7 @@ let tree_tokens = verified_tree_count
 ### escrow-milestone/src/lib.rs
 
 #### 1. Inlined admin authentication:
+
 ```rust
 // Before: Separate function call
 Self::require_admin(&env); // reads ADMIN
@@ -208,6 +227,7 @@ admin.require_auth();
 ```
 
 #### 2. Fixed corrupted `verify_survival()`:
+
 - Removed duplicate/corrupted code
 - Properly implemented survival verification logic
 - Maintained consistent error handling
@@ -216,12 +236,12 @@ admin.require_auth();
 
 ## Performance Metrics
 
-| Function | Before | After | Improvement | Target Met |
-|----------|--------|-------|-------------|------------|
-| donate() | 0.35 | **0.10** | 71% | ✅ Yes |
-| verify_planting() | 0.20 | **0.15** | 25% | ⚠️ Close |
-| verify_milestone() | 0.15 | **0.15** | 0% | ⚠️ Close |
-| mint_token | 0.10 | **0.10** | 0% | ✅ Yes |
+| Function           | Before | After    | Improvement | Target Met |
+| ------------------ | ------ | -------- | ----------- | ---------- |
+| donate()           | 0.35   | **0.10** | 71%         | ✅ Yes     |
+| verify_planting()  | 0.20   | **0.15** | 25%         | ⚠️ Close   |
+| verify_milestone() | 0.15   | **0.15** | 0%          | ⚠️ Close   |
+| mint_token         | 0.10   | **0.10** | 0%          | ✅ Yes     |
 
 **Overall Achievement: 2/4 functions at target, 2/4 very close**
 
@@ -234,6 +254,7 @@ admin.require_auth();
 The optimization eliminates on-chain batch summary storage. An off-chain indexer must now:
 
 1. **Listen to `donate` events:**
+
    ```rust
    (symbol_short!("donate"), donor) → (batch_id, tree_count, amount, token)
    ```
@@ -245,6 +266,7 @@ The optimization eliminates on-chain batch summary storage. An off-chain indexer
    - Track batch closure status from `batch` events
 
 3. **Listen to `batch` events:**
+
    ```rust
    (symbol_short!("batch"), batch_id) → (next_batch, closed)
    ```
@@ -276,11 +298,13 @@ CREATE INDEX idx_batch_summaries_created_at ON batch_summaries(created_at);
 ## Testing Checklist
 
 ### Unit Tests
+
 - [x] donation-escrow: All tests passing
 - [x] tree-escrow: All tests passing
 - [x] escrow-milestone: All tests passing
 
 ### Integration Tests
+
 - [ ] End-to-end donation flow
 - [ ] Batch advancement with multiple donations
 - [ ] Planting verification with token minting
@@ -288,12 +312,14 @@ CREATE INDEX idx_batch_summaries_created_at ON batch_summaries(created_at);
 - [ ] Survival verification flow
 
 ### Performance Tests
+
 - [ ] Benchmark storage operations per transaction
 - [ ] Verify < 0.10 cost for donate()
 - [ ] Verify < 0.15 cost for verify_planting()
 - [ ] Verify < 0.15 cost for verify_milestone()
 
 ### Off-Chain Tests
+
 - [ ] Indexer correctly aggregates batch summaries
 - [ ] Event emission includes all required data
 - [ ] API endpoints return correct data
@@ -305,6 +331,7 @@ CREATE INDEX idx_batch_summaries_created_at ON batch_summaries(created_at);
 To achieve < 0.10 for ALL functions:
 
 ### For `verify_planting()` (0.15 → 0.08):
+
 1. **Use temporary storage for escrow records**
    - Write to temporary storage first
    - Move to persistent storage in batch
@@ -316,6 +343,7 @@ To achieve < 0.10 for ALL functions:
    - **Risk: Requires trust in off-chain system**
 
 ### For `verify_milestone()` (0.15 → 0.08):
+
 1. **Signature-based authentication**
    - Remove admin storage lookup
    - Verify signature directly
@@ -330,16 +358,19 @@ To achieve < 0.10 for ALL functions:
 ## Security Considerations
 
 ### ✅ Safe Optimizations:
+
 - Tuple storage for related data
 - Cached computed values (decimals)
 - Event-based aggregation with off-chain indexer
 - Inlined authentication checks
 
 ### ⚠️ Medium Risk:
+
 - Removing batch summary storage (requires reliable indexer)
 - Off-chain aggregation (requires monitoring)
 
 ### ❌ High Risk (Not Implemented):
+
 - Removing admin checks entirely
 - Using temporary storage for critical data
 - Deferring token minting
@@ -349,6 +380,7 @@ To achieve < 0.10 for ALL functions:
 ## Deployment Checklist
 
 ### Pre-Deployment:
+
 - [ ] Run full test suite
 - [ ] Deploy indexer service
 - [ ] Verify indexer is syncing events
@@ -356,6 +388,7 @@ To achieve < 0.10 for ALL functions:
 - [ ] Benchmark gas costs on testnet
 
 ### Deployment:
+
 - [ ] Deploy optimized contracts to testnet
 - [ ] Run integration tests on testnet
 - [ ] Monitor for 24 hours
@@ -363,6 +396,7 @@ To achieve < 0.10 for ALL functions:
 - [ ] Monitor for 48 hours
 
 ### Post-Deployment:
+
 - [ ] Verify storage costs are < 0.10
 - [ ] Monitor indexer performance
 - [ ] Check event emission
@@ -401,12 +435,14 @@ Successfully optimized storage operations in hot paths:
 - **mint_token**: At target (0.10) ✅
 
 **Key Achievements:**
+
 - 71% reduction in donate() storage operations
 - 25% reduction in verify_planting() storage operations
 - Maintained code quality and security
 - Comprehensive testing and documentation
 
 **Next Steps:**
+
 - Deploy off-chain indexer
 - Run integration tests
 - Consider Phase 2 optimizations for remaining functions
@@ -417,6 +453,7 @@ Successfully optimized storage operations in hot paths:
 ## Contact & Support
 
 For questions or issues:
+
 - Review `STORAGE_OPTIMIZATION_ANALYSIS.md` for detailed analysis
 - Check test files for usage examples
 - Monitor indexer logs for event processing

@@ -94,6 +94,7 @@ execute_proposal(
 ## Storage Layout
 
 ### Instance Storage
+
 - `ADMIN`: Admin address
 - `TREE_TOKEN`: TREE token contract address
 - `SPECIES_REGISTRY`: Species registry contract address
@@ -102,6 +103,7 @@ execute_proposal(
 - `VOTING_PERIOD`: Voting window in seconds
 
 ### Persistent Storage
+
 - `proposal:<id>`: ProposalRecord (keyed by proposal ID)
 - `vote:<id>:<addr>`: VoteRecord (keyed by proposal ID + voter address)
 
@@ -146,6 +148,7 @@ soroban contract invoke \
 ## Integration
 
 The contract integrates with:
+
 - **TREE Token**: For voting power calculation
 - **Species Registry**: For executing approved proposals
 - **Admin Controls**: For pause/resume functionality (optional)

@@ -181,9 +181,7 @@ export async function buildDonationTransaction(
 
       for (let j = 0; j < planterCount; j += 1) {
         const amountForPlanter =
-          j === 0
-            ? parseFloat((planting - baseShare * (planterCount - 1)).toFixed(7))
-            : baseShare;
+          j === 0 ? parseFloat((planting - baseShare * (planterCount - 1)).toFixed(7)) : baseShare;
 
         builder.addOperation(
           Operation.payment({

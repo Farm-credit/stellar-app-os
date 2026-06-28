@@ -7,23 +7,27 @@ This implementation adds **zero-knowledge proof (ZK proof) technology** to enabl
 ## ✨ Features Implemented
 
 ### 1. **Anonymous Donation Toggle**
+
 - Beautiful UI toggle in the donor information step
 - Clear explanation of how privacy-preserving donations work
 - Visual indicators when anonymous mode is active
 
 ### 2. **In-Browser ZK Proof Generation**
+
 - Generates Groth16 ZK proofs using WebAssembly
 - All computation happens locally (no data leaves the browser)
 - Real-time progress indicators during proof generation
 - ~500ms generation time (mock implementation, real proofs: 2-5s)
 
 ### 3. **Smart Contract Integration**
+
 - Anonymous transaction builder
 - Nullifier registry to prevent double-donations
 - Proof verification before submission
 - Seamless integration with existing Stellar infrastructure
 
 ### 4. **Complete UI Flow**
+
 - `AnonymousDonationToggle`: Enable/disable privacy mode
 - `ZKProofGenerator`: Visual feedback during proof generation
 - `AnonymousPaymentSection`: Complete payment flow for anonymous donations
@@ -32,6 +36,7 @@ This implementation adds **zero-knowledge proof (ZK proof) technology** to enabl
 ## 📁 Files Created
 
 ### Core ZK Proof System
+
 ```
 lib/zk/
 ├── types.ts                    # TypeScript definitions for ZK proofs
@@ -40,12 +45,14 @@ lib/zk/
 ```
 
 ### Stellar Integration
+
 ```
 lib/stellar/
 └── anonymous-donation.ts       # Anonymous transaction builder
 ```
 
 ### React Components
+
 ```
 components/molecules/
 ├── AnonymousDonationToggle/
@@ -57,12 +64,14 @@ components/molecules/
 ```
 
 ### Hooks
+
 ```
 hooks/
 └── useAnonymousDonation.ts     # React hook for managing anonymous donations
 ```
 
 ### API Endpoints
+
 ```
 app/api/transaction/
 └── submit-anonymous/
@@ -70,6 +79,7 @@ app/api/transaction/
 ```
 
 ### Documentation
+
 ```
 docs/
 └── PRIVACY_PRESERVING_DONATIONS.md  # Comprehensive technical documentation
@@ -107,6 +117,7 @@ pnpm install
 ```
 
 **New dependencies added:**
+
 - `snarkjs`: ZK proof generation library
 - `circomlibjs`: Circom circuit utilities
 - `@noble/curves`: Elliptic curve cryptography
@@ -120,7 +131,7 @@ import { generateAnonymousDonationProof } from '@/lib/zk/prover';
 // Generate a proof
 const result = await generateAnonymousDonationProof(
   'GXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX',
-  25.00
+  25.0
 );
 
 console.log('Proof generated:', result.success);
@@ -130,6 +141,7 @@ console.log('Generation time:', result.generationTimeMs, 'ms');
 #### Integrate with Existing Components
 
 The implementation is already integrated with:
+
 - ✅ `DonorInfoStep` - Added anonymous donation toggle
 - ✅ `PaymentStep` - Ready for anonymous payment section integration
 - ✅ `DonationContext` - Tracks anonymous mode state
@@ -216,12 +228,14 @@ The nullifier registry contract needs to be deployed to Stellar. See `docs/PRIVA
 ## 🔐 Security Features
 
 ### Privacy Guarantees
+
 - ✅ **Wallet address never revealed** on-chain
 - ✅ **No transaction linkability** between donations
 - ✅ **In-browser proof generation** (no server-side data)
 - ✅ **Cryptographic commitments** using SHA-256
 
 ### Integrity Guarantees
+
 - ✅ **Proof of funds** via ZK proof
 - ✅ **Double-spend prevention** via nullifiers
 - ✅ **Amount verification** via commitments
@@ -230,11 +244,13 @@ The nullifier registry contract needs to be deployed to Stellar. See `docs/PRIVA
 ## 📊 Performance
 
 ### Current Implementation (Mock Proofs)
+
 - Proof generation: ~500ms
 - Proof verification: ~50ms
 - Transaction submission: ~2-3s
 
 ### Production (Real Proofs)
+
 - Proof generation: 2-5 seconds
 - Proof verification: ~100ms
 - Transaction submission: ~2-3s
@@ -243,18 +259,21 @@ The nullifier registry contract needs to be deployed to Stellar. See `docs/PRIVA
 ## 🎨 UI/UX Highlights
 
 ### Anonymous Donation Toggle
+
 - Clean, modern design with purple accent color
 - Informative tooltips explaining ZK proofs
 - Feature list showing privacy benefits
 - Responsive and accessible
 
 ### ZK Proof Generator
+
 - Real-time progress bar
 - Step-by-step process visualization
 - Technical details for transparency
 - Success/error states with clear messaging
 
 ### Anonymous Payment Section
+
 - Cost breakdown (donation + relayer fee)
 - Wallet connection flow
 - Proof generation status
@@ -280,16 +299,13 @@ The nullifier registry contract needs to be deployed to Stellar. See `docs/PRIVA
 // Example test structure
 describe('ZK Proof Generation', () => {
   it('should generate valid proof', async () => {
-    const result = await generateAnonymousDonationProof(
-      'GTEST...',
-      25.00
-    );
+    const result = await generateAnonymousDonationProof('GTEST...', 25.0);
     expect(result.success).toBe(true);
     expect(result.proof).toBeDefined();
   });
 
   it('should prevent double-donations', async () => {
-    const proof = await generateAnonymousDonationProof('GTEST...', 25.00);
+    const proof = await generateAnonymousDonationProof('GTEST...', 25.0);
     const isUsed = await isNullifierUsed(proof.nullifier, 'testnet');
     expect(isUsed).toBe(false);
   });
@@ -305,11 +321,13 @@ This implementation uses **mock ZK proofs** for demonstration. For production:
 ### Required Steps:
 
 1. **Compile Circom Circuit**
+
    ```bash
    circom circuits/anonymous_donation.circom --r1cs --wasm --sym
    ```
 
 2. **Generate Trusted Setup**
+
    ```bash
    snarkjs groth16 setup anonymous_donation.r1cs pot12_final.ptau circuit_final.zkey
    ```
@@ -329,6 +347,7 @@ This implementation uses **mock ZK proofs** for demonstration. For production:
 ## 📚 Documentation
 
 Comprehensive documentation available in:
+
 - `docs/PRIVACY_PRESERVING_DONATIONS.md` - Technical deep dive
 - Inline code comments - Implementation details
 - This README - Quick start guide

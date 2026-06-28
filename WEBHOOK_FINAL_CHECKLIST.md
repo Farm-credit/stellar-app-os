@@ -336,8 +336,8 @@ All requirements met, all CI checks passed, ready for production.
 - [ ] Security reviewed
 - [ ] Performance reviewed
 
-**Reviewer**: ******\_******
-**Date**: ******\_******
+**Reviewer**: **\*\***\_**\*\***
+**Date**: **\*\***\_**\*\***
 
 ### QA
 
@@ -346,8 +346,8 @@ All requirements met, all CI checks passed, ready for production.
 - [ ] Responsive tested
 - [ ] Edge cases tested
 
-**QA Engineer**: ******\_******
-**Date**: ******\_******
+**QA Engineer**: **\*\***\_**\*\***
+**Date**: **\*\***\_**\*\***
 
 ### Product
 
@@ -356,8 +356,8 @@ All requirements met, all CI checks passed, ready for production.
 - [ ] Documentation reviewed
 - [ ] Ready for release
 
-**Product Manager**: ******\_******
-**Date**: ******\_******
+**Product Manager**: **\*\***\_**\*\***
+**Date**: **\*\***\_**\*\***
 
 ---
 

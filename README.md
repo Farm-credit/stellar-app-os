@@ -44,30 +44,30 @@ Sponsor                   Harvesta Platform              Planter
 
 ## Features
 
-| Feature | Description |
-|---|---|
-| 🌳 Sponsor a Tree | Pay any planter to plant a tree on your behalf |
-| 👤 Anonymous Donations | One-time payment, no account needed |
-| 🆔 Unique Tree ID | Each sponsored tree gets a tamper-proof on-chain ID |
-| 📸 Planter Updates | Planters upload photo + GPS progress per tree |
-| 📊 Carbon Dashboard | Track estimated CO₂ offset across your entire portfolio |
-| 💸 Instant Settlement | Planters paid in XLM/USDC the moment work is verified |
-| 🔒 Escrow Protection | Funds held in smart contract until planting is confirmed |
-| 🗺️ Regional Selection | Sponsor trees in specific countries or biomes |
+| Feature                | Description                                              |
+| ---------------------- | -------------------------------------------------------- |
+| 🌳 Sponsor a Tree      | Pay any planter to plant a tree on your behalf           |
+| 👤 Anonymous Donations | One-time payment, no account needed                      |
+| 🆔 Unique Tree ID      | Each sponsored tree gets a tamper-proof on-chain ID      |
+| 📸 Planter Updates     | Planters upload photo + GPS progress per tree            |
+| 📊 Carbon Dashboard    | Track estimated CO₂ offset across your entire portfolio  |
+| 💸 Instant Settlement  | Planters paid in XLM/USDC the moment work is verified    |
+| 🔒 Escrow Protection   | Funds held in smart contract until planting is confirmed |
+| 🗺️ Regional Selection  | Sponsor trees in specific countries or biomes            |
 
 ---
 
 ## Tech Stack
 
-| Layer | Technology |
-|---|---|
-| Smart Contracts | Soroban (Rust), Stellar mainnet/testnet |
-| Frontend | React + TypeScript + Vite |
-| Wallet | Freighter, Albedo, xBull |
-| Storage | IPFS (planter photo uploads) |
-| Off-chain API | Node.js / Express |
-| Database | PostgreSQL |
-| Carbon Data | Open-source CO₂ sequestration tables per species |
+| Layer           | Technology                                       |
+| --------------- | ------------------------------------------------ |
+| Smart Contracts | Soroban (Rust), Stellar mainnet/testnet          |
+| Frontend        | React + TypeScript + Vite                        |
+| Wallet          | Freighter, Albedo, xBull                         |
+| Storage         | IPFS (planter photo uploads)                     |
+| Off-chain API   | Node.js / Express                                |
+| Database        | PostgreSQL                                       |
+| Carbon Data     | Open-source CO₂ sequestration tables per species |
 
 ---
 
@@ -131,12 +131,12 @@ Harvesta uses published biomass growth tables (FAO / IPCC Tier 1) to estimate CO
 
 Example:
 
-| Species | Avg CO₂/year (kg) | Maturity |
-|---|---|---|
-| Teak | 22 kg | 20 years |
-| Moringa | 9 kg | 3 years |
-| Eucalyptus | 31 kg | 10 years |
-| Mangrove | 14 kg | 15 years |
+| Species    | Avg CO₂/year (kg) | Maturity |
+| ---------- | ----------------- | -------- |
+| Teak       | 22 kg             | 20 years |
+| Moringa    | 9 kg              | 3 years  |
+| Eucalyptus | 31 kg             | 10 years |
+| Mangrove   | 14 kg             | 15 years |
 
 ---
 

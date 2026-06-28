@@ -573,7 +573,7 @@ After completing all tests:
 - [ ] Performance is acceptable
 - [ ] Ready for production
 
-**Tested by**: ****\_\_\_****
-**Date**: ****\_\_\_****
-**Approved by**: ****\_\_\_****
-**Date**: ****\_\_\_****
+**Tested by**: \***\*\_\_\_\*\***
+**Date**: \***\*\_\_\_\*\***
+**Approved by**: \***\*\_\_\_\*\***
+**Date**: \***\*\_\_\_\*\***

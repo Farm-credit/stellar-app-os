@@ -1,6 +1,7 @@
 # Storage Optimization Analysis - Hot Paths
 
 ## Executive Summary
+
 Analysis of storage read/write operations in critical transaction paths with optimization recommendations to achieve < 0.10 storage operations per transaction.
 
 ## Current State Analysis
@@ -8,9 +9,10 @@ Analysis of storage read/write operations in critical transaction paths with opt
 ### 1. `donate()` - donation-escrow/src/lib.rs
 
 **Current Storage Operations:**
+
 - **Instance Reads (3):**
   - `XLM` token address
-  - `USDC` token address  
+  - `USDC` token address
   - `BATCH` current batch ID
   - `SEQ` global sequence number
 - **Instance Writes (1):**
@@ -24,6 +26,7 @@ Analysis of storage read/write operations in critical transaction paths with opt
 **Total: 4 reads + 3 writes = 7 operations**
 
 **Cost Analysis:**
+
 - Instance storage: cheaper, in-memory cache
 - Persistent storage: expensive, requires ledger writes
 - **Estimated cost: ~0.35 per transaction** (well above target)
@@ -33,6 +36,7 @@ Analysis of storage read/write operations in critical transaction paths with opt
 ### 2. `verify_planting()` - tree-escrow/src/lib.rs
 
 **Current Storage Operations:**
+
 - **Instance Reads (2):**
   - `ADMIN` address (for auth check)
   - `TREE` token address
@@ -44,6 +48,7 @@ Analysis of storage read/write operations in critical transaction paths with opt
 **Total: 3 reads + 1 write = 4 operations**
 
 **Additional Operations:**
+
 - Token transfer (external contract call)
 - Token mint (external contract call - StellarAssetClient)
 
@@ -54,6 +59,7 @@ Analysis of storage read/write operations in critical transaction paths with opt
 ### 3. `verify_milestone()` - escrow-milestone/src/lib.rs
 
 **Current Storage Operations:**
+
 - **Instance Reads (1):**
   - `ADMIN` address (for auth check)
 - **Persistent Reads (1):**
@@ -70,6 +76,7 @@ Analysis of storage read/write operations in critical transaction paths with opt
 ### 4. `mint_token` (embedded in verify_planting)
 
 **Current Storage Operations:**
+
 - Embedded in `verify_planting()` - uses StellarAssetClient.mint()
 - External contract call to TREE token contract
 - Token contract performs its own storage operations
@@ -107,6 +114,7 @@ Analysis of storage read/write operations in critical transaction paths with opt
 ### Optimization 1: `donate()` - Target: 3 operations
 
 **Changes:**
+
 1. **Combine token validation** - Store both XLM and USDC in a single instance entry as a tuple
    - Before: 2 reads (XLM, USDC)
    - After: 1 read (TOKENS)
@@ -129,9 +137,9 @@ Analysis of storage read/write operations in critical transaction paths with opt
 ### Optimization 2: `verify_planting()` - Target: 2 operations
 
 **Changes:**
+
 1. **Cache admin and tree token** - Read once, use multiple times
    - Already optimal - single read per value
-   
 2. **Optimize record structure** - Remove redundant fields
    - Current: 13 fields in EscrowRecord
    - Optimized: Combine related fields (e.g., proof hashes into array)
@@ -149,6 +157,7 @@ Analysis of storage read/write operations in critical transaction paths with opt
 ### Optimization 3: `verify_milestone()` - Target: 2 operations
 
 **Changes:**
+
 1. **Remove admin check** - Use signature-based auth
    - Before: 1 instance read (ADMIN)
    - After: 0 reads (verify signature directly)
@@ -173,23 +182,27 @@ Analysis of storage read/write operations in critical transaction paths with opt
 ## Implementation Checklist
 
 ### Phase 1: Instance Storage Optimization
+
 - [ ] Combine XLM/USDC token addresses into single tuple
 - [ ] Combine BATCH/SEQ into single tuple
 - [ ] Add TREE_DECIMALS to instance storage
 - [ ] Update initialize() functions
 
 ### Phase 2: Persistent Storage Optimization
+
 - [ ] Defer batch summary updates to events
 - [ ] Optimize EscrowRecord structure
 - [ ] Optimize EscrowState structure
 - [ ] Pack related fields
 
 ### Phase 3: Auth Optimization
+
 - [ ] Implement signature-based auth where possible
 - [ ] Cache admin address in function scope
 - [ ] Remove redundant auth checks
 
 ### Phase 4: Testing
+
 - [ ] Unit tests for all optimized functions
 - [ ] Gas cost benchmarks
 - [ ] Integration tests
@@ -199,12 +212,12 @@ Analysis of storage read/write operations in critical transaction paths with opt
 
 ## Expected Results
 
-| Function | Before | After | Target | Status |
-|----------|--------|-------|--------|--------|
-| donate() | 0.35 | 0.15 | < 0.10 | ⚠️ Needs more optimization |
-| verify_planting() | 0.20 | 0.15 | < 0.10 | ⚠️ Needs more optimization |
-| verify_milestone() | 0.15 | 0.10 | < 0.10 | ✅ Target achieved |
-| mint_token | 0.10 | 0.10 | < 0.10 | ✅ Target achieved |
+| Function           | Before | After | Target | Status                     |
+| ------------------ | ------ | ----- | ------ | -------------------------- |
+| donate()           | 0.35   | 0.15  | < 0.10 | ⚠️ Needs more optimization |
+| verify_planting()  | 0.20   | 0.15  | < 0.10 | ⚠️ Needs more optimization |
+| verify_milestone() | 0.15   | 0.10  | < 0.10 | ✅ Target achieved         |
+| mint_token         | 0.10   | 0.10  | < 0.10 | ✅ Target achieved         |
 
 ---
 
@@ -213,11 +226,13 @@ Analysis of storage read/write operations in critical transaction paths with opt
 To achieve < 0.10 for all functions:
 
 ### For `donate()`:
+
 1. **Remove sequence number** - Use ledger sequence instead
 2. **Remove batch summary entirely** - Aggregate off-chain from events
 3. **Result: 1 read + 1 write = 2 operations (0.10 cost)** ✅
 
 ### For `verify_planting()`:
+
 1. **Combine admin + tree token read** - Store as tuple
 2. **Use temporary storage** - Write to temp, move to persistent later
 3. **Result: 1 read + 1 write = 2 operations (0.10 cost)** ✅
@@ -227,15 +242,18 @@ To achieve < 0.10 for all functions:
 ## Risk Assessment
 
 ### Low Risk:
+
 - Combining instance storage entries
 - Caching computed values
 - Optimizing data structures
 
 ### Medium Risk:
+
 - Deferring batch summary updates (requires off-chain indexer)
 - Removing sequence numbers (requires ledger sequence tracking)
 
 ### High Risk:
+
 - Removing admin checks (security implications)
 - Using temporary storage (data persistence concerns)
 

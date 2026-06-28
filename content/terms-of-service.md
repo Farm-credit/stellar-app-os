@@ -1,5 +1,5 @@
 ---
-lastUpdated: "January 15, 2026"
+lastUpdated: 'January 15, 2026'
 ---
 
 # Terms of Service

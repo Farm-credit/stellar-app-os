@@ -46,10 +46,10 @@ const proof = await generateAnonymousDonationProof(walletAddress, amount, nonce)
 ### 2. Proof Structure
 
 The proof contains:
+
 - **Private inputs** (never revealed):
   - Donor wallet address
   - Random nonce
-  
 - **Public outputs** (revealed on-chain):
   - Donation commitment
   - Nullifier (prevents double-donations)
@@ -73,6 +73,7 @@ const txHash = await submitTransaction(transactionXdr);
 ### 4. On-Chain Verification
 
 The smart contract verifies:
+
 1. ✅ Proof is cryptographically valid
 2. ✅ Nullifier hasn't been used before
 3. ✅ Amount commitment matches the payment
@@ -81,11 +82,13 @@ The smart contract verifies:
 ## Security Guarantees
 
 ### Privacy
+
 - **Wallet address never revealed**: Only the proof is submitted on-chain
 - **No linkability**: Different donations from the same wallet cannot be linked
 - **No metadata leakage**: Transaction metadata doesn't reveal donor identity
 
 ### Integrity
+
 - **Proof of funds**: ZK proof cryptographically proves the donor has the funds
 - **Double-spend prevention**: Nullifiers prevent the same donation from being submitted twice
 - **Amount verification**: The committed amount matches the actual payment
@@ -102,11 +105,9 @@ The smart contract verifies:
 ### For Donors
 
 1. **Enable Anonymous Mode**
+
    ```tsx
-   <AnonymousDonationToggle
-     isAnonymous={true}
-     onToggle={setIsAnonymous}
-   />
+   <AnonymousDonationToggle isAnonymous={true} onToggle={setIsAnonymous} />
    ```
 
 2. **Generate Proof**
@@ -126,10 +127,7 @@ The smart contract verifies:
 ```typescript
 import { generateAnonymousDonationProof } from '@/lib/zk/prover';
 
-const result = await generateAnonymousDonationProof(
-  walletAddress,
-  amount
-);
+const result = await generateAnonymousDonationProof(walletAddress, amount);
 
 if (result.success) {
   console.log('Proof generated:', result.proof);
@@ -175,10 +173,10 @@ pub fn register_nullifier(
     if env.storage().has(&nullifier) {
         return Err(Error::NullifierAlreadyUsed);
     }
-    
+
     // Store nullifier
     env.storage().set(&nullifier, &commitment);
-    
+
     Ok(())
 }
 
@@ -197,24 +195,24 @@ template AnonymousDonation() {
     signal input walletAddress;
     signal input amount;
     signal input nonce;
-    
+
     // Public outputs
     signal output donationCommitment;
     signal output nullifier;
     signal output amountCommitment;
-    
+
     // Compute commitments
     component commitHash = Poseidon(3);
     commitHash.inputs[0] <== walletAddress;
     commitHash.inputs[1] <== amount;
     commitHash.inputs[2] <== nonce;
     donationCommitment <== commitHash.out;
-    
+
     component nullifierHash = Poseidon(2);
     nullifierHash.inputs[0] <== walletAddress;
     nullifierHash.inputs[1] <== nonce;
     nullifier <== nullifierHash.out;
-    
+
     component amountHash = Poseidon(2);
     amountHash.inputs[0] <== amount;
     amountHash.inputs[1] <== nonce;
@@ -227,16 +225,19 @@ template AnonymousDonation() {
 ### Prerequisites
 
 1. **Compile Circuit**
+
    ```bash
    circom circuits/anonymous_donation.circom --r1cs --wasm --sym
    ```
 
 2. **Generate Trusted Setup**
+
    ```bash
    snarkjs groth16 setup anonymous_donation.r1cs pot12_final.ptau circuit_final.zkey
    ```
 
 3. **Export Verification Key**
+
    ```bash
    snarkjs zkey export verificationkey circuit_final.zkey verification_key.json
    ```
@@ -260,12 +261,14 @@ NEXT_PUBLIC_VERIFICATION_KEY_PATH=/circuits/verification_key.json
 ## Performance
 
 ### Proof Generation
+
 - **Development (mock)**: ~500ms
 - **Production (real)**: 2-5 seconds
 - **Memory usage**: ~100-200 MB
 - **Browser compatibility**: Modern browsers with WebAssembly support
 
 ### Proof Verification
+
 - **Client-side**: ~50-100ms
 - **On-chain (smart contract)**: ~0.1-0.5 seconds
 - **Gas cost**: ~50,000-100,000 operations
@@ -288,17 +291,20 @@ NEXT_PUBLIC_VERIFICATION_KEY_PATH=/circuits/verification_key.json
 ## Security Considerations
 
 ### Threats Mitigated
+
 - ✅ Wallet address exposure
 - ✅ Transaction linkability
 - ✅ Double-spending
 - ✅ Front-running attacks
 
 ### Remaining Risks
+
 - ⚠️ Relayer can see the proof (but not the wallet address)
 - ⚠️ Timing attacks (donation time might correlate with wallet activity)
 - ⚠️ Amount analysis (donation amounts are visible)
 
 ### Best Practices
+
 1. Use a dedicated relayer service (not your own wallet)
 2. Add random delays before submitting
 3. Use Tor or VPN for additional network-level privacy
@@ -314,6 +320,7 @@ NEXT_PUBLIC_VERIFICATION_KEY_PATH=/circuits/verification_key.json
 ## Support
 
 For questions or issues:
+
 - GitHub Issues: [stellar-app-os/issues](https://github.com/your-org/stellar-app-os/issues)
 - Documentation: [docs/](./docs/)
 - Community: [Discord](https://discord.gg/stellar)

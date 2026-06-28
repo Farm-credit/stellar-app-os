@@ -11,10 +11,10 @@ This PR addresses issue #330 by building, deploying, and verifying the `tree-esc
 - **Smart Contract Fixes:** Resolved compilation errors in `tree-escrow`, `escrow-milestone`, and `nullifier-registry` related to SDK version 21+ changes (missing imports, type mismatches, and ownership issues).
 - **Build Optimization:** Configured root `Cargo.toml` with release profiles and utilized `stellar contract optimize` to ensure compatibility with Stellar testnet (fixing `reference-types` errors).
 - **Testnet Deployment:**
-    - Deployed `TREE` token (SAC) with issuer `GA7W6L76SSZK7JQIUYRPLBHCHEAXRUHDRZGLOM4D5RNPHW5O6ZRGPGO4`.
-    - Deployed `tree-escrow` contract: `CDWDZYGHRQDKTN7NXRVAD37M5QKKLBRJ3FQQ74EHV4Q2KAKDY3PT6NQB`.
-    - Deployed `escrow-milestone` contract: `CAXHC2EJVSMVJGXSHLFYZIRKNA365RNEUCHSNMDIMC4ADYEUPQY7DVSA`.
-    - Deployed `nullifier-registry` contract: `CC6KDS3BVRXZGS6DJCVQTB2SQSDWL3XXOCE7U7WD6ZQFSCNWIYZUTTJQ`.
+  - Deployed `TREE` token (SAC) with issuer `GA7W6L76SSZK7JQIUYRPLBHCHEAXRUHDRZGLOM4D5RNPHW5O6ZRGPGO4`.
+  - Deployed `tree-escrow` contract: `CDWDZYGHRQDKTN7NXRVAD37M5QKKLBRJ3FQQ74EHV4Q2KAKDY3PT6NQB`.
+  - Deployed `escrow-milestone` contract: `CAXHC2EJVSMVJGXSHLFYZIRKNA365RNEUCHSNMDIMC4ADYEUPQY7DVSA`.
+  - Deployed `nullifier-registry` contract: `CC6KDS3BVRXZGS6DJCVQTB2SQSDWL3XXOCE7U7WD6ZQFSCNWIYZUTTJQ`.
 - **Initialization:** All contracts have been initialized with the admin address on testnet.
 - **Integration Testing:** Verified the `tree-escrow` deposit and planting verification flow on testnet using `TREE` tokens.
 - **Documentation:** Created `CONTRACTS.md` with all contract IDs, hashes, and issuing accounts.

@@ -48,9 +48,7 @@ export const SPECIES_VOTING_CONTRACT_MAINNET = '' as const;
 
 export function getSpeciesVotingContract(network: NetworkType): string {
   const address =
-    network === 'mainnet'
-      ? SPECIES_VOTING_CONTRACT_MAINNET
-      : SPECIES_VOTING_CONTRACT_TESTNET;
+    network === 'mainnet' ? SPECIES_VOTING_CONTRACT_MAINNET : SPECIES_VOTING_CONTRACT_TESTNET;
   if (!address) {
     throw new Error('Species voting contract not deployed for this network');
   }
@@ -77,7 +75,7 @@ export async function buildProposeSpeciesTransaction(
   name: string,
   co2_scaled: number,
   maturity_years: number,
-  network: NetworkType
+  _network: NetworkType
 ): Promise<{ transactionXdr: string; networkPassphrase: string }> {
   if (co2_scaled <= 0) {
     throw new Error('co2_scaled must be positive');
@@ -99,9 +97,11 @@ export async function buildProposeSpeciesTransaction(
       Operation.invokeHostFunction({
         func: xdr.HostFunction.hostFunctionTypeInvokeContract(
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          { contractAddress: xdr.ScAddress.scAddressTypeContract(Buffer.alloc(32)),
+          {
+            contractAddress: xdr.ScAddress.scAddressTypeContract(Buffer.alloc(32)),
             functionName: 'propose_species',
-            args: [] } as any
+            args: [],
+          } as any
         ),
         auth: [],
       })
@@ -127,9 +127,9 @@ export async function buildProposeSpeciesTransaction(
  */
 export async function buildVoteTransaction(
   voterPublicKey: string,
-  proposalId: number,
-  voteFor: boolean,
-  network: NetworkType
+  _proposalId: number,
+  _voteFor: boolean,
+  _network: NetworkType
 ): Promise<{ transactionXdr: string; networkPassphrase: string }> {
   const server = new Horizon.Server(networkConfig.horizonUrl);
   const voterAccount = await server.loadAccount(voterPublicKey);
@@ -144,9 +144,11 @@ export async function buildVoteTransaction(
       Operation.invokeHostFunction({
         func: xdr.HostFunction.hostFunctionTypeInvokeContract(
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          { contractAddress: xdr.ScAddress.scAddressTypeContract(Buffer.alloc(32)),
+          {
+            contractAddress: xdr.ScAddress.scAddressTypeContract(Buffer.alloc(32)),
             functionName: 'vote',
-            args: [] } as any
+            args: [],
+          } as any
         ),
         auth: [],
       })
@@ -171,8 +173,8 @@ export async function buildVoteTransaction(
  */
 export async function buildExecuteProposalTransaction(
   executorPublicKey: string,
-  proposalId: number,
-  network: NetworkType
+  _proposalId: number,
+  _network: NetworkType
 ): Promise<{ transactionXdr: string; networkPassphrase: string }> {
   const server = new Horizon.Server(networkConfig.horizonUrl);
   const executorAccount = await server.loadAccount(executorPublicKey);
@@ -187,9 +189,11 @@ export async function buildExecuteProposalTransaction(
       Operation.invokeHostFunction({
         func: xdr.HostFunction.hostFunctionTypeInvokeContract(
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          { contractAddress: xdr.ScAddress.scAddressTypeContract(Buffer.alloc(32)),
+          {
+            contractAddress: xdr.ScAddress.scAddressTypeContract(Buffer.alloc(32)),
             functionName: 'execute_proposal',
-            args: [] } as any
+            args: [],
+          } as any
         ),
         auth: [],
       })
@@ -227,12 +231,12 @@ export function isVotingActive(votingEndsAt: number): boolean {
 export function formatVotingTimeRemaining(votingEndsAt: number): string {
   const now = Date.now() / 1000;
   const remaining = votingEndsAt - now;
-  
+
   if (remaining <= 0) return 'Voting ended';
-  
- const days = Math.floor(remaining / 86400);
+
+  const days = Math.floor(remaining / 86400);
   const hours = Math.floor((remaining % 86400) / 3600);
-  
+
   if (days > 0) return `${days} day${days > 1 ? 's' : ''} remaining`;
   if (hours > 0) return `${hours} hour${hours > 1 ? 's' : ''} remaining`;
   return 'Less than 1 hour remaining';

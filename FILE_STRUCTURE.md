@@ -62,6 +62,7 @@ stellar-app-os/
 ## File Categories
 
 ### 🔐 Core ZK Proof System
+
 ```
 lib/zk/
 ├── types.ts       (150 lines) - Type definitions
@@ -72,6 +73,7 @@ lib/zk/
 **Purpose**: In-browser zero-knowledge proof generation  
 **Dependencies**: snarkjs, @noble/hashes, @noble/curves  
 **Key Functions**:
+
 - `generateAnonymousDonationProof()` - Generate ZK proof
 - `verifyAnonymousDonationProof()` - Verify proof validity
 - `generateNonce()` - Create random nonce
@@ -79,6 +81,7 @@ lib/zk/
 - `generateNullifier()` - Create nullifier
 
 ### ⛓️ Blockchain Integration
+
 ```
 lib/stellar/
 └── anonymous-donation.ts (220 lines)
@@ -87,12 +90,14 @@ lib/stellar/
 **Purpose**: Build and submit anonymous transactions  
 **Dependencies**: @stellar/stellar-sdk  
 **Key Functions**:
+
 - `buildAnonymousDonationTransaction()` - Build anonymous tx
 - `buildNullifierRegistrationTransaction()` - Register nullifier
 - `isNullifierUsed()` - Check nullifier status
 - `estimateAnonymousDonationCost()` - Calculate costs
 
 ### 🎨 UI Components
+
 ```
 components/molecules/
 ├── AnonymousDonationToggle/
@@ -105,6 +110,7 @@ components/molecules/
 
 **Purpose**: User interface for anonymous donations  
 **Features**:
+
 - Beautiful purple-themed UI
 - Real-time progress indicators
 - Expandable information panels
@@ -112,6 +118,7 @@ components/molecules/
 - Fully accessible (WCAG AA)
 
 ### 🪝 React Hooks
+
 ```
 hooks/
 └── useAnonymousDonation.ts (220 lines)
@@ -119,6 +126,7 @@ hooks/
 
 **Purpose**: Manage anonymous donation state and flow  
 **Provides**:
+
 - Proof generation state
 - Transaction submission
 - Error handling
@@ -126,6 +134,7 @@ hooks/
 - Nullifier checking
 
 ### 🌐 API Endpoints
+
 ```
 app/api/transaction/submit-anonymous/
 └── route.ts (150 lines)
@@ -133,10 +142,12 @@ app/api/transaction/submit-anonymous/
 
 **Purpose**: Server-side proof verification and submission  
 **Endpoints**:
+
 - `POST /api/transaction/submit-anonymous` - Submit donation
 - `GET /api/transaction/submit-anonymous` - Check nullifier
 
 ### 📚 Documentation
+
 ```
 Root Level:
 ├── PRIVACY_IMPLEMENTATION_README.md    (500 lines)
@@ -154,6 +165,7 @@ docs/:
 ## File Relationships
 
 ### Dependency Graph
+
 ```
 UI Components
     ↓
@@ -168,6 +180,7 @@ lib/zk/crypto      @stellar/stellar-sdk
 ```
 
 ### Data Flow
+
 ```
 User Input
     ↓
@@ -255,21 +268,27 @@ Stellar Blockchain
 ## Quick Navigation
 
 ### Want to understand the system?
+
 → Start with `QUICK_START_GUIDE.md`
 
 ### Want technical details?
+
 → Read `docs/PRIVACY_PRESERVING_DONATIONS.md`
 
 ### Want to see the architecture?
+
 → Check `docs/ARCHITECTURE_DIAGRAM.md`
 
 ### Want to test it?
+
 → Follow `docs/TESTING_GUIDE.md`
 
 ### Want to deploy?
+
 → See `PRIVACY_IMPLEMENTATION_README.md`
 
 ### Want to review code?
+
 → Start with `lib/zk/prover.ts`
 
 ## File Sizes (Approximate)
@@ -307,10 +326,10 @@ Documentation (300-600 lines):
 ```json
 {
   "dependencies": {
-    "snarkjs": "^0.7.5",           // ZK proof generation
-    "circomlibjs": "^0.1.7",       // Circom utilities
-    "@noble/curves": "^1.7.0",     // Elliptic curve crypto
-    "@noble/hashes": "^1.6.1"      // Cryptographic hashing
+    "snarkjs": "^0.7.5", // ZK proof generation
+    "circomlibjs": "^0.1.7", // Circom utilities
+    "@noble/curves": "^1.7.0", // Elliptic curve crypto
+    "@noble/hashes": "^1.6.1" // Cryptographic hashing
   }
 }
 ```
@@ -318,6 +337,7 @@ Documentation (300-600 lines):
 ## Import Paths
 
 ### For Components
+
 ```typescript
 import { AnonymousDonationToggle } from '@/components/molecules/AnonymousDonationToggle/AnonymousDonationToggle';
 import { ZKProofGenerator } from '@/components/molecules/ZKProofGenerator/ZKProofGenerator';
@@ -325,11 +345,13 @@ import { AnonymousPaymentSection } from '@/components/molecules/AnonymousPayment
 ```
 
 ### For Hooks
+
 ```typescript
 import { useAnonymousDonation } from '@/hooks/useAnonymousDonation';
 ```
 
 ### For ZK Proof System
+
 ```typescript
 import { generateAnonymousDonationProof, verifyAnonymousDonationProof } from '@/lib/zk/prover';
 import { generateNonce, generateDonationCommitment } from '@/lib/zk/crypto';
@@ -337,8 +359,12 @@ import type { AnonymousDonationProof, ZKProof } from '@/lib/zk/types';
 ```
 
 ### For Stellar Integration
+
 ```typescript
-import { buildAnonymousDonationTransaction, isNullifierUsed } from '@/lib/stellar/anonymous-donation';
+import {
+  buildAnonymousDonationTransaction,
+  isNullifierUsed,
+} from '@/lib/stellar/anonymous-donation';
 ```
 
 ## Git Status

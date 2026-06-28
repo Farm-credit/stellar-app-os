@@ -126,9 +126,7 @@ export function connectXBull(_network: NetworkType): Promise<string> {
           if (error?.message?.includes('rejected') || error?.message?.includes('cancel')) {
             reject(new Error('Connection rejected by user'));
           } else {
-            reject(
-              new Error(error?.message || 'Failed to get public key from xBull')
-            );
+            reject(new Error(error?.message || 'Failed to get public key from xBull'));
           }
         });
     } catch {

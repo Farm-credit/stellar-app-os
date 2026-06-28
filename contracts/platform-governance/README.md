@@ -1,6 +1,7 @@
 # Platform Governance Contract
 
 On-chain governance for platform parameters. Token holders can propose and vote on:
+
 - Platform fee percentage
 - Minimum planting bond
 - Verifier whitelist
@@ -112,6 +113,7 @@ execute(
 ## Storage Layout
 
 ### Instance Storage
+
 - `ADMIN`: Admin address
 - `STAKING`: Staking contract address
 - `ADM_CTRL`: Admin-controls contract address
@@ -123,6 +125,7 @@ execute(
 - `PAUSED`: Pause flag
 
 ### Persistent Storage
+
 - `proposal:<id>`: ProposalRecord (keyed by proposal ID)
 - `vote:<id>:<addr>`: VoteRecord (keyed by proposal ID + voter address)
 - `VER_WL`: Verifier whitelist (Vec<Address>)
@@ -176,6 +179,7 @@ soroban contract invoke \
 ## Integration
 
 The contract integrates with:
+
 - **Verifier Staking**: For voting power calculation
 - **Admin Controls**: For parameter updates (optional)
 - **TREE Token**: For staked token balance queries
@@ -183,12 +187,15 @@ The contract integrates with:
 ## Proposal Types
 
 ### PlatformFee
+
 Proposals to change the platform fee percentage. Options should specify the new fee percentage.
 
 ### MinPlantingBond
+
 Proposals to change the minimum planting bond amount. Options should specify the new bond amount.
 
 ### VerifierWhitelist
+
 Proposals to add or remove verifiers from the whitelist. Options should specify the verifier addresses.
 
 ## Security Considerations

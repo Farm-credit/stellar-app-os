@@ -7,12 +7,14 @@
 Since PowerShell script execution is disabled on your system, you'll need to install dependencies manually:
 
 **Option A: Enable PowerShell Scripts (Recommended)**
+
 ```powershell
 # Run PowerShell as Administrator
 Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 ```
 
 Then install:
+
 ```bash
 pnpm install
 # or
@@ -20,6 +22,7 @@ npm install
 ```
 
 **Option B: Use WSL/Git Bash**
+
 ```bash
 # Open Git Bash or WSL
 npm install
@@ -28,11 +31,13 @@ npm install
 ### Step 2: Verify Installation
 
 Check that the new dependencies are installed:
+
 ```bash
 npm list snarkjs circomlibjs @noble/curves @noble/hashes
 ```
 
 You should see:
+
 ```
 ├── snarkjs@0.7.5
 ├── circomlibjs@0.1.7
@@ -92,12 +97,14 @@ npm run dev
 ## 🎯 Key Files to Review
 
 ### 1. **Core Logic**
+
 ```
 lib/zk/prover.ts          # ZK proof generation
 lib/zk/crypto.ts          # Cryptographic utilities
 ```
 
 ### 2. **UI Components**
+
 ```
 components/molecules/AnonymousDonationToggle/
 components/molecules/ZKProofGenerator/
@@ -105,12 +112,14 @@ components/molecules/AnonymousPaymentSection/
 ```
 
 ### 3. **Integration Points**
+
 ```
 components/organisms/DonorInfoStep/DonorInfoStep.tsx
 components/organisms/PaymentStep/PaymentStep.tsx
 ```
 
 ### 4. **API**
+
 ```
 app/api/transaction/submit-anonymous/route.ts
 ```
@@ -118,6 +127,7 @@ app/api/transaction/submit-anonymous/route.ts
 ## 🔍 Testing Scenarios
 
 ### Scenario 1: Standard Anonymous Donation
+
 1. Enable anonymous mode
 2. Connect wallet
 3. Wait for proof generation
@@ -125,6 +135,7 @@ app/api/transaction/submit-anonymous/route.ts
 5. ✅ Success: Transaction submitted privately
 
 ### Scenario 2: Error Handling
+
 1. Enable anonymous mode
 2. Don't connect wallet
 3. ✅ See: "Connect Your Wallet" prompt
@@ -132,12 +143,14 @@ app/api/transaction/submit-anonymous/route.ts
 5. ✅ See: Clear error message
 
 ### Scenario 3: Toggle On/Off
+
 1. Enable anonymous mode
 2. Read information panel
 3. Disable anonymous mode
 4. ✅ See: Standard payment options return
 
 ### Scenario 4: Mobile Experience
+
 1. Open on mobile device
 2. Enable anonymous mode
 3. ✅ See: Responsive layout, touch-friendly
@@ -145,6 +158,7 @@ app/api/transaction/submit-anonymous/route.ts
 ## 🎨 UI Components Preview
 
 ### AnonymousDonationToggle
+
 ```
 ┌─────────────────────────────────────────┐
 │  🛡️  Privacy-Preserving Donation    ℹ️  │
@@ -162,6 +176,7 @@ app/api/transaction/submit-anonymous/route.ts
 ```
 
 ### ZKProofGenerator
+
 ```
 ┌─────────────────────────────────────────┐
 │  ⚡ Generating Zero-Knowledge Proof      │
@@ -183,6 +198,7 @@ app/api/transaction/submit-anonymous/route.ts
 ### Environment Variables (Optional for Development)
 
 Create `.env.local`:
+
 ```env
 # Only needed for production with real circuits
 NEXT_PUBLIC_CONTRACT_NULLIFIER_REGISTRY=CXXXXXXX...
@@ -193,6 +209,7 @@ NEXT_PUBLIC_CIRCUIT_ZKEY_PATH=/circuits/circuit_final.zkey
 ### Network Configuration
 
 The system uses your existing network configuration from:
+
 ```typescript
 // lib/config/network.ts
 export const networkConfig = {
@@ -201,14 +218,16 @@ export const networkConfig = {
   contracts: {
     nullifierRegistry: process.env.NEXT_PUBLIC_CONTRACT_NULLIFIER_REGISTRY,
     // ...
-  }
+  },
 };
 ```
 
 ## 🐛 Troubleshooting
 
 ### Issue: Dependencies won't install
-**Solution**: 
+
+**Solution**:
+
 ```bash
 # Try with --legacy-peer-deps
 npm install --legacy-peer-deps
@@ -218,7 +237,9 @@ pnpm install --force
 ```
 
 ### Issue: TypeScript errors
+
 **Solution**:
+
 ```bash
 # Restart TypeScript server in VS Code
 # Press: Ctrl+Shift+P
@@ -226,13 +247,17 @@ pnpm install --force
 ```
 
 ### Issue: Wallet won't connect
+
 **Solution**:
+
 - Install Freighter wallet extension
 - Make sure you're on testnet
 - Check browser console for errors
 
 ### Issue: Proof generation fails
+
 **Solution**:
+
 - This is expected in development (mock proofs)
 - Check browser console for detailed errors
 - Verify wallet is connected
@@ -240,9 +265,11 @@ pnpm install --force
 ## 📚 Documentation
 
 ### For Users
+
 - `PRIVACY_IMPLEMENTATION_README.md` - Feature overview and usage
 
 ### For Developers
+
 - `docs/PRIVACY_PRESERVING_DONATIONS.md` - Technical deep dive
 - `IMPLEMENTATION_SUMMARY.md` - What was built
 - Inline code comments - Implementation details
@@ -250,11 +277,13 @@ pnpm install --force
 ## 🎓 Learning Resources
 
 ### Zero-Knowledge Proofs
+
 - [ZK Proofs Explained](https://z.cash/technology/zksnarks/)
 - [Groth16 Paper](https://eprint.iacr.org/2016/260.pdf)
 - [snarkjs Documentation](https://github.com/iden3/snarkjs)
 
 ### Stellar Development
+
 - [Stellar Docs](https://developers.stellar.org/)
 - [Soroban Smart Contracts](https://soroban.stellar.org/)
 - [Freighter Wallet](https://www.freighter.app/)
@@ -265,6 +294,7 @@ pnpm install --force
 
 **Q: Is this production-ready?**
 A: The architecture is production-ready, but you need to:
+
 - Compile real Circom circuits
 - Deploy smart contracts
 - Set up relayer infrastructure
@@ -284,6 +314,7 @@ A: Currently ~$0.50 to cover transaction costs.
 ## 🚀 Next Steps
 
 ### For Development
+
 1. ✅ Test the UI flow
 2. ✅ Review the code
 3. ✅ Understand the architecture
@@ -291,6 +322,7 @@ A: Currently ~$0.50 to cover transaction costs.
 5. ⏭️ Add integration tests
 
 ### For Production
+
 1. ⏭️ Compile Circom circuit
 2. ⏭️ Run trusted setup
 3. ⏭️ Deploy smart contracts

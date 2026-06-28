@@ -284,7 +284,10 @@ export function FarmerVerificationPortal() {
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem] xl:grid-cols-[minmax(0,1fr)_22rem]">
+      <form
+        onSubmit={handleSubmit}
+        className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem] xl:grid-cols-[minmax(0,1fr)_22rem]"
+      >
         <Card className="rounded-lg shadow-sm">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-xl">

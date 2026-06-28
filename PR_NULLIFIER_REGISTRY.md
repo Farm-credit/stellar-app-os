@@ -24,6 +24,7 @@ commitment = SHA-256( gps_xdr | timestamp_be_bytes | farmer_id_xdr )
 ```
 
 On `register`:
+
 1. Farmer signs the transaction (auth required)
 2. Contract computes the commitment
 3. Checks persistent storage — if key exists → panic (double-count rejected)
@@ -32,6 +33,7 @@ On `register`:
 ## Tests
 
 Four unit tests using `soroban-sdk` testutils:
+
 - Happy path: register + lookup
 - Double registration rejected (expected panic)
 - Different inputs → different commitments

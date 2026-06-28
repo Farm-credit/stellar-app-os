@@ -8,16 +8,16 @@ TREE is a custom Stellar asset representing verified carbon offsets from tree pl
 
 ## Testnet Deployment
 
-| Property | Value |
-|----------|-------|
-| **Asset Code** | `TREE` |
-| **Network** | Stellar Testnet |
-| **Issuer** | `GA5WBQTSUOCBCNI4GNX7RKN75F5RNUR25KJXADQ7VBCKHTKPDVU4R27S` |
-| **Distributor** | `GDB7XVIR7YF5QEPL5N7ZVGBLGETUOTZS46MPM32SYNIWZNYXCKYZDVLG` |
-| **Total Supply** | 1,000,000,000 TREE |
-| **Issuer Status** | Locked (master weight = 0) |
-| **CO₂ Offset** | 48 kg per TREE |
-| **Explorer** | [View on Stellar Expert](https://stellar.expert/explorer/testnet/asset/TREE-GA5WBQTSUOCBCNI4GNX7RKN75F5RNUR25KJXADQ7VBCKHTKPDVU4R27S) |
+| Property          | Value                                                                                                                                 |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| **Asset Code**    | `TREE`                                                                                                                                |
+| **Network**       | Stellar Testnet                                                                                                                       |
+| **Issuer**        | `GA5WBQTSUOCBCNI4GNX7RKN75F5RNUR25KJXADQ7VBCKHTKPDVU4R27S`                                                                            |
+| **Distributor**   | `GDB7XVIR7YF5QEPL5N7ZVGBLGETUOTZS46MPM32SYNIWZNYXCKYZDVLG`                                                                            |
+| **Total Supply**  | 1,000,000,000 TREE                                                                                                                    |
+| **Issuer Status** | Locked (master weight = 0)                                                                                                            |
+| **CO₂ Offset**    | 48 kg per TREE                                                                                                                        |
+| **Explorer**      | [View on Stellar Expert](https://stellar.expert/explorer/testnet/asset/TREE-GA5WBQTSUOCBCNI4GNX7RKN75F5RNUR25KJXADQ7VBCKHTKPDVU4R27S) |
 
 ### Deployment Transactions
 
@@ -30,6 +30,7 @@ TREE is a custom Stellar asset representing verified carbon offsets from tree pl
 ## Carbon Offset Calculation
 
 Based on project constants:
+
 - `TREES_PER_DOLLAR = 1`
 - `CO2_PER_DOLLAR = 0.048` tonnes = **48 kg**
 
@@ -77,6 +78,7 @@ When deploying the escrow contract, the TREE `StellarAssetContract` must be depl
 **Status**: Not yet deployed
 
 When deploying to mainnet:
+
 1. Run `node scripts/deploy-tree-asset.mjs` with mainnet config
 2. Update `TREE_ISSUER_MAINNET` in `lib/stellar/tree-asset.ts`
 3. Update this document with mainnet addresses

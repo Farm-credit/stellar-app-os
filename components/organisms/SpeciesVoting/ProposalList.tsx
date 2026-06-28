@@ -3,9 +3,20 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { ProposalStatus, formatVotingTimeRemaining, calculateVotePercentage } from '@/lib/stellar/species-voting';
+import {
+  ProposalStatus,
+  formatVotingTimeRemaining,
+  calculateVotePercentage,
+} from '@/lib/stellar/species-voting';
 import { ThumbsUp, ThumbsDown, Clock, CheckCircle2, XCircle, PlayCircle } from 'lucide-react';
 
 interface Proposal {
@@ -128,7 +139,9 @@ export function ProposalList() {
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
                   <span className="text-muted-foreground">CO₂ Sequestration:</span>
-                  <span className="ml-2 font-medium">{(proposal.co2_scaled / 100).toFixed(2)} kg/year</span>
+                  <span className="ml-2 font-medium">
+                    {(proposal.co2_scaled / 100).toFixed(2)} kg/year
+                  </span>
                 </div>
                 <div>
                   <span className="text-muted-foreground">Maturity:</span>
@@ -147,9 +160,14 @@ export function ProposalList() {
                     <ThumbsDown className="h-4 w-4 text-red-600" />
                   </span>
                 </div>
-                <Progress value={calculateVotePercentage(proposal.votes_for, proposal.votes_against)} />
+                <Progress
+                  value={calculateVotePercentage(proposal.votes_for, proposal.votes_against)}
+                />
                 <div className="flex items-center justify-between text-xs text-muted-foreground">
-                  <span>{calculateVotePercentage(proposal.votes_for, proposal.votes_against).toFixed(1)}% in favor</span>
+                  <span>
+                    {calculateVotePercentage(proposal.votes_for, proposal.votes_against).toFixed(1)}
+                    % in favor
+                  </span>
                   <span className="flex items-center gap-1">
                     <Clock className="h-3 w-3" />
                     {formatVotingTimeRemaining(proposal.voting_ends_at)}

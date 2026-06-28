@@ -13,7 +13,15 @@
  * Run: node scripts/deploy-tree-asset.mjs
  */
 
-import { Keypair, Asset, TransactionBuilder, Operation, Networks, Horizon, BASE_FEE } from '@stellar/stellar-sdk';
+import {
+  Keypair,
+  Asset,
+  TransactionBuilder,
+  Operation,
+  Networks,
+  Horizon,
+  BASE_FEE,
+} from '@stellar/stellar-sdk';
 
 const HORIZON = 'https://horizon-testnet.stellar.org';
 const FRIENDBOT = 'https://friendbot.stellar.org';
@@ -31,7 +39,7 @@ async function friendbot(publicKey) {
 }
 
 async function deploy() {
-  const issuer      = Keypair.random();
+  const issuer = Keypair.random();
   const distributor = Keypair.random();
 
   console.log('\n── Keypairs ──────────────────────────────────────────');
@@ -66,11 +74,13 @@ async function deploy() {
     fee: BASE_FEE,
     networkPassphrase: Networks.TESTNET,
   })
-    .addOperation(Operation.payment({
-      destination: distributor.publicKey(),
-      asset: tree,
-      amount: TOTAL_SUPPLY,
-    }))
+    .addOperation(
+      Operation.payment({
+        destination: distributor.publicKey(),
+        asset: tree,
+        amount: TOTAL_SUPPLY,
+      })
+    )
     .setTimeout(30)
     .build();
   tx2.sign(issuer);

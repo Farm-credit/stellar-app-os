@@ -36,15 +36,15 @@ FarmCredit is a decentralized agricultural credit platform enabling farmers and 
 
 ### Tech Stack
 
-| Layer               | Technology                                                                                                          | Version  |
-| ------------------- | ------------------------------------------------------------------------------------------------------------------- | -------- |
-| **Framework**       | [Next.js](https://nextjs.org) (App Router)                                                                          | 16.1.6   |
-| **Language**        | [TypeScript](https://www.typescriptlang.org) (strict mode)                                                          | 5.x      |
-| **Styling**         | [Tailwind CSS](https://tailwindcss.com) v4 + [shadcn/ui](https://ui.shadcn.com)                                     | 4.x      |
-| **Blockchain**      | [@stellar/stellar-sdk](https://developers.stellar.org/docs/build/sdks/js-stellar-sdk)                               | 11.2.2   |
-| **Wallet**          | [@stellar/freighter-api](https://developers.stellar.org/docs/build/apps/smart-contracts/guides/freighter-api)       | 1.7.0    |
-| **Design System**   | Stellar brand colors + atomic design pattern                                                                        | Custom   |
-| **Package Manager** | [pnpm](https://pnpm.io)                                                                                             | 10.28.1+ |
+| Layer               | Technology                                                                                                    | Version  |
+| ------------------- | ------------------------------------------------------------------------------------------------------------- | -------- |
+| **Framework**       | [Next.js](https://nextjs.org) (App Router)                                                                    | 16.1.6   |
+| **Language**        | [TypeScript](https://www.typescriptlang.org) (strict mode)                                                    | 5.x      |
+| **Styling**         | [Tailwind CSS](https://tailwindcss.com) v4 + [shadcn/ui](https://ui.shadcn.com)                               | 4.x      |
+| **Blockchain**      | [@stellar/stellar-sdk](https://developers.stellar.org/docs/build/sdks/js-stellar-sdk)                         | 11.2.2   |
+| **Wallet**          | [@stellar/freighter-api](https://developers.stellar.org/docs/build/apps/smart-contracts/guides/freighter-api) | 1.7.0    |
+| **Design System**   | Stellar brand colors + atomic design pattern                                                                  | Custom   |
+| **Package Manager** | [pnpm](https://pnpm.io)                                                                                       | 10.28.1+ |
 
 ### Stellar Color Tokens
 
@@ -144,9 +144,11 @@ All commands should pass without errors.
 ### Common Gotchas
 
 **Problem:** `pnpm: command not found`
+
 - **Solution:** `npm install -g pnpm` and restart terminal
 
 **Problem:** `Node.js version is too old`
+
 - **Solution:** Use `nvm` or `fnm` to install Node.js 20+
   ```bash
   nvm install 20
@@ -154,9 +156,11 @@ All commands should pass without errors.
   ```
 
 **Problem:** `ModuleNotFoundError` after git pull
+
 - **Solution:** `pnpm install`
 
 **Problem:** Hot reload not working
+
 - **Solution:** Clear Next.js cache and restart
   ```bash
   rm -rf .next
@@ -164,6 +168,7 @@ All commands should pass without errors.
   ```
 
 **Problem:** TypeScript errors in IDE but `pnpm build` passes
+
 - **Solution:** Restart TypeScript server — `Ctrl+Shift+P` → `TypeScript: Restart TS Server`
 
 ---
@@ -179,6 +184,7 @@ This project uses [Husky](https://typicode.github.io/husky/) to enforce quality 
 Runs [lint-staged](https://github.com/lint-staged/lint-staged) before every commit. Only staged `.ts` and `.tsx` files are checked — keeping it fast regardless of codebase size.
 
 What it does:
+
 - Runs ESLint and auto-fixes any fixable issues
 - Runs Prettier and auto-formats the file
 
@@ -340,15 +346,13 @@ interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   error?: string;
 }
 
-export const Input = forwardRef<HTMLInputElement, InputProps>(
-  ({ label, error, ...props }, ref) => (
-    <div>
-      <label>{label}</label>
-      <input ref={ref} {...props} />
-      {error && <span className="text-red-500">{error}</span>}
-    </div>
-  )
-);
+export const Input = forwardRef<HTMLInputElement, InputProps>(({ label, error, ...props }, ref) => (
+  <div>
+    <label>{label}</label>
+    <input ref={ref} {...props} />
+    {error && <span className="text-red-500">{error}</span>}
+  </div>
+));
 
 Input.displayName = 'Input';
 ```
@@ -357,14 +361,14 @@ Always set `displayName`. Always export the props interface.
 
 ### Naming Conventions
 
-| Type                 | Convention                       | Example                          |
-| -------------------- | -------------------------------- | -------------------------------- |
-| **Components**       | `PascalCase`                     | `WalletConnectionStep`           |
-| **Folders**          | `kebab-case`                     | `wallet-connection`              |
-| **Functions**        | `camelCase`                      | `handleSubmit`, `formatBalance`  |
-| **Constants**        | `SCREAMING_SNAKE_CASE`           | `MAX_AMOUNT`, `API_BASE_URL`     |
-| **Types/Interfaces** | `PascalCase`                     | `WalletBalance`                  |
-| **Files**            | `kebab-case` (except components) | `use-wallet.ts`                  |
+| Type                 | Convention                       | Example                         |
+| -------------------- | -------------------------------- | ------------------------------- |
+| **Components**       | `PascalCase`                     | `WalletConnectionStep`          |
+| **Folders**          | `kebab-case`                     | `wallet-connection`             |
+| **Functions**        | `camelCase`                      | `handleSubmit`, `formatBalance` |
+| **Constants**        | `SCREAMING_SNAKE_CASE`           | `MAX_AMOUNT`, `API_BASE_URL`    |
+| **Types/Interfaces** | `PascalCase`                     | `WalletBalance`                 |
+| **Files**            | `kebab-case` (except components) | `use-wallet.ts`                 |
 
 ### Styling with Tailwind CSS + shadcn/ui
 
@@ -383,7 +387,7 @@ Use `cn()` for conditional classes:
 ```tsx
 import { cn } from '@/lib/utils';
 
-<div className={cn('rounded-lg border p-4', className)} />
+<div className={cn('rounded-lg border p-4', className)} />;
 ```
 
 ---
@@ -406,18 +410,18 @@ The `commit-msg` hook will reject any commit that doesn't match the format below
 
 ### Allowed Types
 
-| Type         | When to use                            |
-| ------------ | -------------------------------------- |
-| `feat`       | New feature or component               |
-| `fix`        | Bug fix                                |
-| `docs`       | Documentation only                     |
-| `style`      | Formatting, no logic change            |
-| `refactor`   | Code restructuring, no behavior change |
-| `perf`       | Performance improvement                |
-| `test`       | Adding or updating tests               |
-| `build`      | Build system or dependency changes     |
-| `ci`         | CI configuration changes               |
-| `chore`      | Maintenance tasks                      |
+| Type       | When to use                            |
+| ---------- | -------------------------------------- |
+| `feat`     | New feature or component               |
+| `fix`      | Bug fix                                |
+| `docs`     | Documentation only                     |
+| `style`    | Formatting, no logic change            |
+| `refactor` | Code restructuring, no behavior change |
+| `perf`     | Performance improvement                |
+| `test`     | Adding or updating tests               |
+| `build`    | Build system or dependency changes     |
+| `ci`       | CI configuration changes               |
+| `chore`    | Maintenance tasks                      |
 
 ### Allowed Scopes
 
@@ -484,6 +488,7 @@ git checkout -b feat/<issue-number>-<short-description>
 ```
 
 **Branch naming:**
+
 - `feat/42-wallet-connection-modal`
 - `fix/78-donation-validation-bug`
 - `docs/107-contributor-guide`
@@ -509,23 +514,29 @@ Show: the relevant page loading → user interaction → expected result. 30-60 
 
 ```markdown
 ## Summary
+
 <!-- 1-3 sentences: what does this PR do and why? -->
 
 ## Related Issue
+
 Closes #<issue-number>
 
 ## What Was Implemented
+
 - [ ] ...
 
 ## Implementation Details
+
 <!-- Key technical decisions -->
 
 ## How to Test
+
 1. Checkout branch
 2. pnpm install && pnpm dev
 3. Steps to reproduce the feature
 
 ## Screenshots / Recording
+
 [Attach here]
 ```
 
@@ -585,13 +596,13 @@ Don't start work on an issue someone else has claimed without coordinating first
 3. Push fixes, then reply `Done` or `Fixed in <sha>`
 4. Re-request review
 
-| Comment                    | How to Respond                                                  |
-| -------------------------- | --------------------------------------------------------------- |
-| "This has an `any` type"   | Replace with proper type (`HTMLInputElement`, etc.)             |
-| "Missing displayName"      | Add `Component.displayName = "ComponentName"`                   |
-| "Use atomic import"        | Change to direct file import                                    |
-| "No arbitrary colors"      | Replace `bg-blue-500` with `bg-stellar-blue`                    |
-| "Screen recording missing" | Record feature in browser and upload MP4                        |
+| Comment                    | How to Respond                                      |
+| -------------------------- | --------------------------------------------------- |
+| "This has an `any` type"   | Replace with proper type (`HTMLInputElement`, etc.) |
+| "Missing displayName"      | Add `Component.displayName = "ComponentName"`       |
+| "Use atomic import"        | Change to direct file import                        |
+| "No arbitrary colors"      | Replace `bg-blue-500` with `bg-stellar-blue`        |
+| "Screen recording missing" | Record feature in browser and upload MP4            |
 
 ---
 

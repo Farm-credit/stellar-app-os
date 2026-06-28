@@ -1,18 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useWalletContext } from '@/contexts/WalletContext';
-import { fetchLeaderboard, getMockUserStats } from '@/lib/api/mock/leaderboard';
-import { LeaderboardSponsor, LeaderboardPeriod } from '@/lib/types/leaderboard';
+import { fetchLeaderboard } from '@/lib/api/mock/leaderboard';
+import type { LeaderboardSponsor, LeaderboardPeriod } from '@/lib/types/leaderboard';
 import { Button } from '@/components/atoms/Button';
 import { Text } from '@/components/atoms/Text';
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-  CardContent,
-} from '@/components/molecules/Card';
+import { Card, CardContent } from '@/components/molecules/Card';
 import {
   Table,
   TableHeader,
@@ -40,8 +33,6 @@ function formatAddress(address: string) {
 }
 
 export default function LeaderboardPage() {
-  const { wallet } = useWalletContext() || { wallet: null };
-  const isConnected = !!wallet?.isConnected;
   const [period, setPeriod] = useState<LeaderboardPeriod>('monthly');
   const [sponsors, setSponsors] = useState<LeaderboardSponsor[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -64,12 +55,9 @@ export default function LeaderboardPage() {
   const topThree = sponsors.slice(0, 3);
   const remainingSponsors = sponsors.slice(3);
 
-  // User details
-  const userAddress = wallet?.publicKey || '';
-  const userStats = userAddress ? getMockUserStats(userAddress, period) : null;
-  const isUserInTop10 = userStats
-    ? sponsors.some((s) => s.address.toLowerCase() === userAddress.toLowerCase())
-    : false;
+  // User details (stub - no wallet connected)
+  const userAddress: string = '';
+  const userStats = undefined as LeaderboardSponsor | undefined;
 
   // Global Impact Stats
   const globalTrees = period === 'monthly' ? 6650 : 63500;

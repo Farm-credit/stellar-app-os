@@ -37,13 +37,8 @@ const CSV_PATH = resolve(__dirname, '../data/fao_co2_rates.csv');
 
 const NETWORK = process.env.STELLAR_NETWORK ?? 'testnet';
 const RPC_URL =
-  NETWORK === 'mainnet'
-    ? 'https://soroban.stellar.org'
-    : 'https://soroban-testnet.stellar.org';
-const PASSPHRASE =
-  NETWORK === 'mainnet'
-    ? Networks.PUBLIC
-    : Networks.TESTNET;
+  NETWORK === 'mainnet' ? 'https://soroban.stellar.org' : 'https://soroban-testnet.stellar.org';
+const PASSPHRASE = NETWORK === 'mainnet' ? Networks.PUBLIC : Networks.TESTNET;
 
 // ── CSV parsing ───────────────────────────────────────────────────────────────
 
@@ -155,8 +150,8 @@ async function seedOnChain(rows) {
           'register_species',
           nativeToScVal(row.slug, { type: 'symbol' }),
           nativeToScVal(co2Scaled, { type: 'i128' }),
-          nativeToScVal(maturity, { type: 'u32' }),
-        ),
+          nativeToScVal(maturity, { type: 'u32' })
+        )
       )
       .setTimeout(30)
       .build();

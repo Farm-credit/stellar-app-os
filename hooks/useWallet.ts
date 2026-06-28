@@ -7,7 +7,11 @@ import {
   fetchBalance,
   getFreighterNetwork,
 } from '@/lib/stellar/wallet';
-import { signTransactionWithFreighter, signTransactionWithAlbedo, signTransactionWithXBull } from '@/lib/stellar/signing';
+import {
+  signTransactionWithFreighter,
+  signTransactionWithAlbedo,
+  signTransactionWithXBull,
+} from '@/lib/stellar/signing';
 
 export function useWallet() {
   const [wallet, setWallet] = useState<WalletConnection | null>(null);

@@ -69,31 +69,34 @@ Planted / Milestone1Released  (75% released)
 
 ### New Unit Tests (9 added across both contracts)
 
-| Test | Contract | Asserts |
-|---|---|---|
-| `test_verify_survival_passing_rate` | both | 85% → Completed, 100% released |
-| `test_verify_survival_at_boundary_70_percent` | both | 70% → Completed (boundary) |
-| `test_survival_below_70_percent_disputes` | both | 69% → Disputed, only 75% released |
-| `test_dispute_resolved_to_farmer` | both | Admin releases held 25% to farmer |
-| `test_dispute_resolved_to_donor` | both | Admin refunds held 25% to donor |
-| `test_invalid_survival_rate_rejected` | both | rate > 100 panics |
-| `test_survival_too_early_rejected` | tree-escrow | 6-month lock enforced |
+| Test                                          | Contract    | Asserts                           |
+| --------------------------------------------- | ----------- | --------------------------------- |
+| `test_verify_survival_passing_rate`           | both        | 85% → Completed, 100% released    |
+| `test_verify_survival_at_boundary_70_percent` | both        | 70% → Completed (boundary)        |
+| `test_survival_below_70_percent_disputes`     | both        | 69% → Disputed, only 75% released |
+| `test_dispute_resolved_to_farmer`             | both        | Admin releases held 25% to farmer |
+| `test_dispute_resolved_to_donor`              | both        | Admin refunds held 25% to donor   |
+| `test_invalid_survival_rate_rejected`         | both        | rate > 100 panics                 |
+| `test_survival_too_early_rejected`            | tree-escrow | 6-month lock enforced             |
 
 ---
 
 ### TypeScript
 
 **`lib/types/survival.ts`** — new types:
+
 - `SurvivalVerificationRequest` — `farmerPublicKey`, `survivalRate`, `proofHash`, `contractType`, `network`
 - `SurvivalVerificationResponse` — `outcome: 'completed' | 'disputed'`, `survivalRate`, `transactionHash`
 - `DisputeResolutionRequest` / `DisputeResolutionResponse`
 
 **`lib/stellar/survival-verifier-client.ts`** — Soroban RPC client:
+
 - `invokeSurvivalVerification(farmerPublicKey, proofHash, survivalRate, contractType, network)` — encodes args as XDR ScVals, submits via fee-payer account, polls for confirmation
 - `invokeResolveDispute(farmerPublicKey, releaseToFarmer, contractType, network)` — same pattern for dispute resolution
 - Supports both `tree-escrow` and `escrow-milestone` contract types via env var routing
 
 **`app/api/transaction/verify-survival/route.ts`** — `POST /api/transaction/verify-survival`:
+
 - Validates all fields including hex format of `proofHash`
 - Invokes `verify_survival` on-chain
 - Returns HTTP 200 with `outcome: 'completed'` or HTTP 202 with `outcome: 'disputed'`
@@ -103,6 +106,7 @@ Planted / Milestone1Released  (75% released)
   - `ESCROW_NOT_FOUND` → 404
 
 **`app/api/transaction/resolve-dispute/route.ts`** — `POST /api/transaction/resolve-dispute`:
+
 - Admin-only endpoint for manual dispute resolution
 - `ESCROW_NOT_DISPUTED` → 409 if escrow isn't in Disputed state
 
@@ -123,6 +127,7 @@ Planted / Milestone1Released  (75% released)
 ```
 
 **Responses:**
+
 - `200` — `{ outcome: "completed", survivalRate: 75, transactionHash: "..." }`
 - `202` — `{ outcome: "disputed", survivalRate: 65, transactionHash: "..." }`
 - `409` — `PLANTING_NOT_VERIFIED` or `SURVIVAL_PERIOD_NOT_ELAPSED`
@@ -140,6 +145,7 @@ Planted / Milestone1Released  (75% released)
 ```
 
 **Responses:**
+
 - `200` — `{ transactionHash: "...", releasedTo: "farmer" }`
 - `409` — `ESCROW_NOT_DISPUTED`
 

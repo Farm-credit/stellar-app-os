@@ -39,7 +39,9 @@ export interface SponsorImpact {
  * state. In production replace this with a soroban-client contractQuery call
  * against the deployed CarbonCredits contract address.
  */
-function queryContractForSponsor(sponsor: string): { species: TreeSpecies; co2KgPerYear: number }[] {
+function queryContractForSponsor(
+  sponsor: string
+): { species: TreeSpecies; co2KgPerYear: number }[] {
   const all = getMockTrees();
 
   // Deterministic sponsor attribution: use the sponsor address checksum to
@@ -52,9 +54,11 @@ function queryContractForSponsor(sponsor: string): { species: TreeSpecies; co2Kg
 
 // ── Aggregation ───────────────────────────────────────────────────────────────
 
-function aggregate(
-  records: { species: TreeSpecies; co2KgPerYear: number }[]
-): { bySpecies: SpeciesBreakdown[]; totalTrees: number; totalCo2OffsetKg: number } {
+function aggregate(records: { species: TreeSpecies; co2KgPerYear: number }[]): {
+  bySpecies: SpeciesBreakdown[];
+  totalTrees: number;
+  totalCo2OffsetKg: number;
+} {
   const speciesMap = new Map<TreeSpecies, { count: number; co2Kg: number }>();
 
   for (const r of records) {
@@ -65,12 +69,14 @@ function aggregate(
     });
   }
 
-  const bySpecies: SpeciesBreakdown[] = [...speciesMap.entries()].map(([species, { count, co2Kg }]) => ({
-    species,
-    treeCount: count,
-    co2OffsetKg: Math.round(co2Kg),
-    co2OffsetTonnes: parseFloat((co2Kg / 1_000).toFixed(4)),
-  }));
+  const bySpecies: SpeciesBreakdown[] = [...speciesMap.entries()].map(
+    ([species, { count, co2Kg }]) => ({
+      species,
+      treeCount: count,
+      co2OffsetKg: Math.round(co2Kg),
+      co2OffsetTonnes: parseFloat((co2Kg / 1_000).toFixed(4)),
+    })
+  );
 
   // Sort by tree count descending for readability
   bySpecies.sort((a, b) => b.treeCount - a.treeCount);

@@ -48,6 +48,7 @@ POST /api/transaction/submit ─────────────────
 ### Soroban Contract — `contracts/zk-verifier/`
 
 **`src/groth16.rs`**
+
 - BN254 Groth16 verifier with embedded compile-time VK constants (alpha G1, beta/gamma/delta G2, 3 IC points for Circuit 1's 2 public inputs)
 - `groth16_verify(proof_a, proof_b, proof_c, public_inputs)` — validates G1/G2 point formats, checks all field elements are within the BN254 modulus, accumulates `vk_x = IC[0] + Σ(inputs[i] * IC[i+1])`, and runs the pairing check
 - `g1_scalar_mul` via double-and-add over the 256-bit scalar
@@ -55,6 +56,7 @@ POST /api/transaction/submit ─────────────────
 - Pairing check is structurally implemented with a clear `TODO` to swap in `env.crypto().bn254_pairing()` once Soroban exposes the precompile
 
 **`src/lib.rs`**
+
 - `ZkVerifier` contract with 4 public functions:
   - `initialize(admin)` — one-time setup, panics on re-init
   - `verify_proof(proof, inputs)` — atomic: Groth16 verify → nullifier check → nullifier write → event emit
@@ -74,6 +76,7 @@ POST /api/transaction/submit ─────────────────
 ### TypeScript — `lib/zk/`
 
 **`types.ts`**
+
 - `ZkProof` — hex-encoded G1/G2 proof components for JSON transport
 - `ProofInputs` — `commitment` + `nullifierHash` (32-byte hex each)
 - `GeneratedProof` — full output from the proof generator
@@ -81,6 +84,7 @@ POST /api/transaction/submit ─────────────────
 - `AnonymousDonationRequest` / `AnonymousDonationResponse` — API contract types
 
 **`proof-generator.ts`**
+
 - `generateDonationProof(donorSecret, amount, salt)` — derives commitment via `SHA-256(amount_bytes ∥ donor_secret)` and nullifier via `SHA-256(donor_secret ∥ salt)` using `crypto.subtle`, then calls `snarkjs.groth16.fullProve` against the circuit WASM/zkey
 - `serialiseProof(snarkProof)` — converts snarkjs G1/G2 output (including G2 coordinate reversal) to hex byte arrays
 - `deserialiseProof(raw)` / `deserialiseInputs(raw)` — schema validation with descriptive errors on malformed input (round-trip safe)
@@ -90,9 +94,11 @@ POST /api/transaction/submit ─────────────────
 ### TypeScript — `lib/stellar/`
 
 **`zk-verifier-client.ts`**
+
 - `invokeVerifyProof(proof, inputs, network)` — encodes `ZkProof` and `ProofInputs` as Soroban XDR ScVals, submits via the platform's fee-payer account (donor wallet never touches the verifier), simulates first to catch contract errors early, polls for confirmation, maps `INVALID_PROOF` / `NULLIFIER_ALREADY_SPENT` panics to typed errors
 
 **`anonymous-donation.ts`**
+
 - `processAnonymousDonation(amount, donorSecret, wallet, idempotencyKey)` — end-to-end service: generate proof → POST to API → sign with Freighter/Albedo → submit to Stellar network
 
 ---
@@ -116,12 +122,12 @@ POST /api/transaction/submit ─────────────────
 
 The donor's wallet address appears **nowhere** in the Soroban contract invocation. The only on-chain data is:
 
-| Field | On-chain? | Value |
-|---|---|---|
-| Donor wallet address | No | Never transmitted to contract |
-| Donation commitment | Yes (public input) | `SHA-256(amount ∥ donor_secret)` |
-| Nullifier hash | Yes (public input + stored) | `SHA-256(SHA-256(donor_secret ∥ salt))` |
-| Donation amount | Yes (tx operation) | USD amount in USDC |
+| Field                | On-chain?                   | Value                                   |
+| -------------------- | --------------------------- | --------------------------------------- |
+| Donor wallet address | No                          | Never transmitted to contract           |
+| Donation commitment  | Yes (public input)          | `SHA-256(amount ∥ donor_secret)`        |
+| Nullifier hash       | Yes (public input + stored) | `SHA-256(SHA-256(donor_secret ∥ salt))` |
+| Donation amount      | Yes (tx operation)          | USD amount in USDC                      |
 
 ---
 
@@ -137,6 +143,7 @@ STELLAR_FEE_PAYER_PUBLIC_KEY=G...   # platform fee-payer public key
 ## Circuit Artifacts Required
 
 Drop the compiled Circuit 1 artifacts into `public/circuits/`:
+
 ```
 public/circuits/circuit1_donation.wasm
 public/circuits/circuit1_donation_final.zkey

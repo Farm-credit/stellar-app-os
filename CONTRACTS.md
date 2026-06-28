@@ -6,13 +6,13 @@ All contracts are deployed on the Stellar network (Soroban). Invoke them via the
 
 ## Contracts
 
-| Contract | Purpose |
-|---|---|
-| `tree-escrow` | Two-tranche donor escrow (75% on planting, 25% after 6 months) |
-| `escrow-milestone` | Single-milestone escrow with remainder release |
-| `location-proof` | ZK location proofs for Northern Nigeria boundary |
-| `nullifier-registry` | SHA-256 commitment registry — prevents double-counting |
-| `species-voting` | On-chain governance for adding new tree species to the catalogue |
+| Contract             | Purpose                                                          |
+| -------------------- | ---------------------------------------------------------------- |
+| `tree-escrow`        | Two-tranche donor escrow (75% on planting, 25% after 6 months)   |
+| `escrow-milestone`   | Single-milestone escrow with remainder release                   |
+| `location-proof`     | ZK location proofs for Northern Nigeria boundary                 |
+| `nullifier-registry` | SHA-256 commitment registry — prevents double-counting           |
+| `species-voting`     | On-chain governance for adding new tree species to the catalogue |
 
 ---
 
@@ -26,25 +26,25 @@ Functions marked **admin-only** require the admin address (set at `initialize`) 
 
 Contracts panic with a descriptive string on invalid input. The Stellar SDK surfaces these as `InvokeHostFunctionError` with the panic message in `result_xdr`. Common patterns:
 
-| Panic message | Meaning |
-|---|---|
-| `"already initialized"` | `initialize` called more than once |
-| `"amount must be positive"` | `amount ≤ 0` passed to `deposit` |
-| `"active escrow already exists for this farmer"` | Duplicate `deposit` for same farmer |
-| `"no escrow for farmer"` / `"no escrow found for farmer"` | Farmer address has no escrow record |
-| `"commitment already registered"` | Duplicate nullifier / replay attempt |
-| `"location outside Northern Nigeria boundary"` | `in_region = false` passed to `submit_proof` |
-| `"must hold TREE tokens to vote"` | Voter has zero TREE token balance |
-| `"already voted on this proposal"` | Duplicate vote attempt |
-| `"proposal has not passed"` | Attempting to execute a non-passed proposal |
+| Panic message                                                                                     | Meaning                                      |
+| ------------------------------------------------------------------------------------------------- | -------------------------------------------- |
+| `"already initialized"`                                                                           | `initialize` called more than once           |
+| `"amount must be positive"`                                                                       | `amount ≤ 0` passed to `deposit`             |
+| `"active escrow already exists for this farmer"`                                                  | Duplicate `deposit` for same farmer          |
+| `"no escrow for farmer"` / `"no escrow found for farmer"`                                         | Farmer address has no escrow record          |
+| `"commitment already registered"`                                                                 | Duplicate nullifier / replay attempt         |
+| `"location outside Northern Nigeria boundary"`                                                    | `in_region = false` passed to `submit_proof` |
+| `"must hold TREE tokens to vote"`                                                                 | Voter has zero TREE token balance            |
+| `"already voted on this proposal"`                                                                | Duplicate vote attempt                       |
+| `"proposal has not passed"`                                                                       | Attempting to execute a non-passed proposal  |
 | `"planting density below minimum for job size"` — Job area meets threshold but density is too low |
-| `"area hectares must be positive"` — `area_hectares ≤ 0` |
-| `"survival not yet verified"` — Attempting to call 1-year milestone before survival check |
-| `"1-year milestone period not yet elapsed"` — Called before 1 year elapsed since planting |
-| `"rating must be between 1 and 5"` — Rating outside valid range |
-| `"can only rate after escrow is completed"` — Rating before job completion |
-| `"only the original donor can rate the planter"` — Non-donor attempting to rate |
-| `"sponsor has already rated this planter"` — Duplicate rating attempt |
+| `"area hectares must be positive"` — `area_hectares ≤ 0`                                          |
+| `"survival not yet verified"` — Attempting to call 1-year milestone before survival check         |
+| `"1-year milestone period not yet elapsed"` — Called before 1 year elapsed since planting         |
+| `"rating must be between 1 and 5"` — Rating outside valid range                                   |
+| `"can only rate after escrow is completed"` — Rating before job completion                        |
+| `"only the original donor can rate the planter"` — Non-donor attempting to rate                   |
+| `"sponsor has already rated this planter"` — Duplicate rating attempt                             |
 
 ---
 
@@ -53,6 +53,7 @@ Contracts panic with a descriptive string on invalid input. The Stellar SDK surf
 State machine: `Funded → Planted → Survived → Completed` (or `Funded → Refunded`)
 
 **Time-Locked Milestones (#494):** Funds are released in 3 tranches:
+
 - Tranche 1 (30%) at planting verification
 - Tranche 2 (40%) at 6-month survival check
 - Tranche 3 (30%) at 1-year milestone
@@ -67,14 +68,14 @@ One-time setup. Must be called before any other function.
 
 **Auth:** deployer (anyone, once)
 
-| Parameter | Type | Description |
-|---|---|---|
-| `admin` | `Address` | Address that will act as verifier/admin |
-| `tree_token` | `Address` | TREE token contract address |
-| `oracle` | `Address` | Oracle address for survival reports |
-| `survival_threshold_percent` | `u32` | Minimum survival rate (0..=100) for Tranche 2 |
-| `min_density` | `i128` | Minimum trees per hectare for large jobs |
-| `job_size_threshold` | `i128` | Minimum job size (hectares) for density rules |
+| Parameter                    | Type      | Description                                   |
+| ---------------------------- | --------- | --------------------------------------------- |
+| `admin`                      | `Address` | Address that will act as verifier/admin       |
+| `tree_token`                 | `Address` | TREE token contract address                   |
+| `oracle`                     | `Address` | Oracle address for survival reports           |
+| `survival_threshold_percent` | `u32`     | Minimum survival rate (0..=100) for Tranche 2 |
+| `min_density`                | `i128`    | Minimum trees per hectare for large jobs      |
+| `job_size_threshold`         | `i128`    | Minimum job size (hectares) for density rules |
 
 **Returns:** `void`
 
@@ -111,20 +112,21 @@ Donor deposits funds into escrow for a specific farmer. Transfers `amount` of `t
 
 **Auth:** `donor` (caller-auth)
 
-| Parameter | Type | Description |
-|---|---|---|
-| `donor` | `Address` | Address funding the escrow |
-| `farmer` | `Address` | Beneficiary farmer address |
-| `token` | `Address` | SAC token contract address (e.g. USDC) |
-| `amount` | `i128` | Amount in token's smallest unit (must be > 0) |
-| `tree_count` | `i128` | Number of trees to be planted (must be > 0) |
-| `area_hectares` | `i128` | Planting area in hectares (must be > 0) |
+| Parameter       | Type      | Description                                   |
+| --------------- | --------- | --------------------------------------------- |
+| `donor`         | `Address` | Address funding the escrow                    |
+| `farmer`        | `Address` | Beneficiary farmer address                    |
+| `token`         | `Address` | SAC token contract address (e.g. USDC)        |
+| `amount`        | `i128`    | Amount in token's smallest unit (must be > 0) |
+| `tree_count`    | `i128`    | Number of trees to be planted (must be > 0)   |
+| `area_hectares` | `i128`    | Planting area in hectares (must be > 0)       |
 
 **Returns:** `void`
 
 **Events emitted:** `DonationReceived(donor, farmer) → (amount, token)`
 
 **Errors:**
+
 - `"amount must be positive"` — `amount ≤ 0`
 - `"active escrow already exists for this farmer"` — farmer already has an open escrow
 - `"planting density below minimum for job size"` — Job area meets threshold but density is too low
@@ -161,9 +163,9 @@ Admin confirms GPS + photo proof of planting. Releases **Tranche 1 (30%)** of es
 
 **Auth:** admin-only
 
-| Parameter | Type | Description |
-|---|---|---|
-| `farmer` | `Address` | Farmer whose escrow to update |
+| Parameter    | Type         | Description                              |
+| ------------ | ------------ | ---------------------------------------- |
+| `farmer`     | `Address`    | Farmer whose escrow to update            |
 | `proof_hash` | `BytesN<32>` | SHA-256 of the GPS + photo proof payload |
 
 **Returns:** `void`
@@ -171,6 +173,7 @@ Admin confirms GPS + photo proof of planting. Releases **Tranche 1 (30%)** of es
 **Events emitted:** `PlantingVerified(farmer) → (tranche1_amount, proof_hash)`
 
 **Errors:**
+
 - `"planting already verified or escrow not active"` — status is not `Funded`
 - `"no escrow for farmer"` — no escrow record found
 
@@ -198,17 +201,18 @@ Admin confirms 6-month survival check. Releases **Tranche 2 (40%)** to the farme
 
 **Auth:** admin-only
 
-| Parameter | Type | Description |
-|---|---|---|
-| `farmer` | `Address` | Farmer whose escrow to update |
-| `proof_hash` | `BytesN<32>` | SHA-256 of the survival proof payload |
-| `survival_rate_percent` | `u32` | Survival rate (0..=100) |
+| Parameter               | Type         | Description                           |
+| ----------------------- | ------------ | ------------------------------------- |
+| `farmer`                | `Address`    | Farmer whose escrow to update         |
+| `proof_hash`            | `BytesN<32>` | SHA-256 of the survival proof payload |
+| `survival_rate_percent` | `u32`        | Survival rate (0..=100)               |
 
 **Returns:** `void`
 
 **Events emitted:** `SurvivalVerified(farmer) → (tranche2_amount, proof_hash)`
 
 **Errors:**
+
 - `"planting not yet verified"` — status is not `Planted`
 - `"6-month survival period not yet elapsed"` — called too early
 - `"survival rate below minimum"` — survival rate below configured threshold
@@ -230,9 +234,9 @@ Admin confirms 1-year milestone. Releases **Tranche 3 (30%)** to the farmer. Enf
 
 **Auth:** admin-only
 
-| Parameter | Type | Description |
-|---|---|---|
-| `farmer` | `Address` | Farmer whose escrow to complete |
+| Parameter    | Type         | Description                                 |
+| ------------ | ------------ | ------------------------------------------- |
+| `farmer`     | `Address`    | Farmer whose escrow to complete             |
 | `proof_hash` | `BytesN<32>` | SHA-256 of the year milestone proof payload |
 
 **Returns:** `void`
@@ -240,6 +244,7 @@ Admin confirms 1-year milestone. Releases **Tranche 3 (30%)** to the farmer. Enf
 **Events emitted:** `YearMilestone(farmer) → (tranche3_amount, proof_hash)`
 
 **Errors:**
+
 - `"survival not yet verified"` — status is not `Survived`
 - `"1-year milestone period not yet elapsed"` — called too early
 - `"nothing left to release"` — released amount already equals total
@@ -259,15 +264,16 @@ Returns the full escrowed amount to the donor. Only callable before planting is 
 
 **Auth:** admin-only
 
-| Parameter | Type | Description |
-|---|---|---|
-| `farmer` | `Address` | Farmer whose escrow to refund |
+| Parameter | Type      | Description                   |
+| --------- | --------- | ----------------------------- |
+| `farmer`  | `Address` | Farmer whose escrow to refund |
 
 **Returns:** `void`
 
 **Events emitted:** `DonationRefunded(donor, farmer) → total_amount`
 
 **Errors:**
+
 - `"cannot refund after planting has been verified"` — status is not `Funded`
 
 ```ts
@@ -280,9 +286,9 @@ await client.refund({ farmer: farmerAddress });
 
 Read-only. Returns the full escrow record for a farmer.
 
-| Parameter | Type | Description |
-|---|---|---|
-| `farmer` | `Address` | Farmer address to look up |
+| Parameter | Type      | Description               |
+| --------- | --------- | ------------------------- |
+| `farmer`  | `Address` | Farmer address to look up |
 
 **Returns:** `Option<EscrowRecord>`
 
@@ -301,17 +307,18 @@ Sponsor rates a planter after job completion. Rating must be 1-5 stars. Only cal
 
 **Auth:** sponsor (caller-auth)
 
-| Parameter | Type | Description |
-|---|---|---|
+| Parameter | Type      | Description                        |
+| --------- | --------- | ---------------------------------- |
 | `sponsor` | `Address` | Sponsor/donor providing the rating |
-| `farmer` | `Address` | Planter being rated |
-| `rating` | `u32` | Rating from 1-5 stars |
+| `farmer`  | `Address` | Planter being rated                |
+| `rating`  | `u32`     | Rating from 1-5 stars              |
 
 **Returns:** `void`
 
 **Events emitted:** `Rated(farmer) → (sponsor, rating)`
 
 **Errors:**
+
 - `"rating must be between 1 and 5"` — Rating outside valid range
 - `"no escrow for farmer"` — No escrow record found
 - `"only the original donor can rate the planter"` — Caller is not the donor
@@ -334,11 +341,12 @@ Query the aggregated reputation score for a planter.
 
 **Auth:** public (no auth required)
 
-| Parameter | Type | Description |
-|---|---|---|
-| `farmer` | `Address` | Planter address to look up |
+| Parameter | Type      | Description                |
+| --------- | --------- | -------------------------- |
+| `farmer`  | `Address` | Planter address to look up |
 
 **Returns:** `Option<PlanterReputation>` with fields:
+
 - `total_ratings: u32` — Number of ratings received
 - `sum_ratings: u128` — Sum of all ratings (1-5 each)
 - `average_rating: u32` — Scaled average (0-100, where 100 = 5 stars)
@@ -369,9 +377,9 @@ Admin confirms GPS + photo proof. Releases **75%** to the farmer.
 
 **Auth:** admin-only
 
-| Parameter | Type | Description |
-|---|---|---|
-| `farmer` | `Address` | Farmer to release funds to |
+| Parameter           | Type         | Description                  |
+| ------------------- | ------------ | ---------------------------- |
+| `farmer`            | `Address`    | Farmer to release funds to   |
 | `verification_hash` | `BytesN<32>` | SHA-256 of the proof payload |
 
 **Returns:** `void`
@@ -379,6 +387,7 @@ Admin confirms GPS + photo proof. Releases **75%** to the farmer.
 **Events emitted:** `PlantingVerified(farmer) → (release_amount, verification_hash)`
 
 **Errors:**
+
 - `"milestone already processed or escrow not in funded state"`
 
 ```ts
@@ -396,15 +405,16 @@ Admin releases the remaining **25%** after the final milestone.
 
 **Auth:** admin-only
 
-| Parameter | Type | Description |
-|---|---|---|
-| `farmer` | `Address` | Farmer to receive remainder |
+| Parameter | Type      | Description                 |
+| --------- | --------- | --------------------------- |
+| `farmer`  | `Address` | Farmer to receive remainder |
 
 **Returns:** `void`
 
 **Events emitted:** `MilestonePaymentReleased(farmer) → remainder`
 
 **Errors:**
+
 - `"first milestone not yet verified"` — `verify_milestone` not yet called
 - `"nothing left to release"`
 
@@ -432,25 +442,24 @@ Verifier submits a ZK location proof for a farmer.
 
 **Auth:** admin-only
 
-| Parameter | Type | Description |
-|---|---|---|
-| `farmer_id` | `Address` | Farmer's Stellar address |
-| `commitment` | `BytesN<32>` | SHA-256 commitment of location data |
-| `in_region` | `bool` | Must be `true` — prover attests point is in Northern Nigeria |
-| `nonce` | `u64` | Monotonically increasing per-farmer counter (replay protection) |
+| Parameter    | Type         | Description                                                     |
+| ------------ | ------------ | --------------------------------------------------------------- |
+| `farmer_id`  | `Address`    | Farmer's Stellar address                                        |
+| `commitment` | `BytesN<32>` | SHA-256 commitment of location data                             |
+| `in_region`  | `bool`       | Must be `true` — prover attests point is in Northern Nigeria    |
+| `nonce`      | `u64`        | Monotonically increasing per-farmer counter (replay protection) |
 
 **Returns:** `void`
 
 **Events emitted:** `loc_proof(farmer_id) → commitment`
 
 **Errors:**
+
 - `"location outside Northern Nigeria boundary"` — `in_region` is `false`
 - `"proof commitment already registered"` — duplicate commitment (replay)
 
 ```ts
-const commitment = sha256(
-  Buffer.concat([latI32BE, lonI32BE, farmerIdXdr, nonceBE])
-);
+const commitment = sha256(Buffer.concat([latI32BE, lonI32BE, farmerIdXdr, nonceBE]));
 await client.submit_proof({
   farmer_id: farmerAddress,
   commitment,
@@ -465,8 +474,8 @@ await client.submit_proof({
 
 Returns the proof entry for a commitment.
 
-| Parameter | Type | Description |
-|---|---|---|
+| Parameter    | Type         | Description                    |
+| ------------ | ------------ | ------------------------------ |
 | `commitment` | `BytesN<32>` | The commitment hash to look up |
 
 **Returns:** `Option<LocationProofEntry>`
@@ -482,8 +491,8 @@ const entry = await client.get_proof({ commitment });
 
 Returns `true` if the commitment is registered.
 
-| Parameter | Type | Description |
-|---|---|---|
+| Parameter    | Type         | Description         |
+| ------------ | ------------ | ------------------- |
 | `commitment` | `BytesN<32>` | Commitment to check |
 
 **Returns:** `bool`
@@ -508,17 +517,18 @@ Farmer registers a tree commitment. Panics if the same commitment already exists
 
 **Auth:** `farmer_id` (caller-auth — the farmer signs)
 
-| Parameter | Type | Description |
-|---|---|---|
-| `input.gps` | `String` | GPS coordinates, e.g. `"-1.2345,36.8219"` |
-| `input.timestamp` | `u64` | Unix timestamp (seconds) of the planting event |
-| `input.farmer_id` | `Address` | Farmer's Stellar address |
+| Parameter         | Type      | Description                                    |
+| ----------------- | --------- | ---------------------------------------------- |
+| `input.gps`       | `String`  | GPS coordinates, e.g. `"-1.2345,36.8219"`      |
+| `input.timestamp` | `u64`     | Unix timestamp (seconds) of the planting event |
+| `input.farmer_id` | `Address` | Farmer's Stellar address                       |
 
 **Returns:** `BytesN<32>` — the computed commitment hash
 
 **Events emitted:** `FarmerRegistered(farmer_id) → commitment`
 
 **Errors:**
+
 - `"commitment already registered: double-counting rejected"` — identical input submitted twice
 
 ```bash
@@ -544,9 +554,9 @@ const commitment = await client.register({
 
 Read-only. Computes the commitment hash without writing to storage. Useful for pre-computing before calling `register`.
 
-| Parameter | Type | Description |
-|---|---|---|
-| `input` | `TreeCommitmentInput` | Same as `register` |
+| Parameter | Type                  | Description        |
+| --------- | --------------------- | ------------------ |
+| `input`   | `TreeCommitmentInput` | Same as `register` |
 
 **Returns:** `BytesN<32>`
 
@@ -560,8 +570,8 @@ const hash = await client.compute_commitment({ input });
 
 Returns `true` if the commitment is already in the registry.
 
-| Parameter | Type | Description |
-|---|---|---|
+| Parameter    | Type         | Description         |
+| ------------ | ------------ | ------------------- |
 | `commitment` | `BytesN<32>` | Commitment to check |
 
 **Returns:** `bool`
@@ -572,8 +582,8 @@ Returns `true` if the commitment is already in the registry.
 
 Returns the full registry entry for a commitment.
 
-| Parameter | Type | Description |
-|---|---|---|
+| Parameter    | Type         | Description           |
+| ------------ | ------------ | --------------------- |
 | `commitment` | `BytesN<32>` | Commitment to look up |
 
 **Returns:** `Option<NullifierEntry>`
@@ -595,13 +605,13 @@ One-time setup. Configures the voting contract with token and registry addresses
 
 **Auth:** deployer (anyone, once)
 
-| Parameter | Type | Description |
-|---|---|---|
-| `admin` | `Address` | Admin address for contract management |
-| `tree_token` | `Address` | TREE token contract address |
-| `species_registry` | `Address` | Species registry contract address |
-| `voting_threshold` | `i128` | Minimum votes required (in token base units) |
-| `voting_period` | `u64` | Voting window in seconds (default 604800 = 7 days) |
+| Parameter          | Type      | Description                                        |
+| ------------------ | --------- | -------------------------------------------------- |
+| `admin`            | `Address` | Admin address for contract management              |
+| `tree_token`       | `Address` | TREE token contract address                        |
+| `species_registry` | `Address` | Species registry contract address                  |
+| `voting_threshold` | `i128`    | Minimum votes required (in token base units)       |
+| `voting_period`    | `u64`     | Voting window in seconds (default 604800 = 7 days) |
 
 **Returns:** `void`
 
@@ -625,18 +635,19 @@ Create a new species proposal.
 
 **Auth:** caller-auth (proposer)
 
-| Parameter | Type | Description |
-|---|---|---|
-| `slug` | `Symbol` | Short identifier (e.g., "mahogany") |
-| `name` | `String` | Human-readable name |
-| `co2_scaled` | `i128` | kg CO₂/year × 100 |
-| `maturity_years` | `u32` | Years to biomass maturity |
+| Parameter        | Type     | Description                         |
+| ---------------- | -------- | ----------------------------------- |
+| `slug`           | `Symbol` | Short identifier (e.g., "mahogany") |
+| `name`           | `String` | Human-readable name                 |
+| `co2_scaled`     | `i128`   | kg CO₂/year × 100                   |
+| `maturity_years` | `u32`    | Years to biomass maturity           |
 
 **Returns:** `void`
 
 **Events emitted:** `proposal(created) → (id, slug, name)`
 
 **Errors:**
+
 - `"co2_scaled must be positive"` — `co2_scaled ≤ 0`
 - `"maturity_years must be > 0"` — `maturity_years = 0`
 
@@ -657,16 +668,17 @@ Vote on a proposal. Voting power is proportional to TREE token holdings.
 
 **Auth:** caller-auth (voter)
 
-| Parameter | Type | Description |
-|---|---|---|
-| `proposal_id` | `u64` | Proposal to vote on |
-| `vote_for` | `bool` | true to vote for, false to vote against |
+| Parameter     | Type   | Description                             |
+| ------------- | ------ | --------------------------------------- |
+| `proposal_id` | `u64`  | Proposal to vote on                     |
+| `vote_for`    | `bool` | true to vote for, false to vote against |
 
 **Returns:** `void`
 
 **Events emitted:** `vote(proposal_id) → (voter, vote_for, power)`
 
 **Errors:**
+
 - `"proposal not found"` — Invalid proposal ID
 - `"proposal is not active"` — Proposal already closed
 - `"voting period has ended"` — Past voting deadline
@@ -688,8 +700,8 @@ Execute a passed proposal to register the species in the species registry.
 
 **Auth:** caller-auth (anyone)
 
-| Parameter | Type | Description |
-|---|---|---|
+| Parameter     | Type  | Description         |
+| ------------- | ----- | ------------------- |
 | `proposal_id` | `u64` | Proposal to execute |
 
 **Returns:** `void`
@@ -697,6 +709,7 @@ Execute a passed proposal to register the species in the species registry.
 **Events emitted:** `proposal(executed) → (proposal_id, slug)`
 
 **Errors:**
+
 - `"proposal not found"` — Invalid proposal ID
 - `"proposal has not passed"` — Proposal didn't meet threshold
 
@@ -712,8 +725,8 @@ await client.execute_proposal({
 
 Read-only. Returns the full proposal record.
 
-| Parameter | Type | Description |
-|---|---|---|
+| Parameter     | Type  | Description            |
+| ------------- | ----- | ---------------------- |
 | `proposal_id` | `u64` | Proposal ID to look up |
 
 **Returns:** `ProposalRecord`
@@ -732,10 +745,10 @@ const proposal = await client.get_proposal({ proposal_id: 1 });
 
 Read-only. Returns a voter's record for a proposal.
 
-| Parameter | Type | Description |
-|---|---|---|
-| `proposal_id` | `u64` | Proposal ID |
-| `voter` | `Address` | Voter address |
+| Parameter     | Type      | Description   |
+| ------------- | --------- | ------------- |
+| `proposal_id` | `u64`     | Proposal ID   |
+| `voter`       | `Address` | Voter address |
 
 **Returns:** `Option<VoteRecord>`
 
@@ -787,11 +800,11 @@ await client.update_voting_period({
 
 ## Required Secrets (GitHub Actions / Deployment)
 
-| Secret | Used by |
-|---|---|
+| Secret                    | Used by                                                   |
+| ------------------------- | --------------------------------------------------------- |
 | `TESTNET_DEPLOYER_SECRET` | `contracts.yml` — Stellar keypair for deploying contracts |
-| `VERCEL_TOKEN` | `deploy.yml` |
-| `VERCEL_ORG_ID` | `deploy.yml` |
-| `VERCEL_PROJECT_ID` | `deploy.yml` |
+| `VERCEL_TOKEN`            | `deploy.yml`                                              |
+| `VERCEL_ORG_ID`           | `deploy.yml`                                              |
+| `VERCEL_PROJECT_ID`       | `deploy.yml`                                              |
 
 Contract IDs after testnet deployment are printed to the GitHub Actions job summary and must be set as `NEXT_PUBLIC_CONTRACT_*` environment variables.

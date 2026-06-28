@@ -366,6 +366,6 @@ stellar transaction info $TX_HASH --network testnet
 
 **Status: ✅ COMPLETE - READY FOR REVIEW AND TESTING**
 
-*Optimized with senior-level expertise*  
-*No shortcuts, production-quality code*  
-*Comprehensive documentation included*
+_Optimized with senior-level expertise_  
+_No shortcuts, production-quality code_  
+_Comprehensive documentation included_
