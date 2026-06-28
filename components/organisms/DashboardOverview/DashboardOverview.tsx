@@ -6,6 +6,7 @@ import { useUserDashboard } from '@/hooks/useUserDashboard';
 import { StatCard, StatCardSkeleton } from './StatCard';
 import { RecentActivity, RecentActivitySkeleton } from './RecentActivity';
 import { QuickActions } from './QuickActions';
+import { TreeClusterMap } from './TreeClusterMap';
 import { AnalyticsWidget, type ChartDataPoint } from '@/components/AnalyticsWidget';
 import { Text } from '@/components/atoms/Text';
 import { Button } from '@/components/atoms/Button';
@@ -100,6 +101,18 @@ export function DashboardOverview() {
     <div className="space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-700">
       <section>
         <PlatformImpact />
+      </section>
+
+      <section className="space-y-8">
+        <div className="flex flex-col space-y-2 border-t pt-8">
+          <Text variant="h2" className="text-3xl font-black tracking-tight">
+            Verified Plantings Map
+          </Text>
+          <Text variant="muted" className="text-lg font-medium opacity-70">
+            See verified tree plantings across the network with cluster zoom and species overlays.
+          </Text>
+        </div>
+        <TreeClusterMap />
       </section>
 
       <section className="space-y-8">
