@@ -88,6 +88,7 @@ function aggregate(
  * Returns a zero-impact object (not a 404) when the sponsor has no records.
  */
 export async function getSponsorImpact(sponsor: string): Promise<SponsorImpact> {
+  await Promise.resolve();
   const cacheKey = `carbon-impact:${sponsor}`;
   const cached = cacheGet<SponsorImpact>(cacheKey);
   if (cached) return cached;

@@ -108,7 +108,7 @@ impl TreeToken {
         env.storage().persistent().set(&key, &record);
         env.storage()
             .instance()
-            .set(&symbol_short!("BURNCOUNT"), &(count + 1));
+            .set(&symbol_short!("BURNCOUNT"), &count.checked_add(1).expect("burn count overflow"));
 
         // Emit TokenBurned event — primary ESG audit signal
         env.events()

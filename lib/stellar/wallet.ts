@@ -104,17 +104,12 @@ export function connectAlbedo(network: NetworkType): Promise<string> {
   });
 }
 
-export function connectXBull(network: NetworkType): Promise<string> {
+export function connectXBull(_network: NetworkType): Promise<string> {
   if (typeof window === 'undefined') {
     throw new Error('xBull wallet can only be accessed in the browser');
   }
 
   return new Promise((resolve, reject) => {
-    const networkPassphrase =
-      network === 'mainnet'
-        ? 'Public Global Stellar Network ; September 2015'
-        : 'Test SDF Network ; September 2015';
-
     // Check if xBull is installed
     if (!(window as any).xbull) {
       reject(new Error('xBull wallet extension not found. Please install it.'));
@@ -136,7 +131,7 @@ export function connectXBull(network: NetworkType): Promise<string> {
             );
           }
         });
-    } catch (error) {
+    } catch {
       reject(new Error('Failed to connect to xBull wallet'));
     }
   });

@@ -35,7 +35,7 @@ export function LandingHero() {
         </Button>
 
         <Button variant="outline" asChild>
-          <Link href="/farmer/verification">Register as Planter</Link>
+          <Link href="/planter/register">Register as Planter</Link>
         </Button>
       </div>
     </section>

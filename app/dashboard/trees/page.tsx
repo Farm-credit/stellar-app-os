@@ -1,52 +1,47 @@
-'use client';
-
+import { type Metadata } from 'next';
 import { Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
-import { Text } from '@/components/atoms/Text';
-import { SponsorTreeList } from '@/components/organisms/SponsorTreeList';
-import type { TreeFilterState, TreeSpecies, TreeStatus } from '@/lib/types/tree';
-import { TreePine } from 'lucide-react';
+import { MyForestDashboardPage } from './MyForestDashboardPage';
 
-function parseFiltersFromParams(searchParams: URLSearchParams): Partial<TreeFilterState> {
-  const species = searchParams.get('species');
-  const region = searchParams.get('region');
-  const status = searchParams.get('status');
+export const metadata: Metadata = {
+  title: 'My Forest | Dashboard',
+  description:
+    'View and manage all of your sponsored trees — status badges, species breakdown, CO₂ offset, and links to individual tree detail pages.',
+};
 
-  return {
-    search: searchParams.get('search') || '',
-    species: (species as TreeSpecies) || 'all',
-    region: region || 'all',
-    status: (status as TreeStatus) || 'all',
-  };
-}
-
-function SponsorTreesPageContent() {
-  const searchParams = useSearchParams();
-  const initialFilters = parseFiltersFromParams(searchParams);
-
-  return (
-    <div className="container mx-auto max-w-6xl px-4 py-6 sm:py-8">
-      <header className="mb-6 sm:mb-8">
-        <div className="mb-2 flex items-center gap-2">
-          <TreePine className="h-6 w-6 text-stellar-green" aria-hidden />
-          <Text variant="h2" as="h1" className="text-2xl sm:text-3xl">
-            My Trees
-          </Text>
-        </div>
-        <Text variant="muted" as="p">
-          Search and filter your sponsored trees by species, region, and planting status.
-        </Text>
-      </header>
-
-      <SponsorTreeList initialFilters={initialFilters} />
-    </div>
-  );
-}
-
+/**
+ * Route: /dashboard/trees
+ * Renders the sponsor "My Forest" dashboard page (Issue #525).
+ */
 export default function SponsorTreesPage() {
   return (
-    <Suspense fallback={<div className="container mx-auto px-4 py-8">Loading...</div>}>
-      <SponsorTreesPageContent />
-    </Suspense>
+    <main
+      className="min-h-screen bg-background pt-24 pb-16 px-4 md:px-8 lg:px-12"
+      aria-label="My Forest dashboard"
+    >
+      <div className="max-w-7xl mx-auto">
+        {/*
+         * Suspense wrapper is required because MyForestDashboardPage reads
+         * URL search params via useSearchParams() (a client-side hook that
+         * suspends during server rendering).
+         */}
+        <Suspense
+          fallback={
+            <div
+              className="flex items-center justify-center min-h-[400px]"
+              role="status"
+              aria-live="polite"
+              aria-label="Loading your forest"
+            >
+              <div className="flex flex-col items-center gap-4">
+                <div className="h-12 w-12 rounded-2xl bg-stellar-green/10 animate-pulse" />
+                <p className="text-sm text-muted-foreground font-medium">Loading your forest…</p>
+              </div>
+            </div>
+          }
+        >
+          <MyForestDashboardPage />
+        </Suspense>
+      </div>
+    </main>
   );
 }

@@ -21,8 +21,8 @@ interface WaitlistRow {
  * Returns the current status of a waitlist entry — useful for sponsors
  * to check their position and updated estimated wait time.
  */
-export async function GET(_request: Request, { params }: { params: { id: string } }) {
-  const { id } = params;
+export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
 
   if (!id) {
     return NextResponse.json({ error: 'Missing waitlist id' }, { status: 400 });

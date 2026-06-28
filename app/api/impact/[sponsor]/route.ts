@@ -21,13 +21,13 @@ import { getSponsorImpact, isValidStellarAddress } from '@/lib/api/carbon-impact
 
 export const runtime = 'nodejs';
 
-interface RouteParams {
-  params: { sponsor: string };
-}
-
-export async function GET(_request: NextRequest, { params }: RouteParams) {
+export async function GET(
+  _request: NextRequest,
+  { params }: { params: Promise<{ sponsor: string }> }
+) {
   try {
-    const sponsor = params.sponsor?.trim() ?? '';
+    const { sponsor: rawSponsor } = await params;
+    const sponsor = rawSponsor?.trim() ?? '';
 
     if (!sponsor) {
       return NextResponse.json({ error: 'sponsor address is required' }, { status: 400 });

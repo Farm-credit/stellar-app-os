@@ -134,7 +134,7 @@ impl AggregateImpactVerifier {
         env.storage().persistent().set(&idx_key, &proof_digest);
         env.storage()
             .instance()
-            .set(&symbol_short!("COUNT"), &(count + 1));
+            .set(&symbol_short!("COUNT"), &count.checked_add(1).expect("count overflow"));
 
         env.events().publish(
             (symbol_short!("aggProof"), stats.period_start),

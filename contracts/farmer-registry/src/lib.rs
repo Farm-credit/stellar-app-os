@@ -123,7 +123,7 @@ impl FarmerRegistry {
         // Increment version counter
         let version_key = Self::version_counter_key(&env, &wallet_address);
         let old_version: u32 = env.storage().persistent().get(&version_key).unwrap_or(0u32);
-        let new_version = old_version + 1;
+        let new_version = old_version.checked_add(1).expect("version counter overflow");
         env.storage().persistent().set(&version_key, &new_version);
 
         // Archive old profile under (wallet_address, old_version)

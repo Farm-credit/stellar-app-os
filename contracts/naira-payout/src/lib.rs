@@ -155,7 +155,7 @@ impl NairaPayout {
             .get(&daily_total_key)
             .unwrap_or((0, 0));
 
-        let current_day = now / 86400;
+        let current_day = now.checked_div(86400).expect("day calculation overflow");
         if current_day > last_reset_day {
             current_total = 0;
         }
@@ -200,7 +200,7 @@ impl NairaPayout {
         env.storage().persistent().set(&last_payout_key, &now);
         env.storage().instance().set(
             &daily_total_key,
-            &(current_total + usdc_amount, current_day),
+            &(current_total.checked_add(usdc_amount).expect("daily total update overflow"), current_day),
         );
 
         env.events().publish(
@@ -281,7 +281,7 @@ impl NairaPayout {
         let now = env.ledger().timestamp();
         env.storage().instance().set(
             &Symbol::new(&env, "DailyPayoutTotal"),
-            &(0i128, now / 86400),
+            &(0i128, now.checked_div(86400).expect("day calculation overflow")),
         );
     }
 

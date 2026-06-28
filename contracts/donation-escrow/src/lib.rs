@@ -106,7 +106,7 @@ impl DonationEscrow {
             .get(&symbol_short!("BATCHSEQ"))
             .unwrap();
 
-        let next_seq = seq + 1;
+        let next_seq = seq.checked_add(1).expect("sequence counter overflow");
 
         env.storage()
             .instance()
@@ -147,7 +147,7 @@ impl DonationEscrow {
             .get(&symbol_short!("BATCHSEQ"))
             .unwrap();
 
-        let next_batch = batch_id + 1;
+        let next_batch = batch_id.checked_add(1).expect("batch counter overflow");
 
         env.storage()
             .instance()
@@ -278,7 +278,8 @@ impl DonationEscrow {
             .instance()
             .get(&symbol_short!("RECSEQ"))
             .unwrap_or(0u64)
-            + 1;
+            .checked_add(1)
+            .expect("recurring sequence counter overflow");
 
         env.storage().instance().set(&symbol_short!("RECSEQ"), &id);
 
@@ -295,7 +296,7 @@ impl DonationEscrow {
             project_id,
             amount_per_interval,
             interval_seconds,
-            next_release: env.ledger().timestamp() + interval_seconds,
+            next_release: env.ledger().timestamp().checked_add(interval_seconds).expect("next release time overflow"),
             total_released: 0,
             cancelled: false,
         };
@@ -337,8 +338,8 @@ impl DonationEscrow {
             &rec.amount_per_interval,
         );
 
-        rec.next_release += rec.interval_seconds;
-        rec.total_released += rec.amount_per_interval;
+        rec.next_release = rec.next_release.checked_add(rec.interval_seconds).expect("next release time overflow");
+        rec.total_released = rec.total_released.checked_add(rec.amount_per_interval).expect("total released overflow");
 
         env.storage().persistent().set(&key, &rec);
 

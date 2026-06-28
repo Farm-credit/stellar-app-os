@@ -3,7 +3,7 @@
 import { type JSX, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { X, Home, FolderOpen, ShoppingBag, LayoutDashboard } from 'lucide-react';
+import { X, Home, FolderOpen, ShoppingBag, LayoutDashboard, History } from 'lucide-react';
 import { Button } from '@/components/atoms/Button';
 import { Text } from '@/components/atoms/Text';
 import { useWalletContext } from '@/contexts/WalletContext';
@@ -21,6 +21,7 @@ const NAV_LINKS = [
   { href: '/', labelKey: 'nav.home', icon: Home },
   { href: '/projects', labelKey: 'nav.projects', icon: FolderOpen },
   { href: '/marketplace', labelKey: 'nav.marketplace', icon: ShoppingBag },
+  { href: '/transactions', labelKey: 'nav.transactions', icon: History },
   { href: '/dashboard', labelKey: 'nav.dashboard', icon: LayoutDashboard },
 ] as const;
 

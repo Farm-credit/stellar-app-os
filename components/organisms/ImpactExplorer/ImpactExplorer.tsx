@@ -6,7 +6,12 @@ import { ImpactStatCard } from '@/components/atoms/ImpactStatCard';
 import { TreeFilterBar } from '@/components/molecules/TreeFilterBar';
 import { Text } from '@/components/atoms/Text';
 import { ImpactMapClient } from '@/components/organisms/ImpactMap/ImpactMapClient';
-import { IMPACT_DATA } from '@/lib/api/impactData';
+import {
+  IMPACT_DATA,
+  toRegionMarkers,
+  type LiveRegionAggregate,
+  type RegionMarker,
+} from '@/lib/api/impactData';
 import { fetchPublicTrees } from '@/lib/api/trees';
 import type { Tree, TreeFilterState, TreeSpecies, TreeStatus } from '@/lib/types/tree';
 
@@ -22,8 +27,9 @@ const DEFAULT_FILTERS: TreeFilterState = {
  * Requirements: Issue #539
  */
 export function ImpactExplorer() {
-  const { stats, regions } = IMPACT_DATA;
+  const { stats } = IMPACT_DATA;
   const [filters, setFilters] = useState<TreeFilterState>(DEFAULT_FILTERS);
+  const [regions, setRegions] = useState<RegionMarker[]>(IMPACT_DATA.regions);
   const [trees, setTrees] = useState<Tree[]>([]);
   const [speciesOptions, setSpeciesOptions] = useState<TreeSpecies[]>([]);
   const [regionOptions, setRegionOptions] = useState<string[]>([]);
@@ -46,6 +52,35 @@ export function ImpactExplorer() {
   useEffect(() => {
     void loadTrees(filters);
   }, [filters, loadTrees]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadRegions = async () => {
+      try {
+        const response = await fetch('/api/map/regions');
+        if (!response.ok) {
+          throw new Error(`Region request failed: ${response.status}`);
+        }
+
+        const data = (await response.json()) as { regions?: LiveRegionAggregate[] };
+        if (!isMounted) return;
+
+        setRegions(data.regions?.length ? toRegionMarkers(data.regions) : IMPACT_DATA.regions);
+      } catch (error) {
+        console.error('[ImpactExplorer] Unable to load live region data:', error);
+        if (isMounted) {
+          setRegions(IMPACT_DATA.regions);
+        }
+      }
+    };
+
+    void loadRegions();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const updateFilters = useCallback((partial: Partial<TreeFilterState>) => {
     setFilters((prev) => ({ ...prev, ...partial }));

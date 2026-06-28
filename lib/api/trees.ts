@@ -38,7 +38,7 @@ export function fetchPublicTrees(filters: TreeFilterState): Promise<TreesRespons
   return fetchTrees(filters);
 }
 
-export async function fetchTreeById(id: string) {
+export async function fetchTreeById(id: string): Promise<Tree | null> {
   const res = await fetch(`/api/trees/${encodeURIComponent(id)}`);
   if (!res.ok) {
     if (res.status === 404) return null;
