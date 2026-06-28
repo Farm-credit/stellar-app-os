@@ -73,6 +73,13 @@ pub enum HarvestaError {
     // CompletionPercentageOutOfRange = 45,
     // TotalReleasedExceedsMilestone = 46,
 
+    // ── Aggregate Impact Verifier (55–59) ─────────────────────────────────────
+    FarmCountMustBePositive = 55,
+    PeriodEndBeforeStart = 56,
+    ProofDigestAlreadyRegistered = 57,
+    ProofNotFound = 58,
+    ProofAlreadyRevoked = 59,
+
     // ── Species registry (62–64) ──────────────────────────────────────────────
     Co2MustBePositive = 62,
     MaturityYearsMustBePositive = 63,
