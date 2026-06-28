@@ -5,7 +5,7 @@
  * species catalogue. Voting power is proportional to TREE token holdings.
  */
 
-import { TransactionBuilder, Operation, BASE_FEE } from '@stellar/stellar-sdk';
+import { TransactionBuilder, Operation, BASE_FEE, xdr } from '@stellar/stellar-sdk';
 import { Horizon } from '@stellar/stellar-sdk';
 import type { NetworkType } from '@/lib/types/wallet';
 import { networkConfig } from '@/lib/config/network';
@@ -91,24 +91,19 @@ export async function buildProposeSpeciesTransaction(
   const networkPassphrase = networkConfig.networkPassphrase;
 
   // TODO: Replace with actual Soroban contract invocation
-  // This is a placeholder - actual implementation will use soroban-sdk
   const transaction = new TransactionBuilder(proposerAccount, {
     fee: BASE_FEE,
     networkPassphrase,
   })
     .addOperation(
       Operation.invokeHostFunction({
-        func: {
-          args: [
-            // Contract function args will go here
-          ],
-          auth: [],
-        },
-        hostFunction: {
-          type: 'invokeContract',
-          contractId: getSpeciesVotingContract(network),
-          functionName: 'propose_species',
-        },
+        func: xdr.HostFunction.hostFunctionTypeInvokeContract(
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          { contractAddress: xdr.ScAddress.scAddressTypeContract(Buffer.alloc(32)),
+            functionName: 'propose_species',
+            args: [] } as any
+        ),
+        auth: [],
       })
     )
     .setTimeout(300)
@@ -147,15 +142,13 @@ export async function buildVoteTransaction(
   })
     .addOperation(
       Operation.invokeHostFunction({
-        func: {
-          args: [],
-          auth: [],
-        },
-        hostFunction: {
-          type: 'invokeContract',
-          contractId: getSpeciesVotingContract(network),
-          functionName: 'vote',
-        },
+        func: xdr.HostFunction.hostFunctionTypeInvokeContract(
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          { contractAddress: xdr.ScAddress.scAddressTypeContract(Buffer.alloc(32)),
+            functionName: 'vote',
+            args: [] } as any
+        ),
+        auth: [],
       })
     )
     .setTimeout(300)
@@ -192,15 +185,13 @@ export async function buildExecuteProposalTransaction(
   })
     .addOperation(
       Operation.invokeHostFunction({
-        func: {
-          args: [],
-          auth: [],
-        },
-        hostFunction: {
-          type: 'invokeContract',
-          contractId: getSpeciesVotingContract(network),
-          functionName: 'execute_proposal',
-        },
+        func: xdr.HostFunction.hostFunctionTypeInvokeContract(
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          { contractAddress: xdr.ScAddress.scAddressTypeContract(Buffer.alloc(32)),
+            functionName: 'execute_proposal',
+            args: [] } as any
+        ),
+        auth: [],
       })
     )
     .setTimeout(300)

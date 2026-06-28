@@ -1,5 +1,5 @@
 import { hexToBytes } from '@noble/hashes/utils';
-import * as ed25519 from '@noble/curves/ed25519';
+import { ed25519 } from '@noble/curves/ed25519';
 import { invokeSurvivalVerification } from '@/lib/stellar/survival-verifier-client';
 import type { NdviSubmissionRequest, NdviSubmissionResponse } from '@/lib/types/oracle';
 

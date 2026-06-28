@@ -15,24 +15,24 @@ import { getSponsorImpact, isValidStellarAddress } from '@/lib/api/carbon-impact
 
 // ── mock heavy stellar imports ────────────────────────────────────────────────
 
-jest.mock('@/lib/stellar/tree-asset', () => ({
+vi.mock('@/lib/stellar/tree-asset', () => ({
   CO2_KG_PER_TREE: 48,
   TREE_ISSUER_TESTNET: 'G_MOCK_ISSUER',
-  getTreeAsset: jest.fn(),
-  getTreeExplorerUrl: jest.fn(),
+  getTreeAsset: vi.fn(),
+  getTreeExplorerUrl: vi.fn(),
   TREE_ISSUER_MAINNET: '',
   TREE_DISTRIBUTOR_TESTNET: '',
 }));
 
-jest.mock('@/lib/config/network', () => ({
+vi.mock('@/lib/config/network', () => ({
   networkConfig: { horizonUrl: 'https://horizon-testnet.stellar.org', networkPassphrase: 'Test' },
 }));
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
 /** A valid 56-char Stellar public key for tests */
-const VALID_ADDRESS = 'GAAZI4TCR3TY5OJHCTJC2A4QSY6CJWJH5IAJTGKIN2ER7LBNVKOCCWN';
-const VALID_ADDRESS_2 = 'GBSJ7KFU2NXACVHVN2VWQIXIV5FWH6A423YVXAGKJUOTNUVWD5CMKEZ';
+const VALID_ADDRESS = 'GAAZI4TCR3TY5OJHCTJC2A4QSY6CJWJH5IAJTGKIN2ER7LBNVKOCCWNZ';
+const VALID_ADDRESS_2 = 'GBSJ7KFU2NXACVHVN2VWQIXIV5FWH6A423YVXAGKJUOTNUVWD5CMKEZZ';
 
 beforeEach(() => cacheClear());
 

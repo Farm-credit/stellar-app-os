@@ -2,7 +2,9 @@ import { NextResponse } from 'next/server';
 import { buildAndSubmitEscrowRelease } from '@/lib/stellar/escrow';
 import type { MilestoneReleaseRequest } from '@/lib/types/escrow';
 
-function validateVerification(verification: MilestoneReleaseRequest['verification']): string | null {
+function validateVerification(
+  verification: MilestoneReleaseRequest['verification']
+): string | null {
   const { gpsCoordinates, photoBase64, photoMimeType } = verification;
 
   if (
@@ -33,14 +35,8 @@ export async function POST(request: Request) {
       totalAmountUsdc: number;
     };
 
-    const {
-      loanId,
-      farmerWalletAddress,
-      escrowSecretKey,
-      network,
-      verification,
-      totalAmountUsdc,
-    } = body;
+    const { loanId, farmerWalletAddress, escrowSecretKey, network, verification, totalAmountUsdc } =
+      body;
 
     if (!loanId || !farmerWalletAddress || !escrowSecretKey || !network || !totalAmountUsdc) {
       return NextResponse.json({ error: 'Missing required parameters' }, { status: 400 });

@@ -8,8 +8,7 @@ import { WalletProviderWrapper } from '@/components/providers/WalletProviderWrap
 import { FavoritesProvider } from '@/contexts/FavouritesContext';
 import './globals.css';
 
-const siteUrl =
-  process.env.NEXT_PUBLIC_SITE_URL ?? 'https://farmcredit.app';
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://farmcredit.app';
 const siteName = 'FarmCredit';
 const siteDescription = 'FarmCredit - Decentralized agricultural credit on Stellar';
 const ogImage = '/icons/icon-512x512.png';
