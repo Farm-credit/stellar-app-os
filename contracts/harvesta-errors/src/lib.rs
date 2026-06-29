@@ -73,6 +73,15 @@ pub enum HarvestaError {
     CompletionPercentageOutOfRange = 45,
     TotalReleasedExceedsMilestone = 46,
 
+    // ── Carbon marketplace (47–53) ───────────────────────────────────────────
+    ListingAmountMustBePositive = 47,
+    PriceMustBePositive = 48,
+    BuyAmountMustBePositive = 49,
+    ListingNotFound = 50,
+    ListingNotActive = 51,
+    SelfTrade = 52,
+    InsufficientLiquidity = 53,
+
     // ── Aggregate Impact Verifier (55–59) ─────────────────────────────────────
     FarmCountMustBePositive = 55,
     PeriodEndBeforeStart = 56,
@@ -92,7 +101,7 @@ pub enum HarvestaError {
     // ── KYC / attestation (90) ────────────────────────────────────────────────
     NotVerifier = 90,
 
-    // ── Naira payout (91–98) ──────────────────────────────────────────────────
+    // ── Naira payout (91–97) ──────────────────────────────────────────────────
     ExpectedNgnMustBePositive = 91,
     PayoutIntervalTooShort = 92,
     MaxDailyPayoutExceeded = 93,
@@ -100,4 +109,32 @@ pub enum HarvestaError {
     PayoutNotFound = 95,
     PayoutNotPending = 96,
     CanOnlyCancelPending = 97,
+
+    // ── Donation escrow (65–74) ───────────────────────────────────────────────
+    UnsupportedToken = 65,
+    AlreadyProcessed = 66,
+    AmountPerIntervalMustBePositive = 67,
+    IntervalSecondsMustBePositive = 68,
+    RecurringDonationNotFound = 69,
+    DonationCancelled = 70,
+    IntervalNotElapsed = 71,
+    ProjectNotRegistered = 72,
+    NotDonor = 73,
+    DonationAlreadyCancelled = 74,
+
+    // ── Location proof / ZK verifier (75–79) ──────────────────────────────────
+    OutsideNigeriaRegion = 75,
+    ProofCommitmentAlreadyRegistered = 76,
+    CommitmentAlreadySubmitted = 77,
+    CommitmentNotFound = 78,
+    CommitmentNotPending = 79,
+
+    // ── Nullifier registry (82) ───────────────────────────────────────────────
+    CommitmentAlreadyRegistered = 82,
+
+    // ── Verifier staking (85–88) ──────────────────────────────────────────────
+    MinStakeMustBePositive = 85,
+    InsufficientStake = 86,
+    VerifierNotStaked = 87,
+    SlashExceedsStake = 88,
 }
