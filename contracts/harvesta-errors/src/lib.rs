@@ -6,8 +6,6 @@
 //! instead of raw string panics.  Error codes are stable u32 values embedded in
 //! the Stellar XDR so off-chain tooling can parse them without string matching.
 //!
-//! NOTE: Error count reduced to stay within Soroban SDK limits.
-//! Only essential errors for current contracts are included.
 
 use soroban_sdk::contracterror;
 
