@@ -66,7 +66,7 @@ pub enum HarvestaError {
     // DisputeAlreadyOpen = 38,
     // NoOpenDispute = 39,
     // EscrowAlreadyFinalised = 40,
-    // NotArbiter = 41,
+    NotArbiter = 41,
     // NotBuyerOrSeller = 42,
     // MilestoneReleaseBlocked = 43,
     // MilestoneAlreadyProcessed = 44,

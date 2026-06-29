@@ -197,6 +197,15 @@ pub struct PlanterReputation {
     pub average_rating: u32, // Calculated as sum / total (scaled to 0-100)
 }
 
+/// Registered arbiter record — a trusted third party that can override
+/// verification results and resolve locked disputes (#649).
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct ArbiterRecord {
+    pub arbiter: Address,
+    pub registered_at: u64,
+}
+
 // ── Storage keys ──────────────────────────────────────────────────────────────
 
 #[contracttype]
@@ -221,6 +230,8 @@ enum DataKey {
     Dispute(u64),
     /// DAO members authorised to arbitrate disputes
     DaoMembers,
+    /// Registered arbiter address (#649)
+    Arbiter,
 }
 
 // ── Contract ──────────────────────────────────────────────────────────────────
@@ -1166,6 +1177,109 @@ impl TreeEscrow {
         Self::dispute_is_open(&env, tree_id)
     }
 
+    // ── Arbiter dispute resolution (#649) ─────────────────────────────────────
+
+    /// Admin registers a trusted third-party arbiter.
+    /// Only one arbiter is active at a time; calling again replaces the previous one.
+    pub fn register_arbiter(env: Env, arbiter: Address) {
+        let (admin, _tree_token, _decimals) = Self::admin_tree(&env);
+        admin.require_auth();
+
+        let record = ArbiterRecord {
+            arbiter: arbiter.clone(),
+            registered_at: env.ledger().timestamp(),
+        };
+        env.storage().instance().set(&DataKey::Arbiter, &record);
+
+        env.events()
+            .publish((symbol_short!("arbReg"), arbiter), ());
+    }
+
+    /// Returns the currently registered arbiter record, if any.
+    pub fn get_arbiter(env: Env) -> Option<ArbiterRecord> {
+        env.storage().instance().get(&DataKey::Arbiter)
+    }
+
+    /// Arbiter overrides the verification result for a single-donor escrow,
+    /// moving a locked/Planted escrow back to Funded so a refund can proceed,
+    /// or forcing it to Completed so the remaining balance is released.
+    ///
+    /// * `tree_released` — `true` to release remaining funds to the farmer
+    ///   (treats as completed); `false` to revert to Funded so the donor can
+    ///   reclaim via `refund`.
+    pub fn arbiter_override(env: Env, arbiter: Address, farmer: Address, tree_released: bool) {
+        arbiter.require_auth();
+        Self::assert_is_arbiter(&env, &arbiter);
+
+        let key = DataKey::Escrow(farmer.clone());
+        let mut rec: EscrowRecord = env
+            .storage()
+            .persistent()
+            .get(&key)
+            .unwrap_or_else(|| panic_with_error!(&env, HarvestaError::EscrowNotFound));
+
+        if rec.status == EscrowStatus::Completed || rec.status == EscrowStatus::Refunded {
+            panic!("escrow already finalised");
+        }
+
+        if tree_released {
+            // Release remaining balance to farmer
+            let remaining = rec.total_amount.checked_sub(rec.released).expect("underflow");
+            if remaining > 0 {
+                token::Client::new(&env, &rec.token).transfer(
+                    &env.current_contract_address(),
+                    &rec.farmer,
+                    &remaining,
+                );
+                rec.released = rec.total_amount;
+            }
+            rec.status = EscrowStatus::Completed;
+        } else {
+            // Revert to Funded so donor may call refund
+            rec.status = EscrowStatus::Funded;
+        }
+
+        env.storage().persistent().set(&key, &rec);
+
+        env.events()
+            .publish((symbol_short!("arbOvrd"), farmer), tree_released);
+    }
+
+    /// Arbiter resolves a co-funded tree dispute, bypassing the DAO vote
+    /// requirement. Sets the dispute outcome directly and unblocks or
+    /// permanently locks fund release for `tree_id`.
+    ///
+    /// * `uphold` — `true` to uphold the verification (release can proceed);
+    ///   `false` to overturn it (funds remain locked for contributor refund).
+    pub fn arbiter_resolve(env: Env, arbiter: Address, tree_id: u64, uphold: bool) {
+        arbiter.require_auth();
+        Self::assert_is_arbiter(&env, &arbiter);
+
+        let dispute_key = DataKey::Dispute(tree_id);
+        let mut dispute: DisputeRecord = env
+            .storage()
+            .persistent()
+            .get(&dispute_key)
+            .expect("no dispute for tree");
+
+        if dispute.resolved {
+            panic!("dispute already resolved");
+        }
+
+        let outcome = if uphold {
+            DisputeOutcome::VerificationUpheld
+        } else {
+            DisputeOutcome::VerificationOverturned
+        };
+
+        dispute.resolved = true;
+        dispute.outcome = outcome.clone();
+        env.storage().persistent().set(&dispute_key, &dispute);
+
+        env.events()
+            .publish((symbol_short!("arbRes"), tree_id), outcome);
+    }
+
     // ── Whitelist management ──────────────────────────────────────────────────
 
     /// Add `addr` to the contract whitelist. Restricted to admin.
@@ -1238,6 +1352,17 @@ impl TreeEscrow {
             }
         }
         false
+    }
+
+    fn assert_is_arbiter(env: &Env, address: &Address) {
+        let record: ArbiterRecord = env
+            .storage()
+            .instance()
+            .get(&DataKey::Arbiter)
+            .unwrap_or_else(|| panic_with_error!(env, HarvestaError::NotArbiter));
+        if record.arbiter != *address {
+            panic_with_error!(env, HarvestaError::NotArbiter);
+        }
     }
 
     fn is_paused(env: &Env) -> bool {
