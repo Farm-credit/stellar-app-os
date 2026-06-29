@@ -7,8 +7,10 @@ import type {
   BulkPurchaseResult,
 } from '@/lib/types/carbon';
 import { calculateDonationAllocation } from '@/lib/constants/donation';
+import { getActivePlantersForRegion } from '@/lib/constants/region-planters';
 import { networkConfig } from '@/lib/config/network';
 import { getTreeAsset } from './tree-asset';
+import type { RegionAllocation } from '@/lib/types/donor';
 
 // Re-export so callers can import TREE asset helper from this module
 export { getTreeAsset };
@@ -148,7 +150,8 @@ export async function buildDonationTransaction(
   sourcePublicKey: string,
   network: NetworkType,
   idempotencyKey: string,
-  treeCount = 1
+  treeCount = 1,
+  regionAllocations?: RegionAllocation[]
 ): Promise<{ transactionXdr: string; networkPassphrase: string }> {
   if (amount <= 0) {
     throw new Error('Donation amount must be greater than zero');
@@ -167,24 +170,45 @@ export async function buildDonationTransaction(
     networkPassphrase,
   });
 
-  // Add two operations per tree: 70% planting + 30% buffer
-  for (let i = 0; i < treeCount; i++) {
-    const { planting, buffer } = calculateDonationAllocation(amount);
-    builder
-      .addOperation(
-        Operation.payment({
-          destination: PLANTING_ADDRESS,
-          asset: usdcAsset,
-          amount: planting.toFixed(7),
-        })
+  const normalizedRegionAllocations = (regionAllocations ?? []).filter(
+    (allocation) => allocation.treeCount > 0
+  );
+
+  const regionTreeSlots = normalizedRegionAllocations.length > 0
+    ? normalizedRegionAllocations.flatMap((allocation) =>
+        Array.from({ length: allocation.treeCount }, () => allocation)
       )
-      .addOperation(
+    : Array.from({ length: treeCount }, () => undefined as RegionAllocation | undefined);
+
+  // Add two operations per tree: 70% planting + 30% buffer. When a region is selected,
+  // split the planting payment across the active planter pool for that region.
+  for (const regionAllocation of regionTreeSlots) {
+    const { planting, buffer } = calculateDonationAllocation(amount);
+    const targetPlanters = regionAllocation?.planterAddress
+      ? [regionAllocation.planterAddress]
+      : regionAllocation?.regionId
+        ? getActivePlantersForRegion(regionAllocation.regionId)
+        : [PLANTING_ADDRESS];
+
+    const perPlanterAmount = targetPlanters.length > 0 ? planting / targetPlanters.length : planting;
+
+    for (const planterAddress of targetPlanters) {
+      builder.addOperation(
         Operation.payment({
-          destination: REPLANTING_BUFFER_ADDRESS,
+          destination: planterAddress,
           asset: usdcAsset,
-          amount: buffer.toFixed(7),
+          amount: perPlanterAmount.toFixed(7),
         })
       );
+    }
+
+    builder.addOperation(
+      Operation.payment({
+        destination: REPLANTING_BUFFER_ADDRESS,
+        asset: usdcAsset,
+        amount: buffer.toFixed(7),
+      })
+    );
   }
 
   const transaction = builder

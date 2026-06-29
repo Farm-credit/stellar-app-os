@@ -74,7 +74,8 @@ export function useDonationPayment() {
         (status) => {
           setPaymentState((prev) => ({ ...prev, status, error: null }));
         },
-        donationState.treeCount
+        donationState.treeCount,
+        donationState.regionAllocations
       );
 
       const totalAmount = donationState.amount * donationState.treeCount;
@@ -98,7 +99,7 @@ export function useDonationPayment() {
     } finally {
       isProcessingRef.current = false;
     }
-  }, [wallet, donationState.amount, donationState.treeCount, paymentState.idempotencyKey, router]);
+  }, [wallet, donationState.amount, donationState.treeCount, donationState.regionAllocations, paymentState.idempotencyKey, router]);
 
   // Stripe callbacks — coordinated with StripePaymentForm
   const onStripeProcessing = useCallback(() => {

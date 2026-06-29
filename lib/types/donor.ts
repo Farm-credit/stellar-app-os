@@ -1,6 +1,7 @@
 export interface RegionAllocation {
   regionId: string;
   treeCount: number;
+  planterAddress?: string;
 }
 
 export interface DonorInfo {

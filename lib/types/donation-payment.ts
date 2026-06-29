@@ -1,5 +1,6 @@
 import type { TransactionStatus } from './payment';
 import type { NetworkType } from './wallet';
+import type { RegionAllocation } from './donor';
 
 export type DonationPaymentMethod = 'card' | 'stellar';
 
@@ -31,6 +32,7 @@ export interface BuildDonationTransactionRequest {
   walletPublicKey: string;
   network: NetworkType;
   idempotencyKey: string;
+  regionAllocations?: RegionAllocation[];
 }
 
 export interface DonationAllocationBreakdown {

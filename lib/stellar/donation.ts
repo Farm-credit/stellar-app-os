@@ -1,6 +1,7 @@
 import type { WalletConnection } from '@/lib/types/wallet';
 import type { TransactionStatus } from '@/lib/types/payment';
 import type { BuildDonationTransactionResponse } from '@/lib/types/donation-payment';
+import type { RegionAllocation } from '@/lib/types/donor';
 import { signTransactionWithFreighter, signTransactionWithAlbedo } from './signing';
 
 export interface DonationPaymentResult {
@@ -14,7 +15,8 @@ export async function processDonationPayment(
   wallet: WalletConnection,
   idempotencyKey: string,
   onStatusChange?: DonationStatusCallback,
-  treeCount = 1
+  treeCount = 1,
+  regionAllocations?: RegionAllocation[]
 ): Promise<DonationPaymentResult> {
   // Step 1: Build transaction
   onStatusChange?.('preparing');

@@ -53,12 +53,15 @@ export interface GeneratedProof {
   nullifier: string;
 }
 
+import type { RegionAllocation } from '@/lib/types/donor';
+
 export interface AnonymousDonationRequest {
   proof: unknown;
   inputs: unknown;
   amount: number;
   network: 'testnet' | 'mainnet';
   idempotencyKey: string;
+  regionAllocations?: RegionAllocation[];
 }
 
 export interface AnonymousDonationResponse {
