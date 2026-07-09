@@ -190,7 +190,7 @@ function StripeCheckoutForm({
         const { error: submitError, paymentIntent } = await stripe.confirmPayment({
           elements,
           confirmParams: {
-            return_url: `${window.location.origin}/donate/success?method=card`,
+            return_url: `${window.location.origin}/donate/confirmation?method=card`,
           },
           redirect: 'if_required',
         });

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/atoms/Button';
 import { Text } from '@/components/atoms/Text';
@@ -12,7 +12,6 @@ import { useDonationContext } from '@/contexts/DonationContext';
 import { Trees, Mountain, Leaf, Sprout, Minus, CircleDot, Info } from 'lucide-react';
 import {
   MINIMUM_DONATION,
-  TREES_PER_DOLLAR,
   HECTARES_PER_DOLLAR,
   CO2_PER_DOLLAR,
   REPLANTING_BUFFER_PERCENT,
@@ -75,7 +74,7 @@ export function DonationAmountStep() {
     return searchParams.get('monthly') === 'true';
   });
 
-  const [treeCount, setTreeCount] = useState<number>(1);
+  const [treeCount, setTreeCount] = useState<number>(() => state.treeCount || 1);
 
   const [selectedSpecies, setSelectedSpecies] = useState<string>(() => {
     return state.species || TREE_SPECIES[0].name;
@@ -88,13 +87,36 @@ export function DonationAmountStep() {
     return [{ regionId: firstRegion.id, treeCount: 1 }];
   });
 
+  const handleTreeCountChange = useCallback((newCount: number) => {
+    setLocalRegionAllocations((allocations) => {
+      const totalAllocated = allocations.reduce((sum, a) => sum + a.treeCount, 0);
+      if (newCount < totalAllocated) {
+        let remaining = newCount;
+        return allocations.map((alloc) => {
+          const take = Math.min(alloc.treeCount, remaining);
+          remaining -= take;
+          return { ...alloc, treeCount: take };
+        });
+      }
+      if (newCount > totalAllocated && allocations.length > 0) {
+        const extra = newCount - totalAllocated;
+        return allocations.map((alloc, i) => {
+          const add =
+            Math.ceil((extra * (i + 1)) / allocations.length) -
+            Math.ceil((extra * i) / allocations.length);
+          return { ...alloc, treeCount: alloc.treeCount + add };
+        });
+      }
+      return allocations;
+    });
+    setTreeCount(newCount);
+  }, []);
+
   const currentAmount = isCustom ? parseFloat(customAmount) || 0 : selectedAmount || 0;
   const isValidAmount = currentAmount >= MINIMUM_DONATION;
 
   // Handle extremely large amounts (cap display at reasonable values)
   const safeAmount = Math.min(currentAmount, 1000000);
-  const totalAmount = safeAmount * treeCount;
-
   const allocation = calculateDonationAllocation(safeAmount);
 
   // Calculate total allocated trees
@@ -129,9 +151,9 @@ export function DonationAmountStep() {
   };
 
   const impact = {
-    trees: Math.round(totalAmount * TREES_PER_DOLLAR),
-    hectares: (totalAmount * HECTARES_PER_DOLLAR).toFixed(2),
-    co2: (totalAmount * CO2_PER_DOLLAR).toFixed(1),
+    trees: treeCount,
+    hectares: (safeAmount * HECTARES_PER_DOLLAR * treeCount).toFixed(2),
+    co2: (safeAmount * CO2_PER_DOLLAR * treeCount).toFixed(1),
   };
 
   const handleQuickSelect = (amount: number) => {
@@ -363,7 +385,7 @@ export function DonationAmountStep() {
             <div className="flex items-center gap-2">
               <button
                 type="button"
-                onClick={() => setTreeCount((n) => Math.max(1, n - 1))}
+                onClick={() => handleTreeCountChange(Math.max(1, treeCount - 1))}
                 disabled={treeCount <= 1}
                 aria-label="Decrease tree count"
                 className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center text-lg font-bold disabled:opacity-40 hover:bg-gray-100 transition-colors"
@@ -373,7 +395,7 @@ export function DonationAmountStep() {
               <Text className="w-8 text-center font-semibold tabular-nums">{treeCount}</Text>
               <button
                 type="button"
-                onClick={() => setTreeCount((n) => Math.min(MAX_BATCH_TREES, n + 1))}
+                onClick={() => handleTreeCountChange(Math.min(MAX_BATCH_TREES, treeCount + 1))}
                 disabled={treeCount >= MAX_BATCH_TREES}
                 aria-label="Increase tree count"
                 className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center text-lg font-bold disabled:opacity-40 hover:bg-gray-100 transition-colors"
@@ -582,7 +604,7 @@ export function DonationAmountStep() {
             {(() => {
               const speciesInfo = TREE_SPECIES.find((s) => s.name === selectedSpecies);
               if (!speciesInfo) return null;
-              const totalTrees = impact.trees;
+              const totalTrees = treeCount;
               const totalCo2PerYear = totalTrees * speciesInfo.co2KgPerYear;
               return (
                 <div className="p-4 rounded-xl border border-stellar-green/20 bg-stellar-green/5 space-y-2">

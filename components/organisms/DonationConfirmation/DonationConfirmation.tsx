@@ -38,14 +38,22 @@ function DonationConfirmationContent() {
   const [qrDataUrl, setQrDataUrl] = useState<string>('');
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
-  const txHash = searchParams.get('txHash') || searchParams.get('txId') || 'pending';
+  const txHash =
+    searchParams.get('txHash') ||
+    searchParams.get('txId') ||
+    searchParams.get('payment_intent') ||
+    'pending';
   const method = searchParams.get('method') || 'card';
 
   // Get donor name and amount from state, fallback to search params or defaults if state lost on refresh
   const donorName = state.donorInfo.name || 'Generous Donor';
   const amount = state.amount || parseFloat(searchParams.get('amount') || '0');
-  const trees = Math.round(amount * TREES_PER_DOLLAR);
-  const projectName = 'Stellar Amazon Reforestation'; // Default or project selection if available
+  const trees =
+    state.treeCount ||
+    parseInt(searchParams.get('trees') || '0', 10) ||
+    Math.round(amount * TREES_PER_DOLLAR);
+  const species = state.species || searchParams.get('species') || 'Teak';
+  const projectName = 'Stellar Amazon Reforestation';
   const regionAllocations = state.regionAllocations;
 
   useEffect(() => {
@@ -206,7 +214,7 @@ function DonationConfirmationContent() {
                 <Leaf className="w-4 h-4 text-stellar-green" />
                 <Text>Species</Text>
               </div>
-              <Text className="text-sm font-semibold text-gray-800">{state.species}</Text>
+              <Text className="text-sm font-semibold text-gray-800">{species}</Text>
             </div>
 
             {/* Region Breakdown */}

@@ -85,7 +85,7 @@ export function useDonationPayment() {
       }));
       showToast('Payment successful!', 'success');
       router.push(
-        `/donate/confirmation?txHash=${result.transactionHash}&method=stellar&amount=${totalAmount}&trees=${donationState.treeCount}`
+        `/donate/confirmation?txHash=${result.transactionHash}&method=stellar&amount=${totalAmount}&trees=${donationState.treeCount}&species=${encodeURIComponent(donationState.species)}`
       );
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Payment failed';
@@ -98,7 +98,14 @@ export function useDonationPayment() {
     } finally {
       isProcessingRef.current = false;
     }
-  }, [wallet, donationState.amount, donationState.treeCount, paymentState.idempotencyKey, router]);
+  }, [
+    wallet,
+    donationState.amount,
+    donationState.treeCount,
+    donationState.species,
+    paymentState.idempotencyKey,
+    router,
+  ]);
 
   // Stripe callbacks — coordinated with StripePaymentForm
   const onStripeProcessing = useCallback(() => {
@@ -115,10 +122,10 @@ export function useDonationPayment() {
       showToast('Payment successful!', 'success');
       const totalAmount = donationState.amount * donationState.treeCount;
       router.push(
-        `/donate/confirmation?txId=${paymentIntentId}&method=card&amount=${totalAmount}&trees=${donationState.treeCount}`
+        `/donate/confirmation?txId=${paymentIntentId}&method=card&amount=${totalAmount}&trees=${donationState.treeCount}&species=${encodeURIComponent(donationState.species)}`
       );
     },
-    [router, donationState.amount, donationState.treeCount]
+    [router, donationState.amount, donationState.treeCount, donationState.species]
   );
 
   const onStripeError = useCallback((message: string) => {
