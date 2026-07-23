@@ -15,10 +15,19 @@
 //!   4. Seller calls `cancel(seller, listing_id)` to de-list remaining tokens.
 
 use soroban_sdk::{
-    contract, contracterror, contractimpl, contracttype, panic_with_error, symbol_short, token, Address, Env,
+    contract, contractclient, contracterror, contractimpl, contracttype, panic_with_error, symbol_short, token,
+    Address, Env,
 };
 use harvesta_errors::HarvestaError;
 use admin_controls::AdminControlsClient;
+
+#[contractclient(name = "PriceOracleClient")]
+trait PriceOracleTrait {
+    fn initialize(env: Env, price: i128, timestamp: u64);
+    fn set_price(env: Env, price: i128, timestamp: u64);
+    fn price(env: Env) -> i128;
+    fn timestamp(env: Env) -> u64;
+}
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -115,6 +124,10 @@ enum DataKey {
     Config,
     /// Admin controls contract address
     AdminControls,
+    /// Price oracle contract address
+    Oracle,
+    /// (max_staleness_seconds, fallback_price)
+    OracleConfig,
     /// Global listing counter
     ListingCount,
     /// Per-listing record
@@ -157,6 +170,34 @@ impl CarbonMarketplace {
         env.storage()
             .instance()
             .set(&DataKey::AuctionCount, &0u64);
+    }
+
+    /// Admin configures a price oracle feed for dynamic TREE pricing.
+    ///
+    /// * `oracle` — external oracle contract address exposing `price()` and `timestamp()`
+    /// * `max_staleness` — number of seconds before the fallback price is used
+    /// * `fallback_price` — price per token used when the oracle is stale or unavailable
+    pub fn configure_price_oracle(env: Env, oracle: Address, max_staleness: u64, fallback_price: i128) {
+        Self::assert_not_paused(&env);
+        let (admin, _) = Self::config(&env);
+        admin.require_auth();
+
+        if fallback_price <= 0 {
+            panic_with_error!(&env, MarketplaceError::PriceMustBePositive);
+        }
+
+        env.storage().instance().set(&DataKey::Oracle, &oracle);
+        env.storage()
+            .instance()
+            .set(&DataKey::OracleConfig, &(max_staleness, fallback_price));
+    }
+
+    /// Returns the current marketplace price for TREE tokens.
+    ///
+    /// If an oracle is configured and fresh, its price is returned. Otherwise the
+    /// administrator-configured fallback price is used.
+    pub fn get_dynamic_price(env: Env) -> i128 {
+        Self::resolve_listing_price(&env, 0)
     }
 
     /// Admin configures default Dutch Auction parameters.
@@ -215,9 +256,8 @@ impl CarbonMarketplace {
         if amount <= 0 {
             panic_with_error!(&env, MarketplaceError::ListingAmountMustBePositive);
         }
-        if price_per_token <= 0 {
-            panic_with_error!(&env, MarketplaceError::PriceMustBePositive);
-        }
+
+        let resolved_price = Self::resolve_listing_price(&env, price_per_token);
 
         let (_, tree_token) = Self::config(&env);
 
@@ -243,7 +283,7 @@ impl CarbonMarketplace {
             payment_token,
             total_amount: amount,
             remaining: amount,
-            price_per_token,
+            price_per_token: resolved_price,
             status: ListingStatus::Active,
             created_at: env.ledger().timestamp(),
         };
@@ -256,7 +296,7 @@ impl CarbonMarketplace {
             .set(&DataKey::ListingCount, &new_id);
 
         env.events()
-            .publish((symbol_short!("listed"), seller), (new_id, amount, price_per_token));
+            .publish((symbol_short!("listed"), seller), (new_id, amount, resolved_price));
 
         new_id
     }
@@ -699,6 +739,36 @@ impl CarbonMarketplace {
             .unwrap_or_else(|| panic_with_error!(env, HarvestaError::NotInitialized))
     }
 
+    fn resolve_listing_price(env: &Env, provided_price_per_token: i128) -> i128 {
+        if provided_price_per_token > 0 {
+            return provided_price_per_token;
+        }
+
+        let oracle_opt: Option<Address> = env.storage().instance().get(&DataKey::Oracle);
+        if let Some(oracle) = oracle_opt {
+            let (max_staleness, fallback_price) = env
+                .storage()
+                .instance()
+                .get(&DataKey::OracleConfig)
+                .unwrap_or((0u64, 0i128));
+
+            let oracle_client = PriceOracleClient::new(env, &oracle);
+            let price = oracle_client.price();
+            let timestamp = oracle_client.timestamp();
+            let is_fresh = env.ledger().timestamp().saturating_sub(timestamp) <= max_staleness;
+
+            if is_fresh && price > 0 {
+                return price;
+            }
+
+            if fallback_price > 0 {
+                return fallback_price;
+            }
+        }
+
+        panic_with_error!(env, MarketplaceError::PriceMustBePositive);
+    }
+
     /// Calculate current price based on elapsed time and decay rate.
     /// Price decays linearly from starting_price to reserve_price over duration.
     fn calculate_current_price(auction: &DutchAuction, current_time: u64) -> i128 {
@@ -722,6 +792,30 @@ impl CarbonMarketplace {
 mod tests {
     use super::*;
     use soroban_sdk::{testutils::{Address as _, Ledger}, token, Address, Env};
+
+    #[contract]
+    struct MockPriceOracle;
+
+    #[contractimpl]
+    impl MockPriceOracle {
+        pub fn initialize(env: Env, price: i128, timestamp: u64) {
+            env.storage().instance().set(&symbol_short!("price"), &price);
+            env.storage().instance().set(&symbol_short!("ts"), &timestamp);
+        }
+
+        pub fn set_price(env: Env, price: i128, timestamp: u64) {
+            env.storage().instance().set(&symbol_short!("price"), &price);
+            env.storage().instance().set(&symbol_short!("ts"), &timestamp);
+        }
+
+        pub fn price(env: Env) -> i128 {
+            env.storage().instance().get(&symbol_short!("price")).unwrap_or(0)
+        }
+
+        pub fn timestamp(env: Env) -> u64 {
+            env.storage().instance().get(&symbol_short!("ts")).unwrap_or(0)
+        }
+    }
 
     struct Ctx {
         env: Env,
@@ -771,6 +865,51 @@ mod tests {
 
     fn balance(env: &Env, token: &Address, who: &Address) -> i128 {
         token::Client::new(env, token).balance(who)
+    }
+
+    // ── oracle pricing ───────────────────────────────────────────────────────
+
+    #[test]
+    fn test_list_uses_oracle_price_when_price_not_provided() {
+        let ctx = setup();
+        let oracle_id = ctx.env.register_contract(None, MockPriceOracle);
+        let oracle_client = PriceOracleClient::new(&ctx.env, &oracle_id);
+        oracle_client.initialize(&100, &ctx.env.ledger().timestamp());
+
+        ctx.client.configure_price_oracle(&ctx.admin, &oracle_id, &60, &75);
+
+        let id = ctx.client.list(&ctx.seller, &ctx.planter, &1_000, &0, &ctx.payment_token);
+
+        let listing = ctx.client.get_listing(&id).unwrap();
+        assert_eq!(listing.price_per_token, 100);
+    }
+
+    #[test]
+    fn test_list_uses_fallback_price_when_oracle_is_stale() {
+        let ctx = setup();
+        let oracle_id = ctx.env.register_contract(None, MockPriceOracle);
+        let oracle_client = PriceOracleClient::new(&ctx.env, &oracle_id);
+        oracle_client.initialize(&100, &ctx.env.ledger().timestamp());
+
+        ctx.client.configure_price_oracle(&ctx.admin, &oracle_id, &30, &75);
+        ctx.env.ledger().set_timestamp(ctx.env.ledger().timestamp() + 60);
+
+        let id = ctx.client.list(&ctx.seller, &ctx.planter, &1_000, &0, &ctx.payment_token);
+
+        let listing = ctx.client.get_listing(&id).unwrap();
+        assert_eq!(listing.price_per_token, 75);
+    }
+
+    #[test]
+    fn test_get_dynamic_price_returns_oracle_price_when_fresh() {
+        let ctx = setup();
+        let oracle_id = ctx.env.register_contract(None, MockPriceOracle);
+        let oracle_client = PriceOracleClient::new(&ctx.env, &oracle_id);
+        oracle_client.initialize(&120, &ctx.env.ledger().timestamp());
+
+        ctx.client.configure_price_oracle(&ctx.admin, &oracle_id, &60, &90);
+
+        assert_eq!(ctx.client.get_dynamic_price(), 120);
     }
 
     // ── initialize ─────────────────────────────────────────────────────────────
