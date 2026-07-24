@@ -1,34 +1,29 @@
 'use client';
 
-import { useCallback } from 'react';
+import { useMemo, useCallback } from 'react';
 import { Input } from '@/components/atoms/Input';
 import { Select } from '@/components/atoms/Select';
 import { Button } from '@/components/atoms/Button';
 import { Text } from '@/components/atoms/Text';
-import type { MarketplaceFiltersProps } from '@/lib/types/marketplace';
+import type { FundingStatus, MarketplaceFiltersProps } from '@/lib/types/marketplace';
 import { Search, X } from 'lucide-react';
 
-/**
- * MarketplaceFilters molecule component
- *
- * Provides filtering, sorting, and search controls for marketplace listings.
- * Features:
- * - Project type filter dropdown
- * - Sort by price/date dropdown
- * - Search input with clear button
- * - Responsive layout
- * - Accessible with ARIA labels
- *
- * Requirements: Issue #23 - Marketplace Listings
- */
 export function MarketplaceFilters({
   projectTypes,
+  locations,
+  fundingStatuses,
   selectedType,
+  selectedLocation,
+  selectedFundingStatus,
   sortBy,
   searchQuery,
+  activeFilterCount,
   onTypeChange,
+  onLocationChange,
+  onFundingStatusChange,
   onSortChange,
   onSearchChange,
+  onClearAllFilters,
 }: MarketplaceFiltersProps) {
   const handleTypeChange = useCallback(
     (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -36,6 +31,22 @@ export function MarketplaceFilters({
       onTypeChange(value === '' ? null : (value as typeof selectedType));
     },
     [onTypeChange]
+  );
+
+  const handleLocationChange = useCallback(
+    (e: React.ChangeEvent<HTMLSelectElement>) => {
+      const value = e.target.value;
+      onLocationChange(value === '' ? null : value);
+    },
+    [onLocationChange]
+  );
+
+  const handleFundingStatusChange = useCallback(
+    (e: React.ChangeEvent<HTMLSelectElement>) => {
+      const value = e.target.value;
+      onFundingStatusChange(value === '' ? null : (value as FundingStatus));
+    },
+    [onFundingStatusChange]
   );
 
   const handleSortChange = useCallback(
@@ -56,16 +67,34 @@ export function MarketplaceFilters({
     onSearchChange('');
   }, [onSearchChange]);
 
+  const filterLabel = useMemo(() => {
+    if (activeFilterCount === 0) return 'No active filters';
+    return `${activeFilterCount} active ${activeFilterCount === 1 ? 'filter' : 'filters'}`;
+  }, [activeFilterCount]);
+
   return (
-    <div className="space-y-4">
-      {/* Search bar */}
+    <div className="space-y-6 rounded-3xl border border-border bg-background p-4 lg:p-6">
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <Text variant="h4" as="h2">
+            Filters
+          </Text>
+          <Text variant="muted" as="p" className="text-sm">
+            Refine marketplace listings by category, location, status, or sort order.
+          </Text>
+        </div>
+        <div className="rounded-full bg-stellar-blue/10 px-3 py-1 text-xs font-semibold text-stellar-blue">
+          {filterLabel}
+        </div>
+      </div>
+
       <div className="relative">
         <div className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
           <Search className="h-4 w-4" aria-hidden="true" />
         </div>
         <Input
           type="search"
-          placeholder="Search by project, seller, or location..."
+          placeholder="Search projects, sellers, location..."
           value={searchQuery}
           onChange={handleSearchChange}
           variant="primary"
@@ -85,19 +114,21 @@ export function MarketplaceFilters({
         )}
       </div>
 
-      {/* Filters row */}
-      <div className="flex flex-col sm:flex-row gap-4">
-        {/* Project type filter */}
-        <div className="flex-1">
-          <label htmlFor="project-type-filter" className="sr-only">
-            Filter by project type
-          </label>
+      <div className="grid gap-4">
+        <div>
+          <Text
+            variant="label"
+            as="p"
+            className="mb-2 text-xs uppercase tracking-wide text-muted-foreground"
+          >
+            Category
+          </Text>
           <Select
             id="project-type-filter"
             variant="primary"
             value={selectedType || ''}
             onChange={handleTypeChange}
-            aria-label="Filter by project type"
+            aria-label="Filter by project category"
           >
             <option value="">All Project Types</option>
             {projectTypes.map((type) => (
@@ -108,58 +139,143 @@ export function MarketplaceFilters({
           </Select>
         </div>
 
-        {/* Sort dropdown */}
-        <div className="flex-1">
-          <label htmlFor="sort-by" className="sr-only">
-            Sort listings
-          </label>
+        <div>
+          <Text
+            variant="label"
+            as="p"
+            className="mb-2 text-xs uppercase tracking-wide text-muted-foreground"
+          >
+            Location
+          </Text>
+          <Select
+            id="location-filter"
+            variant="primary"
+            value={selectedLocation || ''}
+            onChange={handleLocationChange}
+            aria-label="Filter by project location"
+          >
+            <option value="">All Locations</option>
+            {locations.map((location) => (
+              <option key={location} value={location}>
+                {location}
+              </option>
+            ))}
+          </Select>
+        </div>
+
+        <div>
+          <Text
+            variant="label"
+            as="p"
+            className="mb-2 text-xs uppercase tracking-wide text-muted-foreground"
+          >
+            Funding status
+          </Text>
+          <Select
+            id="funding-status-filter"
+            variant="primary"
+            value={selectedFundingStatus || ''}
+            onChange={handleFundingStatusChange}
+            aria-label="Filter by funding status"
+          >
+            <option value="">All Funding Statuses</option>
+            {fundingStatuses.map((status) => (
+              <option key={status} value={status}>
+                {status}
+              </option>
+            ))}
+          </Select>
+        </div>
+
+        <div>
+          <Text
+            variant="label"
+            as="p"
+            className="mb-2 text-xs uppercase tracking-wide text-muted-foreground"
+          >
+            Sort by
+          </Text>
           <Select
             id="sort-by"
             variant="primary"
             value={sortBy}
             onChange={handleSortChange}
-            aria-label="Sort listings"
+            aria-label="Sort marketplace listings"
           >
-            <option value="date-newest">Newest First</option>
-            <option value="date-oldest">Oldest First</option>
-            <option value="price-asc">Price: Low to High</option>
-            <option value="price-desc">Price: High to Low</option>
+            <option value="date-newest">Newest</option>
+            <option value="funded">Most Funded</option>
+            <option value="ending-soon">Ending Soon</option>
+            <option value="alphabetical">Alphabetical</option>
           </Select>
         </div>
       </div>
 
-      {/* Active filters indicator */}
-      {(selectedType || searchQuery) && (
-        <div className="flex items-center gap-2 flex-wrap">
-          <Text variant="small" as="span" className="text-muted-foreground">
-            Active filters:
-          </Text>
-          {selectedType && (
+      {(selectedType || selectedLocation || selectedFundingStatus || searchQuery) && (
+        <div className="flex flex-col gap-3 rounded-2xl border border-border bg-muted/10 p-4">
+          <div className="flex items-center justify-between gap-3">
+            <Text variant="small" className="font-semibold">
+              Active filters
+            </Text>
             <Button
-              onClick={() => onTypeChange(null)}
-              stellar="primary-outline"
+              onClick={onClearAllFilters}
+              variant="ghost"
               size="sm"
-              className="h-7 text-xs"
-              aria-label={`Remove ${selectedType} filter`}
+              className="h-8"
+              aria-label="Clear all filters"
             >
-              {selectedType}
-              <X className="ml-1 h-3 w-3" />
+              Clear all
             </Button>
-          )}
-          {searchQuery && (
-            <Button
-              onClick={handleClearSearch}
-              stellar="primary-outline"
-              size="sm"
-              className="h-7 text-xs"
-              aria-label="Clear search filter"
-            >
-              Search: &quot;
-              {searchQuery.length > 20 ? searchQuery.slice(0, 20) + '...' : searchQuery}
-              &quot;
-              <X className="ml-1 h-3 w-3" />
-            </Button>
-          )}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {selectedType && (
+              <Button
+                onClick={() => onTypeChange(null)}
+                stellar="primary-outline"
+                size="sm"
+                className="h-8 text-xs"
+                aria-label={`Remove ${selectedType} category filter`}
+              >
+                {selectedType}
+                <X className="ml-1 h-3 w-3" />
+              </Button>
+            )}
+            {selectedLocation && (
+              <Button
+                onClick={() => onLocationChange(null)}
+                stellar="primary-outline"
+                size="sm"
+                className="h-8 text-xs"
+                aria-label={`Remove ${selectedLocation} location filter`}
+              >
+                {selectedLocation}
+                <X className="ml-1 h-3 w-3" />
+              </Button>
+            )}
+            {selectedFundingStatus && (
+              <Button
+                onClick={() => onFundingStatusChange(null)}
+                stellar="primary-outline"
+                size="sm"
+                className="h-8 text-xs"
+                aria-label={`Remove ${selectedFundingStatus} funding status filter`}
+              >
+                {selectedFundingStatus}
+                <X className="ml-1 h-3 w-3" />
+              </Button>
+            )}
+            {searchQuery && (
+              <Button
+                onClick={handleClearSearch}
+                stellar="primary-outline"
+                size="sm"
+                className="h-8 text-xs"
+                aria-label="Clear search query"
+              >
+                Search: {searchQuery.length > 20 ? `${searchQuery.slice(0, 20)}...` : searchQuery}
+                <X className="ml-1 h-3 w-3" />
+              </Button>
+            )}
+          </div>
         </div>
       )}
     </div>

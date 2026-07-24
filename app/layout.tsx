@@ -2,20 +2,36 @@ import type { Metadata, Viewport } from 'next';
 import Script from 'next/script';
 import { Header } from '@/components/organisms/Header/Header';
 import { Footer } from '@/components/organisms/Footer/Footer';
-import { CookieBanner } from '@/components/CookieBanner';
-import { ToastProvider } from '@/components/providers/ToastProvider';
-import { WalletProviderWrapper } from '@/components/providers/WalletProviderWrapper';
-import { FavoritesProvider } from '@/contexts/FavouritesContext';
-import './globals.css';
+import { WalletProvider } from '@/contexts/WalletContext';
+
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://farmcredit.app';
+const siteName = 'FarmCredit';
+const siteDescription = 'FarmCredit - Decentralized agricultural credit on Stellar';
+const ogImage = '/icons/icon-512x512.png';
 
 export const metadata: Metadata = {
-  title: 'FarmCredit',
-  description: 'FarmCredit - Decentralized agricultural credit on Stellar',
+  metadataBase: new URL(siteUrl),
+  title: {
+    default: siteName,
+    template: `%s | ${siteName}`,
+  },
+  description: siteDescription,
+  applicationName: siteName,
+  keywords: [
+    'Stellar',
+    'FarmCredit',
+    'agriculture',
+    'decentralized finance',
+    'DeFi',
+    'credit',
+    'farming',
+    'blockchain',
+  ],
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
-    title: 'FarmCredit',
+    title: siteName,
   },
   formatDetection: {
     telephone: false,
@@ -29,6 +45,33 @@ export const metadata: Metadata = {
       { url: '/icons/icon-152x152.png', sizes: '152x152', type: 'image/png' },
       { url: '/icons/icon-192x192.png', sizes: '192x192', type: 'image/png' },
     ],
+    shortcut: '/icon-source.svg',
+  },
+  openGraph: {
+    type: 'website',
+    siteName,
+    title: siteName,
+    description: siteDescription,
+    url: siteUrl,
+    locale: 'en_US',
+    images: [
+      {
+        url: ogImage,
+        width: 512,
+        height: 512,
+        alt: `${siteName} - Decentralized agricultural credit on Stellar`,
+      },
+    ],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: siteName,
+    description: siteDescription,
+    images: [ogImage],
+  },
+  robots: {
+    index: true,
+    follow: true,
   },
 };
 
@@ -39,8 +82,6 @@ export const viewport: Viewport = {
   maximumScale: 5,
   userScalable: true,
 };
-
-import { QueryProvider } from '@/components/providers/QueryProvider';
 
 export default function RootLayout({
   children,
@@ -56,35 +97,17 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-title" content="FarmCredit" />
         <meta name="mobile-web-app-capable" content="yes" />
       </head>
-      <body className="font-sans antialiased">
-        <Script id="theme-init" strategy="beforeInteractive">
-          {`
-            (function() {
-              try {
-                var stored = localStorage.getItem('theme');
-                var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-                var theme = stored === 'light' || stored === 'dark' ? stored : (prefersDark ? 'dark' : 'light');
-                document.documentElement.classList.toggle('dark', theme === 'dark');
-                document.documentElement.classList.add('no-transitions');
-                window.addEventListener('load', function() {
-                  document.documentElement.classList.remove('no-transitions');
-                });
-              } catch(e) {}
-            })();
-          `}
-        </Script>
-        <QueryProvider>
-          <WalletProviderWrapper>
-            <FavoritesProvider>
-              <ToastProvider>
-                <CookieBanner />
-                <Header />
-                {children}
-                <Footer />
-              </ToastProvider>
-            </FavoritesProvider>
-          </WalletProviderWrapper>
-        </QueryProvider>
+      <body className={`${inter.variable} font-sans antialiased`}>
+        <WalletProvider>
+          <a
+            href="#main-content"
+            className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 z-50 bg-stellar-blue text-stellar-navy px-4 py-2 rounded-md font-semibold focus:ring-2 focus:ring-stellar-blue focus:ring-offset-2"
+          >
+            Skip to main content
+          </a>
+          {children}
+          <Footer />
+        </WalletProvider>
       </body>
     </html>
   );

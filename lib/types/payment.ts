@@ -31,9 +31,7 @@ export interface TransactionPreview {
 export interface PaymentMintingProps {
   selection: CreditSelectionState;
   wallet: WalletConnection | null;
-
   onComplete?: (transactionHash: string) => void;
-
   onError?: (error: string) => void;
 }
 

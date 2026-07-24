@@ -1,6 +1,13 @@
 import type { Pool } from 'pg';
 import type { ClassifiedTx } from '@/lib/indexer/classify';
 
+const TREE_TX_TYPES = new Set([
+  'escrow_deposit',
+  'escrow_planting',
+  'escrow_survival',
+  'escrow_refund',
+]);
+
 export interface IndexedTxRow {
   txHash: string;
   ledger: number;
@@ -38,6 +45,14 @@ export async function upsertTransaction(
       JSON.stringify(row.raw),
     ]
   );
+
+  if (TREE_TX_TYPES.has(classified.txType)) {
+    try {
+      await pool.query("SELECT pg_notify('tree_status_update', $1)", [row.txHash]);
+    } catch {
+      // NOTIFY is best-effort
+    }
+  }
 }
 
 /** Persist the latest paging token so the worker can resume after restart. */

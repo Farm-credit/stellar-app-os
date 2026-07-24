@@ -1,0 +1,50 @@
+feat: implement comprehensive full-flow integration tests and fix test suite
+
+## Features Added
+- Complete end-to-end test suite for sponsor → escrow → carbon credits flow
+- Integration tests covering all critical user journeys:
+  * Single donor escrow with milestone payments (50% progress + 40% survival)
+  * Gift sponsorship with carbon credit attribution to recipient
+  * Batch deposit scenarios for multiple planters
+  * Carbon credit burning for ESG compliance claims
+  * Oracle survival reporting and verification system
+- Test automation infrastructure:
+  * JavaScript integration tests with Soroban sandbox deployment
+  * Rust unit tests with comprehensive state and balance assertions
+  * Shell scripts for automated contract deployment and testing
+- Detailed testing documentation with troubleshooting guides
+
+## Test Suite Fixes
+- Convert Jest syntax to Vitest in existing test files
+- Fix jest.mock() → vi.mock() conversions
+- Fix jest.fn() → vi.fn() conversions  
+- Fix jest.useFakeTimers() → vi.useFakeTimers() conversions
+- Resolve test runner compatibility issues
+
+## Testing Coverage
+- Verify complete flow: deposit → progress updates → survival → credits issued
+- Assert final balances, tree status, and CO2 offset records
+- Test error scenarios and edge cases with proper validation
+- Cover milestone payment structure (90% total release)
+- Validate TREE token minting for carbon offset tracking
+
+## Files Added
+- `scripts/test-full-flow.mjs` - JavaScript end-to-end integration tests
+- `scripts/deploy-and-test.sh` - Automated deployment and testing script
+- `contracts/integration_tests.rs` - Comprehensive Rust integration tests
+- `contracts/full-flow-test.rs` - Full flow test scenarios
+- `run-tests.sh` - Simple test runner script
+- `TESTING.md` - Detailed testing documentation
+
+## Files Modified
+- `lib/api/__tests__/carbon-impact.test.ts` - Convert Jest to Vitest
+- `lib/api/__tests__/tree-registry.test.ts` - Convert Jest to Vitest
+
+## Technical Details
+- Tests ensure proper escrow milestone release (50% progress, 40% survival, 10% year)
+- Validates oracle survival reporting with configurable thresholds
+- Confirms TREE token issuance (1 token = 1 tree = 48kg CO2 offset)
+- Covers gift sponsorship flow with correct recipient attribution
+- Includes carbon credit burning for corporate ESG claims
+
+All tests can be run with: `./run-tests.sh` or `pnpm test`

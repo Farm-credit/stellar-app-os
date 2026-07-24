@@ -1,7 +1,26 @@
 'use client';
 
+/**
+ * WalletModal — Multi-Wallet Selector (#662)
+ *
+ * Premium connection selector supporting Freighter, Albedo, and xBull.
+ * Features:
+ *   - Per-wallet loading spinner during the handshake
+ *   - "Not installed" warning badge + install link for extension wallets
+ *   - Graceful error handling: rejection, popup-blocked, timeout, generic
+ *   - Animated success state before auto-closing
+ *   - Keyboard navigable, fully accessible (ARIA)
+ */
+
 import React, { useEffect, useState, useCallback } from 'react';
-import { AlertCircle, CheckCircle, HelpCircle, Loader2, Wallet } from 'lucide-react';
+import {
+  AlertCircle,
+  CheckCircle,
+  ExternalLink,
+  HelpCircle,
+  Loader2,
+  ShieldCheck,
+} from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -9,221 +28,305 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
-import { Card } from '@/components/molecules/Card';
-import { Text } from '@/components/atoms/Text';
 import { useWalletContext } from '@/contexts/WalletContext';
-import { isFreighterInstalled } from '@/lib/stellar/wallet';
+import { isFreighterInstalled, isXBullInstalled } from '@/lib/stellar/wallet';
 import type { WalletType } from '@/lib/types/wallet';
 import { cn } from '@/lib/utils';
 
-const WALLET_ICONS: Record<WalletType, React.ReactNode> = {
-  freighter: (
-    <svg className="h-12 w-12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <rect x="2" y="2" width="20" height="20" rx="2" className="fill-current text-stellar-blue" />
-      <path d="M8 9h8M8 15h8" stroke="white" strokeWidth="2" strokeLinecap="round" />
-    </svg>
-  ),
-  albedo: (
-    <svg className="h-12 w-12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <circle cx="12" cy="12" r="10" className="fill-current text-stellar-purple" />
-      <path d="M8 12h8M12 8v8" stroke="white" strokeWidth="2" strokeLinecap="round" />
-    </svg>
-  ),
-  custodial: <Wallet className="h-12 w-12 text-stellar-navy" />,
-};
+// ── Wallet metadata ────────────────────────────────────────────────────────
 
-const WALLET_NAMES: Record<WalletType, string> = {
-  freighter: 'Freighter',
-  albedo: 'Albedo',
-  custodial: 'Custodial',
-};
+interface WalletMeta {
+  id: WalletType;
+  name: string;
+  tagline: string;
+  type: 'extension' | 'web';
+  installUrl?: string;
+  /** SVG path data for the wallet logo */
+  icon: React.ReactNode;
+  accentClass: string;
+}
 
-const WALLET_DESCRIPTIONS: Record<WalletType, string> = {
-  freighter: 'Browser extension for Stellar wallet management.',
-  albedo: 'Web-based wallet with no extension required.',
-  custodial: 'Not currently supported.',
-};
+const WALLETS: WalletMeta[] = [
+  {
+    id: 'freighter',
+    name: 'Freighter',
+    tagline: 'Browser extension by Stellar Development Foundation',
+    type: 'extension',
+    installUrl: 'https://freighter.app',
+    accentClass: 'border-blue-500/40 hover:border-blue-400/60 hover:bg-blue-500/5',
+    icon: (
+      <svg viewBox="0 0 40 40" fill="none" className="h-9 w-9" aria-hidden="true">
+        <rect width="40" height="40" rx="10" fill="#1A56DB" />
+        <path
+          d="M10 14h20M10 20h14M10 26h18"
+          stroke="white"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+        />
+      </svg>
+    ),
+  },
+  {
+    id: 'albedo',
+    name: 'Albedo',
+    tagline: 'Web wallet — no extension required',
+    type: 'web',
+    accentClass: 'border-purple-500/40 hover:border-purple-400/60 hover:bg-purple-500/5',
+    icon: (
+      <svg viewBox="0 0 40 40" fill="none" className="h-9 w-9" aria-hidden="true">
+        <circle cx="20" cy="20" r="20" fill="#7C3AED" />
+        <path d="M20 10l8.66 15H11.34L20 10z" fill="white" fillOpacity="0.9" />
+        <circle cx="20" cy="27" r="3" fill="white" />
+      </svg>
+    ),
+  },
+  {
+    id: 'xbull',
+    name: 'xBull',
+    tagline: 'Browser extension with multi-signature support',
+    type: 'extension',
+    installUrl: 'https://xbull.app',
+    accentClass: 'border-amber-500/40 hover:border-amber-400/60 hover:bg-amber-500/5',
+    icon: (
+      <svg viewBox="0 0 40 40" fill="none" className="h-9 w-9" aria-hidden="true">
+        <rect width="40" height="40" rx="10" fill="#D97706" />
+        <path d="M12 12l16 16M28 12L12 28" stroke="white" strokeWidth="2.8" strokeLinecap="round" />
+      </svg>
+    ),
+  },
+];
+
+// ── Error classifier ───────────────────────────────────────────────────────
+
+type ErrorKind = 'rejection' | 'popup' | 'timeout' | 'not_installed' | 'generic';
+
+interface ParsedError {
+  kind: ErrorKind;
+  message: string;
+}
+
+function parseConnectionError(err: unknown): ParsedError {
+  const msg = err instanceof Error ? err.message : String(err);
+  const lower = msg.toLowerCase();
+
+  if (
+    lower.includes('rejected') ||
+    lower.includes('denied') ||
+    lower.includes('cancel') ||
+    lower.includes('user')
+  ) {
+    return { kind: 'rejection', message: 'Connection cancelled. Click a wallet to try again.' };
+  }
+  if (lower.includes('popup') || lower.includes('blocked')) {
+    return {
+      kind: 'popup',
+      message: 'Popups are blocked. Please allow popups for this site and try again.',
+    };
+  }
+  if (lower.includes('timeout')) {
+    return { kind: 'timeout', message: 'Connection timed out. Please try again.' };
+  }
+  if (
+    lower.includes('not found') ||
+    lower.includes('not installed') ||
+    lower.includes('extension')
+  ) {
+    return { kind: 'not_installed', message: msg };
+  }
+  return { kind: 'generic', message: msg };
+}
+
+// ── Props ──────────────────────────────────────────────────────────────────
 
 interface WalletModalProps {
   isOpen: boolean;
-
   onOpenChange: (open: boolean) => void;
   onSuccess?: () => void;
 }
 
-interface ConnectionError {
-  message: string;
-  type: 'error' | 'warning';
-}
+// ── Main modal ─────────────────────────────────────────────────────────────
 
 export function WalletModal({ isOpen, onOpenChange, onSuccess }: WalletModalProps) {
   const { connect, isLoading: contextLoading, error: contextError } = useWalletContext();
-  const [connectingWallet, setConnectingWallet] = useState<WalletType | null>(null);
-  const [freighterInstalled, setFreighterInstalled] = useState(false);
-  const [connectionError, setConnectionError] = useState<ConnectionError | null>(null);
-  const [showSuccess, setShowSuccess] = useState(false);
 
+  const [connectingWallet, setConnectingWallet] = useState<WalletType | null>(null);
+  const [freighterInstalled, setFreighterInstalled] = useState<boolean | null>(null);
+  const [xbullInstalled, setXbullInstalled] = useState<boolean | null>(null);
+  const [error, setError] = useState<ParsedError | null>(null);
+  const [showSuccess, setShowSuccess] = useState(false);
+  const [successWallet, setSuccessWallet] = useState<WalletMeta | null>(null);
+
+  // Reset state when modal closes
   useEffect(() => {
     if (!isOpen) {
       setConnectingWallet(null);
-      setConnectionError(null);
+      setError(null);
       setShowSuccess(false);
+      setSuccessWallet(null);
     }
   }, [isOpen]);
 
+  // Detect installed extension wallets
   useEffect(() => {
-    const checkFreighter = async () => {
-      try {
-        const installed = await isFreighterInstalled();
-        setFreighterInstalled(installed);
-      } catch {
-        setFreighterInstalled(false);
-      }
-    };
+    if (!isOpen) return;
+    isFreighterInstalled()
+      .then(setFreighterInstalled)
+      .catch(() => setFreighterInstalled(false));
+    isXBullInstalled()
+      .then(setXbullInstalled)
+      .catch(() => setXbullInstalled(false));
+  }, [isOpen]);
 
-    checkFreighter();
-  }, []);
+  // Sync context errors
+  useEffect(() => {
+    if (isOpen && contextError) {
+      setError(parseConnectionError(new Error(contextError)));
+    }
+  }, [isOpen, contextError]);
 
-  const handleWalletConnect = useCallback(
-    async (walletType: WalletType) => {
-      if (walletType === 'custodial') {
-        setConnectionError({
-          message: 'Custodial wallets are not currently supported.',
-          type: 'warning',
-        });
-        return;
-      }
+  const handleConnect = useCallback(
+    async (wallet: WalletMeta) => {
+      if (connectingWallet || showSuccess) return;
 
-      setConnectingWallet(walletType);
-      setConnectionError(null);
+      setConnectingWallet(wallet.id);
+      setError(null);
 
       try {
-        await connect(walletType, 'testnet');
-        await connect(walletType);
+        await connect(wallet.id);
+        setSuccessWallet(wallet);
         setShowSuccess(true);
         setTimeout(() => {
           onOpenChange(false);
           onSuccess?.();
-        }, 1500);
+        }, 1400);
       } catch (err) {
-        const message = err instanceof Error ? err.message : 'Failed to connect wallet';
-        setConnectionError({
-          message:
-            message === 'Connection rejected by user'
-              ? 'You cancelled the wallet connection. Please try again if you want to connect.'
-              : message === 'Popup blocked. Please allow popups for this site.'
-                ? 'Popups are blocked. Please check your browser settings and try again.'
-                : message,
-          type: 'error',
-        });
+        setError(parseConnectionError(err));
       } finally {
         setConnectingWallet(null);
       }
     },
-    [connect, onOpenChange, onSuccess]
+    [connect, connectingWallet, showSuccess, onOpenChange, onSuccess]
   );
 
   const handleOpenChange = useCallback(
     (open: boolean) => {
-      if (!open || !contextLoading) {
-        onOpenChange(open);
-      }
+      // Prevent closing while a connection handshake is in flight
+      if (!open && contextLoading) return;
+      onOpenChange(open);
     },
     [onOpenChange, contextLoading]
   );
 
-  const handleHelpClick = useCallback(() => {
-    const helpUrl = 'https://developers.stellar.org/docs/build/guides/wallets/intro-to-wallets';
-    window.open(helpUrl, '_blank', 'noopener,noreferrer');
-  }, []);
+  function isNotInstalled(wallet: WalletMeta): boolean {
+    if (wallet.type !== 'extension') return false;
+    if (wallet.id === 'freighter') return freighterInstalled === false;
+    if (wallet.id === 'xbull') return xbullInstalled === false;
+    return false;
+  }
 
-  useEffect(() => {
-    if (isOpen && contextError) {
-      setConnectionError({
-        message: contextError,
-        type: 'error',
-      });
-    }
-  }, [isOpen, contextError]);
+  function isDetecting(wallet: WalletMeta): boolean {
+    if (wallet.type !== 'extension') return false;
+    if (wallet.id === 'freighter') return freighterInstalled === null;
+    if (wallet.id === 'xbull') return xbullInstalled === null;
+    return false;
+  }
 
   return (
     <Dialog open={isOpen} onOpenChange={handleOpenChange}>
       <DialogContent
-        className="max-w-md border-stellar-navy/20 bg-stellar-navy sm:rounded-lg"
-        aria-label="Connect Wallet"
+        className="max-w-sm gap-0 overflow-hidden border-white/10 bg-[#0f1117] p-0 shadow-2xl sm:rounded-2xl"
+        aria-label="Connect your Stellar wallet"
       >
-        <DialogHeader>
-          <DialogTitle className="text-xl font-bold text-white">Connect Your Wallet</DialogTitle>
-          <DialogDescription className="text-white/70">
-            Choose a wallet to get started with Stellar.
-          </DialogDescription>
-        </DialogHeader>
-
-        {showSuccess ? (
-          <div className="flex flex-col items-center justify-center space-y-4 py-8">
-            <div className="rounded-full bg-stellar-green/20 p-3">
-              <CheckCircle className="h-8 w-8 text-stellar-green" />
+        {/* Header */}
+        <DialogHeader className="border-b border-white/8 px-6 pt-6 pb-5">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-500/10">
+              <ShieldCheck className="h-5 w-5 text-blue-400" aria-hidden="true" />
             </div>
-            <div className="text-center">
-              <Text variant="h4" as="p" className="font-semibold text-white">
-                Connected!
-              </Text>
-              <Text variant="small" as="p" className="text-white/70">
-                Your wallet is ready to use.
-              </Text>
+            <div>
+              <DialogTitle className="text-base font-semibold text-white">
+                Connect Wallet
+              </DialogTitle>
+              <DialogDescription className="mt-0.5 text-xs text-white/50">
+                Choose how you want to connect to Stellar
+              </DialogDescription>
             </div>
           </div>
-        ) : (
-          <div className="space-y-4 py-4">
-            {connectionError && (
-              <div
-                className={cn(
-                  'flex items-start gap-3 rounded-lg p-3',
-                  connectionError.type === 'error'
-                    ? 'bg-red-900/20 text-red-200'
-                    : 'bg-yellow-900/20 text-yellow-200'
-                )}
-                role="alert"
-                aria-live="polite"
-              >
-                <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0" />
-                <Text variant="small" as="p" className="flex-1">
-                  {connectionError.message}
-                </Text>
-              </div>
-            )}
+        </DialogHeader>
 
-            <div className="space-y-3">
-              {(['freighter', 'albedo'] as const).map((walletType) => {
-                const isFreighterNotInstalled = walletType === 'freighter' && !freighterInstalled;
+        {/* Body */}
+        <div className="px-4 py-4 space-y-2">
+          {/* Success state */}
+          {showSuccess && successWallet ? (
+            <div className="flex flex-col items-center justify-center gap-3 py-8 text-center">
+              <div className="relative flex items-center justify-center">
+                <div
+                  className="absolute h-16 w-16 rounded-full bg-green-500/10 animate-ping"
+                  aria-hidden="true"
+                />
+                <div className="relative flex h-12 w-12 items-center justify-center rounded-full bg-green-500/15">
+                  <CheckCircle className="h-6 w-6 text-green-400" />
+                </div>
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-white">{successWallet.name} connected</p>
+                <p className="mt-0.5 text-xs text-white/50">Redirecting you now…</p>
+              </div>
+            </div>
+          ) : (
+            <>
+              {/* Error banner */}
+              {error && (
+                <div
+                  className={cn(
+                    'flex items-start gap-2.5 rounded-xl px-3 py-2.5 text-xs',
+                    error.kind === 'rejection'
+                      ? 'bg-yellow-500/10 text-yellow-300'
+                      : 'bg-red-500/10 text-red-300'
+                  )}
+                  role="alert"
+                  aria-live="polite"
+                >
+                  <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0" aria-hidden="true" />
+                  <span>{error.message}</span>
+                </div>
+              )}
+
+              {/* Wallet options */}
+              {WALLETS.map((wallet) => {
+                const notInstalled = isNotInstalled(wallet);
+                const detecting = isDetecting(wallet);
+                const loading = connectingWallet === wallet.id && contextLoading;
+                const anyConnecting = connectingWallet !== null;
 
                 return (
-                  <WalletOptionCard
-                    key={walletType}
-                    walletType={walletType}
-                    icon={WALLET_ICONS[walletType]}
-                    name={WALLET_NAMES[walletType]}
-                    description={WALLET_DESCRIPTIONS[walletType]}
-                    isLoading={connectingWallet === walletType && contextLoading}
-                    disabled={isFreighterNotInstalled}
-                    onClick={() => handleWalletConnect(walletType)}
-                    installUrl={walletType === 'freighter' ? 'https://freighter.app' : undefined}
+                  <WalletRow
+                    key={wallet.id}
+                    wallet={wallet}
+                    loading={loading}
+                    detecting={detecting}
+                    notInstalled={notInstalled}
+                    disabled={anyConnecting || showSuccess}
+                    onConnect={() => handleConnect(wallet)}
                   />
                 );
               })}
-            </div>
+            </>
+          )}
+        </div>
 
-            <div className="flex items-center justify-center gap-2 border-t border-white/10 pt-4">
-              <HelpCircle className="h-4 w-4 text-stellar-blue" aria-hidden="true" />
-              <button
-                onClick={handleHelpClick}
-                type="button"
-                className="text-sm text-stellar-blue hover:underline focus:outline-none focus:ring-2 focus:ring-stellar-blue/50 rounded px-2 py-1"
-                aria-label="Learn what a wallet is"
-              >
-                What is a wallet?
-              </button>
-            </div>
+        {/* Footer */}
+        {!showSuccess && (
+          <div className="flex items-center justify-center gap-1.5 border-t border-white/8 px-6 py-3">
+            <HelpCircle className="h-3.5 w-3.5 text-white/30" aria-hidden="true" />
+            <a
+              href="https://developers.stellar.org/docs/build/guides/wallets/intro-to-wallets"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs text-white/40 hover:text-white/70 transition-colors"
+            >
+              What is a Stellar wallet?
+            </a>
           </div>
         )}
       </DialogContent>
@@ -231,80 +334,124 @@ export function WalletModal({ isOpen, onOpenChange, onSuccess }: WalletModalProp
   );
 }
 
-interface WalletOptionCardProps {
-  walletType: WalletType;
-  icon: React.ReactNode;
-  name: string;
-  description: string;
-  isLoading: boolean;
-  disabled?: boolean;
-  onClick: () => void;
-  installUrl?: string;
+// ── Wallet row ─────────────────────────────────────────────────────────────
+
+interface WalletRowProps {
+  wallet: WalletMeta;
+  loading: boolean;
+  detecting: boolean;
+  notInstalled: boolean;
+  disabled: boolean;
+  onConnect: () => void;
 }
 
-function WalletOptionCard({
-  walletType: _walletType,
-  icon,
-  name,
-  description,
-  isLoading,
+function WalletRow({
+  wallet,
+  loading,
+  detecting,
+  notInstalled,
   disabled,
-  onClick,
-  installUrl,
-}: WalletOptionCardProps) {
+  onConnect,
+}: WalletRowProps) {
+  const isClickable = !disabled && !notInstalled;
+
   return (
-    <Card
-      className={cn(
-        'cursor-pointer border-white/10 bg-stellar-navy/40 transition-all hover:bg-stellar-blue/10 hover:border-stellar-blue/30',
-        disabled && 'cursor-not-allowed opacity-50 hover:bg-stellar-navy/40 hover:border-white/10'
-      )}
-      role="button"
-      tabIndex={disabled ? -1 : 0}
-      onClick={() => !disabled && onClick()}
-      onKeyDown={(e) => {
-        if (!disabled && (e.key === 'Enter' || e.key === ' ')) {
-          e.preventDefault();
-          onClick();
+    <div className="space-y-1">
+      <button
+        type="button"
+        onClick={isClickable ? onConnect : undefined}
+        disabled={!isClickable}
+        aria-busy={loading}
+        aria-label={
+          loading
+            ? `Connecting to ${wallet.name}…`
+            : notInstalled
+              ? `${wallet.name} not installed`
+              : `Connect with ${wallet.name}`
         }
-      }}
-      aria-disabled={disabled}
-    >
-      <div className="flex items-center gap-4 p-4">
-        <div className="flex-shrink-0">{icon}</div>
-        <div className="flex-1">
-          <h3 className="font-semibold text-white">{name}</h3>
-          <p className="text-sm text-white/70">{description}</p>
-          {disabled && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                if (installUrl) window.open(installUrl, '_blank', 'noopener,noreferrer');
-              }}
-              type="button"
-              className="mt-2 text-xs text-stellar-blue hover:underline focus:outline-none focus:ring-2 focus:ring-stellar-blue/50 rounded px-2 py-1"
-            >
-              Install Extension
-            </button>
-          )}
+        className={cn(
+          'group relative w-full rounded-xl border bg-white/[0.03] px-4 py-3.5 text-left',
+          'transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/20',
+          isClickable && wallet.accentClass,
+          !isClickable && 'cursor-not-allowed opacity-50 border-white/8',
+          loading && 'border-blue-500/50 bg-blue-500/5'
+        )}
+      >
+        <div className="flex items-center gap-3.5">
+          {/* Icon */}
+          <div className="flex-shrink-0">{wallet.icon}</div>
+
+          {/* Text */}
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium text-white">{wallet.name}</span>
+              {wallet.type === 'web' && (
+                <span className="rounded-full bg-white/8 px-1.5 py-0.5 text-[10px] font-medium text-white/50">
+                  Web
+                </span>
+              )}
+              {notInstalled && (
+                <span className="rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-medium text-amber-400">
+                  Not installed
+                </span>
+              )}
+            </div>
+            <p className="mt-0.5 truncate text-xs text-white/40">{wallet.tagline}</p>
+          </div>
+
+          {/* Right indicator */}
+          <div className="flex-shrink-0">
+            {loading ? (
+              <Loader2 className="h-4 w-4 animate-spin text-blue-400" aria-hidden="true" />
+            ) : detecting ? (
+              <Loader2 className="h-4 w-4 animate-spin text-white/20" aria-hidden="true" />
+            ) : (
+              <svg
+                className={cn(
+                  'h-4 w-4 transition-transform duration-150',
+                  isClickable
+                    ? 'text-white/25 group-hover:translate-x-0.5 group-hover:text-white/60'
+                    : 'text-white/15'
+                )}
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                aria-hidden="true"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 5l7 7-7 7"
+                />
+              </svg>
+            )}
+          </div>
         </div>
-        {isLoading ? (
-          <Loader2 className="h-5 w-5 animate-spin text-stellar-blue" aria-hidden="true" />
-        ) : (
+
+        {/* Loading progress bar */}
+        {loading && (
           <div
-            className="flex-shrink-0 rounded-full border-2 border-white/20 p-2 transition-colors hover:border-stellar-blue/50"
+            className="absolute bottom-0 left-0 h-[2px] w-full overflow-hidden rounded-b-xl"
             aria-hidden="true"
           >
-            <svg
-              className="h-4 w-4 text-white/50"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
+            <div className="h-full w-1/2 animate-[slide_1.2s_ease-in-out_infinite] bg-gradient-to-r from-transparent via-blue-400 to-transparent" />
           </div>
         )}
-      </div>
-    </Card>
+      </button>
+
+      {/* Install link for not-installed extension wallets */}
+      {notInstalled && wallet.installUrl && (
+        <a
+          href={wallet.installUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-1 pl-4 text-xs text-white/35 hover:text-white/60 transition-colors"
+        >
+          <ExternalLink className="h-3 w-3" aria-hidden="true" />
+          Install {wallet.name}
+        </a>
+      )}
+    </div>
   );
 }

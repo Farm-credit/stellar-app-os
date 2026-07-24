@@ -5,7 +5,8 @@
     "purchaseCredits": "Purchase Credits",
     "dashboard": "Dashboard",
     "projects": "Projects",
-    "marketplace": "Marketplace"
+    "marketplace": "Marketplace",
+    "transactions": "Transactions"
   },
   "header": {
     "connectWallet": "Connect Wallet",
@@ -90,6 +91,7 @@
     "en": "English",
     "es": "Spanish",
     "fr": "French",
-    "pt": "Portuguese"
+    "pt": "Portuguese",
+    "ha": "Hausa"
   }
 }

@@ -6,7 +6,17 @@ import type { BuildDonationTransactionRequest } from '@/lib/types/donation-payme
 export async function POST(request: Request) {
   try {
     const body = (await request.json()) as BuildDonationTransactionRequest;
+    const {
+      amount,
+      walletPublicKey,
+      network,
+      idempotencyKey,
+      treeCount = 1,
+      asset = 'USDC',
+      slippageTolerance,
+    } = body;
     const { amount, walletPublicKey, network, idempotencyKey, treeCount = 1 } = body;
+    const { amount, walletPublicKey, network, idempotencyKey, treeCount = 1, regionId } = body;
 
     if (!amount || amount <= 0) {
       return NextResponse.json({ error: 'Invalid donation amount' }, { status: 400 });
@@ -23,12 +33,21 @@ export async function POST(request: Request) {
       );
     }
 
+    if (asset !== 'USDC' && asset !== 'XLM') {
+      return NextResponse.json({ error: 'Unsupported asset (expected USDC or XLM)' }, { status: 400 });
+    }
+
     const result = await buildDonationTransaction(
       amount,
       walletPublicKey,
       network,
       idempotencyKey,
+      treeCount,
+      asset,
+      slippageTolerance
       treeCount
+      treeCount,
+      regionId
     );
 
     const perTreeAllocation = calculateDonationAllocation(amount);

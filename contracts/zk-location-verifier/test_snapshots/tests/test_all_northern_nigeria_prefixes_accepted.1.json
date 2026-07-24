@@ -21,7 +21,7 @@
                   "bytes": "0000000000000000000000000000000000000000000000000000000000000000"
                 },
                 {
-                  "string": "s0"
+                  "u32": 0
                 }
               ]
             }
@@ -81,14 +81,6 @@
                   "map": [
                     {
                       "key": {
-                        "symbol": "commitment"
-                      },
-                      "val": {
-                        "bytes": "0000000000000000000000000000000000000000000000000000000000000000"
-                      }
-                    },
-                    {
-                      "key": {
                         "symbol": "farmer"
                       },
                       "val": {
@@ -97,10 +89,10 @@
                     },
                     {
                       "key": {
-                        "symbol": "region_geohash"
+                        "symbol": "region_index"
                       },
                       "val": {
-                        "string": "s0"
+                        "u32": 0
                       }
                     },
                     {
@@ -169,6 +161,14 @@
                         },
                         "val": {
                           "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4"
+                        }
+                      },
+                      {
+                        "key": {
+                          "symbol": "PRFTTL"
+                        },
+                        "val": {
+                          "u32": 1
                         }
                       }
                     ]
@@ -312,7 +312,7 @@
                   "bytes": "0000000000000000000000000000000000000000000000000000000000000000"
                 },
                 {
-                  "string": "s0"
+                  "u32": 0
                 }
               ]
             }
@@ -410,14 +410,6 @@
               "map": [
                 {
                   "key": {
-                    "symbol": "commitment"
-                  },
-                  "val": {
-                    "bytes": "0000000000000000000000000000000000000000000000000000000000000000"
-                  }
-                },
-                {
-                  "key": {
                     "symbol": "farmer"
                   },
                   "val": {
@@ -426,10 +418,10 @@
                 },
                 {
                   "key": {
-                    "symbol": "region_geohash"
+                    "symbol": "region_index"
                   },
                   "val": {
-                    "string": "s0"
+                    "u32": 0
                   }
                 },
                 {

@@ -21,7 +21,7 @@
                   "bytes": "0101010101010101010101010101010101010101010101010101010101010101"
                 },
                 {
-                  "string": "s1"
+                  "u32": 1
                 }
               ]
             }
@@ -68,6 +68,41 @@
     "min_temp_entry_ttl": 16,
     "max_entry_ttl": 6312000,
     "ledger_entries": [
+      [
+        {
+          "contract_data": {
+            "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+            "key": {
+              "bytes": "c8c6112bda13b3f4634a3b9ece8340c4c138cc51dc7d355e1edd48da07801c69"
+            },
+            "durability": "temporary"
+          }
+        },
+        [
+          {
+            "last_modified_ledger_seq": 0,
+            "data": {
+              "contract_data": {
+                "ext": "v0",
+                "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+                "key": {
+                  "bytes": "c8c6112bda13b3f4634a3b9ece8340c4c138cc51dc7d355e1edd48da07801c69"
+                },
+                "durability": "temporary",
+                "val": {
+                  "vec": [
+                    {
+                      "symbol": "Approved"
+                    }
+                  ]
+                }
+              }
+            },
+            "ext": "v0"
+          },
+          15
+        ]
+      ],
       [
         {
           "contract_data": {
@@ -152,14 +187,6 @@
                   "map": [
                     {
                       "key": {
-                        "symbol": "commitment"
-                      },
-                      "val": {
-                        "bytes": "0101010101010101010101010101010101010101010101010101010101010101"
-                      }
-                    },
-                    {
-                      "key": {
                         "symbol": "farmer"
                       },
                       "val": {
@@ -168,10 +195,10 @@
                     },
                     {
                       "key": {
-                        "symbol": "region_geohash"
+                        "symbol": "region_index"
                       },
                       "val": {
-                        "string": "s1"
+                        "u32": 1
                       }
                     },
                     {
@@ -240,6 +267,14 @@
                         },
                         "val": {
                           "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4"
+                        }
+                      },
+                      {
+                        "key": {
+                          "symbol": "PRFTTL"
+                        },
+                        "val": {
+                          "u32": 1
                         }
                       }
                     ]
@@ -416,7 +451,7 @@
                   "bytes": "0101010101010101010101010101010101010101010101010101010101010101"
                 },
                 {
-                  "string": "s1"
+                  "u32": 1
                 }
               ]
             }
@@ -514,14 +549,6 @@
               "map": [
                 {
                   "key": {
-                    "symbol": "commitment"
-                  },
-                  "val": {
-                    "bytes": "0101010101010101010101010101010101010101010101010101010101010101"
-                  }
-                },
-                {
-                  "key": {
                     "symbol": "farmer"
                   },
                   "val": {
@@ -530,10 +557,10 @@
                 },
                 {
                   "key": {
-                    "symbol": "region_geohash"
+                    "symbol": "region_index"
                   },
                   "val": {
-                    "string": "s1"
+                    "u32": 1
                   }
                 },
                 {
@@ -791,14 +818,6 @@
               "map": [
                 {
                   "key": {
-                    "symbol": "commitment"
-                  },
-                  "val": {
-                    "bytes": "0101010101010101010101010101010101010101010101010101010101010101"
-                  }
-                },
-                {
-                  "key": {
                     "symbol": "farmer"
                   },
                   "val": {
@@ -807,10 +826,10 @@
                 },
                 {
                   "key": {
-                    "symbol": "region_geohash"
+                    "symbol": "region_index"
                   },
                   "val": {
-                    "string": "s1"
+                    "u32": 1
                   }
                 },
                 {

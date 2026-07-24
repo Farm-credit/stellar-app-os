@@ -1,0 +1,97 @@
+{
+  "nav": {
+    "home": "Gida",
+    "blog": "Shafin Labarai",
+    "purchaseCredits": "Sayi Kiredi",
+    "dashboard": "Allon Sarrafa",
+    "projects": "Ayyuka",
+    "marketplace": "Kasuwa",
+    "transactions": "Ma'amaloli"
+  },
+  "header": {
+    "connectWallet": "Haɗa Jakar Kuɗi",
+    "openMenu": "Buɗe menu na kewayawa",
+    "languageSelector": "Zaɓi harshe"
+  },
+  "mobile": {
+    "closeMenu": "Rufe menu na kewayawa",
+    "tapToDisconnect": "Taɓa don yanke haɗin"
+  },
+  "footer": {
+    "stayUpdated": "Kasance Da Labarai",
+    "stayUpdatedDesc": "Samu sabuntawa na ƙarshe kan FarmCredit da hanyar sadarwa ta Stellar.",
+    "about": "Game Da",
+    "resources": "Albarkatu",
+    "legal": "Doka",
+    "aboutFarmCredit": "Game Da FarmCredit",
+    "blog": "Shafin Labarai",
+    "documentation": "Takaddun Bayanai",
+    "apiDocs": "Takaddun API",
+    "devGuide": "Jagoran Mai Haɓakawa",
+    "community": "Al'umma",
+    "terms": "Sharuɗɗan Sabis",
+    "privacy": "Manufar Sirri",
+    "cookies": "Manufar Cookie",
+    "copyright": "© {{year}} FarmCredit. Duk haƙƙin mallakar an kiyaye su.",
+    "followTwitter": "Bi mu a Twitter/X",
+    "viewGithub": "Duba ma'ajiyar GitHub ɗinmu",
+    "joinDiscord": "Shiga al'ummar Discord ɗinmu",
+    "twitter": "Twitter",
+    "github": "GitHub",
+    "discord": "Discord"
+  },
+  "newsletter": {
+    "emailPlaceholder": "Shigar da imel ɗinka",
+    "emailAriaLabel": "Adireshi na imel don rajista ta jaridar labarai",
+    "subscribe": "Yi Rajista",
+    "emailRequired": "Ana buƙatar imel",
+    "invalidEmail": "Da fatan za a shigar da adireshi na imel mai inganci",
+    "successMessage": "An yi rajistarka 🎉",
+    "errorMessage": "Wani abu ya faru. Sake gwadawa."
+  },
+  "blog": {
+    "pageTitle": "Shafin Labarai",
+    "pageSubtitle": "Ra'ayoyi kan kiredi na carbon, noma mai ɗorewa, fasahar yanayi, da manufar noma.",
+    "featuredBlogTitle": "Shafin Labarai na FarmCredit",
+    "categoryFiltersLabel": "Tacewas na nau'i",
+    "readPost": "Karanta labari: {{title}}",
+    "loadingAriaLabel": "Ana lodi labarai",
+    "errorTitle": "Wani abu ya faru",
+    "errorDesc": "Ba mu iya lodi labarain yanzu. Wannan na iya zama matsala ta wucin gadi — da fatan za a sake gwadawa.",
+    "errorReference": "Tunani kan kuskure: {{digest}}",
+    "tryAgain": "Sake gwadawa",
+    "tryAgainAriaLabel": "Sake gwada lodi shafin labarai"
+  },
+  "purchase": {
+    "nextButton": "Na gaba",
+    "nextAriaLabel": "Ci gaba zuwa haɗin jakar kuɗi",
+    "continueToPayment": "Ci gaba zuwa biyan kuɗi",
+    "loading": "Ana lodi...",
+    "compareTitle": "Kwatanta Ayyukan Kiredi na Carbon",
+    "compareSubtitle": "Zaɓi har zuwa ayyuka 3 don kwatanta fasali, farashi, da fa'idodi kusa da juna"
+  },
+  "home": {
+    "badge": "Yana aiki ta Stellar",
+    "title": "FarmCredit",
+    "subtitle": "Dandalin bashi na noma mai rarrabuwa da aka gina akan hanyar sadarwa ta Stellar.",
+    "totalCreditIssued": "Jimlar Kiredi Da Aka Bayar",
+    "activeFarmers": "Manoma Masu Aiki",
+    "repaymentRate": "Adadin Biyan Bashi",
+    "getStarted": "Fara",
+    "getStartedDescription": "Haɗa jakar kuɗin ka don samun damar ayyukan bashi na noma.",
+    "connectWallet": "Haɗa Jakar Kuɗi",
+    "readBlog": "Karanta Shafin Labarain Mu",
+    "purchaseCarbon": "Sayi Kiredi na Carbon",
+    "makeDonation": "Yi Gudummawa",
+    "showToast": "Nuna Saƙo",
+    "transactions": "Ma'amaloli",
+    "profileSaved": "An ajiye bayanan bayanai!"
+  },
+  "languages": {
+    "en": "Turanci",
+    "es": "Sifeniyanci",
+    "fr": "Faransanci",
+    "pt": "Fotigalanci",
+    "ha": "Hausa"
+  }
+}

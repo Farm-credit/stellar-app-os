@@ -47,6 +47,14 @@
                         "val": {
                           "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4"
                         }
+                      },
+                      {
+                        "key": {
+                          "symbol": "PRFTTL"
+                        },
+                        "val": {
+                          "u32": 1
+                        }
                       }
                     ]
                   }
@@ -156,7 +164,7 @@
                   "bytes": "0404040404040404040404040404040404040404040404040404040404040404"
                 },
                 {
-                  "string": "e7"
+                  "u32": 99
                 }
               ]
             }
@@ -174,22 +182,21 @@
           "v0": {
             "topics": [
               {
-                "symbol": "log"
+                "symbol": "error"
+              },
+              {
+                "error": {
+                  "contract": 65
+                }
               }
             ],
             "data": {
               "vec": [
                 {
-                  "string": "caught panic 'region_geohash is outside the approved Northern Nigeria boundary' from contract function 'Symbol(obj#19)'"
+                  "string": "failing with contract error"
                 },
                 {
-                  "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"
-                },
-                {
-                  "bytes": "0404040404040404040404040404040404040404040404040404040404040404"
-                },
-                {
-                  "string": "e7"
+                  "u32": 65
                 }
               ]
             }
@@ -211,7 +218,32 @@
               },
               {
                 "error": {
-                  "wasm_vm": "invalid_action"
+                  "contract": 65
+                }
+              }
+            ],
+            "data": {
+              "string": "escalating error to panic"
+            }
+          }
+        }
+      },
+      "failed_call": true
+    },
+    {
+      "event": {
+        "ext": "v0",
+        "contract_id": "0000000000000000000000000000000000000000000000000000000000000001",
+        "type_": "diagnostic",
+        "body": {
+          "v0": {
+            "topics": [
+              {
+                "symbol": "error"
+              },
+              {
+                "error": {
+                  "contract": 65
                 }
               }
             ],
@@ -236,7 +268,7 @@
               },
               {
                 "error": {
-                  "wasm_vm": "invalid_action"
+                  "contract": 65
                 }
               }
             ],
@@ -257,7 +289,7 @@
                       "bytes": "0404040404040404040404040404040404040404040404040404040404040404"
                     },
                     {
-                      "string": "e7"
+                      "u32": 99
                     }
                   ]
                 }
@@ -281,7 +313,7 @@
               },
               {
                 "error": {
-                  "wasm_vm": "invalid_action"
+                  "contract": 65
                 }
               }
             ],

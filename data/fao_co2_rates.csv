@@ -1,0 +1,16 @@
+slug,common_name,scientific_name,co2_kg_per_year,maturity_years,biome,native_regions,source_ref
+teak,Teak,Tectona grandis,22.00,20,Tropical dry forest,"IN,TH,MM,NG",FAO FRA 2020
+moringa,Moringa,Moringa oleifera,9.00,3,Tropical savanna,"NG,ET,IN,PK",FAO FRA 2020
+eucalyptus,Eucalyptus,Eucalyptus globulus,31.00,10,Mediterranean shrubland,"AU,BR,ZA,IN",FAO FRA 2020
+mangrove,Mangrove,Rhizophora mangle,14.00,15,Mangrove,"NG,ID,BD,MX",IPCC 2006 Vol4 Ch4
+acacia,Acacia,Acacia senegal,11.00,12,Tropical savanna,"NG,SD,ET,KE",FAO FRA 2020
+neem,Neem,Azadirachta indica,13.00,10,Tropical dry forest,"NG,IN,SD,TZ",FAO FRA 2020
+mahogany,African Mahogany,Khaya senegalensis,18.00,25,Tropical moist forest,"NG,GH,CM,CI",FAO FRA 2020
+baobab,Baobab,Adansonia digitata,8.00,50,Tropical savanna,"NG,TZ,ZW,MG",FAO FRA 2020
+bamboo,Bamboo (Moso),Phyllostachys edulis,35.00,5,Subtropical forest,"CN,VN,IN,ET",IPCC 2006 Vol4 Ch4
+cedar,West African Cedar,Cedrela odorata,20.00,30,Tropical moist forest,"NG,GH,CM,CO",FAO FRA 2020
+pine,Caribbean Pine,Pinus caribaea,25.00,15,Subtropical highland,"NG,HN,GY,CU",FAO FRA 2020
+iroko,Iroko,Milicia excelsa,16.00,35,Tropical moist forest,"NG,GH,CM,CG",FAO FRA 2020
+shea,Shea,Vitellaria paradoxa,7.00,20,Tropical savanna,"NG,GH,BF,ML",FAO FRA 2020
+cashew,Cashew,Anacardium occidentale,10.00,10,Tropical savanna,"NG,IN,CI,TZ",FAO FRA 2020
+locust_bean,African Locust Bean,Parkia biglobosa,12.00,25,Tropical savanna,"NG,BF,GH,ML",FAO FRA 2020

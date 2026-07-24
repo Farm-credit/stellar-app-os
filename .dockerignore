@@ -1,0 +1,21 @@
+.git
+.gitignore
+.next
+node_modules
+pnpm-lock.yaml
+Dockerfile
+.dockerignore
+README.md
+*.md
+contracts
+farm Guage
+.kiro
+.husky
+.github
+.vscode
+docs
+scripts
+public/icons
+*.log
+.env
+.env.*

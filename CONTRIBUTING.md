@@ -360,11 +360,12 @@ Always set `displayName`. Always export the props interface.
 | Type                 | Convention                       | Example                          |
 | -------------------- | -------------------------------- | -------------------------------- |
 | **Components**       | `PascalCase`                     | `WalletConnectionStep`           |
-| **Folders**          | `kebab-case`                     | `wallet-connection`              |
+| **Component Folders**| `PascalCase`                     | `WalletConnectionStep/`          |
+| **Other Folders**    | `kebab-case`                     | `lib/api`, `scripts`             |
 | **Functions**        | `camelCase`                      | `handleSubmit`, `formatBalance`  |
 | **Constants**        | `SCREAMING_SNAKE_CASE`           | `MAX_AMOUNT`, `API_BASE_URL`     |
 | **Types/Interfaces** | `PascalCase`                     | `WalletBalance`                  |
-| **Files**            | `kebab-case` (except components) | `use-wallet.ts`                  |
+| **Files (non-component)** | `kebab-case`                | `use-wallet.ts`                  |
 
 ### Styling with Tailwind CSS + shadcn/ui
 

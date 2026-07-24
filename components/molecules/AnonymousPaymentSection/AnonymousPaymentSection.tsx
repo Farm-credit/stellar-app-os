@@ -30,6 +30,9 @@ export function AnonymousPaymentSection({
 }: AnonymousPaymentSectionProps) {
   const {
     status,
+    proverStep,
+    proverProgress,
+    proverMessage,
     proof,
     transactionHash,
     error,
@@ -139,7 +142,14 @@ export function AnonymousPaymentSection({
 
       {/* ZK Proof Generator */}
       {wallet && (
-        <ZKProofGenerator status={status} proofGenerationTime={proofGenerationTime} error={error} />
+        <ZKProofGenerator
+          status={status}
+          proverStep={proverStep}
+          proverProgress={proverProgress}
+          proverMessage={proverMessage}
+          proofGenerationTime={proofGenerationTime}
+          error={error}
+        />
       )}
 
       {/* Error Display */}
