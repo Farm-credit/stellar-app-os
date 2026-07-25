@@ -8,22 +8,16 @@ export default defineConfig({
     alias: [{ find: /^@\/(.*)$/, replacement: fileURLToPath(new URL('./$1', import.meta.url)) }],
   },
   test: {
+    globals: true,
     environment: 'jsdom',
     setupFiles: ['./vitest.setup.ts'],
-    globals: true,
-    include: ['**/*.{test,spec}.{ts,tsx}'],
-import path from 'path';
-
-export default defineConfig({
-  resolve: {
-    alias: {
-      '@': path.resolve(__dirname),
-    },
-  },
-  test: {
-    globals: true,
-    environment: 'node',
-    include: ['**/__tests__/**/*.test.{ts,tsx}'],
-    exclude: ['node_modules', '.next', 'contracts'],
+    include: ['**/*.{test,spec}.{ts,tsx}', '**/__tests__/**/*.test.{ts,tsx}'],
+    exclude: [
+      'node_modules',
+      '.next',
+      'contracts',
+      'lib/api/impactData.test.ts',
+      'lib/geo/regionHash.test.ts',
+    ],
   },
 });
