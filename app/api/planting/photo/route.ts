@@ -6,6 +6,9 @@ import { encryptGpsCoordinates } from '@/lib/zk/locationProof';
 import { sendPhotoUploadedEmail } from '@/lib/email/sendgrid';
 import { getPool } from '@/lib/db/client';
 import { encodeGeohash } from '@/lib/geo/geohash';
+import { buildRegionHash } from '@/lib/geo/regionHash';
+import { computePHash, type PHashHex } from '@/lib/image/phash';
+import { findDuplicate, getDuplicateThreshold, recordPhotoHash } from '@/lib/db/photo-hashes';
 
 // Maximum allowable distance (in meters) between Exif GPS and farmer-submitted GPS.
 const MAX_DISTANCE_METERS = 500;
@@ -33,6 +36,56 @@ export async function POST(request: Request) {
     }
 
     const buffer = Buffer.from(await photo.arrayBuffer());
+
+    // ── pHash duplicate-photo detection (Issue #825) ───────────────────────
+    // Runs *before* the EXIF / distance checks so a stock-photo upload
+    // can't even consume S3 bandwidth.  Failures are non-fatal: if we can't
+    // hash the photo for any reason we fall through to the rest of the
+    // pipeline rather than blocking legitimate submissions.
+    let phashHex: PHashHex | null = null;
+    try {
+      const { hex } = await computePHash(buffer);
+      phashHex = hex;
+    } catch (err) {
+      console.warn('[planting/photo] pHash computation failed:', err);
+    }
+
+    if (phashHex) {
+      const threshold = getDuplicateThreshold();
+      try {
+        const match = await findDuplicate(phashHex, {
+          threshold,
+          entityType: 'tree',
+        });
+        if (match) {
+          console.info('[planting/photo] duplicate rejected:', {
+            treeId,
+            farmerId,
+            distance: match.distance,
+            duplicateOf: match.row.id,
+          });
+          return NextResponse.json(
+            {
+              error: 'Duplicate photo detected.',
+              hash: phashHex,
+              distance: match.distance,
+              duplicateOf: {
+                id: match.row.id,
+                entityType: match.row.entity_type,
+                entityId: match.row.entity_id,
+                storageRef: match.row.storage_ref,
+                createdAt: match.row.created_at.toISOString(),
+              },
+              threshold,
+            },
+            { status: 422 }
+          );
+        }
+      } catch (err) {
+        // Non-fatal: a DB outage shouldn't block legitimate uploads.
+        console.error('[planting/photo] dedup lookup failed:', err);
+      }
+    }
 
     // Extract EXIF GPS data (fails gracefully if none exists or it cannot be read)
     const exifData = await exifr.gps(buffer).catch((err) => {
@@ -64,6 +117,29 @@ export async function POST(request: Request) {
 
     // Upload to AWS S3 securely
     const s3Key = await uploadImageToS3(farmerId, buffer, photo.type);
+
+    // ── Record the pHash row now that we know the real S3 key ──────────────
+    // (Called exactly once — the earlier `findDuplicate` was read-only.)
+    if (phashHex) {
+      try {
+        await recordPhotoHash({
+          entityType: 'tree',
+          entityId: treeId || farmerId,
+          hashHex: phashHex,
+          storageRef: s3Key,
+          metadata: {
+            farmerId,
+            region,
+            exifLat,
+            exifLon,
+            s3Bucket: process.env.AWS_S3_BUCKET,
+          },
+        });
+      } catch (err) {
+        // Non-fatal.
+        console.error('[planting/photo] hash record failed:', err);
+      }
+    }
 
     // Store hashed region for the live map (no raw GPS persisted)
     const { regionKey, centerLat, centerLon } = buildRegionHash({ lat: exifLat, lon: exifLon });
@@ -110,6 +186,7 @@ export async function POST(request: Request) {
         message: 'Photo uploaded and metadata verified successfully.',
         s3Key,
         encryptedGps,
+        hash: phashHex,
       },
       { status: 201 }
     );
