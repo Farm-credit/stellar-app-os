@@ -50,7 +50,7 @@ export function useWallet() {
 
     try {
       let publicKey: string;
-      let targetNetwork = network;
+      const targetNetwork = network;
 
       switch (type) {
         case 'freighter':

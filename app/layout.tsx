@@ -1,8 +1,12 @@
 import type { Metadata, Viewport } from 'next';
-import Script from 'next/script';
 import { Header } from '@/components/organisms/Header/Header';
 import { Footer } from '@/components/organisms/Footer/Footer';
 import { WalletProvider } from '@/contexts/WalletContext';
+import { NotificationProvider } from '@/contexts/NotificationContext';
+import {
+  NotificationCenterDrawer,
+  ToastContainer,
+} from '@/components/organisms/NotificationCenter';
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://farmcredit.app';
 const siteName = 'FarmCredit';
@@ -99,14 +103,19 @@ export default function RootLayout({
       </head>
       <body className={`${inter.variable} font-sans antialiased`}>
         <WalletProvider>
-          <a
-            href="#main-content"
-            className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 z-50 bg-stellar-blue text-stellar-navy px-4 py-2 rounded-md font-semibold focus:ring-2 focus:ring-stellar-blue focus:ring-offset-2"
-          >
-            Skip to main content
-          </a>
-          {children}
-          <Footer />
+          <NotificationProvider>
+            <a
+              href="#main-content"
+              className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 z-50 bg-stellar-blue text-stellar-navy px-4 py-2 rounded-md font-semibold focus:ring-2 focus:ring-stellar-blue focus:ring-offset-2"
+            >
+              Skip to main content
+            </a>
+            <Header />
+            {children}
+            <Footer />
+            <NotificationCenterDrawer />
+            <ToastContainer />
+          </NotificationProvider>
         </WalletProvider>
       </body>
     </html>

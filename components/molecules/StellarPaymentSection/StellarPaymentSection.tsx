@@ -153,8 +153,8 @@ export function StellarPaymentSection({
         </div>
         {asset === 'XLM' && (
           <Text variant="small" className="text-muted-foreground mt-2">
-            Your XLM is converted to {formatCurrency(amount)} of USDC at the live market rate, with a
-            small slippage buffer on the XLM debited.
+            Your XLM is converted to {formatCurrency(amount)} of USDC at the live market rate, with
+            a small slippage buffer on the XLM debited.
           </Text>
         )}
       </div>

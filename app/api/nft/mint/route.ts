@@ -2,13 +2,16 @@ import { NextResponse } from 'next/server';
 import { createHash } from 'crypto';
 import fs from 'fs';
 import path from 'path';
-import { buildMintCertificateTransaction, getMintingContractAddress } from '@/lib/stellar/nft-certificate';
+import {
+  buildMintCertificateTransaction,
+  getMintingContractAddress,
+} from '@/lib/stellar/nft-certificate';
 import { TREES_PER_DOLLAR } from '@/lib/constants/donation';
 
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { donationId, txHash, projectId, amount, date, recipientAddress, network } = body;
+    const { _donationId, txHash, projectId, amount, date, recipientAddress, network } = body;
 
     // 1. Check for missing fields
     const requiredFields = [
@@ -20,7 +23,9 @@ export async function POST(req: Request) {
       'recipientAddress',
       'network',
     ];
-    const missingFields = requiredFields.filter((field) => body[field] === undefined || body[field] === null || body[field] === '');
+    const missingFields = requiredFields.filter(
+      (field) => body[field] === undefined || body[field] === null || body[field] === ''
+    );
     if (missingFields.length > 0) {
       return NextResponse.json(
         { error: `Missing required fields: ${missingFields.join(', ')}` },
@@ -45,7 +50,9 @@ export async function POST(req: Request) {
     }
 
     // 5. Derive Token_ID
-    const tokenId = createHash('sha256').update(txHash + projectId).digest('hex');
+    const tokenId = createHash('sha256')
+      .update(txHash + projectId)
+      .digest('hex');
 
     // 6. Build Certificate Metadata
     const treeCount = Math.round(amount * TREES_PER_DOLLAR);

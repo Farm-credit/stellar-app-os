@@ -6,11 +6,7 @@ export type ProjectType =
   | 'Other';
 
 export type VerificationStatus =
-  | 'Gold Standard'
-  | 'Verra (VCS)'
-  | 'Climate Action Reserve'
-  | 'Plan Vivo'
-  | 'Pending';
+  'Gold Standard' | 'Verra (VCS)' | 'Climate Action Reserve' | 'Plan Vivo' | 'Pending';
 
 export interface ProjectCoordinates {
   latitude: number;
