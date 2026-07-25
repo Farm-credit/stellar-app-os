@@ -34,7 +34,8 @@
     "db:migrate:validate": "node scripts/run-migrations.mjs validate",
     "seed:species": "node scripts/seed-species.mjs",
     "db:backup": "node scripts/db-backup.mjs",
-    "prepare": "husky"
+    "prepare": "husky",
+    "indexer:cdc": "tsx lib/indexer/cdc-worker.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1037.0",
