@@ -11,19 +11,7 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: ['./vitest.setup.ts'],
     globals: true,
-    include: ['**/*.{test,spec}.{ts,tsx}'],
-import path from 'path';
-
-export default defineConfig({
-  resolve: {
-    alias: {
-      '@': path.resolve(__dirname),
-    },
-  },
-  test: {
-    globals: true,
-    environment: 'node',
-    include: ['**/__tests__/**/*.test.{ts,tsx}'],
+    include: ['**/*.{test,spec}.{ts,tsx}', '**/__tests__/**/*.test.{ts,tsx}'],
     exclude: ['node_modules', '.next', 'contracts'],
   },
 });

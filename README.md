@@ -679,3 +679,89 @@ Issues are open and labelled — see the [Issues tab](../../issues). Smart contr
 ## License
 
 Apache 2.0
+
+---
+
+## 🔒 Redis Redlock – Wallet Transaction Serialization
+
+To prevent **Stellar sequence/nonce collisions** when multiple API replicas build transactions for the same wallet concurrently, the backend uses **Redis Redlock** distributed locks.
+
+### Problem
+
+Stellar accounts use a strict sequence number (similar to Ethereum nonce). If two concurrent requests load the same sequence and both build `seq+1`, one will fail with `tx_bad_seq`.
+
+```
+Client A: loadAccount seq=100 ─┐
+Client B: loadAccount seq=100 ─┼─► both build seq=101 ─► one fails tx_bad_seq
+```
+
+### Solution – Redlock per Wallet
+
+All transaction building API routes now acquire a distributed lock keyed by wallet public key:
+
+```ts
+import { withWalletLock } from '@/lib/cache/redlock';
+
+const result = await withWalletLock(walletPublicKey, async () => {
+  return buildDonationTransaction(...);
+});
+```
+
+Lock keys:
+- `lock:wallet:tx:{publicKey}` – transaction building / submission
+- `lock:wallet:nonce:{publicKey}` – auth nonce generation
+- `auth:nonce:{publicKey}` – single-use login nonces stored in Redis
+
+### Implementation
+
+- **lib/cache/redis.ts** – singleton Redis client manager (supports `REDIS_URL` and `REDIS_URLS` for multi-instance Redlock quorum)
+- **lib/cache/redlock.ts** – full Redlock algorithm:
+  - `SET key value NX PX ttl` with unique token
+  - Quorum = `floor(n/2)+1`
+  - Validity = `ttl - elapsed - drift`
+  - Lua unlock: `if get == token then del`
+  - Retry with jitter
+  - **In-memory fallback** when `REDIS_URL` not set (single-process serialization via promise queues + TTL)
+- **lib/auth/nonce.ts** – Redis-backed single-use nonce store with atomic Lua consume
+- **API routes** (`/api/transaction/build`, `/build-donation`, `/credits/bulk-purchase`, `/transaction/build-anonymous-donation`, `/nft/mint`, `/transaction/submit`) – wrapped with `withWalletLock`
+
+### Environment Variables
+
+```bash
+REDIS_URL=redis://localhost:6379
+# Optional multi-instance for true Redlock quorum
+# REDIS_URLS=redis://127.0.0.1:6379,redis://127.0.0.1:6380,redis://127.0.0.1:6381
+
+REDIS_LOCK_TTL_MS=10000
+REDIS_LOCK_RETRY_COUNT=10
+REDIS_LOCK_RETRY_DELAY_MS=100
+REDIS_LOCK_RETRY_JITTER_MS=100
+REDIS_LOCK_SIGNING_TTL_MS=30000
+REDIS_LOCK_SIGNING_RETRY=20
+```
+
+If `REDIS_URL` is not set, the system logs a warning and falls back to in-memory locks – safe for local dev but not distributed.
+
+### Testing
+
+```bash
+pnpm test lib/cache/__tests__/redlock.test.ts
+pnpm test lib/auth/__tests__/nonce-redlock.test.ts
+pnpm test lib/cache/__tests__/wallet-lock-integration.test.ts
+```
+
+Tests verify:
+- Lock acquire/release
+- Serialization of same wallet, parallel for different wallets
+- Auto-expiry and extend
+- Failure after retries (throws `LockAcquisitionError` → API returns 409)
+- Nonce single-use guarantee via Redis Lua
+
+### Security & Scalability
+
+- Unique token per lock prevents accidental release by other workers
+- TTL prevents deadlocks if holder crashes
+- Retry with jitter avoids thundering herd
+- Logs via Winston with redaction of sensitive keys
+- Quorum-based multi-Redis support for production HA
+
