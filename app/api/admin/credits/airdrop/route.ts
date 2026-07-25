@@ -41,10 +41,7 @@ export async function GET(request: Request) {
   const creditsPerSponsor = Number(searchParams.get('creditsPerSponsor') ?? 0);
 
   if (!platformLaunchDate || isNaN(new Date(platformLaunchDate).getTime())) {
-    return NextResponse.json(
-      { error: 'Invalid or missing platformLaunchDate' },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: 'Invalid or missing platformLaunchDate' }, { status: 400 });
   }
 
   if (creditsPerSponsor <= 0) {
@@ -81,10 +78,7 @@ export async function POST(request: Request) {
     }
 
     if (!platformLaunchDate || isNaN(new Date(platformLaunchDate).getTime())) {
-      return NextResponse.json(
-        { error: 'Invalid or missing platformLaunchDate' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Invalid or missing platformLaunchDate' }, { status: 400 });
     }
 
     if (!creditsPerSponsor || creditsPerSponsor <= 0) {

@@ -1,6 +1,9 @@
 import type { Pool } from 'pg';
+import { invalidateMapCoordinateCache } from '@/lib/cache/map-cache';
 
 export type ContractEventType = 'TreeMinted' | 'ProgressSubmitted' | 'FundsReleased' | 'other';
+
+const MAP_COORDINATE_EVENTS = new Set<ContractEventType>(['TreeMinted', 'ProgressSubmitted']);
 
 export interface ContractEventRow {
   id: string;
@@ -18,7 +21,7 @@ export interface ContractEventRow {
  * ON CONFLICT DO NOTHING — idempotent and safe to replay on restart.
  */
 export async function upsertContractEvent(pool: Pool, row: ContractEventRow): Promise<void> {
-  await pool.query(
+  const result = await pool.query(
     `INSERT INTO contract_events
        (id, ledger, ledger_closed_at, contract_id, event_type, topics_xdr, value_xdr, paging_token)
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
@@ -34,6 +37,10 @@ export async function upsertContractEvent(pool: Pool, row: ContractEventRow): Pr
       row.pagingToken,
     ]
   );
+
+  if ((result.rowCount ?? 0) > 0 && MAP_COORDINATE_EVENTS.has(row.eventType)) {
+    await invalidateMapCoordinateCache();
+  }
 }
 
 /** Returns the ledger to start streaming from (0 = beginning of retention window). */

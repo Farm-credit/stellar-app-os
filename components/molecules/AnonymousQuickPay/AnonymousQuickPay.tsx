@@ -7,9 +7,13 @@ import { Text } from '@/components/atoms/Text';
 import { Input } from '@/components/atoms/Input';
 import { Select } from '@/components/atoms/Select';
 import { Badge } from '@/components/atoms/Badge';
-import { LoadingSpinner } from '@/components/atoms/LoadingSpinner/LoadingSpinner';
 import { StripePaymentForm } from '@/components/molecules/StripePaymentForm/StripePaymentForm';
-import { formatCurrency, formatNumber, MINIMUM_DONATION, CO2_PER_DOLLAR } from '@/lib/constants/donation';
+import {
+  formatCurrency,
+  formatNumber,
+  MINIMUM_DONATION,
+  CO2_PER_DOLLAR,
+} from '@/lib/constants/donation';
 
 const SPECIES_OPTIONS = [
   { value: 'moringa', label: 'Moringa' },
@@ -42,8 +46,10 @@ export function AnonymousQuickPay() {
   const isValidAmount = amountValue >= MINIMUM_DONATION;
   const treeEstimate = Math.max(0, amountValue);
   const impactKg = useMemo(() => amountValue * CO2_PER_DOLLAR, [amountValue]);
-  const speciesLabel = SPECIES_OPTIONS.find((item) => item.value === species)?.label ?? 'Selected species';
-  const regionLabel = REGION_OPTIONS.find((item) => item.value === region)?.label ?? 'Selected region';
+  const speciesLabel =
+    SPECIES_OPTIONS.find((item) => item.value === species)?.label ?? 'Selected species';
+  const regionLabel =
+    REGION_OPTIONS.find((item) => item.value === region)?.label ?? 'Selected region';
 
   const handleAmountChange = useCallback((value: string) => {
     const sanitized = value.replace(/[^0-9.]/g, '');
@@ -150,7 +156,8 @@ export function AnonymousQuickPay() {
         <div>
           <Text className="text-xl font-semibold">Anonymous quick pay</Text>
           <Text variant="muted" className="text-sm">
-            No account required. Select a species, choose a region, enter an amount, and pay securely by card.
+            No account required. Select a species, choose a region, enter an amount, and pay
+            securely by card.
           </Text>
         </div>
         <Badge variant="outline" className="text-xs uppercase tracking-[0.16em]">
@@ -252,7 +259,8 @@ export function AnonymousQuickPay() {
           ))}
         </div>
         <Text id="anonymous-quick-pay-hint" variant="muted" className="text-sm">
-          The amount is processed as USDC and converted into an estimated environmental impact before payment.
+          The amount is processed as USDC and converted into an estimated environmental impact
+          before payment.
         </Text>
       </div>
 
@@ -268,9 +276,7 @@ export function AnonymousQuickPay() {
             <Text variant="small" className="text-muted-foreground">
               CO₂ offset
             </Text>
-            <Text className="mt-1 text-lg font-semibold">
-              {formatNumber(impactKg)} kg
-            </Text>
+            <Text className="mt-1 text-lg font-semibold">{formatNumber(impactKg)} kg</Text>
           </div>
           <div className="rounded-2xl border border-gray-200 bg-white p-4">
             <Text variant="small" className="text-muted-foreground">

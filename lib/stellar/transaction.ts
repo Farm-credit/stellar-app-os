@@ -9,6 +9,12 @@ import type {
 import { calculateDonationAllocation } from '@/lib/constants/donation';
 import { networkConfig } from '@/lib/config/network';
 import { getTreeAsset } from './tree-asset';
+import {
+  DEFAULT_CONVERSION_SLIPPAGE,
+  computeSendMax,
+  getXlmPerUsdcRate,
+} from './conversion';
+import type { DonationAsset } from '@/lib/types/donation-payment';
 import { getRegionPlanterAddresses } from './region-pools';
 
 // Re-export so callers can import TREE asset helper from this module
@@ -135,20 +141,44 @@ const PLANTING_ADDRESS = 'GABEMKJNR4GK7M4FROGA7I7PG63N2CKE3EGDSBSISG56SVL2O3KRND
 /** Maximum trees per batch — mirrors the contract's MAX_BATCH_SIZE */
 export const MAX_BATCH_TREES = 50;
 
+export interface DonationTransactionResult {
+  transactionXdr: string;
+  networkPassphrase: string;
+  /** Payment asset the donor's account is debited in. */
+  asset: DonationAsset;
+  /**
+   * Amount debited from the donor, in the payment asset. For USDC this is the
+   * total donation; for XLM it is the `sendMax` ceiling (quote + slippage).
+   */
+  estimatedSourceAmount: string;
+}
+
 /**
  * Build a single Stellar transaction that funds N tree slots.
  *
  * Gas efficiency: one transaction, one fee (100 * 2N stroops), one signature.
  * Each tree produces two operations: 70% to planting escrow, 30% to buffer fund.
  *
- * @param amount     - Per-tree donation amount in USD (sent as USDC)
- * @param treeCount  - Number of trees (1–50)
+ * Escrow accounting is always denominated in USDC. When `asset` is 'XLM' the
+ * donor pays XLM and each operation becomes a strict-receive path payment that
+ * converts XLM → USDC on the Stellar DEX, so the escrow receives the exact USDC
+ * allocation while the donor's XLM cost is bounded by a slippage-padded `sendMax`.
+ *
+ * @param amount             - Per-tree donation amount in USD (escrow credited in USDC)
+ * @param treeCount          - Number of trees (1–50)
+ * @param asset              - Payment asset: 'USDC' (direct) or 'XLM' (converted)
+ * @param slippageTolerance  - Slippage allowance for the XLM→USDC conversion
  */
 export async function buildDonationTransaction(
   amount: number,
   sourcePublicKey: string,
   network: NetworkType,
   idempotencyKey: string,
+  treeCount = 1,
+  asset: DonationAsset = 'USDC',
+  slippageTolerance: number = DEFAULT_CONVERSION_SLIPPAGE
+): Promise<DonationTransactionResult> {
+  treeCount = 1
   treeCount = 1,
   regionId?: string
 ): Promise<{ transactionXdr: string; networkPassphrase: string }> {
@@ -157,6 +187,9 @@ export async function buildDonationTransaction(
   }
   if (treeCount < 1 || treeCount > MAX_BATCH_TREES) {
     throw new Error(`Tree count must be between 1 and ${MAX_BATCH_TREES}`);
+  }
+  if (asset !== 'USDC' && asset !== 'XLM') {
+    throw new Error(`Unsupported donation asset: ${asset as string}`);
   }
 
   const networkPassphrase = getNetworkPassphrase(network);
@@ -169,8 +202,77 @@ export async function buildDonationTransaction(
     networkPassphrase,
   });
 
+  let estimatedSourceAmount: string;
+
+  if (asset === 'USDC') {
+    // Direct USDC payments: two operations per tree (70% planting + 30% buffer).
+    for (let i = 0; i < treeCount; i++) {
+      const { planting, buffer } = calculateDonationAllocation(amount);
+      builder
+        .addOperation(
+          Operation.payment({
+            destination: PLANTING_ADDRESS,
+            asset: usdcAsset,
+            amount: planting.toFixed(7),
+          })
+        )
+        .addOperation(
+          Operation.payment({
+            destination: REPLANTING_BUFFER_ADDRESS,
+            asset: usdcAsset,
+            amount: buffer.toFixed(7),
+          })
+        );
+    }
+    estimatedSourceAmount = (amount * treeCount).toFixed(7);
+  } else {
+    // XLM → USDC: one DEX quote for the whole batch, then a strict-receive path
+    // payment per allocation so escrow receives the exact USDC amount.
+    const totalUsdc = amount * treeCount;
+    const xlmPerUsdc = await getXlmPerUsdcRate(totalUsdc, network);
+
+    let totalSendMax = 0;
+    for (let i = 0; i < treeCount; i++) {
+      const { planting, buffer } = calculateDonationAllocation(amount);
+      const plantingMax = computeSendMax(planting, xlmPerUsdc, slippageTolerance);
+      const bufferMax = computeSendMax(buffer, xlmPerUsdc, slippageTolerance);
+      totalSendMax += parseFloat(plantingMax) + parseFloat(bufferMax);
+
+      builder
+        .addOperation(
+          Operation.pathPaymentStrictReceive({
+            sendAsset: Asset.native(),
+            sendMax: plantingMax,
+            destination: PLANTING_ADDRESS,
+            destAsset: usdcAsset,
+            destAmount: planting.toFixed(7),
+            path: [],
+          })
+        )
+        .addOperation(
+          Operation.pathPaymentStrictReceive({
+            sendAsset: Asset.native(),
+            sendMax: bufferMax,
+            destination: REPLANTING_BUFFER_ADDRESS,
+            destAsset: usdcAsset,
+            destAmount: buffer.toFixed(7),
+            path: [],
+          })
+        );
+    }
+    estimatedSourceAmount = totalSendMax.toFixed(7);
   const regionPlanterAddresses = getRegionPlanterAddresses(regionId);
 
+  const builder = new TransactionBuilder(sourceAccount, {
+    fee: baseFee,
+    networkPassphrase,
+  });
+
+  // Add two operations per tree: 70% planting + 30% buffer
+  for (let i = 0; i < treeCount; i++) {
+    const { planting, buffer } = calculateDonationAllocation(amount);
+    builder
+      .addOperation(
   // Add two operations per tree: 70% planting + 30% buffer
   for (let i = 0; i < treeCount; i++) {
     const { planting, buffer } = calculateDonationAllocation(amount);
@@ -181,9 +283,7 @@ export async function buildDonationTransaction(
 
       for (let j = 0; j < planterCount; j += 1) {
         const amountForPlanter =
-          j === 0
-            ? parseFloat((planting - baseShare * (planterCount - 1)).toFixed(7))
-            : baseShare;
+          j === 0 ? parseFloat((planting - baseShare * (planterCount - 1)).toFixed(7)) : baseShare;
 
         builder.addOperation(
           Operation.payment({
@@ -200,6 +300,14 @@ export async function buildDonationTransaction(
           asset: usdcAsset,
           amount: planting.toFixed(7),
         })
+      )
+      .addOperation(
+        Operation.payment({
+          destination: REPLANTING_BUFFER_ADDRESS,
+          asset: usdcAsset,
+          amount: buffer.toFixed(7),
+        })
+      );
       );
     }
 
@@ -220,6 +328,8 @@ export async function buildDonationTransaction(
   return {
     transactionXdr: transaction.toXDR(),
     networkPassphrase,
+    asset,
+    estimatedSourceAmount,
   };
 }
 

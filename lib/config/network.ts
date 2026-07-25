@@ -17,6 +17,7 @@ export interface NetworkConfig {
     escrowMilestone: string;
     locationProof: string;
     nullifierRegistry: string;
+    carbonCredits: string;
   };
   addresses: {
     planting: string;
@@ -46,6 +47,7 @@ function loadNetworkConfig(): NetworkConfig {
       escrowMilestone: requireEnv('NEXT_PUBLIC_CONTRACT_ESCROW_MILESTONE'),
       locationProof: requireEnv('NEXT_PUBLIC_CONTRACT_LOCATION_PROOF'),
       nullifierRegistry: requireEnv('NEXT_PUBLIC_CONTRACT_NULLIFIER_REGISTRY'),
+      carbonCredits: requireEnv('NEXT_PUBLIC_CONTRACT_CARBON_CREDITS'),
     },
     addresses: {
       planting: requireEnv('NEXT_PUBLIC_PLANTING_ADDRESS'),

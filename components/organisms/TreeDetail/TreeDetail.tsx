@@ -72,9 +72,7 @@ export function TreeDetail({ tree }: TreeDetailProps) {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <Text className="text-lg font-semibold">
-              {tree.co2OffsetKgPerYear} kg / year
-            </Text>
+            <Text className="text-lg font-semibold">{tree.co2OffsetKgPerYear} kg / year</Text>
           </CardContent>
         </Card>
 

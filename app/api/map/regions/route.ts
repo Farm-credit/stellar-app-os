@@ -1,4 +1,10 @@
 import { NextResponse } from 'next/server';
+import {
+  MAP_REGIONS_CACHE_KEY,
+  getCachedMapData,
+  setCachedMapData,
+  type RegionMarker,
+} from '@/lib/cache/map-cache';
 import { getPool } from '@/lib/db/client';
 
 /**
@@ -22,6 +28,14 @@ export const runtime = 'nodejs';
 
 export async function GET() {
   try {
+    const cachedRegions = await getCachedMapData<RegionMarker[]>(MAP_REGIONS_CACHE_KEY);
+    if (cachedRegions) {
+      return NextResponse.json(
+        { regions: cachedRegions },
+        { headers: { 'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=300' } }
+      );
+    }
+
     const pool = getPool();
 
     const { rows } = await pool.query<{
@@ -50,9 +64,11 @@ export async function GET() {
       farmers: parseInt(r.farmers, 10),
     }));
 
+    await setCachedMapData(MAP_REGIONS_CACHE_KEY, regions);
+
     return NextResponse.json(
       { regions },
-      { headers: { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120' } }
+      { headers: { 'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=300' } }
     );
   } catch (error) {
     // If the table doesn't exist yet return an empty list so the map still renders

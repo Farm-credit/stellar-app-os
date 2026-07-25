@@ -96,11 +96,7 @@ impl Treasury {
             .instance()
             .get(&DataKey::Token)
             .expect("not initialized");
-        token::Client::new(&env, &token).transfer(
-            &from,
-            &env.current_contract_address(),
-            &amount,
-        );
+        token::Client::new(&env, &token).transfer(&from, &env.current_contract_address(), &amount);
     }
 
     // ── Multisig flow ─────────────────────────────────────────────────────────
@@ -129,12 +125,9 @@ impl Treasury {
         env.storage()
             .instance()
             .set(&DataKey::Proposal(id), &proposal);
-        env.storage()
-            .instance()
-            .set(&DataKey::NextId, &(id + 1));
+        env.storage().instance().set(&DataKey::NextId, &(id + 1));
 
-        env.events()
-            .publish((symbol_short!("proposed"),), (id,));
+        env.events().publish((symbol_short!("proposed"),), (id,));
 
         id
     }
@@ -253,7 +246,8 @@ mod tests {
     // ── helpers ──────────────────────────────────────────────────────────────
 
     fn deploy_token(env: &Env, admin: &Address) -> Address {
-        env.register_stellar_asset_contract_v2(admin.clone()).address()
+        env.register_stellar_asset_contract_v2(admin.clone())
+            .address()
     }
 
     fn mint(env: &Env, token: &Address, to: &Address, amount: i128) {
@@ -279,30 +273,60 @@ mod tests {
         let sc = Address::generate(&env);
         let contract = env.register(Treasury, ());
         TreasuryClient::new(&env, &contract).initialize(&sa, &sb, &sc, &token);
-        Ctx { env, contract, sa, sb, sc, token }
+        Ctx {
+            env,
+            contract,
+            sa,
+            sb,
+            sc,
+            token,
+        }
     }
 
     // ── happy path ────────────────────────────────────────────────────────────
 
     #[test]
     fn test_propose_and_approve_executes_transfer() {
-        let Ctx { env, contract, sa, sb, token, .. } = setup();
+        let Ctx {
+            env,
+            contract,
+            sa,
+            sb,
+            token,
+            ..
+        } = setup();
         let client = TreasuryClient::new(&env, &contract);
         mint(&env, &token, &contract, 1_000);
 
         let recipient = Address::generate(&env);
         let proposal_id = client.propose(&sa, &recipient, &500);
-        assert_eq!(soroban_sdk::token::Client::new(&env, &token).balance(&recipient), 0);
+        assert_eq!(
+            soroban_sdk::token::Client::new(&env, &token).balance(&recipient),
+            0
+        );
 
         client.approve(&sb, &proposal_id);
 
-        assert_eq!(soroban_sdk::token::Client::new(&env, &token).balance(&recipient), 500);
-        assert_eq!(client.get_proposal(&proposal_id).status, ProposalStatus::Executed);
+        assert_eq!(
+            soroban_sdk::token::Client::new(&env, &token).balance(&recipient),
+            500
+        );
+        assert_eq!(
+            client.get_proposal(&proposal_id).status,
+            ProposalStatus::Executed
+        );
     }
 
     #[test]
     fn test_third_signer_can_also_approve() {
-        let Ctx { env, contract, sa, sc, token, .. } = setup();
+        let Ctx {
+            env,
+            contract,
+            sa,
+            sc,
+            token,
+            ..
+        } = setup();
         let client = TreasuryClient::new(&env, &contract);
         mint(&env, &token, &contract, 1_000);
 
@@ -310,12 +334,20 @@ mod tests {
         let proposal_id = client.propose(&sa, &recipient, &300);
         client.approve(&sc, &proposal_id);
 
-        assert_eq!(soroban_sdk::token::Client::new(&env, &token).balance(&recipient), 300);
+        assert_eq!(
+            soroban_sdk::token::Client::new(&env, &token).balance(&recipient),
+            300
+        );
     }
 
     #[test]
     fn test_deposit_increases_balance() {
-        let Ctx { env, contract, token, .. } = setup();
+        let Ctx {
+            env,
+            contract,
+            token,
+            ..
+        } = setup();
         let client = TreasuryClient::new(&env, &contract);
         let funder = Address::generate(&env);
         mint(&env, &token, &funder, 2_000);
@@ -325,13 +357,22 @@ mod tests {
 
     #[test]
     fn test_cancel_open_proposal() {
-        let Ctx { env, contract, sa, token, .. } = setup();
+        let Ctx {
+            env,
+            contract,
+            sa,
+            token,
+            ..
+        } = setup();
         let client = TreasuryClient::new(&env, &contract);
         mint(&env, &token, &contract, 1_000);
         let recipient = Address::generate(&env);
         let proposal_id = client.propose(&sa, &recipient, &100);
         client.cancel(&sa, &proposal_id);
-        assert_eq!(client.get_proposal(&proposal_id).status, ProposalStatus::Cancelled);
+        assert_eq!(
+            client.get_proposal(&proposal_id).status,
+            ProposalStatus::Cancelled
+        );
     }
 
     // ── error paths ───────────────────────────────────────────────────────────
@@ -339,7 +380,14 @@ mod tests {
     #[test]
     #[should_panic(expected = "already initialized")]
     fn test_double_init_rejected() {
-        let Ctx { env, contract, sa, sb, sc, token } = setup();
+        let Ctx {
+            env,
+            contract,
+            sa,
+            sb,
+            sc,
+            token,
+        } = setup();
         TreasuryClient::new(&env, &contract).initialize(&sa, &sb, &sc, &token);
     }
 
@@ -358,7 +406,13 @@ mod tests {
     #[test]
     #[should_panic(expected = "proposer cannot also approve")]
     fn test_proposer_cannot_approve_own_proposal() {
-        let Ctx { env, contract, sa, token, .. } = setup();
+        let Ctx {
+            env,
+            contract,
+            sa,
+            token,
+            ..
+        } = setup();
         let client = TreasuryClient::new(&env, &contract);
         mint(&env, &token, &contract, 1_000);
         let recipient = Address::generate(&env);
@@ -369,7 +423,12 @@ mod tests {
     #[test]
     #[should_panic(expected = "not a signer")]
     fn test_non_signer_cannot_propose() {
-        let Ctx { env, contract, token, .. } = setup();
+        let Ctx {
+            env,
+            contract,
+            token,
+            ..
+        } = setup();
         let client = TreasuryClient::new(&env, &contract);
         mint(&env, &token, &contract, 1_000);
         let outsider = Address::generate(&env);
@@ -380,7 +439,14 @@ mod tests {
     #[test]
     #[should_panic(expected = "proposal is not open")]
     fn test_approve_cancelled_proposal_rejected() {
-        let Ctx { env, contract, sa, sb, token, .. } = setup();
+        let Ctx {
+            env,
+            contract,
+            sa,
+            sb,
+            token,
+            ..
+        } = setup();
         let client = TreasuryClient::new(&env, &contract);
         mint(&env, &token, &contract, 1_000);
         let recipient = Address::generate(&env);

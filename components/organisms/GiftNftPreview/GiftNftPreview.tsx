@@ -31,18 +31,14 @@ export function GiftNftPreview({
       </div>
 
       <Text className="text-3xl font-bold sm:text-4xl">{treeCount}</Text>
-      <Text className="text-sm text-white/80">
-        {treeCount === 1 ? 'tree' : 'trees'} sponsored
-      </Text>
+      <Text className="text-sm text-white/80">{treeCount === 1 ? 'tree' : 'trees'} sponsored</Text>
 
       <div className="mt-5 space-y-2 rounded-lg bg-white/10 p-3 text-sm">
         <p>
           <span className="text-white/70">Recipient: </span>
           <span className="break-all font-medium">{recipientLabel}</span>
         </p>
-        {personalMessage && (
-          <p className="italic text-white/90">&ldquo;{personalMessage}&rdquo;</p>
-        )}
+        {personalMessage && <p className="italic text-white/90">&ldquo;{personalMessage}&rdquo;</p>}
       </div>
 
       <p className="mt-4 text-xs text-white/60">

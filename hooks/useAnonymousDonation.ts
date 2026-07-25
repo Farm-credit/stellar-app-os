@@ -30,9 +30,14 @@ export type AnonymousDonationStatus =
   | 'success'
   | 'error';
 
+export type ProverStep = 'idle' | 'hashing' | 'proving' | 'serializing' | 'done';
+
 interface UseAnonymousDonationReturn {
   // State
   status: AnonymousDonationStatus;
+  proverStep: ProverStep;
+  proverProgress: number;
+  proverMessage: string;
   proof: AnonymousDonationProof | null;
   transactionHash: string | null;
   error: string | null;
@@ -56,6 +61,9 @@ interface UseAnonymousDonationReturn {
 
 export function useAnonymousDonation(): UseAnonymousDonationReturn {
   const [status, setStatus] = useState<AnonymousDonationStatus>('idle');
+  const [proverStep, setProverStep] = useState<ProverStep>('idle');
+  const [proverProgress, setProverProgress] = useState<number>(0);
+  const [proverMessage, setProverMessage] = useState<string>('');
   const [proof, setProof] = useState<AnonymousDonationProof | null>(null);
   const [transactionHash, setTransactionHash] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -70,6 +78,9 @@ export function useAnonymousDonation(): UseAnonymousDonationReturn {
   const generateProof = useCallback(
     async (walletAddress: string, amount: number): Promise<ProofGenerationResult> => {
       setStatus('generating-proof');
+      setProverStep('idle');
+      setProverProgress(0);
+      setProverMessage('Starting ZK Prover initialization...');
       setError(null);
 
       try {
@@ -77,12 +88,23 @@ export function useAnonymousDonation(): UseAnonymousDonationReturn {
           description: 'This may take a few seconds',
         });
 
-        const result = await generateAnonymousDonationProof(walletAddress, amount);
+        const result = await generateAnonymousDonationProof(
+          walletAddress,
+          amount,
+          undefined,
+          (stepInfo) => {
+            setProverStep(stepInfo.step);
+            setProverProgress(stepInfo.progress);
+            setProverMessage(stepInfo.message);
+          }
+        );
 
         if (result.success && result.proof) {
           setProof(result.proof);
           setProofGenerationTime(result.generationTimeMs || null);
           setStatus('proof-generated');
+          setProverStep('done');
+          setProverProgress(100);
 
           toast.success('Proof generated successfully', {
             description: `Generated in ${Math.round(result.generationTimeMs || 0)}ms`,
@@ -91,6 +113,8 @@ export function useAnonymousDonation(): UseAnonymousDonationReturn {
           return result;
         } else {
           setStatus('error');
+          setProverStep('idle');
+          setProverProgress(0);
           setError(result.error || 'Failed to generate proof');
 
           toast.error('Proof generation failed', {
@@ -103,6 +127,8 @@ export function useAnonymousDonation(): UseAnonymousDonationReturn {
         const errorMessage =
           err instanceof Error ? err.message : 'Unknown error during proof generation';
         setStatus('error');
+        setProverStep('idle');
+        setProverProgress(0);
         setError(errorMessage);
 
         toast.error('Proof generation failed', {
@@ -212,6 +238,9 @@ export function useAnonymousDonation(): UseAnonymousDonationReturn {
    */
   const reset = useCallback(() => {
     setStatus('idle');
+    setProverStep('idle');
+    setProverProgress(0);
+    setProverMessage('');
     setProof(null);
     setTransactionHash(null);
     setError(null);
@@ -237,6 +266,9 @@ export function useAnonymousDonation(): UseAnonymousDonationReturn {
 
   return {
     status,
+    proverStep,
+    proverProgress,
+    proverMessage,
     proof,
     transactionHash,
     error,

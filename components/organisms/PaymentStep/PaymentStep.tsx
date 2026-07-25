@@ -12,6 +12,7 @@ import { StripePaymentForm } from '@/components/molecules/StripePaymentForm/Stri
 import { StellarPaymentSection } from '@/components/molecules/StellarPaymentSection/StellarPaymentSection';
 import { AnonymousPaymentSection } from '@/components/molecules/AnonymousPaymentSection/AnonymousPaymentSection';
 import { useDonationPayment } from '@/hooks/useDonationPayment';
+import { useDonationContext } from '@/contexts/DonationContext';
 import { useWalletContext } from '@/contexts/WalletContext';
 
 const steps = [
@@ -24,6 +25,7 @@ const steps = [
 export function PaymentStep() {
   const router = useRouter();
   const { connect: connectWallet } = useWalletContext();
+  const { setAsset } = useDonationContext();
   const {
     paymentState,
     setMethod,
@@ -120,6 +122,8 @@ export function PaymentStep() {
                     wallet={wallet}
                     status={paymentState.status}
                     error={paymentState.error}
+                    asset={donationState.asset}
+                    onAssetChange={setAsset}
                     onPay={processStellarPayment}
                     onResetError={resetError}
                     disabled={isProcessing}

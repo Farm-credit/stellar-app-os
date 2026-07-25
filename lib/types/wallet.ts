@@ -17,10 +17,8 @@ export interface WalletConnection {
 
 export interface WalletContextValue {
   wallet: WalletConnection | null;
-
   connect: (type: WalletType, network?: NetworkType) => Promise<void>;
   disconnect: () => void;
-
   switchNetwork: (network: NetworkType) => Promise<void>;
   refreshBalance: () => Promise<void>;
 

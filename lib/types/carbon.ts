@@ -43,6 +43,40 @@ export interface CreditSelectionProps {
   onSelectionChange?: (selection: CreditSelectionState) => void;
 }
 
+export const BULK_PURCHASE_MIN_QUANTITY = 1_000;
+
+export type MetadataStorageType = 'none' | 'on-chain' | 'ipfs';
+
+export interface CorporateMetadata {
+  companyName: string;
+  initiativeDescription: string;
+  initiativeUrl?: string;
+  storageType: MetadataStorageType;
+  storageRef?: string;
+}
+
+import type { NetworkType } from '@/lib/types/wallet';
+
+export interface SpeciesRate {
+  slug: string;
+  co2ScaledX100: number;
+  maturityYears: number;
+  updatedAt: number;
+}
+
+export interface OffsetEstimate {
+  slug: string;
+  ageYears: number;
+  gramsOffset: bigint;
+  kgOffset: number;
+}
+
+export interface SponsorOffset {
+  sponsor: string;
+  totalGrams: bigint;
+  totalKg: number;
+}
+
 export const BULK_PURCHASE_MIN_QUANTITY = 1000;
 
 export type MetadataStorageType = 'on-chain' | 'ipfs' | 'none';
@@ -60,6 +94,7 @@ export interface BulkPurchaseOrder {
   quantity: number;
   totalPrice: number;
   buyerPublicKey: string;
+  network: NetworkType;
   network: 'testnet' | 'mainnet';
   metadata?: CorporateMetadata;
 }
