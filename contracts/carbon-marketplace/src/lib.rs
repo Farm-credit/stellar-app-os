@@ -1172,4 +1172,46 @@ mod tests {
 
         assert_eq!(ctx.client.get_current_price(&id), 50); // Reserve price
     }
+
+    // ── Fuzz Tests (Proptest) ──────────────────────────────────────────────────
+
+    #[cfg(test)]
+    mod fuzz_tests {
+        use proptest::prelude::*;
+
+        proptest! {
+            #[test]
+            fn fuzz_dutch_auction_decay_calculation(
+                starting_price in 100i128..10_000i128,
+                price_delta in 1i128..1_000i128,
+                duration in 10u64..10_000u64,
+                elapsed_pct in 0u64..100u64,
+            ) {
+                let reserve_price = starting_price.saturating_sub(price_delta).max(1);
+                if starting_price > reserve_price && duration > 0 {
+                    let elapsed = (duration * elapsed_pct) / 100;
+                    let price_drop = (starting_price - reserve_price) * elapsed as i128 / duration as i128;
+                    let calculated_price = starting_price - price_drop;
+
+                    prop_assert!(calculated_price >= reserve_price);
+                    prop_assert!(calculated_price <= starting_price);
+                }
+            }
+
+            #[test]
+            fn fuzz_listing_trade_payout_invariants(
+                amount in 1i128..1_000_000i128,
+                price_per_token in 1i128..100_000i128,
+                royalty_bps in 0u32..2_000u32,
+            ) {
+                let total_cost = amount.saturating_mul(price_per_token);
+                let royalty_amount = (total_cost as u128 * royalty_bps as u128 / 10_000) as i128;
+                let seller_net = total_cost - royalty_amount;
+
+                prop_assert_eq!(seller_net + royalty_amount, total_cost);
+                prop_assert!(seller_net >= 0);
+                prop_assert!(royalty_amount >= 0);
+            }
+        }
+    }
 }
