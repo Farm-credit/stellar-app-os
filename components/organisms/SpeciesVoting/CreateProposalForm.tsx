@@ -44,11 +44,16 @@ export function CreateProposalForm() {
 
       // TODO: Submit proposal transaction
       console.log('Submitting proposal:', {
+
+      console.info('Submitting proposal:', {
         slug: formData.slug,
         name: formData.name,
         co2_scaled,
         maturity_years,
       });
+
+      // Simulate async operation
+      await new Promise((resolve) => setTimeout(resolve, 1000));
 
       // Reset form on success
       setFormData({
@@ -72,6 +77,8 @@ export function CreateProposalForm() {
         <AlertDescription>
           Proposals require community approval. Your TREE token holdings determine your voting power.
           Ensure CO₂ data is sourced from FAO/IPCC Tier-1 methodologies.
+          Proposals require community approval. Your TREE token holdings determine your voting
+          power. Ensure CO₂ data is sourced from FAO/IPCC Tier-1 methodologies.
         </AlertDescription>
       </Alert>
 
@@ -87,6 +94,7 @@ export function CreateProposalForm() {
         <p className="text-xs text-muted-foreground">
           Short identifier (lowercase, no spaces)
         </p>
+        <p className="text-xs text-muted-foreground">Short identifier (lowercase, no spaces)</p>
       </div>
 
       <div className="space-y-2">
@@ -115,6 +123,7 @@ export function CreateProposalForm() {
           <p className="text-xs text-muted-foreground">
             Based on FAO/IPCC Tier-1 data
           </p>
+          <p className="text-xs text-muted-foreground">Based on FAO/IPCC Tier-1 data</p>
         </div>
 
         <div className="space-y-2">
@@ -130,6 +139,7 @@ export function CreateProposalForm() {
           <p className="text-xs text-muted-foreground">
             Years to biomass maturity
           </p>
+          <p className="text-xs text-muted-foreground">Years to biomass maturity</p>
         </div>
       </div>
 
@@ -140,6 +150,9 @@ export function CreateProposalForm() {
           placeholder="Additional context about this species..."
           value={formData.description}
           onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+          onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
+            setFormData({ ...formData, description: e.target.value })
+          }
           rows={3}
         />
       </div>

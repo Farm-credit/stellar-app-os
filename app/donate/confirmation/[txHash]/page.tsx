@@ -1,5 +1,5 @@
 import { DonationConfirmationWithTx } from '@/components/organisms/DonationConfirmation/DonationConfirmationWithTx';
-import { Metadata } from 'next';
+import { type Metadata } from 'next';
 
 export const metadata: Metadata = {
   title: 'Donation Confirmed | FarmCredit',

@@ -61,6 +61,8 @@ State machine: `Funded → Planted → Survived → Completed` (or `Funded → R
 
 **Planter Rating System (#483):** After job completion, sponsors can rate planters (1-5 stars). Ratings are stored on-chain and aggregated into a reputation score (0-100) to track planter performance over time.
 
+**Minimum Planting Density Rule (#514):** For jobs with `area_hectares` ≥ `job_size_threshold`, the contract enforces a minimum planting density of `min_density` trees per hectare. Small jobs below the threshold are exempt from density rules.
+
 ### `initialize`
 
 One-time setup. Must be called before any other function.

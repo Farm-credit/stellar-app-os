@@ -2,14 +2,9 @@ import type { Metadata, Viewport } from 'next';
 import Script from 'next/script';
 import { Header } from '@/components/organisms/Header/Header';
 import { Footer } from '@/components/organisms/Footer/Footer';
-import { CookieBanner } from '@/components/CookieBanner';
-import { ToastProvider } from '@/components/providers/ToastProvider';
-import { WalletProviderWrapper } from '@/components/providers/WalletProviderWrapper';
-import { FavoritesProvider } from '@/contexts/FavouritesContext';
-import './globals.css';
+import { WalletProvider } from '@/contexts/WalletContext';
 
-const siteUrl =
-  process.env.NEXT_PUBLIC_SITE_URL ?? 'https://farmcredit.app';
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://farmcredit.app';
 const siteName = 'FarmCredit';
 const siteDescription = 'FarmCredit - Decentralized agricultural credit on Stellar';
 const ogImage = '/icons/icon-512x512.png';
@@ -88,8 +83,6 @@ export const viewport: Viewport = {
   userScalable: true,
 };
 
-import { QueryProvider } from '@/components/providers/QueryProvider';
-
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -104,43 +97,17 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-title" content="FarmCredit" />
         <meta name="mobile-web-app-capable" content="yes" />
       </head>
-      <body className="font-sans antialiased">
-        <Script id="theme-init" strategy="beforeInteractive">
-          {`
-            (function() {
-              try {
-                var stored = localStorage.getItem('theme');
-                var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-                var theme = stored === 'light' || stored === 'dark' ? stored : (prefersDark ? 'dark' : 'light');
-                document.documentElement.classList.toggle('dark', theme === 'dark');
-                document.documentElement.classList.add('no-transitions');
-                window.addEventListener('load', function() {
-                  document.documentElement.classList.remove('no-transitions');
-                });
-              } catch(e) {}
-            })();
-          `}
-        </Script>
-        <a
-          href="#main"
-          className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-primary focus:px-4 focus:py-2 focus:text-primary-foreground focus:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          Skip to content
-        </a>
-        <QueryProvider>
-          <WalletProviderWrapper>
-            <FavoritesProvider>
-              <ToastProvider>
-                <CookieBanner />
-                <Header />
-                <main id="main" tabIndex={-1}>
-                  {children}
-                </main>
-                <Footer />
-              </ToastProvider>
-            </FavoritesProvider>
-          </WalletProviderWrapper>
-        </QueryProvider>
+      <body className={`${inter.variable} font-sans antialiased`}>
+        <WalletProvider>
+          <a
+            href="#main-content"
+            className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 z-50 bg-stellar-blue text-stellar-navy px-4 py-2 rounded-md font-semibold focus:ring-2 focus:ring-stellar-blue focus:ring-offset-2"
+          >
+            Skip to main content
+          </a>
+          {children}
+          <Footer />
+        </WalletProvider>
       </body>
     </html>
   );

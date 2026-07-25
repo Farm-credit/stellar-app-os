@@ -15,6 +15,8 @@ const MOCK_LISTINGS: Record<string, Listing> = {
     listedAt: '2024-01-15T00:00:00Z',
     location: 'Amazon Basin, Brazil',
     isActive: true,
+    fundingStatus: 'Open',
+    closingAt: '2024-12-31T00:00:00Z',
   },
   '2': {
     id: '2',
@@ -30,6 +32,8 @@ const MOCK_LISTINGS: Record<string, Listing> = {
     listedAt: '2024-02-01T00:00:00Z',
     location: 'Sahara Desert, Morocco',
     isActive: true,
+    fundingStatus: 'Closing Soon',
+    closingAt: '2025-03-31T00:00:00Z',
   },
 };
 

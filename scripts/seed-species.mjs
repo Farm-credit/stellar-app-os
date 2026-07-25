@@ -176,6 +176,68 @@ async function seedOnChain(rows) {
   }
 }
 
+// ── Carbon-credits on-chain registration ──────────────────────────────────────
+
+/**
+ * Register each species rate in the carbon-credits Soroban contract.
+ * Calls: set_rate(slug, co2_scaled, maturity_years)
+ *
+ * Required env vars:
+ *   CARBON_CREDITS_CONTRACT_ID — deployed carbon-credits contract ID
+ *   ADMIN_SECRET               — same admin keypair used for species-registry
+ */
+async function seedCarbonCredits(rows) {
+  const contractId = process.env.CARBON_CREDITS_CONTRACT_ID;
+  if (!contractId) {
+    console.warn('[carbon] CARBON_CREDITS_CONTRACT_ID not set — skipping carbon-credits seeding');
+    return;
+  }
+
+  const adminSecret = process.env.ADMIN_SECRET;
+  if (!adminSecret) {
+    console.warn('[carbon] ADMIN_SECRET not set — skipping carbon-credits seeding');
+    return;
+  }
+
+  const admin = Keypair.fromSecret(adminSecret);
+  const rpc = new SorobanRpc.Server(RPC_URL);
+  const contract = new Contract(contractId);
+
+  const account = await rpc.getAccount(admin.publicKey());
+
+  for (const row of rows) {
+    const co2Scaled = Math.round(parseFloat(row.co2_kg_per_year) * 100);
+    const maturity = parseInt(row.maturity_years, 10);
+
+    const tx = new TransactionBuilder(account, {
+      fee: BASE_FEE,
+      networkPassphrase: PASSPHRASE,
+    })
+      .addOperation(
+        contract.call(
+          'set_rate',
+          nativeToScVal(row.slug, { type: 'symbol' }),
+          nativeToScVal(co2Scaled, { type: 'i128' }),
+          nativeToScVal(maturity, { type: 'u32' }),
+        ),
+      )
+      .setTimeout(30)
+      .build();
+
+    const prepared = await rpc.prepareTransaction(tx);
+    prepared.sign(admin);
+
+    try {
+      const result = await rpc.sendTransaction(prepared);
+      console.log(`[carbon] set_rate ${row.slug} — tx: ${result.hash}`);
+    } catch (err) {
+      console.error(`[carbon] failed to set_rate ${row.slug}:`, err?.message ?? err);
+    }
+
+    account.incrementSequenceNumber();
+  }
+}
+
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 async function main() {
@@ -185,6 +247,7 @@ async function main() {
 
   await seedDatabase(rows);
   await seedOnChain(rows);
+  await seedCarbonCredits(rows);
 
   console.log('[seed-species] done');
 }

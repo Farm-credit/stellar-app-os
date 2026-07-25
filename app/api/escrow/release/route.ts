@@ -1,8 +1,11 @@
 import { NextResponse } from 'next/server';
 import { buildAndSubmitEscrowRelease } from '@/lib/stellar/escrow';
 import type { MilestoneReleaseRequest } from '@/lib/types/escrow';
+import { emitMilestonePayoutApproved } from '@/lib/webhook/events';
 
-function validateVerification(verification: MilestoneReleaseRequest['verification']): string | null {
+function validateVerification(
+  verification: MilestoneReleaseRequest['verification']
+): string | null {
   const { gpsCoordinates, photoBase64, photoMimeType } = verification;
 
   if (
@@ -33,14 +36,8 @@ export async function POST(request: Request) {
       totalAmountUsdc: number;
     };
 
-    const {
-      loanId,
-      farmerWalletAddress,
-      escrowSecretKey,
-      network,
-      verification,
-      totalAmountUsdc,
-    } = body;
+    const { loanId, farmerWalletAddress, escrowSecretKey, network, verification, totalAmountUsdc } =
+      body;
 
     if (!loanId || !farmerWalletAddress || !escrowSecretKey || !network || !totalAmountUsdc) {
       return NextResponse.json({ error: 'Missing required parameters' }, { status: 400 });
@@ -62,6 +59,19 @@ export async function POST(request: Request) {
       network,
       loanId
     );
+
+    // Notify planter backends now that the payout is confirmed on-chain.
+    // Best-effort: a webhook failure must not fail an already-released payout,
+    // so we don't await and errors are swallowed/retried inside the emitter.
+    void emitMilestonePayoutApproved({
+      loanId,
+      farmerWalletAddress: result.farmerWalletAddress,
+      releasedAmountUsdc: result.releasedAmountUsdc,
+      network,
+      transactionHash: result.transactionHash,
+      explorerUrl: result.explorerUrl,
+      approvedAt: new Date().toISOString(),
+    });
 
     return NextResponse.json(result);
   } catch (error) {

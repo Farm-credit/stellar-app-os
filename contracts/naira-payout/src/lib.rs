@@ -16,10 +16,23 @@
 //!      confirms NGN delivery, recording the completion on-chain.
 //!   5. Admin may call `cancel_payout(farmer)` before confirmation if needed.
 
+use harvesta_errors::HarvestaError;
 use soroban_sdk::{
-    contract, contractimpl, contracttype, symbol_short, token, Address, BytesN, Env, IntoVal,
-    Symbol,
+    contract, contractimpl, contracttype, contracterror, panic_with_error, symbol_short, token,
+    Address, BytesN, Env, IntoVal, Symbol,
 };
+
+#[contracterror]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord)]
+pub enum NairaPayoutError {
+    ExpectedNgnMustBePositive = 45,
+    PendingPayoutAlreadyExists = 47,
+    PayoutIntervalTooShort = 48,
+    MaxDailyPayoutExceeded = 49,
+    PayoutNotPending = 50,
+    CanOnlyCancelPending = 51,
+    PayoutNotFound = 52,
+}
 
 /// Off-ramp delivery method for Nigerian Naira.
 #[contracttype]
@@ -80,7 +93,7 @@ impl NairaPayout {
         max_daily_payout: i128,
     ) {
         if env.storage().instance().has(&symbol_short!("ADMIN")) {
-            panic!("already initialized");
+            panic_with_error!(&env, HarvestaError::AlreadyInitialized);
         }
         env.storage()
             .instance()
@@ -119,10 +132,10 @@ impl NairaPayout {
         funder.require_auth();
 
         if usdc_amount <= 0 {
-            panic!("amount must be positive");
+            panic_with_error!(&env, HarvestaError::AmountMustBePositive);
         }
         if expected_ngn_amount <= 0 {
-            panic!("expected NGN amount must be positive");
+            panic_with_error!(&env, NairaPayoutError::ExpectedNgnMustBePositive);
         }
 
         let min_interval: u64 = env
@@ -143,7 +156,7 @@ impl NairaPayout {
         if env.storage().persistent().has(&last_payout_key) {
             let last_payout_time: u64 = env.storage().persistent().get(&last_payout_key).unwrap();
             if now < last_payout_time + min_interval {
-                panic!("rate limit: payout interval too short");
+                panic_with_error!(&env, NairaPayoutError::PayoutIntervalTooShort);
             }
         }
 
@@ -154,28 +167,30 @@ impl NairaPayout {
             .get(&daily_total_key)
             .unwrap_or((0, 0));
 
-        let current_day = now / 86400;
+        let current_day = now.checked_div(86400).expect("day calculation overflow");
         if current_day > last_reset_day {
             current_total = 0;
         }
 
         if current_total + usdc_amount > max_daily {
-            panic!("MAX_DAILY_PAYOUT exceeded");
+            panic_with_error!(&env, NairaPayoutError::MaxDailyPayoutExceeded);
         }
 
         let key = Self::payout_key(&env, &farmer);
         if env.storage().persistent().has(&key) {
             let existing: PayoutRecord = env.storage().persistent().get(&key).unwrap();
             if existing.status == PayoutStatus::Pending {
-                panic!("pending payout already exists for this farmer");
+                panic_with_error!(&env, NairaPayoutError::PendingPayoutAlreadyExists);
             }
         }
+
+        contract_utils::assert_whitelisted(&env, &token);
 
         let anchor: Address = env
             .storage()
             .instance()
             .get(&symbol_short!("ANCHOR"))
-            .expect("contract not initialized");
+            .unwrap_or_else(|| panic_with_error!(&env, HarvestaError::NotInitialized));
 
         token::Client::new(&env, &token).transfer(&funder, &anchor, &usdc_amount);
 
@@ -197,7 +212,7 @@ impl NairaPayout {
         env.storage().persistent().set(&last_payout_key, &now);
         env.storage().instance().set(
             &daily_total_key,
-            &(current_total + usdc_amount, current_day),
+            &(current_total.checked_add(usdc_amount).expect("daily total update overflow"), current_day),
         );
 
         env.events().publish(
@@ -216,10 +231,10 @@ impl NairaPayout {
             .storage()
             .persistent()
             .get(&key)
-            .expect("no payout found for farmer");
+            .unwrap_or_else(|| panic_with_error!(&env, NairaPayoutError::PayoutNotFound));
 
         if record.status != PayoutStatus::Pending {
-            panic!("payout is not in pending state");
+            panic_with_error!(&env, NairaPayoutError::PayoutNotPending);
         }
 
         record.status = PayoutStatus::Completed;
@@ -243,10 +258,10 @@ impl NairaPayout {
             .storage()
             .persistent()
             .get(&key)
-            .expect("no payout found for farmer");
+            .unwrap_or_else(|| panic_with_error!(&env, NairaPayoutError::PayoutNotFound));
 
         if record.status != PayoutStatus::Pending {
-            panic!("can only cancel a pending payout");
+            panic_with_error!(&env, NairaPayoutError::CanOnlyCancelPending);
         }
 
         record.status = PayoutStatus::Cancelled;
@@ -278,7 +293,7 @@ impl NairaPayout {
         let now = env.ledger().timestamp();
         env.storage().instance().set(
             &Symbol::new(&env, "DailyPayoutTotal"),
-            &(0i128, now / 86400),
+            &(0i128, now.checked_div(86400).expect("day calculation overflow")),
         );
     }
 
@@ -300,8 +315,32 @@ impl NairaPayout {
             .storage()
             .instance()
             .get(&symbol_short!("ADMIN"))
-            .expect("contract not initialized");
+            .unwrap_or_else(|| panic_with_error!(env, HarvestaError::NotInitialized));
         admin.require_auth();
+    }
+
+    // ── Whitelist management ──────────────────────────────────────────────────
+
+    /// Add `addr` to the contract whitelist. Restricted to admin.
+    pub fn add_to_whitelist(env: Env, addr: Address) {
+        Self::require_admin(&env);
+        contract_utils::add_to_whitelist(&env, &addr);
+    }
+
+    /// Remove `addr` from the contract whitelist. Restricted to admin.
+    pub fn remove_from_whitelist(env: Env, addr: Address) {
+        Self::require_admin(&env);
+        contract_utils::remove_from_whitelist(&env, &addr);
+    }
+
+    /// Returns `true` if `addr` is whitelisted.
+    pub fn is_whitelisted(env: Env, addr: Address) -> bool {
+        contract_utils::is_whitelisted(&env, &addr)
+    }
+
+    /// Panics if `addr` is not whitelisted.
+    pub fn assert_whitelisted(env: Env, addr: Address) {
+        contract_utils::assert_whitelisted(&env, &addr);
     }
 }
 
@@ -344,6 +383,7 @@ mod tests {
         token::StellarAssetClient::new(&env, &token_id).mint(&funder, &100_000);
 
         client.initialize(&admin, &anchor, &0, &1_000_000_000);
+        client.add_to_whitelist(&token_id);
 
         Ctx {
             env,
@@ -500,7 +540,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "amount must be positive")]
+    #[should_panic(expected = "Error(Contract, #9)")]
     fn test_zero_amount_rejected() {
         let Ctx {
             env,
@@ -522,7 +562,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "pending payout already exists")]
+    #[should_panic(expected = "Error(Contract, #47)")]
     fn test_duplicate_pending_payout_rejected() {
         let Ctx {
             env,
@@ -553,7 +593,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "payout is not in pending state")]
+    #[should_panic(expected = "Error(Contract, #50)")]
     fn test_double_confirm_rejected() {
         let Ctx {
             env,
@@ -577,7 +617,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "can only cancel a pending payout")]
+    #[should_panic(expected = "Error(Contract, #51)")]
     fn test_cancel_completed_rejected() {
         let Ctx {
             env,
@@ -601,7 +641,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "rate limit: payout interval too short")]
+    #[should_panic(expected = "Error(Contract, #48)")]
     fn test_rate_limit_per_address() {
         let Ctx {
             env,
@@ -636,7 +676,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "MAX_DAILY_PAYOUT exceeded")]
+    #[should_panic(expected = "Error(Contract, #49)")]
     fn test_global_rate_limit() {
         let Ctx {
             env,

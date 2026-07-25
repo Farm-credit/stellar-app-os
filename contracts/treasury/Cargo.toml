@@ -1,0 +1,19 @@
+[package]
+name = "treasury"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+soroban-sdk = { version = "22.0.1", features = ["alloc"] }
+
+[dev-dependencies]
+soroban-sdk = { version = "22.0.1", features = ["testutils", "alloc"] }
+
+[profile.release]
+overflow-checks = true
+lto = true
+codegen-units = 1
+panic = "abort"

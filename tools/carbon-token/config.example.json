@@ -1,0 +1,7 @@
+{
+  "asset_code": "CO2KG",
+  "unit": "kg_co2",
+  "description": "Verified CO2 offset token — 1 token = 1 kg CO2",
+  "verification_url": "https://example.org/certs/CO2-offset-123",
+  "issuer_secret": "S... (optional, set via ISSUER_SECRET env var instead)"
+}

@@ -9,6 +9,7 @@ function sseSerialize(event: string, data: TreeStatusEvent): string {
 }
 
 export async function GET(request: NextRequest) {
+  await Promise.resolve();
   const poller = new TreeStatusPoller(3000);
 
   let closed = false;
