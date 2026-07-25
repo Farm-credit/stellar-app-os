@@ -8,30 +8,34 @@
  *   • 30s cache hit on repeated calls
  *   • Zero-impact (empty) response for unknown sponsors
  *   • Totals consistency (sum of parts = whole)
+ *
+ * Migrated from Jest → Vitest (closes the CI Test gap that pHash PR #886
+ * surfaced: `pnpm test` was failing because `jest.mock` is not defined).
  */
 
+import { vi } from 'vitest';
 import { cacheClear } from '@/lib/api/tree-registry-cache';
 import { getSponsorImpact, isValidStellarAddress } from '@/lib/api/carbon-impact';
 
 // ── mock heavy stellar imports ────────────────────────────────────────────────
 
-jest.mock('@/lib/stellar/tree-asset', () => ({
+vi.mock('@/lib/stellar/tree-asset', () => ({
   CO2_KG_PER_TREE: 48,
   TREE_ISSUER_TESTNET: 'G_MOCK_ISSUER',
-  getTreeAsset: jest.fn(),
-  getTreeExplorerUrl: jest.fn(),
+  getTreeAsset: vi.fn(),
+  getTreeExplorerUrl: vi.fn(),
   TREE_ISSUER_MAINNET: '',
   TREE_DISTRIBUTOR_TESTNET: '',
 }));
 
-jest.mock('@/lib/config/network', () => ({
+vi.mock('@/lib/config/network', () => ({
   networkConfig: { horizonUrl: 'https://horizon-testnet.stellar.org', networkPassphrase: 'Test' },
 }));
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
 /** A valid 56-char Stellar public key for tests */
-const VALID_ADDRESS = 'GAAZI4TCR3TY5OJHCTJC2A4QSY6CJWJH5IAJTGKIN2ER7LBNVKOCCWN';
+const VALID_ADDRESS = 'GAAZI4TCR3TY5OJHCTJC2A4QSY6CJWJH5IAJTGKIN2ER7LBNVKOCCWNA';
 const VALID_ADDRESS_2 = 'GBSJ7KFU2NXACVHVN2VWQIXIV5FWH6A423YVXAGKJUOTNUVWD5CMKEZ';
 
 beforeEach(() => cacheClear());
@@ -95,7 +99,9 @@ describe('getSponsorImpact', () => {
   it('bySpecies is sorted descending by treeCount', async () => {
     const result = await getSponsorImpact(VALID_ADDRESS);
     for (let i = 1; i < result.bySpecies.length; i++) {
-      expect(result.bySpecies[i - 1].treeCount).toBeGreaterThanOrEqual(result.bySpecies[i].treeCount);
+      expect(result.bySpecies[i - 1].treeCount).toBeGreaterThanOrEqual(
+        result.bySpecies[i].treeCount
+      );
     }
   });
 
