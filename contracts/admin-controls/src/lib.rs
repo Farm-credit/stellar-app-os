@@ -15,7 +15,9 @@
 //!   propose → accept pattern to prevent accidental lockout.
 
 use harvesta_errors::HarvestaError;
-use soroban_sdk::{contract, contractimpl, contracttype, panic_with_error, symbol_short, Address, Env};
+use soroban_sdk::{
+    contract, contractimpl, contracttype, panic_with_error, symbol_short, Address, Env,
+};
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -152,16 +154,14 @@ impl AdminControls {
     pub fn add_to_whitelist(env: Env, addr: Address) {
         Self::require_admin(&env);
         contract_utils::add_to_whitelist(&env, &addr);
-        env.events()
-            .publish((symbol_short!("WLAdd"),), addr);
+        env.events().publish((symbol_short!("WLAdd"),), addr);
     }
 
     /// Remove `addr` from the contract whitelist. Restricted to admin multi-sig.
     pub fn remove_from_whitelist(env: Env, addr: Address) {
         Self::require_admin(&env);
         contract_utils::remove_from_whitelist(&env, &addr);
-        env.events()
-            .publish((symbol_short!("WLRemove"),), addr);
+        env.events().publish((symbol_short!("WLRemove"),), addr);
     }
 
     /// Returns `true` if `addr` is whitelisted.

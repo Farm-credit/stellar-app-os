@@ -165,6 +165,19 @@ export function OnboardingTour(): React.ReactNode {
     setCurrentStepIndex((previous) => Math.max(0, previous - 1));
   }, []);
 
+  const previousActiveElementRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    if (isOpen) {
+      previousActiveElementRef.current = document.activeElement as HTMLElement;
+    } else {
+      if (previousActiveElementRef.current) {
+        previousActiveElementRef.current.focus();
+        previousActiveElementRef.current = null;
+      }
+    }
+  }, [isOpen]);
+
   useEffect(() => {
     if (!isOpen) {
       return;
@@ -186,6 +199,33 @@ export function OnboardingTour(): React.ReactNode {
       if (event.key === 'ArrowLeft') {
         event.preventDefault();
         handleBack();
+        return;
+      }
+
+      if (event.key === 'Tab') {
+        const dialog = dialogRef.current;
+        if (!dialog) return;
+
+        const focusableElements = dialog.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        );
+
+        if (focusableElements.length === 0) return;
+
+        const firstElement = focusableElements[0];
+        const lastElement = focusableElements[focusableElements.length - 1];
+
+        if (event.shiftKey) {
+          if (document.activeElement === firstElement) {
+            event.preventDefault();
+            lastElement.focus();
+          }
+        } else {
+          if (document.activeElement === lastElement) {
+            event.preventDefault();
+            firstElement.focus();
+          }
+        }
       }
     };
 

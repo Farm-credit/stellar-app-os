@@ -8,7 +8,8 @@ function sseSerialize(event: string, data: TreeStatusEvent): string {
   return `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
 }
 
-export function GET(request: NextRequest) {
+export async function GET(request: NextRequest) {
+  await Promise.resolve();
   const poller = new TreeStatusPoller(3000);
 
   let closed = false;

@@ -56,3 +56,62 @@ export function checkRateLimit(ip: string, limit = DEFAULT_LIMIT): RateLimitResu
 export function blockIp(ip: string): void {
   BLOCKLIST.add(ip);
 }
+
+// ── Sliding-window rate limiter for anonymous transaction submission ────────
+// Each IP may submit at most 5 anonymous transactions per rolling 1-hour window.
+
+const SUBMIT_ANON_WINDOW_MS = 3_600_000; // 1 hour
+const SUBMIT_ANON_LIMIT = 5;
+
+interface SlidingEntry {
+  timestamps: number[];
+}
+
+const submitAnonWindows = new Map<string, SlidingEntry>();
+
+export type SlidingRateLimitResult =
+  | { allowed: true; remaining: number; reset: number }
+  | {
+      allowed: false;
+      reason: 'blocklist' | 'rate_limit';
+      retryAfter?: number;
+      remaining: number;
+      reset: number;
+    };
+
+export function checkSubmitAnonRateLimit(ip: string): SlidingRateLimitResult {
+  if (BLOCKLIST.has(ip)) {
+    return { allowed: false, reason: 'blocklist', remaining: 0, reset: 0 };
+  }
+
+  const now = Date.now();
+  const cutoff = now - SUBMIT_ANON_WINDOW_MS;
+  const entry = submitAnonWindows.get(ip);
+
+  if (!entry) {
+    submitAnonWindows.set(ip, { timestamps: [now] });
+    return { allowed: true, remaining: SUBMIT_ANON_LIMIT - 1, reset: now + SUBMIT_ANON_WINDOW_MS };
+  }
+
+  // Prune timestamps that have fallen outside the sliding window.
+  entry.timestamps = entry.timestamps.filter((ts) => ts > cutoff);
+
+  if (entry.timestamps.length >= SUBMIT_ANON_LIMIT) {
+    const oldest = entry.timestamps[0];
+    const retryAfter = Math.ceil((oldest + SUBMIT_ANON_WINDOW_MS - now) / 1000);
+    return {
+      allowed: false,
+      reason: 'rate_limit',
+      retryAfter,
+      remaining: 0,
+      reset: oldest + SUBMIT_ANON_WINDOW_MS,
+    };
+  }
+
+  entry.timestamps.push(now);
+  return {
+    allowed: true,
+    remaining: SUBMIT_ANON_LIMIT - entry.timestamps.length,
+    reset: now + SUBMIT_ANON_WINDOW_MS,
+  };
+}

@@ -42,12 +42,28 @@ function getSpeciesIcon(species: TreeSpecies) {
   }
 }
 
-const bgColors: Record<TreeSpecies, string> = {
+const bgColors: Partial<Record<TreeSpecies, string>> = {
   Teak: 'bg-amber-500/10 border-amber-500/20 dark:bg-amber-500/5 dark:border-amber-500/10',
   Moringa:
     'bg-emerald-500/10 border-emerald-500/20 dark:bg-emerald-500/5 dark:border-emerald-500/10',
   Eucalyptus: 'bg-teal-500/10 border-teal-500/20 dark:bg-teal-500/5 dark:border-teal-500/10',
   Mangrove: 'bg-cyan-500/10 border-cyan-500/20 dark:bg-cyan-500/5 dark:border-cyan-500/10',
+  Acacia: 'bg-lime-500/10 border-lime-500/20 dark:bg-lime-500/5 dark:border-lime-500/10',
+  Neem: 'bg-green-500/10 border-green-500/20 dark:bg-green-500/5 dark:border-green-500/10',
+  'African Mahogany':
+    'bg-yellow-700/10 border-yellow-700/20 dark:bg-yellow-700/5 dark:border-yellow-700/10',
+  Baobab: 'bg-orange-500/10 border-orange-500/20 dark:bg-orange-500/5 dark:border-orange-500/10',
+  'Bamboo (Moso)':
+    'bg-green-400/10 border-green-400/20 dark:bg-green-400/5 dark:border-green-400/10',
+  'West African Cedar':
+    'bg-emerald-700/10 border-emerald-700/20 dark:bg-emerald-700/5 dark:border-emerald-700/10',
+  'Caribbean Pine':
+    'bg-green-800/10 border-green-800/20 dark:bg-green-800/5 dark:border-green-800/10',
+  Iroko: 'bg-yellow-800/10 border-yellow-800/20 dark:bg-yellow-800/5 dark:border-yellow-800/10',
+  Shea: 'bg-yellow-500/10 border-yellow-500/20 dark:bg-yellow-500/5 dark:border-yellow-500/10',
+  Cashew: 'bg-orange-400/10 border-orange-400/20 dark:bg-orange-400/5 dark:border-orange-400/10',
+  'African Locust Bean':
+    'bg-stone-600/10 border-stone-600/20 dark:bg-stone-600/5 dark:border-stone-600/10',
 };
 
 interface SponsorTreeListProps {

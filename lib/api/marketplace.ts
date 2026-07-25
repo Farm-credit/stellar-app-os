@@ -32,8 +32,8 @@ const MOCK_LISTINGS: Record<string, Listing> = {
     listedAt: '2024-02-01T00:00:00Z',
     location: 'Sahara Desert, Morocco',
     isActive: true,
-    fundingStatus: 'Open',
-    closingAt: '2024-12-31T00:00:00Z',
+    fundingStatus: 'Closing Soon',
+    closingAt: '2025-03-31T00:00:00Z',
   },
 };
 

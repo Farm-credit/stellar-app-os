@@ -1,4 +1,4 @@
-import type { LeaderboardSponsor, LeaderboardPeriod } from '@/lib/types/leaderboard';
+import { type LeaderboardSponsor, type LeaderboardPeriod } from '@/lib/types/leaderboard';
 
 export const mockMonthlySponsors: LeaderboardSponsor[] = [
   {

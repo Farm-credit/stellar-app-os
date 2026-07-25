@@ -26,7 +26,7 @@ const NAV_LINKS = [
 export function Header(): JSX.Element {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
-  const { theme, toggle: toggleTheme } = useTheme();
+  const { resolvedTheme, toggle: toggleTheme } = useTheme();
 
   const pathname = usePathname();
   const { wallet, disconnect } = useWalletContext();
@@ -107,10 +107,10 @@ export function Header(): JSX.Element {
             <button
               type="button"
               onClick={toggleTheme}
-              aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+              aria-label={`Switch to ${resolvedTheme === 'dark' ? 'light' : 'dark'} mode`}
               className="inline-flex h-9 w-9 items-center justify-center rounded-full text-white/70 transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stellar-blue"
             >
-              {theme === 'dark' ? (
+              {resolvedTheme === 'dark' ? (
                 <Sun className="h-4 w-4" aria-hidden="true" />
               ) : (
                 <Moon className="h-4 w-4" aria-hidden="true" />
@@ -168,10 +168,10 @@ export function Header(): JSX.Element {
             <button
               type="button"
               onClick={toggleTheme}
-              aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+              aria-label={`Switch to ${resolvedTheme === 'dark' ? 'light' : 'dark'} mode`}
               className="inline-flex h-9 w-9 items-center justify-center rounded-full text-white/70 transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stellar-blue"
             >
-              {theme === 'dark' ? (
+              {resolvedTheme === 'dark' ? (
                 <Sun className="h-4 w-4" aria-hidden="true" />
               ) : (
                 <Moon className="h-4 w-4" aria-hidden="true" />

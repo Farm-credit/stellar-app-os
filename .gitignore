@@ -50,3 +50,5 @@ FarmCredit*
 /contracts/Cargo.lock
 **/test_snapshots/
 .claude
+CLAUDE.md
+plan.md

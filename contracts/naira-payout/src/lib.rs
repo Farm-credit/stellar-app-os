@@ -18,9 +18,21 @@
 
 use harvesta_errors::HarvestaError;
 use soroban_sdk::{
-    contract, contractimpl, contracttype, panic_with_error, symbol_short, token, Address, BytesN,
-    Env, IntoVal, Symbol,
+    contract, contractimpl, contracttype, contracterror, panic_with_error, symbol_short, token,
+    Address, BytesN, Env, IntoVal, Symbol,
 };
+
+#[contracterror]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord)]
+pub enum NairaPayoutError {
+    ExpectedNgnMustBePositive = 45,
+    PendingPayoutAlreadyExists = 47,
+    PayoutIntervalTooShort = 48,
+    MaxDailyPayoutExceeded = 49,
+    PayoutNotPending = 50,
+    CanOnlyCancelPending = 51,
+    PayoutNotFound = 52,
+}
 
 /// Off-ramp delivery method for Nigerian Naira.
 #[contracttype]
@@ -123,7 +135,7 @@ impl NairaPayout {
             panic_with_error!(&env, HarvestaError::AmountMustBePositive);
         }
         if expected_ngn_amount <= 0 {
-            panic_with_error!(&env, HarvestaError::ExpectedNgnMustBePositive);
+            panic_with_error!(&env, NairaPayoutError::ExpectedNgnMustBePositive);
         }
 
         let min_interval: u64 = env
@@ -144,7 +156,7 @@ impl NairaPayout {
         if env.storage().persistent().has(&last_payout_key) {
             let last_payout_time: u64 = env.storage().persistent().get(&last_payout_key).unwrap();
             if now < last_payout_time + min_interval {
-                panic_with_error!(&env, HarvestaError::PayoutIntervalTooShort);
+                panic_with_error!(&env, NairaPayoutError::PayoutIntervalTooShort);
             }
         }
 
@@ -161,14 +173,14 @@ impl NairaPayout {
         }
 
         if current_total + usdc_amount > max_daily {
-            panic_with_error!(&env, HarvestaError::MaxDailyPayoutExceeded);
+            panic_with_error!(&env, NairaPayoutError::MaxDailyPayoutExceeded);
         }
 
         let key = Self::payout_key(&env, &farmer);
         if env.storage().persistent().has(&key) {
             let existing: PayoutRecord = env.storage().persistent().get(&key).unwrap();
             if existing.status == PayoutStatus::Pending {
-                panic_with_error!(&env, HarvestaError::PendingPayoutAlreadyExists);
+                panic_with_error!(&env, NairaPayoutError::PendingPayoutAlreadyExists);
             }
         }
 
@@ -219,10 +231,10 @@ impl NairaPayout {
             .storage()
             .persistent()
             .get(&key)
-            .unwrap_or_else(|| panic_with_error!(&env, HarvestaError::PayoutNotFound));
+            .unwrap_or_else(|| panic_with_error!(&env, NairaPayoutError::PayoutNotFound));
 
         if record.status != PayoutStatus::Pending {
-            panic_with_error!(&env, HarvestaError::PayoutNotPending);
+            panic_with_error!(&env, NairaPayoutError::PayoutNotPending);
         }
 
         record.status = PayoutStatus::Completed;
@@ -246,10 +258,10 @@ impl NairaPayout {
             .storage()
             .persistent()
             .get(&key)
-            .unwrap_or_else(|| panic_with_error!(&env, HarvestaError::PayoutNotFound));
+            .unwrap_or_else(|| panic_with_error!(&env, NairaPayoutError::PayoutNotFound));
 
         if record.status != PayoutStatus::Pending {
-            panic_with_error!(&env, HarvestaError::CanOnlyCancelPending);
+            panic_with_error!(&env, NairaPayoutError::CanOnlyCancelPending);
         }
 
         record.status = PayoutStatus::Cancelled;

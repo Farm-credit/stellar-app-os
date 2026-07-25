@@ -1,6 +1,9 @@
 [workspace]
 members = [
     "contract-utils",
+    "shared",
+    "planter-registry",
+    "planter-blacklist",
     "escrow",
     "nullifier-registry",
     "escrow-milestone",
@@ -8,18 +11,25 @@ members = [
     "farmer-registry",
     "donation-escrow",
     "zk-location-verifier",
+    "zk-verifier",
     "location-proof",
     "naira-payout",
+    "harvesta-errors",
     "aggregate-impact-verifier",
     "tree-token",
+    "treasury",
     "admin-controls",
+    "carbon-credits",
     "kyc-attestation",
     "species-registry",
     "species-voting",
-    "treasury",
     "platform-governance",
     "subscription-sponsorship",
-    "planter-registry",
+    "nft-certificate",
+    "sponsor-receipt",
+    "carbon-marketplace",
+    "tree-registry",
+    "verifier-staking",
 ]
 resolver = "2"
 

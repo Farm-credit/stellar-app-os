@@ -1,4 +1,10 @@
 import { NextResponse } from 'next/server';
+import {
+  getCachedMapData,
+  getPlantingMapCacheKey,
+  setCachedMapData,
+  type PlantingMapPoint,
+} from '@/lib/cache/map-cache';
 import { getPool } from '@/lib/db/client';
 import { decodeGeohash } from '@/lib/geo/geohash';
 
@@ -22,6 +28,15 @@ export async function GET(request: Request) {
   const region = searchParams.get('region');
 
   try {
+    const cacheKey = getPlantingMapCacheKey(region);
+    const cachedPoints = await getCachedMapData<PlantingMapPoint[]>(cacheKey);
+    if (cachedPoints) {
+      return NextResponse.json(
+        { points: cachedPoints },
+        { headers: { 'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=300' } }
+      );
+    }
+
     const pool = getPool();
     const { rows } = await pool.query<MapPointRow>(
       `SELECT geohash, region, tree_count
@@ -38,7 +53,12 @@ export async function GET(request: Request) {
       ...decodeGeohash(geohash), // adds lat/lon cell centre
     }));
 
-    return NextResponse.json({ points });
+    await setCachedMapData(cacheKey, points);
+
+    return NextResponse.json(
+      { points },
+      { headers: { 'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=300' } }
+    );
   } catch (error) {
     console.error('[planting/map] GET error:', error);
     const message = error instanceof Error ? error.message : 'Internal server error';

@@ -38,6 +38,7 @@ export function SpeciesGovernance() {
             <CardHeader>
               <CardTitle>Active Proposals</CardTitle>
               <CardDescription>
+                Vote on proposed species additions. Voting power is proportional to your TREE token holdings.
                 Vote on proposed species additions. Voting power is proportional to your TREE token
                 holdings.
               </CardDescription>
@@ -53,6 +54,7 @@ export function SpeciesGovernance() {
             <CardHeader>
               <CardTitle>Propose New Species</CardTitle>
               <CardDescription>
+                Submit a new tree species for community review. Include CO₂ sequestration data and maturity information.
                 Submit a new tree species for community review. Include CO₂ sequestration data and
                 maturity information.
               </CardDescription>

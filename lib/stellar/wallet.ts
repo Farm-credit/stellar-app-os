@@ -110,6 +110,11 @@ export function connectXBull(_network: NetworkType): Promise<string> {
   }
 
   return new Promise((resolve, reject) => {
+    const _networkPassphrase =
+      _network === 'mainnet'
+        ? 'Public Global Stellar Network ; September 2015'
+        : 'Test SDF Network ; September 2015';
+
     // Check if xBull is installed
     if (!(window as any).xbull) {
       reject(new Error('xBull wallet extension not found. Please install it.'));

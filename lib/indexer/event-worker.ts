@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Soroban Contract Event Indexer
  *
  * Polls the Soroban RPC `getEvents` endpoint for TreeMinted, ProgressSubmitted,
@@ -19,7 +19,7 @@ import {
 } from '@/lib/indexer/event-upsert';
 import type { NetworkType } from '@/lib/types/wallet';
 
-// ── Config ────────────────────────────────────────────────────────────────────
+// â”€â”€ Config â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const NETWORK = (process.env.STELLAR_NETWORK ?? 'testnet') as NetworkType;
 const SOROBAN_RPC_URL =
@@ -35,7 +35,7 @@ const CONTRACT_IDS = (process.env.TREE_CONTRACT_IDS ?? '')
 const POLL_INTERVAL_MS = 5_000;
 const MAX_EVENTS_PER_POLL = 100;
 
-// ── Classification ────────────────────────────────────────────────────────────
+// â”€â”€ Classification â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const KNOWN_EVENTS = new Set<ContractEventType>([
   'TreeMinted',
@@ -53,7 +53,7 @@ function classifyEvent(topicsXdr: string[]): ContractEventType {
       return KNOWN_EVENTS.has(name) ? name : 'other';
     }
   } catch {
-    // XDR decode failure — fall through to 'other'
+    // XDR decode failure â€” fall through to 'other'
   }
   return 'other';
 }
@@ -64,7 +64,20 @@ function scValToXdrBase64(val: unknown): string {
   return '';
 }
 
-// ── Core ──────────────────────────────────────────────────────────────────────
+// â”€â”€ Core â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+async function withRetry<T>(fn: () => Promise<T>, maxRetries = 3, delayMs = 1000): Promise<T> {
+  for (let i = 0; i <= maxRetries; i++) {
+    try {
+      return await fn();
+    } catch (err) {
+      if (i === maxRetries) throw err;
+      console.warn(`[event-indexer] retry ${i + 1}/${maxRetries}`);
+      await new Promise((r) => setTimeout(r, delayMs * Math.pow(2, i)));
+    }
+  }
+  throw new Error('unreachable');
+}
 
 const server = new SorobanRpc.Server(SOROBAN_RPC_URL, {
   allowHttp: SOROBAN_RPC_URL.startsWith('http://'),
@@ -79,13 +92,14 @@ async function pollContractEvents(): Promise<void> {
     ...(CONTRACT_IDS.length > 0 ? { contractIds: CONTRACT_IDS } : {}),
   };
 
+  const request: Parameters<typeof server.getEvents>[0] = {
   const request: SorobanRpc.Server.GetEventsRequest = {
     filters: [filter],
     limit: MAX_EVENTS_PER_POLL,
     ...(startLedger > 0 ? { startLedger } : {}),
   };
 
-  const response = await server.getEvents(request);
+  const response = await withRetry(() => server.getEvents(request));
 
   let maxLedger = startLedger;
 
@@ -95,22 +109,24 @@ async function pollContractEvents(): Promise<void> {
     const eventType = classifyEvent(topicsXdr);
     const valueXdr = event.value != null ? scValToXdrBase64(event.value) : null;
 
-    await upsertContractEvent(pool, {
-      id: event.id,
-      ledger: event.ledger,
-      ledgerClosedAt: event.ledgerClosedAt,
-      contractId:
-        typeof event.contractId === 'string'
-          ? event.contractId
-          : (event.contractId?.toString() ?? ''),
-      eventType,
-      topicsXdr,
-      valueXdr: valueXdr || null,
-      pagingToken: event.pagingToken ?? null,
-    });
+    await withRetry(() =>
+      upsertContractEvent(pool, {
+        id: event.id,
+        ledger: event.ledger,
+        ledgerClosedAt: event.ledgerClosedAt,
+        contractId:
+          typeof event.contractId === 'string'
+            ? event.contractId
+            : (event.contractId?.toString() ?? ''),
+        eventType,
+        topicsXdr,
+        valueXdr: valueXdr || null,
+        pagingToken: event.pagingToken ?? null,
+      })
+    );
 
     if (event.ledger > maxLedger) maxLedger = event.ledger;
-    console.info(`[event-indexer] ${event.id.slice(0, 20)}… → ${eventType}`);
+    console.info(`[event-indexer] ${event.id.slice(0, 20)}â€¦ â†’ ${eventType}`);
   }
 
   const nextLedger = maxLedger > startLedger ? maxLedger + 1 : (response.latestLedger ?? maxLedger);
@@ -120,7 +136,7 @@ async function pollContractEvents(): Promise<void> {
   }
 }
 
-// ── Entry Point ───────────────────────────────────────────────────────────────
+// â”€â”€ Entry Point â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 async function main(): Promise<void> {
   console.info(`[event-indexer] starting on ${NETWORK}`);

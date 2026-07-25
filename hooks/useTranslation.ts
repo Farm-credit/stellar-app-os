@@ -17,6 +17,7 @@ interface UseAppTranslationReturn {
 
 const LOCALE_MAP: Record<SupportedLanguage, string> = {
   en: 'en-US',
+  ha: 'ha-NG',
   es: 'es-ES',
   fr: 'fr-FR',
   pt: 'pt-BR',

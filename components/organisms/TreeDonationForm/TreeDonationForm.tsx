@@ -23,6 +23,7 @@ import { processDonationPayment } from '@/lib/stellar/donation';
 import { generateIdempotencyKey } from '@/lib/constants/donation';
 import { showToast } from '@/lib/toast';
 import type { TransactionStatus } from '@/lib/types/payment';
+import type { DonationAsset } from '@/lib/types/donation-payment';
 import { GiftTreeForm } from '@/components/organisms/GiftTreeForm/GiftTreeForm';
 import { DEFAULT_GIFT_DETAILS, isValidGiftDetails, type GiftDetails } from '@/lib/types/gift';
 
@@ -176,6 +177,7 @@ export function TreeDonationForm() {
   const [customCount, setCustomCount] = useState('');
   const [isCustom, setIsCustom] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<'stellar' | 'card'>('stellar');
+  const [donationAsset, setDonationAsset] = useState<DonationAsset>('USDC');
   const [stellarStatus, setStellarStatus] = useState<TransactionStatus>('idle');
   const [stellarError, setStellarError] = useState<string | null>(null);
   const [walletModalOpen, setWalletModalOpen] = useState(false);
@@ -267,7 +269,9 @@ export function TreeDonationForm() {
         totalUsdc,
         wallet,
         generateIdempotencyKey(),
-        (status) => setStellarStatus(status)
+        (status) => setStellarStatus(status),
+        1,
+        donationAsset
       );
       setTxId(result.transactionHash);
       setConfirmed(true);
@@ -280,7 +284,7 @@ export function TreeDonationForm() {
     } finally {
       isProcessingRef.current = false;
     }
-  }, [wallet, totalUsdc, isValidCount]);
+  }, [wallet, totalUsdc, isValidCount, donationAsset]);
 
   // ── Stripe callbacks ──────────────────────────────────────────────────────
 
@@ -304,6 +308,7 @@ export function TreeDonationForm() {
     setStellarError(null);
     setStripeClientSecret(null);
     setPaymentMethod('stellar');
+    setDonationAsset('USDC');
   };
 
   // ── Render: confirmation ──────────────────────────────────────────────────
@@ -322,7 +327,14 @@ export function TreeDonationForm() {
 
   const usdcBalance = wallet ? parseFloat(wallet.balance.usdc) : 0;
   const xlmBalance = wallet ? parseFloat(wallet.balance.xlm) : 0;
-  const hasSufficientStellar = wallet ? usdcBalance >= totalUsdc || xlmBalance >= totalUsdc : false;
+  // USDC is sent 1:1; XLM is converted to USDC on-chain, so the exact XLM cost
+  // is only known at quote time — we just require a positive balance here and
+  // let the path-payment `sendMax` enforce the precise ceiling.
+  const hasSufficientStellar = wallet
+    ? donationAsset === 'USDC'
+      ? usdcBalance >= totalUsdc
+      : xlmBalance > 0
+    : false;
 
   // ── Render: form ──────────────────────────────────────────────────────────
 
@@ -536,6 +548,41 @@ export function TreeDonationForm() {
                   </div>
                 </div>
 
+                {/* Pay-with asset selector */}
+                <div>
+                  <Text variant="small" className="font-medium mb-2">
+                    Pay with
+                  </Text>
+                  <div
+                    className="grid grid-cols-2 gap-3"
+                    role="radiogroup"
+                    aria-label="Donation asset"
+                  >
+                    {(['USDC', 'XLM'] as const).map((asset) => (
+                      <button
+                        key={asset}
+                        type="button"
+                        role="radio"
+                        aria-checked={donationAsset === asset}
+                        onClick={() => setDonationAsset(asset)}
+                        className={`rounded-lg border-2 px-4 py-2 text-sm font-semibold transition-colors ${
+                          donationAsset === asset
+                            ? 'border-stellar-blue bg-stellar-blue/5 text-stellar-blue'
+                            : 'border-border hover:border-stellar-blue/50'
+                        }`}
+                      >
+                        {asset}
+                      </button>
+                    ))}
+                  </div>
+                  {donationAsset === 'XLM' && (
+                    <Text variant="small" className="text-muted-foreground mt-2">
+                      Your XLM is converted to {totalUsdc.toFixed(2)} USDC at the live market rate.
+                      A small slippage buffer caps the XLM debited from your wallet.
+                    </Text>
+                  )}
+                </div>
+
                 {/* Insufficient balance warning */}
                 {isValidCount && !hasSufficientStellar && (
                   <div
@@ -545,8 +592,9 @@ export function TreeDonationForm() {
                   >
                     <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0 text-yellow-600" />
                     <Text variant="small" className="text-yellow-700">
-                      Insufficient balance. You need {totalUsdc.toFixed(2)} USDC but have{' '}
-                      {usdcBalance.toFixed(2)} USDC / {xlmBalance.toFixed(2)} XLM.
+                      {donationAsset === 'USDC'
+                        ? `Insufficient USDC. You need ${totalUsdc.toFixed(2)} USDC but have ${usdcBalance.toFixed(2)} USDC.`
+                        : `You have no XLM to convert. Add XLM or switch to USDC.`}
                     </Text>
                   </div>
                 )}
@@ -588,6 +636,8 @@ export function TreeDonationForm() {
                   stellar="primary"
                   width="full"
                   onClick={handleStellarPay}
+                  disabled={!isValidCount || isStellarProcessing || !hasSufficientStellar}
+                  aria-label={`Donate ${totalUsdc.toFixed(2)} USDC via Stellar paying with ${donationAsset}`}
                   disabled={
                     !isValidCount || !isValidGift || isStellarProcessing || !hasSufficientStellar
                   }
@@ -601,7 +651,9 @@ export function TreeDonationForm() {
                   ) : (
                     <>
                       <Wallet className="mr-2 h-4 w-4" aria-hidden="true" />
-                      Donate {totalUsdc.toFixed(2)} USDC
+                      {donationAsset === 'XLM'
+                        ? `Donate ${totalUsdc.toFixed(2)} USDC with XLM`
+                        : `Donate ${totalUsdc.toFixed(2)} USDC`}
                     </>
                   )}
                 </Button>

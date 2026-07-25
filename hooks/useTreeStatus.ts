@@ -21,7 +21,7 @@ export function useTreeStatus(options: UseTreeStatusOptions = {}): UseTreeStatus
   const onEventRef = useRef(options.onEvent);
   useEffect(() => {
     onEventRef.current = options.onEvent;
-  });
+  }, [options.onEvent]);
 
   useEffect(() => {
     const es = new EventSource('/api/trees/status');
