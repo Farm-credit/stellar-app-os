@@ -18,6 +18,8 @@ Migrations are numbered sequentially and should be named in the format: `XXX_des
 - `004_create_trees.sql` - Stores tree information
 - `005_create_progress_updates.sql` - Stores progress updates
 - `006_create_disputes.sql` - Stores disputes
+- `007_create_webhook_dispatch.sql` - Stores outbound webhook delivery attempts
+- `008_create_carbon_offset_snapshots.sql` - Stores daily snapshots of total CO₂ sequestered across active trees (see `docs/carbon-offset-cron.md`)
 
 ## Running Migrations
 
