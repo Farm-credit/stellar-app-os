@@ -221,4 +221,6 @@ pub enum FarmerError {
     InvalidCoordinatesCount = 5,
     NotValidator = 6,
     HashMismatch = 7,
+    FarmerFrozen = 8,
 }
+
