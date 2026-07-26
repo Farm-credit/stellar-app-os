@@ -181,6 +181,34 @@ pub enum HarvestaError {
     InvalidTreeStatusTransition = 90,
     PlantingTimeoutNotReached = 91,
     NonceAlreadyUsed = 93,
+
+    // ── Public Seal policy (#124) ─────────────────────────────────────────────
+    /// Seal policy version already exists.
+    PolicyVersionAlreadyExists = 100,
+    /// Seal policy version not found.
+    PolicyNotFound = 101,
+    /// Threshold exceeds signer count or is zero.
+    InvalidThreshold = 102,
+    /// Signer set is empty or exceeds maximum bounded size.
+    InvalidSignerSet = 103,
+    /// Signer already approved this request (idempotent guard).
+    AlreadyApproved = 104,
+    /// Signer is not in the active policy's signer set.
+    NotAPolicySigner = 105,
+    /// Seal request is not in Open state.
+    RequestNotOpen = 106,
+    /// Seal request has expired.
+    RequestExpired = 107,
+    /// Policy administration requires authorized caller.
+    NotPolicyAdmin = 108,
+    /// Policy is superseded and can no longer be used.
+    PolicySuperseded = 109,
+    /// Seal request already finalised — cannot be modified.
+    RequestAlreadyFinalised = 110,
+    /// Cancellation of a finalised request is not allowed.
+    CannotCancelFinalised = 111,
+    /// Replacement policy must have a higher version number.
+    InvalidReplacementVersion = 112,
 }
 
 #[contracterror]
@@ -221,4 +249,6 @@ pub enum FarmerError {
     InvalidCoordinatesCount = 5,
     NotValidator = 6,
     HashMismatch = 7,
+    FarmerFrozen = 8,
 }
+
