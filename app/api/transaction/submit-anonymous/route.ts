@@ -6,11 +6,20 @@
  */
 
 import { NextResponse } from 'next/server';
+import { checkSubmitAnonRateLimit } from '@/lib/rateLimit';
 import { submitTransaction } from '@/lib/stellar/transaction';
 import { verifyAnonymousDonationProof } from '@/lib/zk/prover';
 import { isNullifierUsed } from '@/lib/stellar/anonymous-donation';
 import type { AnonymousDonationProof } from '@/lib/zk/types';
 import type { NetworkType } from '@/lib/types/wallet';
+
+function getClientIp(request: Request): string {
+  return (
+    request.headers.get('x-forwarded-for')?.split(',')[0].trim() ??
+    request.headers.get('x-real-ip') ??
+    '127.0.0.1'
+  );
+}
 
 interface SubmitAnonymousRequest {
   transactionXdr: string;
@@ -21,6 +30,25 @@ interface SubmitAnonymousRequest {
 
 export async function POST(request: Request) {
   try {
+    const ip = getClientIp(request);
+    const rateLimit = checkSubmitAnonRateLimit(ip);
+
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { error: 'Too many anonymous submissions. Please try again later.' },
+        {
+          status: 429,
+          headers: {
+            'Content-Type': 'application/json',
+            'Retry-After': String(rateLimit.retryAfter ?? 3600),
+            'X-RateLimit-Limit': '5',
+            'X-RateLimit-Remaining': '0',
+            'X-RateLimit-Reset': String(Math.ceil(rateLimit.reset / 1000)),
+          },
+        }
+      );
+    }
+
     const body = (await request.json()) as SubmitAnonymousRequest;
     const { transactionXdr, network, proof, nullifier } = body;
 
@@ -30,7 +58,7 @@ export async function POST(request: Request) {
     }
 
     // Step 1: Verify the ZK proof
-    console.log('Verifying zero-knowledge proof...');
+    console.info('Verifying zero-knowledge proof...');
     const isProofValid = await verifyAnonymousDonationProof(proof);
 
     if (!isProofValid) {
@@ -38,7 +66,7 @@ export async function POST(request: Request) {
     }
 
     // Step 2: Check if nullifier has been used (prevent double-donations)
-    console.log('Checking nullifier...');
+    console.info('Checking nullifier...');
     const nullifierExists = await isNullifierUsed(nullifier, network);
 
     if (nullifierExists) {
@@ -54,11 +82,11 @@ export async function POST(request: Request) {
     }
 
     // Step 4: Submit the transaction to Stellar network
-    console.log('Submitting anonymous transaction to Stellar...');
+    console.info('Submitting anonymous transaction to Stellar...');
     const transactionHash = await submitTransaction(transactionXdr, network);
 
     // Step 5: Log the nullifier (in production, store in database)
-    console.log('Anonymous donation submitted:', {
+    console.info('Anonymous donation submitted:', {
       transactionHash,
       nullifier: nullifier.slice(0, 16) + '...',
       timestamp: proof.timestamp,

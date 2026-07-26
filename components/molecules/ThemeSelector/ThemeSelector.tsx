@@ -130,7 +130,9 @@ export function ThemeSelector({
                   {option.icon}
                 </span>
                 <div className="min-w-0 flex-1">
-                  <span className="block text-sm font-semibold text-foreground">{option.label}</span>
+                  <span className="block text-sm font-semibold text-foreground">
+                    {option.label}
+                  </span>
                   <span className="block truncate text-xs text-muted-foreground">
                     {option.description}
                   </span>

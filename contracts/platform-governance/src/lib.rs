@@ -53,6 +53,7 @@ pub enum ProposalType {
     PlatformFee,
     MinPlantingBond,
     VerifierWhitelist,
+    SpeciesSelection,
 }
 
 /// Proposal status lifecycle
@@ -389,17 +390,27 @@ impl PlatformGovernance {
             .instance()
             .get(&staking_contract_key())
             .expect("not initialized");
-
+        
+        // Get raw voting power (staked token amount)
         let own_power = Self::get_voting_power(&env, &staking_contract, &voter);
-
-        if own_power <= 0 {
-            panic!("must be a staked verifier to vote");
-        }
-
+        
         // Add delegated power from all direct delegators.
         let delegated_power =
             Self::aggregate_delegated_power(&env, &staking_contract, &voter);
-        let power = own_power + delegated_power;
+            
+        let raw_power = own_power + delegated_power;
+
+        if raw_power <= 0 {
+            panic!("must be a staked verifier or delegate to vote");
+        }
+        
+        // Apply quadratic voting for SpeciesSelection proposals
+        // Voting power = sqrt(token holdings)
+        let power = if proposal.proposal_type == ProposalType::SpeciesSelection {
+            Self::isqrt(raw_power)
+        } else {
+            raw_power
+        };
 
         // Validate option_id exists
         let option_exists = proposal.options.iter().any(|opt| opt.option_id == option_id);
@@ -536,6 +547,15 @@ impl PlatformGovernance {
                 {
                     Self::update_verifier_whitelist(&env, &option.description);
                 }
+            }
+            ProposalType::SpeciesSelection => {
+                // Species selection proposals are informational
+                // The winning species is recorded but no contract state is updated
+                // In production, this might trigger an event or update a species registry
+                env.events().publish(
+                    (symbol_short!("species"), symbol_short!("selected")),
+                    (proposal_id, winning_option_id),
+                );
             }
         }
 
@@ -918,6 +938,34 @@ impl PlatformGovernance {
 
     // ── Internal ──────────────────────────────────────────────────────────────
 
+    /// Integer square root using binary search algorithm.
+    /// Returns the largest integer x such that x * x <= n.
+    pub fn isqrt(n: i128) -> i128 {
+        if n <= 0 {
+            return 0;
+        }
+        
+        let mut low = 1i128;
+        let mut high = n;
+        let mut result = 1i128;
+        
+        while low <= high {
+            let mid = (low + high) / 2;
+            let mid_squared = mid * mid;
+            
+            if mid_squared == n {
+                return mid;
+            } else if mid_squared < n {
+                low = mid + 1;
+                result = mid;
+            } else {
+                high = mid - 1;
+            }
+        }
+        
+        result
+    }
+
     fn require_admin(env: &Env) {
         let admin: Address = env
             .storage()
@@ -1179,6 +1227,102 @@ mod tests {
         client.remove_verifier_from_whitelist(&verifier);
         let whitelist = client.verifier_whitelist();
         assert_eq!(whitelist.len(), 0);
+    }
+
+    #[test]
+    fn test_isqrt() {
+        assert_eq!(PlatformGovernance::isqrt(0), 0);
+        assert_eq!(PlatformGovernance::isqrt(1), 1);
+        assert_eq!(PlatformGovernance::isqrt(4), 2);
+        assert_eq!(PlatformGovernance::isqrt(9), 3);
+        assert_eq!(PlatformGovernance::isqrt(16), 4);
+        assert_eq!(PlatformGovernance::isqrt(25), 5);
+        assert_eq!(PlatformGovernance::isqrt(100), 10);
+        assert_eq!(PlatformGovernance::isqrt(10000), 100);
+        // Test non-perfect squares
+        assert_eq!(PlatformGovernance::isqrt(2), 1);
+        assert_eq!(PlatformGovernance::isqrt(8), 2);
+        assert_eq!(PlatformGovernance::isqrt(15), 3);
+        assert_eq!(PlatformGovernance::isqrt(26), 5);
+    }
+
+    #[test]
+    fn test_quadratic_voting_species_selection() {
+        let (env, admin, _, _, client) = setup();
+
+        let description_hash = String::from_str(&env, "species_hash");
+        let proposal_type = ProposalType::SpeciesSelection;
+        
+        let mut options = Vec::new(&env);
+        options.push_back(VoteOption {
+            option_id: 1,
+            description: String::from_str(&env, "Oak Tree"),
+        });
+        options.push_back(VoteOption {
+            option_id: 2,
+            description: String::from_str(&env, "Pine Tree"),
+        });
+
+        client.create_proposal(&description_hash, &proposal_type, &options, &604800, &admin);
+        client.vote(&0, &1, &admin);
+
+        let proposal = client.get_proposal(&0);
+        // With raw power of 1000, sqrt(1000) ≈ 31
+        assert_eq!(proposal.total_votes, 31);
+    }
+
+    #[test]
+    fn test_normal_voting_platform_fee() {
+        let (env, admin, _, _, client) = setup();
+
+        let description_hash = String::from_str(&env, "fee_hash");
+        let proposal_type = ProposalType::PlatformFee;
+        
+        let mut options = Vec::new(&env);
+        options.push_back(VoteOption {
+            option_id: 1,
+            description: String::from_str(&env, "Set fee to 10%"),
+        });
+
+        client.create_proposal(&description_hash, &proposal_type, &options, &604800, &admin);
+        client.vote(&0, &1, &admin);
+
+        let proposal = client.get_proposal(&0);
+        // Normal voting uses raw power (1000)
+        assert_eq!(proposal.total_votes, 1000);
+    }
+
+    #[test]
+    fn test_species_selection_execution() {
+        let (env, admin, _, _, client) = setup();
+
+        let description_hash = String::from_str(&env, "species_hash");
+        let proposal_type = ProposalType::SpeciesSelection;
+        
+        let mut options = Vec::new(&env);
+        options.push_back(VoteOption {
+            option_id: 1,
+            description: String::from_str(&env, "Oak Tree"),
+        });
+
+        client.create_proposal(&description_hash, &proposal_type, &options, &1, &admin);
+        client.vote(&0, &1, &admin);
+
+        // Wait for voting period and timelock to pass
+        env.ledger().set_timestamp(env.ledger().timestamp() + 200000);
+
+        // Manually set proposal to passed for testing execution
+        // In production, this would happen through quorum
+        let mut proposal = client.get_proposal(&0);
+        proposal.status = ProposalStatus::Passed;
+        env.storage()
+            .persistent()
+            .set(&proposal_key(0), &proposal);
+
+        client.execute(&0);
+
+        let proposal = client.get_proposal(&0);
+        assert!(matches!(proposal.status, ProposalStatus::Executed));
     }
 
     // ── Delegation tests ──────────────────────────────────────────────────────

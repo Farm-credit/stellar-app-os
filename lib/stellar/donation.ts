@@ -1,10 +1,17 @@
 import type { WalletConnection } from '@/lib/types/wallet';
 import type { TransactionStatus } from '@/lib/types/payment';
-import type { BuildDonationTransactionResponse } from '@/lib/types/donation-payment';
+import type {
+  BuildDonationTransactionResponse,
+  DonationAsset,
+} from '@/lib/types/donation-payment';
 import { signTransactionWithFreighter, signTransactionWithAlbedo } from './signing';
 
 export interface DonationPaymentResult {
   transactionHash: string;
+  /** Asset the donor paid with. */
+  asset: DonationAsset;
+  /** Amount debited from the donor in the payment asset (XLM is the sendMax ceiling). */
+  estimatedSourceAmount: string;
 }
 
 export type DonationStatusCallback = (_status: TransactionStatus) => void;
@@ -14,6 +21,9 @@ export async function processDonationPayment(
   wallet: WalletConnection,
   idempotencyKey: string,
   onStatusChange?: DonationStatusCallback,
+  treeCount = 1,
+  asset: DonationAsset = 'USDC'
+  treeCount = 1
   treeCount = 1,
   regionId?: string
 ): Promise<DonationPaymentResult> {
@@ -26,6 +36,7 @@ export async function processDonationPayment(
     body: JSON.stringify({
       amount,
       treeCount,
+      asset,
       walletPublicKey: wallet.publicKey,
       network: wallet.network,
       idempotencyKey,
@@ -38,8 +49,12 @@ export async function processDonationPayment(
     throw new Error(err.error || 'Failed to build transaction');
   }
 
-  const { transactionXdr, networkPassphrase } =
-    (await buildRes.json()) as BuildDonationTransactionResponse;
+  const {
+    transactionXdr,
+    networkPassphrase,
+    asset: builtAsset,
+    estimatedSourceAmount,
+  } = (await buildRes.json()) as BuildDonationTransactionResponse;
 
   // Step 2: Sign transaction
   onStatusChange?.('signing');
@@ -74,5 +89,5 @@ export async function processDonationPayment(
 
   onStatusChange?.('confirming');
 
-  return { transactionHash };
+  return { transactionHash, asset: builtAsset, estimatedSourceAmount };
 }

@@ -8,9 +8,11 @@ crate-type = ["cdylib"]
 
 [dependencies]
 soroban-sdk = { version = "21.0.0", features = ["alloc"] }
+admin-controls = { path = "../admin-controls" }
 
 [dev-dependencies]
 soroban-sdk = { version = "21.0.0", features = ["testutils", "alloc"] }
+proptest = "1.5.0"
 
 [profile.release]
 opt-level = "z"

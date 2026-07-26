@@ -23,7 +23,7 @@
 import { type JSX, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { AnimatePresence, motion, easeIn, easeOut } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
 import { X, Home, FolderOpen, ShoppingBag, LayoutDashboard, History } from 'lucide-react';
 import { Button } from '@/components/atoms/Button';
 import { Text } from '@/components/atoms/Text';
@@ -75,7 +75,7 @@ const drawerVariants = {
     x: '100%',
     transition: {
       type: 'tween' as const,
-      ease: easeIn,
+      ease: 'easeIn' as const,
       duration: 0.22,
     },
   },
@@ -92,7 +92,7 @@ const navItemVariants = {
   visible: {
     opacity: 1,
     x: 0,
-    transition: { type: 'tween' as const, ease: easeOut, duration: 0.18 },
+    transition: { type: 'tween' as const, ease: 'easeOut' as const, duration: 0.18 },
   },
 };
 

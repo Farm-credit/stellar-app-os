@@ -28,7 +28,7 @@ export function containsPointInPolygon(
     const [x2, y2] = polygon[j];
 
     const onSegment =
-      ((y1 > longitude) !== (y2 > longitude)) &&
+      y1 > longitude !== y2 > longitude &&
       latitude < ((x2 - x1) * (longitude - y1)) / (y2 - y1) + x1;
 
     if (onSegment) {
@@ -37,7 +37,7 @@ export function containsPointInPolygon(
     }
 
     const crosses =
-      (y1 > longitude) !== (y2 > longitude) &&
+      y1 > longitude !== y2 > longitude &&
       latitude < ((x2 - x1) * (longitude - y1)) / (y2 - y1) + x1;
 
     if (crosses) {

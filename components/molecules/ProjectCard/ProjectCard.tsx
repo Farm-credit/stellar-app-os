@@ -1,14 +1,28 @@
-'use client';
-
-import { Text } from '@/components/atoms/Text';
+import * as React from 'react';
+import Image from 'next/image';
 import { Badge } from '@/components/atoms/Badge';
-import { HeartIcon } from 'lucide-react';
-import { toast } from 'sonner';
-import { useFavorites } from '@/contexts/FavouritesContext';
-import type { CarbonProject } from '@/lib/types/carbon';
+import { Button } from '@/components/atoms/Button';
+import { Text } from '@/components/atoms/Text';
+import { Card, CardContent, CardFooter, CardHeader } from '@/components/molecules/Card';
+import { MapPin, ImageOff } from 'lucide-react';
 
-export function ProjectCard({ project }: { project: CarbonProject }) {
-  const { isFavorited, toggleFavorite, undoRemove } = useFavorites();
+export interface ProjectCardProps {
+  id: string | number;
+  title: string;
+  location: string;
+  description: string;
+  imageUrl: string | null;
+  type: 'reforestation' | 'renewable' | 'conservation';
+  progress: number;
+  price: number;
+  availableCredits: number;
+}
+
+const typeConfig = {
+  reforestation: { label: 'Reforestation', colorClass: 'bg-stellar-green' },
+  renewable: { label: 'Renewable Energy', colorClass: 'bg-stellar-cyan text-stellar-navy' },
+  conservation: { label: 'Conservation', colorClass: 'bg-stellar-purple' },
+};
 
   const handleToggle = (projectId: string) => {
     const alreadyFavorited = isFavorited(projectId);
@@ -40,7 +54,17 @@ export function ProjectCard({ project }: { project: CarbonProject }) {
               isFavorited(project.id) ? 'fill-red-500 stroke-red-500' : 'fill-none stroke-current'
             }
           />
-        </button>
+        ) : (
+          <div className="flex h-full w-full flex-col items-center justify-center text-muted-foreground bg-secondary/50">
+            <ImageOff className="h-10 w-10 mb-2 opacity-50" />
+            <Text variant="small">No image available</Text>
+          </div>
+        )}
+
+        {/* Type Badge */}
+        <div className="absolute top-3 right-3 z-10">
+          <Badge className={`border-none ${badgeConfig.colorClass}`}>{badgeConfig.label}</Badge>
+        </div>
       </div>
       <div>
         <div className="flex items-start justify-between mb-2">
@@ -53,33 +77,40 @@ export function ProjectCard({ project }: { project: CarbonProject }) {
             </Badge>
           )}
         </div>
-        <Text variant="muted" as="p" className="text-sm">
-          {project.description}
+        <Text
+          as="h3"
+          variant="h4"
+          className="line-clamp-1 group-hover:text-stellar-blue transition-colors"
+        >
+          {title}
+        </Text>
+      </CardHeader>
+
+      <CardContent className="p-5 pt-0 flex-grow flex flex-col justify-between">
+        <Text variant="muted" className="line-clamp-2 mb-4">
+          {description}
         </Text>
       </div>
 
-      <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <Text variant="small" as="span" className="text-muted-foreground">
-            Type
-          </Text>
-          <Badge variant="default">{project.type}</Badge>
-        </div>
-        <div className="flex items-center justify-between">
-          <Text variant="small" as="span" className="text-muted-foreground">
-            Location
-          </Text>
-          <Text variant="small" as="span">
-            {project.location}
-          </Text>
-        </div>
-        <div className="flex items-center justify-between">
-          <Text variant="small" as="span" className="text-muted-foreground">
-            Vintage Year
-          </Text>
-          <Text variant="small" as="span">
-            {project.vintageYear}
-          </Text>
+        {/* Progress Area */}
+        <div className="space-y-2 mt-auto">
+          <div className="flex justify-between items-end">
+            <Text variant="small" className="font-medium">
+              {clampedProgress}% Funded
+            </Text>
+            <Text variant="small" className="text-xs text-muted-foreground">
+              {availableCredits > 0
+                ? `${availableCredits.toLocaleString()} credits left`
+                : '0 credits left'}
+            </Text>
+          </div>
+
+          <div className="h-2 w-full bg-secondary rounded-full overflow-hidden">
+            <div
+              className="h-full bg-stellar-green transition-all duration-1000 ease-out rounded-full"
+              style={{ width: `${clampedProgress}%` }}
+            />
+          </div>
         </div>
         <div className="flex items-center justify-between">
           <Text variant="small" as="span" className="text-muted-foreground">
@@ -99,28 +130,23 @@ export function ProjectCard({ project }: { project: CarbonProject }) {
         </div>
       </div>
 
-      {project.coBenefits.length > 0 && (
-        <div>
-          <Text variant="small" as="span" className="text-muted-foreground block mb-2">
-            Co-benefits
+      <CardFooter className="p-5 pt-4 border-t bg-muted/20 flex items-center justify-between flex-none gap-3">
+        <div className="flex flex-col">
+          <Text variant="small" className="text-muted-foreground text-xs leading-tight">
+            Price
           </Text>
-          <div className="flex flex-wrap gap-2">
-            {project.coBenefits.map((benefit) => (
-              <Badge
-                key={benefit}
-                variant="accent"
-                className="bg-stellar-purple/10 text-stellar-purple border-stellar-purple/20"
-              >
-                {benefit}
-              </Badge>
-            ))}
+          <div className="flex items-baseline gap-1">
+            <Text variant="h4">${price.toFixed(2)}</Text>
+            <Text variant="small" className="text-muted-foreground text-xs">
+              /unit
+            </Text>
           </div>
         </div>
-      )}
 
-      <div className="pt-4 border-t">
-        <Badge variant="success">{project.verificationStatus}</Badge>
-      </div>
-    </div>
+        <Button stellar="primary" disabled={isSoldOut} className="w-full sm:w-auto font-semibold">
+          {isSoldOut ? 'Sold Out' : 'Donate'}
+        </Button>
+      </CardFooter>
+    </Card>
   );
 }

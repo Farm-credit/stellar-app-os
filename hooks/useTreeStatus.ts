@@ -19,7 +19,6 @@ export function useTreeStatus(options: UseTreeStatusOptions = {}): UseTreeStatus
   const [error, setError] = useState<Event | null>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
   const onEventRef = useRef(options.onEvent);
-
   useEffect(() => {
     onEventRef.current = options.onEvent;
   }, [options.onEvent]);

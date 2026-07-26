@@ -44,7 +44,23 @@ function clusterTrees(trees: Tree[], zoom: number): ClusterItem[] {
       existing.lng = (existing.lng * (existing.count - 1) + tree.lng) / existing.count;
       existing.speciesCounts[tree.species] = (existing.speciesCounts[tree.species] || 0) + 1;
     } else {
-      const speciesCounts: Partial<Record<TreeSpecies, number>> = {};
+      const speciesCounts: Record<TreeSpecies, number> = {
+        Teak: 0,
+        Moringa: 0,
+        Eucalyptus: 0,
+        Mangrove: 0,
+        Acacia: 0,
+        Neem: 0,
+        'African Mahogany': 0,
+        Baobab: 0,
+        'Bamboo (Moso)': 0,
+        'West African Cedar': 0,
+        'Caribbean Pine': 0,
+        Iroko: 0,
+        Shea: 0,
+        Cashew: 0,
+        'African Locust Bean': 0,
+      };
       speciesCounts[tree.species] = 1;
 
       clusters.set(key, {

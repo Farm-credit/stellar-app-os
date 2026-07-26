@@ -13,7 +13,14 @@
  */
 
 import React, { useEffect, useState, useCallback } from 'react';
-import { AlertCircle, CheckCircle, ExternalLink, HelpCircle, Loader2, ShieldCheck } from 'lucide-react';
+import {
+  AlertCircle,
+  CheckCircle,
+  ExternalLink,
+  HelpCircle,
+  Loader2,
+  ShieldCheck,
+} from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -21,7 +28,6 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
-import { Text } from '@/components/atoms/Text';
 import { useWalletContext } from '@/contexts/WalletContext';
 import { isFreighterInstalled, isXBullInstalled } from '@/lib/stellar/wallet';
 import type { WalletType } from '@/lib/types/wallet';
@@ -51,7 +57,12 @@ const WALLETS: WalletMeta[] = [
     icon: (
       <svg viewBox="0 0 40 40" fill="none" className="h-9 w-9" aria-hidden="true">
         <rect width="40" height="40" rx="10" fill="#1A56DB" />
-        <path d="M10 14h20M10 20h14M10 26h18" stroke="white" strokeWidth="2.5" strokeLinecap="round" />
+        <path
+          d="M10 14h20M10 20h14M10 26h18"
+          stroke="white"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+        />
       </svg>
     ),
   },
@@ -98,16 +109,28 @@ function parseConnectionError(err: unknown): ParsedError {
   const msg = err instanceof Error ? err.message : String(err);
   const lower = msg.toLowerCase();
 
-  if (lower.includes('rejected') || lower.includes('denied') || lower.includes('cancel') || lower.includes('user')) {
+  if (
+    lower.includes('rejected') ||
+    lower.includes('denied') ||
+    lower.includes('cancel') ||
+    lower.includes('user')
+  ) {
     return { kind: 'rejection', message: 'Connection cancelled. Click a wallet to try again.' };
   }
   if (lower.includes('popup') || lower.includes('blocked')) {
-    return { kind: 'popup', message: 'Popups are blocked. Please allow popups for this site and try again.' };
+    return {
+      kind: 'popup',
+      message: 'Popups are blocked. Please allow popups for this site and try again.',
+    };
   }
   if (lower.includes('timeout')) {
     return { kind: 'timeout', message: 'Connection timed out. Please try again.' };
   }
-  if (lower.includes('not found') || lower.includes('not installed') || lower.includes('extension')) {
+  if (
+    lower.includes('not found') ||
+    lower.includes('not installed') ||
+    lower.includes('extension')
+  ) {
     return { kind: 'not_installed', message: msg };
   }
   return { kind: 'generic', message: msg };
@@ -233,20 +256,20 @@ export function WalletModal({ isOpen, onOpenChange, onSuccess }: WalletModalProp
 
         {/* Body */}
         <div className="px-4 py-4 space-y-2">
-
           {/* Success state */}
           {showSuccess && successWallet ? (
             <div className="flex flex-col items-center justify-center gap-3 py-8 text-center">
               <div className="relative flex items-center justify-center">
-                <div className="absolute h-16 w-16 rounded-full bg-green-500/10 animate-ping" aria-hidden="true" />
+                <div
+                  className="absolute h-16 w-16 rounded-full bg-green-500/10 animate-ping"
+                  aria-hidden="true"
+                />
                 <div className="relative flex h-12 w-12 items-center justify-center rounded-full bg-green-500/15">
                   <CheckCircle className="h-6 w-6 text-green-400" />
                 </div>
               </div>
               <div>
-                <p className="text-sm font-semibold text-white">
-                  {successWallet.name} connected
-                </p>
+                <p className="text-sm font-semibold text-white">{successWallet.name} connected</p>
                 <p className="mt-0.5 text-xs text-white/50">Redirecting you now…</p>
               </div>
             </div>
@@ -322,7 +345,14 @@ interface WalletRowProps {
   onConnect: () => void;
 }
 
-function WalletRow({ wallet, loading, detecting, notInstalled, disabled, onConnect }: WalletRowProps) {
+function WalletRow({
+  wallet,
+  loading,
+  detecting,
+  notInstalled,
+  disabled,
+  onConnect,
+}: WalletRowProps) {
   const isClickable = !disabled && !notInstalled;
 
   return (
@@ -349,9 +379,7 @@ function WalletRow({ wallet, loading, detecting, notInstalled, disabled, onConne
       >
         <div className="flex items-center gap-3.5">
           {/* Icon */}
-          <div className="flex-shrink-0">
-            {wallet.icon}
-          </div>
+          <div className="flex-shrink-0">{wallet.icon}</div>
 
           {/* Text */}
           <div className="min-w-0 flex-1">
@@ -390,7 +418,12 @@ function WalletRow({ wallet, loading, detecting, notInstalled, disabled, onConne
                 stroke="currentColor"
                 aria-hidden="true"
               >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 5l7 7-7 7"
+                />
               </svg>
             )}
           </div>

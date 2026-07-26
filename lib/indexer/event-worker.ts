@@ -68,10 +68,15 @@ function scValToXdrBase64(val: unknown): string {
 
 async function withRetry<T>(fn: () => Promise<T>, maxRetries = 3, delayMs = 1000): Promise<T> {
   for (let i = 0; i <= maxRetries; i++) {
-    try { return await fn(); }
-    catch (err) { if (i === maxRetries) throw err; console.warn(`[event-indexer] retry ${i+1}/${maxRetries}`); await new Promise(r => setTimeout(r, delayMs * Math.pow(2, i))); }
+    try {
+      return await fn();
+    } catch (err) {
+      if (i === maxRetries) throw err;
+      console.warn(`[event-indexer] retry ${i + 1}/${maxRetries}`);
+      await new Promise((r) => setTimeout(r, delayMs * Math.pow(2, i)));
+    }
   }
-  throw new Error("unreachable");
+  throw new Error('unreachable');
 }
 
 const server = new SorobanRpc.Server(SOROBAN_RPC_URL, {
@@ -87,7 +92,8 @@ async function pollContractEvents(): Promise<void> {
     ...(CONTRACT_IDS.length > 0 ? { contractIds: CONTRACT_IDS } : {}),
   };
 
-  const request = {
+  const request: Parameters<typeof server.getEvents>[0] = {
+  const request: SorobanRpc.Server.GetEventsRequest = {
     filters: [filter],
     limit: MAX_EVENTS_PER_POLL,
     ...(startLedger > 0 ? { startLedger } : {}),
@@ -103,19 +109,21 @@ async function pollContractEvents(): Promise<void> {
     const eventType = classifyEvent(topicsXdr);
     const valueXdr = event.value != null ? scValToXdrBase64(event.value) : null;
 
-    await withRetry(() => upsertContractEvent(pool, {
-      id: event.id,
-      ledger: event.ledger,
-      ledgerClosedAt: event.ledgerClosedAt,
-      contractId:
-        typeof event.contractId === 'string'
-          ? event.contractId
-          : (event.contractId?.toString() ?? ''),
-      eventType,
-      topicsXdr,
-      valueXdr: valueXdr || null,
-      pagingToken: event.pagingToken ?? null,
-    }));
+    await withRetry(() =>
+      upsertContractEvent(pool, {
+        id: event.id,
+        ledger: event.ledger,
+        ledgerClosedAt: event.ledgerClosedAt,
+        contractId:
+          typeof event.contractId === 'string'
+            ? event.contractId
+            : (event.contractId?.toString() ?? ''),
+        eventType,
+        topicsXdr,
+        valueXdr: valueXdr || null,
+        pagingToken: event.pagingToken ?? null,
+      })
+    );
 
     if (event.ledger > maxLedger) maxLedger = event.ledger;
     console.info(`[event-indexer] ${event.id.slice(0, 20)}â€¦ â†’ ${eventType}`);
@@ -153,5 +161,3 @@ main().catch((err) => {
   console.error('[event-indexer] fatal error:', err);
   process.exit(1);
 });
-
-

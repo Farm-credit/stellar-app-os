@@ -1,13 +1,5 @@
 /**
  * Unit tests for GET /api/impact/:sponsor — Issue #545
- *
- * Covers:
- *   • Stellar address validation
- *   • CO2 aggregation logic
- *   • Per-species breakdown shape and sorting
- *   • 30s cache hit on repeated calls
- *   • Zero-impact (empty) response for unknown sponsors
- *   • Totals consistency (sum of parts = whole)
  */
 
 import { vi, describe, it, expect, beforeEach } from 'vitest';
@@ -15,7 +7,6 @@ import { cacheClear } from '@/lib/api/tree-registry-cache';
 import { getSponsorImpact, isValidStellarAddress } from '@/lib/api/carbon-impact';
 
 // ── mock heavy stellar imports ────────────────────────────────────────────────
-import { vi } from 'vitest';
 
 vi.mock('@/lib/stellar/tree-asset', () => ({
   CO2_KG_PER_TREE: 48,

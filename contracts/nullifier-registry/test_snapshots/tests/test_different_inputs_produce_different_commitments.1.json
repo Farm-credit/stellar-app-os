@@ -41,7 +41,8 @@
                       }
                     }
                   ]
-                }
+                },
+                "void"
               ]
             }
           },
@@ -85,7 +86,8 @@
                       }
                     }
                   ]
-                }
+                },
+                "void"
               ]
             }
           },
@@ -134,6 +136,12 @@
                       "val": {
                         "bytes": "c20642c9cf246b11e03f6212eba087abeec32d97b91b10005b6be6ae6f98bd76"
                       }
+                    },
+                    {
+                      "key": {
+                        "symbol": "expires_at"
+                      },
+                      "val": "void"
                     },
                     {
                       "key": {
@@ -190,6 +198,12 @@
                       "val": {
                         "bytes": "ff965a5a89e04e2598f377bf8bb0e89225ff4c1601cb38a92fc5b08cd22aa49b"
                       }
+                    },
+                    {
+                      "key": {
+                        "symbol": "expires_at"
+                      },
+                      "val": "void"
                     },
                     {
                       "key": {
@@ -413,31 +427,36 @@
               }
             ],
             "data": {
-              "map": [
+              "vec": [
                 {
-                  "key": {
-                    "symbol": "farmer_id"
-                  },
-                  "val": {
-                    "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"
-                  }
+                  "map": [
+                    {
+                      "key": {
+                        "symbol": "farmer_id"
+                      },
+                      "val": {
+                        "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "gps"
+                      },
+                      "val": {
+                        "string": "-1.2345,36.8219"
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "timestamp"
+                      },
+                      "val": {
+                        "u64": 1700000000
+                      }
+                    }
+                  ]
                 },
-                {
-                  "key": {
-                    "symbol": "gps"
-                  },
-                  "val": {
-                    "string": "-1.2345,36.8219"
-                  }
-                },
-                {
-                  "key": {
-                    "symbol": "timestamp"
-                  },
-                  "val": {
-                    "u64": 1700000000
-                  }
-                }
+                "void"
               ]
             }
           }
@@ -510,31 +529,36 @@
               }
             ],
             "data": {
-              "map": [
+              "vec": [
                 {
-                  "key": {
-                    "symbol": "farmer_id"
-                  },
-                  "val": {
-                    "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"
-                  }
+                  "map": [
+                    {
+                      "key": {
+                        "symbol": "farmer_id"
+                      },
+                      "val": {
+                        "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "gps"
+                      },
+                      "val": {
+                        "string": "-1.9999,36.0000"
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "timestamp"
+                      },
+                      "val": {
+                        "u64": 1700000001
+                      }
+                    }
+                  ]
                 },
-                {
-                  "key": {
-                    "symbol": "gps"
-                  },
-                  "val": {
-                    "string": "-1.9999,36.0000"
-                  }
-                },
-                {
-                  "key": {
-                    "symbol": "timestamp"
-                  },
-                  "val": {
-                    "u64": 1700000001
-                  }
-                }
+                "void"
               ]
             }
           }

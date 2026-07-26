@@ -1,11 +1,5 @@
 /**
  * Unit tests for the Tree Registry API endpoints — Issue #542
- *
- * Tests cover:
- *   • GET /api/trees  — list, filtering, pagination, 30s cache
- *   • GET /api/trees/:id — found, 404, empty id
- *
- * Horizon and the contract layer are fully mocked so no real network is hit.
  */
 
 import { vi, describe, it, expect, beforeEach } from 'vitest';
@@ -13,7 +7,6 @@ import { cacheGet, cacheSet, cacheClear } from '@/lib/api/tree-registry-cache';
 import { getTreeList, getTreeById } from '@/lib/api/tree-registry';
 
 // ── mock the heavy imports that are irrelevant to unit tests ──────────────────
-import { vi } from 'vitest';
 
 vi.mock('@stellar/stellar-sdk', () => ({
   Horizon: {
@@ -117,6 +110,7 @@ describe('getTreeList', () => {
 
   it('free-text search finds matching trees', async () => {
     const result = await getTreeList({ search: 'Mangrove' });
+    console.info('Trees found:', JSON.stringify(result.trees, null, 2));
     expect(result.trees.length).toBeGreaterThan(0);
     // All results must contain 'mangrove' somewhere in their searchable fields
     expect(

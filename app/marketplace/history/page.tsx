@@ -9,7 +9,7 @@ export const metadata = {
 
 export default function OrderHistoryPage() {
   return (
-    <div className="container mx-auto py-10 px-4 md:px-6">
+    <main id="main-content" className="container mx-auto py-10 px-4 md:px-6">
       <div className="flex flex-col gap-2 mb-8">
         <Text variant="h2">Order History</Text>
         <Text variant="muted">
@@ -19,6 +19,6 @@ export default function OrderHistoryPage() {
       </div>
 
       <OrderHistoryTable />
-    </div>
+    </main>
   );
 }

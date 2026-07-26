@@ -4,19 +4,30 @@ On-chain governance for platform parameters. Token holders can propose and vote 
 - Platform fee percentage
 - Minimum planting bond
 - Verifier whitelist
+- Species selection (with quadratic voting)
 
 ## Overview
 
-The Platform Governance contract allows staked token holders to propose and vote on changes to critical platform parameters. Voting power is proportional to staked tokens. Proposals require a quorum (default 10% of total staked tokens) and a simple majority to pass. A 48-hour timelock applies after voting closes before execution.
+The Platform Governance contract allows staked token holders to propose and vote on changes to critical platform parameters. Voting power is proportional to staked tokens for most proposal types. Proposals require a quorum (default 10% of total staked tokens) and a simple majority to pass. A 48-hour timelock applies after voting closes before execution.
+
+### Quadratic Voting for Species Selection
+
+For species selection proposals, the contract implements **quadratic voting**. This means voting power is calculated as the square root of token holdings rather than being directly proportional. This prevents large token holders from dominating species selection decisions and promotes more democratic outcomes.
+
+**Example:**
+- A holder with 10,000 tokens has voting power = sqrt(10,000) = 100
+- A holder with 100 tokens has voting power = sqrt(100) = 10
+- The ratio of voting power is 10:1 instead of 100:1
 
 ## Features
 
 - **Proposal Creation**: Token holders can create proposals with description hash and voting options
-- **Token-Based Voting**: Voting power is proportional to staked tokens
+- **Token-Based Voting**: Voting power is proportional to staked tokens (except for species selection)
+- **Quadratic Voting**: Species selection uses sqrt(token holdings) for voting power
 - **Quorum Requirement**: Proposals require 10% of total staked tokens to be valid
 - **Timelock**: 48-hour delay after vote closes before execution
 - **Multi-Option Voting**: Support for multiple voting options per proposal
-- **Proposal Types**: PlatformFee, MinPlantingBond, VerifierWhitelist
+- **Proposal Types**: PlatformFee, MinPlantingBond, VerifierWhitelist, SpeciesSelection
 - **Emergency Overrides**: Admin functions for direct parameter changes
 
 ## Contract Functions
@@ -139,8 +150,27 @@ execute(
 
 - **Quorum**: 10% of total staked tokens must vote for proposal to be valid
 - **Majority**: Winning option must have >50% of votes cast
-- **Voting Power**: Proportional to staked token amount
+- **Voting Power**: 
+  - PlatformFee, MinPlantingBond, VerifierWhitelist: Proportional to staked token amount
+  - SpeciesSelection: Quadratic voting = sqrt(staked token amount)
 - **Timelock**: 48 hours after vote closes before execution
+
+## Quadratic Voting Implementation
+
+The contract uses an on-chain integer square root algorithm to calculate voting power for species selection proposals:
+
+```rust
+fn isqrt(n: i128) -> i128 {
+    // Binary search algorithm for integer square root
+    // Returns the largest integer x such that x * x <= n
+}
+```
+
+This ensures that:
+- Large token holders have diminishing marginal voting power
+- Small token holders have proportionally more influence
+- The system is resistant to whale attacks in species selection
+- All calculations are performed on-chain without external dependencies
 
 ## Testing
 
@@ -183,13 +213,16 @@ The contract integrates with:
 ## Proposal Types
 
 ### PlatformFee
-Proposals to change the platform fee percentage. Options should specify the new fee percentage.
+Proposals to change the platform fee percentage. Options should specify the new fee percentage. Uses normal proportional voting.
 
 ### MinPlantingBond
-Proposals to change the minimum planting bond amount. Options should specify the new bond amount.
+Proposals to change the minimum planting bond amount. Options should specify the new bond amount. Uses normal proportional voting.
 
 ### VerifierWhitelist
-Proposals to add or remove verifiers from the whitelist. Options should specify the verifier addresses.
+Proposals to add or remove verifiers from the whitelist. Options should specify the verifier addresses. Uses normal proportional voting.
+
+### SpeciesSelection
+Proposals to select tree species for planting campaigns. Options should specify different species options. **Uses quadratic voting** where voting power = sqrt(token holdings). This prevents large token holders from dominating species selection decisions.
 
 ## Security Considerations
 

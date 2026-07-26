@@ -70,7 +70,11 @@ export function InstallPrompt() {
   }
 
   return (
-    <div className="fixed bottom-4 left-4 right-4 z-50 md:left-auto md:right-4 md:w-96">
+    <div
+      className="fixed bottom-4 left-4 right-4 z-50 md:left-auto md:right-4 md:w-96"
+      role="status"
+      aria-live="polite"
+    >
       <Card className="border-stellar-blue shadow-lg">
         <CardContent className="flex flex-col gap-4 p-4">
           <div className="flex items-start gap-3">

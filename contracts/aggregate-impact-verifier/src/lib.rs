@@ -22,9 +22,19 @@
 
 use harvesta_errors::HarvestaError;
 use soroban_sdk::{
-    contract, contractimpl, contracttype, panic_with_error, symbol_short, Address, BytesN, Env,
-    IntoVal,
+    contract, contractimpl, contracttype, contracterror, panic_with_error, symbol_short, Address,
+    BytesN, Env, IntoVal,
 };
+
+#[contracterror]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord)]
+pub enum AggregateError {
+    FarmCountMustBePositive = 55,
+    PeriodEndBeforeStart = 56,
+    ProofDigestAlreadyReg = 57,
+    ProofNotFound = 58,
+    ProofAlreadyRevoked = 59,
+}
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -96,16 +106,16 @@ impl AggregateImpactVerifier {
             panic_with_error!(&env, HarvestaError::TreeCountMustBePositive);
         }
         if stats.farm_count == 0 {
-            panic_with_error!(&env, HarvestaError::FarmCountMustBePositive);
+            panic_with_error!(&env, AggregateError::FarmCountMustBePositive);
         }
         if stats.period_end <= stats.period_start {
-            panic_with_error!(&env, HarvestaError::PeriodEndBeforeStart);
+            panic_with_error!(&env, AggregateError::PeriodEndBeforeStart);
         }
 
         // Replay protection — each proof digest must be unique
         let digest_key = Self::digest_key(&env, &proof_digest);
         if env.storage().persistent().has(&digest_key) {
-            panic_with_error!(&env, HarvestaError::ProofDigestAlreadyReg);
+            panic_with_error!(&env, AggregateError::ProofDigestAlreadyReg);
         }
 
         let admin: Address = env
@@ -152,10 +162,10 @@ impl AggregateImpactVerifier {
             .storage()
             .persistent()
             .get(&key)
-            .unwrap_or_else(|| panic_with_error!(&env, HarvestaError::ProofNotFound));
+            .unwrap_or_else(|| panic_with_error!(&env, AggregateError::ProofNotFound));
 
         if record.revoked {
-            panic_with_error!(&env, HarvestaError::ProofAlreadyRevoked);
+            panic_with_error!(&env, AggregateError::ProofAlreadyRevoked);
         }
 
         record.revoked = true;

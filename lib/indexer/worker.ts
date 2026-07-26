@@ -131,7 +131,9 @@ async function streamAccount(watchAccount: string): Promise<void> {
 
 async function main(): Promise<void> {
   if (WATCH_ACCOUNTS.length === 0) {
-    logger.error('INDEXER_WATCH_ACCOUNTS is empty. Set it to a comma-separated list of Stellar accounts.');
+    logger.error(
+      'INDEXER_WATCH_ACCOUNTS is empty. Set it to a comma-separated list of Stellar accounts.'
+    );
     process.exit(1);
   }
 

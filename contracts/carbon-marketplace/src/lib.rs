@@ -15,11 +15,41 @@
 //!   4. Seller calls `cancel(seller, listing_id)` to de-list remaining tokens.
 
 use soroban_sdk::{
-    contract, contractimpl, contracttype, symbol_short, token, Address, Env,
+    contract, contractclient, contracterror, contractimpl, contracttype, panic_with_error, symbol_short, token,
+    Address, Env,
 };
 use harvesta_errors::HarvestaError;
+use admin_controls::AdminControlsClient;
+
+#[contractclient(name = "PriceOracleClient")]
+trait PriceOracleTrait {
+    fn initialize(env: Env, price: i128, timestamp: u64);
+    fn set_price(env: Env, price: i128, timestamp: u64);
+    fn price(env: Env) -> i128;
+    fn timestamp(env: Env) -> u64;
+}
 
 // ── Types ─────────────────────────────────────────────────────────────────────
+
+#[contracterror]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
+#[repr(u32)]
+pub enum MarketplaceError {
+    ListingAmountMustBePositive = 100,
+    BuyAmountMustBePositive = 101,
+    AuctionNotFound = 102,
+    AuctionNotActive = 103,
+    SelfTrade = 104,
+    InsufficientLiquidity = 105,
+    AuctionExpired = 106,
+    BidBelowReservePrice = 107,
+    ListingNotFound = 108,
+    ListingNotActive = 109,
+    InvalidPriceRange = 110,
+    InvalidDecayRate = 111,
+    InvalidDuration = 112,
+    PriceMustBePositive = 113,
+}
 
 #[contracttype]
 #[derive(Clone, Debug, PartialEq)]
@@ -42,6 +72,8 @@ pub enum AuctionStatus {
 pub struct Listing {
     pub id: u64,
     pub seller: Address,
+    /// Original planter who planted the trees for these carbon credits
+    pub planter: Address,
     /// TREE token address
     pub tree_token: Address,
     /// Payment token (USDC / XLM)
@@ -61,6 +93,8 @@ pub struct Listing {
 pub struct DutchAuction {
     pub id: u64,
     pub seller: Address,
+    /// Original planter who planted the trees for these carbon credits
+    pub planter: Address,
     /// TREE token address
     pub tree_token: Address,
     /// Payment token (USDC / XLM)
@@ -88,6 +122,12 @@ pub struct DutchAuction {
 enum DataKey {
     /// (admin, tree_token)
     Config,
+    /// Admin controls contract address
+    AdminControls,
+    /// Price oracle contract address
+    Oracle,
+    /// (max_staleness_seconds, fallback_price)
+    OracleConfig,
     /// Global listing counter
     ListingCount,
     /// Per-listing record
@@ -98,6 +138,8 @@ enum DataKey {
     Auction(u64),
     /// Auction configuration (starting_price, reserve_price, decay_rate, duration)
     AuctionConfig,
+    /// Royalty basis points (e.g. 500 = 5%)
+    RoyaltyConfig,
 }
 
 // ── Contract ──────────────────────────────────────────────────────────────────
@@ -109,9 +151,10 @@ pub struct CarbonMarketplace;
 impl CarbonMarketplace {
     /// One-time initialisation.
     ///
-    /// * `admin`      — platform admin (may delist fraudulent listings)
-    /// * `tree_token` — the TREE SAC token that represents carbon offset certificates
-    pub fn initialize(env: Env, admin: Address, tree_token: Address) {
+    /// * `admin`           — platform admin (may delist fraudulent listings)
+    /// * `tree_token`      — the TREE SAC token that represents carbon offset certificates
+    /// * `admin_controls`  — admin-controls contract address for pause functionality
+    pub fn initialize(env: Env, admin: Address, tree_token: Address, admin_controls: Address) {
         if env.storage().instance().has(&DataKey::Config) {
             panic_with_error!(&env, HarvestaError::AlreadyInitialized);
         }
@@ -120,10 +163,41 @@ impl CarbonMarketplace {
             .set(&DataKey::Config, &(admin, tree_token));
         env.storage()
             .instance()
+            .set(&DataKey::AdminControls, &admin_controls);
+        env.storage()
+            .instance()
             .set(&DataKey::ListingCount, &0u64);
         env.storage()
             .instance()
             .set(&DataKey::AuctionCount, &0u64);
+    }
+
+    /// Admin configures a price oracle feed for dynamic TREE pricing.
+    ///
+    /// * `oracle` — external oracle contract address exposing `price()` and `timestamp()`
+    /// * `max_staleness` — number of seconds before the fallback price is used
+    /// * `fallback_price` — price per token used when the oracle is stale or unavailable
+    pub fn configure_price_oracle(env: Env, oracle: Address, max_staleness: u64, fallback_price: i128) {
+        Self::assert_not_paused(&env);
+        let (admin, _) = Self::config(&env);
+        admin.require_auth();
+
+        if fallback_price <= 0 {
+            panic_with_error!(&env, MarketplaceError::PriceMustBePositive);
+        }
+
+        env.storage().instance().set(&DataKey::Oracle, &oracle);
+        env.storage()
+            .instance()
+            .set(&DataKey::OracleConfig, &(max_staleness, fallback_price));
+    }
+
+    /// Returns the current marketplace price for TREE tokens.
+    ///
+    /// If an oracle is configured and fresh, its price is returned. Otherwise the
+    /// administrator-configured fallback price is used.
+    pub fn get_dynamic_price(env: Env) -> i128 {
+        Self::resolve_listing_price(&env, 0)
     }
 
     /// Admin configures default Dutch Auction parameters.
@@ -139,23 +213,24 @@ impl CarbonMarketplace {
         decay_rate: u64,
         duration: u64,
     ) {
+        Self::assert_not_paused(&env);
         let (admin, _) = Self::config(&env);
         admin.require_auth();
 
         if starting_price <= 0 {
-            panic_with_error!(&env, HarvestaError::PriceMustBePositive);
+            panic_with_error!(&env, MarketplaceError::PriceMustBePositive);
         }
         if reserve_price <= 0 {
-            panic_with_error!(&env, HarvestaError::PriceMustBePositive);
+            panic_with_error!(&env, MarketplaceError::PriceMustBePositive);
         }
         if reserve_price >= starting_price {
-            panic_with_error!(&env, HarvestaError::InvalidPriceRange);
+            panic_with_error!(&env, MarketplaceError::InvalidPriceRange);
         }
         if decay_rate == 0 || decay_rate > 10000 {
-            panic_with_error!(&env, HarvestaError::InvalidDecayRate);
+            panic_with_error!(&env, MarketplaceError::InvalidDecayRate);
         }
         if duration == 0 {
-            panic_with_error!(&env, HarvestaError::InvalidDuration);
+            panic_with_error!(&env, MarketplaceError::InvalidDuration);
         }
 
         env.storage()
@@ -170,18 +245,19 @@ impl CarbonMarketplace {
     pub fn list(
         env: Env,
         seller: Address,
+        planter: Address,
         amount: i128,
         price_per_token: i128,
         payment_token: Address,
     ) -> u64 {
+        Self::assert_not_paused(&env);
         seller.require_auth();
 
         if amount <= 0 {
-            panic_with_error!(&env, HarvestaError::ListingAmountMustBePositive);
+            panic_with_error!(&env, MarketplaceError::ListingAmountMustBePositive);
         }
-        if price_per_token <= 0 {
-            panic_with_error!(&env, HarvestaError::PriceMustBePositive);
-        }
+
+        let resolved_price = Self::resolve_listing_price(&env, price_per_token);
 
         let (_, tree_token) = Self::config(&env);
 
@@ -202,11 +278,12 @@ impl CarbonMarketplace {
         let listing = Listing {
             id: new_id,
             seller: seller.clone(),
+            planter,
             tree_token,
             payment_token,
             total_amount: amount,
             remaining: amount,
-            price_per_token,
+            price_per_token: resolved_price,
             status: ListingStatus::Active,
             created_at: env.ledger().timestamp(),
         };
@@ -219,7 +296,7 @@ impl CarbonMarketplace {
             .set(&DataKey::ListingCount, &new_id);
 
         env.events()
-            .publish((symbol_short!("listed"), seller), (new_id, amount, price_per_token));
+            .publish((symbol_short!("listed"), seller), (new_id, amount, resolved_price));
 
         new_id
     }
@@ -229,39 +306,61 @@ impl CarbonMarketplace {
     /// Payment is computed as `amount × price_per_token` and transferred from
     /// the buyer to the seller.  TREE tokens are transferred to the buyer.
     pub fn buy(env: Env, buyer: Address, listing_id: u64, amount: i128) {
+        Self::assert_not_paused(&env);
         buyer.require_auth();
 
         if amount <= 0 {
-            panic_with_error!(&env, HarvestaError::BuyAmountMustBePositive);
+            panic_with_error!(&env, MarketplaceError::BuyAmountMustBePositive);
         }
 
         let mut listing: Listing = env
             .storage()
             .persistent()
             .get(&DataKey::Listing(listing_id))
-            .unwrap_or_else(|| panic_with_error!(&env, HarvestaError::ListingNotFound));
+            .unwrap_or_else(|| panic_with_error!(&env, MarketplaceError::ListingNotFound));
 
         if listing.status != ListingStatus::Active {
-            panic_with_error!(&env, HarvestaError::ListingNotActive);
+            panic_with_error!(&env, MarketplaceError::ListingNotActive);
         }
 
         if buyer == listing.seller {
-            panic_with_error!(&env, HarvestaError::SelfTrade);
+            panic_with_error!(&env, MarketplaceError::SelfTrade);
         }
 
         if amount > listing.remaining {
-            panic_with_error!(&env, HarvestaError::InsufficientLiquidity);
+            panic_with_error!(&env, MarketplaceError::InsufficientLiquidity);
         }
 
         let payment = amount
             .checked_mul(listing.price_per_token)
             .unwrap_or_else(|| panic_with_error!(&env, HarvestaError::AmountMustBePositive));
 
-        // Transfer payment from buyer to seller
+        // Split payment: royalty to planter, remainder to seller
+        let royalty_bps: u32 = env
+            .storage()
+            .instance()
+            .get(&DataKey::RoyaltyConfig)
+            .unwrap_or(0);
+
+        let royalty_amount = if royalty_bps > 0 && listing.planter != listing.seller {
+            (payment * royalty_bps as i128) / 10_000
+        } else {
+            0
+        };
+        let seller_amount = payment - royalty_amount;
+
+        if royalty_amount > 0 {
+            token::Client::new(&env, &listing.payment_token).transfer(
+                &buyer,
+                &listing.planter,
+                &royalty_amount,
+            );
+        }
+
         token::Client::new(&env, &listing.payment_token).transfer(
             &buyer,
             &listing.seller,
-            &payment,
+            &seller_amount,
         );
 
         // Transfer TREE tokens from contract escrow to buyer
@@ -281,21 +380,22 @@ impl CarbonMarketplace {
             .set(&DataKey::Listing(listing_id), &listing);
 
         env.events()
-            .publish((symbol_short!("sold"), listing_id), (buyer, amount, payment));
+            .publish((symbol_short!("sold"), listing_id), (buyer, amount, payment, royalty_amount));
     }
 
     /// Seller cancels their listing, reclaiming any remaining escrowed TREE tokens.
     pub fn cancel(env: Env, seller: Address, listing_id: u64) {
+        Self::assert_not_paused(&env);
         seller.require_auth();
 
         let mut listing: Listing = env
             .storage()
             .persistent()
             .get(&DataKey::Listing(listing_id))
-            .unwrap_or_else(|| panic_with_error!(&env, HarvestaError::ListingNotFound));
+            .unwrap_or_else(|| panic_with_error!(&env, MarketplaceError::ListingNotFound));
 
         if listing.status != ListingStatus::Active {
-            panic_with_error!(&env, HarvestaError::ListingNotActive);
+            panic_with_error!(&env, MarketplaceError::ListingNotActive);
         }
 
         if listing.remaining > 0 {
@@ -317,6 +417,7 @@ impl CarbonMarketplace {
 
     /// Admin de-lists any listing (e.g. fraudulent certificate).
     pub fn admin_cancel(env: Env, listing_id: u64) {
+        Self::assert_not_paused(&env);
         let (admin, _) = Self::config(&env);
         admin.require_auth();
 
@@ -324,10 +425,10 @@ impl CarbonMarketplace {
             .storage()
             .persistent()
             .get(&DataKey::Listing(listing_id))
-            .unwrap_or_else(|| panic_with_error!(&env, HarvestaError::ListingNotFound));
+            .unwrap_or_else(|| panic_with_error!(&env, MarketplaceError::ListingNotFound));
 
         if listing.status != ListingStatus::Active {
-            panic_with_error!(&env, HarvestaError::ListingNotActive);
+            panic_with_error!(&env, MarketplaceError::ListingNotActive);
         }
 
         if listing.remaining > 0 {
@@ -373,13 +474,15 @@ impl CarbonMarketplace {
     pub fn create_auction(
         env: Env,
         seller: Address,
+        planter: Address,
         amount: i128,
         payment_token: Address,
     ) -> u64 {
+        Self::assert_not_paused(&env);
         seller.require_auth();
 
         if amount <= 0 {
-            panic_with_error!(&env, HarvestaError::ListingAmountMustBePositive);
+            panic_with_error!(&env, MarketplaceError::ListingAmountMustBePositive);
         }
 
         let (starting_price, reserve_price, decay_rate, duration) = Self::auction_config(&env);
@@ -402,6 +505,7 @@ impl CarbonMarketplace {
         let auction = DutchAuction {
             id: new_id,
             seller: seller.clone(),
+            planter,
             tree_token,
             payment_token,
             total_amount: amount,
@@ -422,7 +526,7 @@ impl CarbonMarketplace {
             .set(&DataKey::AuctionCount, &new_id);
 
         env.events()
-            .publish((symbol_short!("auction_created"), seller), (new_id, amount, starting_price));
+            .publish((symbol_short!("auct_crtd"), seller), (new_id, amount, starting_price));
 
         new_id
     }
@@ -435,52 +539,74 @@ impl CarbonMarketplace {
     ///
     /// If the entire auction is filled, it's marked as completed.
     pub fn bid(env: Env, buyer: Address, auction_id: u64, amount: i128) {
+        Self::assert_not_paused(&env);
         buyer.require_auth();
 
         if amount <= 0 {
-            panic_with_error!(&env, HarvestaError::BuyAmountMustBePositive);
+            panic_with_error!(&env, MarketplaceError::BuyAmountMustBePositive);
         }
 
         let mut auction: DutchAuction = env
             .storage()
             .persistent()
             .get(&DataKey::Auction(auction_id))
-            .unwrap_or_else(|| panic_with_error!(&env, HarvestaError::AuctionNotFound));
+            .unwrap_or_else(|| panic_with_error!(&env, MarketplaceError::AuctionNotFound));
 
         if auction.status != AuctionStatus::Active {
-            panic_with_error!(&env, HarvestaError::AuctionNotActive);
+            panic_with_error!(&env, MarketplaceError::AuctionNotActive);
         }
 
         if buyer == auction.seller {
-            panic_with_error!(&env, HarvestaError::SelfTrade);
+            panic_with_error!(&env, MarketplaceError::SelfTrade);
         }
 
         if amount > auction.remaining {
-            panic_with_error!(&env, HarvestaError::InsufficientLiquidity);
+            panic_with_error!(&env, MarketplaceError::InsufficientLiquidity);
         }
 
         let current_time = env.ledger().timestamp();
         let elapsed = current_time.saturating_sub(auction.start_time);
 
         if elapsed > auction.duration {
-            panic_with_error!(&env, HarvestaError::AuctionExpired);
+            panic_with_error!(&env, MarketplaceError::AuctionExpired);
         }
 
         let current_price = Self::calculate_current_price(&auction, current_time);
 
         if current_price < auction.reserve_price {
-            panic_with_error!(&env, HarvestaError::BidBelowReservePrice);
+            panic_with_error!(&env, MarketplaceError::BidBelowReservePrice);
         }
 
         let payment = amount
             .checked_mul(current_price)
             .unwrap_or_else(|| panic_with_error!(&env, HarvestaError::AmountMustBePositive));
 
-        // Transfer payment from buyer to seller atomically
+        // Split payment: royalty to planter, remainder to seller
+        let royalty_bps: u32 = env
+            .storage()
+            .instance()
+            .get(&DataKey::RoyaltyConfig)
+            .unwrap_or(0);
+
+        let royalty_amount = if royalty_bps > 0 && auction.planter != auction.seller {
+            (payment * royalty_bps as i128) / 10_000
+        } else {
+            0
+        };
+        let seller_amount = payment - royalty_amount;
+
+        if royalty_amount > 0 {
+            token::Client::new(&env, &auction.payment_token).transfer(
+                &buyer,
+                &auction.planter,
+                &royalty_amount,
+            );
+        }
+
         token::Client::new(&env, &auction.payment_token).transfer(
             &buyer,
             &auction.seller,
-            &payment,
+            &seller_amount,
         );
 
         // Transfer TREE tokens from contract escrow to buyer atomically
@@ -500,21 +626,22 @@ impl CarbonMarketplace {
             .set(&DataKey::Auction(auction_id), &auction);
 
         env.events()
-            .publish((symbol_short!("bid"), auction_id), (buyer, amount, current_price, payment));
+            .publish((symbol_short!("bid"), auction_id), (buyer, amount, current_price, payment, royalty_amount));
     }
 
     /// Seller cancels their active auction, reclaiming remaining escrowed TREE tokens.
     pub fn cancel_auction(env: Env, seller: Address, auction_id: u64) {
+        Self::assert_not_paused(&env);
         seller.require_auth();
 
         let mut auction: DutchAuction = env
             .storage()
             .persistent()
             .get(&DataKey::Auction(auction_id))
-            .unwrap_or_else(|| panic_with_error!(&env, HarvestaError::AuctionNotFound));
+            .unwrap_or_else(|| panic_with_error!(&env, MarketplaceError::AuctionNotFound));
 
         if auction.status != AuctionStatus::Active {
-            panic_with_error!(&env, HarvestaError::AuctionNotActive);
+            panic_with_error!(&env, MarketplaceError::AuctionNotActive);
         }
 
         if auction.remaining > 0 {
@@ -531,7 +658,7 @@ impl CarbonMarketplace {
             .set(&DataKey::Auction(auction_id), &auction);
 
         env.events()
-            .publish((symbol_short!("auction_cancelled"), auction_id), auction.remaining);
+            .publish((symbol_short!("auct_cncl"), auction_id), auction.remaining);
     }
 
     /// Returns the auction record, or None.
@@ -547,7 +674,7 @@ impl CarbonMarketplace {
             .storage()
             .persistent()
             .get(&DataKey::Auction(auction_id))
-            .unwrap_or_else(|| panic_with_error!(&env, HarvestaError::AuctionNotFound));
+            .unwrap_or_else(|| panic_with_error!(&env, MarketplaceError::AuctionNotFound));
 
         Self::calculate_current_price(&auction, env.ledger().timestamp())
     }
@@ -560,6 +687,29 @@ impl CarbonMarketplace {
             .unwrap_or(0)
     }
 
+    /// Admin sets the royalty percentage in basis points (e.g. 500 = 5%).
+    /// Royalty is paid to the original planter on secondary sales.
+    pub fn set_royalty(env: Env, basis_points: u32) {
+        let (admin, _) = Self::config(&env);
+        admin.require_auth();
+
+        if basis_points > 10_000 {
+            panic_with_error!(&env, HarvestaError::InvalidRoyalty);
+        }
+
+        env.storage()
+            .instance()
+            .set(&DataKey::RoyaltyConfig, &basis_points);
+    }
+
+    /// Returns the current royalty basis points (0 if not configured).
+    pub fn get_royalty(env: Env) -> u32 {
+        env.storage()
+            .instance()
+            .get(&DataKey::RoyaltyConfig)
+            .unwrap_or(0)
+    }
+
     // ── internal ──────────────────────────────────────────────────────────────
 
     fn config(env: &Env) -> (Address, Address) {
@@ -569,11 +719,54 @@ impl CarbonMarketplace {
             .unwrap_or_else(|| panic_with_error!(env, HarvestaError::NotInitialized))
     }
 
+    fn admin_controls(env: &Env) -> Address {
+        env.storage()
+            .instance()
+            .get(&DataKey::AdminControls)
+            .unwrap_or_else(|| panic_with_error!(env, HarvestaError::NotInitialized))
+    }
+
+    fn assert_not_paused(env: &Env) {
+        let admin_controls_addr = Self::admin_controls(env);
+        let admin_controls_client = AdminControlsClient::new(env, &admin_controls_addr);
+        admin_controls_client.assert_not_paused();
+    }
+
     fn auction_config(env: &Env) -> (i128, i128, u64, u64) {
         env.storage()
             .instance()
             .get(&DataKey::AuctionConfig)
             .unwrap_or_else(|| panic_with_error!(env, HarvestaError::NotInitialized))
+    }
+
+    fn resolve_listing_price(env: &Env, provided_price_per_token: i128) -> i128 {
+        if provided_price_per_token > 0 {
+            return provided_price_per_token;
+        }
+
+        let oracle_opt: Option<Address> = env.storage().instance().get(&DataKey::Oracle);
+        if let Some(oracle) = oracle_opt {
+            let (max_staleness, fallback_price) = env
+                .storage()
+                .instance()
+                .get(&DataKey::OracleConfig)
+                .unwrap_or((0u64, 0i128));
+
+            let oracle_client = PriceOracleClient::new(env, &oracle);
+            let price = oracle_client.price();
+            let timestamp = oracle_client.timestamp();
+            let is_fresh = env.ledger().timestamp().saturating_sub(timestamp) <= max_staleness;
+
+            if is_fresh && price > 0 {
+                return price;
+            }
+
+            if fallback_price > 0 {
+                return fallback_price;
+            }
+        }
+
+        panic_with_error!(env, MarketplaceError::PriceMustBePositive);
     }
 
     /// Calculate current price based on elapsed time and decay rate.
@@ -598,13 +791,38 @@ impl CarbonMarketplace {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use soroban_sdk::{testutils::Address as _, token, Address, Env};
+    use soroban_sdk::{testutils::{Address as _, Ledger}, token, Address, Env};
+
+    #[contract]
+    struct MockPriceOracle;
+
+    #[contractimpl]
+    impl MockPriceOracle {
+        pub fn initialize(env: Env, price: i128, timestamp: u64) {
+            env.storage().instance().set(&symbol_short!("price"), &price);
+            env.storage().instance().set(&symbol_short!("ts"), &timestamp);
+        }
+
+        pub fn set_price(env: Env, price: i128, timestamp: u64) {
+            env.storage().instance().set(&symbol_short!("price"), &price);
+            env.storage().instance().set(&symbol_short!("ts"), &timestamp);
+        }
+
+        pub fn price(env: Env) -> i128 {
+            env.storage().instance().get(&symbol_short!("price")).unwrap_or(0)
+        }
+
+        pub fn timestamp(env: Env) -> u64 {
+            env.storage().instance().get(&symbol_short!("ts")).unwrap_or(0)
+        }
+    }
 
     struct Ctx {
         env: Env,
         admin: Address,
         seller: Address,
         buyer: Address,
+        planter: Address,
         tree_token: Address,
         payment_token: Address,
         client: CarbonMarketplaceClient<'static>,
@@ -614,12 +832,19 @@ mod tests {
         let env = Env::default();
         env.mock_all_auths();
 
+        // Deploy admin-controls contract
+        let admin_controls_id = env.register_contract(None, admin_controls::AdminControls);
+        let admin_controls_client = admin_controls::AdminControlsClient::new(&env, &admin_controls_id);
+        let admin = Address::generate(&env);
+        let oracle = Address::generate(&env);
+        admin_controls_client.initialize(&admin, &oracle);
+
         let contract_id = env.register_contract(None, CarbonMarketplace);
         let client = CarbonMarketplaceClient::new(&env, &contract_id);
 
-        let admin = Address::generate(&env);
         let seller = Address::generate(&env);
         let buyer = Address::generate(&env);
+        let planter = Address::generate(&env);
 
         // TREE token: seller starts with supply
         let tree_token = env
@@ -633,13 +858,58 @@ mod tests {
             .address();
         token::StellarAssetClient::new(&env, &payment_token).mint(&buyer, &100_000);
 
-        client.initialize(&admin, &tree_token);
+        client.initialize(&admin, &tree_token, &admin_controls_id);
 
-        Ctx { env, admin, seller, buyer, tree_token, payment_token, client }
+        Ctx { env, admin, seller, buyer, planter, tree_token, payment_token, client }
     }
 
     fn balance(env: &Env, token: &Address, who: &Address) -> i128 {
         token::Client::new(env, token).balance(who)
+    }
+
+    // ── oracle pricing ───────────────────────────────────────────────────────
+
+    #[test]
+    fn test_list_uses_oracle_price_when_price_not_provided() {
+        let ctx = setup();
+        let oracle_id = ctx.env.register_contract(None, MockPriceOracle);
+        let oracle_client = PriceOracleClient::new(&ctx.env, &oracle_id);
+        oracle_client.initialize(&100, &ctx.env.ledger().timestamp());
+
+        ctx.client.configure_price_oracle(&ctx.admin, &oracle_id, &60, &75);
+
+        let id = ctx.client.list(&ctx.seller, &ctx.planter, &1_000, &0, &ctx.payment_token);
+
+        let listing = ctx.client.get_listing(&id).unwrap();
+        assert_eq!(listing.price_per_token, 100);
+    }
+
+    #[test]
+    fn test_list_uses_fallback_price_when_oracle_is_stale() {
+        let ctx = setup();
+        let oracle_id = ctx.env.register_contract(None, MockPriceOracle);
+        let oracle_client = PriceOracleClient::new(&ctx.env, &oracle_id);
+        oracle_client.initialize(&100, &ctx.env.ledger().timestamp());
+
+        ctx.client.configure_price_oracle(&ctx.admin, &oracle_id, &30, &75);
+        ctx.env.ledger().set_timestamp(ctx.env.ledger().timestamp() + 60);
+
+        let id = ctx.client.list(&ctx.seller, &ctx.planter, &1_000, &0, &ctx.payment_token);
+
+        let listing = ctx.client.get_listing(&id).unwrap();
+        assert_eq!(listing.price_per_token, 75);
+    }
+
+    #[test]
+    fn test_get_dynamic_price_returns_oracle_price_when_fresh() {
+        let ctx = setup();
+        let oracle_id = ctx.env.register_contract(None, MockPriceOracle);
+        let oracle_client = PriceOracleClient::new(&ctx.env, &oracle_id);
+        oracle_client.initialize(&120, &ctx.env.ledger().timestamp());
+
+        ctx.client.configure_price_oracle(&ctx.admin, &oracle_id, &60, &90);
+
+        assert_eq!(ctx.client.get_dynamic_price(), 120);
     }
 
     // ── initialize ─────────────────────────────────────────────────────────────
@@ -648,7 +918,7 @@ mod tests {
     #[should_panic(expected = "Error(Contract, #1)")]
     fn test_double_initialize_rejected() {
         let ctx = setup();
-        ctx.client.initialize(&ctx.admin, &ctx.tree_token);
+        ctx.client.initialize(&ctx.admin, &ctx.tree_token, &ctx.tree_token);
     }
 
     // ── list ───────────────────────────────────────────────────────────────────
@@ -657,7 +927,7 @@ mod tests {
     fn test_list_escrows_tokens_and_returns_id() {
         let ctx = setup();
         let pre = balance(&ctx.env, &ctx.tree_token, &ctx.seller);
-        let id = ctx.client.list(&ctx.seller, &1_000, &10, &ctx.payment_token);
+        let id = ctx.client.list(&ctx.seller, &ctx.planter, &1_000, &10, &ctx.payment_token);
 
         assert_eq!(id, 1);
         assert_eq!(balance(&ctx.env, &ctx.tree_token, &ctx.seller), pre - 1_000);
@@ -667,21 +937,22 @@ mod tests {
         assert_eq!(listing.total_amount, 1_000);
         assert_eq!(listing.remaining, 1_000);
         assert_eq!(listing.price_per_token, 10);
+        assert_eq!(listing.planter, ctx.planter);
         assert_eq!(listing.status, ListingStatus::Active);
     }
 
     #[test]
-    #[should_panic(expected = "Error(Contract, #101)")]
+    #[should_panic(expected = "Error(Contract, #100)")]
     fn test_list_zero_amount_rejected() {
         let ctx = setup();
-        ctx.client.list(&ctx.seller, &0, &10, &ctx.payment_token);
+        ctx.client.list(&ctx.seller, &ctx.planter, &0, &10, &ctx.payment_token);
     }
 
     #[test]
-    #[should_panic(expected = "Error(Contract, #102)")]
+    #[should_panic(expected = "Error(Contract, #113)")]
     fn test_list_zero_price_rejected() {
         let ctx = setup();
-        ctx.client.list(&ctx.seller, &1_000, &0, &ctx.payment_token);
+        ctx.client.list(&ctx.seller, &ctx.planter, &1_000, &0, &ctx.payment_token);
     }
 
     // ── buy ────────────────────────────────────────────────────────────────────
@@ -689,7 +960,7 @@ mod tests {
     #[test]
     fn test_buy_transfers_payment_to_seller_and_tokens_to_buyer() {
         let ctx = setup();
-        let id = ctx.client.list(&ctx.seller, &1_000, &10, &ctx.payment_token);
+        let id = ctx.client.list(&ctx.seller, &ctx.planter, &1_000, &10, &ctx.payment_token);
 
         let seller_pay_before = balance(&ctx.env, &ctx.payment_token, &ctx.seller);
         let buyer_tree_before = balance(&ctx.env, &ctx.tree_token, &ctx.buyer);
@@ -713,7 +984,7 @@ mod tests {
     #[test]
     fn test_full_buy_marks_listing_filled() {
         let ctx = setup();
-        let id = ctx.client.list(&ctx.seller, &1_000, &10, &ctx.payment_token);
+        let id = ctx.client.list(&ctx.seller, &ctx.planter, &1_000, &10, &ctx.payment_token);
         ctx.client.buy(&ctx.buyer, &id, &1_000);
 
         let listing = ctx.client.get_listing(&id).unwrap();
@@ -722,42 +993,42 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "Error(Contract, #106)")]
+    #[should_panic(expected = "Error(Contract, #105)")]
     fn test_buy_more_than_available_rejected() {
         let ctx = setup();
-        let id = ctx.client.list(&ctx.seller, &500, &10, &ctx.payment_token);
+        let id = ctx.client.list(&ctx.seller, &ctx.planter, &500, &10, &ctx.payment_token);
         ctx.client.buy(&ctx.buyer, &id, &501);
     }
 
     #[test]
-    #[should_panic(expected = "Error(Contract, #107)")]
+    #[should_panic(expected = "Error(Contract, #101)")]
     fn test_buy_zero_amount_rejected() {
         let ctx = setup();
-        let id = ctx.client.list(&ctx.seller, &1_000, &10, &ctx.payment_token);
+        let id = ctx.client.list(&ctx.seller, &ctx.planter, &1_000, &10, &ctx.payment_token);
         ctx.client.buy(&ctx.buyer, &id, &0);
     }
 
     #[test]
-    #[should_panic(expected = "Error(Contract, #104)")]
+    #[should_panic(expected = "Error(Contract, #109)")]
     fn test_buy_from_filled_listing_rejected() {
         let ctx = setup();
-        let id = ctx.client.list(&ctx.seller, &1_000, &10, &ctx.payment_token);
+        let id = ctx.client.list(&ctx.seller, &ctx.planter, &1_000, &10, &ctx.payment_token);
         ctx.client.buy(&ctx.buyer, &id, &1_000);
         ctx.client.buy(&ctx.buyer, &id, &1);
     }
 
     #[test]
-    #[should_panic(expected = "Error(Contract, #103)")]
+    #[should_panic(expected = "Error(Contract, #108)")]
     fn test_buy_nonexistent_listing_rejected() {
         let ctx = setup();
         ctx.client.buy(&ctx.buyer, &99, &1);
     }
 
     #[test]
-    #[should_panic(expected = "Error(Contract, #107)")]
+    #[should_panic(expected = "Error(Contract, #101)")]
     fn test_self_trade_via_zero_buy_amount() {
         let ctx = setup();
-        let id = ctx.client.list(&ctx.seller, &1_000, &10, &ctx.payment_token);
+        let id = ctx.client.list(&ctx.seller, &ctx.planter, &1_000, &10, &ctx.payment_token);
         ctx.client.buy(&ctx.seller, &id, &0);
     }
 
@@ -767,7 +1038,7 @@ mod tests {
     fn test_cancel_returns_remaining_tokens() {
         let ctx = setup();
         let pre = balance(&ctx.env, &ctx.tree_token, &ctx.seller);
-        let id = ctx.client.list(&ctx.seller, &1_000, &10, &ctx.payment_token);
+        let id = ctx.client.list(&ctx.seller, &ctx.planter, &1_000, &10, &ctx.payment_token);
 
         ctx.client.buy(&ctx.buyer, &id, &300);
         ctx.client.cancel(&ctx.seller, &id);
@@ -779,10 +1050,10 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "Error(Contract, #104)")]
+    #[should_panic(expected = "Error(Contract, #109)")]
     fn test_cancel_already_filled_listing_rejected() {
         let ctx = setup();
-        let id = ctx.client.list(&ctx.seller, &500, &10, &ctx.payment_token);
+        let id = ctx.client.list(&ctx.seller, &ctx.planter, &500, &10, &ctx.payment_token);
         ctx.client.buy(&ctx.buyer, &id, &500);
         ctx.client.cancel(&ctx.seller, &id);
     }
@@ -793,8 +1064,8 @@ mod tests {
     fn test_listing_count_increments() {
         let ctx = setup();
         assert_eq!(ctx.client.listing_count(), 0);
-        ctx.client.list(&ctx.seller, &100, &1, &ctx.payment_token);
-        ctx.client.list(&ctx.seller, &200, &2, &ctx.payment_token);
+        ctx.client.list(&ctx.seller, &ctx.planter, &100, &1, &ctx.payment_token);
+        ctx.client.list(&ctx.seller, &ctx.planter, &200, &2, &ctx.payment_token);
         assert_eq!(ctx.client.listing_count(), 2);
     }
 
@@ -807,21 +1078,21 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "Error(Contract, #107)")]
+    #[should_panic(expected = "Error(Contract, #110)")]
     fn test_configure_auction_reserve_ge_starting_rejected() {
         let ctx = setup();
         ctx.client.configure_auction(&100, &100, &10, &3600);
     }
 
     #[test]
-    #[should_panic(expected = "Error(Contract, #108)")]
+    #[should_panic(expected = "Error(Contract, #111)")]
     fn test_configure_auction_invalid_decay_rate_rejected() {
         let ctx = setup();
         ctx.client.configure_auction(&100, &50, &0, &3600);
     }
 
     #[test]
-    #[should_panic(expected = "Error(Contract, #109)")]
+    #[should_panic(expected = "Error(Contract, #112)")]
     fn test_configure_auction_zero_duration_rejected() {
         let ctx = setup();
         ctx.client.configure_auction(&100, &50, &10, &0);
@@ -839,7 +1110,7 @@ mod tests {
     fn test_create_auction_escrows_tokens_and_returns_id() {
         let ctx = auction_setup();
         let pre = balance(&ctx.env, &ctx.tree_token, &ctx.seller);
-        let id = ctx.client.create_auction(&ctx.seller, &1_000, &ctx.payment_token);
+        let id = ctx.client.create_auction(&ctx.seller, &ctx.planter, &1_000, &ctx.payment_token);
 
         assert_eq!(id, 1);
         assert_eq!(balance(&ctx.env, &ctx.tree_token, &ctx.seller), pre - 1_000);
@@ -852,6 +1123,7 @@ mod tests {
         assert_eq!(auction.reserve_price, 50);
         assert_eq!(auction.decay_rate, 10);
         assert_eq!(auction.duration, 3600);
+        assert_eq!(auction.planter, ctx.planter);
         assert_eq!(auction.status, AuctionStatus::Active);
     }
 
@@ -859,7 +1131,7 @@ mod tests {
     #[should_panic(expected = "Error(Contract, #100)")]
     fn test_create_auction_zero_amount_rejected() {
         let ctx = auction_setup();
-        ctx.client.create_auction(&ctx.seller, &0, &ctx.payment_token);
+        ctx.client.create_auction(&ctx.seller, &ctx.planter, &0, &ctx.payment_token);
     }
 
     // ── bid ────────────────────────────────────────────────────────────────────
@@ -867,7 +1139,7 @@ mod tests {
     #[test]
     fn test_bid_transfers_payment_to_seller_and_tokens_to_buyer() {
         let ctx = auction_setup();
-        let id = ctx.client.create_auction(&ctx.seller, &1_000, &ctx.payment_token);
+        let id = ctx.client.create_auction(&ctx.seller, &ctx.planter, &1_000, &ctx.payment_token);
 
         let seller_pay_before = balance(&ctx.env, &ctx.payment_token, &ctx.seller);
         let buyer_tree_before = balance(&ctx.env, &ctx.tree_token, &ctx.buyer);
@@ -894,10 +1166,10 @@ mod tests {
 
     #[test]
     fn test_bid_with_price_decay() {
-        let mut ctx = auction_setup();
+        let ctx = auction_setup();
         // Configure short duration for testing
         ctx.client.configure_auction(&100, &50, &100, &100);
-        let id = ctx.client.create_auction(&ctx.seller, &1_000, &ctx.payment_token);
+        let id = ctx.client.create_auction(&ctx.seller, &ctx.planter, &1_000, &ctx.payment_token);
 
         // Advance time to trigger price decay
         ctx.env.ledger().set_timestamp(ctx.env.ledger().timestamp() + 50);
@@ -921,7 +1193,7 @@ mod tests {
     #[test]
     fn test_full_bid_marks_auction_completed() {
         let ctx = auction_setup();
-        let id = ctx.client.create_auction(&ctx.seller, &1_000, &ctx.payment_token);
+        let id = ctx.client.create_auction(&ctx.seller, &ctx.planter, &1_000, &ctx.payment_token);
         ctx.client.bid(&ctx.buyer, &id, &1_000);
 
         let auction = ctx.client.get_auction(&id).unwrap();
@@ -930,51 +1202,51 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "Error(Contract, #104)")]
+    #[should_panic(expected = "Error(Contract, #105)")]
     fn test_bid_more_than_available_rejected() {
         let ctx = auction_setup();
-        let id = ctx.client.create_auction(&ctx.seller, &500, &ctx.payment_token);
+        let id = ctx.client.create_auction(&ctx.seller, &ctx.planter, &500, &ctx.payment_token);
         ctx.client.bid(&ctx.buyer, &id, &501);
     }
 
     #[test]
-    #[should_panic(expected = "Error(Contract, #105)")]
+    #[should_panic(expected = "Error(Contract, #101)")]
     fn test_bid_zero_amount_rejected() {
         let ctx = auction_setup();
-        let id = ctx.client.create_auction(&ctx.seller, &1_000, &ctx.payment_token);
+        let id = ctx.client.create_auction(&ctx.seller, &ctx.planter, &1_000, &ctx.payment_token);
         ctx.client.bid(&ctx.buyer, &id, &0);
     }
 
     #[test]
-    #[should_panic(expected = "Error(Contract, #111)")]
+    #[should_panic(expected = "Error(Contract, #103)")]
     fn test_bid_on_completed_auction_rejected() {
         let ctx = auction_setup();
-        let id = ctx.client.create_auction(&ctx.seller, &1_000, &ctx.payment_token);
+        let id = ctx.client.create_auction(&ctx.seller, &ctx.planter, &1_000, &ctx.payment_token);
         ctx.client.bid(&ctx.buyer, &id, &1_000);
         ctx.client.bid(&ctx.buyer, &id, &1);
     }
 
     #[test]
-    #[should_panic(expected = "Error(Contract, #110)")]
+    #[should_panic(expected = "Error(Contract, #102)")]
     fn test_bid_on_nonexistent_auction_rejected() {
         let ctx = auction_setup();
         ctx.client.bid(&ctx.buyer, &99, &1);
     }
 
     #[test]
-    #[should_panic(expected = "Error(Contract, #106)")]
+    #[should_panic(expected = "Error(Contract, #104)")]
     fn test_self_trade_via_bid() {
         let ctx = auction_setup();
-        let id = ctx.client.create_auction(&ctx.seller, &1_000, &ctx.payment_token);
+        let id = ctx.client.create_auction(&ctx.seller, &ctx.planter, &1_000, &ctx.payment_token);
         ctx.client.bid(&ctx.seller, &id, &100);
     }
 
     #[test]
-    #[should_panic(expected = "Error(Contract, #112)")]
+    #[should_panic(expected = "Error(Contract, #106)")]
     fn test_bid_after_duration_rejected() {
-        let mut ctx = auction_setup();
+        let ctx = auction_setup();
         ctx.client.configure_auction(&100, &50, &10, &100);
-        let id = ctx.client.create_auction(&ctx.seller, &1_000, &ctx.payment_token);
+        let id = ctx.client.create_auction(&ctx.seller, &ctx.planter, &1_000, &ctx.payment_token);
 
         // Advance time beyond duration
         ctx.env.ledger().set_timestamp(ctx.env.ledger().timestamp() + 200);
@@ -988,7 +1260,7 @@ mod tests {
     fn test_cancel_auction_returns_remaining_tokens() {
         let ctx = auction_setup();
         let pre = balance(&ctx.env, &ctx.tree_token, &ctx.seller);
-        let id = ctx.client.create_auction(&ctx.seller, &1_000, &ctx.payment_token);
+        let id = ctx.client.create_auction(&ctx.seller, &ctx.planter, &1_000, &ctx.payment_token);
 
         ctx.client.bid(&ctx.buyer, &id, &300);
         ctx.client.cancel_auction(&ctx.seller, &id);
@@ -1000,10 +1272,10 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "Error(Contract, #111)")]
+    #[should_panic(expected = "Error(Contract, #103)")]
     fn test_cancel_completed_auction_rejected() {
         let ctx = auction_setup();
-        let id = ctx.client.create_auction(&ctx.seller, &500, &ctx.payment_token);
+        let id = ctx.client.create_auction(&ctx.seller, &ctx.planter, &500, &ctx.payment_token);
         ctx.client.bid(&ctx.buyer, &id, &500);
         ctx.client.cancel_auction(&ctx.seller, &id);
     }
@@ -1014,8 +1286,8 @@ mod tests {
     fn test_auction_count_increments() {
         let ctx = auction_setup();
         assert_eq!(ctx.client.auction_count(), 0);
-        ctx.client.create_auction(&ctx.seller, &100, &ctx.payment_token);
-        ctx.client.create_auction(&ctx.seller, &200, &ctx.payment_token);
+        ctx.client.create_auction(&ctx.seller, &ctx.planter, &100, &ctx.payment_token);
+        ctx.client.create_auction(&ctx.seller, &ctx.planter, &200, &ctx.payment_token);
         assert_eq!(ctx.client.auction_count(), 2);
     }
 
@@ -1024,19 +1296,61 @@ mod tests {
     #[test]
     fn test_get_current_price_at_start() {
         let ctx = auction_setup();
-        let id = ctx.client.create_auction(&ctx.seller, &1_000, &ctx.payment_token);
+        let id = ctx.client.create_auction(&ctx.seller, &ctx.planter, &1_000, &ctx.payment_token);
         assert_eq!(ctx.client.get_current_price(&id), 100); // Starting price
     }
 
     #[test]
     fn test_get_current_price_at_reserve() {
-        let mut ctx = auction_setup();
+        let ctx = auction_setup();
         ctx.client.configure_auction(&100, &50, &10, &100);
-        let id = ctx.client.create_auction(&ctx.seller, &1_000, &ctx.payment_token);
+        let id = ctx.client.create_auction(&ctx.seller, &ctx.planter, &1_000, &ctx.payment_token);
 
         // Advance time to duration
         ctx.env.ledger().set_timestamp(ctx.env.ledger().timestamp() + 100);
 
         assert_eq!(ctx.client.get_current_price(&id), 50); // Reserve price
+    }
+
+    // ── Fuzz Tests (Proptest) ──────────────────────────────────────────────────
+
+    #[cfg(test)]
+    mod fuzz_tests {
+        use proptest::prelude::*;
+
+        proptest! {
+            #[test]
+            fn fuzz_dutch_auction_decay_calculation(
+                starting_price in 100i128..10_000i128,
+                price_delta in 1i128..1_000i128,
+                duration in 10u64..10_000u64,
+                elapsed_pct in 0u64..100u64,
+            ) {
+                let reserve_price = starting_price.saturating_sub(price_delta).max(1);
+                if starting_price > reserve_price && duration > 0 {
+                    let elapsed = (duration * elapsed_pct) / 100;
+                    let price_drop = (starting_price - reserve_price) * elapsed as i128 / duration as i128;
+                    let calculated_price = starting_price - price_drop;
+
+                    prop_assert!(calculated_price >= reserve_price);
+                    prop_assert!(calculated_price <= starting_price);
+                }
+            }
+
+            #[test]
+            fn fuzz_listing_trade_payout_invariants(
+                amount in 1i128..1_000_000i128,
+                price_per_token in 1i128..100_000i128,
+                royalty_bps in 0u32..2_000u32,
+            ) {
+                let total_cost = amount.saturating_mul(price_per_token);
+                let royalty_amount = (total_cost as u128 * royalty_bps as u128 / 10_000) as i128;
+                let seller_net = total_cost - royalty_amount;
+
+                prop_assert_eq!(seller_net + royalty_amount, total_cost);
+                prop_assert!(seller_net >= 0);
+                prop_assert!(royalty_amount >= 0);
+            }
+        }
     }
 }

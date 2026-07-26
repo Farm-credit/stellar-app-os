@@ -22,7 +22,7 @@ function getHorizonServer(): Horizon.Server {
 
 /** Map a Stellar payment memo or status string to our TreeStatus enum */
 // Currently unused - keeping for future memo parsing implementation
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
+
 function toTreeStatus(raw?: string): TreeStatus {
   const statuses: TreeStatus[] = ['funded', 'planted', 'verified', 'completed', 'failed'];
   const lower = (raw ?? '').toLowerCase();
@@ -53,6 +53,7 @@ async function fetchHorizonTreeOps(): Promise<
 
       const treeId = `HRV-HORIZON-${payment.id.slice(-6)}`;
       result.set(treeId, {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         status: toTreeStatus((payment as any).transaction_attr?.memo as string | undefined),
         plantedAt: payment.created_at,
       });

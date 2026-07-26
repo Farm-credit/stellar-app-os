@@ -54,12 +54,7 @@ export function useWallet() {
 
       switch (type) {
         case 'freighter':
-          // For Freighter, try to detect the network first
-          const freighterNetwork = await getFreighterNetwork();
-          if (freighterNetwork) {
-            targetNetwork = freighterNetwork;
-          }
-          publicKey = await connectFreighter(targetNetwork);
+          publicKey = await connectFreighter();
           break;
         case 'albedo':
           publicKey = await connectAlbedo(targetNetwork);

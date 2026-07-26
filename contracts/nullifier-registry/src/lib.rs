@@ -2,9 +2,15 @@
 
 use harvesta_errors::HarvestaError;
 use soroban_sdk::{
-    contract, contractimpl, contracttype, panic_with_error, symbol_short, xdr::ToXdr, Address,
-    Bytes, BytesN, Env, String, Symbol, Vec,
+    contract, contractimpl, contracttype, contracterror, panic_with_error, symbol_short,
+    xdr::ToXdr, Address, Bytes, BytesN, Env, String, Symbol, Vec,
 };
+
+#[contracterror]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord)]
+pub enum NullifierError {
+    CommitmentAlreadyRegistered = 60,
+}
 
 #[contracttype]
 #[derive(Clone, Debug, PartialEq)]
@@ -15,6 +21,13 @@ pub struct TreeCommitmentInput {
     pub timestamp: u64,
     /// Farmer's Stellar account address
     pub farmer_id: Address,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, PartialEq)]
+pub struct TreeCommitmentBatchEntry {
+    pub input: TreeCommitmentInput,
+    pub expires_at: Option<u64>,
 }
 
 #[contracttype]
@@ -56,10 +69,10 @@ impl NullifierRegistry {
             let entry: NullifierEntry = env.storage().persistent().get(&commitment).unwrap();
             if let Some(exp) = entry.expires_at {
                 if env.ledger().timestamp() < exp {
-                    panic_with_error!(&env, HarvestaError::CommitmentAlreadyRegistered);
+                    panic_with_error!(&env, NullifierError::CommitmentAlreadyRegistered);
                 }
             } else {
-                panic_with_error!(&env, HarvestaError::CommitmentAlreadyRegistered);
+                panic_with_error!(&env, NullifierError::CommitmentAlreadyRegistered);
             }
         }
 
@@ -83,6 +96,80 @@ impl NullifierRegistry {
     /// Check whether a commitment is already in the registry.
     pub fn is_registered(env: Env, commitment: BytesN<32>) -> bool {
         env.storage().persistent().has(&commitment)
+    }
+
+    /// Check whether a list of commitments are all in the registry.
+    pub fn is_registered_batch(env: Env, commitments: Vec<BytesN<32>>) -> Vec<bool> {
+        let mut results = Vec::new(&env);
+        for commitment in commitments.iter() {
+            results.push_back(env.storage().persistent().has(&commitment));
+        }
+        results
+    }
+
+    /// Register a batch of tree commitments on-chain with optional expiry.
+    /// Fails atomically if any commitment is duplicate or any farmer auth fails.
+    pub fn register_batch(env: Env, entries: Vec<TreeCommitmentBatchEntry>) -> Vec<BytesN<32>> {
+        // First collect all unique farmer IDs to require auth
+        let mut unique_farmers = Vec::new(&env);
+        for entry in entries.iter() {
+            let farmer = &entry.input.farmer_id;
+            if !unique_farmers.contains(farmer) {
+                unique_farmers.push_back(farmer.clone());
+            }
+        }
+        for farmer in unique_farmers.iter() {
+            farmer.require_auth();
+        }
+
+        // Compute all commitments and check for duplicates in batch and registry
+        let mut commitments = Vec::new(&env);
+        for entry in entries.iter() {
+            let commitment = Self::_compute_commitment(&env, &entry.input);
+            
+            // Check for duplicate in the batch itself
+            if commitments.contains(&commitment) {
+                panic_with_error!(&env, HarvestaError::CommitmentAlreadyRegistered);
+            }
+            
+            // Check if already registered in storage
+            if env.storage().persistent().has(&commitment) {
+                let stored_entry: NullifierEntry = env.storage().persistent().get(&commitment).unwrap();
+                if let Some(exp) = stored_entry.expires_at {
+                    if env.ledger().timestamp() < exp {
+                        panic_with_error!(&env, HarvestaError::CommitmentAlreadyRegistered);
+                    }
+                } else {
+                    panic_with_error!(&env, HarvestaError::CommitmentAlreadyRegistered);
+                }
+            }
+            
+            commitments.push_back(commitment);
+        }
+
+        // Now register all entries
+        let mut registered_commitments = Vec::new(&env);
+        for (i, entry) in entries.iter().enumerate() {
+            let commitment = commitments.get(i as u32).unwrap();
+            
+            let nullifier_entry = NullifierEntry {
+                commitment: commitment.clone(),
+                farmer_id: entry.input.farmer_id.clone(),
+                registered_at: env.ledger().timestamp(),
+                expires_at: entry.expires_at,
+            };
+
+            env.storage().persistent().set(&commitment, &nullifier_entry);
+
+            env.events().publish(
+                (Symbol::new(&env, "FarmerRegistered"), entry.input.farmer_id.clone()),
+                commitment.clone(),
+            );
+            
+            registered_commitments.push_back(commitment);
+        }
+
+        registered_commitments
     }
 
     /// Check whether a commitment is expired.
@@ -451,5 +538,110 @@ mod tests {
 
         assert!(!client.is_registered(&c1));
         assert!(client.is_registered(&c2));
+    }
+
+    #[test]
+    fn test_register_batch_success() {
+        let (env, _, client) = setup();
+        let farmer1 = Address::generate(&env);
+        let farmer2 = Address::generate(&env);
+
+        let input1 = sample_input(&env, &farmer1);
+        let input2 = TreeCommitmentInput {
+            timestamp: 1_700_086_400u64,
+            ..input1.clone()
+        };
+        let input3 = TreeCommitmentInput {
+            farmer_id: farmer2.clone(),
+            ..input1.clone()
+        };
+
+        let mut entries = Vec::new(&env);
+        entries.push_back(TreeCommitmentBatchEntry {
+            input: input1.clone(),
+            expires_at: None,
+        });
+        entries.push_back(TreeCommitmentBatchEntry {
+            input: input2.clone(),
+            expires_at: Some(1_800_000_000u64),
+        });
+        entries.push_back(TreeCommitmentBatchEntry {
+            input: input3.clone(),
+            expires_at: None,
+        });
+
+        let registered = client.register_batch(&entries);
+        assert_eq!(registered.len(), 3);
+
+        assert!(client.is_registered(&registered.get(0).unwrap()));
+        assert!(client.is_registered(&registered.get(1).unwrap()));
+        assert!(client.is_registered(&registered.get(2).unwrap()));
+
+        let mut commitments = Vec::new(&env);
+        commitments.push_back(registered.get(0).unwrap());
+        commitments.push_back(registered.get(1).unwrap());
+        commitments.push_back(registered.get(2).unwrap());
+        let results = client.is_registered_batch(&commitments);
+        assert_eq!(results, vec![true, true, true]);
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #60)")]
+    fn test_register_batch_duplicate_in_batch() {
+        let (env, _, client) = setup();
+        let farmer = Address::generate(&env);
+        let input = sample_input(&env, &farmer);
+
+        let mut entries = Vec::new(&env);
+        entries.push_back(TreeCommitmentBatchEntry {
+            input: input.clone(),
+            expires_at: None,
+        });
+        entries.push_back(TreeCommitmentBatchEntry {
+            input: input.clone(),
+            expires_at: None,
+        });
+
+        client.register_batch(&entries);
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #60)")]
+    fn test_register_batch_duplicate_in_registry() {
+        let (env, _, client) = setup();
+        let farmer = Address::generate(&env);
+        let input = sample_input(&env, &farmer);
+
+        client.register(&input, &None);
+
+        let mut entries = Vec::new(&env);
+        entries.push_back(TreeCommitmentBatchEntry {
+            input: input.clone(),
+            expires_at: None,
+        });
+
+        client.register_batch(&entries);
+    }
+
+    #[test]
+    fn test_register_batch_expired_allowed() {
+        let (env, _, client) = setup();
+        let farmer = Address::generate(&env);
+        let input = sample_input(&env, &farmer);
+
+        let commitment = client.register(&input, &Some(1_800_000_000u64));
+
+        env.ledger().with_mut(|l| l.timestamp = 1_800_000_001u64);
+
+        let mut entries = Vec::new(&env);
+        entries.push_back(TreeCommitmentBatchEntry {
+            input: input.clone(),
+            expires_at: Some(1_900_000_000u64),
+        });
+
+        let registered = client.register_batch(&entries);
+        assert_eq!(registered.len(), 1);
+        assert_eq!(registered.get(0).unwrap(), commitment);
+        assert!(!client.is_expired(&registered.get(0).unwrap()));
     }
 }

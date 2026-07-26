@@ -194,7 +194,6 @@ export function getMockTreeById(id: string): Tree | undefined {
   return MOCK_TREES.find((t) => t.id === id);
 }
 
-
 export function getMockTreesResponse(filters: TreeFilterState): TreesResponse {
   const allTrees = getMockTrees();
   const filtered = filterTrees(allTrees, filters);

@@ -29,9 +29,7 @@ export function CategoryFilter({ categories, selectedCategory, postCounts }: Cat
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     if (!containerRef.current) return;
 
-    const buttons = Array.from(
-      containerRef.current.querySelectorAll<HTMLAnchorElement>('a[role="button"]')
-    );
+    const buttons = Array.from(containerRef.current.querySelectorAll<HTMLAnchorElement>('a'));
 
     const currentIndex = buttons.findIndex((button) => button === document.activeElement);
 
@@ -114,8 +112,7 @@ function CategoryButton({ href, label, count, isSelected }: CategoryButtonProps)
     >
       <Link
         href={href}
-        role="button"
-        aria-pressed={isSelected}
+        aria-current={isSelected ? 'page' : undefined}
         aria-label={`${label} (${count} ${count === 1 ? 'post' : 'posts'})`}
       >
         <span className="flex items-center gap-2">

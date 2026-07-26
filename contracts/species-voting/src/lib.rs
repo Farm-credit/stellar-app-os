@@ -139,15 +139,12 @@ impl SpeciesVoting {
         species_registry: Address,
         voting_threshold: i128,
         voting_period: u64,
-        quorum_bps: u32,
     ) {
         if env.storage().instance().has(&admin_key()) {
             panic!("already initialized");
         }
         env.storage().instance().set(&admin_key(), &admin);
-        env.storage()
-            .instance()
-            .set(&tree_token_key(), &tree_token);
+        env.storage().instance().set(&tree_token_key(), &tree_token);
         env.storage()
             .instance()
             .set(&species_registry_key(), &species_registry);
@@ -157,12 +154,7 @@ impl SpeciesVoting {
         env.storage()
             .instance()
             .set(&voting_period_key(), &voting_period);
-        env.storage()
-            .instance()
-            .set(&symbol_short!("QUORUM"), &quorum_bps);
-        env.storage()
-            .instance()
-            .set(&proposal_count_key(), &0u64);
+        env.storage().instance().set(&proposal_count_key(), &0u64);
     }
 
     /// Propose a new species for addition to the catalogue.
@@ -179,7 +171,7 @@ impl SpeciesVoting {
         maturity_years: u32,
     ) {
         Self::assert_not_paused(&env);
-        
+
         let proposer = env.invoker();
         proposer.require_auth();
 
@@ -195,7 +187,7 @@ impl SpeciesVoting {
             .instance()
             .get(&proposal_count_key())
             .unwrap_or(0);
-        
+
         let voting_period: u64 = env
             .storage()
             .instance()
@@ -216,9 +208,7 @@ impl SpeciesVoting {
             voting_ends_at: env.ledger().timestamp() + voting_period,
         };
 
-        env.storage()
-            .persistent()
-            .set(&proposal_key(id), &proposal);
+        env.storage().persistent().set(&proposal_key(id), &proposal);
         env.storage()
             .instance()
             .set(&proposal_count_key(), &(id + 1));
@@ -255,7 +245,11 @@ impl SpeciesVoting {
         }
 
         // Check if already voted
-        if env.storage().persistent().has(&vote_key(proposal_id, &voter)) {
+        if env
+            .storage()
+            .persistent()
+            .has(&vote_key(proposal_id, &voter))
+        {
             panic!("already voted on this proposal");
         }
 
@@ -265,9 +259,9 @@ impl SpeciesVoting {
             .instance()
             .get(&tree_token_key())
             .expect("not initialized");
-        
+
         let power = token::Client::new(&env, &tree_token).balance(&voter);
-        
+
         if power <= 0 {
             panic!("must hold TREE tokens to vote");
         }
@@ -325,27 +319,6 @@ impl SpeciesVoting {
 
         if proposal.status != ProposalStatus::Passed {
             panic!("proposal has not passed");
-        }
-
-        let tree_token: Address = env
-            .storage()
-            .instance()
-            .get(&tree_token_key())
-            .expect("not initialized");
-
-        let total_votes = proposal.votes_for + proposal.votes_against;
-        let total_supply = token::Client::new(&env, &tree_token).total_supply();
-        
-        let quorum_bps: u32 = env
-            .storage()
-            .instance()
-            .get(&symbol_short!("QUORUM"))
-            .expect("not initialized");
-
-        let required_votes = (total_supply as i128) * (quorum_bps as i128) / 10000;
-        
-        if total_votes < required_votes {
-            panic!("quorum not reached");
         }
 
         let species_registry: Address = env
@@ -407,14 +380,6 @@ impl SpeciesVoting {
             .expect("not initialized")
     }
 
-    /// Returns the current quorum in basis points.
-    pub fn quorum_bps(env: Env) -> u32 {
-        env.storage()
-            .instance()
-            .get(&symbol_short!("QUORUM"))
-            .expect("not initialized")
-    }
-
     // ── Admin functions ───────────────────────────────────────────────────────
 
     /// Update the voting threshold. Admin only.
@@ -439,21 +404,7 @@ impl SpeciesVoting {
         env.storage()
             .instance()
             .set(&voting_period_key(), &new_period);
-        env.events()
-            .publish((symbol_short!("period"),), new_period);
-    }
-
-    /// Update the quorum basis points. Admin only.
-    pub fn update_quorum_bps(env: Env, new_quorum: u32) {
-        Self::require_admin(&env);
-        if new_quorum > 10000 {
-            panic!("quorum must be <= 10000");
-        }
-        env.storage()
-            .instance()
-            .set(&symbol_short!("QUORUM"), &new_quorum);
-        env.events()
-            .publish((symbol_short!("quorum"),), new_quorum);
+        env.events().publish((symbol_short!("period"),), new_period);
     }
 
     // ── internal ──────────────────────────────────────────────────────────────
@@ -496,12 +447,12 @@ mod tests {
         let client = SpeciesVotingClient::new(&env, &contract_id);
 
         let admin = Address::generate(&env);
-        
+
         // Deploy test TREE token
         let tree_token_id = env
             .register_stellar_asset_contract_v2(admin.clone())
             .address();
-        
+
         // Mock species registry address
         let species_registry = Address::generate(&env);
 
@@ -511,7 +462,6 @@ mod tests {
             &species_registry,
             &1_000_000_i128, // 1M tokens threshold
             &604800_u64,     // 7 days
-            &1000_u32,       // 10% quorum (1000 bps)
         );
 
         (env, admin, tree_token_id, species_registry, client)
@@ -523,11 +473,11 @@ mod tests {
 
         let slug = Symbol::short("mahogany");
         let name = String::from_str(&client.env, "Mahogany");
-        
+
         client.propose_species(&slug, &name, &2500_i128, &25_u32);
 
         assert_eq!(client.proposal_count(), 1);
-        
+
         let proposal = client.get_proposal(&0);
         assert_eq!(proposal.slug, slug);
         assert_eq!(proposal.name, name);
@@ -611,7 +561,6 @@ mod tests {
         let (env, admin, tree_token, _, client) = setup();
 
         let voter = Address::generate(&env);
-        // Mint enough for threshold and quorum (quorum is 10% of total supply, which will be 2M)
         token::StellarAssetClient::new(&env, &tree_token).mint(&voter, &2_000_000);
 
         let slug = Symbol::short("birch");
@@ -626,31 +575,6 @@ mod tests {
             let updated = client.get_proposal(&0);
             assert!(matches!(updated.status, ProposalStatus::Executed));
         }
-    }
-
-    #[test]
-    #[should_panic(expected = "quorum not reached")]
-    fn test_execute_proposal_fails_quorum() {
-        let (env, admin, tree_token, _, client) = setup();
-
-        let voter = Address::generate(&env);
-        let voter2 = Address::generate(&env);
-        
-        // Voter1 mints 1.5M (passes threshold of 1M)
-        token::StellarAssetClient::new(&env, &tree_token).mint(&voter, &1_500_000);
-        // Mint a lot more to voter2 so the total supply is large, making quorum fail (10% of 20M = 2M)
-        token::StellarAssetClient::new(&env, &tree_token).mint(&voter2, &18_500_000);
-
-        let slug = Symbol::short("birch");
-        let name = String::from_str(&env, "Birch");
-        client.propose_species(&slug, &name, &2200_i128, &20_u32);
-
-        client.vote(&0, &true);
-
-        let proposal = client.get_proposal(&0);
-        assert!(matches!(proposal.status, ProposalStatus::Passed));
-        
-        client.execute_proposal(&0);
     }
 
     #[test]

@@ -482,7 +482,7 @@ impl SponsorReceiptContract {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use soroban_sdk::{testutils::Address as _, Address, Env, String, Symbol};
+    use soroban_sdk::{testutils::{Address as _, Ledger as _}, vec, Address, Env, String, Symbol};
 
     fn setup() -> (
         Env,
@@ -558,6 +558,7 @@ mod tests {
     #[test]
     fn test_mint_receipt_basic() {
         let (env, _admin, sponsor, client) = setup();
+        env.ledger().with_mut(|l| l.timestamp = 1_000_000);
 
         let id = client.mint_receipt(
             &sponsor,
@@ -638,18 +639,17 @@ mod tests {
     fn test_get_receipts_by_sponsor_returns_insertion_order() {
         let (env, _admin, sponsor, client) = setup();
 
-        let ids: Vec<u64> = (1u64..=4)
-            .map(|t| {
-                client.mint_receipt(
-                    &sponsor,
-                    &t,
-                    &species_teak(&env),
-                    &region_lagos(&env),
-                    &2200_i128,
-                    &OptAddress::None,
-                )
-            })
-            .collect();
+        let mut ids: Vec<u64> = Vec::new(&env);
+        for t in 1u64..=4 {
+            ids.push_back(client.mint_receipt(
+                &sponsor,
+                &t,
+                &species_teak(&env),
+                &region_lagos(&env),
+                &2200_i128,
+                &OptAddress::None,
+            ));
+        }
         assert_eq!(ids, vec![&env, 1u64, 2, 3, 4]);
 
         let listed = client.get_receipts_by_sponsor(&sponsor);
@@ -920,11 +920,9 @@ mod tests {
         // any auth mocks are set up.
         client.initialize(&admin);
 
-        // Authorise ONLY the sponsor (mock_auths replaces the prior set, it
-        // does not accumulate). This lets `mint_receipt` succeed on the
-        // sponsor's auth, but `revoke_receipt`'s admin.require_auth() will
-        // have no signature backing it.
-        env.mock_auths(&[&sponsor]);
+        // Mock all auths so mint_receipt can succeed (sponsor.require_auth).
+        // We then clear all mocks before revoke so admin.require_auth() fails.
+        env.mock_all_auths();
         let id = client.mint_receipt(
             &sponsor,
             &42u64,

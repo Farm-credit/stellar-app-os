@@ -207,10 +207,11 @@ export function ProjectLocationMap({
           activeLayerRef.current = 'street';
         }
 
-        const marker = L.marker([lat, lng]).addTo(map);
-        marker.bindPopup?.(
-          `<strong>${escapeHtml(projectName)}</strong><br />${escapeHtml(locationLabel)}`
-        );
+        L.marker([lat, lng])
+          .bindPopup(
+            `<strong>${escapeHtml(projectName)}</strong><br />${escapeHtml(locationLabel)}`
+          )
+          .addTo(map);
 
         mapInstanceRef.current = map;
         streetLayerRef.current = streetLayer;

@@ -116,7 +116,7 @@ jobs:
   build:
     name: Build
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     needs: [lint, typecheck, test, migration-validate]
     outputs:
       build-cache-hit: ${{ steps.build-cache.outputs.cache-hit }}
@@ -138,9 +138,17 @@ jobs:
           restore-keys: |
             nextjs-${{ runner.os }}-
 
+      - run: pnpm typecheck
+
+      - run: pnpm test
+
+      - run: pnpm build
       - name: Build
         run: pnpm build
         env:
+          # Cap Node's V8 heap at 5GB so the Webpack build worker + Node
+          # runtime + OS overhead fits in the 7GB GitHub-hosted runner.
+          NODE_OPTIONS: --max-old-space-size=5120
           NEXT_PUBLIC_STELLAR_NETWORK: testnet
           NEXT_PUBLIC_HORIZON_URL: https://horizon-testnet.stellar.org
           NEXT_PUBLIC_SOROBAN_RPC_URL: https://soroban-testnet.stellar.org

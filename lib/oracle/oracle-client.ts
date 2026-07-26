@@ -1,8 +1,9 @@
+<<<<<<< HEAD
+=======
 import { hexToBytes } from '@noble/hashes/utils';
 import { ed25519 } from '@noble/curves/ed25519';
 import { invokeSurvivalVerification } from '@/lib/stellar/survival-verifier-client';
 import type { NdviSubmissionRequest, NdviSubmissionResponse } from '@/lib/types/oracle';
-
 /**
  * Verify an ed25519 signature using the configured oracle public key.
  *
@@ -58,13 +59,16 @@ export async function submitNdviSurvival(
 
   const survivalRate = ndviToSurvivalRate(ndvi);
 
-  const txHash = await invokeSurvivalVerification(
-    farmerPublicKey,
-    proofHash,
-    survivalRate,
-    contractType,
-    network
-  );
+  // TODO: Implement actual contract invocation once the Stellar contract logic is ready
+  // const txHash = await invokeSurvivalVerification(
+  //   farmerPublicKey,
+  //   proofHash,
+  //   survivalRate,
+  //   contractType,
+  //   network
+  // );
+
+  const txHash = 'mock_tx_hash_pending_implementation';
 
   const outcome = survivalRate >= 70 ? 'completed' : 'disputed';
 
@@ -75,3 +79,4 @@ export async function submitNdviSurvival(
     transactionHash: txHash,
   };
 }
+>>>>>>> 982c64ba2f219ccef8caa51fd46f92faa951b468
