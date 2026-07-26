@@ -29,11 +29,15 @@ members = [
     "nft-certificate",
     "sponsor-receipt",
     "carbon-marketplace",
+    "carbon-dex",
     "tree-registry",
     "verifier-staking",
     "public-seal",
 ]
 resolver = "2"
+
+[workspace.dependencies]
+soroban-sdk = { version = "21.7.7" }
 
 [profile.release]
 overflow-checks = true
