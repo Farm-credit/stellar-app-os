@@ -11,7 +11,7 @@
 
 use soroban_sdk::{
     contract, contractimpl, contracttype, contracterror, panic_with_error, symbol_short,
-    token, Address, BytesN, Env, IntoVal, String,
+    token, Address, BytesN, Env, String,
 };
 use harvesta_errors::HarvestaError;
 use admin_controls::AdminControlsClient;
@@ -225,25 +225,6 @@ impl PlanterRegistry {
     pub fn get_min_stake(env: Env) -> i128 {
         let (_, _, min_stake) = Self::config(&env);
         min_stake
-            .set(&symbol_short!("ADMIN"), &admin);
-        env.storage()
-            .persistent()
-            .get::<DataKey, PlanterStake>(&DataKey::Stake(planter))
-            .map(|r| r.amount >= min_stake)
-            .unwrap_or(false)
-    }
-
-    /// Returns the stake record for a planter, or None.
-    pub fn get_stake(env: Env, planter: Address) -> Option<PlanterStake> {
-        env.storage()
-            .persistent()
-            .get(&DataKey::Stake(planter))
-    }
-
-    /// Returns the configured minimum stake amount.
-    pub fn get_min_stake(env: Env) -> i128 {
-        let (_, _, min_stake) = Self::config(&env);
-        min_stake
     }
 
     /// Register a new planter.
@@ -367,7 +348,7 @@ impl PlanterRegistry {
         Self::assert_not_paused(&env);
         Self::require_admin(&env);
 
-        let key = Self::planter_key(&env, &wallet);
+        let key = DataKey::Planter(wallet.clone());
         let mut record: PlanterRecord = env
             .storage()
             .persistent()
@@ -817,14 +798,14 @@ mod tests {
 
     #[test]
     fn test_record_outcome_perfect_scores_to_100() {
-        let (env, _, client) = setup();
-        let planter = Address::generate(&env);
+        let ctx = setup();
+        let planter = Address::generate(&ctx.env);
 
-        client.register_planter(&planter, &name_hash(&env, 1), &String::from_str(&env, "s1"));
-        // 100 % survival, 100 % verification → 70 + 30 = 100
-        client.record_outcome(&planter, &100, &100, &50, &50);
+        ctx.client.stake_to_apply(&planter, &1_000);
+        ctx.client.register_planter(&planter, &name_hash(&ctx.env, 1), &String::from_str(&ctx.env, "s1"));
+        ctx.client.record_outcome(&planter, &100, &100, &50, &50);
 
-        let record = client.get_planter(&planter).unwrap();
+        let record = ctx.client.get_planter(&planter).unwrap();
         assert_eq!(record.score, 100);
         assert_eq!(record.saplings_planted, 100);
         assert_eq!(record.saplings_survived, 100);
@@ -834,31 +815,28 @@ mod tests {
 
     #[test]
     fn test_record_outcome_partial_rates() {
-        let (env, _, client) = setup();
-        let planter = Address::generate(&env);
+        let ctx = setup();
+        let planter = Address::generate(&ctx.env);
 
-        client.register_planter(&planter, &name_hash(&env, 1), &String::from_str(&env, "s1"));
-        // 50 % survival → 35, 50 % verification → 15, total = 50
-        client.record_outcome(&planter, &100, &50, &10, &20);
+        ctx.client.stake_to_apply(&planter, &1_000);
+        ctx.client.register_planter(&planter, &name_hash(&ctx.env, 1), &String::from_str(&ctx.env, "s1"));
+        ctx.client.record_outcome(&planter, &100, &50, &10, &20);
 
-        let record = client.get_planter(&planter).unwrap();
+        let record = ctx.client.get_planter(&planter).unwrap();
         assert_eq!(record.score, 50);
     }
 
     #[test]
     fn test_record_outcome_accumulates_across_batches() {
-        let (env, _, client) = setup();
-        let planter = Address::generate(&env);
+        let ctx = setup();
+        let planter = Address::generate(&ctx.env);
 
-        client.register_planter(&planter, &name_hash(&env, 1), &String::from_str(&env, "s1"));
-        // Batch 1: 100 planted, 50 survived; 10 verif, 10 total
-        client.record_outcome(&planter, &100, &50, &10, &10);
-        // Batch 2: 100 more planted, 100 survived; 10 verif, 10 total
-        // Cumulative: 200 planted, 150 survived (75 %), 20/20 verif (100 %)
-        // score = 150*70/200 + 20*30/20 = 52 + 30 = 82
-        client.record_outcome(&planter, &100, &100, &10, &10);
+        ctx.client.stake_to_apply(&planter, &1_000);
+        ctx.client.register_planter(&planter, &name_hash(&ctx.env, 1), &String::from_str(&ctx.env, "s1"));
+        ctx.client.record_outcome(&planter, &100, &50, &10, &10);
+        ctx.client.record_outcome(&planter, &100, &100, &10, &10);
 
-        let record = client.get_planter(&planter).unwrap();
+        let record = ctx.client.get_planter(&planter).unwrap();
         assert_eq!(record.saplings_planted, 200);
         assert_eq!(record.saplings_survived, 150);
         assert_eq!(record.score, 82);
@@ -866,22 +844,21 @@ mod tests {
 
     #[test]
     fn test_record_outcome_zero_verif_total_omits_verification() {
-        let (env, _, client) = setup();
-        let planter = Address::generate(&env);
+        let ctx = setup();
+        let planter = Address::generate(&ctx.env);
 
-        client.register_planter(&planter, &name_hash(&env, 1), &String::from_str(&env, "s1"));
-        // No verification data — only survival contributes
-        client.record_outcome(&planter, &100, &80, &0, &0);
+        ctx.client.stake_to_apply(&planter, &1_000);
+        ctx.client.register_planter(&planter, &name_hash(&ctx.env, 1), &String::from_str(&ctx.env, "s1"));
+        ctx.client.record_outcome(&planter, &100, &80, &0, &0);
 
-        let record = client.get_planter(&planter).unwrap();
-        // 80 % survival → 56, 0 verification → 0, total = 56
+        let record = ctx.client.get_planter(&planter).unwrap();
         assert_eq!(record.score, 56);
     }
 
     #[test]
     #[should_panic(expected = "Error(Contract, #4)")]
     fn test_record_outcome_unregistered_panics() {
-        let (env, _, client) = setup();
-        client.record_outcome(&Address::generate(&env), &10, &10, &5, &5);
+        let ctx = setup();
+        ctx.client.record_outcome(&Address::generate(&ctx.env), &10, &10, &5, &5);
     }
 }

@@ -33,6 +33,24 @@ pub enum ZkError {
     VerificationFailed = 3,
 }
 
+impl From<ZkError> for soroban_sdk::Error {
+    fn from(err: ZkError) -> Self {
+        soroban_sdk::Error::from_contract_error(err as u32)
+    }
+}
+
+impl From<&ZkError> for soroban_sdk::Error {
+    fn from(err: &ZkError) -> Self {
+        soroban_sdk::Error::from_contract_error(*err as u32)
+    }
+}
+
+impl From<soroban_sdk::Error> for ZkError {
+    fn from(_: soroban_sdk::Error) -> Self {
+        ZkError::VerificationFailed
+    }
+}
+
 // ── Storage keys ──────────────────────────────────────────────────────────────
 
 const KEY_ADMIN: &str = "ADMIN";
@@ -189,7 +207,7 @@ impl ZkVerifier {
         // 6. Emit event for indexers
         env.events().publish(
             (symbol_short!("zkverify"), symbol_short!("donate")),
-            inputs.nullifier_hash,
+            inputs.nullifier_hash.clone(),
         );
 
         Ok(true)

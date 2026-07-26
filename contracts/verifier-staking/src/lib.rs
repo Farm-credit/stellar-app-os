@@ -15,7 +15,7 @@
 //!   6. `is_eligible(verifier)` / `is_registered(verifier)` can be queried.
 
 use soroban_sdk::{
-    contract, contracterror, contractimpl, contracttype, symbol_short, token, Address, Env,
+    contract, contracterror, contractimpl, contracttype, panic_with_error, symbol_short, token, Address, Env,
 };
 use harvesta_errors::HarvestaError;
 
@@ -130,7 +130,7 @@ impl VerifierStaking {
         env.storage().persistent().set(&reg_key, &true);
 
         env.events()
-            .publish((symbol_short!("registered"), verifier), min_stake);
+            .publish((symbol_short!("registerd"), verifier), min_stake);
     }
 
     /// Registered verifier tops up their stake with `amount`.
@@ -207,10 +207,10 @@ impl VerifierStaking {
         }
 
         env.events()
-            .publish((symbol_short!("slashed"), verifier), slash_amount);
+            .publish((symbol_short!("slashed"), verifier.clone()), slash_amount);
         env.events()
             .publish(
-                (symbol_short!("slashed_to_buffer"), verifier),
+                (symbol_short!("slsh_buf"), verifier),
                 slash_amount,
             );
     }
@@ -272,7 +272,7 @@ impl VerifierStaking {
 
     /// Returns the total slashed amount transferred to the buffer pool for a verifier.
     pub fn get_slashed_to_buffer_pool(env: Env, verifier: Address) -> i128 {
-        let rec = match env
+        let rec: VerifierStake = match env
             .storage()
             .persistent()
             .get(&DataKey::Stake(verifier))

@@ -229,7 +229,7 @@ impl LocationProof {
     ///   1. Loads the polygon for `zone_id`.
     ///   2. Runs the even-odd ray-casting algorithm in pure integer arithmetic.
     ///   3. Panics with `PointOutsidePolygon` if the point is outside.
-    ///   4. Panics with `ProofCommitmentAlreadyRegistered` on replay.
+    ///   4. Panics with `ProofCmntAlreadyRegistered` on replay.
     ///   5. Stores the proof entry tagged with the matched `zone_id`.
     ///
     /// `commitment` — SHA-256(lat_i32_be || lon_i32_be || farmer_id_xdr || nonce_be)
@@ -242,7 +242,7 @@ impl LocationProof {
     /// - `NotInitialized`                  — contract not initialised
     /// - `ZoneNotFound`                    — zone_id is not registered
     /// - `PointOutsidePolygon`             — ray-casting says outside
-    /// - `ProofCommitmentAlreadyRegistered` — duplicate commitment
+    /// - `ProofCmntAlreadyRegistered` — duplicate commitment
     pub fn submit_proof_in_zone(
         env: Env,
         farmer_id: Address,
@@ -268,7 +268,7 @@ impl LocationProof {
 
         // Reject duplicate commitments (replay protection)
         if env.storage().persistent().has(&commitment) {
-            panic_with_error!(&env, HarvestaError::ProofCommitmentAlreadyRegistered);
+            panic_with_error!(&env, HarvestaError::ProofCmntAlreadyRegistered);
         }
 
         let entry = LocationProofEntry {
@@ -312,7 +312,7 @@ impl LocationProof {
         }
 
         if env.storage().persistent().has(&commitment) {
-            panic_with_error!(&env, HarvestaError::ProofCommitmentAlreadyRegistered);
+            panic_with_error!(&env, HarvestaError::ProofCmntAlreadyRegistered);
         }
 
         let entry = LocationProofEntry {
