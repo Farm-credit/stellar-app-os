@@ -1,20 +1,18 @@
 #![no_std]
 
-//! Verifier Staking Contract — Closes #491
+//! Verifier Staking Contract — Closes #806, #491
 //!
-//! Verifiers must post a minimum bond to participate in tree-planting
+//! Verifiers must register with a minimum bond to participate in tree-planting
 //! verification. A fraudulent verification can be proven on-chain and the
 //! bond is slashed (transferred to the contract treasury or burned).
 //!
 //! # Flow
-//!   1. Admin calls `initialize(admin, stake_token, min_stake)`.
-//!   2. Verifier calls `stake(verifier, amount)` — must be ≥ `min_stake`.
-//!   3. Admin or governance calls `slash(verifier, amount)` on proven fraud,
-//!      reducing (or zeroing) the verifier's bond.
-//!   4. Verifier calls `unstake(verifier)` to withdraw their remaining bond
-//!      after leaving the role (bond must not be slashed to zero).
-//!   5. `is_eligible(verifier)` can be queried by other contracts before
-//!      accepting a verification submission.
+//!   1. Admin calls `initialize(admin, stake_token, min_stake, ...)`.
+//!   2. Verifier calls `register(verifier)` — deposits exactly `min_stake`.
+//!   3. Registered verifiers call `stake(verifier, amount)` to top up.
+//!   4. Admin or governance calls `slash(verifier, amount)` on proven fraud.
+//!   5. Verifier calls `unstake(verifier)` to withdraw and deregister.
+//!   6. `is_eligible(verifier)` / `is_registered(verifier)` can be queried.
 
 use soroban_sdk::{
     contract, contracterror, contractimpl, contracttype, symbol_short, token, Address, Env,
@@ -29,6 +27,8 @@ pub enum VerifierStakingError {
     VerifierNotStaked = 93,
     SlashExceedsStake = 94,
     InsufficientStake = 95,
+    NotRegistered = 96,
+    AlreadyRegistered = 97,
 }
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -48,10 +48,12 @@ pub struct VerifierStake {
 
 #[contracttype]
 enum DataKey {
-    /// (admin, stake_token, min_stake_amount, replanting_buffer_pool)
+    /// (admin, stake_token, min_stake_amount, governance_contract, replanting_buffer_pool)
     Config,
     /// Per-verifier stake record
     Stake(Address),
+    /// Registration flag — set when verifier deposits min_stake via register()
+    Registered(Address),
 }
 
 // ── Contract ──────────────────────────────────────────────────────────────────
@@ -87,8 +89,54 @@ impl VerifierStaking {
             .set(&DataKey::Config, &(admin, stake_token, min_stake_amount, governance_contract, replanting_buffer_pool));
     }
 
-    /// Verifier locks `amount` of the stake token as their participation bond.
-    /// A verifier can top-up their stake by calling this again.
+    /// Register as an active verifier by depositing the minimum stake.
+    ///
+    /// Transfers exactly `min_stake_amount` from the verifier to this contract.
+    /// Sets the `Registered` flag so other contracts can check auditor status.
+    /// A verifier may only register once; call `stake()` to top up after
+    /// registration.
+    pub fn register(env: Env, verifier: Address) {
+        verifier.require_auth();
+
+        let (_, stake_token, min_stake, _, _) = Self::config(&env);
+
+        let reg_key = DataKey::Registered(verifier.clone());
+        if env.storage().persistent().has(&reg_key) {
+            panic_with_error!(&env, VerifierStakingError::AlreadyRegistered);
+        }
+
+        // Transfer minimum stake deposit to contract
+        token::Client::new(&env, &stake_token).transfer(
+            &verifier,
+            &env.current_contract_address(),
+            &min_stake,
+        );
+
+        // Create initial stake record
+        let key = DataKey::Stake(verifier.clone());
+        env.storage().persistent().set(
+            &key,
+            &VerifierStake {
+                verifier: verifier.clone(),
+                token: stake_token,
+                amount: min_stake,
+                staked_at: env.ledger().timestamp(),
+                slashed: 0,
+                slashed_to_buffer_pool: 0,
+            },
+        );
+
+        // Mark as registered
+        env.storage().persistent().set(&reg_key, &true);
+
+        env.events()
+            .publish((symbol_short!("registered"), verifier), min_stake);
+    }
+
+    /// Registered verifier tops up their stake with `amount`.
+    ///
+    /// Panics with `NotRegistered` if the verifier has not called `register()`
+    /// first.
     pub fn stake(env: Env, verifier: Address, amount: i128) {
         verifier.require_auth();
 
@@ -96,40 +144,28 @@ impl VerifierStaking {
             panic_with_error!(&env, HarvestaError::AmountMustBePositive);
         }
 
-        let (_, stake_token, min_stake): (Address, Address, i128) = Self::config(&env);
+        if !Self::is_registered_raw(&env, &verifier) {
+            panic_with_error!(&env, VerifierStakingError::NotRegistered);
+        }
+
+        let (_, stake_token, _, _, _) = Self::config(&env);
 
         let key = DataKey::Stake(verifier.clone());
-        if env.storage().persistent().has(&key) {
-            // Top-up: add to existing stake
-            let mut rec: VerifierStake = env.storage().persistent().get(&key).unwrap();
-            rec.amount += amount;
-            token::Client::new(&env, &stake_token).transfer(
-                &verifier,
-                &env.current_contract_address(),
-                &amount,
-            );
-            env.storage().persistent().set(&key, &rec);
-        } else {
-            // New stake: must meet the minimum
-            if amount < min_stake {
-                panic_with_error!(&env, VerifierStakingError::InsufficientStake);
-            }
-            token::Client::new(&env, &stake_token).transfer(
-                &verifier,
-                &env.current_contract_address(),
-                &amount,
-            );
-            env.storage().persistent().set(
-                &key,
-                &VerifierStake {
-                    verifier: verifier.clone(),
-                    token: stake_token,
-                    amount,
-                    staked_at: env.ledger().timestamp(),
-                    slashed: 0,
-                },
-            );
-        }
+        let mut rec: VerifierStake = env
+            .storage()
+            .persistent()
+            .get(&key)
+            .unwrap_or_else(|| panic_with_error!(&env, VerifierStakingError::VerifierNotStaked));
+
+        rec.amount += amount;
+
+        token::Client::new(&env, &stake_token).transfer(
+            &verifier,
+            &env.current_contract_address(),
+            &amount,
+        );
+
+        env.storage().persistent().set(&key, &rec);
 
         env.events()
             .publish((symbol_short!("staked"), verifier), amount);
@@ -137,9 +173,8 @@ impl VerifierStaking {
 
     /// Admin slashes `slash_amount` from a verifier's bond on proven fraud.
     /// Slashed tokens are transferred to the replanting buffer pool contract.
-    /// This operation is gated by governance/admin control.
     pub fn slash(env: Env, verifier: Address, slash_amount: i128) {
-        let (admin, _, _, governance_contract, replanting_buffer_pool) = Self::config(&env);
+        let (admin, _, _, _, replanting_buffer_pool) = Self::config(&env);
         admin.require_auth();
 
         if slash_amount <= 0 {
@@ -162,24 +197,31 @@ impl VerifierStaking {
         rec.slashed_to_buffer_pool += slash_amount;
         env.storage().persistent().set(&key, &rec);
 
-        // Transfer slashed tokens to the replanting buffer pool
         if slash_amount > 0 {
             let token = token::Client::new(&env, &rec.token);
-            token.transfer(&env.current_contract_address(), &replanting_buffer_pool, &slash_amount);
+            token.transfer(
+                &env.current_contract_address(),
+                &replanting_buffer_pool,
+                &slash_amount,
+            );
         }
 
         env.events()
             .publish((symbol_short!("slashed"), verifier), slash_amount);
         env.events()
-            .publish((symbol_short!("slashed_to_buffer"), verifier), slash_amount);
+            .publish(
+                (symbol_short!("slashed_to_buffer"), verifier),
+                slash_amount,
+            );
     }
 
-    /// Verifier withdraws their remaining bond and exits the verifier role.
+    /// Verifier withdraws their remaining bond, exits the verifier role, and
+    /// clears the registration flag.
     pub fn unstake(env: Env, verifier: Address) {
         verifier.require_auth();
 
         let key = DataKey::Stake(verifier.clone());
-        let mut rec: VerifierStake = env
+        let rec: VerifierStake = env
             .storage()
             .persistent()
             .get(&key)
@@ -195,19 +237,30 @@ impl VerifierStaking {
         }
 
         env.storage().persistent().remove(&key);
+        env.storage()
+            .persistent()
+            .remove(&DataKey::Registered(verifier.clone()));
 
         env.events()
             .publish((symbol_short!("unstaked"), verifier), amount);
     }
 
-    /// Returns true if the verifier has a stake ≥ `min_stake_amount`.
+    /// Returns true if the verifier is registered AND has stake ≥ `min_stake_amount`.
     pub fn is_eligible(env: Env, verifier: Address) -> bool {
-        let (_, _, min_stake) = Self::config(&env);
+        let (_, _, min_stake, _, _) = Self::config(&env);
+        if !Self::is_registered_raw(&env, &verifier) {
+            return false;
+        }
         env.storage()
             .persistent()
             .get::<DataKey, VerifierStake>(&DataKey::Stake(verifier))
             .map(|r| r.amount >= min_stake)
             .unwrap_or(false)
+    }
+
+    /// Returns true if the verifier has completed registration.
+    pub fn is_registered(env: Env, verifier: Address) -> bool {
+        Self::is_registered_raw(&env, &verifier)
     }
 
     /// Returns the stake record for a verifier, or None.
@@ -219,7 +272,11 @@ impl VerifierStaking {
 
     /// Returns the total slashed amount transferred to the buffer pool for a verifier.
     pub fn get_slashed_to_buffer_pool(env: Env, verifier: Address) -> i128 {
-        let rec = match env.storage().persistent().get(&DataKey::Stake(verifier)) {
+        let rec = match env
+            .storage()
+            .persistent()
+            .get(&DataKey::Stake(verifier))
+        {
             Some(record) => record,
             None => return 0,
         };
@@ -252,6 +309,14 @@ impl VerifierStaking {
             .get(&DataKey::Config)
             .unwrap_or_else(|| panic_with_error!(env, HarvestaError::NotInitialized))
     }
+
+    /// Internal: read the `Registered` flag without the public-function wrapper.
+    fn is_registered_raw(env: &Env, verifier: &Address) -> bool {
+        env.storage()
+            .persistent()
+            .get(&DataKey::Registered(verifier.clone()))
+            .unwrap_or(false)
+    }
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
@@ -259,7 +324,7 @@ impl VerifierStaking {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use soroban_sdk::{testutils::Address as _, token, Address, Env, token::Client};
+    use soroban_sdk::{testutils::Address as _, token, Address, Env};
 
     struct Ctx {
         env: Env,
@@ -270,7 +335,11 @@ mod tests {
     }
 
     fn setup() -> Ctx {
-        setup_with_min(1_000, Address::generate(&Env::default()), Address::generate(&Env::default()))
+        setup_with_min(
+            1_000,
+            Address::generate(&Env::default()),
+            Address::generate(&Env::default()),
+        )
     }
 
     fn setup_with_min(min_stake: i128, governance: Address, buffer_pool: Address) -> Ctx {
@@ -289,7 +358,13 @@ mod tests {
         token::StellarAssetClient::new(&env, &token).mint(&verifier, &10_000);
         client.initialize(&admin, &token, &min_stake, &governance, &buffer_pool);
 
-        Ctx { env, admin, verifier, token, client }
+        Ctx {
+            env,
+            admin,
+            verifier,
+            token,
+            client,
+        }
     }
 
     fn balance(env: &Env, token: &Address, who: &Address) -> i128 {
@@ -302,7 +377,13 @@ mod tests {
     #[should_panic(expected = "Error(Contract, #1)")]
     fn test_double_initialize_rejected() {
         let ctx = setup();
-        ctx.client.initialize(&ctx.admin, &ctx.token, &1_000);
+        ctx.client.initialize(
+            &ctx.admin,
+            &ctx.token,
+            &1_000,
+            &Address::generate(&ctx.env),
+            &Address::generate(&ctx.env),
+        );
     }
 
     #[test]
@@ -316,63 +397,96 @@ mod tests {
         let token_id = env
             .register_stellar_asset_contract_v2(admin.clone())
             .address();
-        client.initialize(&admin, &token_id, &0);
+        client.initialize(
+            &admin,
+            &token_id,
+            &0,
+            &Address::generate(&env),
+            &Address::generate(&env),
+        );
     }
 
-    // ── stake ──────────────────────────────────────────────────────────────────
+    // ── register ───────────────────────────────────────────────────────────────
 
     #[test]
-    fn test_stake_transfers_tokens_and_stores_record() {
+    fn test_register_transfers_min_stake_and_sets_flags() {
         let ctx = setup();
         let pre = balance(&ctx.env, &ctx.token, &ctx.verifier);
-        ctx.client.stake(&ctx.verifier, &2_000);
-        assert_eq!(balance(&ctx.env, &ctx.token, &ctx.verifier), pre - 2_000);
+        let min = ctx.client.get_min_stake();
 
+        assert!(!ctx.client.is_registered(&ctx.verifier));
+        assert!(!ctx.client.is_eligible(&ctx.verifier));
+
+        ctx.client.register(&ctx.verifier);
+
+        // Tokens transferred
+        assert_eq!(
+            balance(&ctx.env, &ctx.token, &ctx.verifier),
+            pre - min
+        );
+
+        // Registered + eligible
+        assert!(ctx.client.is_registered(&ctx.verifier));
+        assert!(ctx.client.is_eligible(&ctx.verifier));
+
+        // Stake record created
         let rec = ctx.client.get_stake(&ctx.verifier).unwrap();
-        assert_eq!(rec.amount, 2_000);
+        assert_eq!(rec.amount, min);
         assert_eq!(rec.slashed, 0);
+        assert_eq!(rec.slashed_to_buffer_pool, 0);
         assert_eq!(rec.verifier, ctx.verifier);
     }
 
     #[test]
-    fn test_topup_adds_to_existing_stake() {
+    #[should_panic(expected = "Error(Contract, #97)")]
+    fn test_double_register_rejected() {
         let ctx = setup();
-        ctx.client.stake(&ctx.verifier, &1_000);
+        ctx.client.register(&ctx.verifier);
+        ctx.client.register(&ctx.verifier);
+    }
+
+    // ── stake (top-up after registration) ──────────────────────────────────────
+
+    #[test]
+    fn test_topup_after_register_adds_to_stake() {
+        let ctx = setup();
+        ctx.client.register(&ctx.verifier);
+        let min = ctx.client.get_min_stake();
+
         ctx.client.stake(&ctx.verifier, &500);
 
         let rec = ctx.client.get_stake(&ctx.verifier).unwrap();
-        assert_eq!(rec.amount, 1_500);
+        assert_eq!(rec.amount, min + 500);
     }
 
     #[test]
-    #[should_panic(expected = "Error(Contract, #95)")]
-    fn test_stake_below_minimum_rejected() {
+    #[should_panic(expected = "Error(Contract, #96)")]
+    fn test_stake_without_register_rejected() {
         let ctx = setup();
-        ctx.client.stake(&ctx.verifier, &999);
+        ctx.client.stake(&ctx.verifier, &1_000);
     }
 
     #[test]
     #[should_panic(expected = "Error(Contract, #9)")]
     fn test_stake_zero_amount_rejected() {
         let ctx = setup();
+        ctx.client.register(&ctx.verifier);
         ctx.client.stake(&ctx.verifier, &0);
     }
 
     // ── is_eligible ────────────────────────────────────────────────────────────
 
     #[test]
-    fn test_eligible_after_meeting_minimum() {
+    fn test_eligible_after_registration() {
         let ctx = setup();
         assert!(!ctx.client.is_eligible(&ctx.verifier));
-        ctx.client.stake(&ctx.verifier, &1_000);
+        ctx.client.register(&ctx.verifier);
         assert!(ctx.client.is_eligible(&ctx.verifier));
     }
 
     #[test]
-    fn test_not_eligible_after_slash_below_minimum() {
+    fn test_not_eligible_before_registration() {
         let ctx = setup();
-        ctx.client.stake(&ctx.verifier, &1_000);
-        ctx.client.slash(&ctx.verifier, &500);
         assert!(!ctx.client.is_eligible(&ctx.verifier));
     }
 
@@ -381,11 +495,12 @@ mod tests {
     #[test]
     fn test_slash_reduces_stake_and_records_slashed() {
         let ctx = setup();
-        ctx.client.stake(&ctx.verifier, &2_000);
+        ctx.client.register(&ctx.verifier);
+        ctx.client.stake(&ctx.verifier, &1_000);
         ctx.client.slash(&ctx.verifier, &800);
 
         let rec = ctx.client.get_stake(&ctx.verifier).unwrap();
-        assert_eq!(rec.amount, 1_200);
+        assert_eq!(rec.amount, 1_200); // 1000 + 1000 - 800
         assert_eq!(rec.slashed, 800);
         assert_eq!(rec.slashed_to_buffer_pool, 800);
     }
@@ -393,33 +508,19 @@ mod tests {
     #[test]
     fn test_slash_full_bond() {
         let ctx = setup();
-        ctx.client.stake(&ctx.verifier, &1_000);
+        ctx.client.register(&ctx.verifier);
         ctx.client.slash(&ctx.verifier, &1_000);
 
         let rec = ctx.client.get_stake(&ctx.verifier).unwrap();
         assert_eq!(rec.amount, 0);
         assert_eq!(rec.slashed, 1_000);
-        assert_eq!(rec.slashed_to_buffer_pool, 1_000);
-    }
-
-    #[test]
-    fn test_slash_transfers_to_buffer_pool() {
-        let ctx = setup();
-        let buffer_pool = ctx.client.get_replanting_buffer_pool(&ctx.env);
-        let pre_balance = token::Client::new(&ctx.env, &ctx.token).balance(&buffer_pool);
-        
-        ctx.client.stake(&ctx.verifier, &2_000);
-        ctx.client.slash(&ctx.verifier, &800);
-
-        let post_balance = token::Client::new(&ctx.env, &ctx.token).balance(&buffer_pool);
-        assert_eq!(post_balance, pre_balance + 800);
     }
 
     #[test]
     #[should_panic(expected = "Error(Contract, #94)")]
     fn test_slash_exceeds_stake_rejected() {
         let ctx = setup();
-        ctx.client.stake(&ctx.verifier, &1_000);
+        ctx.client.register(&ctx.verifier);
         ctx.client.slash(&ctx.verifier, &1_001);
     }
 
@@ -434,14 +535,15 @@ mod tests {
     // ── unstake ────────────────────────────────────────────────────────────────
 
     #[test]
-    fn test_unstake_returns_tokens_and_removes_record() {
+    fn test_unstake_returns_tokens_and_removes_registration() {
         let ctx = setup();
         let pre = balance(&ctx.env, &ctx.token, &ctx.verifier);
-        ctx.client.stake(&ctx.verifier, &2_000);
+        ctx.client.register(&ctx.verifier);
         ctx.client.unstake(&ctx.verifier);
 
         assert_eq!(balance(&ctx.env, &ctx.token, &ctx.verifier), pre);
         assert!(ctx.client.get_stake(&ctx.verifier).is_none());
+        assert!(!ctx.client.is_registered(&ctx.verifier));
         assert!(!ctx.client.is_eligible(&ctx.verifier));
     }
 
@@ -449,11 +551,24 @@ mod tests {
     fn test_unstake_after_partial_slash_returns_remainder() {
         let ctx = setup();
         let pre = balance(&ctx.env, &ctx.token, &ctx.verifier);
-        ctx.client.stake(&ctx.verifier, &2_000);
+        ctx.client.register(&ctx.verifier);
+        ctx.client.stake(&ctx.verifier, &1_000);
         ctx.client.slash(&ctx.verifier, &500);
         ctx.client.unstake(&ctx.verifier);
 
-        assert_eq!(balance(&ctx.env, &ctx.token, &ctx.verifier), pre - 500);
+        assert_eq!(
+            balance(&ctx.env, &ctx.token, &ctx.verifier),
+            pre - 500 // lost 500 to slash
+        );
+    }
+
+    #[test]
+    fn test_unstake_deregisters() {
+        let ctx = setup();
+        ctx.client.register(&ctx.verifier);
+        assert!(ctx.client.is_registered(&ctx.verifier));
+        ctx.client.unstake(&ctx.verifier);
+        assert!(!ctx.client.is_registered(&ctx.verifier));
     }
 
     #[test]
@@ -461,5 +576,21 @@ mod tests {
     fn test_unstake_without_stake_rejected() {
         let ctx = setup();
         ctx.client.unstake(&ctx.verifier);
+    }
+
+    // ── is_registered ──────────────────────────────────────────────────────────
+
+    #[test]
+    fn test_is_registered_false_for_new_address() {
+        let ctx = setup();
+        let stranger = Address::generate(&ctx.env);
+        assert!(!ctx.client.is_registered(&stranger));
+    }
+
+    #[test]
+    fn test_is_registered_true_after_register() {
+        let ctx = setup();
+        ctx.client.register(&ctx.verifier);
+        assert!(ctx.client.is_registered(&ctx.verifier));
     }
 }

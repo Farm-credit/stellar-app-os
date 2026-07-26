@@ -11,6 +11,18 @@
 //! Each contract stores its own whitelist entries keyed by
 //! `(symbol_short!("W"), address)` in instance storage. The admin manages
 //! entries via the contract's own admin-only functions.
+//!
+//! # Auth context
+//!
+//! [`auth`] helpers ensure declared caller addresses match `require_auth`
+//! signers on every guarded entry point.
+
+pub mod auth;
+
+pub use auth::{
+    require_admin_invocation_auth, require_invocation_auth, require_matching_invocation_auth,
+    AuthError,
+};
 
 use soroban_sdk::{symbol_short, Address, Env};
 
