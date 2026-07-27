@@ -1,22 +1,33 @@
 #![no_std]
 
-//! Carbon Credit Marketplace — Closes #490
+//! Carbon Credit Marketplace — Closes #490, #780
 //!
-//! Simple on-chain orderbook that lets sponsors list their TREE token carbon
+//! On-chain orderbook that lets sponsors list their TREE token carbon
 //! credit certificates for sale, and buyers purchase them with a payment token
-//! (e.g. USDC or XLM).
+//! (e.g. USDC or XLM). Also includes a constant-product AMM (xy = k) pool
+//! for TREE/payment-token swaps.
 //!
 //! # Flow
-//!   1. Admin calls `initialize(admin, tree_token)`.
+//!   1. Admin calls `initialize(admin, tree_token, payment_token, admin_controls)`.
 //!   2. Seller calls `list(seller, amount, price_per_token, payment_token)` to
 //!      create an ask. The `amount` of TREE tokens are escrowed in the contract.
 //!   3. Buyer calls `buy(buyer, listing_id, amount)`.  Payment is transferred
 //!      directly to the seller; TREE tokens are transferred to the buyer.
 //!   4. Seller calls `cancel(seller, listing_id)` to de-list remaining tokens.
+//!
+//! # AMM Flow (Issue #780)
+//!   1. `amm_add_liquidity(provider, tree_amount, payment_amount)` — deposits both
+//!      tokens and mints LP shares proportional to contribution.
+//!   2. `amm_remove_liquidity(provider, lp_shares)` — burns LP shares and returns
+//!      proportional reserves.
+//!   3. `amm_swap_exact_in(caller, token_in, amount_in, min_amount_out)` — swaps
+//!      an exact input for at least `min_amount_out` output tokens. Supports both
+//!      TREE→payment and payment→TREE directions.
+//!   4. `amm_get_quote(token_in, amount_in)` — view-only price quote.
 
 use soroban_sdk::{
     contract, contractclient, contracterror, contractimpl, contracttype, panic_with_error, symbol_short, token,
-    Address, Env,
+    Address, Env, Vec,
 };
 use harvesta_errors::HarvestaError;
 use admin_controls::AdminControlsClient;
@@ -49,6 +60,14 @@ pub enum MarketplaceError {
     InvalidDecayRate = 111,
     InvalidDuration = 112,
     PriceMustBePositive = 113,
+    // AMM-specific errors (Issue #780)
+    AmmNotInitialized = 200,
+    AmmAmountMustBePositive = 201,
+    AmmInsufficientLiquidity = 202,
+    AmmSlippageExceeded = 203,
+    AmmInvalidTokenIn = 204,
+    AmmZeroShares = 205,
+    AmmInsufficientShares = 206,
 }
 
 #[contracttype]
@@ -116,11 +135,28 @@ pub struct DutchAuction {
     pub status: AuctionStatus,
 }
 
+/// AMM pool state stored in contract instance storage.
+///
+/// Invariant: `reserve_tree * reserve_payment = k` (constant product).
+/// Maintained after every swap, add-liquidity, and remove-liquidity.
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct AmmPool {
+    /// TREE token reserve (token A)
+    pub reserve_tree: i128,
+    /// Payment token reserve (token B)
+    pub reserve_payment: i128,
+    /// Total LP shares outstanding
+    pub total_lp_shares: i128,
+    /// Cumulative trading fees collected in payment-token stroops
+    pub fees_collected: i128,
+}
+
 // ── Storage keys ──────────────────────────────────────────────────────────────
 
 #[contracttype]
 enum DataKey {
-    /// (admin, tree_token)
+    /// (admin, tree_token, payment_token)
     Config,
     /// Admin controls contract address
     AdminControls,
@@ -140,7 +176,24 @@ enum DataKey {
     AuctionConfig,
     /// Royalty basis points (e.g. 500 = 5%)
     RoyaltyConfig,
+    /// AMM pool state (AmmPool)
+    AmmPool,
+    /// Per-provider LP share record
+    LpShares(Address),
 }
+
+// ── Constants ─────────────────────────────────────────────────────────────────
+
+/// Protocol swap fee: 30 bps = 0.30 %.
+/// Numerator / denominator so we can do integer arithmetic:
+///   fee_amount = amount_in * FEE_NUM / FEE_DEN
+const FEE_NUMERATOR: i128 = 30;
+const FEE_DENOMINATOR: i128 = 10_000;
+
+/// LP share precision factor (similar to 1e18 in EVM).
+/// We use 1_000_000_000_000i128 (1e12) to keep shares well-separated
+/// from raw token amounts while staying within i128.
+const LP_PRECISION: i128 = 1_000_000_000_000;
 
 // ── Contract ──────────────────────────────────────────────────────────────────
 
@@ -153,14 +206,15 @@ impl CarbonMarketplace {
     ///
     /// * `admin`           — platform admin (may delist fraudulent listings)
     /// * `tree_token`      — the TREE SAC token that represents carbon offset certificates
+    /// * `payment_token`   — the default payment token (USDC / XLM) for the AMM pool
     /// * `admin_controls`  — admin-controls contract address for pause functionality
-    pub fn initialize(env: Env, admin: Address, tree_token: Address, admin_controls: Address) {
+    pub fn initialize(env: Env, admin: Address, tree_token: Address, payment_token: Address, admin_controls: Address) {
         if env.storage().instance().has(&DataKey::Config) {
             panic_with_error!(&env, HarvestaError::AlreadyInitialized);
         }
         env.storage()
             .instance()
-            .set(&DataKey::Config, &(admin, tree_token));
+            .set(&DataKey::Config, &(admin, tree_token, payment_token));
         env.storage()
             .instance()
             .set(&DataKey::AdminControls, &admin_controls);
@@ -179,7 +233,7 @@ impl CarbonMarketplace {
     /// * `fallback_price` — price per token used when the oracle is stale or unavailable
     pub fn configure_price_oracle(env: Env, oracle: Address, max_staleness: u64, fallback_price: i128) {
         Self::assert_not_paused(&env);
-        let (admin, _) = Self::config(&env);
+        let (admin, _, _) = Self::config(&env);
         admin.require_auth();
 
         if fallback_price <= 0 {
@@ -214,7 +268,7 @@ impl CarbonMarketplace {
         duration: u64,
     ) {
         Self::assert_not_paused(&env);
-        let (admin, _) = Self::config(&env);
+        let (admin, _, _) = Self::config(&env);
         admin.require_auth();
 
         if starting_price <= 0 {
@@ -259,7 +313,7 @@ impl CarbonMarketplace {
 
         let resolved_price = Self::resolve_listing_price(&env, price_per_token);
 
-        let (_, tree_token) = Self::config(&env);
+        let (_, tree_token, _) = Self::config(&env);
 
         // Escrow the TREE tokens into the contract
         token::Client::new(&env, &tree_token).transfer(
@@ -418,7 +472,7 @@ impl CarbonMarketplace {
     /// Admin de-lists any listing (e.g. fraudulent certificate).
     pub fn admin_cancel(env: Env, listing_id: u64) {
         Self::assert_not_paused(&env);
-        let (admin, _) = Self::config(&env);
+        let (admin, _, _) = Self::config(&env);
         admin.require_auth();
 
         let mut listing: Listing = env
@@ -486,7 +540,7 @@ impl CarbonMarketplace {
         }
 
         let (starting_price, reserve_price, decay_rate, duration) = Self::auction_config(&env);
-        let (_, tree_token) = Self::config(&env);
+        let (_, tree_token, _) = Self::config(&env);
 
         // Escrow the TREE tokens into the contract
         token::Client::new(&env, &tree_token).transfer(
@@ -690,7 +744,7 @@ impl CarbonMarketplace {
     /// Admin sets the royalty percentage in basis points (e.g. 500 = 5%).
     /// Royalty is paid to the original planter on secondary sales.
     pub fn set_royalty(env: Env, basis_points: u32) {
-        let (admin, _) = Self::config(&env);
+        let (admin, _, _) = Self::config(&env);
         admin.require_auth();
 
         if basis_points > 10_000 {
@@ -710,9 +764,292 @@ impl CarbonMarketplace {
             .unwrap_or(0)
     }
 
+    // ── AMM: Constant-Product Pool (Issue #780) ───────────────────────────────
+
+    /// Add liquidity to the constant-product AMM pool.
+    ///
+    /// On first deposit, mints `sqrt(tree_amount * payment_amount) * LP_PRECISION`
+    /// shares. On subsequent deposits, mints shares proportional to the smaller
+    /// of the two ratio contributions.
+    ///
+    /// Transfers both tokens from `provider` into this contract.
+    pub fn amm_add_liquidity(
+        env: Env,
+        provider: Address,
+        tree_amount: i128,
+        payment_amount: i128,
+    ) -> i128 {
+        provider.require_auth();
+        if tree_amount <= 0 || payment_amount <= 0 {
+            panic_with_error!(&env, MarketplaceError::AmmAmountMustBePositive);
+        }
+
+        let (_, tree_token, payment_token): (Address, Address, Address) = Self::config(&env);
+
+        // Transfer both tokens into the pool
+        token::Client::new(&env, &tree_token).transfer(
+            &provider,
+            &env.current_contract_address(),
+            &tree_amount,
+        );
+        token::Client::new(&env, &payment_token).transfer(
+            &provider,
+            &env.current_contract_address(),
+            &payment_amount,
+        );
+
+        let mut pool = Self::pool(&env);
+
+        let new_shares = if pool.total_lp_shares == 0 {
+            // First deposit: geometric mean × precision
+            // Use integer isqrt to avoid floating point
+            let product = tree_amount * payment_amount;
+            let geometric_mean = Self::isqrt(product);
+            geometric_mean * LP_PRECISION
+        } else {
+            // Proportional deposit — take the minimum ratio
+            let shares_by_tree =
+                tree_amount * pool.total_lp_shares / pool.reserve_tree;
+            let shares_by_payment =
+                payment_amount * pool.total_lp_shares / pool.reserve_payment;
+            if shares_by_tree < shares_by_payment {
+                shares_by_tree
+            } else {
+                shares_by_payment
+            }
+        };
+
+        if new_shares <= 0 {
+            panic_with_error!(&env, MarketplaceError::AmmZeroShares);
+        }
+
+        // Update pool reserves and total shares
+        pool.reserve_tree += tree_amount;
+        pool.reserve_payment += payment_amount;
+        pool.total_lp_shares += new_shares;
+        Self::save_pool(&env, &pool);
+
+        // Update provider LP balance
+        let lp_key = DataKey::LpShares(provider.clone());
+        let existing_shares: i128 = env.storage().persistent().get(&lp_key).unwrap_or(0i128);
+        env.storage()
+            .persistent()
+            .set(&lp_key, &(existing_shares + new_shares));
+
+        env.events().publish(
+            (symbol_short!("amm_add"),),
+            (provider, tree_amount, payment_amount, new_shares),
+        );
+
+        new_shares
+    }
+
+    /// Remove liquidity from the AMM pool by burning LP shares.
+    ///
+    /// Returns proportional amounts of both tokens to `provider`.
+    pub fn amm_remove_liquidity(
+        env: Env,
+        provider: Address,
+        lp_shares: i128,
+    ) -> (i128, i128) {
+        provider.require_auth();
+        if lp_shares <= 0 {
+            panic_with_error!(&env, MarketplaceError::AmmAmountMustBePositive);
+        }
+
+        let lp_key = DataKey::LpShares(provider.clone());
+        let existing_shares: i128 = env
+            .storage()
+            .persistent()
+            .get(&lp_key)
+            .unwrap_or(0i128);
+        if existing_shares < lp_shares {
+            panic_with_error!(&env, MarketplaceError::AmmInsufficientShares);
+        }
+
+        let mut pool = Self::pool(&env);
+        if pool.total_lp_shares == 0 {
+            panic_with_error!(&env, MarketplaceError::AmmNotInitialized);
+        }
+
+        // Proportional withdrawal
+        let tree_out = lp_shares * pool.reserve_tree / pool.total_lp_shares;
+        let payment_out = lp_shares * pool.reserve_payment / pool.total_lp_shares;
+
+        if tree_out <= 0 || payment_out <= 0 {
+            panic_with_error!(&env, MarketplaceError::AmmInsufficientLiquidity);
+        }
+
+        pool.reserve_tree -= tree_out;
+        pool.reserve_payment -= payment_out;
+        pool.total_lp_shares -= lp_shares;
+        Self::save_pool(&env, &pool);
+
+        // Burn shares
+        let remaining = existing_shares - lp_shares;
+        if remaining == 0 {
+            env.storage().persistent().remove(&lp_key);
+        } else {
+            env.storage().persistent().set(&lp_key, &remaining);
+        }
+
+        let (_, tree_token, payment_token): (Address, Address, Address) = Self::config(&env);
+        token::Client::new(&env, &tree_token).transfer(
+            &env.current_contract_address(),
+            &provider,
+            &tree_out,
+        );
+        token::Client::new(&env, &payment_token).transfer(
+            &env.current_contract_address(),
+            &provider,
+            &payment_out,
+        );
+
+        env.events().publish(
+            (symbol_short!("amm_rem"),),
+            (provider, tree_out, payment_out, lp_shares),
+        );
+
+        (tree_out, payment_out)
+    }
+
+    /// Swap an exact amount of `token_in` for at least `min_amount_out` of
+    /// the other token.
+    ///
+    /// Fee of 30 bps is deducted from `amount_in` before applying xy = k.
+    pub fn amm_swap_exact_in(
+        env: Env,
+        caller: Address,
+        token_in: Address,
+        amount_in: i128,
+        min_amount_out: i128,
+    ) -> i128 {
+        caller.require_auth();
+        if amount_in <= 0 {
+            panic_with_error!(&env, MarketplaceError::AmmAmountMustBePositive);
+        }
+
+        let (_, tree_token, payment_token): (Address, Address, Address) = Self::config(&env);
+
+        // Determine swap direction
+        let tree_to_payment = token_in == tree_token;
+        let payment_to_tree = token_in == payment_token;
+        if !tree_to_payment && !payment_to_tree {
+            panic_with_error!(&env, MarketplaceError::AmmInvalidTokenIn);
+        }
+
+        let mut pool = Self::pool(&env);
+        if pool.total_lp_shares == 0 || pool.reserve_tree == 0 || pool.reserve_payment == 0 {
+            panic_with_error!(&env, MarketplaceError::AmmInsufficientLiquidity);
+        }
+
+        // Compute amount out using constant-product formula with fee:
+        //   amount_in_with_fee = amount_in * (FEE_DEN - FEE_NUM)
+        //   amount_out = (amount_in_with_fee * reserve_out)
+        //                / (reserve_in * FEE_DEN + amount_in_with_fee)
+        let (reserve_in, reserve_out) = if tree_to_payment {
+            (pool.reserve_tree, pool.reserve_payment)
+        } else {
+            (pool.reserve_payment, pool.reserve_tree)
+        };
+
+        let amount_in_with_fee = amount_in * (FEE_DENOMINATOR - FEE_NUMERATOR);
+        let numerator = amount_in_with_fee * reserve_out;
+        let denominator = reserve_in * FEE_DENOMINATOR + amount_in_with_fee;
+        let amount_out = numerator / denominator;
+
+        if amount_out <= 0 {
+            panic_with_error!(&env, MarketplaceError::AmmInsufficientLiquidity);
+        }
+        if amount_out < min_amount_out {
+            panic_with_error!(&env, MarketplaceError::AmmSlippageExceeded);
+        }
+
+        // Fee is implicitly retained in pool (not deducted from reserve_in update)
+        // reserve_in increases by the FULL amount_in (including fee portion)
+        let (token_out, fee_in_payment_units) = if tree_to_payment {
+            pool.reserve_tree += amount_in;
+            pool.reserve_payment -= amount_out;
+            // Track fee collected in payment-token equivalent
+            let fee = amount_in * FEE_NUMERATOR / FEE_DENOMINATOR;
+            let fee_payment = fee * pool.reserve_payment / pool.reserve_tree;
+            (payment_token.clone(), fee_payment)
+        } else {
+            pool.reserve_payment += amount_in;
+            pool.reserve_tree -= amount_out;
+            let fee = amount_in * FEE_NUMERATOR / FEE_DENOMINATOR;
+            (tree_token.clone(), fee)
+        };
+        pool.fees_collected += fee_in_payment_units;
+        Self::save_pool(&env, &pool);
+
+        // Execute token transfers
+        token::Client::new(&env, &token_in).transfer(
+            &caller,
+            &env.current_contract_address(),
+            &amount_in,
+        );
+        token::Client::new(&env, &token_out).transfer(
+            &env.current_contract_address(),
+            &caller,
+            &amount_out,
+        );
+
+        env.events().publish(
+            (symbol_short!("amm_swp"),),
+            (caller, token_in, amount_in, amount_out),
+        );
+
+        amount_out
+    }
+
+    /// View-only price quote: given `amount_in` of `token_in`, return the
+    /// expected output amount (before slippage, assuming current reserves).
+    pub fn amm_get_quote(env: Env, token_in: Address, amount_in: i128) -> i128 {
+        if amount_in <= 0 {
+            return 0;
+        }
+        let (_, tree_token, payment_token): (Address, Address, Address) = Self::config(&env);
+
+        let pool = Self::pool(&env);
+        if pool.total_lp_shares == 0 {
+            return 0;
+        }
+
+        let (reserve_in, reserve_out) = if token_in == tree_token {
+            (pool.reserve_tree, pool.reserve_payment)
+        } else if token_in == payment_token {
+            (pool.reserve_payment, pool.reserve_tree)
+        } else {
+            return 0;
+        };
+
+        if reserve_in == 0 || reserve_out == 0 {
+            return 0;
+        }
+
+        let amount_in_with_fee = amount_in * (FEE_DENOMINATOR - FEE_NUMERATOR);
+        let numerator = amount_in_with_fee * reserve_out;
+        let denominator = reserve_in * FEE_DENOMINATOR + amount_in_with_fee;
+        numerator / denominator
+    }
+
+    /// Return current AMM pool state (reserves, LP shares, fees collected).
+    pub fn amm_pool_info(env: Env) -> AmmPool {
+        Self::pool(&env)
+    }
+
+    /// Return the LP share balance for a given provider.
+    pub fn amm_lp_balance(env: Env, provider: Address) -> i128 {
+        env.storage()
+            .persistent()
+            .get(&DataKey::LpShares(provider))
+            .unwrap_or(0i128)
+    }
+
     // ── internal ──────────────────────────────────────────────────────────────
 
-    fn config(env: &Env) -> (Address, Address) {
+    fn config(env: &Env) -> (Address, Address, Address) {
         env.storage()
             .instance()
             .get(&DataKey::Config)
@@ -783,6 +1120,37 @@ impl CarbonMarketplace {
         let decay_amount = price_diff * time_fraction / 10_000;
 
         auction.starting_price - decay_amount
+    }
+
+    fn pool(env: &Env) -> AmmPool {
+        env.storage()
+            .instance()
+            .get(&DataKey::AmmPool)
+            .unwrap_or(AmmPool {
+                reserve_tree: 0,
+                reserve_payment: 0,
+                total_lp_shares: 0,
+                fees_collected: 0,
+            })
+    }
+
+    fn save_pool(env: &Env, pool: &AmmPool) {
+        env.storage().instance().set(&DataKey::AmmPool, pool);
+    }
+
+    /// Integer square root (floor) using Newton's method.
+    /// Handles the xy = k geometric mean for initial LP share minting.
+    fn isqrt(n: i128) -> i128 {
+        if n <= 0 {
+            return 0;
+        }
+        let mut x = n;
+        let mut y = (x + 1) / 2;
+        while y < x {
+            x = y;
+            y = (x + n / x) / 2;
+        }
+        x
     }
 }
 
@@ -858,7 +1226,7 @@ mod tests {
             .address();
         token::StellarAssetClient::new(&env, &payment_token).mint(&buyer, &100_000);
 
-        client.initialize(&admin, &tree_token, &admin_controls_id);
+        client.initialize(&admin, &tree_token, &payment_token, &admin_controls_id);
 
         Ctx { env, admin, seller, buyer, planter, tree_token, payment_token, client }
     }
@@ -918,7 +1286,7 @@ mod tests {
     #[should_panic(expected = "Error(Contract, #1)")]
     fn test_double_initialize_rejected() {
         let ctx = setup();
-        ctx.client.initialize(&ctx.admin, &ctx.tree_token, &ctx.tree_token);
+        ctx.client.initialize(&ctx.admin, &ctx.tree_token, &ctx.payment_token, &ctx.tree_token);
     }
 
     // ── list ───────────────────────────────────────────────────────────────────
@@ -1099,12 +1467,6 @@ mod tests {
     }
 
     // ── create_auction ────────────────────────────────────────────────────────
-
-    fn auction_setup() -> Ctx {
-        let ctx = setup();
-        ctx.client.configure_auction(&100, &50, &10, &3600);
-        ctx
-    }
 
     #[test]
     fn test_create_auction_escrows_tokens_and_returns_id() {
@@ -1312,11 +1674,204 @@ mod tests {
         assert_eq!(ctx.client.get_current_price(&id), 50); // Reserve price
     }
 
+    // ── AMM: add liquidity ─────────────────────────────────────────────────────
+
+    #[test]
+    fn test_amm_first_deposit_mints_geometric_mean_shares() {
+        let ctx = setup();
+        let lp = Address::generate(&ctx.env);
+        token::StellarAssetClient::new(&ctx.env, &ctx.tree_token).mint(&lp, &1_000_000);
+        token::StellarAssetClient::new(&ctx.env, &ctx.payment_token).mint(&lp, &1_000_000);
+
+        // 1,000,000 * 1,000,000 = 1e12; sqrt = 1,000,000
+        let shares = ctx.client.amm_add_liquidity(&lp, &1_000_000i128, &1_000_000i128);
+        // shares = isqrt(1e12) * LP_PRECISION = 1_000_000 * 1_000_000_000_000
+        assert_eq!(shares, 1_000_000 * 1_000_000_000_000i128);
+
+        let pool = ctx.client.amm_pool_info();
+        assert_eq!(pool.reserve_tree, 1_000_000);
+        assert_eq!(pool.reserve_payment, 1_000_000);
+        assert_eq!(pool.total_lp_shares, shares);
+
+        assert_eq!(ctx.client.amm_lp_balance(&lp), shares);
+    }
+
+    #[test]
+    fn test_amm_second_deposit_proportional_shares() {
+        let ctx = setup();
+        let lp1 = Address::generate(&ctx.env);
+        let lp2 = Address::generate(&ctx.env);
+        token::StellarAssetClient::new(&ctx.env, &ctx.tree_token).mint(&lp1, &2_000_000);
+        token::StellarAssetClient::new(&ctx.env, &ctx.payment_token).mint(&lp1, &2_000_000);
+        token::StellarAssetClient::new(&ctx.env, &ctx.tree_token).mint(&lp2, &1_000_000);
+        token::StellarAssetClient::new(&ctx.env, &ctx.payment_token).mint(&lp2, &1_000_000);
+
+        let shares1 = ctx.client.amm_add_liquidity(&lp1, &2_000_000i128, &2_000_000i128);
+        let shares2 = ctx.client.amm_add_liquidity(&lp2, &1_000_000i128, &1_000_000i128);
+
+        // lp2 contributes half of lp1's deposit; expects half the shares
+        assert_eq!(shares2, shares1 / 2);
+
+        let pool = ctx.client.amm_pool_info();
+        assert_eq!(pool.total_lp_shares, shares1 + shares2);
+    }
+
+    // ── AMM: remove liquidity ──────────────────────────────────────────────────
+
+    #[test]
+    fn test_amm_remove_returns_proportional_tokens() {
+        let ctx = setup();
+        let lp = Address::generate(&ctx.env);
+        token::StellarAssetClient::new(&ctx.env, &ctx.tree_token).mint(&lp, &4_000);
+        token::StellarAssetClient::new(&ctx.env, &ctx.payment_token).mint(&lp, &4_000);
+
+        let shares = ctx.client.amm_add_liquidity(&lp, &4_000i128, &4_000i128);
+
+        let tree_pre = balance(&ctx.env, &ctx.tree_token, &lp);
+        let payment_pre = balance(&ctx.env, &ctx.payment_token, &lp);
+
+        // Remove half the shares
+        let half = shares / 2;
+        let (tree_out, payment_out) = ctx.client.amm_remove_liquidity(&lp, &half);
+
+        assert_eq!(tree_out, 2_000);
+        assert_eq!(payment_out, 2_000);
+
+        assert_eq!(
+            balance(&ctx.env, &ctx.tree_token, &lp),
+            tree_pre + tree_out
+        );
+        assert_eq!(
+            balance(&ctx.env, &ctx.payment_token, &lp),
+            payment_pre + payment_out
+        );
+        assert_eq!(ctx.client.amm_lp_balance(&lp), shares - half);
+    }
+
+    #[test]
+    fn test_amm_full_removal_zeros_balance() {
+        let ctx = setup();
+        let lp = Address::generate(&ctx.env);
+        token::StellarAssetClient::new(&ctx.env, &ctx.tree_token).mint(&lp, &2_000);
+        token::StellarAssetClient::new(&ctx.env, &ctx.payment_token).mint(&lp, &2_000);
+
+        let shares = ctx.client.amm_add_liquidity(&lp, &2_000i128, &2_000i128);
+        ctx.client.amm_remove_liquidity(&lp, &shares);
+
+        assert_eq!(ctx.client.amm_lp_balance(&lp), 0);
+    }
+
+    // ── AMM: constant-product swap ─────────────────────────────────────────────
+
+    #[test]
+    fn test_amm_swap_tree_to_payment() {
+        let ctx = setup();
+        let lp = Address::generate(&ctx.env);
+        token::StellarAssetClient::new(&ctx.env, &ctx.tree_token).mint(&lp, &10_000_000);
+        token::StellarAssetClient::new(&ctx.env, &ctx.payment_token).mint(&lp, &10_000_000);
+        ctx.client.amm_add_liquidity(&lp, &10_000_000i128, &10_000_000i128);
+
+        let trader = Address::generate(&ctx.env);
+        token::StellarAssetClient::new(&ctx.env, &ctx.tree_token).mint(&trader, &100_000);
+
+        let amount_in: i128 = 100_000;
+        let quote = ctx.client.amm_get_quote(&ctx.tree_token, &amount_in);
+        assert!(quote > 0);
+        assert!(quote < amount_in); // output < input due to fee + slippage
+
+        let amount_out = ctx.client.amm_swap_exact_in(
+            &trader,
+            &ctx.tree_token,
+            &amount_in,
+            &1i128,
+        );
+        assert_eq!(amount_out, quote);
+
+        // Trader received payment tokens
+        let payment_balance = balance(&ctx.env, &ctx.payment_token, &trader);
+        assert_eq!(payment_balance, amount_out);
+
+        // xy should have increased (k increases with fees)
+        let pool = ctx.client.amm_pool_info();
+        let new_k = pool.reserve_tree * pool.reserve_payment;
+        assert!(new_k >= 10_000_000i128 * 10_000_000i128);
+    }
+
+    #[test]
+    fn test_amm_swap_payment_to_tree() {
+        let ctx = setup();
+        let lp = Address::generate(&ctx.env);
+        token::StellarAssetClient::new(&ctx.env, &ctx.tree_token).mint(&lp, &10_000_000);
+        token::StellarAssetClient::new(&ctx.env, &ctx.payment_token).mint(&lp, &10_000_000);
+        ctx.client.amm_add_liquidity(&lp, &10_000_000i128, &10_000_000i128);
+
+        let trader = Address::generate(&ctx.env);
+        token::StellarAssetClient::new(&ctx.env, &ctx.payment_token).mint(&trader, &200_000);
+
+        let amount_out = ctx.client.amm_swap_exact_in(
+            &trader,
+            &ctx.payment_token,
+            &200_000i128,
+            &1i128,
+        );
+        assert!(amount_out > 0);
+
+        let tree_balance = balance(&ctx.env, &ctx.tree_token, &trader);
+        assert_eq!(tree_balance, amount_out);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_amm_slippage_exceeded_panics() {
+        let ctx = setup();
+        let lp = Address::generate(&ctx.env);
+        token::StellarAssetClient::new(&ctx.env, &ctx.tree_token).mint(&lp, &1_000_000);
+        token::StellarAssetClient::new(&ctx.env, &ctx.payment_token).mint(&lp, &1_000_000);
+        ctx.client.amm_add_liquidity(&lp, &1_000_000i128, &1_000_000i128);
+
+        let trader = Address::generate(&ctx.env);
+        token::StellarAssetClient::new(&ctx.env, &ctx.tree_token).mint(&trader, &1_000);
+        // Set min_amount_out impossibly high
+        ctx.client.amm_swap_exact_in(&trader, &ctx.tree_token, &1_000i128, &999_999_999i128);
+    }
+
+    #[test]
+    fn test_amm_get_quote_matches_swap() {
+        let ctx = setup();
+        let lp = Address::generate(&ctx.env);
+        token::StellarAssetClient::new(&ctx.env, &ctx.tree_token).mint(&lp, &5_000_000);
+        token::StellarAssetClient::new(&ctx.env, &ctx.payment_token).mint(&lp, &5_000_000);
+        ctx.client.amm_add_liquidity(&lp, &5_000_000i128, &5_000_000i128);
+
+        let amount_in: i128 = 50_000;
+        let quote = ctx.client.amm_get_quote(&ctx.tree_token, &amount_in);
+
+        let trader = Address::generate(&ctx.env);
+        token::StellarAssetClient::new(&ctx.env, &ctx.tree_token).mint(&trader, amount_in);
+        let actual_out = ctx.client.amm_swap_exact_in(&trader, &ctx.tree_token, &amount_in, &1i128);
+
+        assert_eq!(quote, actual_out);
+    }
+
+    // ── AMM: integer sqrt test ────────────────────────────────────────────────
+
+    #[test]
+    fn test_isqrt_correctness() {
+        // Test via amm_add_liquidity geometric mean (indirect)
+        let ctx = setup();
+        let lp = Address::generate(&ctx.env);
+        // 9 * 4 = 36; sqrt = 6; shares = 6 * LP_PRECISION
+        token::StellarAssetClient::new(&ctx.env, &ctx.tree_token).mint(&lp, 9);
+        token::StellarAssetClient::new(&ctx.env, &ctx.payment_token).mint(&lp, 4);
+        let shares = ctx.client.amm_add_liquidity(&lp, &9i128, &4i128);
+        assert_eq!(shares, 6 * 1_000_000_000_000i128);
+    }
+
     // ── Fuzz Tests (Proptest) ──────────────────────────────────────────────────
 
     #[cfg(test)]
     mod fuzz_tests {
-        use proptest::prelude::*;
+        use proptest::pre prelude::*;
 
         proptest! {
             #[test]
