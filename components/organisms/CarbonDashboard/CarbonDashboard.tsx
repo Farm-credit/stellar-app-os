@@ -2,6 +2,7 @@ import React from 'react';
 import { CarbonChart } from './CarbonChart';
 import { BadgesList, type BadgeItem } from './BadgesList';
 import { SocialShareCard } from './SocialShareCard';
+import { CarbonCreditSwapWidget } from '@/components/organisms/CarbonCreditSwapWidget';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { TreePine, Wind } from 'lucide-react';
 
@@ -94,6 +95,11 @@ export function CarbonDashboard() {
         <div className="md:col-span-1">
           <SocialShareCard totalTrees={totalTrees} totalOffsetKg={totalOffsetKg} />
         </div>
+      </div>
+
+      {/* Swap Widget */}
+      <div className="grid grid-cols-1 gap-6">
+        <CarbonCreditSwapWidget />
       </div>
 
       {/* Main Chart Area */}
