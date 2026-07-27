@@ -16,8 +16,7 @@
 //!   7. `is_eligible(verifier)` / `is_registered(verifier)` can be queried.
 
 use soroban_sdk::{
-    contract, contracterror, contractimpl, contracttype, symbol_short, token, vec, Address, Env,
-    Vec,
+    contract, contracterror, contractimpl, contracttype, symbol_short, token, vec, Address, Env, Vec,
 };
 use harvesta_errors::HarvestaError;
 
@@ -168,7 +167,7 @@ impl VerifierStaking {
             panic_with_error!(&env, HarvestaError::AmountMustBePositive);
         }
 
-        if !Self::is_registered_raw(&env, &verifier) {
+        if !Self::is_registered(env.clone(), verifier.clone()) {
             panic_with_error!(&env, VerifierStakingError::NotRegistered);
         }
 
@@ -178,8 +177,7 @@ impl VerifierStaking {
         let mut rec: VerifierStake = env
             .storage()
             .persistent()
-            .get(&key)
-            .unwrap_or_else(|| panic_with_error!(&env, VerifierStakingError::VerifierNotStaked));
+            .get(&key).unwrap_or_else(|| panic_with_error!(&env, VerifierStakingError::VerifierNotStaked));
 
         rec.amount += amount;
 
@@ -197,6 +195,9 @@ impl VerifierStaking {
 
     /// Admin slashes `slash_amount` from a verifier's bond on proven fraud.
     /// Slashed tokens are transferred to the replanting buffer pool contract.
+    ///
+    /// # Panics
+    /// If `slash_amount` is not positive or exceeds the verifier's stake.
     pub fn slash(env: Env, verifier: Address, slash_amount: i128) {
         let (admin, _, _, _, replanting_buffer_pool) = Self::config(&env);
         admin.require_auth();
@@ -209,8 +210,7 @@ impl VerifierStaking {
         let mut rec: VerifierStake = env
             .storage()
             .persistent()
-            .get(&key)
-            .unwrap_or_else(|| panic_with_error!(&env, VerifierStakingError::VerifierNotStaked));
+            .get(&key).unwrap_or_else(|| panic_with_error!(&env, VerifierStakingError::VerifierNotStaked));
 
         if slash_amount > rec.amount {
             panic_with_error!(&env, VerifierStakingError::SlashExceedsStake);
@@ -248,8 +248,7 @@ impl VerifierStaking {
         let rec: VerifierStake = env
             .storage()
             .persistent()
-            .get(&key)
-            .unwrap_or_else(|| panic_with_error!(&env, VerifierStakingError::VerifierNotStaked));
+            .get(&key).unwrap_or_else(|| panic_with_error!(&env, VerifierStakingError::VerifierNotStaked));
 
         let amount = rec.amount;
         if amount > 0 {
@@ -265,6 +264,13 @@ impl VerifierStaking {
                 .unwrap_or(vec![&env]);
             unbondings.push_back(unbonding);
             env.storage().persistent().set(&unbond_key, &unbondings);
+            // Set TTL for the unbonding entry to be slightly longer than the lockup period.
+            // This ensures the user has ample time to withdraw.
+            env.storage().persistent().extend_ttl(
+                &unbond_key,
+                UNBONDING_PERIOD_SECONDS as u32 + (7 * 24 * 60 * 60), // period + 7 days
+                UNBONDING_PERIOD_SECONDS as u32 + (14 * 24 * 60 * 60), // max TTL bump: period + 14 days
+            );
         }
 
         env.storage().persistent().remove(&key);
@@ -294,16 +300,18 @@ impl VerifierStaking {
 
         let (_, stake_token, _, _, _) = Self::config(&env);
         let mut total_withdrawn = 0;
-        let mut remaining_unbondings = vec![&env];
         let current_time = env.ledger().timestamp();
 
-        for unbonding in unbondings.iter() {
+        // Use `retain` to efficiently filter out matured unbondings and calculate the total to withdraw.
+        // This is more gas-efficient than creating a new Vec.
+        unbondings.retain(|unbonding| {
             if current_time >= unbonding.completion_time {
                 total_withdrawn += unbonding.amount;
+                false // Remove from the vector
             } else {
-                remaining_unbondings.push_back(unbonding);
+                true // Keep in the vector
             }
-        }
+        });
 
         if total_withdrawn == 0 {
             panic_with_error!(&env, VerifierStakingError::UnbondingPeriodNotExpired);
@@ -315,12 +323,10 @@ impl VerifierStaking {
             &total_withdrawn,
         );
 
-        if remaining_unbondings.is_empty() {
+        if unbondings.is_empty() {
             env.storage().persistent().remove(&unbond_key);
         } else {
-            env.storage()
-                .persistent()
-                .set(&unbond_key, &remaining_unbondings);
+            env.storage().persistent().set(&unbond_key, &unbondings);
         }
 
         env.events()
@@ -328,9 +334,10 @@ impl VerifierStaking {
     }
 
     /// Returns true if the verifier is registered AND has stake ≥ `min_stake_amount`.
+    #[must_use]
     pub fn is_eligible(env: Env, verifier: Address) -> bool {
         let (_, _, min_stake, _, _) = Self::config(&env);
-        if !Self::is_registered_raw(&env, &verifier) {
+        if !Self::is_registered(env.clone(), verifier.clone()) {
             return false;
         }
         env.storage()
@@ -341,8 +348,12 @@ impl VerifierStaking {
     }
 
     /// Returns true if the verifier has completed registration.
+    #[must_use]
     pub fn is_registered(env: Env, verifier: Address) -> bool {
-        Self::is_registered_raw(&env, &verifier)
+        env.storage()
+            .persistent()
+            .get(&DataKey::Registered(verifier))
+            .unwrap_or(false)
     }
 
     /// Returns the stake record for a verifier, or None.
@@ -398,14 +409,6 @@ impl VerifierStaking {
             .instance()
             .get(&DataKey::Config)
             .unwrap_or_else(|| panic_with_error!(env, HarvestaError::NotInitialized))
-    }
-
-    /// Internal: read the `Registered` flag without the public-function wrapper.
-    fn is_registered_raw(env: &Env, verifier: &Address) -> bool {
-        env.storage()
-            .persistent()
-            .get(&DataKey::Registered(verifier.clone()))
-            .unwrap_or(false)
     }
 }
 
