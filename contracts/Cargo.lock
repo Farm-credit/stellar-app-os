@@ -184,6 +184,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "auth-contract"
+version = "0.1.0"
+dependencies = [
+ "contract-utils",
+ "soroban-sdk 21.7.7",
+]
+
+[[package]]
 name = "autocfg"
 version = "1.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -308,11 +316,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "carbon-dex"
+version = "0.1.0"
+dependencies = [
+ "soroban-sdk 21.7.7",
+]
+
+[[package]]
 name = "carbon-marketplace"
 version = "0.1.0"
 dependencies = [
  "admin-controls",
  "harvesta-errors",
+ "proptest",
  "soroban-sdk 21.7.7",
 ]
 
@@ -750,6 +766,7 @@ name = "escrow"
 version = "0.1.0"
 dependencies = [
  "admin-controls",
+ "proptest",
  "soroban-sdk 21.7.7",
 ]
 
@@ -1340,6 +1357,15 @@ dependencies = [
  "rusty-fork",
  "tempfile",
  "unarray",
+]
+
+[[package]]
+name = "public-seal"
+version = "0.1.0"
+dependencies = [
+ "harvesta-errors",
+ "shared",
+ "soroban-sdk 21.7.7",
 ]
 
 [[package]]
