@@ -1,6 +1,7 @@
 [workspace]
 members = [
     "contract-utils",
+    "auth-contract",
     "shared",
     "planter-registry",
     "planter-blacklist",

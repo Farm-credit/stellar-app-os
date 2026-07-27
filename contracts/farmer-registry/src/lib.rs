@@ -150,6 +150,50 @@ impl FarmerRegistry {
         Self::_is_validator(&env, &validator)
     }
 
+    // ── Emergency Freeze Authority (admin-only) ───────────────────────────────
+
+    /// Freeze a compromised farmer address pending audit.
+    ///
+    /// Only the contract admin may call this.
+    /// Emits `(Frozen, wallet_address, true)`.
+    pub fn freeze_farmer(env: Env, admin: Address, wallet_address: Address) {
+        Self::assert_not_paused(&env);
+        admin.require_auth();
+        Self::require_admin(&env, &admin);
+
+        let key = Self::frozen_key(&env, &wallet_address);
+        env.storage().persistent().set(&key, &true);
+        env.storage().persistent().extend_ttl(&key, 518400, 1036800);
+
+        env.events().publish(
+            (symbol_short!("Frozen"), wallet_address.clone()),
+            true,
+        );
+    }
+
+    /// Unfreeze a farmer address.
+    ///
+    /// Only the contract admin may call this.
+    /// Emits `(Frozen, wallet_address, false)`.
+    pub fn unfreeze_farmer(env: Env, admin: Address, wallet_address: Address) {
+        Self::assert_not_paused(&env);
+        admin.require_auth();
+        Self::require_admin(&env, &admin);
+
+        let key = Self::frozen_key(&env, &wallet_address);
+        env.storage().persistent().remove(&key);
+
+        env.events().publish(
+            (symbol_short!("Frozen"), wallet_address.clone()),
+            false,
+        );
+    }
+
+    /// Returns `true` if `wallet_address` is frozen.
+    pub fn is_frozen(env: Env, wallet_address: Address) -> bool {
+        Self::_is_frozen(&env, &wallet_address)
+    }
+
     // ── Write operations (validator-gated) ───────────────────────────────────
 
     /// Register a new farmer.
@@ -245,6 +289,7 @@ impl FarmerRegistry {
         Self::assert_not_paused(&env);
         validator.require_auth();
         wallet_address.require_auth();
+        Self::assert_not_frozen(&env, &wallet_address);
 
         Self::require_validator(&env, &validator);
         Self::assert_valid_region(&env, &new_region_geohash);
@@ -369,6 +414,7 @@ impl FarmerRegistry {
     pub fn set_available(env: Env, wallet_address: Address, available: bool) {
         Self::assert_not_paused(&env);
         wallet_address.require_auth();
+        Self::assert_not_frozen(&env, &wallet_address);
 
         if !env
             .storage()
@@ -414,6 +460,7 @@ impl FarmerRegistry {
         area_sqm: u64,
     ) {
         farmer.require_auth();
+        Self::assert_not_frozen(&env, &farmer);
 
         let len = coordinates.len();
         if len < 3 || len > 50 {
@@ -502,6 +549,19 @@ impl FarmerRegistry {
         }
     }
 
+    fn assert_not_frozen(env: &Env, wallet: &Address) {
+        if Self::_is_frozen(env, wallet) {
+            panic_with_error!(env, FarmerError::FarmerFrozen);
+        }
+    }
+
+    fn _is_frozen(env: &Env, wallet: &Address) -> bool {
+        env.storage()
+            .persistent()
+            .get::<_, bool>(&Self::frozen_key(env, wallet))
+            .unwrap_or(false)
+    }
+
     fn _is_validator(env: &Env, addr: &Address) -> bool {
         env.storage()
             .instance()
@@ -537,6 +597,10 @@ impl FarmerRegistry {
 
     fn validator_key(env: &Env, addr: &Address) -> soroban_sdk::Val {
         (symbol_short!("VALID"), addr.clone()).into_val(env)
+    }
+
+    fn frozen_key(env: &Env, wallet: &Address) -> soroban_sdk::Val {
+        (symbol_short!("FROZEN"), wallet.clone()).into_val(env)
     }
 
     fn version_counter_key(env: &Env, wallet: &Address) -> soroban_sdk::Val {
@@ -967,6 +1031,78 @@ mod tests {
         coords.push_back((1000001, 2000000));
         
         client.register_plot(&farmer, &plot_id, &coords, &1000);
+        client.register_plot(&farmer, &plot_id, &coords, &1000);
+    }
+
+    // ── Emergency Freeze Authority ───────────────────────────────────────────
+
+    #[test]
+    fn test_freeze_and_unfreeze() {
+        let (env, admin, _, client) = setup();
+        let farmer = Address::generate(&env);
+
+        assert!(!client.is_frozen(&farmer));
+
+        client.freeze_farmer(&admin, &farmer);
+        assert!(client.is_frozen(&farmer));
+
+        client.unfreeze_farmer(&admin, &farmer);
+        assert!(!client.is_frozen(&farmer));
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #3)")]
+    fn test_freeze_non_admin_rejected() {
+        let (env, _, _, client) = setup();
+        let attacker = Address::generate(&env);
+        let farmer = Address::generate(&env);
+
+        client.freeze_farmer(&attacker, &farmer);
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #8)")]
+    fn test_frozen_farmer_cannot_update_profile() {
+        let (env, admin, validator, client) = setup();
+        let farmer = Address::generate(&env);
+        let (p1, h1) = doc(&env, 1);
+
+        client.register_farmer(&validator, &farmer, &h1, &p1, &region(&env, "s1"));
+        client.freeze_farmer(&admin, &farmer);
+
+        let (p2, h2) = doc(&env, 2);
+        client.update_profile(&validator, &farmer, &h2, &p2, &region(&env, "s2"));
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #8)")]
+    fn test_frozen_farmer_cannot_set_available() {
+        let (env, admin, validator, client) = setup();
+        let farmer = Address::generate(&env);
+        let (p1, h1) = doc(&env, 1);
+
+        client.register_farmer(&validator, &farmer, &h1, &p1, &region(&env, "s1"));
+        client.freeze_farmer(&admin, &farmer);
+
+        client.set_available(&farmer, &false);
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #8)")]
+    fn test_frozen_farmer_cannot_register_plot() {
+        let (env, admin, validator, client) = setup();
+        let farmer = Address::generate(&env);
+        let (p1, h1) = doc(&env, 1);
+
+        client.register_farmer(&validator, &farmer, &h1, &p1, &region(&env, "s1"));
+        client.freeze_farmer(&admin, &farmer);
+
+        let plot_id = BytesN::from_array(&env, &[5u8; 32]);
+        let mut coords = soroban_sdk::Vec::new(&env);
+        coords.push_back((1000000, 2000000));
+        coords.push_back((1000000, 2000001));
+        coords.push_back((1000001, 2000000));
+
         client.register_plot(&farmer, &plot_id, &coords, &1000);
     }
 }
