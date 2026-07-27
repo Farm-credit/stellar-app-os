@@ -42,7 +42,7 @@
 
 use soroban_sdk::{
     contract, contracterror, contractimpl, contracttype, panic_with_error, symbol_short, Address,
-    Env, String, Symbol, Vec,
+    Env, IntoVal, String, Symbol, Val, Vec,
 };
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -233,6 +233,12 @@ const MIN_DYNAMIC_QUORUM: u64 = 5;
 const MAX_DYNAMIC_QUORUM: u64 = 25;
 const BASIS_POINTS: u64 = 10000;
 
+// Storage TTL constants (ledgers)
+const INSTANCE_TTL_THRESHOLD: u32 = 17_280;
+const INSTANCE_TTL_LEDGERS: u32 = 103_680;
+const PERSISTENT_TTL_THRESHOLD: u32 = 120_960;
+const PERSISTENT_TTL_LEDGERS: u32 = 518_400;
+
 // ── Contract ──────────────────────────────────────────────────────────────────
 
 #[contract]
@@ -277,15 +283,15 @@ impl PlatformGovernance {
         env.storage()
             .instance()
             .set(&min_planting_bond_key(), &min_planting_bond);
-        env.storage()
-            .instance()
-            .set(&proposal_count_key(), &0u64);
+        env.storage().instance().set(&proposal_count_key(), &0u64);
 
         // Initialize empty verifier whitelist
         let whitelist: Vec<Address> = Vec::new(&env);
         env.storage()
             .persistent()
             .set(&verifier_whitelist_key(), &whitelist);
+        Self::bump_instance(&env);
+        Self::bump_persistent(&env, &verifier_whitelist_key());
     }
 
     /// Create a new governance proposal.
@@ -351,9 +357,8 @@ impl PlatformGovernance {
             executable_at: now + voting_period + timelock,
         };
 
-        env.storage()
-            .persistent()
-            .set(&proposal_key(id), &proposal);
+        env.storage().persistent().set(&proposal_key(id), &proposal);
+        Self::bump_persistent(&env, &proposal_key(id));
         env.storage()
             .instance()
             .set(&proposal_count_key(), &(id + 1));
@@ -380,11 +385,7 @@ impl PlatformGovernance {
         voter.require_auth();
 
         // Block voters that have delegated their power to someone else.
-        if env
-            .storage()
-            .persistent()
-            .has(&delegation_key(&voter))
-        {
+        if env.storage().persistent().has(&delegation_key(&voter)) {
             panic!("voting power delegated; retract delegation before voting");
         }
 
@@ -418,14 +419,13 @@ impl PlatformGovernance {
             .instance()
             .get(&staking_contract_key())
             .expect("not initialized");
-        
+
         // Get raw voting power (staked token amount)
         let own_power = Self::get_voting_power(&env, &staking_contract, &voter);
-        
+
         // Add delegated power from all direct delegators.
-        let delegated_power =
-            Self::aggregate_delegated_power(&env, &staking_contract, &voter);
-            
+        let delegated_power = Self::aggregate_delegated_power(&env, &staking_contract, &voter);
+
         let raw_power = own_power + delegated_power;
 
         if raw_power <= 0 {
@@ -435,7 +435,7 @@ impl PlatformGovernance {
         // Track this voter's activity for the rolling 30-day window used to
         // dynamically adjust quorum requirements.
         Self::record_participation(&env, raw_power);
-        
+
         // Apply quadratic voting for SpeciesSelection proposals
         // Voting power = sqrt(token holdings)
         let power = if proposal.proposal_type == ProposalType::SpeciesSelection {
@@ -445,7 +445,10 @@ impl PlatformGovernance {
         };
 
         // Validate option_id exists
-        let option_exists = proposal.options.iter().any(|opt| opt.option_id == option_id);
+        let option_exists = proposal
+            .options
+            .iter()
+            .any(|opt| opt.option_id == option_id);
         if !option_exists {
             panic!("invalid option_id");
         }
@@ -460,6 +463,7 @@ impl PlatformGovernance {
         env.storage()
             .persistent()
             .set(&vote_key(proposal_id, &voter), &vote_record);
+        Self::bump_persistent(&env, &vote_key(proposal_id, &voter));
 
         // Update proposal tally
         let mut new_tally = Vec::new(&env);
@@ -506,6 +510,7 @@ impl PlatformGovernance {
         env.storage()
             .persistent()
             .set(&proposal_key(proposal_id), &proposal);
+        Self::bump_persistent(&env, &proposal_key(proposal_id));
 
         env.events().publish(
             (symbol_short!("vote"), proposal_id),
@@ -554,9 +559,7 @@ impl PlatformGovernance {
                     .find(|opt| opt.option_id == winning_option_id)
                 {
                     let new_fee = Self::parse_fee_from_description(&option.description);
-                    env.storage()
-                        .instance()
-                        .set(&platform_fee_key(), &new_fee);
+                    env.storage().instance().set(&platform_fee_key(), &new_fee);
                 }
             }
             ProposalType::MinPlantingBond => {
@@ -595,6 +598,7 @@ impl PlatformGovernance {
         env.storage()
             .persistent()
             .set(&proposal_key(proposal_id), &proposal);
+        Self::bump_persistent(&env, &proposal_key(proposal_id));
 
         env.events().publish(
             (symbol_short!("proposal"), symbol_short!("executed")),
@@ -627,17 +631,15 @@ impl PlatformGovernance {
         env.storage()
             .persistent()
             .set(&delegate_info_key(&delegate), &record);
+        Self::bump_persistent(&env, &delegate_info_key(&delegate));
 
         // Initialise empty delegators list on first registration.
-        if !env
-            .storage()
-            .persistent()
-            .has(&delegators_key(&delegate))
-        {
+        if !env.storage().persistent().has(&delegators_key(&delegate)) {
             let empty: Vec<Address> = Vec::new(&env);
             env.storage()
                 .persistent()
                 .set(&delegators_key(&delegate), &empty);
+            Self::bump_persistent(&env, &delegators_key(&delegate));
         }
 
         env.events().publish(
@@ -711,11 +713,7 @@ impl PlatformGovernance {
         }
 
         // Atomically replace any prior delegation.
-        if env
-            .storage()
-            .persistent()
-            .has(&delegation_key(&delegator))
-        {
+        if env.storage().persistent().has(&delegation_key(&delegator)) {
             let old_delegate: Address = env
                 .storage()
                 .persistent()
@@ -728,6 +726,7 @@ impl PlatformGovernance {
         env.storage()
             .persistent()
             .set(&delegation_key(&delegator), &delegate);
+        Self::bump_persistent(&env, &delegation_key(&delegator));
 
         // Record reverse link: delegate → delegator list.
         let mut delegators: Vec<Address> = env
@@ -739,6 +738,7 @@ impl PlatformGovernance {
         env.storage()
             .persistent()
             .set(&delegators_key(&delegate), &delegators);
+        Self::bump_persistent(&env, &delegators_key(&delegate));
 
         env.events().publish(
             (symbol_short!("delegate"), symbol_short!("delegated")),
@@ -842,9 +842,7 @@ impl PlatformGovernance {
 
     /// Returns the address that `delegator` has delegated to, or None.
     pub fn get_delegation(env: Env, delegator: Address) -> Option<Address> {
-        env.storage()
-            .persistent()
-            .get(&delegation_key(&delegator))
+        env.storage().persistent().get(&delegation_key(&delegator))
     }
 
     /// Returns the total delegated voting power currently pointed at `delegate`.
@@ -894,11 +892,8 @@ impl PlatformGovernance {
         if new_fee > 100 {
             panic!("fee must be <= 100%");
         }
-        env.storage()
-            .instance()
-            .set(&platform_fee_key(), &new_fee);
-        env.events()
-            .publish((symbol_short!("fee_set"),), new_fee);
+        env.storage().instance().set(&platform_fee_key(), &new_fee);
+        env.events().publish((symbol_short!("fee_set"),), new_fee);
     }
 
     /// Directly set minimum planting bond (emergency override). Admin only.
@@ -910,8 +905,7 @@ impl PlatformGovernance {
         env.storage()
             .instance()
             .set(&min_planting_bond_key(), &new_bond);
-        env.events()
-            .publish((symbol_short!("bond_set"),), new_bond);
+        env.events().publish((symbol_short!("bond_set"),), new_bond);
     }
 
     /// Add verifier to whitelist (emergency override). Admin only.
@@ -934,8 +928,8 @@ impl PlatformGovernance {
         env.storage()
             .persistent()
             .set(&verifier_whitelist_key(), &whitelist);
-        env.events()
-            .publish((symbol_short!("wl_add"),), verifier);
+        Self::bump_persistent(&env, &verifier_whitelist_key());
+        env.events().publish((symbol_short!("wl_add"),), verifier);
     }
 
     /// Remove verifier from whitelist (emergency override). Admin only.
@@ -964,8 +958,8 @@ impl PlatformGovernance {
         env.storage()
             .persistent()
             .set(&verifier_whitelist_key(), &new_whitelist);
-        env.events()
-            .publish((symbol_short!("wl_rm"),), verifier);
+        Self::bump_persistent(&env, &verifier_whitelist_key());
+        env.events().publish((symbol_short!("wl_rm"),), verifier);
     }
 
     // ── Dynamic quorum ─────────────────────────────────────────────────────────
@@ -1009,7 +1003,9 @@ impl PlatformGovernance {
                     buckets.set(idx, 0i128);
                 }
             }
-            env.storage().instance().set(&participation_day_key(), &current_day);
+            env.storage()
+                .instance()
+                .set(&participation_day_key(), &current_day);
             env.storage()
                 .instance()
                 .set(&participation_buckets_key(), &buckets);
@@ -1093,6 +1089,7 @@ impl PlatformGovernance {
         env.storage()
             .instance()
             .set(&quorum_percentage_key(), &new_quorum);
+        Self::bump_instance(&env);
 
         env.events().publish(
             (symbol_short!("quorum"), symbol_short!("adjust")),
@@ -1102,6 +1099,7 @@ impl PlatformGovernance {
 
     /// Return the total active voting power recorded in the rolling 30-day window.
     pub fn participation_30d(env: Env) -> i128 {
+        Self::bump_instance(&env);
         let now = env.ledger().timestamp();
         Self::rotate_participation_buckets(&env, now);
         Self::sum_buckets(&env)
@@ -1109,6 +1107,7 @@ impl PlatformGovernance {
 
     /// Return the 30-day active voter participation rate as basis points (0–10000).
     pub fn participation_rate_bps(env: Env) -> u64 {
+        Self::bump_instance(&env);
         let now = env.ledger().timestamp();
         Self::rotate_participation_buckets(&env, now);
 
@@ -1147,15 +1146,15 @@ impl PlatformGovernance {
         if n <= 0 {
             return 0;
         }
-        
+
         let mut low = 1i128;
         let mut high = n;
         let mut result = 1i128;
-        
+
         while low <= high {
             let mid = (low + high) / 2;
             let mid_squared = mid * mid;
-            
+
             if mid_squared == n {
                 return mid;
             } else if mid_squared < n {
@@ -1165,7 +1164,7 @@ impl PlatformGovernance {
                 high = mid - 1;
             }
         }
-        
+
         result
     }
 
@@ -1176,6 +1175,7 @@ impl PlatformGovernance {
             .get(&admin_key())
             .expect("not initialized");
         admin.require_auth();
+        Self::bump_instance(env);
     }
 
     fn assert_not_paused(env: &Env) {
@@ -1187,6 +1187,23 @@ impl PlatformGovernance {
         if paused {
             panic!("contract is paused");
         }
+        Self::bump_instance(env);
+    }
+
+    /// Extend the TTL of instance storage to keep configuration alive.
+    fn bump_instance(env: &Env) {
+        env.storage()
+            .instance()
+            .extend_ttl(INSTANCE_TTL_THRESHOLD, INSTANCE_TTL_LEDGERS);
+    }
+
+    /// Extend the TTL of a persistent storage entry after writing to it.
+    fn bump_persistent<K: IntoVal<Env, Val>>(env: &Env, key: &K) {
+        env.storage().persistent().extend_ttl(
+            key,
+            PERSISTENT_TTL_THRESHOLD,
+            PERSISTENT_TTL_LEDGERS,
+        );
     }
 
     fn get_voting_power(_env: &Env, _staking_contract: &Address, _voter: &Address) -> i128 {
@@ -1265,7 +1282,13 @@ mod tests {
         Address, Env, String,
     };
 
-    fn setup() -> (Env, Address, Address, Address, PlatformGovernanceClient<'static>) {
+    fn setup() -> (
+        Env,
+        Address,
+        Address,
+        Address,
+        PlatformGovernanceClient<'static>,
+    ) {
         let env = Env::default();
         env.mock_all_auths();
 
@@ -1383,7 +1406,8 @@ mod tests {
         client.vote(&0, &1, &admin);
 
         // Advance past voting period and timelock
-        env.ledger().set_timestamp(env.ledger().timestamp() + 200000);
+        env.ledger()
+            .set_timestamp(env.ledger().timestamp() + 200000);
 
         let _proposal = client.get_proposal(&0);
     }
@@ -1455,7 +1479,7 @@ mod tests {
 
         let description_hash = String::from_str(&env, "species_hash");
         let proposal_type = ProposalType::SpeciesSelection;
-        
+
         let mut options = Vec::new(&env);
         options.push_back(VoteOption {
             option_id: 1,
@@ -1480,7 +1504,7 @@ mod tests {
 
         let description_hash = String::from_str(&env, "fee_hash");
         let proposal_type = ProposalType::PlatformFee;
-        
+
         let mut options = Vec::new(&env);
         options.push_back(VoteOption {
             option_id: 1,
@@ -1501,7 +1525,7 @@ mod tests {
 
         let description_hash = String::from_str(&env, "species_hash");
         let proposal_type = ProposalType::SpeciesSelection;
-        
+
         let mut options = Vec::new(&env);
         options.push_back(VoteOption {
             option_id: 1,
@@ -1512,15 +1536,14 @@ mod tests {
         client.vote(&0, &1, &admin);
 
         // Wait for voting period and timelock to pass
-        env.ledger().set_timestamp(env.ledger().timestamp() + 200000);
+        env.ledger()
+            .set_timestamp(env.ledger().timestamp() + 200000);
 
         // Manually set proposal to passed for testing execution
         // In production, this would happen through quorum
         let mut proposal = client.get_proposal(&0);
         proposal.status = ProposalStatus::Passed;
-        env.storage()
-            .persistent()
-            .set(&proposal_key(0), &proposal);
+        env.storage().persistent().set(&proposal_key(0), &proposal);
 
         client.execute(&0);
 
@@ -1887,7 +1910,8 @@ mod tests {
         client.vote(&0, &1, &admin);
 
         // Move forward 31 days and vote again with a different address.
-        env.ledger().set_timestamp(env.ledger().timestamp() + 31u64 * 86_400);
+        env.ledger()
+            .set_timestamp(env.ledger().timestamp() + 31u64 * 86_400);
         let voter2 = Address::generate(&env);
         client.vote(&0, &1, &voter2);
 
