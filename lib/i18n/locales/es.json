@@ -11,7 +11,8 @@
   "header": {
     "connectWallet": "Conectar Billetera",
     "openMenu": "Abrir menú de navegación",
-    "languageSelector": "Seleccionar idioma"
+    "languageSelector": "Seleccionar idioma",
+    "languageChangeError": "No pudimos cambiar el idioma. Inténtalo de nuevo."
   },
   "mobile": {
     "closeMenu": "Cerrar menú de navegación",

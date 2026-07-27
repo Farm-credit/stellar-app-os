@@ -11,7 +11,8 @@
   "header": {
     "connectWallet": "Haɗa Jakar Kuɗi",
     "openMenu": "Buɗe menu na kewayawa",
-    "languageSelector": "Zaɓi harshe"
+    "languageSelector": "Zaɓi harshe",
+    "languageChangeError": "Ba mu iya canza harshen ba. Da fatan za a sake gwadawa."
   },
   "mobile": {
     "closeMenu": "Rufe menu na kewayawa",

@@ -11,7 +11,8 @@
   "header": {
     "connectWallet": "Connecter le Portefeuille",
     "openMenu": "Ouvrir le menu de navigation",
-    "languageSelector": "Sélectionner la langue"
+    "languageSelector": "Sélectionner la langue",
+    "languageChangeError": "Impossible de changer de langue. Veuillez réessayer."
   },
   "mobile": {
     "closeMenu": "Fermer le menu de navigation",

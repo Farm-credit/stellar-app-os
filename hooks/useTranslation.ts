@@ -20,7 +20,6 @@ const LOCALE_MAP: Record<SupportedLanguage, string> = {
   ha: 'ha-NG',
   es: 'es-ES',
   fr: 'fr-FR',
-  pt: 'pt-BR',
 };
 
 export function useAppTranslation(): UseAppTranslationReturn {

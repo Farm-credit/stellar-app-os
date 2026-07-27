@@ -11,7 +11,8 @@
   "header": {
     "connectWallet": "Connect Wallet",
     "openMenu": "Open navigation menu",
-    "languageSelector": "Select language"
+    "languageSelector": "Select language",
+    "languageChangeError": "We couldn't change the language. Please try again."
   },
   "mobile": {
     "closeMenu": "Close navigation menu",
