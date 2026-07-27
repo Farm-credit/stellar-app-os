@@ -49,6 +49,7 @@ pub enum MarketplaceError {
     InvalidDecayRate = 111,
     InvalidDuration = 112,
     PriceMustBePositive = 113,
+    InvalidReferrer = 114,
 }
 
 #[contracttype]
@@ -140,6 +141,8 @@ enum DataKey {
     AuctionConfig,
     /// Royalty basis points (e.g. 500 = 5%)
     RoyaltyConfig,
+    /// Account referral mapping (account -> referrer)
+    Referrer(Address),
 }
 
 // ── Contract ──────────────────────────────────────────────────────────────────
@@ -198,6 +201,26 @@ impl CarbonMarketplace {
     /// administrator-configured fallback price is used.
     pub fn get_dynamic_price(env: Env) -> i128 {
         Self::resolve_listing_price(&env, 0)
+    }
+
+    /// Set an account's referrer for referral fee sharing (0.5%).
+    pub fn set_referrer(env: Env, account: Address, referrer: Address) {
+        account.require_auth();
+        if account == referrer {
+            panic_with_error!(&env, MarketplaceError::SelfTrade);
+        }
+        env.storage()
+            .persistent()
+            .set(&DataKey::Referrer(account.clone()), &referrer);
+        env.events()
+            .publish((symbol_short!("ref_set"), account), referrer);
+    }
+
+    /// Returns the registered referrer for an account.
+    pub fn get_referrer(env: Env, account: Address) -> Option<Address> {
+        env.storage()
+            .persistent()
+            .get(&DataKey::Referrer(account))
     }
 
     /// Admin configures default Dutch Auction parameters.
@@ -335,7 +358,7 @@ impl CarbonMarketplace {
             .checked_mul(listing.price_per_token)
             .unwrap_or_else(|| panic_with_error!(&env, HarvestaError::AmountMustBePositive));
 
-        // Split payment: royalty to planter, remainder to seller
+        // Split payment: royalty to planter, referral fee (0.5%) to referrer, remainder to seller
         let royalty_bps: u32 = env
             .storage()
             .instance()
@@ -347,7 +370,23 @@ impl CarbonMarketplace {
         } else {
             0
         };
-        let seller_amount = payment - royalty_amount;
+
+        let referrer_opt: Option<Address> = env
+            .storage()
+            .persistent()
+            .get(&DataKey::Referrer(buyer.clone()));
+
+        let referral_amount = if let Some(ref ref_addr) = referrer_opt {
+            if ref_addr != &listing.seller {
+                (payment * 50) / 10_000
+            } else {
+                0
+            }
+        } else {
+            0
+        };
+
+        let seller_amount = payment - royalty_amount - referral_amount;
 
         if royalty_amount > 0 {
             token::Client::new(&env, &listing.payment_token).transfer(
@@ -355,6 +394,18 @@ impl CarbonMarketplace {
                 &listing.planter,
                 &royalty_amount,
             );
+        }
+
+        if referral_amount > 0 {
+            if let Some(ref_addr) = referrer_opt {
+                token::Client::new(&env, &listing.payment_token).transfer(
+                    &buyer,
+                    &ref_addr,
+                    &referral_amount,
+                );
+                env.events()
+                    .publish((symbol_short!("ref_paid"), buyer.clone()), (ref_addr, referral_amount));
+            }
         }
 
         token::Client::new(&env, &listing.payment_token).transfer(
@@ -581,7 +632,7 @@ impl CarbonMarketplace {
             .checked_mul(current_price)
             .unwrap_or_else(|| panic_with_error!(&env, HarvestaError::AmountMustBePositive));
 
-        // Split payment: royalty to planter, remainder to seller
+        // Split payment: royalty to planter, referral fee (0.5%) to referrer, remainder to seller
         let royalty_bps: u32 = env
             .storage()
             .instance()
@@ -593,7 +644,23 @@ impl CarbonMarketplace {
         } else {
             0
         };
-        let seller_amount = payment - royalty_amount;
+
+        let referrer_opt: Option<Address> = env
+            .storage()
+            .persistent()
+            .get(&DataKey::Referrer(buyer.clone()));
+
+        let referral_amount = if let Some(ref ref_addr) = referrer_opt {
+            if ref_addr != &auction.seller {
+                (payment * 50) / 10_000
+            } else {
+                0
+            }
+        } else {
+            0
+        };
+
+        let seller_amount = payment - royalty_amount - referral_amount;
 
         if royalty_amount > 0 {
             token::Client::new(&env, &auction.payment_token).transfer(
@@ -601,6 +668,18 @@ impl CarbonMarketplace {
                 &auction.planter,
                 &royalty_amount,
             );
+        }
+
+        if referral_amount > 0 {
+            if let Some(ref_addr) = referrer_opt {
+                token::Client::new(&env, &auction.payment_token).transfer(
+                    &buyer,
+                    &ref_addr,
+                    &referral_amount,
+                );
+                env.events()
+                    .publish((symbol_short!("ref_paid"), buyer.clone()), (ref_addr, referral_amount));
+            }
         }
 
         token::Client::new(&env, &auction.payment_token).transfer(

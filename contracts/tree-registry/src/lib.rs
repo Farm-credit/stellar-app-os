@@ -309,7 +309,7 @@ impl TreeRegistry {
 
         env.storage().persistent().set(&tree_key, &tree_record);
 
-        let amount = Self::co2_credits_for_years(milestone_years);
+        let amount = Self::calculate_dynamic_rewards(env.clone(), tree_id, milestone_years);
         env.events().publish(
             (Symbol::new(&env, "MilestoneClaimed"), tree_id),
             (sponsor, milestone_years, amount),
@@ -356,6 +356,46 @@ impl TreeRegistry {
             .unwrap_or(false)
     }
 
+    /// Admin configures regional weather growth rate multiplier in basis points (e.g. 10000 = 1.0x, 12000 = 1.2x).
+    pub fn set_weather_multiplier(env: Env, region: soroban_sdk::String, multiplier_bps: u32) {
+        Self::require_admin(&env);
+        if multiplier_bps == 0 {
+            panic_with_error!(&env, HarvestaError::AmountMustBePositive);
+        }
+        env.storage()
+            .persistent()
+            .set(&Self::weather_key(&env, &region), &multiplier_bps);
+        env.events().publish(
+            (Symbol::new(&env, "WeatherUpdated"), region),
+            multiplier_bps,
+        );
+    }
+
+    /// Get regional weather growth rate multiplier in basis points (defaults to 10000 = 1.0x).
+    pub fn get_weather_multiplier(env: Env, region: soroban_sdk::String) -> u32 {
+        env.storage()
+            .persistent()
+            .get(&Self::weather_key(&env, &region))
+            .unwrap_or(10_000)
+    }
+
+    /// Calculate dynamic carbon token rewards based on local weather index data.
+    pub fn calculate_dynamic_rewards(env: Env, tree_id: u64, years: u64) -> i128 {
+        let tree_record: TreeRecord = env
+            .storage()
+            .persistent()
+            .get(&Self::tree_key(&env, tree_id))
+            .unwrap_or_else(|| panic_with_error!(&env, TreeRegistryError::NotFound));
+
+        let base_co2 = Self::co2_credits_for_years(years);
+        let multiplier_bps = Self::get_weather_multiplier(env.clone(), tree_record.region);
+
+        base_co2
+            .checked_mul(i128::from(multiplier_bps))
+            .expect("weather multiplier calculation overflow")
+            / 10_000
+    }
+
     // ── Internal ──────────────────────────────────────────────────────────────
 
     fn tree_key(env: &Env, id: u64) -> soroban_sdk::Val {
@@ -368,6 +408,10 @@ impl TreeRegistry {
 
     fn planter_score_key(env: &Env, planter: &Address) -> soroban_sdk::Val {
         (symbol_short!("SCORE"), planter.clone()).into_val(env)
+    }
+
+    fn weather_key(env: &Env, region: &soroban_sdk::String) -> soroban_sdk::Val {
+        (symbol_short!("WTHR"), region.clone()).into_val(env)
     }
 
     fn milestone_flag(milestone_years: u64) -> Option<u32> {
