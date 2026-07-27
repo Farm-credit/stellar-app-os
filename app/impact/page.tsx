@@ -1,6 +1,6 @@
 import type { JSX } from 'react';
-import { ImpactExplorer } from '@/components/organisms/ImpactExplorer';
+import { ImpactAnalyticsDashboard } from '@/components/organisms/AnalyticsDashboard/ImpactAnalyticsDashboard';
 
 export default function ImpactPage(): JSX.Element {
-  return <ImpactExplorer />;
+  return <ImpactAnalyticsDashboard />;
 }

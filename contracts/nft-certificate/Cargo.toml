@@ -2,8 +2,6 @@
 name = "nft-certificate"
 version = "0.1.0"
 edition = "2021"
-version = "0.0.0"
-edition = "2021"
 publish = false
 
 [lib]
@@ -15,7 +13,6 @@ soroban-sdk = { version = "21.7.7", features = ["alloc"] }
 harvesta-errors = { path = "../harvesta-errors" }
 
 [dev-dependencies]
-contract-utils = { path = "../contract-utils" }
 soroban-sdk = { version = "21.7.7", features = ["testutils", "alloc"] }
 
 [profile.release]
@@ -27,9 +24,3 @@ debug-assertions = false
 panic = "abort"
 codegen-units = 1
 lto = true
-soroban-sdk = "21.0.0"
-harvesta-errors = { path = "../harvesta-errors" }
-contract-utils = { path = "../contract-utils" }
-
-[dev-dependencies]
-soroban-sdk = { version = "21.0.0", features = ["testutils"] }
