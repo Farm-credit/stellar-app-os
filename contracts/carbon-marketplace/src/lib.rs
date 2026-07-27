@@ -710,6 +710,39 @@ impl CarbonMarketplace {
             .unwrap_or(0)
     }
 
+    // ── Anti-Wash Trading Order Validation (Closes #771) ──────────────────────
+
+    /// Validate that a buy order and sell order do not constitute self-trading / wash trading.
+    ///
+    /// Panics with `MarketplaceError::SelfTrade` if `seller == buyer`.
+    pub fn validate_order_trade(env: Env, seller: Address, buyer: Address) {
+        if seller == buyer {
+            panic_with_error!(&env, MarketplaceError::SelfTrade);
+        }
+    }
+
+    /// Pre-validate order matching between a buy order owner and sell order owner.
+    ///
+    /// Panics with `MarketplaceError::SelfTrade` if `buy_owner == sell_owner`.
+    pub fn validate_order_matching(env: Env, buy_owner: Address, sell_owner: Address) {
+        if buy_owner == sell_owner {
+            panic_with_error!(&env, MarketplaceError::SelfTrade);
+        }
+    }
+
+    // ── Soroban Instance Storage Auto-Bump Helpers (Closes #774) ─────────────
+
+    /// Extend the contract instance storage TTL to prevent expiration.
+    pub fn extend_instance_ttl(env: Env, threshold: u32, extend_to: u32) {
+        env.storage().instance().extend_ttl(threshold, extend_to);
+    }
+
+    /// Bump the contract instance storage TTL using default parameters (1 day threshold, 30 days extension).
+    pub fn bump_instance_ttl(env: Env) {
+        env.storage().instance().extend_ttl(17_280, 518_400);
+    }
+
+
     // ── internal ──────────────────────────────────────────────────────────────
 
     fn config(env: &Env) -> (Address, Address) {
