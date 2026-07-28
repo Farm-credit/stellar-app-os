@@ -66,13 +66,13 @@ export async function computeCarbonSummary(
 
   logger.info('[carbon-worker] querying active trees for carbon summary');
 
-  const { rows } = await db.query(
-    sql
-  );
+  const { rows } = await db.query(sql);
 
   const bySpeciesMap: Map<string, { count: number; co2Kg: number }> = new Map();
   let totalTrees = 0;
   let totalCo2Kg = 0;
+
+  const now = Date.now();
 
   for (const r of rows) {
     const species: string | null = r.species_slug ?? null;
@@ -80,7 +80,7 @@ export async function computeCarbonSummary(
     const co2Val = r.co2_kg_per_year != null ? Number(r.co2_kg_per_year) : null;
     const maturity = r.maturity_years != null ? Number(r.maturity_years) : null;
 
-    const kg = computeTreeCumulativeKg(planted_at, co2Val, maturity);
+    const kg = computeTreeCumulativeKg(planted_at, co2Val, maturity, now);
 
     const key = species ?? 'unknown';
     const existing = bySpeciesMap.get(key) ?? { count: 0, co2Kg: 0 };
@@ -154,7 +154,18 @@ export async function runOnceAndLog(pool: Pool | null = null): Promise<CarbonSum
 
 // ── CLI worker ───────────────────────────────────────────────────────────────
 
-if (require.main === module) {
+// Use a safe runtime check so importing this module (e.g. in Vitest) doesn't
+// throw when `require` is not defined in ESM environments.
+let isMain = false;
+try {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-unsafe-assignment
+  // @ts-ignore
+  isMain = typeof require !== 'undefined' && require.main === module;
+} catch (_) {
+  isMain = false;
+}
+
+if (isMain) {
   (async function main() {
     const POLL_INTERVAL_MS = Number(process.env.CARBON_POLL_INTERVAL_MS) || 300_000; // 5m fallback
     const DAILY_CRON = process.env.CARBON_DAILY_CRON ?? '0 6 * * *';
