@@ -43,9 +43,11 @@ export function computeTreeCumulativeKg(
 
 /**
  * Query the DB for active trees and aggregate cumulative CO2 to date.
+ * Optionally accepts nowTs for deterministic testing.
  */
 export async function computeCarbonSummary(
-  pool: Pool | null = null
+  pool: Pool | null = null,
+  nowTs?: number
 ): Promise<CarbonSummary> {
   const db = pool ?? getPool();
 
@@ -72,7 +74,7 @@ export async function computeCarbonSummary(
   let totalTrees = 0;
   let totalCo2Kg = 0;
 
-  const now = Date.now();
+  const now = nowTs ?? Date.now();
 
   for (const r of rows) {
     const species: string | null = r.species_slug ?? null;
@@ -107,7 +109,7 @@ export async function computeCarbonSummary(
     totalCo2OffsetKg: Math.round(totalCo2Kg),
     totalCo2OffsetTonnes: parseFloat((totalCo2Kg / 1000).toFixed(6)),
     bySpecies,
-    computedAt: new Date().toISOString(),
+    computedAt: new Date(now).toISOString(),
   };
 
   return summary;
@@ -123,22 +125,26 @@ function parseCronSchedule(cron: string): { hour: number; minute: number } {
   return { hour: Number.isNaN(hour) ? 6 : hour, minute: Number.isNaN(minute) ? 0 : minute };
 }
 
+function dayKey(d: Date): number {
+  return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
+}
+
 function shouldRunDaily(lastRunDay: number | null, cron: string): boolean {
   const { hour, minute } = parseCronSchedule(cron);
   const now = new Date();
   const currentMinute = now.getUTCHours() * 60 + now.getUTCMinutes();
   const targetMinute = hour * 60 + minute;
-  const today = now.getUTCDate() | (now.getUTCMonth() << 5) | (now.getUTCFullYear() << 9);
+  const today = dayKey(now);
 
   if (lastRunDay === today) return false;
   if (Math.abs(currentMinute - targetMinute) > 5) return false;
   return true;
 }
 
-export async function runOnceAndLog(pool: Pool | null = null): Promise<CarbonSummary> {
+export async function runOnceAndLog(pool: Pool | null = null, nowTs?: number): Promise<CarbonSummary> {
   const db = pool ?? getPool();
   try {
-    const summary = await computeCarbonSummary(db);
+    const summary = await computeCarbonSummary(db, nowTs);
     logger.info('[carbon-worker] computed carbon summary', {
       totalTrees: summary.totalTrees,
       totalCo2OffsetTonnes: summary.totalCo2OffsetTonnes,
@@ -158,7 +164,8 @@ export async function runOnceAndLog(pool: Pool | null = null): Promise<CarbonSum
 // throw when `require` is not defined in ESM environments.
 let isMain = false;
 try {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-unsafe-assignment
+  // `typeof require` is safe in ESM; it returns 'undefined' if require is not defined.
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
   // @ts-ignore
   isMain = typeof require !== 'undefined' && require.main === module;
 } catch (_) {
@@ -178,7 +185,7 @@ if (isMain) {
       try {
         if (shouldRunDaily(lastRun, DAILY_CRON)) {
           await runOnceAndLog();
-          lastRun = new Date().getUTCDate() | (new Date().getUTCMonth() << 5) | (new Date().getUTCFullYear() << 9);
+          lastRun = dayKey(new Date());
           logger.info('[carbon-worker] daily calculation completed');
         }
       } catch (err) {
