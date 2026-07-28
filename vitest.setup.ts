@@ -1,4 +1,5 @@
 // Minimal Vitest setup to make tests deterministic and provide simple polyfills
+/* eslint-disable @typescript-eslint/no-explicit-any */
 if (typeof (globalThis as any).scrollIntoView === 'undefined') {
   (globalThis as any).scrollIntoView = () => {};
 }

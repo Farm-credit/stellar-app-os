@@ -1,4 +1,4 @@
-import { Pool } from 'pg';
+import type { Pool } from 'pg';
 import { getPool } from '@/lib/db/client';
 import logger from '@/lib/logger';
 import { CO2_KG_PER_TREE } from '@/lib/stellar/tree-asset';
@@ -156,43 +156,4 @@ export async function runOnceAndLog(pool: Pool | null = null, nowTs?: number): P
     logger.error('[carbon-worker] error computing carbon summary', { error: err instanceof Error ? err.message : String(err) });
     throw err;
   }
-}
-
-// ── CLI worker ───────────────────────────────────────────────────────────────
-
-// Use a safe runtime check so importing this module (e.g. in Vitest) doesn't
-// throw when `require` is not defined in ESM environments.
-let isMain = false;
-try {
-  // `typeof require` is safe in ESM; it returns 'undefined' if require is not defined.
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-  // @ts-ignore
-  isMain = typeof require !== 'undefined' && require.main === module;
-} catch (_) {
-  isMain = false;
-}
-
-if (isMain) {
-  (async function main() {
-    const POLL_INTERVAL_MS = Number(process.env.CARBON_POLL_INTERVAL_MS) || 300_000; // 5m fallback
-    const DAILY_CRON = process.env.CARBON_DAILY_CRON ?? '0 6 * * *';
-
-    logger.info('[carbon-worker] starting', { cron: DAILY_CRON, pollIntervalMs: POLL_INTERVAL_MS });
-
-    let lastRun: number | null = null;
-
-    while (true) {
-      try {
-        if (shouldRunDaily(lastRun, DAILY_CRON)) {
-          await runOnceAndLog();
-          lastRun = dayKey(new Date());
-          logger.info('[carbon-worker] daily calculation completed');
-        }
-      } catch (err) {
-        logger.error('[carbon-worker] unexpected error in main loop', { error: err instanceof Error ? err.message : String(err) });
-      }
-
-      await new Promise<void>((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
-    }
-  })();
 }

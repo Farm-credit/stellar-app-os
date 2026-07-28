@@ -4,7 +4,6 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "test": "vitest run",
     "dev:testnet": "dotenvx run --env-file=.env.testnet -- next dev",
     "dev:mainnet": "dotenvx run --env-file=.env.mainnet -- next dev",
     "build": "next build --webpack",
@@ -74,7 +73,7 @@
     "react-hook-form": "^7.71.2",
     "react-i18next": "^16.5.4",
     "react-icons": "^5.5.0",
-    "react-leaflet": "^5.0.0",
+    "react-leaflet": "5.0.0",
     "recharts": "^3.8.1",
     "redis": "^5.10.0",
     "snarkjs": "^0.7.5",
