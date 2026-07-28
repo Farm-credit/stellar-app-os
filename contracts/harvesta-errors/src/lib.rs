@@ -1,7 +1,5 @@
 #![no_std]
 
-//! Shared error codes for all Harvesta / FarmCredit contracts.
-
 use soroban_sdk::contracterror;
 
 #[contracterror]
@@ -14,20 +12,13 @@ pub enum HarvestaError {
     AlreadyPaused = 5,
     NotPaused = 6,
     NoPendingAdmin = 7,
-    ContractMustBeTreeTokenAdmin = 8,
     AmountMustBePositive = 9,
     TreeCountMustBePositive = 10,
-    VerifiedCountMustBePositive = 11,
-    VerifiedCountExceedsDonation = 12,
     InvalidPayoutAmount = 13,
-    BurnAmountMustBePositive = 14,
     SlotAmountMustBePositive = 15,
     EscrowAlreadyExists = 16,
     EscrowNotFound = 17,
-    PlantingAlreadyVerified = 18,
-    PlantingNotVerified = 19,
     RefundAfterPlanting = 20,
-    SurvivalThresholdOutOfRange = 21,
     SurvivalRateOutOfRange = 22,
     SurvivalRateBelowMinimum = 23,
     SurvivalPeriodNotElapsed = 24,
@@ -36,8 +27,34 @@ pub enum HarvestaError {
     NoOracleReport = 27,
     BatchEmpty = 28,
     BatchTooLarge = 29,
-    InvalidStatus = 48,
+    TreeAlreadyRegistered = 30,
+    TreeNotRegistered = 31,
+    TreeNotOpenForContributions = 32,
+    TreeNotOpenForRelease = 33,
+    NoFundsToRelease = 34,
+    NotArbiter = 41,
+    InvalidRoyalty = 47,
+    CommitmentAlreadyRegistered = 60,
     NotVerifier = 61,
+    Co2MustBePositive = 62,
+    MaturityYearsMustBePositive = 63,
+    SpeciesNotFound = 64,
+    ProofCommitmentAlreadyRegistered = 66,
+    PointOutsidePolygon = 76,
+    ZoneNotFound = 77,
+    InvalidTreeStatusTransition = 90,
+    PlantingTimeoutNotReached = 91,
+    PolicyNotFound = 101,
+    InvalidThreshold = 102,
+    InvalidSignerSet = 103,
+    AlreadyApproved = 104,
+    NotAPolicySigner = 105,
+    RequestNotOpen = 106,
+    RequestExpired = 107,
+    NotPolicyAdmin = 108,
+    PolicySuperseded = 109,
+    CannotCancelFinalised = 111,
+    InvalidReplacementVersion = 112,
 }
 
 #[contracterror]
@@ -75,4 +92,5 @@ pub enum FarmerError {
     InvalidCoordinatesCount = 5,
     NotValidator = 6,
     HashMismatch = 7,
+    FarmerFrozen = 8,
 }

@@ -66,7 +66,7 @@ Sponsor                   Harvesta Platform              Planter
 | Smart Contracts | Soroban (Rust), Stellar mainnet/testnet |
 | Frontend | React + TypeScript + Vite |
 | Wallet | Freighter, Albedo, xBull |
-| Storage | IPFS (planter photo uploads) |
+| Storage | IPFS (planter photo uploads) + AWS S3 (private planting photo evidence — see [API spec](docs/private-s3-photo-uploads.md)) |
 | Off-chain API | Node.js / Express |
 | Database | PostgreSQL |
 | Carbon Data | Open-source CO₂ sequestration tables per species |
@@ -572,7 +572,7 @@ Sponsor                   Harvesta Platform              Planter
 | Smart Contracts | Soroban (Rust), Stellar mainnet/testnet |
 | Frontend | React + TypeScript + Vite |
 | Wallet | Freighter, Albedo, xBull |
-| Storage | IPFS (planter photo uploads) |
+| Storage | IPFS (planter photo uploads) + AWS S3 (private planting photo evidence — see [API spec](docs/private-s3-photo-uploads.md)) |
 | Off-chain API | Node.js / Express |
 | Database | PostgreSQL |
 | Carbon Data | Open-source CO₂ sequestration tables per species |
