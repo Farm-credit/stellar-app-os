@@ -66,7 +66,7 @@ Sponsor                   Harvesta Platform              Planter
 | Smart Contracts | Soroban (Rust), Stellar mainnet/testnet |
 | Frontend | React + TypeScript + Vite |
 | Wallet | Freighter, Albedo, xBull |
-| Storage | IPFS (planter photo uploads) |
+| Storage | IPFS (planter photo uploads) + AWS S3 (private planting photo evidence — see [API spec](docs/private-s3-photo-uploads.md)) |
 | Off-chain API | Node.js / Express |
 | Database | PostgreSQL |
 | Carbon Data | Open-source CO₂ sequestration tables per species |
@@ -572,7 +572,7 @@ Sponsor                   Harvesta Platform              Planter
 | Smart Contracts | Soroban (Rust), Stellar mainnet/testnet |
 | Frontend | React + TypeScript + Vite |
 | Wallet | Freighter, Albedo, xBull |
-| Storage | IPFS (planter photo uploads) |
+| Storage | IPFS (planter photo uploads) + AWS S3 (private planting photo evidence — see [API spec](docs/private-s3-photo-uploads.md)) |
 | Off-chain API | Node.js / Express |
 | Database | PostgreSQL |
 | Carbon Data | Open-source CO₂ sequestration tables per species |
@@ -629,93 +629,6 @@ stellar contract deploy \
 cd frontend
 npm install
 npm run dev
-```
-
----
-
-## Duplicate-Photo Detection (pHash) — Issue #825
-
-Every photo a planter submits (planting verification + KYC) is fingerprinted
-with a 64-bit **perceptual hash (pHash)** derived from the low-frequency
-DCT coefficients of a 32×32 grayscale downsample. Before being accepted,
-the hash is compared against the `photo_hashes` table and rejected with
-HTTP `422 Unprocessable Entity` if a row within Hamming distance
-`PHASH_DUPLICATE_THRESHOLD` (default `5`) already exists.
-
-### Pipeline
-
-```
-upload ──▶ sharp(32×32, greyscale) ──▶ 2D DCT-II ──▶ 8×8 low-freq block
-                                                                    │
-                                                                    ▼
-                                       bit_count(known ⊕ candidate) ≤ threshold ?
-                                                                    │
-                                            YES ─▶ 422 duplicate rejected
-                                            NO  ─▶ row inserted, upload proceeds
-```
-
-### Configuration
-
-| Env var | Default | Description |
-|---|---|---|
-| `PHASH_DUPLICATE_THRESHOLD` | `5` | Max Hamming distance (0..64) to count as a duplicate |
-| `PHASH_DUPLICATE_LOOKBACK_DAYS` | `90` | Window of historical hashes scanned per check |
-
-### Module layout
-
-```
-lib/image/phash.ts                 # DCT-based 64-bit perceptual hash
-lib/image/distance.ts              # Hamming distance + similarity helpers
-lib/db/photo-hashes.ts             # Postgres storage + duplicate lookup
-db/migrations/007_create_photo_hashes.sql
-app/api/planting/photo/dedup-check/route.ts   # Standalone pre-flight check
-```
-
-### Apply the migration
-
-```bash
-psql "$DATABASE_URL" -f db/migrations/007_create_photo_hashes.sql
-```
-
-If the table is absent at runtime, the duplicate-check layer logs a warning
-and degrades to a no-op rather than blocking legitimate uploads.
-
-### API
-
-#### `POST /api/planting/photo/dedup-check`
-
-Multipart upload (`photo` field, JPEG / PNG / WebP, ≤ 10 MB). Optional
-`entityType` (`tree` | `planter`) and `entityId` context fields.
-
-Response (HTTP `200`):
-
-```json
-{
-  "hash": "9a3f0e8c7b1d4256",
-  "population": 31,
-  "threshold": 5,
-  "isDuplicate": false,
-  "match": null
-}
-```
-
-When a duplicate is detected (`isDuplicate: true`), `match` contains the
-existing row + Hamming distance.
-
-#### Integrated check on `/api/planting/photo`
-
-The existing photo upload route runs the duplicate check **before** the
-EXIF GPS distance validation, so a stock photo cannot even consume S3
-bandwidth. A hit returns HTTP `422`:
-
-```json
-{
-  "error": "Duplicate photo detected.",
-  "hash": "9a3f0e8c7b1d4256",
-  "distance": 2,
-  "duplicateOf": { "id": 17, "entityType": "tree", "entityId": "HRV-2024-0001" },
-  "threshold": 5
-}
 ```
 
 ---
