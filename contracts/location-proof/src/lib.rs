@@ -51,7 +51,7 @@
 
 use harvesta_errors::HarvestaError;
 use soroban_sdk::{
-    contract, contractimpl, contracttype, panic_with_error, symbol_short, Address, Bytes, BytesN,
+    contract, contractimpl, contracttype, panic_with_error, symbol_short, Address, BytesN,
     Env, IntoVal, Vec,
 };
 
@@ -154,7 +154,7 @@ impl LocationProof {
         Self::require_admin(&env);
 
         if vertices.len() < MIN_VERTICES {
-            panic_with_error!(&env, HarvestaError::PolygonTooFewVertices);
+            panic!("polygon too few vertices");
         }
 
         let zone = AfforestationZone {
@@ -193,7 +193,7 @@ impl LocationProof {
         }
 
         if vertices.len() < MIN_VERTICES {
-            panic_with_error!(&env, HarvestaError::PolygonTooFewVertices);
+            panic!("polygon too few vertices");
         }
 
         let zone = AfforestationZone {
@@ -308,7 +308,7 @@ impl LocationProof {
         Self::require_admin(&env);
 
         if !in_region {
-            panic_with_error!(&env, HarvestaError::OutsideNigeriaRegion);
+            panic!("outside nigeria region");
         }
 
         if env.storage().persistent().has(&commitment) {
@@ -510,7 +510,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "Error(Contract, #75)")]
+    #[should_panic(expected = "polygon too few vertices")]
     fn test_register_zone_too_few_vertices_rejected() {
         let (env, _, client) = setup();
         let two_pts = vec![&env, v(9_000_000, 7_000_000), v(11_000_000, 9_000_000)];
@@ -743,7 +743,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "Error(Contract, #65)")]
+    #[should_panic(expected = "outside nigeria region")]
     fn test_legacy_out_of_region_rejected() {
         let (env, _, client) = setup();
         let farmer = Address::generate(&env);
