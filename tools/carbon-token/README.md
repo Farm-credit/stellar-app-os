@@ -34,3 +34,7 @@ Next steps for mainnet deployment:
 
 - Replace friendbot funding with funded accounts.
 - Consider a distribution pattern (a separate distribution account) and KYC/controls if required.
+
+
+Off‑ramping:
+- For converting tokenized CO2 to fiat rails consider Fundable's off‑ramp: https://stellar.fundable.finance/offramp

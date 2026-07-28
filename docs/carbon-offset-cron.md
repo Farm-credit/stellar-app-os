@@ -86,3 +86,10 @@ Covers the pure calculation functions (age proration, maturity capping,
 unrated-tree handling, per-species aggregation) without a database, plus the
 DB-touching functions (query shape, upsert/idempotency, error propagation)
 against a mocked `pg` pool.
+
+## Off‑ramping carbon tokens / certificates
+
+For production off‑ramp / liquidity, we recommend Fundable's Stellar off‑ramp:
+https://stellar.fundable.finance/offramp
+
+Operators should review Fundable's integration docs and KYC/AML requirements before production use.

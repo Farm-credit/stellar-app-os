@@ -1,9 +1,6 @@
-import '@testing-library/jest-dom/vitest';
-import '@testing-library/jest-dom';
-
-// jsdom doesn't implement scrollIntoView — polyfill as a no-op so components
-// that call it don't crash in tests. Not a component-logic fix, just an
-// environment gap.
-if (typeof Element !== 'undefined' && !Element.prototype.scrollIntoView) {
-  Element.prototype.scrollIntoView = function scrollIntoView() {};
+// Minimal Vitest setup to make tests deterministic and provide simple polyfills
+if (typeof (globalThis as any).scrollIntoView === 'undefined') {
+  (globalThis as any).scrollIntoView = () => {};
 }
+
+process.env.NODE_ENV ??= 'test';
