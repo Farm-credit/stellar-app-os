@@ -1,8 +1,7 @@
 import type { Metadata, Viewport } from 'next';
-import Script from 'next/script';
-import { Header } from '@/components/organisms/Header/Header';
 import { Footer } from '@/components/organisms/Footer/Footer';
 import { WalletProvider } from '@/contexts/WalletContext';
+import { Inter } from 'next/font/google';
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://farmcredit.app';
 const siteName = 'FarmCredit';
@@ -82,6 +81,8 @@ export const viewport: Viewport = {
   maximumScale: 5,
   userScalable: true,
 };
+
+const inter = Inter({ subsets: ['latin'], variable: '--font-inter', display: 'swap' });
 
 export default function RootLayout({
   children,

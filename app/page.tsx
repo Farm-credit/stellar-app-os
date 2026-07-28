@@ -1,6 +1,6 @@
 'use client';
 
-import { type JSX, useState } from 'react';
+import { type JSX } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/atoms/Button';
 import { Text } from '@/components/atoms/Text';
@@ -15,17 +15,12 @@ import {
   CardDescription,
   CardContent,
 } from '@/components/molecules/Card';
-import { TransactionHistoryModal } from '@/components/ui/TransactionHistoryModal';
-import { EventSimulator } from '@/components/organisms/EventSimulator/EventSimulator';
-import { useToast } from '@/hooks/useToast';
 import { useAppTranslation } from '@/hooks/useTranslation';
+import { Badge } from '@/components/ui/badge';
 
 export default function HomePage(): JSX.Element {
-  const [showTx, setShowTx] = useState(false);
-  const { addToast } = useToast();
   const { t } = useAppTranslation();
 
-export default function HomePage() {
   return (
     <main
       id="main-content"
@@ -40,7 +35,7 @@ export default function HomePage() {
         <Button asChild variant="default" size="sm">
           <Link href="/api-docs">API Docs</Link>
         </Button>
-      </header>
+      </div>
 
       <div data-tour-id="hero-section" className="flex flex-col items-center gap-4 text-center">
         <Badge variant="default">Decentralized Tree Planting</Badge>
@@ -48,6 +43,7 @@ export default function HomePage() {
         <Text variant="muted" className="max-w-md">
           A decentralized agricultural credit platform built on Stellar
         </Text>
+      </div>
       <div data-tour-id="hero-section">
         <LandingHero />
       </div>
