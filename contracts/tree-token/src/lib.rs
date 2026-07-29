@@ -433,6 +433,7 @@ impl TreeToken {
         // ── 5. Increment nonce (replay protection) ────────────────────────────
         let next_nonce = expected_nonce.checked_add(1).expect("nonce overflow");
         env.storage().persistent().set(&nk, &next_nonce);
+        env.storage().persistent().extend_ttl(&nk, 518400, 1036800);
 
         // ── 6. Execute token transfer ─────────────────────────────────────────
         let tree_token: Address = env
@@ -461,10 +462,12 @@ impl TreeToken {
     /// Off-chain signers must read this before constructing a
     /// `MetaTransferPayload` to avoid `NonceAlreadyUsed` errors.
     pub fn get_nonce(env: Env, account: Address) -> u64 {
-        env.storage()
-            .persistent()
-            .get(&nonce_storage_key(&env, &account))
-            .unwrap_or(0u64)
+        let nk = nonce_storage_key(&env, &account);
+        let nonce = env.storage().persistent().get(&nk).unwrap_or(0u64);
+        if env.storage().persistent().has(&nk) {
+            env.storage().persistent().extend_ttl(&nk, 518400, 1036800);
+        }
+        nonce
     }
 
     // ── Burn queries ──────────────────────────────────────────────────────────

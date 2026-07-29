@@ -118,19 +118,66 @@ function MapZoomEvents({ onZoomChange }: { onZoomChange: (zoom: number) => void 
   return null;
 }
 
+/**
+ * TreeClusterMap - Interactive Leaflet map visualizing tree planting sites with geo-clustering
+ *
+ * @description
+ * Displays verified tree planting locations on an interactive map using Leaflet.
+ * Trees are dynamically clustered based on zoom level using a grid-based algorithm.
+ * Supports filtering by species, displays detailed popups, and provides full accessibility.
+ *
+ * @features
+ * - Dynamic geo-clustering with zoom-responsive grid sizing
+ * - Species filtering with real-time map updates
+ * - Interactive popups showing cluster details (coordinates, species breakdown, count)
+ * - Accessible: ARIA labels, keyboard navigation, screen reader summary
+ * - Responsive: mobile, tablet, desktop via Tailwind breakpoints
+ * - Loading and error states with retry capability
+ * - SSR-safe via dynamic import wrapper (TreeClusterMapClient)
+ *
+ * @data
+ * Fetches tree data from `fetchPublicTrees()` API.
+ * Each tree includes: id, treeId, species, region, status, lat, lng, co2OffsetKgPerYear, projectName
+ *
+ * @accessibility
+ * - Map region has aria-label for screen readers
+ * - Species filter has accessible label
+ * - Text summary below map provides non-visual alternative
+ * - Keyboard navigable
+ *
+ * @clustering
+ * Uses grid-based spatial clustering. Grid size adapts to zoom level:
+ * - Lower zoom = larger grid cells = more aggressive clustering
+ * - Higher zoom = smaller grid cells = individual trees visible
+ *
+ * @tile-provider
+ * OpenStreetMap tiles via https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png
+ * No API key required for OSM tiles.
+ *
+ * @example
+ * ```tsx
+ * import { TreeClusterMapClient } from '@/components/organisms/TreeClusterMap/TreeClusterMapClient';
+ *
+ * <TreeClusterMapClient />
+ * ```
+ */
 export function TreeClusterMap(): JSX.Element {
   const [filters, setFilters] = useState<TreeFilterState>(DEFAULT_FILTERS);
   const [trees, setTrees] = useState<Tree[]>([]);
   const [speciesOptions, setSpeciesOptions] = useState<TreeSpecies[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
   const [zoom, setZoom] = useState(4);
 
   const loadTrees = useCallback(async (nextFilters: TreeFilterState) => {
     setIsLoading(true);
+    setError(null);
     try {
       const response = await fetchPublicTrees(nextFilters);
       setTrees(response.trees);
       setSpeciesOptions(response.speciesOptions);
+    } catch (err) {
+      setError(err instanceof Error ? err : new Error('Failed to load tree data'));
     } finally {
       setIsLoading(false);
     }
@@ -158,6 +205,10 @@ export function TreeClusterMap(): JSX.Element {
     setFilters((prev) => ({ ...prev, ...partial }));
   }, []);
 
+  const handleRetry = useCallback(() => {
+    void loadTrees(filters);
+  }, [filters, loadTrees]);
+
   return (
     <div className="space-y-5">
       <div className="rounded-3xl border border-slate-200 bg-white/80 p-5 shadow-sm backdrop-blur-xl dark:border-slate-800 dark:bg-slate-950/80">
@@ -183,6 +234,7 @@ export function TreeClusterMap(): JSX.Element {
                 handleFilterUpdate({ species: event.target.value as TreeSpecies | 'all' })
               }
               aria-label="Filter tree clusters by species"
+              disabled={isLoading}
             >
               <option value="all">All species</option>
               {speciesOptions.map((species) => (
@@ -195,64 +247,123 @@ export function TreeClusterMap(): JSX.Element {
         </div>
       </div>
 
-      <div
-        className="overflow-hidden rounded-3xl border border-slate-200 shadow-sm dark:border-slate-800"
-        style={{ minHeight: '520px' }}
-      >
-        <MapContainer
-          center={[6.5, 12.5]}
-          zoom={zoom}
-          scrollWheelZoom
-          zoomControl
-          className="h-[520px] w-full bg-slate-100 dark:bg-slate-900"
-          aria-label="Verified tree planting cluster map"
+      {error ? (
+        <div
+          role="alert"
+          aria-live="assertive"
+          className="rounded-3xl border border-red-200 bg-red-50/80 p-6 shadow-sm backdrop-blur-xl dark:border-red-900/50 dark:bg-red-950/30"
         >
-          <TileLayer
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          />
-          <MapZoomEvents onZoomChange={setZoom} />
-          {clusters.map((cluster) => {
-            const markerSize = getMarkerSize(cluster.count);
-            const fillOpacity = cluster.count > 1 ? 0.44 : 0.88;
-            const strokecolor = cluster.count > 1 ? '#0f766e' : '#14b8a6';
-            const fillColor = cluster.count > 1 ? '#2dd4bf' : '#22c55e';
-
-            return (
-              <CircleMarker
-                key={cluster.id}
-                center={[cluster.lat, cluster.lng]}
-                radius={markerSize}
-                pathOptions={{
-                  color: strokecolor,
-                  fillColor,
-                  fillOpacity,
-                  weight: 2,
-                }}
+          <div className="flex flex-col items-center justify-center space-y-4 text-center">
+            <div className="rounded-full bg-red-100 p-3 dark:bg-red-900/50">
+              <svg
+                className="h-6 w-6 text-red-600 dark:text-red-400"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                aria-hidden="true"
               >
-                <Tooltip direction="top" offset={[0, -markerSize]}>
-                  {cluster.count > 1
-                    ? `${cluster.count} verified tree${cluster.count > 1 ? 's' : ''}`
-                    : `${cluster.trees[0].species} · ${cluster.trees[0].region}`}
-                </Tooltip>
-                <Popup>{formatPopupDetails(cluster)}</Popup>
-              </CircleMarker>
-            );
-          })}
-        </MapContainer>
-      </div>
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                />
+              </svg>
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-red-900 dark:text-red-200">
+                Failed to Load Map Data
+              </h3>
+              <p className="mt-2 text-sm text-red-700 dark:text-red-300">
+                We couldn&apos;t load the tree planting locations. Please check your connection and
+                try again.
+              </p>
+            </div>
+            <button
+              onClick={handleRetry}
+              className="rounded-2xl border border-red-300 bg-white px-6 py-2 text-sm font-medium text-red-700 shadow-sm transition hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 dark:border-red-800 dark:bg-red-950/50 dark:text-red-300 dark:hover:bg-red-900/50"
+            >
+              Retry
+            </button>
+          </div>
+        </div>
+      ) : (
+        <>
+          <div
+            className="overflow-hidden rounded-3xl border border-slate-200 shadow-sm dark:border-slate-800"
+            style={{ minHeight: '520px' }}
+          >
+            {isLoading ? (
+              <div className="flex h-[520px] w-full items-center justify-center bg-slate-100 dark:bg-slate-900">
+                <div className="text-center">
+                  <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-4 border-slate-300 border-t-stellar-blue dark:border-slate-700 dark:border-t-stellar-blue" />
+                  <p className="text-sm text-slate-600 dark:text-slate-400">
+                    Loading planting coordinates...
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <MapContainer
+                center={[6.5, 12.5]}
+                zoom={zoom}
+                scrollWheelZoom
+                zoomControl
+                className="h-[520px] w-full bg-slate-100 dark:bg-slate-900"
+                aria-label="Verified tree planting cluster map"
+              >
+                <TileLayer
+                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                />
+                <MapZoomEvents onZoomChange={setZoom} />
+                {clusters.map((cluster) => {
+                  const markerSize = getMarkerSize(cluster.count);
+                  const fillOpacity = cluster.count > 1 ? 0.44 : 0.88;
+                  const strokecolor = cluster.count > 1 ? '#0f766e' : '#14b8a6';
+                  const fillColor = cluster.count > 1 ? '#2dd4bf' : '#22c55e';
 
-      <div className="rounded-3xl border border-slate-200 bg-white/80 p-4 text-sm text-slate-600 shadow-sm backdrop-blur-xl dark:border-slate-800 dark:bg-slate-950/80 dark:text-slate-300">
-        {isLoading ? (
-          <p>Loading planting coordinates...</p>
-        ) : (
-          <p>
-            {trees.length === 0
-              ? 'No planting locations match the selected species overlay.'
-              : `Displaying ${trees.length} verified tree planting locations grouped into ${clusters.length} dynamic map clusters.`}
-          </p>
-        )}
-      </div>
+                  return (
+                    <CircleMarker
+                      key={cluster.id}
+                      center={[cluster.lat, cluster.lng]}
+                      radius={markerSize}
+                      pathOptions={{
+                        color: strokecolor,
+                        fillColor,
+                        fillOpacity,
+                        weight: 2,
+                      }}
+                    >
+                      <Tooltip direction="top" offset={[0, -markerSize]}>
+                        {cluster.count > 1
+                          ? `${cluster.count} verified tree${cluster.count > 1 ? 's' : ''}`
+                          : `${cluster.trees[0].species} · ${cluster.trees[0].region}`}
+                      </Tooltip>
+                      <Popup>{formatPopupDetails(cluster)}</Popup>
+                    </CircleMarker>
+                  );
+                })}
+              </MapContainer>
+            )}
+          </div>
+
+          <div
+            className="rounded-3xl border border-slate-200 bg-white/80 p-4 text-sm text-slate-600 shadow-sm backdrop-blur-xl dark:border-slate-800 dark:bg-slate-950/80 dark:text-slate-300"
+            role="status"
+            aria-live="polite"
+          >
+            {isLoading ? (
+              <p>Loading planting coordinates...</p>
+            ) : (
+              <p>
+                {trees.length === 0
+                  ? 'No planting locations match the selected species overlay.'
+                  : `Displaying ${trees.length} verified tree planting locations grouped into ${clusters.length} dynamic map clusters.`}
+              </p>
+            )}
+          </div>
+        </>
+      )}
     </div>
   );
 }
