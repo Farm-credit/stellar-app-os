@@ -3,6 +3,7 @@
 import { TreePine } from 'lucide-react';
 import { Text } from '@/components/atoms/Text';
 import { Badge } from '@/components/atoms/Badge';
+import { TiltCard } from '@/components/atoms/TiltCard';
 
 interface GiftNftPreviewProps {
   treeCount: number;
@@ -17,6 +18,7 @@ export function GiftNftPreview({
   personalMessage,
 }: GiftNftPreviewProps) {
   return (
+    <TiltCard>
     <div
       className="overflow-hidden rounded-xl border bg-gradient-to-br from-[#0B1F3A] to-[#1a3a5c] p-5 text-white shadow-lg sm:p-6"
       role="img"
@@ -45,5 +47,6 @@ export function GiftNftPreview({
         TREE tokens and carbon credits will be minted to the recipient after verification.
       </p>
     </div>
+    </TiltCard>
   );
 }
