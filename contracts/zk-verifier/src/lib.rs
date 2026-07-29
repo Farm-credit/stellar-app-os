@@ -17,6 +17,13 @@
 //!   - "NULLIFIER_ALREADY_SPENT"    — replay attempt detected
 
 mod groth16;
+pub mod range_proof;
+
+// Re-export range proof types for downstream consumers
+pub use range_proof::{
+    GrowthRecord, RangeProof, RangeProofError, RangeProofInputs, TreeHeightConfig,
+    ZkRangeVerifier,
+};
 
 use groth16::{groth16_verify, vk_hash};
 use soroban_sdk::{
