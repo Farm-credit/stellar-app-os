@@ -12,9 +12,24 @@ pub enum TreeRegistryError {
     NotFound = 85,
     InvalidStatus = 86,
     NotAuthorized = 87,
+    BatchTooLarge = 88,
+    BatchSizeMismatch = 89,
 }
 
 // ── Types ─────────────────────────────────────────────────────────────────────
+
+/// Represents the biological health / survival state of a tree.
+/// Independent of the lifecycle status (`TreeStatus`).
+#[contracttype]
+#[derive(Clone, Debug, PartialEq)]
+pub enum TreeHealth {
+    /// The tree is alive and thriving.
+    Healthy,
+    /// The tree shows signs of stress or disease but is not yet dead.
+    Struggling,
+    /// The tree has died and no longer sequesters carbon.
+    Dead,
+}
 
 #[contracttype]
 #[derive(Clone, Debug, PartialEq)]
@@ -38,6 +53,7 @@ pub struct TreeRecord {
     pub region: soroban_sdk::String,
     pub planted_at: u64,
     pub status: TreeStatus,
+    pub health: Option<TreeHealth>,
     pub notes_hash: Option<soroban_sdk::String>,
     pub milestone_claims: u32,
 }
@@ -87,6 +103,7 @@ impl TreeRegistry {
             region: region.clone(),
             planted_at: env.ledger().timestamp(),
             status: TreeStatus::Planted,
+            health: None,
             notes_hash: None,
             milestone_claims: 0,
         };
@@ -235,6 +252,75 @@ impl TreeRegistry {
         }
 
         env.storage().persistent().set(&tree_key, &tree_record);
+    }
+
+    // ── Batch Survival Update ────────────────────────────────────────────────
+
+    /// Batch update the health/survival state of up to 100 trees in a single
+    /// transaction.  Only callable by whitelisted verifiers.
+    ///
+    /// # Arguments
+    /// * `verifier`  – The verifier performing the update.  Must authorize the
+    ///   call and be present in the verifier whitelist.
+    /// * `tree_ids`  – Vector of tree IDs to update.  Must not be empty and
+    ///   contain at most 100 entries.
+    /// * `health_states` – Vector of [`TreeHealth`] values, one per tree ID.
+    ///   Length must equal `tree_ids`.
+    ///
+    /// # Panics
+    /// * [`HarvestaError::ContractPaused`] – contract is paused.
+    /// * [`TreeRegistryError::NotAuthorized`] – verifier is not whitelisted or
+    ///   auth fails.
+    /// * [`HarvestaError::BatchEmpty`] – `tree_ids` is empty.
+    /// * [`TreeRegistryError::BatchTooLarge`] – `tree_ids.len()` exceeds 100.
+    /// * [`TreeRegistryError::BatchSizeMismatch`] – lengths of `tree_ids` and
+    ///   `health_states` differ.
+    /// * [`TreeRegistryError::NotFound`] – a tree ID in the batch does not
+    ///   exist.
+    pub fn batch_update_survival(
+        env: Env,
+        verifier: Address,
+        tree_ids: Vec<u64>,
+        health_states: Vec<TreeHealth>,
+    ) {
+        Self::assert_not_paused(&env);
+        Self::require_verifier(&env, &verifier);
+
+        let len = tree_ids.len();
+        if len == 0 {
+            panic_with_error!(&env, HarvestaError::BatchEmpty);
+        }
+        if len > 100 {
+            panic_with_error!(&env, TreeRegistryError::BatchTooLarge);
+        }
+        if len != health_states.len() {
+            panic_with_error!(&env, TreeRegistryError::BatchSizeMismatch);
+        }
+
+        for i in 0..len {
+            let tree_id = tree_ids
+                .get(i)
+                .unwrap_or_else(|| panic_with_error!(&env, TreeRegistryError::NotFound));
+            let health = health_states
+                .get(i)
+                .unwrap_or_else(|| panic_with_error!(&env, TreeRegistryError::NotFound));
+
+            let tree_key = Self::tree_key(&env, tree_id);
+            let mut tree_record: TreeRecord = env
+                .storage()
+                .persistent()
+                .get(&tree_key)
+                .unwrap_or_else(|| panic_with_error!(&env, TreeRegistryError::NotFound));
+
+            tree_record.health = Some(health);
+            env.storage().persistent().set(&tree_key, &tree_record);
+        }
+
+        // Emit a summary batch event with verifier and count
+        env.events().publish(
+            (Symbol::new(&env, "BatchSurvivalUpdated"),),
+            (verifier, len as u64),
+        );
     }
 
     /// Get a tree by ID.
@@ -751,5 +837,367 @@ mod tests {
 
         client.claim_milestone(&sponsor, &tree_id, &1);
         client.claim_milestone(&sponsor, &tree_id, &1);
+    }
+
+    // ── Batch Survival Update Tests ───────────────────────────────────────────
+
+    #[test]
+    fn test_batch_update_survival_success() {
+        let env = Env::default();
+        env.mock_all_auths();
+
+        let contract_id = env.register_contract(None, TreeRegistry);
+        let client = TreeRegistryClient::new(&env, &contract_id);
+
+        let admin = Address::generate(&env);
+        let escrow = Address::generate(&env);
+        let sponsor = Address::generate(&env);
+        let planter = Address::generate(&env);
+        let verifier = Address::generate(&env);
+
+        client.initialize(&admin, &escrow);
+        client.add_verifier(&verifier);
+
+        // Mint 5 trees
+        let species = String::from_str(&env, "Oak");
+        let region = String::from_str(&env, "Nairobi");
+        let mut tree_ids = Vec::new(&env);
+        for _ in 0..5 {
+            let id = client.mint_tree(&sponsor, &species, &region, &planter);
+            tree_ids.push_back(id);
+        }
+
+        // Build health states: alternating Healthy / Struggling / Dead
+        let mut health_states = Vec::new(&env);
+        health_states.push_back(TreeHealth::Healthy);
+        health_states.push_back(TreeHealth::Struggling);
+        health_states.push_back(TreeHealth::Dead);
+        health_states.push_back(TreeHealth::Healthy);
+        health_states.push_back(TreeHealth::Struggling);
+
+        client.batch_update_survival(&verifier, &tree_ids, &health_states);
+
+        // Verify each tree was updated correctly
+        let tree0 = client.get_tree(&0).unwrap();
+        assert_eq!(tree0.health, Some(TreeHealth::Healthy));
+
+        let tree1 = client.get_tree(&1).unwrap();
+        assert_eq!(tree1.health, Some(TreeHealth::Struggling));
+
+        let tree2 = client.get_tree(&2).unwrap();
+        assert_eq!(tree2.health, Some(TreeHealth::Dead));
+
+        let tree3 = client.get_tree(&3).unwrap();
+        assert_eq!(tree3.health, Some(TreeHealth::Healthy));
+
+        let tree4 = client.get_tree(&4).unwrap();
+        assert_eq!(tree4.health, Some(TreeHealth::Struggling));
+    }
+
+    #[test]
+    fn test_batch_update_survival_emits_event() {
+        let env = Env::default();
+        env.mock_all_auths();
+
+        let contract_id = env.register_contract(None, TreeRegistry);
+        let client = TreeRegistryClient::new(&env, &contract_id);
+
+        let admin = Address::generate(&env);
+        let escrow = Address::generate(&env);
+        let sponsor = Address::generate(&env);
+        let planter = Address::generate(&env);
+        let verifier = Address::generate(&env);
+
+        client.initialize(&admin, &escrow);
+        client.add_verifier(&verifier);
+
+        let species = String::from_str(&env, "Oak");
+        let region = String::from_str(&env, "Nairobi");
+        let tree_id = client.mint_tree(&sponsor, &species, &region, &planter);
+
+        let mut tree_ids = Vec::new(&env);
+        tree_ids.push_back(tree_id);
+        let mut health_states = Vec::new(&env);
+        health_states.push_back(TreeHealth::Healthy);
+
+        client.batch_update_survival(&verifier, &tree_ids, &health_states);
+
+        // Assert the batch event was published
+        env.events().assert_published(
+            (Symbol::new(&env, "BatchSurvivalUpdated"),),
+            (verifier, 1u64),
+        );
+    }
+
+    #[test]
+    fn test_batch_update_survival_with_100_trees() {
+        let env = Env::default();
+        env.mock_all_auths();
+
+        let contract_id = env.register_contract(None, TreeRegistry);
+        let client = TreeRegistryClient::new(&env, &contract_id);
+
+        let admin = Address::generate(&env);
+        let escrow = Address::generate(&env);
+        let sponsor = Address::generate(&env);
+        let planter = Address::generate(&env);
+        let verifier = Address::generate(&env);
+
+        client.initialize(&admin, &escrow);
+        client.add_verifier(&verifier);
+
+        let species = String::from_str(&env, "Pine");
+        let region = String::from_str(&env, "Lagos");
+
+        // Mint exactly 100 trees
+        let mut tree_ids = Vec::new(&env);
+        let mut health_states = Vec::new(&env);
+        for i in 0..100 {
+            let id = client.mint_tree(&sponsor, &species, &region, &planter);
+            tree_ids.push_back(id);
+            health_states.push_back(if i % 3 == 0 {
+                TreeHealth::Healthy
+            } else if i % 3 == 1 {
+                TreeHealth::Struggling
+            } else {
+                TreeHealth::Dead
+            });
+        }
+
+        // Batch update all 100 trees (boundary case)
+        client.batch_update_survival(&verifier, &tree_ids, &health_states);
+
+        // Spot-check a few trees
+        assert_eq!(client.get_tree(&0).unwrap().health, Some(TreeHealth::Healthy));
+        assert_eq!(client.get_tree(&50).unwrap().health, Some(TreeHealth::Struggling));
+        assert_eq!(client.get_tree(&99).unwrap().health, Some(TreeHealth::Dead));
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_batch_update_survival_empty_rejected() {
+        let env = Env::default();
+        env.mock_all_auths();
+
+        let contract_id = env.register_contract(None, TreeRegistry);
+        let client = TreeRegistryClient::new(&env, &contract_id);
+
+        let admin = Address::generate(&env);
+        let escrow = Address::generate(&env);
+        let verifier = Address::generate(&env);
+
+        client.initialize(&admin, &escrow);
+        client.add_verifier(&verifier);
+
+        let tree_ids = Vec::new(&env);
+        let health_states = Vec::new(&env);
+
+        // Should panic with BatchEmpty
+        client.batch_update_survival(&verifier, &tree_ids, &health_states);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_batch_update_survival_too_large_rejected() {
+        let env = Env::default();
+        env.mock_all_auths();
+
+        let contract_id = env.register_contract(None, TreeRegistry);
+        let client = TreeRegistryClient::new(&env, &contract_id);
+
+        let admin = Address::generate(&env);
+        let escrow = Address::generate(&env);
+        let verifier = Address::generate(&env);
+
+        client.initialize(&admin, &escrow);
+        client.add_verifier(&verifier);
+
+        let mut tree_ids = Vec::new(&env);
+        let mut health_states = Vec::new(&env);
+        for _ in 0..101 {
+            tree_ids.push_back(0);
+            health_states.push_back(TreeHealth::Healthy);
+        }
+
+        // Should panic with BatchTooLarge
+        client.batch_update_survival(&verifier, &tree_ids, &health_states);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_batch_update_survival_size_mismatch_rejected() {
+        let env = Env::default();
+        env.mock_all_auths();
+
+        let contract_id = env.register_contract(None, TreeRegistry);
+        let client = TreeRegistryClient::new(&env, &contract_id);
+
+        let admin = Address::generate(&env);
+        let escrow = Address::generate(&env);
+        let sponsor = Address::generate(&env);
+        let planter = Address::generate(&env);
+        let verifier = Address::generate(&env);
+
+        client.initialize(&admin, &escrow);
+        client.add_verifier(&verifier);
+
+        let species = String::from_str(&env, "Oak");
+        let region = String::from_str(&env, "Nairobi");
+        client.mint_tree(&sponsor, &species, &region, &planter);
+
+        let mut tree_ids = Vec::new(&env);
+        tree_ids.push_back(0);
+        tree_ids.push_back(0);
+
+        let mut health_states = Vec::new(&env);
+        health_states.push_back(TreeHealth::Healthy);
+        // Only 1 health state for 2 tree IDs → mismatch
+
+        // Should panic with BatchSizeMismatch
+        client.batch_update_survival(&verifier, &tree_ids, &health_states);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_batch_update_survival_tree_not_found() {
+        let env = Env::default();
+        env.mock_all_auths();
+
+        let contract_id = env.register_contract(None, TreeRegistry);
+        let client = TreeRegistryClient::new(&env, &contract_id);
+
+        let admin = Address::generate(&env);
+        let escrow = Address::generate(&env);
+        let verifier = Address::generate(&env);
+
+        client.initialize(&admin, &escrow);
+        client.add_verifier(&verifier);
+
+        // Tree 999 doesn't exist
+        let mut tree_ids = Vec::new(&env);
+        tree_ids.push_back(999);
+        let mut health_states = Vec::new(&env);
+        health_states.push_back(TreeHealth::Healthy);
+
+        // Should panic with NotFound
+        client.batch_update_survival(&verifier, &tree_ids, &health_states);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_batch_update_survival_unauthorized_verifier() {
+        let env = Env::default();
+
+        let contract_id = env.register_contract(None, TreeRegistry);
+        let client = TreeRegistryClient::new(&env, &contract_id);
+
+        let admin = Address::generate(&env);
+        let escrow = Address::generate(&env);
+        let sponsor = Address::generate(&env);
+        let planter = Address::generate(&env);
+        let verifier = Address::generate(&env);
+
+        client.initialize(&admin, &escrow);
+        // NOT adding verifier to whitelist
+
+        // Mock escrow auth so minting succeeds
+        env.mock_auths(&[&escrow]);
+
+        let species = String::from_str(&env, "Oak");
+        let region = String::from_str(&env, "Nairobi");
+        let tree_id = client.mint_tree(&sponsor, &species, &region, &planter);
+
+        let mut tree_ids = Vec::new(&env);
+        tree_ids.push_back(tree_id);
+        let mut health_states = Vec::new(&env);
+        health_states.push_back(TreeHealth::Healthy);
+
+        // verifier auth is not mocked, and verifier is not whitelisted
+        client.batch_update_survival(&verifier, &tree_ids, &health_states);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_batch_update_survival_when_paused() {
+        let env = Env::default();
+        env.mock_all_auths();
+
+        let contract_id = env.register_contract(None, TreeRegistry);
+        let client = TreeRegistryClient::new(&env, &contract_id);
+
+        let admin = Address::generate(&env);
+        let escrow = Address::generate(&env);
+        let sponsor = Address::generate(&env);
+        let planter = Address::generate(&env);
+        let verifier = Address::generate(&env);
+
+        client.initialize(&admin, &escrow);
+        client.add_verifier(&verifier);
+
+        let species = String::from_str(&env, "Oak");
+        let region = String::from_str(&env, "Nairobi");
+        let tree_id = client.mint_tree(&sponsor, &species, &region, &planter);
+
+        client.pause();
+
+        let mut tree_ids = Vec::new(&env);
+        tree_ids.push_back(tree_id);
+        let mut health_states = Vec::new(&env);
+        health_states.push_back(TreeHealth::Healthy);
+
+        // Should panic with ContractPaused
+        client.batch_update_survival(&verifier, &tree_ids, &health_states);
+    }
+
+    #[test]
+    fn test_batch_update_survival_overwrite_previous_health() {
+        let env = Env::default();
+        env.mock_all_auths();
+
+        let contract_id = env.register_contract(None, TreeRegistry);
+        let client = TreeRegistryClient::new(&env, &contract_id);
+
+        let admin = Address::generate(&env);
+        let escrow = Address::generate(&env);
+        let sponsor = Address::generate(&env);
+        let planter = Address::generate(&env);
+        let verifier = Address::generate(&env);
+
+        client.initialize(&admin, &escrow);
+        client.add_verifier(&verifier);
+
+        let species = String::from_str(&env, "Oak");
+        let region = String::from_str(&env, "Nairobi");
+        let tree_id = client.mint_tree(&sponsor, &species, &region, &planter);
+
+        // First update: Healthy
+        let mut tree_ids = Vec::new(&env);
+        tree_ids.push_back(tree_id);
+        let mut health_states = Vec::new(&env);
+        health_states.push_back(TreeHealth::Healthy);
+        client.batch_update_survival(&verifier, &tree_ids, &health_states);
+
+        assert_eq!(client.get_tree(&tree_id).unwrap().health, Some(TreeHealth::Healthy));
+
+        // Second update: overwrite to Dead
+        let mut health_states2 = Vec::new(&env);
+        health_states2.push_back(TreeHealth::Dead);
+        client.batch_update_survival(&verifier, &tree_ids, &health_states2);
+
+        assert_eq!(client.get_tree(&tree_id).unwrap().health, Some(TreeHealth::Dead));
+    }
+
+    #[test]
+    fn test_newly_minted_tree_has_no_health() {
+        let (env, _, _, sponsor, planter, client) = setup();
+
+        let species = String::from_str(&env, "Acacia");
+        let region = String::from_str(&env, "Kaduna");
+
+        let tree_id = client.mint_tree(&sponsor, &species, &region, &planter);
+        let tree = client.get_tree(&tree_id).unwrap();
+
+        // Newly minted trees should have no health status until a verifier assigns one
+        assert_eq!(tree.health, None);
     }
 }
