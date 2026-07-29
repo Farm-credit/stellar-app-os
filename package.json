@@ -15,6 +15,10 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
+    "lint:fix": "eslint . --fix",
+    "lint:strict": "eslint . --max-warnings 0",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "test:ui": "vitest --ui",
     "lint:fix": "eslint . --fix",
     "lint:strict": "eslint . --max-warnings 0",
@@ -26,16 +30,25 @@
     "integrity-check": "tsx lib/integrity-checker.ts",
 
 
+
     "db:migrate": "node scripts/run-migrations.mjs",
+
     "db:migrate:species": "psql $DATABASE_URL -f db/migrations/002_create_species_catalogue.sql",
 
     "monitor:treasury": "tsx lib/monitor/worker.ts",
+
+
     "monitor:ttl-renewal": "tsx lib/monitor/ttlRenewalWorker.ts",
+    "monitor:rpc-nodes": "tsx lib/monitor/rpc-monitor-worker.ts",
+
     "db:migrate:status": "node scripts/run-migrations.mjs status",
     "db:migrate:validate": "node scripts/run-migrations.mjs validate",
     "seed:species": "node scripts/seed-species.mjs",
     "db:backup": "node scripts/db-backup.mjs",
-    "prepare": "husky"
+    "prepare": "husky",
+    "ticker": "tsx lib/ticker/worker.ts",
+    "ticker:simulate": "dotenvx run -e TICKER_SIMULATE_TRADES=true -- tsx lib/ticker/worker.ts"
+    "indexer:cdc": "tsx lib/indexer/cdc-worker.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1037.0",
@@ -86,18 +99,17 @@
     "tailwind-merge": "^3.5.0",
     "vite": "^8.1.5",
     "winston": "3.17.0",
+    "socket.io": "^4.8.3",
+    "socket.io-client": "^4.8.3",
     "zod": "^4.3.6"
   },
   "devDependencies": {
     "@commitlint/cli": "^20.4.2",
-    "@testing-library/jest-dom": "^6.9.1",
-    "@testing-library/react": "^16.3.0",
-    "@testing-library/user-event": "^14.6.1",
-    "@vitejs/plugin-react": "^5.0.1",
     "@commitlint/config-conventional": "^20.4.2",
     "@tailwindcss/postcss": "^4",
-    "@testing-library/jest-dom": "^6.0.0",
-    "@testing-library/react": "^14.0.0",
+    "@testing-library/jest-dom": "^7.0.0",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
     "@types/i18next": "^12.1.0",
     "@types/leaflet": "^1.9.21",
     "@types/node": "^20",
@@ -108,16 +120,15 @@
     "@types/winston": "2.4.4",
     "@typescript-eslint/eslint-plugin": "^8.56.0",
     "@typescript-eslint/parser": "^8.56.0",
-    "@vitejs/plugin-react": "^4.1.0",
+    "@vitejs/plugin-react": "^5.0.1",
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
-    "jsdom": "^26.1.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-prettier": "^5.5.5",
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^7.0.1",
     "husky": "^9.1.7",
-    "jsdom": "^22.0.0",
+    "jsdom": "^29.1.1",
     "lint-staged": "^15.5.2",
     "prettier": "^3.8.1",
     "prettier-plugin-tailwindcss": "^0.7.2",
@@ -133,6 +144,11 @@
     "@testing-library/jest-dom": "^6.0.0",
     "@testing-library/react": "^14.0.0",
     "jsdom": "^22.0.0"
+
+    "@testing-library/jest-dom": "6.9.1",
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/react": "^16.3.2",
+    "jsdom": "^22.0.0",
 
     "vitest": "^4.1.9"
 
