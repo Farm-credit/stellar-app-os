@@ -138,15 +138,7 @@ pub enum HarvestaError {
     TreeTokenMintOverflow = 80,
     TokenUnitOverflow = 81,
 
-    // ── Tree lifecycle state machine (#462) ───────────────────────────────────
-    CommitmentAlreadyRegistered = 60,
-    NotVerifier = 61,
-    Co2MustBePositive = 62,
-    MaturityYearsMustBePositive = 63,
-    SpeciesNotFound = 64,
-    ProofCommitmentAlreadyRegistered = 66,
-    PointOutsidePolygon = 76,
-    ZoneNotFound = 77,
+    // ── Tree lifecycle state machine (90–112) ─────────────────────────────────
     InvalidTreeStatusTransition = 90,
     PlantingTimeoutNotReached = 91,
     PolicyNotFound = 101,
