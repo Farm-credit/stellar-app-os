@@ -134,14 +134,10 @@
     "typescript": "^5",
     "vitest": "^4.1.9",
     "@vitejs/plugin-react": "^4.1.0",
-    "@testing-library/jest-dom": "^6.0.0",
-    "@testing-library/react": "^14.0.0",
-    "jsdom": "^22.0.0"
     "@testing-library/jest-dom": "6.9.1",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/react": "^16.3.2",
-    "jsdom": "^22.0.0",
-    "vitest": "^4.1.9"
+    "jsdom": "^22.0.0"
   },
   "packageManager": "pnpm@10.28.1+sha512.7d7dbbca9e99447b7c3bf7a73286afaaf6be99251eb9498baefa7d406892f67b879adb3a1d7e687fc4ccc1a388c7175fbaae567a26ab44d1067b54fcb0d6a316",
   "lint-staged": {
