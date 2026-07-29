@@ -41,7 +41,9 @@
 //!     DLGRS:<addr>       — Vec<Address> (addresses that delegated to this delegate)
 
 use soroban_sdk::{
-    contract, contractimpl, contracttype, symbol_short, Address, Env, String, Symbol, Vec,
+    contract, contracterror, contractimpl, contracttype, panic_with_error, symbol_short, Address,
+    Env, String, Symbol, Vec,
+    Env, IntoVal, String, Symbol, Val, Vec,
 };
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -137,6 +139,16 @@ pub struct DelegateRecord {
     pub registered_at: u64,
 }
 
+// ── Governance errors
+
+#[contracterror]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
+pub enum GovernanceError {
+    NotInitialized = 1,
+    Unauthorized = 2,
+    NoStakedTokens = 3,
+}
+
 // ── Storage keys ──────────────────────────────────────────────────────────────
 
 fn admin_key() -> Symbol {
@@ -198,12 +210,35 @@ fn delegators_key(delegate: &Address) -> (Symbol, Address) {
     (symbol_short!("DLGRS"), delegate.clone())
 }
 
+/// Bucket index of the current day for the 30-day participation window.
+fn participation_day_key() -> Symbol {
+    symbol_short!("PART_D")
+}
+
+/// Circular buffer holding daily active voting power sums (30 slots).
+fn participation_buckets_key() -> Symbol {
+    symbol_short!("PART_B")
+}
+
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const DEFAULT_QUORUM_PERCENTAGE: u64 = 10; // 10%
 const DEFAULT_TIMELOCK_SECONDS: u64 = 172800; // 48 hours
 const DEFAULT_PLATFORM_FEE: u64 = 5; // 5%
 const DEFAULT_MIN_PLANTING_BOND: i128 = 1_000_000; // 1M tokens
+
+// Dynamic quorum configuration
+const PARTICIPATION_WINDOW_DAYS: u32 = 30;
+const SECONDS_PER_DAY: u64 = 86400;
+const MIN_DYNAMIC_QUORUM: u64 = 5;
+const MAX_DYNAMIC_QUORUM: u64 = 25;
+const BASIS_POINTS: u64 = 10000;
+
+// Storage TTL constants (ledgers)
+const INSTANCE_TTL_THRESHOLD: u32 = 17_280;
+const INSTANCE_TTL_LEDGERS: u32 = 103_680;
+const PERSISTENT_TTL_THRESHOLD: u32 = 120_960;
+const PERSISTENT_TTL_LEDGERS: u32 = 518_400;
 
 // ── Contract ──────────────────────────────────────────────────────────────────
 
@@ -249,15 +284,15 @@ impl PlatformGovernance {
         env.storage()
             .instance()
             .set(&min_planting_bond_key(), &min_planting_bond);
-        env.storage()
-            .instance()
-            .set(&proposal_count_key(), &0u64);
+        env.storage().instance().set(&proposal_count_key(), &0u64);
 
         // Initialize empty verifier whitelist
         let whitelist: Vec<Address> = Vec::new(&env);
         env.storage()
             .persistent()
             .set(&verifier_whitelist_key(), &whitelist);
+        Self::bump_instance(&env);
+        Self::bump_persistent(&env, &verifier_whitelist_key());
     }
 
     /// Create a new governance proposal.
@@ -323,9 +358,8 @@ impl PlatformGovernance {
             executable_at: now + voting_period + timelock,
         };
 
-        env.storage()
-            .persistent()
-            .set(&proposal_key(id), &proposal);
+        env.storage().persistent().set(&proposal_key(id), &proposal);
+        Self::bump_persistent(&env, &proposal_key(id));
         env.storage()
             .instance()
             .set(&proposal_count_key(), &(id + 1));
@@ -352,11 +386,7 @@ impl PlatformGovernance {
         voter.require_auth();
 
         // Block voters that have delegated their power to someone else.
-        if env
-            .storage()
-            .persistent()
-            .has(&delegation_key(&voter))
-        {
+        if env.storage().persistent().has(&delegation_key(&voter)) {
             panic!("voting power delegated; retract delegation before voting");
         }
 
@@ -390,20 +420,23 @@ impl PlatformGovernance {
             .instance()
             .get(&staking_contract_key())
             .expect("not initialized");
-        
+
         // Get raw voting power (staked token amount)
         let own_power = Self::get_voting_power(&env, &staking_contract, &voter);
-        
+
         // Add delegated power from all direct delegators.
-        let delegated_power =
-            Self::aggregate_delegated_power(&env, &staking_contract, &voter);
-            
+        let delegated_power = Self::aggregate_delegated_power(&env, &staking_contract, &voter);
+
         let raw_power = own_power + delegated_power;
 
         if raw_power <= 0 {
             panic!("must be a staked verifier or delegate to vote");
         }
-        
+
+        // Track this voter's activity for the rolling 30-day window used to
+        // dynamically adjust quorum requirements.
+        Self::record_participation(&env, raw_power);
+
         // Apply quadratic voting for SpeciesSelection proposals
         // Voting power = sqrt(token holdings)
         let power = if proposal.proposal_type == ProposalType::SpeciesSelection {
@@ -413,7 +446,10 @@ impl PlatformGovernance {
         };
 
         // Validate option_id exists
-        let option_exists = proposal.options.iter().any(|opt| opt.option_id == option_id);
+        let option_exists = proposal
+            .options
+            .iter()
+            .any(|opt| opt.option_id == option_id);
         if !option_exists {
             panic!("invalid option_id");
         }
@@ -428,6 +464,7 @@ impl PlatformGovernance {
         env.storage()
             .persistent()
             .set(&vote_key(proposal_id, &voter), &vote_record);
+        Self::bump_persistent(&env, &vote_key(proposal_id, &voter));
 
         // Update proposal tally
         let mut new_tally = Vec::new(&env);
@@ -474,6 +511,7 @@ impl PlatformGovernance {
         env.storage()
             .persistent()
             .set(&proposal_key(proposal_id), &proposal);
+        Self::bump_persistent(&env, &proposal_key(proposal_id));
 
         env.events().publish(
             (symbol_short!("vote"), proposal_id),
@@ -522,9 +560,7 @@ impl PlatformGovernance {
                     .find(|opt| opt.option_id == winning_option_id)
                 {
                     let new_fee = Self::parse_fee_from_description(&option.description);
-                    env.storage()
-                        .instance()
-                        .set(&platform_fee_key(), &new_fee);
+                    env.storage().instance().set(&platform_fee_key(), &new_fee);
                 }
             }
             ProposalType::MinPlantingBond => {
@@ -563,6 +599,7 @@ impl PlatformGovernance {
         env.storage()
             .persistent()
             .set(&proposal_key(proposal_id), &proposal);
+        Self::bump_persistent(&env, &proposal_key(proposal_id));
 
         env.events().publish(
             (symbol_short!("proposal"), symbol_short!("executed")),
@@ -595,17 +632,15 @@ impl PlatformGovernance {
         env.storage()
             .persistent()
             .set(&delegate_info_key(&delegate), &record);
+        Self::bump_persistent(&env, &delegate_info_key(&delegate));
 
         // Initialise empty delegators list on first registration.
-        if !env
-            .storage()
-            .persistent()
-            .has(&delegators_key(&delegate))
-        {
+        if !env.storage().persistent().has(&delegators_key(&delegate)) {
             let empty: Vec<Address> = Vec::new(&env);
             env.storage()
                 .persistent()
                 .set(&delegators_key(&delegate), &empty);
+            Self::bump_persistent(&env, &delegators_key(&delegate));
         }
 
         env.events().publish(
@@ -679,11 +714,7 @@ impl PlatformGovernance {
         }
 
         // Atomically replace any prior delegation.
-        if env
-            .storage()
-            .persistent()
-            .has(&delegation_key(&delegator))
-        {
+        if env.storage().persistent().has(&delegation_key(&delegator)) {
             let old_delegate: Address = env
                 .storage()
                 .persistent()
@@ -696,6 +727,7 @@ impl PlatformGovernance {
         env.storage()
             .persistent()
             .set(&delegation_key(&delegator), &delegate);
+        Self::bump_persistent(&env, &delegation_key(&delegator));
 
         // Record reverse link: delegate → delegator list.
         let mut delegators: Vec<Address> = env
@@ -707,6 +739,7 @@ impl PlatformGovernance {
         env.storage()
             .persistent()
             .set(&delegators_key(&delegate), &delegators);
+        Self::bump_persistent(&env, &delegators_key(&delegate));
 
         env.events().publish(
             (symbol_short!("delegate"), symbol_short!("delegated")),
@@ -810,9 +843,7 @@ impl PlatformGovernance {
 
     /// Returns the address that `delegator` has delegated to, or None.
     pub fn get_delegation(env: Env, delegator: Address) -> Option<Address> {
-        env.storage()
-            .persistent()
-            .get(&delegation_key(&delegator))
+        env.storage().persistent().get(&delegation_key(&delegator))
     }
 
     /// Returns the total delegated voting power currently pointed at `delegate`.
@@ -862,11 +893,8 @@ impl PlatformGovernance {
         if new_fee > 100 {
             panic!("fee must be <= 100%");
         }
-        env.storage()
-            .instance()
-            .set(&platform_fee_key(), &new_fee);
-        env.events()
-            .publish((symbol_short!("fee_set"),), new_fee);
+        env.storage().instance().set(&platform_fee_key(), &new_fee);
+        env.events().publish((symbol_short!("fee_set"),), new_fee);
     }
 
     /// Directly set minimum planting bond (emergency override). Admin only.
@@ -878,8 +906,7 @@ impl PlatformGovernance {
         env.storage()
             .instance()
             .set(&min_planting_bond_key(), &new_bond);
-        env.events()
-            .publish((symbol_short!("bond_set"),), new_bond);
+        env.events().publish((symbol_short!("bond_set"),), new_bond);
     }
 
     /// Add verifier to whitelist (emergency override). Admin only.
@@ -902,8 +929,8 @@ impl PlatformGovernance {
         env.storage()
             .persistent()
             .set(&verifier_whitelist_key(), &whitelist);
-        env.events()
-            .publish((symbol_short!("wl_add"),), verifier);
+        Self::bump_persistent(&env, &verifier_whitelist_key());
+        env.events().publish((symbol_short!("wl_add"),), verifier);
     }
 
     /// Remove verifier from whitelist (emergency override). Admin only.
@@ -932,8 +959,355 @@ impl PlatformGovernance {
         env.storage()
             .persistent()
             .set(&verifier_whitelist_key(), &new_whitelist);
-        env.events()
-            .publish((symbol_short!("wl_rm"),), verifier);
+        Self::bump_persistent(&env, &verifier_whitelist_key());
+        env.events().publish((symbol_short!("wl_rm"),), verifier);
+    }
+
+    // ── Dynamic quorum ─────────────────────────────────────────────────────────
+
+    /// Convert a ledger timestamp to the number of days since epoch.
+    fn day_index(timestamp: u64) -> u32 {
+        (timestamp / SECONDS_PER_DAY) as u32
+    }
+
+    /// Zero out daily buckets that have fallen outside the 30-day window and
+    /// advance the stored day pointer to the current day.
+    fn rotate_participation_buckets(env: &Env, now: u64) {
+        let current_day = Self::day_index(now);
+        let stored_day: u32 = env
+            .storage()
+            .instance()
+            .get(&participation_day_key())
+            .unwrap_or(0u32);
+
+        let mut buckets: Vec<i128> = env
+            .storage()
+            .instance()
+            .get(&participation_buckets_key())
+            .unwrap_or_else(|| Vec::new(env));
+
+        if buckets.is_empty() {
+            for _ in 0..PARTICIPATION_WINDOW_DAYS {
+                buckets.push_back(0i128);
+            }
+        }
+
+        if current_day != stored_day {
+            let diff = current_day - stored_day;
+            if diff >= PARTICIPATION_WINDOW_DAYS {
+                for i in 0..buckets.len() {
+                    buckets.set(i, 0i128);
+                }
+            } else {
+                for d in 1..=diff {
+                    let idx = ((stored_day + d) % PARTICIPATION_WINDOW_DAYS) as u32;
+                    buckets.set(idx, 0i128);
+                }
+            }
+            env.storage()
+                .instance()
+                .set(&participation_day_key(), &current_day);
+            env.storage()
+                .instance()
+                .set(&participation_buckets_key(), &buckets);
+        }
+    }
+
+    /// Add `power` to the current day's participation bucket.
+    fn record_participation(env: &Env, power: i128) {
+        if power <= 0 {
+            return;
+        }
+        let now = env.ledger().timestamp();
+        Self::rotate_participation_buckets(env, now);
+
+        let current_day = Self::day_index(now);
+        let mut buckets: Vec<i128> = env
+            .storage()
+            .instance()
+            .get(&participation_buckets_key())
+            .unwrap_or_else(|| Vec::new(env));
+
+        if buckets.is_empty() {
+            for _ in 0..PARTICIPATION_WINDOW_DAYS {
+                buckets.push_back(0i128);
+            }
+        }
+
+        let idx = (current_day % PARTICIPATION_WINDOW_DAYS) as u32;
+        let current = buckets.get(idx).unwrap_or(0i128);
+        buckets.set(idx, current + power);
+
+        env.storage()
+            .instance()
+            .set(&participation_buckets_key(), &buckets);
+    }
+
+    /// Sum all participation buckets in the 30-day window.
+    fn sum_buckets(env: &Env) -> i128 {
+        let buckets: Vec<i128> = env
+            .storage()
+            .instance()
+            .get(&participation_buckets_key())
+            .unwrap_or_else(|| Vec::new(env));
+        let mut total = 0i128;
+        for i in 0..buckets.len() {
+            total += buckets.get(i).unwrap_or(0i128);
+        }
+        total
+    }
+
+    /// Map a participation rate in basis points to a quorum percentage.
+    /// High participation reduces the quorum (down to MIN_DYNAMIC_QUORUM);
+    /// low participation raises it (up to MAX_DYNAMIC_QUORUM).
+    fn map_rate_to_quorum(rate_bps: u64) -> u64 {
+        let range = MAX_DYNAMIC_QUORUM - MIN_DYNAMIC_QUORUM;
+        let reduction = (rate_bps * range) / BASIS_POINTS;
+        MAX_DYNAMIC_QUORUM - reduction
+    }
+
+    /// Recalculate the proposal quorum requirement from the last 30 days of
+    /// active voter participation. Higher participation lowers the quorum
+    /// (min 5%), lower participation raises it (max 25%). Only the stored
+    /// admin may call this function.
+    ///
+    /// `admin` — contract admin address (must authorize)
+    pub fn adjust_quorum(env: Env, admin: Address) {
+        admin.require_auth();
+
+        let stored_admin: Address = env
+            .storage()
+            .instance()
+            .get(&admin_key())
+            .expect("not initialized");
+        if admin != stored_admin {
+            panic_with_error!(&env, GovernanceError::Unauthorized);
+        }
+
+        let rate_bps = Self::participation_rate_bps(env);
+        let new_quorum = Self::map_rate_to_quorum(rate_bps);
+
+        env.storage()
+            .instance()
+            .set(&quorum_percentage_key(), &new_quorum);
+        Self::bump_instance(&env);
+
+        env.events().publish(
+            (symbol_short!("quorum"), symbol_short!("adjust")),
+            (rate_bps, new_quorum),
+        );
+    }
+
+    /// Return the total active voting power recorded in the rolling 30-day window.
+    pub fn participation_30d(env: Env) -> i128 {
+        Self::bump_instance(&env);
+        let now = env.ledger().timestamp();
+        Self::rotate_participation_buckets(&env, now);
+        Self::sum_buckets(&env)
+    }
+
+    /// Return the 30-day active voter participation rate as basis points (0–10000).
+    pub fn participation_rate_bps(env: Env) -> u64 {
+        Self::bump_instance(&env);
+        let now = env.ledger().timestamp();
+        Self::rotate_participation_buckets(&env, now);
+
+        let total_power = Self::sum_buckets(&env);
+        let staking_contract: Address = env
+            .storage()
+            .instance()
+            .get(&staking_contract_key())
+            .expect("not initialized");
+        let total_staked = Self::get_total_staked(&env, &staking_contract);
+
+        if total_staked <= 0 {
+            panic_with_error!(&env, GovernanceError::NoStakedTokens);
+        }
+
+        let rate = (total_power * BASIS_POINTS as i128) / total_staked;
+        if rate < 0 {
+            0
+        } else if rate > BASIS_POINTS as i128 {
+            BASIS_POINTS
+        } else {
+            rate as u64
+        }
+    }
+
+    /// Return the number of days used for the participation window.
+    pub fn participation_window_days(_env: Env) -> u32 {
+        PARTICIPATION_WINDOW_DAYS
+    }
+
+    // ── Dynamic quorum ─────────────────────────────────────────────────────────
+
+    /// Convert a ledger timestamp to the number of days since epoch.
+    fn day_index(timestamp: u64) -> u32 {
+        (timestamp / SECONDS_PER_DAY) as u32
+    }
+
+    /// Zero out daily buckets that have fallen outside the 30-day window and
+    /// advance the stored day pointer to the current day.
+    fn rotate_participation_buckets(env: &Env, now: u64) {
+        let current_day = Self::day_index(now);
+        let stored_day: u32 = env
+            .storage()
+            .instance()
+            .get(&participation_day_key())
+            .unwrap_or(0u32);
+
+        let mut buckets: Vec<i128> = env
+            .storage()
+            .instance()
+            .get(&participation_buckets_key())
+            .unwrap_or_else(|| Vec::new(env));
+
+        if buckets.is_empty() {
+            for _ in 0..PARTICIPATION_WINDOW_DAYS {
+                buckets.push_back(0i128);
+            }
+        }
+
+        if current_day != stored_day {
+            let diff = current_day - stored_day;
+            if diff >= PARTICIPATION_WINDOW_DAYS {
+                for i in 0..buckets.len() {
+                    buckets.set(i, 0i128);
+                }
+            } else {
+                for d in 1..=diff {
+                    let idx = ((stored_day + d) % PARTICIPATION_WINDOW_DAYS) as u32;
+                    buckets.set(idx, 0i128);
+                }
+            }
+            env.storage().instance().set(&participation_day_key(), &current_day);
+            env.storage()
+                .instance()
+                .set(&participation_buckets_key(), &buckets);
+        }
+    }
+
+    /// Add `power` to the current day's participation bucket.
+    fn record_participation(env: &Env, power: i128) {
+        if power <= 0 {
+            return;
+        }
+        let now = env.ledger().timestamp();
+        Self::rotate_participation_buckets(env, now);
+
+        let current_day = Self::day_index(now);
+        let mut buckets: Vec<i128> = env
+            .storage()
+            .instance()
+            .get(&participation_buckets_key())
+            .unwrap_or_else(|| Vec::new(env));
+
+        if buckets.is_empty() {
+            for _ in 0..PARTICIPATION_WINDOW_DAYS {
+                buckets.push_back(0i128);
+            }
+        }
+
+        let idx = (current_day % PARTICIPATION_WINDOW_DAYS) as u32;
+        let current = buckets.get(idx).unwrap_or(0i128);
+        buckets.set(idx, current + power);
+
+        env.storage()
+            .instance()
+            .set(&participation_buckets_key(), &buckets);
+    }
+
+    /// Sum all participation buckets in the 30-day window.
+    fn sum_buckets(env: &Env) -> i128 {
+        let buckets: Vec<i128> = env
+            .storage()
+            .instance()
+            .get(&participation_buckets_key())
+            .unwrap_or_else(|| Vec::new(env));
+        let mut total = 0i128;
+        for i in 0..buckets.len() {
+            total += buckets.get(i).unwrap_or(0i128);
+        }
+        total
+    }
+
+    /// Map a participation rate in basis points to a quorum percentage.
+    /// High participation reduces the quorum (down to MIN_DYNAMIC_QUORUM);
+    /// low participation raises it (up to MAX_DYNAMIC_QUORUM).
+    fn map_rate_to_quorum(rate_bps: u64) -> u64 {
+        let range = MAX_DYNAMIC_QUORUM - MIN_DYNAMIC_QUORUM;
+        let reduction = (rate_bps * range) / BASIS_POINTS;
+        MAX_DYNAMIC_QUORUM - reduction
+    }
+
+    /// Recalculate the proposal quorum requirement from the last 30 days of
+    /// active voter participation. Higher participation lowers the quorum
+    /// (min 5%), lower participation raises it (max 25%). Only the stored
+    /// admin may call this function.
+    ///
+    /// `admin` — contract admin address (must authorize)
+    pub fn adjust_quorum(env: Env, admin: Address) {
+        admin.require_auth();
+
+        let stored_admin: Address = env
+            .storage()
+            .instance()
+            .get(&admin_key())
+            .expect("not initialized");
+        if admin != stored_admin {
+            panic_with_error!(&env, GovernanceError::Unauthorized);
+        }
+
+        let rate_bps = Self::participation_rate_bps(env);
+        let new_quorum = Self::map_rate_to_quorum(rate_bps);
+
+        env.storage()
+            .instance()
+            .set(&quorum_percentage_key(), &new_quorum);
+
+        env.events().publish(
+            (symbol_short!("quorum"), symbol_short!("adjust")),
+            (rate_bps, new_quorum),
+        );
+    }
+
+    /// Return the total active voting power recorded in the rolling 30-day window.
+    pub fn participation_30d(env: Env) -> i128 {
+        let now = env.ledger().timestamp();
+        Self::rotate_participation_buckets(&env, now);
+        Self::sum_buckets(&env)
+    }
+
+    /// Return the 30-day active voter participation rate as basis points (0–10000).
+    pub fn participation_rate_bps(env: Env) -> u64 {
+        let now = env.ledger().timestamp();
+        Self::rotate_participation_buckets(&env, now);
+
+        let total_power = Self::sum_buckets(&env);
+        let staking_contract: Address = env
+            .storage()
+            .instance()
+            .get(&staking_contract_key())
+            .expect("not initialized");
+        let total_staked = Self::get_total_staked(&env, &staking_contract);
+
+        if total_staked <= 0 {
+            panic_with_error!(&env, GovernanceError::NoStakedTokens);
+        }
+
+        let rate = (total_power * BASIS_POINTS as i128) / total_staked;
+        if rate < 0 {
+            0
+        } else if rate > BASIS_POINTS as i128 {
+            BASIS_POINTS
+        } else {
+            rate as u64
+        }
+    }
+
+    /// Return the number of days used for the participation window.
+    pub fn participation_window_days(_env: Env) -> u32 {
+        PARTICIPATION_WINDOW_DAYS
     }
 
     // ── Internal ──────────────────────────────────────────────────────────────
@@ -944,15 +1318,15 @@ impl PlatformGovernance {
         if n <= 0 {
             return 0;
         }
-        
+
         let mut low = 1i128;
         let mut high = n;
         let mut result = 1i128;
-        
+
         while low <= high {
             let mid = (low + high) / 2;
             let mid_squared = mid * mid;
-            
+
             if mid_squared == n {
                 return mid;
             } else if mid_squared < n {
@@ -962,7 +1336,7 @@ impl PlatformGovernance {
                 high = mid - 1;
             }
         }
-        
+
         result
     }
 
@@ -973,6 +1347,7 @@ impl PlatformGovernance {
             .get(&admin_key())
             .expect("not initialized");
         admin.require_auth();
+        Self::bump_instance(env);
     }
 
     fn assert_not_paused(env: &Env) {
@@ -984,6 +1359,23 @@ impl PlatformGovernance {
         if paused {
             panic!("contract is paused");
         }
+        Self::bump_instance(env);
+    }
+
+    /// Extend the TTL of instance storage to keep configuration alive.
+    fn bump_instance(env: &Env) {
+        env.storage()
+            .instance()
+            .extend_ttl(INSTANCE_TTL_THRESHOLD, INSTANCE_TTL_LEDGERS);
+    }
+
+    /// Extend the TTL of a persistent storage entry after writing to it.
+    fn bump_persistent<K: IntoVal<Env, Val>>(env: &Env, key: &K) {
+        env.storage().persistent().extend_ttl(
+            key,
+            PERSISTENT_TTL_THRESHOLD,
+            PERSISTENT_TTL_LEDGERS,
+        );
     }
 
     fn get_voting_power(_env: &Env, _staking_contract: &Address, _voter: &Address) -> i128 {
@@ -1062,7 +1454,13 @@ mod tests {
         Address, Env, String,
     };
 
-    fn setup() -> (Env, Address, Address, Address, PlatformGovernanceClient<'static>) {
+    fn setup() -> (
+        Env,
+        Address,
+        Address,
+        Address,
+        PlatformGovernanceClient<'static>,
+    ) {
         let env = Env::default();
         env.mock_all_auths();
 
@@ -1180,7 +1578,8 @@ mod tests {
         client.vote(&0, &1, &admin);
 
         // Advance past voting period and timelock
-        env.ledger().set_timestamp(env.ledger().timestamp() + 200000);
+        env.ledger()
+            .set_timestamp(env.ledger().timestamp() + 200000);
 
         let _proposal = client.get_proposal(&0);
     }
@@ -1252,7 +1651,7 @@ mod tests {
 
         let description_hash = String::from_str(&env, "species_hash");
         let proposal_type = ProposalType::SpeciesSelection;
-        
+
         let mut options = Vec::new(&env);
         options.push_back(VoteOption {
             option_id: 1,
@@ -1277,7 +1676,7 @@ mod tests {
 
         let description_hash = String::from_str(&env, "fee_hash");
         let proposal_type = ProposalType::PlatformFee;
-        
+
         let mut options = Vec::new(&env);
         options.push_back(VoteOption {
             option_id: 1,
@@ -1298,7 +1697,7 @@ mod tests {
 
         let description_hash = String::from_str(&env, "species_hash");
         let proposal_type = ProposalType::SpeciesSelection;
-        
+
         let mut options = Vec::new(&env);
         options.push_back(VoteOption {
             option_id: 1,
@@ -1309,15 +1708,14 @@ mod tests {
         client.vote(&0, &1, &admin);
 
         // Wait for voting period and timelock to pass
-        env.ledger().set_timestamp(env.ledger().timestamp() + 200000);
+        env.ledger()
+            .set_timestamp(env.ledger().timestamp() + 200000);
 
         // Manually set proposal to passed for testing execution
         // In production, this would happen through quorum
         let mut proposal = client.get_proposal(&0);
         proposal.status = ProposalStatus::Passed;
-        env.storage()
-            .persistent()
-            .set(&proposal_key(0), &proposal);
+        env.storage().persistent().set(&proposal_key(0), &proposal);
 
         client.execute(&0);
 
@@ -1577,5 +1975,154 @@ mod tests {
 
         // 5 delegators × 1000 each = 5000
         assert_eq!(client.get_delegated_power(&delegate), 5000);
+    }
+
+    // ── Dynamic quorum tests ────────────────────────────────────────────────────
+
+    #[test]
+    fn test_adjust_quorum_zero_participation() {
+        let (_, admin, _, _, client) = setup();
+        client.adjust_quorum(&admin);
+        assert_eq!(client.quorum_percentage(), MAX_DYNAMIC_QUORUM);
+    }
+
+    #[test]
+    fn test_adjust_quorum_low_participation() {
+        let (env, admin, _, _, client) = setup();
+
+        let mut options = Vec::new(&env);
+        options.push_back(VoteOption {
+            option_id: 1,
+            description: String::from_str(&env, "Yes"),
+        });
+        client.create_proposal(
+            &String::from_str(&env, "hash"),
+            &ProposalType::PlatformFee,
+            &options,
+            &604800,
+            &admin,
+        );
+        client.vote(&0, &1, &admin);
+
+        client.adjust_quorum(&admin);
+        // 1000 / 100_000 * 10_000 = 100 bps => quorum = 25 - (100*20/10000) = 23
+        assert_eq!(client.quorum_percentage(), 23);
+    }
+
+    #[test]
+    fn test_adjust_quorum_high_participation() {
+        let (env, admin, _, _, client) = setup();
+
+        let mut options = Vec::new(&env);
+        options.push_back(VoteOption {
+            option_id: 1,
+            description: String::from_str(&env, "Yes"),
+        });
+        client.create_proposal(
+            &String::from_str(&env, "hash"),
+            &ProposalType::PlatformFee,
+            &options,
+            &604800,
+            &admin,
+        );
+
+        for _ in 0..50u32 {
+            let voter = Address::generate(&env);
+            client.vote(&0, &1, &voter);
+        }
+
+        client.adjust_quorum(&admin);
+        // 50_000 / 100_000 * 10_000 = 5000 bps => quorum = 25 - (5000*20/10000) = 15
+        assert_eq!(client.quorum_percentage(), 15);
+    }
+
+    #[test]
+    fn test_adjust_quorum_max_participation_clamped() {
+        let (env, admin, _, _, client) = setup();
+
+        let mut options = Vec::new(&env);
+        options.push_back(VoteOption {
+            option_id: 1,
+            description: String::from_str(&env, "Yes"),
+        });
+        client.create_proposal(
+            &String::from_str(&env, "hash"),
+            &ProposalType::PlatformFee,
+            &options,
+            &604800,
+            &admin,
+        );
+
+        for _ in 0..120u32 {
+            let voter = Address::generate(&env);
+            client.vote(&0, &1, &voter);
+        }
+
+        client.adjust_quorum(&admin);
+        // Participation rate clamped at 10000 bps => minimum quorum
+        assert_eq!(client.quorum_percentage(), MIN_DYNAMIC_QUORUM);
+    }
+
+    #[test]
+    fn test_30_day_window_ignores_old_votes() {
+        let (env, admin, _, _, client) = setup();
+
+        let mut options = Vec::new(&env);
+        options.push_back(VoteOption {
+            option_id: 1,
+            description: String::from_str(&env, "Yes"),
+        });
+        client.create_proposal(
+            &String::from_str(&env, "hash"),
+            &ProposalType::PlatformFee,
+            &options,
+            &604800,
+            &admin,
+        );
+        client.vote(&0, &1, &admin);
+
+        // Move forward 31 days and vote again with a different address.
+        env.ledger()
+            .set_timestamp(env.ledger().timestamp() + 31u64 * 86_400);
+        let voter2 = Address::generate(&env);
+        client.vote(&0, &1, &voter2);
+
+        client.adjust_quorum(&admin);
+        // Only the second vote remains in the rolling window.
+        assert_eq!(client.quorum_percentage(), 23);
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #2)")]
+    fn test_adjust_quorum_unauthorized() {
+        let (env, _admin, _, _, client) = setup();
+        let attacker = Address::generate(&env);
+        client.adjust_quorum(&attacker);
+    }
+
+    #[test]
+    fn test_participation_rate_bps() {
+        let (env, admin, _, _, client) = setup();
+
+        let mut options = Vec::new(&env);
+        options.push_back(VoteOption {
+            option_id: 1,
+            description: String::from_str(&env, "Yes"),
+        });
+        client.create_proposal(
+            &String::from_str(&env, "hash"),
+            &ProposalType::PlatformFee,
+            &options,
+            &604800,
+            &admin,
+        );
+
+        for _ in 0..10u32 {
+            let voter = Address::generate(&env);
+            client.vote(&0, &1, &voter);
+        }
+
+        assert_eq!(client.participation_rate_bps(), 1000);
+        assert_eq!(client.participation_30d(), 10_000);
     }
 }

@@ -32,7 +32,7 @@ members = [
     "carbon-dex",
     "tree-registry",
     "verifier-staking",
-    "public-seal",
+    "species-catalog",
 ]
 resolver = "2"
 
