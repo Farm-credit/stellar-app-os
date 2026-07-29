@@ -464,11 +464,6 @@ mod tests {
         (env, admin, tree_token_id, species_registry, client)
     }
 
-    fn make_proposer(env: &Env) -> (Address, Address) {
-        let proposer = Address::generate(env);
-        (proposer.clone(), proposer)
-    }
-
     #[test]
     fn test_propose_species() {
         let (env, _, _, _, client) = setup();
