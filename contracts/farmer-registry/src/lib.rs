@@ -84,6 +84,18 @@ pub struct FarmPlot {
     pub registered_at: u64,
 }
 
+/// Land tenure verification record storing hash of legal land title and validation signatures.
+#[contracttype]
+#[derive(Clone, Debug, PartialEq)]
+pub struct LandTenureVerification {
+    pub title_id: BytesN<32>,
+    pub land_title_hash: BytesN<32>,
+    pub farmer_id: Address,
+    pub validator_signature: Bytes,
+    pub verified_at: u64,
+    pub is_verified: bool,
+}
+
 // ── Contract ──────────────────────────────────────────────────────────────────
 
 
@@ -517,6 +529,92 @@ impl FarmerRegistry {
         plots
     }
 
+    /// Register and verify land tenure ownership for a farmer's plot/title.
+    ///
+    /// # Access
+    /// Both `validator` and `farmer` must sign the transaction (`require_auth()`).
+    /// `validator` must be a registered validator in the system.
+    ///
+    /// # Errors
+    /// - `NotValidator` — caller is not a registered validator
+    /// - `FarmerFrozen` — farmer is frozen
+    /// - `LandTenureAlreadyExists` — title_id is already registered
+    pub fn verify_land_tenure(
+        env: Env,
+        validator: Address,
+        farmer: Address,
+        title_id: BytesN<32>,
+        land_title_hash: BytesN<32>,
+        validator_signature: Bytes,
+    ) -> LandTenureVerification {
+        Self::assert_not_paused(&env);
+        validator.require_auth();
+        farmer.require_auth();
+
+        Self::require_validator(&env, &validator);
+        Self::assert_not_frozen(&env, &farmer);
+
+        let tenure_key = Self::land_tenure_key(&env, &title_id);
+        if env.storage().persistent().has(&tenure_key) {
+            panic_with_error!(&env, FarmerError::LandTenureAlreadyExists);
+        }
+
+        let verification = LandTenureVerification {
+            title_id: title_id.clone(),
+            land_title_hash: land_title_hash.clone(),
+            farmer_id: farmer.clone(),
+            validator_signature,
+            verified_at: env.ledger().timestamp(),
+            is_verified: true,
+        };
+
+        env.storage().persistent().set(&tenure_key, &verification);
+        env.storage().persistent().extend_ttl(&tenure_key, 518400, 1036800);
+
+        let farmer_tenures_key = Self::farmer_tenures_key(&env, &farmer);
+        let mut farmer_tenures: soroban_sdk::Vec<BytesN<32>> = env
+            .storage()
+            .persistent()
+            .get(&farmer_tenures_key)
+            .unwrap_or_else(|| soroban_sdk::Vec::new(&env));
+
+        farmer_tenures.push_back(title_id.clone());
+        env.storage().persistent().set(&farmer_tenures_key, &farmer_tenures);
+        env.storage().persistent().extend_ttl(&farmer_tenures_key, 518400, 1036800);
+
+        env.events().publish(
+            (symbol_short!("LandTen"), farmer),
+            (title_id, land_title_hash),
+        );
+
+        verification
+    }
+
+    /// Retrieve a land tenure verification record by title ID.
+    pub fn get_land_tenure(env: Env, title_id: BytesN<32>) -> Option<LandTenureVerification> {
+        let tenure_key = Self::land_tenure_key(&env, &title_id);
+        env.storage().persistent().get(&tenure_key)
+    }
+
+    /// Retrieve all verified land tenures for a specific farmer.
+    pub fn get_farmer_land_tenures(env: Env, farmer: Address) -> soroban_sdk::Vec<LandTenureVerification> {
+        let farmer_tenures_key = Self::farmer_tenures_key(&env, &farmer);
+        let title_ids: soroban_sdk::Vec<BytesN<32>> = env
+            .storage()
+            .persistent()
+            .get(&farmer_tenures_key)
+            .unwrap_or_else(|| soroban_sdk::Vec::new(&env));
+
+        let mut tenures = soroban_sdk::Vec::new(&env);
+        for i in 0..title_ids.len() {
+            let id = title_ids.get(i).unwrap();
+            if let Some(tenure) = env.storage().persistent().get::<_, LandTenureVerification>(&Self::land_tenure_key(&env, &id)) {
+                tenures.push_back(tenure);
+            }
+        }
+        tenures
+    }
+
     // ── Internal helpers ──────────────────────────────────────────────────────
 
     fn require_admin(env: &Env, caller: &Address) {
@@ -621,6 +719,14 @@ impl FarmerRegistry {
 
     fn farmer_plots_key(env: &Env, farmer: &Address) -> soroban_sdk::Val {
         (symbol_short!("FPLOTS"), farmer.clone()).into_val(env)
+    }
+
+    fn land_tenure_key(env: &Env, title_id: &BytesN<32>) -> soroban_sdk::Val {
+        (symbol_short!("TENURE"), title_id.clone()).into_val(env)
+    }
+
+    fn farmer_tenures_key(env: &Env, farmer: &Address) -> soroban_sdk::Val {
+        (symbol_short!("FTENURE"), farmer.clone()).into_val(env)
     }
 }
 
@@ -1104,5 +1210,27 @@ mod tests {
         coords.push_back((1000001, 2000000));
 
         client.register_plot(&farmer, &plot_id, &coords, &1000);
+    }
+
+    // ── Land Tenure Verification Tests ─────────────────────────────────────────
+
+    #[test]
+    fn test_verify_land_tenure_success() {
+        let (env, _, validator, client) = setup();
+        let farmer = Address::generate(&env);
+        let title_id = BytesN::from_array(&env, &[10u8; 32]);
+        let land_title_hash = BytesN::from_array(&env, &[20u8; 32]);
+        let signature = Bytes::from_array(&env, &[1, 2, 3, 4]);
+
+        let verification = client.verify_land_tenure(&validator, &farmer, &title_id, &land_title_hash, &signature);
+        assert!(verification.is_verified);
+        assert_eq!(verification.farmer_id, farmer);
+        assert_eq!(verification.land_title_hash, land_title_hash);
+
+        let retrieved = client.get_land_tenure(&title_id).unwrap();
+        assert_eq!(retrieved.title_id, title_id);
+
+        let farmer_tenures = client.get_farmer_land_tenures(&farmer);
+        assert_eq!(farmer_tenures.len(), 1);
     }
 }
