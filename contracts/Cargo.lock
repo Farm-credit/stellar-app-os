@@ -316,6 +316,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "carbon-dex"
+version = "0.1.0"
+dependencies = [
+ "soroban-sdk 21.7.7",
+]
+
+[[package]]
 name = "carbon-marketplace"
 version = "0.1.0"
 dependencies = [
@@ -2098,6 +2105,14 @@ dependencies = [
  "wasmi_arena",
  "wasmi_core",
  "wasmparser-nostd",
+]
+
+[[package]]
+name = "species-catalog"
+version = "0.1.0"
+dependencies = [
+ "harvesta-errors",
+ "soroban-sdk 21.7.7",
 ]
 
 [[package]]

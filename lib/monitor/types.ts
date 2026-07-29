@@ -24,3 +24,33 @@ export interface TreasuryCheckConfig {
   usdcAlertThreshold?: number;
   notificationEmail?: string;
 }
+
+// ── RPC Node Health ──────────────────────────────────────────────────────────
+
+export interface RpcNodeConfig {
+  url: string;
+  name: string;
+  weight?: number;
+}
+
+export interface RpcNodeHealth {
+  url: string;
+  name: string;
+  isHealthy: boolean;
+  latencyMs: number | null;
+  lastCheckedAt: number | null;
+  consecutiveFailures: number;
+  lastError: string | null;
+}
+
+export interface RpcHealthCheckResult {
+  node: RpcNodeHealth;
+  isHealthy: boolean;
+  latencyMs: number;
+}
+
+export interface RpcHealthState {
+  nodes: RpcNodeHealth[];
+  bestNode: RpcNodeHealth | null;
+  lastCheckAt: number | null;
+}

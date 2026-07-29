@@ -31,3 +31,6 @@ const localStorageMock = {
   clear: vi.fn(),
 };
 global.localStorage = localStorageMock as any;
+
+// jsdom doesn't implement scrollIntoView
+Element.prototype.scrollIntoView = () => {};
