@@ -25,6 +25,7 @@
 
 
     "monitor:ttl-renewal": "tsx lib/monitor/ttlRenewalWorker.ts",
+    "monitor:rpc-nodes": "tsx lib/monitor/rpc-monitor-worker.ts",
 
     "db:migrate:status": "node scripts/run-migrations.mjs status",
     "db:migrate:validate": "node scripts/run-migrations.mjs validate",
