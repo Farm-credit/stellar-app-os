@@ -16,7 +16,7 @@
 //!   7. `is_eligible(verifier)` / `is_registered(verifier)` can be queried.
 
 use soroban_sdk::{
-    contract, contracterror, contractimpl, contracttype, symbol_short, token, vec, Address, Env, Vec,
+    contract, contracterror, contractimpl, contracttype, panic_with_error, symbol_short, token, Address, Env,
 };
 use harvesta_errors::HarvestaError;
 
@@ -31,8 +31,8 @@ pub enum VerifierStakingError {
     InsufficientStake = 95,
     NotRegistered = 96,
     AlreadyRegistered = 97,
-    UnbondingPeriodNotExpired = 98,
-    NothingToWithdraw = 99,
+    SlaNotBreached = 98,
+    AssignmentNotFound = 99,
 }
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -59,14 +59,14 @@ pub struct Unbonding {
 
 #[contracttype]
 enum DataKey {
-    /// (admin, stake_token, min_stake_amount, governance_contract, replanting_buffer_pool)
+    /// (admin, stake_token, min_stake_amount, governance_contract, replanting_buffer_pool, sla_penalty_amount)
     Config,
     /// Per-verifier stake record
     Stake(Address),
     /// Registration flag — set when verifier deposits min_stake via register()
     Registered(Address),
-    /// Per-verifier unbonding requests
-    Unbond(Address),
+    /// Tracks plot assignments: (verifier, plot_id) -> assigned_at timestamp
+    PlotAssignment(Address, u64),
 }
 
 // ── Contract ──────────────────────────────────────────────────────────────────
@@ -86,6 +86,7 @@ impl VerifierStaking {
     /// * `min_stake_amount`          — minimum bond in token base units
     /// * `governance_contract`       — governance contract for admin control
     /// * `replanting_buffer_pool`    — address of replanting buffer pool contract
+    /// * `sla_penalty_amount`        — exact amount of token slashed upon SLA breach
     pub fn initialize(
         env: Env,
         admin: Address,
@@ -93,6 +94,7 @@ impl VerifierStaking {
         min_stake_amount: i128,
         governance_contract: Address,
         replanting_buffer_pool: Address,
+        sla_penalty_amount: i128,
     ) {
         if env.storage().instance().has(&DataKey::Config) {
             panic_with_error!(&env, HarvestaError::AlreadyInitialized);
@@ -100,16 +102,9 @@ impl VerifierStaking {
         if min_stake_amount <= 0 {
             panic_with_error!(&env, VerifierStakingError::MinStakeMustBePositive);
         }
-        env.storage().instance().set(
-            &DataKey::Config,
-            &(
-                admin,
-                stake_token,
-                min_stake_amount,
-                governance_contract,
-                replanting_buffer_pool,
-            ),
-        );
+        env.storage()
+            .instance()
+            .set(&DataKey::Config, &(admin, stake_token, min_stake_amount, governance_contract, replanting_buffer_pool, sla_penalty_amount));
     }
 
     /// Register as an active verifier by depositing the minimum stake.
@@ -121,7 +116,7 @@ impl VerifierStaking {
     pub fn register(env: Env, verifier: Address) {
         verifier.require_auth();
 
-        let (_, stake_token, min_stake, _, _) = Self::config(&env);
+        let (_, stake_token, min_stake, _, _, _) = Self::config(&env);
 
         let reg_key = DataKey::Registered(verifier.clone());
         if env.storage().persistent().has(&reg_key) {
@@ -153,7 +148,7 @@ impl VerifierStaking {
         env.storage().persistent().set(&reg_key, &true);
 
         env.events()
-            .publish((symbol_short!("registered"), verifier), min_stake);
+            .publish((symbol_short!("regstd"), verifier), min_stake);
     }
 
     /// Registered verifier tops up their stake with `amount`.
@@ -171,7 +166,7 @@ impl VerifierStaking {
             panic_with_error!(&env, VerifierStakingError::NotRegistered);
         }
 
-        let (_, stake_token, _, _, _) = Self::config(&env);
+        let (_, stake_token, _, _, _, _) = Self::config(&env);
 
         let key = DataKey::Stake(verifier.clone());
         let mut rec: VerifierStake = env
@@ -199,7 +194,7 @@ impl VerifierStaking {
     /// # Panics
     /// If `slash_amount` is not positive or exceeds the verifier's stake.
     pub fn slash(env: Env, verifier: Address, slash_amount: i128) {
-        let (admin, _, _, _, replanting_buffer_pool) = Self::config(&env);
+        let (admin, _, _, _, replanting_buffer_pool, _) = Self::config(&env);
         admin.require_auth();
 
         if slash_amount <= 0 {
@@ -231,11 +226,12 @@ impl VerifierStaking {
         }
 
         env.events()
-            .publish((symbol_short!("slashed"), verifier), slash_amount);
-        env.events().publish(
-            (symbol_short!("slashed_to_buffer"), verifier),
-            slash_amount,
-        );
+            .publish((symbol_short!("slashed"), verifier.clone()), slash_amount);
+        env.events()
+            .publish(
+                (symbol_short!("slash_buf"), verifier),
+                slash_amount,
+            );
     }
 
     /// Verifier begins the unbonding process for their entire stake, exiting
@@ -336,8 +332,8 @@ impl VerifierStaking {
     /// Returns true if the verifier is registered AND has stake ≥ `min_stake_amount`.
     #[must_use]
     pub fn is_eligible(env: Env, verifier: Address) -> bool {
-        let (_, _, min_stake, _, _) = Self::config(&env);
-        if !Self::is_registered(env.clone(), verifier.clone()) {
+        let (_, _, min_stake, _, _, _) = Self::config(&env);
+        if !Self::is_registered_raw(&env, &verifier) {
             return false;
         }
         env.storage()
@@ -373,7 +369,7 @@ impl VerifierStaking {
 
     /// Returns the total slashed amount transferred to the buffer pool for a verifier.
     pub fn get_slashed_to_buffer_pool(env: Env, verifier: Address) -> i128 {
-        let rec = match env
+        let rec: VerifierStake = match env
             .storage()
             .persistent()
             .get(&DataKey::Stake(verifier))
@@ -386,29 +382,124 @@ impl VerifierStaking {
 
     /// Returns the configured minimum stake amount.
     pub fn get_min_stake(env: Env) -> i128 {
-        let (_, _, min_stake, _, _) = Self::config(&env);
+        let (_, _, min_stake, _, _, _) = Self::config(&env);
         min_stake
     }
 
     /// Returns the governance contract address.
     pub fn get_governance_contract(env: Env) -> Address {
-        let (_, _, _, governance_contract, _) = Self::config(&env);
+        let (_, _, _, governance_contract, _, _) = Self::config(&env);
         governance_contract
     }
 
     /// Returns the replanting buffer pool address.
     pub fn get_replanting_buffer_pool(env: Env) -> Address {
-        let (_, _, _, _, replanting_buffer_pool) = Self::config(&env);
+        let (_, _, _, _, replanting_buffer_pool, _) = Self::config(&env);
         replanting_buffer_pool
+    }
+
+    pub fn get_sla_penalty_amount(env: Env) -> i128 {
+        let (_, _, _, _, _, sla_penalty) = Self::config(&env);
+        sla_penalty
     }
 
     // ── internal ──────────────────────────────────────────────────────────────
 
-    fn config(env: &Env) -> (Address, Address, i128, Address, Address) {
+    fn config(env: &Env) -> (Address, Address, i128, Address, Address, i128) {
         env.storage()
             .instance()
             .get(&DataKey::Config)
             .unwrap_or_else(|| panic_with_error!(env, HarvestaError::NotInitialized))
+    }
+
+    /// Internal: read the `Registered` flag without the public-function wrapper.
+    fn is_registered_raw(env: &Env, verifier: &Address) -> bool {
+        env.storage()
+            .persistent()
+            .get(&DataKey::Registered(verifier.clone()))
+            .unwrap_or(false)
+    }
+
+    // ── SLA Penalty Tracking ──────────────────────────────────────────────────
+
+    /// Admin assigns a plot to a verifier, starting the SLA timer.
+    pub fn assign_plot(env: Env, verifier: Address, plot_id: u64) {
+        let (admin, _, _, _, _, _) = Self::config(&env);
+        admin.require_auth();
+
+        if !Self::is_registered_raw(&env, &verifier) {
+            panic_with_error!(&env, VerifierStakingError::NotRegistered);
+        }
+
+        let key = DataKey::PlotAssignment(verifier.clone(), plot_id);
+        let now = env.ledger().timestamp();
+        env.storage().persistent().set(&key, &now);
+        // Add minimal TTL for the SLA
+        env.storage().persistent().extend_ttl(&key, 518400, 1036800);
+
+        env.events().publish((symbol_short!("assigned"), verifier), plot_id);
+    }
+
+    /// Admin marks a plot audit as completed, removing the SLA timer.
+    pub fn complete_audit(env: Env, verifier: Address, plot_id: u64) {
+        let (admin, _, _, _, _, _) = Self::config(&env);
+        admin.require_auth();
+
+        let key = DataKey::PlotAssignment(verifier.clone(), plot_id);
+        if !env.storage().persistent().has(&key) {
+            panic_with_error!(&env, VerifierStakingError::AssignmentNotFound);
+        }
+        env.storage().persistent().remove(&key);
+
+        env.events().publish((symbol_short!("completed"), verifier), plot_id);
+    }
+
+    /// Penalizes a verifier if they failed to audit an assigned plot within 7 days.
+    pub fn penalize_sla(env: Env, verifier: Address, plot_id: u64) {
+        let (admin, _, _, _, replanting_buffer_pool, penalty_amount) = Self::config(&env);
+        admin.require_auth();
+
+        let key = DataKey::PlotAssignment(verifier.clone(), plot_id);
+        let assigned_at: u64 = env
+            .storage()
+            .persistent()
+            .get(&key)
+            .unwrap_or_else(|| panic_with_error!(&env, VerifierStakingError::AssignmentNotFound));
+
+        let now = env.ledger().timestamp();
+        let seven_days = 7 * 24 * 60 * 60;
+
+        if now <= assigned_at + seven_days {
+            panic_with_error!(&env, VerifierStakingError::SlaNotBreached);
+        }
+
+        // Apply penalty by updating the stake record and transferring funds
+        let stake_key = DataKey::Stake(verifier.clone());
+        let mut rec: VerifierStake = env
+            .storage()
+            .persistent()
+            .get(&stake_key)
+            .unwrap_or_else(|| panic_with_error!(&env, VerifierStakingError::VerifierNotStaked));
+        
+        let actual_penalty = if rec.amount >= penalty_amount { penalty_amount } else { rec.amount };
+
+        rec.amount -= actual_penalty;
+        rec.slashed += actual_penalty;
+        rec.slashed_to_buffer_pool += actual_penalty;
+        env.storage().persistent().set(&stake_key, &rec);
+
+        if actual_penalty > 0 {
+            let token = token::Client::new(&env, &rec.token);
+            token.transfer(
+                &env.current_contract_address(),
+                &replanting_buffer_pool,
+                &actual_penalty,
+            );
+        }
+
+        env.storage().persistent().remove(&key);
+
+        env.events().publish((symbol_short!("sla_brch"), verifier), plot_id);
     }
 }
 
@@ -448,7 +539,7 @@ mod tests {
         let token = env.register_stellar_asset_contract(token_admin);
 
         token::StellarAssetClient::new(&env, &token).mint(&verifier, &10_000);
-        client.initialize(&admin, &token, &min_stake, &governance, &buffer_pool);
+        client.initialize(&admin, &token, &min_stake, &governance, &buffer_pool, &100i128);
 
         Ctx {
             env,
@@ -481,6 +572,7 @@ mod tests {
             &1_000,
             &Address::generate(&ctx.env),
             &Address::generate(&ctx.env),
+            &100i128,
         );
     }
 
@@ -500,6 +592,7 @@ mod tests {
             &0,
             &Address::generate(&env),
             &Address::generate(&env),
+            &100i128,
         );
     }
 
@@ -790,5 +883,40 @@ mod tests {
         let ctx = setup();
         ctx.client.register(&ctx.verifier);
         assert!(ctx.client.is_registered(&ctx.verifier));
+    }
+
+    // ── SLA Penalty ────────────────────────────────────────────────────────────
+
+    #[test]
+    fn test_sla_assignment_and_completion() {
+        let ctx = setup();
+        ctx.client.register(&ctx.verifier);
+        
+        let plot_id = 123u64;
+        ctx.client.assign_plot(&ctx.verifier, &plot_id);
+        
+        // Completion before 7 days is successful
+        ctx.client.complete_audit(&ctx.verifier, &plot_id);
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #98)")]
+    fn test_sla_penalty_before_7_days_fails() {
+        let ctx = setup();
+        ctx.client.register(&ctx.verifier);
+        
+        let plot_id = 456u64;
+        ctx.client.assign_plot(&ctx.verifier, &plot_id);
+        
+        // Cannot penalize immediately
+        ctx.client.penalize_sla(&ctx.verifier, &plot_id);
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #99)")]
+    fn test_sla_penalty_without_assignment_fails() {
+        let ctx = setup();
+        ctx.client.register(&ctx.verifier);
+        ctx.client.penalize_sla(&ctx.verifier, &789u64);
     }
 }

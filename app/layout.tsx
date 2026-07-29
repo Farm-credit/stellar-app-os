@@ -8,6 +8,8 @@ import {
   ToastContainer,
 } from '@/components/organisms/NotificationCenter';
 
+const inter = Inter({ subsets: ['latin'] });
+
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://farmcredit.app';
 const siteName = 'FarmCredit';
 const siteDescription = 'FarmCredit - Decentralized agricultural credit on Stellar';
