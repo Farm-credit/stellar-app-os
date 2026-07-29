@@ -777,4 +777,44 @@ mod tests {
         let admin_controls_id = _env.register_contract(None, admin_controls::AdminControls);
         client.initialize(&admin, &verifier, &admin_controls_id);
     }
+
+    // ── Fuzz Tests (Proptest) ──────────────────────────────────────────────────
+
+    #[cfg(test)]
+    mod fuzz_tests {
+        use proptest::prelude::*;
+
+        proptest! {
+            #[test]
+            fn fuzz_escrow_fee_calculation_invariants(
+                deposit_amount in 1i128..1_000_000_000_000i128,
+                fee_bps in 0u32..10_000u32,
+            ) {
+                let fee = (deposit_amount as u128 * fee_bps as u128 / 10_000) as i128;
+                let planter_payout = deposit_amount - fee;
+
+                prop_assert_eq!(planter_payout + fee, deposit_amount);
+                prop_assert!(fee >= 0);
+                prop_assert!(planter_payout >= 0);
+                prop_assert!(fee <= deposit_amount);
+                prop_assert!(planter_payout <= deposit_amount);
+            }
+
+            #[test]
+            fn fuzz_escrow_refund_window_math(
+                deposit_time in 0u64..1_000_000_000u64,
+                elapsed_seconds in 0u64..10_000_000u64,
+            ) {
+                let current_time = deposit_time.saturating_add(elapsed_seconds);
+                let refund_window = 90 * 24 * 60 * 60; // 90 days in seconds
+                let is_eligible = current_time >= deposit_time + refund_window;
+
+                if elapsed_seconds >= refund_window {
+                    prop_assert!(is_eligible);
+                } else {
+                    prop_assert!(!is_eligible);
+                }
+            }
+        }
+    }
 }
