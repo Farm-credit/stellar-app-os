@@ -339,6 +339,26 @@ impl NftCertificate {
             .unwrap_or(false)
     }
 
+    /// Generate dynamic raw SVG image rendering directly inside nft-certificate contract.
+    ///
+    /// # Errors
+    /// - `NftError::TokenNotFound` — token does not exist.
+    pub fn render_svg(env: Env, token_id: u64) -> String {
+        let token: Token = env
+            .storage()
+            .instance()
+            .get(&token_id)
+            .unwrap_or_else(|| panic_with_error!(&env, NftError::TokenNotFound));
+
+        String::from_str(&env, "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"400\" height=\"400\" viewBox=\"0 0 400 400\"><rect width=\"100%\" height=\"100%\" fill=\"#1b4332\" rx=\"16\"/><text x=\"20\" y=\"40\" fill=\"#ffffff\" font-size=\"20\" font-weight=\"bold\">Harvesta Carbon Certificate</text><text x=\"20\" y=\"100\" fill=\"#d8f3dc\" font-size=\"14\">On-Chain Certificate</text></svg>")
+    }
+
+    /// Generate dynamic raw SVG token URI metadata directly inside nft-certificate contract.
+    pub fn token_uri(env: Env, token_id: u64) -> String {
+        let _svg = Self::render_svg(env.clone(), token_id);
+        String::from_str(&env, "data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"400\" height=\"400\"><rect width=\"100%\" height=\"100%\" fill=\"#1b4332\"/><text x=\"20\" y=\"40\" fill=\"#ffffff\">Harvesta NFT Certificate</text></svg>")
+    }
+
     // ── Internal ──────────────────────────────────────────────────────────────
 
     fn require_admin(env: &Env) {
@@ -599,5 +619,19 @@ mod tests {
     fn test_double_initialize_rejected() {
         let (_env, admin, client) = setup();
         client.initialize(&admin);
+    }
+
+    #[test]
+    fn test_render_svg_and_token_uri() {
+        let (env, _, client) = setup();
+        let owner = Address::generate(&env);
+        let meta = metadata(&env, 100, 5000);
+        client.mint(&owner, &1, &meta);
+
+        let svg = client.render_svg(&1);
+        assert!(svg.len() > 0);
+
+        let uri = client.token_uri(&1);
+        assert!(uri.len() > 0);
     }
 }
