@@ -389,9 +389,13 @@ describe('HealthMonitor', () => {
       monitor.register('timed', checkFn);
       monitor.start();
 
-      // Advance past 3 intervals.
-      vi.advanceTimersByTime(30_001);
-      await vi.runAllTimersAsync();
+      // Advance one tick at a time to avoid the fake-timer infinite-loop guard.
+      vi.advanceTimersByTime(10_000);
+      await Promise.resolve();
+      vi.advanceTimersByTime(10_000);
+      await Promise.resolve();
+      vi.advanceTimersByTime(10_000);
+      await Promise.resolve();
 
       expect(checkFn.mock.calls.length).toBeGreaterThanOrEqual(3);
     });
