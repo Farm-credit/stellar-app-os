@@ -48,6 +48,9 @@ pub enum Error {
     WithdrawalAmountTooSmall = 12,
     DepositBelowMinimumLiquidity = 13,
     ArithmeticError = 14,
+    /// Flash loan attempt detected — operation not allowed in the same ledger
+    /// as a previous interaction on this position.
+    FlashLoanAttempt = 15,
 }
 
 // ── Types ───────────────────────────────────────────────────────────────────
@@ -55,6 +58,12 @@ pub enum Error {
 /// Shares permanently locked on a pool's first deposit and never credited to
 /// any provider's position — see module docs.
 const MINIMUM_LIQUIDITY: i128 = 1_000;
+
+/// Minimum number of ledgers that must elapse between consecutive
+/// interactions on the same position.  Setting this to 1 prevents
+/// same-ledger flash loan attacks while allowing normal multi-ledger
+/// usage.
+const FLASH_LEDGER_BUFFER: u32 = 1;
 
 /// TTL bump: extend when remaining TTL drops below this many ledgers.
 const BUMP_THRESHOLD: u32 = 100_000;
@@ -68,6 +77,8 @@ pub enum DataKey {
     Pool(Address),
     /// (token, provider) -> share balance.
     Position(Address, Address),
+    /// (token, provider) -> last ledger sequence of an interaction.
+    LastInteractionLedger(Address, Address),
 }
 
 #[contracttype]
@@ -110,6 +121,9 @@ impl CarbonDexContract {
         if amount <= 0 {
             panic_with_error!(&env, Error::AmountMustBePositive);
         }
+
+        // ── Flash loan guard ──────────────────────────────────────────────
+        Self::assert_no_flash_loan(&env, &token, &from);
 
         let pool_key = DataKey::Pool(token.clone());
         let mut pool: PoolState = env
@@ -175,6 +189,9 @@ impl CarbonDexContract {
             .persistent()
             .extend_ttl(&position_key, BUMP_THRESHOLD, BUMP_AMOUNT);
 
+        // Update flash loan ledger tracker after successful deposit
+        Self::update_interaction_ledger(&env, &token, &from);
+
         env.events()
             .publish((symbol_short!("deposit"), from), (token, amount, shares_minted));
 
@@ -191,6 +208,9 @@ impl CarbonDexContract {
         if share_amount <= 0 {
             panic_with_error!(&env, Error::SharesMustBePositive);
         }
+
+        // ── Flash loan guard ──────────────────────────────────────────────
+        Self::assert_no_flash_loan(&env, &token, &from);
 
         let pool_key = DataKey::Pool(token.clone());
         let mut pool: PoolState = env
@@ -241,6 +261,9 @@ impl CarbonDexContract {
                 .persistent()
                 .extend_ttl(&position_key, BUMP_THRESHOLD, BUMP_AMOUNT);
         }
+
+        // Update flash loan ledger tracker
+        Self::update_interaction_ledger(&env, &token, &from);
 
         token::Client::new(&env, &token).transfer(&env.current_contract_address(), &from, &amount_out);
 
@@ -293,6 +316,15 @@ impl CarbonDexContract {
             .unwrap_or(0)
     }
 
+    /// Read the last interaction ledger for a (token, provider) position.
+    /// Returns `0` if never interacted.
+    pub fn get_last_interaction_ledger(env: Env, token: Address, provider: Address) -> u32 {
+        env.storage()
+            .persistent()
+            .get(&DataKey::LastInteractionLedger(token, provider))
+            .unwrap_or(0)
+    }
+
     // ── Internal ────────────────────────────────────────────────────────────
 
     fn require_admin(env: &Env) {
@@ -319,6 +351,32 @@ impl CarbonDexContract {
         env.storage()
             .instance()
             .extend_ttl(BUMP_THRESHOLD, BUMP_AMOUNT);
+    }
+
+    /// Assert that the caller is not attempting a flash loan — i.e. that
+    /// the current ledger sequence is different from the last recorded
+    /// interaction ledger for this (token, provider) pair.
+    fn assert_no_flash_loan(env: &Env, token: &Address, provider: &Address) {
+        let last_ledger: u32 = env
+            .storage()
+            .persistent()
+            .get(&DataKey::LastInteractionLedger(token.clone(), provider.clone()))
+            .unwrap_or(0);
+        let current_ledger = env.ledger().sequence();
+        if last_ledger > 0 && current_ledger <= last_ledger + FLASH_LEDGER_BUFFER - 1 {
+            panic_with_error!(env, Error::FlashLoanAttempt);
+        }
+    }
+
+    /// Record the current ledger sequence as the last interaction time for
+    /// this (token, provider) position.
+    fn update_interaction_ledger(env: &Env, token: &Address, provider: &Address) {
+        let current_ledger = env.ledger().sequence();
+        let ledger_key = DataKey::LastInteractionLedger(token.clone(), provider.clone());
+        env.storage().persistent().set(&ledger_key, &current_ledger);
+        env.storage()
+            .persistent()
+            .extend_ttl(&ledger_key, BUMP_THRESHOLD, BUMP_AMOUNT);
     }
 }
 
@@ -639,4 +697,154 @@ mod tests {
         let provider = Address::generate(&env);
         assert_eq!(client.get_position(&token, &provider), 0);
     }
-}
+
+    // ── Flash loan protection ────────────────────────────────────────────
+
+    #[test]
+    fn test_deposit_allowed_in_different_ledger() {
+        let (env, _, token, client) = setup();
+        let provider = Address::generate(&env);
+        mint(&env, &token, &provider, 100_000);
+
+        // First deposit
+        let shares = client.deposit(&provider, &token, &10_000);
+        let ledger_after_first = client.get_last_interaction_ledger(&token, &provider);
+        assert!(ledger_after_first > 0);
+
+        // Advance to next ledger so withdraw is allowed
+        env.ledger().set_sequence_number(ledger_after_first + 1);
+
+        // Withdraw in a different ledger should succeed
+        let amount_out = client.withdraw(&provider, &token, &shares);
+        assert!(amount_out > 0);
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #15)")]
+    fn test_flash_loan_deposit_after_deposit_rejected() {
+        let (env, _, token, client) = setup();
+        let provider = Address::generate(&env);
+        mint(&env, &token, &provider, 1_000_000);
+
+        // Deposit first
+        client.deposit(&provider, &token, &100_000);
+
+        // Second deposit within the same ledger should be rejected
+        // Env::default() uses ledger sequence 0 for all operations within
+        // the same test unless we explicitly advance it.
+        client.deposit(&provider, &token, &50_000);
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #15)")]
+    fn test_flash_loan_withdraw_after_deposit_rejected() {
+        let (env, _, token, client) = setup();
+        let provider = Address::generate(&env);
+        mint(&env, &token, &provider, 1_000_000);
+
+        let shares = client.deposit(&provider, &token, &100_000);
+
+        // Withdraw in the same ledger should be rejected (flash loan pattern)
+        client.withdraw(&provider, &token, &shares);
+    }
+
+    #[test]
+    fn test_flash_loan_guard_allows_after_ledger_advance() {
+        let (env, _, token, client) = setup();
+        let provider = Address::generate(&env);
+        mint(&env, &token, &provider, 1_000_000);
+
+        // Deposit in ledger 0
+        let shares = client.deposit(&provider, &token, &100_000);
+        let last_ledger = client.get_last_interaction_ledger(&token, &provider);
+
+        // Advance to the next ledger
+        env.ledger().set_sequence_number(last_ledger + 1);
+
+        // Now withdraw should succeed
+        let amount_out = client.withdraw(&provider, &token, &shares);
+        assert!(amount_out > 0);
+    }
+
+    #[test]
+    fn test_get_last_interaction_ledger_returns_zero_for_new_position() {
+        let (env, _, token, client) = setup();
+        let provider = Address::generate(&env);
+        assert_eq!(client.get_last_interaction_ledger(&token, &provider), 0);
+    }
+
+    #[test]
+    fn test_get_last_interaction_ledger_updates_after_deposit() {
+        let (env, _, token, client) = setup();
+        let provider = Address::generate(&env);
+        mint(&env, &token, &provider, 100_000);
+
+        // Before deposit: ledger should be 0
+        assert_eq!(client.get_last_interaction_ledger(&token, &provider), 0);
+
+        // After deposit: ledger should be > 0
+        client.deposit(&provider, &token, &10_000);
+        assert!(client.get_last_interaction_ledger(&token, &provider) > 0);
+    }
+
+    #[test]
+    fn test_flash_loan_guard_different_tokens_independent() {
+        let (env, _, token1, client) = setup();
+        let token_admin = Address::generate(&env);
+        let token2 = env
+            .register_stellar_asset_contract_v2(token_admin.clone())
+            .address();
+
+        let provider = Address::generate(&env);
+        mint(&env, &token1, &provider, 1_000_000);
+        mint(&env, &token2, &provider, 1_000_000);
+
+        // Deposit token1
+        client.deposit(&provider, &token1, &100_000);
+
+        // Deposit token2 should still work (different pool)
+        client.deposit(&provider, &token2, &100_000);
+
+        assert_eq!(client.get_position(&token1, &provider), 100_000 - MINIMUM_LIQUIDITY);
+        assert_eq!(client.get_position(&token2, &provider), 100_000 - MINIMUM_LIQUIDITY);
+    }
+
+    #[test]
+    fn test_flash_loan_guard_different_providers_independent() {
+        let (env, _, token, client) = setup();
+        let first = Address::generate(&env);
+        let second = Address::generate(&env);
+        mint(&env, &token, &first, 1_000_000);
+        mint(&env, &token, &second, 1_000_000);
+
+        // First provider deposits
+        client.deposit(&first, &token, &100_000);
+
+        // Second provider can still deposit in same ledger (different position)
+        client.deposit(&second, &token, &100_000);
+
+        assert_eq!(client.get_position(&first, &token), 100_000 - MINIMUM_LIQUIDITY);
+        assert_eq!(client.get_position(&second, &token), 100_000);
+    }
+
+    #[test]
+    fn test_flash_loan_ledger_tracker_round_trip() {
+        let (env, _, token, client) = setup();
+        let provider = Address::generate(&env);
+        mint(&env, &token, &provider, 1_000_000);
+
+        // Before any interaction: 0
+        assert_eq!(client.get_last_interaction_ledger(&token, &provider), 0);
+
+        // After deposit: non-zero
+        let _shares = client.deposit(&provider, &token, &100_000);
+        let ledger_after_deposit = client.get_last_interaction_ledger(&token, &provider);
+        assert!(ledger_after_deposit > 0);
+
+        // After advancing ledger and withdrawing: updated
+        env.ledger().set_sequence_number(ledger_after_deposit + 1);
+        let shares = client.get_position(&token, &provider);
+        client.withdraw(&provider, &token, &(shares / 2));
+        let ledger_after_withdraw = client.get_last_interaction_ledger(&token, &provider);
+        assert_eq!(ledger_after_withdraw, ledger_after_deposit + 1);
+    }
