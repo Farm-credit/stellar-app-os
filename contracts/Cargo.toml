@@ -29,9 +29,10 @@ members = [
     "nft-certificate",
     "sponsor-receipt",
     "carbon-marketplace",
+    "carbon-dex",
     "tree-registry",
     "verifier-staking",
-    "public-seal",
+    "species-catalog",
 ]
 resolver = "2"
 

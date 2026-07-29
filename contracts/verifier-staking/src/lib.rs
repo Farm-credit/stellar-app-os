@@ -11,8 +11,9 @@
 //!   2. Verifier calls `register(verifier)` — deposits exactly `min_stake`.
 //!   3. Registered verifiers call `stake(verifier, amount)` to top up.
 //!   4. Admin or governance calls `slash(verifier, amount)` on proven fraud.
-//!   5. Verifier calls `unstake(verifier)` to withdraw and deregister.
-//!   6. `is_eligible(verifier)` / `is_registered(verifier)` can be queried.
+//!   5. Verifier calls `unstake(verifier)` to begin the 14-day unbonding process.
+//!   6. After 14 days, verifier calls `withdraw(verifier)` to claim their tokens.
+//!   7. `is_eligible(verifier)` / `is_registered(verifier)` can be queried.
 
 use soroban_sdk::{
     contract, contracterror, contractimpl, contracttype, panic_with_error, symbol_short, token, Address, Env,
@@ -21,6 +22,7 @@ use harvesta_errors::HarvestaError;
 
 #[contracterror]
 #[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord)]
+#[repr(u32)]
 pub enum VerifierStakingError {
     MinStakeMustBePositive = 91,
     VerifierAlreadyStaked = 92,
@@ -29,6 +31,8 @@ pub enum VerifierStakingError {
     InsufficientStake = 95,
     NotRegistered = 96,
     AlreadyRegistered = 97,
+    SlaNotBreached = 98,
+    AssignmentNotFound = 99,
 }
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -44,19 +48,31 @@ pub struct VerifierStake {
     pub slashed_to_buffer_pool: i128,
 }
 
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct Unbonding {
+    pub amount: i128,
+    pub completion_time: u64,
+}
+
 // ── Storage keys ──────────────────────────────────────────────────────────────
 
 #[contracttype]
 enum DataKey {
-    /// (admin, stake_token, min_stake_amount, governance_contract, replanting_buffer_pool)
+    /// (admin, stake_token, min_stake_amount, governance_contract, replanting_buffer_pool, sla_penalty_amount)
     Config,
     /// Per-verifier stake record
     Stake(Address),
     /// Registration flag — set when verifier deposits min_stake via register()
     Registered(Address),
+    /// Tracks plot assignments: (verifier, plot_id) -> assigned_at timestamp
+    PlotAssignment(Address, u64),
 }
 
 // ── Contract ──────────────────────────────────────────────────────────────────
+
+const UNBONDING_PERIOD_DAYS: u64 = 14;
+const UNBONDING_PERIOD_SECONDS: u64 = UNBONDING_PERIOD_DAYS * 24 * 60 * 60;
 
 #[contract]
 pub struct VerifierStaking;
@@ -70,6 +86,7 @@ impl VerifierStaking {
     /// * `min_stake_amount`          — minimum bond in token base units
     /// * `governance_contract`       — governance contract for admin control
     /// * `replanting_buffer_pool`    — address of replanting buffer pool contract
+    /// * `sla_penalty_amount`        — exact amount of token slashed upon SLA breach
     pub fn initialize(
         env: Env,
         admin: Address,
@@ -77,6 +94,7 @@ impl VerifierStaking {
         min_stake_amount: i128,
         governance_contract: Address,
         replanting_buffer_pool: Address,
+        sla_penalty_amount: i128,
     ) {
         if env.storage().instance().has(&DataKey::Config) {
             panic_with_error!(&env, HarvestaError::AlreadyInitialized);
@@ -86,7 +104,7 @@ impl VerifierStaking {
         }
         env.storage()
             .instance()
-            .set(&DataKey::Config, &(admin, stake_token, min_stake_amount, governance_contract, replanting_buffer_pool));
+            .set(&DataKey::Config, &(admin, stake_token, min_stake_amount, governance_contract, replanting_buffer_pool, sla_penalty_amount));
     }
 
     /// Register as an active verifier by depositing the minimum stake.
@@ -98,7 +116,7 @@ impl VerifierStaking {
     pub fn register(env: Env, verifier: Address) {
         verifier.require_auth();
 
-        let (_, stake_token, min_stake, _, _) = Self::config(&env);
+        let (_, stake_token, min_stake, _, _, _) = Self::config(&env);
 
         let reg_key = DataKey::Registered(verifier.clone());
         if env.storage().persistent().has(&reg_key) {
@@ -130,7 +148,7 @@ impl VerifierStaking {
         env.storage().persistent().set(&reg_key, &true);
 
         env.events()
-            .publish((symbol_short!("registerd"), verifier), min_stake);
+            .publish((symbol_short!("regstd"), verifier), min_stake);
     }
 
     /// Registered verifier tops up their stake with `amount`.
@@ -144,18 +162,17 @@ impl VerifierStaking {
             panic_with_error!(&env, HarvestaError::AmountMustBePositive);
         }
 
-        if !Self::is_registered_raw(&env, &verifier) {
+        if !Self::is_registered(env.clone(), verifier.clone()) {
             panic_with_error!(&env, VerifierStakingError::NotRegistered);
         }
 
-        let (_, stake_token, _, _, _) = Self::config(&env);
+        let (_, stake_token, _, _, _, _) = Self::config(&env);
 
         let key = DataKey::Stake(verifier.clone());
         let mut rec: VerifierStake = env
             .storage()
             .persistent()
-            .get(&key)
-            .unwrap_or_else(|| panic_with_error!(&env, VerifierStakingError::VerifierNotStaked));
+            .get(&key).unwrap_or_else(|| panic_with_error!(&env, VerifierStakingError::VerifierNotStaked));
 
         rec.amount += amount;
 
@@ -173,8 +190,11 @@ impl VerifierStaking {
 
     /// Admin slashes `slash_amount` from a verifier's bond on proven fraud.
     /// Slashed tokens are transferred to the replanting buffer pool contract.
+    ///
+    /// # Panics
+    /// If `slash_amount` is not positive or exceeds the verifier's stake.
     pub fn slash(env: Env, verifier: Address, slash_amount: i128) {
-        let (admin, _, _, _, replanting_buffer_pool) = Self::config(&env);
+        let (admin, _, _, _, replanting_buffer_pool, _) = Self::config(&env);
         admin.require_auth();
 
         if slash_amount <= 0 {
@@ -185,8 +205,7 @@ impl VerifierStaking {
         let mut rec: VerifierStake = env
             .storage()
             .persistent()
-            .get(&key)
-            .unwrap_or_else(|| panic_with_error!(&env, VerifierStakingError::VerifierNotStaked));
+            .get(&key).unwrap_or_else(|| panic_with_error!(&env, VerifierStakingError::VerifierNotStaked));
 
         if slash_amount > rec.amount {
             panic_with_error!(&env, VerifierStakingError::SlashExceedsStake);
@@ -210,13 +229,14 @@ impl VerifierStaking {
             .publish((symbol_short!("slashed"), verifier.clone()), slash_amount);
         env.events()
             .publish(
-                (symbol_short!("slsh_buf"), verifier),
+                (symbol_short!("slash_buf"), verifier),
                 slash_amount,
             );
     }
 
-    /// Verifier withdraws their remaining bond, exits the verifier role, and
-    /// clears the registration flag.
+    /// Verifier begins the unbonding process for their entire stake, exiting
+    /// the verifier role and clearing the registration flag. The tokens are
+    /// locked for a 14-day period before they can be withdrawn.
     pub fn unstake(env: Env, verifier: Address) {
         verifier.require_auth();
 
@@ -224,15 +244,28 @@ impl VerifierStaking {
         let rec: VerifierStake = env
             .storage()
             .persistent()
-            .get(&key)
-            .unwrap_or_else(|| panic_with_error!(&env, VerifierStakingError::VerifierNotStaked));
+            .get(&key).unwrap_or_else(|| panic_with_error!(&env, VerifierStakingError::VerifierNotStaked));
 
         let amount = rec.amount;
         if amount > 0 {
-            token::Client::new(&env, &rec.token).transfer(
-                &env.current_contract_address(),
-                &verifier,
-                &amount,
+            let unbonding = Unbonding {
+                amount,
+                completion_time: env.ledger().timestamp() + UNBONDING_PERIOD_SECONDS,
+            };
+            let unbond_key = DataKey::Unbond(verifier.clone());
+            let mut unbondings: Vec<Unbonding> = env
+                .storage()
+                .persistent()
+                .get(&unbond_key)
+                .unwrap_or(vec![&env]);
+            unbondings.push_back(unbonding);
+            env.storage().persistent().set(&unbond_key, &unbondings);
+            // Set TTL for the unbonding entry to be slightly longer than the lockup period.
+            // This ensures the user has ample time to withdraw.
+            env.storage().persistent().extend_ttl(
+                &unbond_key,
+                UNBONDING_PERIOD_SECONDS as u32 + (7 * 24 * 60 * 60), // period + 7 days
+                UNBONDING_PERIOD_SECONDS as u32 + (14 * 24 * 60 * 60), // max TTL bump: period + 14 days
             );
         }
 
@@ -242,12 +275,64 @@ impl VerifierStaking {
             .remove(&DataKey::Registered(verifier.clone()));
 
         env.events()
-            .publish((symbol_short!("unstaked"), verifier), amount);
+            .publish((symbol_short!("unstaked"), verifier.clone()), amount);
+    }
+
+    /// Withdraws any tokens that have completed their 14-day unbonding period.
+    /// This can be called by the verifier at any time to claim released funds.
+    pub fn withdraw(env: Env, verifier: Address) {
+        verifier.require_auth();
+
+        let unbond_key = DataKey::Unbond(verifier.clone());
+        let mut unbondings: Vec<Unbonding> = env
+            .storage()
+            .persistent()
+            .get(&unbond_key)
+            .unwrap_or(vec![&env]);
+
+        if unbondings.is_empty() {
+            panic_with_error!(&env, VerifierStakingError::NothingToWithdraw);
+        }
+
+        let (_, stake_token, _, _, _) = Self::config(&env);
+        let mut total_withdrawn = 0;
+        let current_time = env.ledger().timestamp();
+
+        // Use `retain` to efficiently filter out matured unbondings and calculate the total to withdraw.
+        // This is more gas-efficient than creating a new Vec.
+        unbondings.retain(|unbonding| {
+            if current_time >= unbonding.completion_time {
+                total_withdrawn += unbonding.amount;
+                false // Remove from the vector
+            } else {
+                true // Keep in the vector
+            }
+        });
+
+        if total_withdrawn == 0 {
+            panic_with_error!(&env, VerifierStakingError::UnbondingPeriodNotExpired);
+        }
+
+        token::Client::new(&env, &stake_token).transfer(
+            &env.current_contract_address(),
+            &verifier,
+            &total_withdrawn,
+        );
+
+        if unbondings.is_empty() {
+            env.storage().persistent().remove(&unbond_key);
+        } else {
+            env.storage().persistent().set(&unbond_key, &unbondings);
+        }
+
+        env.events()
+            .publish((symbol_short!("withdrawn"), verifier), total_withdrawn);
     }
 
     /// Returns true if the verifier is registered AND has stake ≥ `min_stake_amount`.
+    #[must_use]
     pub fn is_eligible(env: Env, verifier: Address) -> bool {
-        let (_, _, min_stake, _, _) = Self::config(&env);
+        let (_, _, min_stake, _, _, _) = Self::config(&env);
         if !Self::is_registered_raw(&env, &verifier) {
             return false;
         }
@@ -259,8 +344,12 @@ impl VerifierStaking {
     }
 
     /// Returns true if the verifier has completed registration.
+    #[must_use]
     pub fn is_registered(env: Env, verifier: Address) -> bool {
-        Self::is_registered_raw(&env, &verifier)
+        env.storage()
+            .persistent()
+            .get(&DataKey::Registered(verifier))
+            .unwrap_or(false)
     }
 
     /// Returns the stake record for a verifier, or None.
@@ -268,6 +357,14 @@ impl VerifierStaking {
         env.storage()
             .persistent()
             .get(&DataKey::Stake(verifier))
+    }
+
+    /// Returns a list of pending unbondings for a verifier.
+    pub fn get_unbondings(env: Env, verifier: Address) -> Vec<Unbonding> {
+        env.storage()
+            .persistent()
+            .get(&DataKey::Unbond(verifier))
+            .unwrap_or(vec![&env])
     }
 
     /// Returns the total slashed amount transferred to the buffer pool for a verifier.
@@ -285,25 +382,30 @@ impl VerifierStaking {
 
     /// Returns the configured minimum stake amount.
     pub fn get_min_stake(env: Env) -> i128 {
-        let (_, _, min_stake, _, _) = Self::config(&env);
+        let (_, _, min_stake, _, _, _) = Self::config(&env);
         min_stake
     }
 
     /// Returns the governance contract address.
     pub fn get_governance_contract(env: Env) -> Address {
-        let (_, _, _, governance_contract, _) = Self::config(&env);
+        let (_, _, _, governance_contract, _, _) = Self::config(&env);
         governance_contract
     }
 
     /// Returns the replanting buffer pool address.
     pub fn get_replanting_buffer_pool(env: Env) -> Address {
-        let (_, _, _, _, replanting_buffer_pool) = Self::config(&env);
+        let (_, _, _, _, replanting_buffer_pool, _) = Self::config(&env);
         replanting_buffer_pool
+    }
+
+    pub fn get_sla_penalty_amount(env: Env) -> i128 {
+        let (_, _, _, _, _, sla_penalty) = Self::config(&env);
+        sla_penalty
     }
 
     // ── internal ──────────────────────────────────────────────────────────────
 
-    fn config(env: &Env) -> (Address, Address, i128, Address, Address) {
+    fn config(env: &Env) -> (Address, Address, i128, Address, Address, i128) {
         env.storage()
             .instance()
             .get(&DataKey::Config)
@@ -317,6 +419,88 @@ impl VerifierStaking {
             .get(&DataKey::Registered(verifier.clone()))
             .unwrap_or(false)
     }
+
+    // ── SLA Penalty Tracking ──────────────────────────────────────────────────
+
+    /// Admin assigns a plot to a verifier, starting the SLA timer.
+    pub fn assign_plot(env: Env, verifier: Address, plot_id: u64) {
+        let (admin, _, _, _, _, _) = Self::config(&env);
+        admin.require_auth();
+
+        if !Self::is_registered_raw(&env, &verifier) {
+            panic_with_error!(&env, VerifierStakingError::NotRegistered);
+        }
+
+        let key = DataKey::PlotAssignment(verifier.clone(), plot_id);
+        let now = env.ledger().timestamp();
+        env.storage().persistent().set(&key, &now);
+        // Add minimal TTL for the SLA
+        env.storage().persistent().extend_ttl(&key, 518400, 1036800);
+
+        env.events().publish((symbol_short!("assigned"), verifier), plot_id);
+    }
+
+    /// Admin marks a plot audit as completed, removing the SLA timer.
+    pub fn complete_audit(env: Env, verifier: Address, plot_id: u64) {
+        let (admin, _, _, _, _, _) = Self::config(&env);
+        admin.require_auth();
+
+        let key = DataKey::PlotAssignment(verifier.clone(), plot_id);
+        if !env.storage().persistent().has(&key) {
+            panic_with_error!(&env, VerifierStakingError::AssignmentNotFound);
+        }
+        env.storage().persistent().remove(&key);
+
+        env.events().publish((symbol_short!("completed"), verifier), plot_id);
+    }
+
+    /// Penalizes a verifier if they failed to audit an assigned plot within 7 days.
+    pub fn penalize_sla(env: Env, verifier: Address, plot_id: u64) {
+        let (admin, _, _, _, replanting_buffer_pool, penalty_amount) = Self::config(&env);
+        admin.require_auth();
+
+        let key = DataKey::PlotAssignment(verifier.clone(), plot_id);
+        let assigned_at: u64 = env
+            .storage()
+            .persistent()
+            .get(&key)
+            .unwrap_or_else(|| panic_with_error!(&env, VerifierStakingError::AssignmentNotFound));
+
+        let now = env.ledger().timestamp();
+        let seven_days = 7 * 24 * 60 * 60;
+
+        if now <= assigned_at + seven_days {
+            panic_with_error!(&env, VerifierStakingError::SlaNotBreached);
+        }
+
+        // Apply penalty by updating the stake record and transferring funds
+        let stake_key = DataKey::Stake(verifier.clone());
+        let mut rec: VerifierStake = env
+            .storage()
+            .persistent()
+            .get(&stake_key)
+            .unwrap_or_else(|| panic_with_error!(&env, VerifierStakingError::VerifierNotStaked));
+        
+        let actual_penalty = if rec.amount >= penalty_amount { penalty_amount } else { rec.amount };
+
+        rec.amount -= actual_penalty;
+        rec.slashed += actual_penalty;
+        rec.slashed_to_buffer_pool += actual_penalty;
+        env.storage().persistent().set(&stake_key, &rec);
+
+        if actual_penalty > 0 {
+            let token = token::Client::new(&env, &rec.token);
+            token.transfer(
+                &env.current_contract_address(),
+                &replanting_buffer_pool,
+                &actual_penalty,
+            );
+        }
+
+        env.storage().persistent().remove(&key);
+
+        env.events().publish((symbol_short!("sla_brch"), verifier), plot_id);
+    }
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
@@ -324,7 +508,7 @@ impl VerifierStaking {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use soroban_sdk::{testutils::Address as _, token, Address, Env};
+    use soroban_sdk::{testutils::Address as _, testutils::Ledger, token, Address, Env};
 
     struct Ctx {
         env: Env,
@@ -351,12 +535,11 @@ mod tests {
 
         let admin = Address::generate(&env);
         let verifier = Address::generate(&env);
-        let token = env
-            .register_stellar_asset_contract_v2(admin.clone())
-            .address();
+        let token_admin = Address::generate(&env);
+        let token = env.register_stellar_asset_contract(token_admin);
 
         token::StellarAssetClient::new(&env, &token).mint(&verifier, &10_000);
-        client.initialize(&admin, &token, &min_stake, &governance, &buffer_pool);
+        client.initialize(&admin, &token, &min_stake, &governance, &buffer_pool, &100i128);
 
         Ctx {
             env,
@@ -371,6 +554,12 @@ mod tests {
         token::Client::new(env, token).balance(who)
     }
 
+    fn jump_time(env: &Env, seconds: u64) {
+        env.ledger().with_mut(|li| {
+            li.timestamp += seconds;
+        });
+    }
+
     // ── initialize ─────────────────────────────────────────────────────────────
 
     #[test]
@@ -383,6 +572,7 @@ mod tests {
             &1_000,
             &Address::generate(&ctx.env),
             &Address::generate(&ctx.env),
+            &100i128,
         );
     }
 
@@ -394,15 +584,15 @@ mod tests {
         let contract_id = env.register_contract(None, VerifierStaking);
         let client = VerifierStakingClient::new(&env, &contract_id);
         let admin = Address::generate(&env);
-        let token_id = env
-            .register_stellar_asset_contract_v2(admin.clone())
-            .address();
+        let token_admin = Address::generate(&env);
+        let token_id = env.register_stellar_asset_contract(token_admin);
         client.initialize(
             &admin,
             &token_id,
             &0,
             &Address::generate(&env),
             &Address::generate(&env),
+            &100i128,
         );
     }
 
@@ -420,10 +610,7 @@ mod tests {
         ctx.client.register(&ctx.verifier);
 
         // Tokens transferred
-        assert_eq!(
-            balance(&ctx.env, &ctx.token, &ctx.verifier),
-            pre - min
-        );
+        assert_eq!(balance(&ctx.env, &ctx.token, &ctx.verifier), pre - min);
 
         // Registered + eligible
         assert!(ctx.client.is_registered(&ctx.verifier));
@@ -496,11 +683,11 @@ mod tests {
     fn test_slash_reduces_stake_and_records_slashed() {
         let ctx = setup();
         ctx.client.register(&ctx.verifier);
-        ctx.client.stake(&ctx.verifier, &1_000);
+        ctx.client.stake(&ctx.verifier, &1_000); // total 2000
         ctx.client.slash(&ctx.verifier, &800);
 
         let rec = ctx.client.get_stake(&ctx.verifier).unwrap();
-        assert_eq!(rec.amount, 1_200); // 1000 + 1000 - 800
+        assert_eq!(rec.amount, 1_200); // 1000 min + 1000 stake - 800 slash
         assert_eq!(rec.slashed, 800);
         assert_eq!(rec.slashed_to_buffer_pool, 800);
     }
@@ -532,43 +719,147 @@ mod tests {
         ctx.client.slash(&stranger, &100);
     }
 
-    // ── unstake ────────────────────────────────────────────────────────────────
+    // ── unstake & withdraw ─────────────────────────────────────────────────────
 
     #[test]
-    fn test_unstake_returns_tokens_and_removes_registration() {
+    fn test_unstake_queues_tokens_and_removes_registration() {
         let ctx = setup();
-        let pre = balance(&ctx.env, &ctx.token, &ctx.verifier);
+        let pre_balance = balance(&ctx.env, &ctx.token, &ctx.verifier);
+        let min_stake = ctx.client.get_min_stake();
+
         ctx.client.register(&ctx.verifier);
+        let staked_balance = balance(&ctx.env, &ctx.token, &ctx.verifier);
+        assert_eq!(staked_balance, pre_balance - min_stake);
+
         ctx.client.unstake(&ctx.verifier);
 
-        assert_eq!(balance(&ctx.env, &ctx.token, &ctx.verifier), pre);
+        // Balance unchanged, tokens are held in contract
+        assert_eq!(
+            balance(&ctx.env, &ctx.token, &ctx.verifier),
+            staked_balance
+        );
+
+        // Stake record is gone, registration is cleared
         assert!(ctx.client.get_stake(&ctx.verifier).is_none());
         assert!(!ctx.client.is_registered(&ctx.verifier));
         assert!(!ctx.client.is_eligible(&ctx.verifier));
-    }
 
-    #[test]
-    fn test_unstake_after_partial_slash_returns_remainder() {
-        let ctx = setup();
-        let pre = balance(&ctx.env, &ctx.token, &ctx.verifier);
-        ctx.client.register(&ctx.verifier);
-        ctx.client.stake(&ctx.verifier, &1_000);
-        ctx.client.slash(&ctx.verifier, &500);
-        ctx.client.unstake(&ctx.verifier);
-
+        // Unbonding record created
+        let unbondings = ctx.client.get_unbondings(&ctx.verifier);
+        assert_eq!(unbondings.len(), 1);
+        let unbonding = unbondings.get(0).unwrap();
+        assert_eq!(unbonding.amount, min_stake);
         assert_eq!(
-            balance(&ctx.env, &ctx.token, &ctx.verifier),
-            pre - 500 // lost 500 to slash
+            unbonding.completion_time,
+            ctx.env.ledger().timestamp() + UNBONDING_PERIOD_SECONDS
         );
     }
 
     #[test]
-    fn test_unstake_deregisters() {
+    #[should_panic(expected = "Error(Contract, #98)")]
+    fn test_withdraw_fails_before_unbonding_period() {
         let ctx = setup();
         ctx.client.register(&ctx.verifier);
+        ctx.client.unstake(&ctx.verifier);
+
+        // Try to withdraw immediately
+        ctx.client.withdraw(&ctx.verifier);
+    }
+
+    #[test]
+    fn test_withdraw_succeeds_after_unbonding_period() {
+        let ctx = setup();
+        let pre_balance = balance(&ctx.env, &ctx.token, &ctx.verifier);
+        let min_stake = ctx.client.get_min_stake();
+
+        ctx.client.register(&ctx.verifier);
+        let staked_balance = balance(&ctx.env, &ctx.token, &ctx.verifier);
+
+        ctx.client.unstake(&ctx.verifier);
+
+        // Jump time forward past the unbonding period
+        jump_time(&ctx.env, UNBONDING_PERIOD_SECONDS + 1);
+
+        ctx.client.withdraw(&ctx.verifier);
+
+        // Balance is restored to pre-staking amount
+        assert_eq!(
+            balance(&ctx.env, &ctx.token, &ctx.verifier),
+            pre_balance
+        );
+
+        // Unbonding record is cleared
+        assert!(ctx.client.get_unbondings(&ctx.verifier).is_empty());
+    }
+
+    #[test]
+    fn test_full_flow_register_unstake_withdraw() {
+        let ctx = setup();
+        let initial_balance = balance(&ctx.env, &ctx.token, &ctx.verifier);
+        let min_stake = ctx.client.get_min_stake();
+
+        // Register
+        ctx.client.register(&ctx.verifier);
+        assert_eq!(
+            balance(&ctx.env, &ctx.token, &ctx.verifier),
+            initial_balance - min_stake
+        );
         assert!(ctx.client.is_registered(&ctx.verifier));
+
+        // Unstake
         ctx.client.unstake(&ctx.verifier);
         assert!(!ctx.client.is_registered(&ctx.verifier));
+        assert_eq!(
+            balance(&ctx.env, &ctx.token, &ctx.verifier),
+            initial_balance - min_stake
+        );
+
+        // Try withdraw early (fail)
+        let result = ctx.client.try_withdraw(&ctx.verifier);
+        assert!(result.is_err());
+
+        // Wait for unbonding period
+        jump_time(&ctx.env, UNBONDING_PERIOD_SECONDS + 1);
+
+        // Withdraw
+        ctx.client.withdraw(&ctx.verifier);
+        assert_eq!(
+            balance(&ctx.env, &ctx.token, &ctx.verifier),
+            initial_balance
+        );
+        assert!(ctx.client.get_unbondings(&ctx.verifier).is_empty());
+    }
+
+    #[test]
+    fn test_unstake_after_partial_slash_queues_remainder() {
+        let ctx = setup();
+        let pre_balance = balance(&ctx.env, &ctx.token, &ctx.verifier);
+        let min_stake = ctx.client.get_min_stake();
+
+        ctx.client.register(&ctx.verifier);
+        ctx.client.stake(&ctx.verifier, &1_000); // total stake = 2000
+        ctx.client.slash(&ctx.verifier, &500); // remaining stake = 1500
+
+        let staked_balance = balance(&ctx.env, &ctx.token, &ctx.verifier);
+        assert_eq!(staked_balance, pre_balance - min_stake - 1000);
+
+        ctx.client.unstake(&ctx.verifier);
+
+        let unbondings = ctx.client.get_unbondings(&ctx.verifier);
+        assert_eq!(unbondings.len(), 1);
+        assert_eq!(unbondings.get(0).unwrap().amount, 1500);
+
+        // Jump time and withdraw
+        jump_time(&ctx.env, UNBONDING_PERIOD_SECONDS + 1);
+        ctx.client.withdraw(&ctx.verifier);
+
+        // Final balance = initial - amount staked + amount withdrawn
+        // initial - (min_stake + 1000) + (min_stake + 1000 - 500)
+        // initial - 500
+        assert_eq!(
+            balance(&ctx.env, &ctx.token, &ctx.verifier),
+            pre_balance - 500 // 500 was slashed
+        );
     }
 
     #[test]
@@ -592,5 +883,40 @@ mod tests {
         let ctx = setup();
         ctx.client.register(&ctx.verifier);
         assert!(ctx.client.is_registered(&ctx.verifier));
+    }
+
+    // ── SLA Penalty ────────────────────────────────────────────────────────────
+
+    #[test]
+    fn test_sla_assignment_and_completion() {
+        let ctx = setup();
+        ctx.client.register(&ctx.verifier);
+        
+        let plot_id = 123u64;
+        ctx.client.assign_plot(&ctx.verifier, &plot_id);
+        
+        // Completion before 7 days is successful
+        ctx.client.complete_audit(&ctx.verifier, &plot_id);
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #98)")]
+    fn test_sla_penalty_before_7_days_fails() {
+        let ctx = setup();
+        ctx.client.register(&ctx.verifier);
+        
+        let plot_id = 456u64;
+        ctx.client.assign_plot(&ctx.verifier, &plot_id);
+        
+        // Cannot penalize immediately
+        ctx.client.penalize_sla(&ctx.verifier, &plot_id);
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #99)")]
+    fn test_sla_penalty_without_assignment_fails() {
+        let ctx = setup();
+        ctx.client.register(&ctx.verifier);
+        ctx.client.penalize_sla(&ctx.verifier, &789u64);
     }
 }
