@@ -310,7 +310,6 @@ impl NftCertificate {
 mod tests {
     use super::*;
     use soroban_sdk::{testutils::Address as _, Address, Env, String};
-    use soroban_sdk::{testutils::Address as _, Address, Env};
 
     fn setup() -> (Env, Address, NftCertificateClient<'static>) {
         let env = Env::default();
