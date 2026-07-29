@@ -366,5 +366,5 @@ pub fn vk_hash(env: &Env) -> BytesN<32> {
     for ic in VK_IC.iter() {
         preimage.extend_from_array(ic);
     }
-    env.crypto().sha256(&preimage)
+    env.crypto().sha256(&preimage).into()
 }
