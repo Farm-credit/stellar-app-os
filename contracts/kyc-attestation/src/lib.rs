@@ -434,6 +434,59 @@ impl KycAttestation {
     }
 
     /// Bump the contract instance storage TTL using default parameters (1 day threshold, 30 days extension).
+    /// Check if a farmer's ZK-KYC attestation is expired.
+    /// Returns true if no record exists or if valid_until <= current ledger timestamp.
+    pub fn is_attestation_expired(env: Env, farmer: Address) -> bool {
+        let record = env.storage()
+            .instance()
+            .get::<_, ZkKycRecord>(&zk_record_key(&env, &farmer));
+        match record {
+            Some(rec) => rec.valid_until <= env.ledger().timestamp(),
+            None => true,
+        }
+    }
+
+    /// Renew (extend) a farmer's KYC attestation expiration date.
+    /// Only a registered verifier may call this.
+    pub fn renew_attestation(env: Env, verifier: Address, farmer: Address, new_valid_until: u64) {
+        verifier.require_auth();
+        Self::require_verifier(&env, &verifier);
+        if new_valid_until <= env.ledger().timestamp() {
+            panic_with_error!(&env, Error::ProofExpired);
+        }
+        let rec_key = zk_record_key(&env, &farmer);
+        let mut record: ZkKycRecord = env.storage()
+            .instance()
+            .get(&rec_key)
+            .unwrap_or_else(|| panic_with_error!(&env, HarvestaError::NotInitialized));
+        record.valid_until = new_valid_until;
+        env.storage().instance().set(&rec_key, &record);
+        env.storage().instance().set(&zk_status_key(&env, &farmer), &KycStatus::Verified);
+        env.events().publish(
+            (symbol_short!("KYCReNew"), farmer.clone()),
+            (verifier, new_valid_until),
+        );
+    }
+
+    /// Batch renew multiple farmers' attestations in a single call.
+    pub fn batch_renew_attestations(env: Env, verifier: Address, farmers: Vec<Address>, new_valid_until: u64) {
+        verifier.require_auth();
+        Self::require_verifier(&env, &verifier);
+        if new_valid_until <= env.ledger().timestamp() {
+            panic_with_error!(&env, Error::ProofExpired);
+        }
+        for i in 0..farmers.len() {
+            let farmer = farmers.get(i).unwrap();
+            let rec_key = zk_record_key(&env, &farmer);
+            if let Some(mut record) = env.storage().instance().get::<_, ZkKycRecord>(&rec_key) {
+                record.valid_until = new_valid_until;
+                env.storage().instance().set(&rec_key, &record);
+                env.storage().instance().set(&zk_status_key(&env, &farmer), &KycStatus::Verified);
+            }
+        }
+        env.events().publish((symbol_short!("BatchRen"), verifier), new_valid_until);
+    }
+
     pub fn bump_instance_ttl(env: Env) {
         env.storage().instance().extend_ttl(17_280, 518_400);
     }
