@@ -728,7 +728,83 @@ impl FarmerRegistry {
     fn farmer_tenures_key(env: &Env, farmer: &Address) -> soroban_sdk::Val {
         (symbol_short!("FTENURE"), farmer.clone()).into_val(env)
     }
+
+    fn merkle_root_key(env: &Env, farmer: &Address) -> soroban_sdk::Val {
+        (symbol_short!("MERKLE"), farmer.clone()).into_val(env)
+    }
+
 }
+
+
+    // ── Merkle Tree Proof Verification (Closes #766) ──────────────────────────
+
+    /// Set the Merkle root hash for a farmer's plot boundary verification.
+    pub fn set_merkle_root(env: Env, validator: Address, farmer: Address, merkle_root: BytesN<32>) {
+        validator.require_auth();
+        Self::require_validator(&env, &validator);
+        Self::assert_not_frozen(&env, &farmer);
+        env.storage().instance().set(&Self::merkle_root_key(&env, &farmer), &merkle_root);
+        env.events().publish((symbol_short!("MerkSet"), farmer.clone()), merkle_root);
+    }
+
+    /// Get the Merkle root hash for a farmer's plot boundary tree.
+    pub fn get_merkle_root(env: Env, farmer: Address) -> Option<BytesN<32>> {
+        env.storage().instance().get(&Self::merkle_root_key(&env, &farmer))
+    }
+
+    /// Verify a Merkle proof using SHA-256 sorted-pair hashing.
+    pub fn verify_merkle_proof(
+        env: Env,
+        farmer: Address,
+        leaf_hash: BytesN<32>,
+        proof_siblings: soroban_sdk::Vec<BytesN<32>>,
+        proof_path_bits: soroban_sdk::Vec<u32>,
+    ) -> bool {
+        let stored_root = match env.storage().instance()
+            .get::<_, BytesN<32>>(&Self::merkle_root_key(&env, &farmer))
+        {
+            Some(root) => root,
+            None => return false,
+        };
+        let mut current = leaf_hash;
+        for i in 0..proof_siblings.len() {
+            let sibling = proof_siblings.get(i).unwrap();
+            let is_right = proof_path_bits.get(i).unwrap_or(0) != 0;
+            let combined = if is_right {
+                let mut buf = [0u8; 64];
+                buf[..32].copy_from_slice(current.to_array().as_slice());
+                buf[32..].copy_from_slice(sibling.to_array().as_slice());
+                Bytes::from_slice(&env, &buf)
+            } else {
+                let mut buf = [0u8; 64];
+                buf[..32].copy_from_slice(sibling.to_array().as_slice());
+                buf[32..].copy_from_slice(current.to_array().as_slice());
+                Bytes::from_slice(&env, &buf)
+            };
+            current = env.crypto().sha256(&combined).into();
+        }
+        current == stored_root
+    }
+
+    /// Verify a farm plot boundary against a Merkle proof.
+    pub fn verify_plot_boundary(
+        env: Env,
+        farmer: Address,
+        plot: FarmPlot,
+        proof_siblings: soroban_sdk::Vec<BytesN<32>>,
+        proof_path_bits: soroban_sdk::Vec<u32>,
+    ) -> bool {
+        let mut plot_bytes = soroban_sdk::Bytes::new(&env);
+        plot_bytes.append(&Bytes::from_slice(&env, plot.plot_id.to_array().as_slice()));
+        for j in 0..plot.coordinates.len() {
+            let (lat, lon) = plot.coordinates.get(j).unwrap();
+            plot_bytes.append(&Bytes::from_slice(&env, &lat.to_be_bytes()));
+            plot_bytes.append(&Bytes::from_slice(&env, &lon.to_be_bytes()));
+        }
+        plot_bytes.append(&Bytes::from_slice(&env, &plot.area_sqm.to_be_bytes()));
+        let leaf_hash: BytesN<32> = env.crypto().sha256(&plot_bytes).into();
+        Self::verify_merkle_proof(env, farmer, leaf_hash, proof_siblings, proof_path_bits)
+    }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
