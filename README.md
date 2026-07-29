@@ -220,6 +220,11 @@ Open [http://localhost:3000](http://localhost:3000) to see the app.
 | `pnpm start`          | Start production server                 |
 | `pnpm lint`           | Run ESLint                              |
 | `pnpm generate-icons` | Generate PWA icons from source          |
+| `pnpm monitor:rpc-nodes` | Run Horizon RPC node health monitor (background worker) |
+| `pnpm monitor:treasury` | Run treasury balance monitor (background worker) |
+| `pnpm monitor:ttl-renewal` | Run Soroban TTL renewal bot (background worker) |
+| `pnpm indexer` | Run Horizon transaction indexer (background worker) |
+| `pnpm indexer:events` | Run Soroban event indexer (background worker) |
 
 ## Progressive Web App (PWA)
 
@@ -262,6 +267,50 @@ npm start
 3. Verify service worker is active
 4. Test offline: DevTools → Network → Offline
 5. Run Lighthouse audit for PWA score
+
+---
+
+## Horizon RPC Node Health Monitoring & Fallback Switcher
+
+Monitors latency and health of multiple Stellar Horizon RPC nodes, dynamically routing requests to the fastest healthy node.
+
+### Configuration
+
+Set these environment variables (see `.env.example`):
+
+| Variable | Description | Default |
+|---|---|---|
+| `RPC_NODE_URLS` | Comma-separated Horizon URLs | falls back to `NEXT_PUBLIC_HORIZON_URL` |
+| `RPC_NODE_NAMES` | Optional node labels | `node-0`, `node-1`, ... |
+| `RPC_NODE_WEIGHTS` | Reserved for weighted routing | `1` each |
+| `RPC_PING_TIMEOUT_MS` | Per-node ping timeout | `5000` |
+| `RPC_MAX_CONSECUTIVE_FAILURES` | Failures before marking unhealthy | `3` |
+| `RPC_MONITOR_POLL_INTERVAL_MS` | Worker check interval | `30000` |
+
+### Architecture
+
+- **`lib/monitor/rpc-health.ts`** — `RpcHealthMonitor` class pings each node via `HEAD /`, tracks latency and consecutive failures, and returns the best (lowest-latency healthy) node
+- **`lib/monitor/rpc-monitor-worker.ts`** — Long-running background process (`pnpm monitor:rpc-nodes`) that periodically runs checks and logs node status
+- **`app/api/healthz/route.ts`** — Deep health endpoint checks all configured RPC nodes and reports per-node health + best node in the response
+
+### Usage in Stellar Clients
+
+```typescript
+import { RpcHealthMonitor } from '@/lib/monitor/rpc-health';
+
+const monitor = new RpcHealthMonitor();
+await monitor.checkAll();
+const bestUrl = monitor.getBestUrl(); // e.g. "https://horizon-testnet.stellar.org"
+const server = new Horizon.Server(bestUrl);
+```
+
+### Background Worker
+
+```bash
+pnpm monitor:rpc-nodes
+```
+
+Logs healthy/unhealthy node status every `RPC_MONITOR_POLL_INTERVAL_MS`.
 
 ## Project Architecture
 
