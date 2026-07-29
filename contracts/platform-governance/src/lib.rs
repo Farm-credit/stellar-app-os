@@ -69,6 +69,8 @@ pub enum ProposalStatus {
     Rejected,
     Executed,
     Expired,
+    /// Proposal was cancelled by the veto council
+    Cancelled,
 }
 
 /// Vote option for multi-choice proposals
@@ -151,6 +153,12 @@ pub enum GovernanceError {
     NotInitialized = 1,
     Unauthorized = 2,
     NoStakedTokens = 3,
+    /// Veto council has not been set
+    VetoCouncilNotSet = 4,
+    /// Caller is not the veto council
+    NotVetoCouncil = 5,
+    /// Proposal is not in a cancellable state (must be Active)
+    ProposalNotCancellable = 6,
 }
 
 // ── Storage keys ──────────────────────────────────────────────────────────────
@@ -189,6 +197,10 @@ fn min_planting_bond_key() -> Symbol {
 
 fn verifier_whitelist_key() -> Symbol {
     symbol_short!("VER_WL")
+}
+
+fn veto_council_key() -> Symbol {
+    symbol_short!("VETO_C")
 }
 
 fn proposal_key(id: u64) -> (Symbol, u64) {
@@ -970,6 +982,81 @@ impl PlatformGovernance {
         }
         env.storage().instance().set(&platform_fee_key(), &new_fee);
         env.events().publish((symbol_short!("fee_set"),), new_fee);
+    }
+
+    /// Set the veto council address. Admin only.
+    ///
+    /// The veto council has emergency authority to cancel malicious proposals.
+    /// Only the admin may set or update this address.
+    ///
+    /// # Arguments
+    /// * `council` - The address to designate as the veto council.
+    pub fn set_veto_council(env: Env, council: Address) {
+        Self::require_admin(&env);
+        env.storage()
+            .instance()
+            .set(&veto_council_key(), &council);
+        Self::bump_instance(&env);
+        env.events()
+            .publish((symbol_short!("veto"), symbol_short!("set")), council);
+    }
+
+    /// Returns the current veto council address, if set.
+    pub fn veto_council(env: Env) -> Option<Address> {
+        env.storage().instance().get(&veto_council_key())
+    }
+
+    /// Cancel a malicious proposal. Veto council only.
+    ///
+    /// The veto council can cancel any proposal that is in `Active` status.
+    /// Once cancelled, the proposal cannot be voted on, queued, or executed.
+    ///
+    /// # Arguments
+    /// * `council` - The veto council address (must sign).
+    /// * `proposal_id` - The ID of the proposal to cancel.
+    ///
+    /// # Errors
+    /// * Panics with `"veto council not set"` if no council has been designated.
+    /// * Panics with `"caller is not the veto council"` if unauthorized.
+    /// * Panics with `"proposal not found"` if the proposal does not exist.
+    /// * Panics with `"proposal cannot be cancelled"` if not in `Active` status.
+    ///
+    /// # Events
+    /// Emits `("proposal", "cancelled")` with `(proposal_id, council)`.
+    pub fn cancel_proposal(env: Env, council: Address, proposal_id: u64) {
+        Self::assert_not_paused(&env);
+
+        let stored_council: Address = env
+            .storage()
+            .instance()
+            .get(&veto_council_key())
+            .expect("veto council not set");
+
+        if council != stored_council {
+            panic!("caller is not the veto council");
+        }
+        council.require_auth();
+
+        let mut proposal: ProposalRecord = env
+            .storage()
+            .persistent()
+            .get(&proposal_key(proposal_id))
+            .expect("proposal not found");
+
+        if proposal.status != ProposalStatus::Active {
+            panic!("proposal cannot be cancelled");
+        }
+
+        proposal.status = ProposalStatus::Cancelled;
+        env.storage()
+            .persistent()
+            .set(&proposal_key(proposal_id), &proposal);
+        Self::bump_persistent(&env, &proposal_key(proposal_id));
+
+        env.events().publish(
+            (symbol_short!("proposal"), symbol_short!("cancelled")),
+            (proposal_id, council),
+        );
     }
 
     /// Directly set minimum planting bond (emergency override). Admin only.
@@ -2404,5 +2491,140 @@ mod tests {
 
         assert_eq!(client.participation_rate_bps(), 1000);
         assert_eq!(client.participation_30d(), 10_000);
+    }
+
+    // ── Veto council tests ────────────────────────────────────────────────────
+
+    #[test]
+    fn test_set_veto_council() {
+        let (env, _admin, _, _, client) = setup();
+        let council = Address::generate(&env);
+        client.set_veto_council(&council);
+        assert_eq!(client.veto_council(), Some(council.clone()));
+    }
+
+    #[test]
+    fn test_cancel_proposal_by_veto_council() {
+        let (env, admin, _, _, client) = setup();
+        let council = Address::generate(&env);
+        client.set_veto_council(&council);
+
+        let mut options = Vec::new(&env);
+        options.push_back(VoteOption {
+            option_id: 1,
+            description: String::from_str(&env, "Yes"),
+        });
+        client.create_proposal(
+            &String::from_str(&env, "hash"),
+            &ProposalType::PlatformFee,
+            &options,
+            &604800,
+            &admin,
+        );
+
+        client.cancel_proposal(&council, &0);
+
+        let proposal = client.get_proposal(&0);
+        assert!(matches!(proposal.status, ProposalStatus::Cancelled));
+    }
+
+    #[test]
+    #[should_panic(expected = "veto council not set")]
+    fn test_cancel_proposal_no_council_set_fails() {
+        let (env, admin, _, _, client) = setup();
+        let council = Address::generate(&env);
+
+        let mut options = Vec::new(&env);
+        options.push_back(VoteOption {
+            option_id: 1,
+            description: String::from_str(&env, "Yes"),
+        });
+        client.create_proposal(
+            &String::from_str(&env, "hash"),
+            &ProposalType::PlatformFee,
+            &options,
+            &604800,
+            &admin,
+        );
+
+        client.cancel_proposal(&council, &0);
+    }
+
+    #[test]
+    #[should_panic(expected = "caller is not the veto council")]
+    fn test_cancel_proposal_not_veto_council_fails() {
+        let (env, admin, _, _, client) = setup();
+        let council = Address::generate(&env);
+        let attacker = Address::generate(&env);
+        client.set_veto_council(&council);
+
+        let mut options = Vec::new(&env);
+        options.push_back(VoteOption {
+            option_id: 1,
+            description: String::from_str(&env, "Yes"),
+        });
+        client.create_proposal(
+            &String::from_str(&env, "hash"),
+            &ProposalType::PlatformFee,
+            &options,
+            &604800,
+            &admin,
+        );
+
+        client.cancel_proposal(&attacker, &0);
+    }
+
+    #[test]
+    #[should_panic(expected = "proposal cannot be cancelled")]
+    fn test_cancel_already_executed_proposal_fails() {
+        let (env, admin, _, _, client) = setup();
+        let council = Address::generate(&env);
+        client.set_veto_council(&council);
+
+        let id = create_passed_proposal(&env, &client, &admin, 1);
+        client.queue(&id);
+        env.ledger().set_timestamp(env.ledger().timestamp() + DEFAULT_TIMELOCK_SECONDS + 1);
+        client.execute(&id);
+
+        // Already executed — cannot be cancelled.
+        client.cancel_proposal(&council, &id);
+    }
+
+    #[test]
+    fn test_cancel_proposal_updates_veto_council() {
+        let (env, _admin, _, _, client) = setup();
+        let council1 = Address::generate(&env);
+        let council2 = Address::generate(&env);
+
+        client.set_veto_council(&council1);
+        assert_eq!(client.veto_council(), Some(council1.clone()));
+
+        client.set_veto_council(&council2);
+        assert_eq!(client.veto_council(), Some(council2.clone()));
+    }
+
+    #[test]
+    #[should_panic(expected = "proposal cannot be cancelled")]
+    fn test_cancel_already_cancelled_proposal_fails() {
+        let (env, admin, _, _, client) = setup();
+        let council = Address::generate(&env);
+        client.set_veto_council(&council);
+
+        let mut options = Vec::new(&env);
+        options.push_back(VoteOption {
+            option_id: 1,
+            description: String::from_str(&env, "Yes"),
+        });
+        client.create_proposal(
+            &String::from_str(&env, "hash"),
+            &ProposalType::PlatformFee,
+            &options,
+            &604800,
+            &admin,
+        );
+
+        client.cancel_proposal(&council, &0);
+        // Second cancel should fail — already Cancelled.
+        client.cancel_proposal(&council, &0);
     }
 }
