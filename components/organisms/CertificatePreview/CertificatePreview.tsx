@@ -52,6 +52,11 @@ function CertificatePreview({ data, className }: CertificatePreviewProps) {
   }, []);
 
   const handleDownload = useCallback(async () => {
+    if (!qrDataUrl) {
+      setDownloadError('QR code is still loading. Please wait a moment.');
+      return;
+    }
+
     setIsGenerating(true);
     setDownloadError(null);
 
