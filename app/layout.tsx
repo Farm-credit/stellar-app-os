@@ -1,5 +1,9 @@
 import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
+import { Footer } from '@/components/organisms/Footer/Footer';
+import { WalletProvider } from '@/contexts/WalletContext';
+
+const inter = Inter({ subsets: ['latin'], variable: '--font-inter', display: 'swap' });
 import { Header } from '@/components/organisms/Header/Header';
 import { Footer } from '@/components/organisms/Footer/Footer';
 import { WalletProvider } from '@/contexts/WalletContext';
