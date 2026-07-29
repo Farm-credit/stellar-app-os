@@ -828,6 +828,63 @@ impl PlatformGovernance {
         Self::aggregate_delegated_power(&env, &staking_contract, &delegate)
     }
 
+    // ── Timelock Queue Query Endpoints ──────────────────────────────────────
+
+    /// Returns all proposals that have passed and are queued (awaiting timelock) or executable.
+    pub fn get_pending_queue(env: Env) -> Vec<ProposalRecord> {
+        let count = Self::proposal_count(env.clone());
+        let mut list = Vec::new(&env);
+        for id in 0..count {
+            if let Some(prop) = env.storage().persistent().get::<_, ProposalRecord>(&proposal_key(id)) {
+                if prop.status == ProposalStatus::Passed {
+                    list.push_back(prop);
+                }
+            }
+        }
+        list
+    }
+
+    /// Returns all proposals currently in the timelock queue (passed, but executable_at is in the future).
+    pub fn get_queued_proposals(env: Env) -> Vec<ProposalRecord> {
+        let count = Self::proposal_count(env.clone());
+        let now = env.ledger().timestamp();
+        let mut list = Vec::new(&env);
+        for id in 0..count {
+            if let Some(prop) = env.storage().persistent().get::<_, ProposalRecord>(&proposal_key(id)) {
+                if prop.status == ProposalStatus::Passed && now < prop.executable_at {
+                    list.push_back(prop);
+                }
+            }
+        }
+        list
+    }
+
+    /// Returns all proposals that have passed and whose timelock period has elapsed (ready to execute).
+    pub fn get_executable_proposals(env: Env) -> Vec<ProposalRecord> {
+        let count = Self::proposal_count(env.clone());
+        let now = env.ledger().timestamp();
+        let mut list = Vec::new(&env);
+        for id in 0..count {
+            if let Some(prop) = env.storage().persistent().get::<_, ProposalRecord>(&proposal_key(id)) {
+                if prop.status == ProposalStatus::Passed && now >= prop.executable_at {
+                    list.push_back(prop);
+                }
+            }
+        }
+        list
+    }
+
+    /// Returns `(is_queued, remaining_seconds, executable_at)` for a specific proposal.
+    pub fn get_proposal_timelock_status(env: Env, proposal_id: u64) -> (bool, u64, u64) {
+        let prop = Self::get_proposal(env.clone(), proposal_id);
+        let now = env.ledger().timestamp();
+        if prop.status == ProposalStatus::Passed && now < prop.executable_at {
+            (true, prop.executable_at - now, prop.executable_at)
+        } else {
+            (false, 0, prop.executable_at)
+        }
+    }
+
     // ── Admin functions ───────────────────────────────────────────────────────
 
     /// Update the quorum percentage. Admin only.
@@ -1577,5 +1634,40 @@ mod tests {
 
         // 5 delegators × 1000 each = 5000
         assert_eq!(client.get_delegated_power(&delegate), 5000);
+    }
+
+    #[test]
+    fn test_timelock_queue_queries() {
+        let (env, _, _, _, client) = setup();
+        let voter = Address::generate(&env);
+
+        let options = Vec::from_array(
+            &env,
+            [VoteOption {
+                option_id: 1,
+                description: String::from_str(&env, "fee:6"),
+            }],
+        );
+
+        client.create_proposal(
+            &String::from_str(&env, "prop1"),
+            &ProposalType::PlatformFee,
+            &options,
+            &100,
+            &voter,
+        );
+
+        // Vote to pass proposal
+        client.vote(&0, &1, &voter);
+
+        let pending = client.get_pending_queue();
+        assert_eq!(pending.len(), 1);
+
+        let queued = client.get_queued_proposals();
+        assert_eq!(queued.len(), 1);
+
+        let (is_queued, remaining, _) = client.get_proposal_timelock_status(&0);
+        assert!(is_queued);
+        assert!(remaining > 0);
     }
 }

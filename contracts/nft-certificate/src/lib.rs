@@ -288,6 +288,102 @@ impl NftCertificate {
             .publish((symbol_short!("merged"), owner), (new_token_id, token_ids.len()));
     }
 
+    /// Split a single certificate into two new certificates with custom tree counts and CO2 offsets.
+    ///
+    /// `owner` — address that owns the certificate being split
+    /// `original_token_id` — token ID to split
+    /// `new_token_id_1` — token ID for the first split certificate
+    /// `new_token_id_2` — token ID for the second split certificate
+    /// `metadata_1` — metadata for the first split certificate
+    /// `metadata_2` — metadata for the second split certificate
+    pub fn split(
+        env: Env,
+        owner: Address,
+        original_token_id: u64,
+        new_token_id_1: u64,
+        new_token_id_2: u64,
+        metadata_1: CertificateMetadata,
+        metadata_2: CertificateMetadata,
+    ) {
+        Self::assert_not_paused(&env);
+        owner.require_auth();
+
+        if new_token_id_1 == new_token_id_2 {
+            panic_with_error!(&env, NftError::TokenAlreadyMinted);
+        }
+
+        if metadata_1.tree_count <= 0 || metadata_2.tree_count <= 0 {
+            panic_with_error!(&env, HarvestaError::TreeCountMustBePositive);
+        }
+
+        if metadata_1.co2_offset_kg <= 0 || metadata_2.co2_offset_kg <= 0 {
+            panic_with_error!(&env, HarvestaError::Co2MustBePositive);
+        }
+
+        let orig_token: Token = env
+            .storage()
+            .instance()
+            .get(&original_token_id)
+            .unwrap_or_else(|| panic_with_error!(&env, NftError::TokenNotFound));
+
+        if orig_token.owner != owner {
+            panic_with_error!(&env, HarvestaError::Unauthorized);
+        }
+
+        if env.storage().instance().has(&new_token_id_1)
+            || env.storage().instance().has(&new_token_id_2)
+        {
+            panic_with_error!(&env, NftError::TokenAlreadyMinted);
+        }
+
+        let split_tree_sum = metadata_1
+            .tree_count
+            .checked_add(metadata_2.tree_count)
+            .expect("tree count overflow");
+        let split_co2_sum = metadata_1
+            .co2_offset_kg
+            .checked_add(metadata_2.co2_offset_kg)
+            .expect("co2 offset overflow");
+
+        if split_tree_sum != orig_token.metadata.tree_count
+            || split_co2_sum != orig_token.metadata.co2_offset_kg
+        {
+            panic_with_error!(&env, NftError::MetadataMismatch);
+        }
+
+        // Burn original token
+        env.storage().instance().remove(&original_token_id);
+
+        // Mint split tokens
+        let token_1 = Token {
+            owner: owner.clone(),
+            metadata: metadata_1,
+        };
+        let token_2 = Token {
+            owner: owner.clone(),
+            metadata: metadata_2,
+        };
+
+        env.storage().instance().set(&new_token_id_1, &token_1);
+        env.storage().instance().set(&new_token_id_2, &token_2);
+
+        // Update token count (net change: -1 + 2 = +1)
+        let count: u64 = env
+            .storage()
+            .instance()
+            .get(&symbol_short!("TOK_COUNT"))
+            .unwrap_or(0);
+        let new_count = count.checked_add(1).expect("token count overflow");
+        env.storage()
+            .instance()
+            .set(&symbol_short!("TOK_COUNT"), &new_count);
+
+        env.events().publish(
+            (symbol_short!("split"), owner),
+            (original_token_id, new_token_id_1, new_token_id_2),
+        );
+    }
+
     /// Get token information by token ID.
     pub fn get_token(env: Env, token_id: u64) -> Option<Token> {
         env.storage().instance().get(&token_id)
@@ -599,5 +695,31 @@ mod tests {
     fn test_double_initialize_rejected() {
         let (_env, admin, client) = setup();
         client.initialize(&admin);
+    }
+
+    #[test]
+    fn test_split_success() {
+        let (env, _, client) = setup();
+        let owner = Address::generate(&env);
+
+        let meta_orig = metadata(&env, 100, 5000);
+        client.mint(&owner, &100, &meta_orig);
+
+        let meta_split1 = metadata(&env, 50, 2500);
+        let meta_split2 = metadata(&env, 50, 2500);
+
+        client.split(&owner, &100, &101, &102, &meta_split1, &meta_split2);
+
+        assert!(client.get_token(&100).is_none());
+        let tok1 = client.get_token(&101).unwrap();
+        let tok2 = client.get_token(&102).unwrap();
+
+        assert_eq!(tok1.owner, owner);
+        assert_eq!(tok1.metadata.tree_count, 50);
+        assert_eq!(tok1.metadata.co2_offset_kg, 2500);
+
+        assert_eq!(tok2.owner, owner);
+        assert_eq!(tok2.metadata.tree_count, 50);
+        assert_eq!(tok2.metadata.co2_offset_kg, 2500);
     }
 }

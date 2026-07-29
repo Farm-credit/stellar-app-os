@@ -54,6 +54,16 @@ enum DataKey {
     Stake(Address),
     /// Registration flag — set when verifier deposits min_stake via register()
     Registered(Address),
+    /// Halving schedule configuration for verifier block rewards
+    HalvingConfig,
+}
+
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct HalvingScheduleRecord {
+    pub base_reward: i128,
+    pub start_time: u64,
+    pub halving_interval_seconds: u64,
 }
 
 // ── Contract ──────────────────────────────────────────────────────────────────
@@ -299,6 +309,74 @@ impl VerifierStaking {
     pub fn get_replanting_buffer_pool(env: Env) -> Address {
         let (_, _, _, _, replanting_buffer_pool) = Self::config(&env);
         replanting_buffer_pool
+    }
+
+    /// Sets the annual 50% reward halving schedule for verifier block rewards. Admin only.
+    ///
+    /// * `base_reward` - initial block/verification reward in base token units
+    /// * `start_time` - ledger timestamp when the halving schedule begins
+    /// * `halving_interval_seconds` - duration of each halving era (e.g. 31,536,000 for 1 year)
+    pub fn set_halving_schedule(
+        env: Env,
+        base_reward: i128,
+        start_time: u64,
+        halving_interval_seconds: u64,
+    ) {
+        let (admin, _, _, _, _) = Self::config(&env);
+        admin.require_auth();
+
+        if base_reward <= 0 {
+            panic_with_error!(&env, HarvestaError::AmountMustBePositive);
+        }
+        if halving_interval_seconds == 0 {
+            panic_with_error!(&env, HarvestaError::InvalidPayoutAmount);
+        }
+
+        let record = HalvingScheduleRecord {
+            base_reward,
+            start_time,
+            halving_interval_seconds,
+        };
+
+        env.storage()
+            .instance()
+            .set(&DataKey::HalvingConfig, &record);
+
+        env.events().publish(
+            (symbol_short!("halving"), symbol_short!("set")),
+            (base_reward, start_time, halving_interval_seconds),
+        );
+    }
+
+    /// Returns the active halving schedule configuration, if set.
+    pub fn get_halving_schedule(env: Env) -> Option<HalvingScheduleRecord> {
+        env.storage().instance().get(&DataKey::HalvingConfig)
+    }
+
+    /// Calculates the halved reward amount at a specific timestamp based on annual 50% halving eras.
+    pub fn calculate_halved_reward(env: Env, timestamp: u64) -> i128 {
+        let config: HalvingScheduleRecord = match env.storage().instance().get(&DataKey::HalvingConfig) {
+            Some(cfg) => cfg,
+            None => return 0,
+        };
+
+        if timestamp < config.start_time || config.halving_interval_seconds == 0 {
+            return config.base_reward;
+        }
+
+        let elapsed = timestamp - config.start_time;
+        let halvings = elapsed / config.halving_interval_seconds;
+
+        if halvings >= 64 {
+            0
+        } else {
+            config.base_reward >> halvings
+        }
+    }
+
+    /// Returns the current halved reward amount based on the current ledger timestamp.
+    pub fn get_current_reward(env: Env) -> i128 {
+        Self::calculate_halved_reward(env.clone(), env.ledger().timestamp())
     }
 
     // ── internal ──────────────────────────────────────────────────────────────
@@ -592,5 +670,31 @@ mod tests {
         let ctx = setup();
         ctx.client.register(&ctx.verifier);
         assert!(ctx.client.is_registered(&ctx.verifier));
+    }
+
+    // ── reward halving schedule ─────────────────────────────────────────
+
+    #[test]
+    fn test_halving_schedule_calculation() {
+        let ctx = setup();
+        let start_time = 1_000_000u64;
+        let interval = 31_536_000u64; // 1 year
+        let base_reward = 1_000i128;
+
+        ctx.client.set_halving_schedule(&base_reward, &start_time, &interval);
+
+        let cfg = ctx.client.get_halving_schedule().unwrap();
+        assert_eq!(cfg.base_reward, 1_000);
+        assert_eq!(cfg.start_time, start_time);
+        assert_eq!(cfg.halving_interval_seconds, interval);
+
+        // Year 0 reward = 1000
+        assert_eq!(ctx.client.calculate_halved_reward(&start_time), 1_000);
+        // Year 1 reward = 500
+        assert_eq!(ctx.client.calculate_halved_reward(&(start_time + interval)), 500);
+        // Year 2 reward = 250
+        assert_eq!(ctx.client.calculate_halved_reward(&(start_time + 2 * interval)), 250);
+        // Year 3 reward = 125
+        assert_eq!(ctx.client.calculate_halved_reward(&(start_time + 3 * interval)), 125);
     }
 }

@@ -63,6 +63,18 @@ pub struct BurnRecord {
     pub burned_at: u64,
 }
 
+/// On-chain record of a cross-chain asset bridge lock.
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct BridgeLockRecord {
+    pub lock_id: u64,
+    pub sender: Address,
+    pub amount: i128,
+    pub target_chain: soroban_sdk::String,
+    pub recipient_address: soroban_sdk::String,
+    pub locked_at: u64,
+}
+
 /// Payload that a user signs off-chain to authorise a gasless transfer.
 ///
 /// The relayer passes this struct together with the 64-byte Ed25519
@@ -205,6 +217,120 @@ impl TreeToken {
         // Emit TokenBurned event — primary ESG audit signal
         env.events()
             .publish((Symbol::new(&env, "TokenBurned"), burner), amount);
+    }
+
+    // ── Cross-chain Bridge Hooks ──────────────────────────────────────────────
+
+    /// Locks `amount` of TREE tokens for cross-chain wrapping on Ethereum/Polygon.
+    ///
+    /// Transfers `amount` from `sender` to the contract escrow address,
+    /// emits a `BridgeLock` event with target chain and recipient address details.
+    pub fn lock_for_bridge(
+        env: Env,
+        sender: Address,
+        amount: i128,
+        target_chain: soroban_sdk::String,
+        recipient_address: soroban_sdk::String,
+    ) -> u64 {
+        Self::assert_not_paused(&env);
+        sender.require_auth();
+
+        if amount <= 0 {
+            panic_with_error!(&env, HarvestaError::AmountMustBePositive);
+        }
+
+        let tree_token: Address = env
+            .storage()
+            .instance()
+            .get(&symbol_short!("TOKEN"))
+            .unwrap_or_else(|| panic_with_error!(&env, HarvestaError::NotInitialized));
+
+        contract_utils::assert_whitelisted(&env, &tree_token);
+
+        // Transfer tokens from sender to contract escrow
+        token::Client::new(&env, &tree_token).transfer(
+            &sender,
+            &env.current_contract_address(),
+            &amount,
+        );
+
+        let lock_id: u64 = env
+            .storage()
+            .instance()
+            .get(&symbol_short!("LOCKCOUNT"))
+            .unwrap_or(0);
+
+        let record = BridgeLockRecord {
+            lock_id,
+            sender: sender.clone(),
+            amount,
+            target_chain: target_chain.clone(),
+            recipient_address: recipient_address.clone(),
+            locked_at: env.ledger().timestamp(),
+        };
+
+        let key = (symbol_short!("LOCK"), lock_id);
+        env.storage().persistent().set(&key, &record);
+        env.storage()
+            .instance()
+            .set(&symbol_short!("LOCKCOUNT"), &lock_id.checked_add(1).expect("lock count overflow"));
+
+        env.events().publish(
+            (Symbol::new(&env, "BridgeLock"), sender),
+            (lock_id, amount, target_chain, recipient_address),
+        );
+
+        lock_id
+    }
+
+    /// Unlocks `amount` of TREE tokens from contract escrow to `recipient` for unwrapping.
+    /// Whitelisted bridge relayer only.
+    pub fn unlock_from_bridge(
+        env: Env,
+        relayer: Address,
+        recipient: Address,
+        amount: i128,
+        source_chain: soroban_sdk::String,
+        tx_hash: soroban_sdk::String,
+    ) {
+        Self::assert_not_paused(&env);
+        relayer.require_auth();
+        contract_utils::assert_whitelisted(&env, &relayer);
+
+        if amount <= 0 {
+            panic_with_error!(&env, HarvestaError::AmountMustBePositive);
+        }
+
+        let tree_token: Address = env
+            .storage()
+            .instance()
+            .get(&symbol_short!("TOKEN"))
+            .unwrap_or_else(|| panic_with_error!(&env, HarvestaError::NotInitialized));
+
+        token::Client::new(&env, &tree_token).transfer(
+            &env.current_contract_address(),
+            &recipient,
+            &amount,
+        );
+
+        env.events().publish(
+            (Symbol::new(&env, "BridgeUnlock"), recipient),
+            (amount, source_chain, tx_hash),
+        );
+    }
+
+    /// Returns the bridge lock record for a given lock ID, or None.
+    pub fn get_bridge_lock(env: Env, lock_id: u64) -> Option<BridgeLockRecord> {
+        let key = (symbol_short!("LOCK"), lock_id);
+        env.storage().persistent().get(&key)
+    }
+
+    /// Returns the total number of bridge lock operations.
+    pub fn get_bridge_lock_count(env: Env) -> u64 {
+        env.storage()
+            .instance()
+            .get(&symbol_short!("LOCKCOUNT"))
+            .unwrap_or(0)
     }
 
     // ── Meta-transactions ─────────────────────────────────────────────────────
@@ -792,5 +918,26 @@ mod tests {
             },
             &sig,
         );
+    }
+
+    #[test]
+    fn test_bridge_lock_and_unlock() {
+        let (env, client, admin, sender, recipient, relayer) = setup_meta();
+
+        let chain = soroban_sdk::String::from_str(&env, "ethereum");
+        let target_addr = soroban_sdk::String::from_str(&env, "0x1234567890abcdef");
+
+        let lock_id = client.lock_for_bridge(&sender, &200, &chain, &target_addr);
+        assert_eq!(lock_id, 0);
+        assert_eq!(client.get_bridge_lock_count(), 1);
+
+        let lock_rec = client.get_bridge_lock(&0).unwrap();
+        assert_eq!(lock_rec.sender, sender);
+        assert_eq!(lock_rec.amount, 200);
+
+        let source_chain = soroban_sdk::String::from_str(&env, "polygon");
+        let tx_hash = soroban_sdk::String::from_str(&env, "0xabcdef123456");
+
+        client.unlock_from_bridge(&relayer, &recipient, &200, &source_chain, &tx_hash);
     }
 }
