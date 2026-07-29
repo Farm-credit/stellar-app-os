@@ -1,8 +1,18 @@
 #![no_std]
 
 use soroban_sdk::{
-    contract, contractimpl, contracttype, symbol_short, Address, Env, Symbol,
+    contract, contracterror, contractimpl, contracttype, panic_with_error, symbol_short, Address, Env, Symbol,
 };
+
+#[contracterror]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord)]
+pub enum CarbonCreditsError {
+    AlreadyInitialized = 1,
+    NotInitialized = 2,
+    InvalidAmount = 3,
+    SpeciesNotFound = 4,
+    InsufficientOffsets = 5,
+}
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -23,6 +33,7 @@ enum DataKey {
     Admin,
     Rate(Symbol),
     TotalOffset(Address),
+    RetiredOffset(Address),
 }
 
 // ── Contract ──────────────────────────────────────────────────────────────────
@@ -34,7 +45,7 @@ pub struct CarbonCredits;
 impl CarbonCredits {
     pub fn initialize(env: Env, admin: Address) {
         if env.storage().instance().has(&DataKey::Admin) {
-            panic!("already initialized");
+            panic_with_error!(&env, CarbonCreditsError::AlreadyInitialized);
         }
         env.storage().instance().set(&DataKey::Admin, &admin);
     }
@@ -45,14 +56,14 @@ impl CarbonCredits {
             .storage()
             .instance()
             .get(&DataKey::Admin)
-            .expect("not initialized");
+            .unwrap_or_else(|| panic_with_error!(&env, CarbonCreditsError::NotInitialized));
         admin.require_auth();
 
         if co2_scaled <= 0 {
-            panic!("co2_scaled must be positive");
+            panic_with_error!(&env, CarbonCreditsError::InvalidAmount);
         }
         if maturity_years == 0 {
-            panic!("maturity_years must be > 0");
+            panic_with_error!(&env, CarbonCreditsError::InvalidAmount);
         }
 
         let rate = SpeciesRate {
@@ -68,7 +79,7 @@ impl CarbonCredits {
         env.storage()
             .persistent()
             .get(&DataKey::Rate(slug))
-            .expect("species not found")
+            .unwrap_or_else(|| panic_with_error!(&env, CarbonCreditsError::SpeciesNotFound))
     }
 
     /// Returns lifetime grams CO₂ for one tree of `slug` at `age_years`.
@@ -81,7 +92,7 @@ impl CarbonCredits {
             .storage()
             .persistent()
             .get(&DataKey::Rate(slug))
-            .expect("species not found");
+            .unwrap_or_else(|| panic_with_error!(&env, CarbonCreditsError::SpeciesNotFound));
 
         let capped_years = age_years.min(rate.maturity_years) as i128;
         let grams_per_year: i128 = rate.co2_scaled * 10;
@@ -100,11 +111,11 @@ impl CarbonCredits {
             .storage()
             .instance()
             .get(&DataKey::Admin)
-            .expect("not initialized");
+            .unwrap_or_else(|| panic_with_error!(&env, CarbonCreditsError::NotInitialized));
         admin.require_auth();
 
         if tree_count == 0 {
-            panic!("tree_count must be > 0");
+            panic_with_error!(&env, CarbonCreditsError::InvalidAmount);
         }
 
         let per_tree = Self::estimate_offset(env.clone(), slug, age_years);
@@ -128,6 +139,39 @@ impl CarbonCredits {
             .get(&DataKey::TotalOffset(sponsor))
             .unwrap_or(0u64)
     }
+
+    /// Sponsor-only: retire offsets by permanently deducting them from TotalOffset.
+    pub fn retire_offset(env: Env, sponsor: Address, amount: u64) {
+        sponsor.require_auth();
+
+        if amount == 0 {
+            panic_with_error!(&env, CarbonCreditsError::InvalidAmount);
+        }
+
+        let total_key = DataKey::TotalOffset(sponsor.clone());
+        let current_total: u64 = env.storage().persistent().get(&total_key).unwrap_or(0u64);
+
+        if amount > current_total {
+            panic_with_error!(&env, CarbonCreditsError::InsufficientOffsets);
+        }
+
+        let retired_key = DataKey::RetiredOffset(sponsor.clone());
+        let current_retired: u64 = env.storage().persistent().get(&retired_key).unwrap_or(0u64);
+
+        // Update states
+        env.storage().persistent().set(&total_key, &(current_total - amount));
+        env.storage().persistent().set(&retired_key, &(current_retired + amount));
+
+        env.events().publish((symbol_short!("retire"), sponsor), amount);
+    }
+
+    /// Returns the total permanently retired offsets for a sponsor.
+    pub fn total_retired_for_sponsor(env: Env, sponsor: Address) -> u64 {
+        env.storage()
+            .persistent()
+            .get(&DataKey::RetiredOffset(sponsor))
+            .unwrap_or(0u64)
+    }
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
@@ -148,7 +192,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "already initialized")]
+    #[should_panic(expected = "Error(Contract, #1)")]
     fn test_double_init_panics() {
         let env = Env::default();
         env.mock_all_auths();
@@ -229,7 +273,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "species not found")]
+    #[should_panic(expected = "Error(Contract, #4)")]
     fn test_estimate_unknown_slug_panics() {
         let env = Env::default();
         env.mock_all_auths();
@@ -265,7 +309,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "tree_count must be > 0")]
+    #[should_panic(expected = "Error(Contract, #3)")]
     fn test_record_credit_zero_tree_count_panics() {
         let env = Env::default();
         env.mock_all_auths();
@@ -292,5 +336,51 @@ mod tests {
 
         let sponsor = Address::generate(&env);
         assert_eq!(client.total_offset_for_sponsor(&sponsor), 0u64);
+        assert_eq!(client.total_retired_for_sponsor(&sponsor), 0u64);
+    }
+
+    #[test]
+    fn test_retire_offset_success() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let contract_id = env.register_contract(None, CarbonCredits);
+        let client = CarbonCreditsClient::new(&env, &contract_id);
+        let admin = Address::generate(&env);
+        client.initialize(&admin);
+
+        let slug = Symbol::new(&env, "teak");
+        client.set_rate(&slug, &2200_i128, &20_u32);
+
+        let sponsor = Address::generate(&env);
+        client.record_credit(&sponsor, &slug, &5_u32, &10_u32); // 1_100_000 g
+
+        assert_eq!(client.total_offset_for_sponsor(&sponsor), 1_100_000u64);
+        assert_eq!(client.total_retired_for_sponsor(&sponsor), 0u64);
+
+        // Retire 100_000 g
+        client.retire_offset(&sponsor, &100_000u64);
+        
+        assert_eq!(client.total_offset_for_sponsor(&sponsor), 1_000_000u64);
+        assert_eq!(client.total_retired_for_sponsor(&sponsor), 100_000u64);
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #5)")]
+    fn test_retire_offset_insufficient_balance() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let contract_id = env.register_contract(None, CarbonCredits);
+        let client = CarbonCreditsClient::new(&env, &contract_id);
+        let admin = Address::generate(&env);
+        client.initialize(&admin);
+
+        let slug = Symbol::new(&env, "teak");
+        client.set_rate(&slug, &2200_i128, &20_u32);
+
+        let sponsor = Address::generate(&env);
+        client.record_credit(&sponsor, &slug, &1_u32, &10_u32); // 220_000 g
+
+        // Try to retire more than balance
+        client.retire_offset(&sponsor, &220_001u64);
     }
 }
