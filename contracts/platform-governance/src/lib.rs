@@ -41,8 +41,25 @@
 //!     DLGRS:<addr>       — Vec<Address> (addresses that delegated to this delegate)
 
 use soroban_sdk::{
-    contract, contractimpl, contracttype, symbol_short, Address, Env, String, Symbol, Vec,
+    contract, contracterror, contractimpl, contracttype, symbol_short, token, Address, Env,
+    String, Symbol, Vec,
 };
+
+// ── Error codes ───────────────────────────────────────────────────────────────
+
+#[contracterror]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
+#[repr(u32)]
+pub enum GovernanceError {
+    /// No TREE tokens are locked for this voter
+    NoLockedTokens = 200,
+    /// Lock amount must be positive
+    LockAmountMustBePositive = 201,
+    /// Requested unlock amount exceeds locked balance
+    InsufficientLockedBalance = 202,
+    /// Tokens are still time-locked and cannot be withdrawn yet
+    LockNotYetExpired = 203,
+}
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -141,6 +158,26 @@ pub struct DelegateRecord {
     pub registered_at: u64,
 }
 
+/// Record of a voter's locked TREE tokens used for quadratic voting power.
+///
+/// Locking is non-custodial from a governance perspective: tokens are held
+/// in this contract and can be unlocked by the owner at any time
+/// (subject to an optional minimum lock period stored in `locked_until`).
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct TokenLock {
+    /// Voter who owns these locked tokens
+    pub voter: Address,
+    /// TREE token contract address
+    pub token: Address,
+    /// Total amount currently locked (in token's native units / stroops)
+    pub amount: i128,
+    /// Computed quadratic voting power = isqrt(amount)
+    pub voting_power: i128,
+    /// Earliest unlock timestamp (0 = unlockable immediately)
+    pub locked_until: u64,
+}
+
 // ── Storage keys ──────────────────────────────────────────────────────────────
 
 fn admin_key() -> Symbol {
@@ -187,6 +224,21 @@ fn vote_key(proposal_id: u64, voter: &Address) -> (Symbol, u64, Address) {
     (symbol_short!("VOTE"), proposal_id, voter.clone())
 }
 
+/// Key for a voter's token lock record.
+fn token_lock_key(voter: &Address) -> (Symbol, Address) {
+    (symbol_short!("TLOCK"), voter.clone())
+}
+
+/// Key for the TREE token contract address used for lock deposits.
+fn tree_token_key() -> Symbol {
+    symbol_short!("TREE_TOK")
+}
+
+/// Key for the minimum lock period in seconds (0 = no minimum).
+fn min_lock_seconds_key() -> Symbol {
+    symbol_short!("MIN_LOCK")
+}
+
 /// Key for a registered delegate's DelegateRecord.
 fn delegate_info_key(delegate: &Address) -> (Symbol, Address) {
     (symbol_short!("DLGT"), delegate.clone())
@@ -219,10 +271,11 @@ impl PlatformGovernance {
     /// One-time initialisation.
     ///
     /// `admin`              — admin address for contract management
-    /// `staking_contract`   — verifier-staking contract for voting power
+    /// `staking_contract`   — verifier-staking contract (legacy; kept for compatibility)
     /// `admin_controls`     — admin-controls contract for parameter updates
     /// `platform_fee`       — initial platform fee percentage
     /// `min_planting_bond`  — initial minimum planting bond
+    /// `tree_token`         — TREE SAC token address used for voting power locks
     pub fn initialize(
         env: Env,
         admin: Address,
@@ -230,6 +283,7 @@ impl PlatformGovernance {
         admin_controls: Address,
         platform_fee: u64,
         min_planting_bond: i128,
+        tree_token: Address,
     ) {
         if env.storage().instance().has(&admin_key()) {
             panic!("already initialized");
@@ -256,6 +310,12 @@ impl PlatformGovernance {
         env.storage()
             .instance()
             .set(&proposal_count_key(), &0u64);
+        env.storage()
+            .instance()
+            .set(&tree_token_key(), &tree_token);
+        env.storage()
+            .instance()
+            .set(&min_lock_seconds_key(), &0u64);
 
         // Initialize empty verifier whitelist
         let whitelist: Vec<Address> = Vec::new(&env);
@@ -389,33 +449,19 @@ impl PlatformGovernance {
             panic!("already voted on this proposal");
         }
 
-        // Get voting power from staking contract
+        // Get quadratic voting power from locked TREE tokens
         let staking_contract: Address = env
             .storage()
             .instance()
             .get(&staking_contract_key())
             .expect("not initialized");
-        
-        // Get raw voting power (staked token amount)
         let own_power = Self::get_voting_power(&env, &staking_contract, &voter);
-        
-        // Add delegated power from all direct delegators.
-        let delegated_power =
-            Self::aggregate_delegated_power(&env, &staking_contract, &voter);
-            
-        let raw_power = own_power + delegated_power;
+        let delegated_power = Self::aggregate_delegated_power(&env, &staking_contract, &voter);
+        let power = own_power + delegated_power;
 
-        if raw_power <= 0 {
-            panic!("must be a staked verifier or delegate to vote");
+        if power <= 0 {
+            panic!("must lock TREE tokens to vote");
         }
-        
-        // Apply quadratic voting for SpeciesSelection proposals
-        // Voting power = sqrt(token holdings)
-        let power = if proposal.proposal_type == ProposalType::SpeciesSelection {
-            Self::isqrt(raw_power)
-        } else {
-            raw_power
-        };
 
         // Validate option_id exists
         let option_exists = proposal.options.iter().any(|opt| opt.option_id == option_id);
@@ -447,8 +493,7 @@ impl PlatformGovernance {
         proposal.total_votes += power;
 
         // Check if proposal meets quorum
-        let total_staked = Self::get_total_staked(&env, &staking_contract);
-        let quorum_percentage: u64 = env
+        let total_staked = Self::get_total_staked(&env, &staking_contract);        let quorum_percentage: u64 = env
             .storage()
             .instance()
             .get(&quorum_percentage_key())
@@ -633,6 +678,166 @@ impl PlatformGovernance {
             (symbol_short!("proposal"), symbol_short!("executed")),
             (proposal_id, proposal.proposal_type),
         );
+    }
+
+    // ── Quadratic voting token lock (issue #761) ──────────────────────────────
+
+    /// Lock TREE tokens to establish quadratic voting power.
+    ///
+    /// Voting power is computed as `isqrt(total_locked_amount)`. Successive
+    /// calls add to the existing lock — tokens are accumulated, not replaced.
+    ///
+    /// # Authorization
+    /// `voter` must sign.
+    ///
+    /// # Parameters
+    /// * `voter`  — address locking tokens (must sign)
+    /// * `amount` — number of TREE tokens to lock (in stroops)
+    ///
+    /// # Errors
+    /// Panics with `LockAmountMustBePositive` if `amount <= 0`.
+    pub fn lock_tokens(env: Env, voter: Address, amount: i128) {
+        use crate::GovernanceError;
+        voter.require_auth();
+
+        if amount <= 0 {
+            soroban_sdk::panic_with_error!(&env, GovernanceError::LockAmountMustBePositive);
+        }
+
+        let tree_token: Address = env
+            .storage()
+            .instance()
+            .get(&tree_token_key())
+            .expect("tree token not configured");
+
+        // Transfer tokens from voter into this contract
+        token::Client::new(&env, &tree_token).transfer(
+            &voter,
+            &env.current_contract_address(),
+            &amount,
+        );
+
+        let min_lock: u64 = env
+            .storage()
+            .instance()
+            .get(&min_lock_seconds_key())
+            .unwrap_or(0);
+
+        let locked_until = if min_lock > 0 {
+            env.ledger()
+                .timestamp()
+                .checked_add(min_lock)
+                .expect("lock expiry overflow")
+        } else {
+            0
+        };
+
+        // Accumulate into existing lock
+        let existing: Option<TokenLock> = env
+            .storage()
+            .persistent()
+            .get(&token_lock_key(&voter));
+
+        let new_amount = match existing {
+            Some(lock) => lock
+                .amount
+                .checked_add(amount)
+                .expect("locked balance overflow"),
+            None => amount,
+        };
+
+        let voting_power = Self::isqrt(new_amount);
+
+        env.storage().persistent().set(
+            &token_lock_key(&voter),
+            &TokenLock {
+                voter: voter.clone(),
+                token: tree_token,
+                amount: new_amount,
+                voting_power,
+                locked_until,
+            },
+        );
+
+        env.events().publish(
+            (symbol_short!("tok_lock"), voter),
+            (new_amount, voting_power),
+        );
+    }
+
+    /// Unlock previously locked TREE tokens.
+    ///
+    /// Reduces the lock by `amount`. Voting power is recomputed on the
+    /// remaining balance.
+    ///
+    /// # Authorization
+    /// `voter` must sign.
+    ///
+    /// # Errors
+    /// - `NoLockedTokens`           — voter has no lock record
+    /// - `InsufficientLockedBalance` — requested amount exceeds lock
+    /// - `LockNotYetExpired`         — minimum lock period not elapsed
+    pub fn unlock_tokens(env: Env, voter: Address, amount: i128) {
+        use crate::GovernanceError;
+        voter.require_auth();
+
+        if amount <= 0 {
+            soroban_sdk::panic_with_error!(&env, GovernanceError::LockAmountMustBePositive);
+        }
+
+        let mut lock: TokenLock = env
+            .storage()
+            .persistent()
+            .get(&token_lock_key(&voter))
+            .unwrap_or_else(|| {
+                soroban_sdk::panic_with_error!(&env, GovernanceError::NoLockedTokens)
+            });
+
+        if lock.locked_until > 0 && env.ledger().timestamp() < lock.locked_until {
+            soroban_sdk::panic_with_error!(&env, GovernanceError::LockNotYetExpired);
+        }
+
+        if amount > lock.amount {
+            soroban_sdk::panic_with_error!(&env, GovernanceError::InsufficientLockedBalance);
+        }
+
+        lock.amount = lock.amount.checked_sub(amount).expect("underflow");
+        lock.voting_power = Self::isqrt(lock.amount);
+
+        // Transfer back to voter
+        token::Client::new(&env, &lock.token).transfer(
+            &env.current_contract_address(),
+            &voter,
+            &amount,
+        );
+
+        env.storage()
+            .persistent()
+            .set(&token_lock_key(&voter), &lock);
+
+        env.events().publish(
+            (symbol_short!("tok_unlk"), voter),
+            (lock.amount, lock.voting_power),
+        );
+    }
+
+    /// Returns the `TokenLock` record for `voter`, or `None` if no tokens
+    /// are locked.
+    pub fn locked_balance(env: Env, voter: Address) -> Option<TokenLock> {
+        env.storage()
+            .persistent()
+            .get(&token_lock_key(&voter))
+    }
+
+    /// Set the minimum lock period in seconds. Admin only.
+    /// Pass 0 to disable (tokens immediately unlockable).
+    pub fn set_min_lock_seconds(env: Env, seconds: u64) {
+        Self::require_admin(&env);
+        env.storage()
+            .instance()
+            .set(&min_lock_seconds_key(), &seconds);
+        env.events()
+            .publish((symbol_short!("min_lock"),), seconds);
     }
 
     // ── Liquid democracy ──────────────────────────────────────────────────────
@@ -1051,10 +1256,15 @@ impl PlatformGovernance {
         }
     }
 
-    fn get_voting_power(_env: &Env, _staking_contract: &Address, _voter: &Address) -> i128 {
-        // Simplified: return a fixed voting power for staked verifiers.
-        // In production this calls the staking contract for the actual amount.
-        1000i128
+    fn get_voting_power(env: &Env, _staking_contract: &Address, voter: &Address) -> i128 {
+        // Quadratic voting power = isqrt(locked_token_amount).
+        // The isqrt is already pre-computed and stored in the TokenLock record
+        // so we just read it — O(1) with no arithmetic at vote time.
+        env.storage()
+            .persistent()
+            .get::<(Symbol, Address), TokenLock>(&token_lock_key(voter))
+            .map(|lock| lock.voting_power)
+            .unwrap_or(0)
     }
 
     fn get_total_staked(_env: &Env, _staking_contract: &Address) -> i128 {
@@ -1124,10 +1334,10 @@ mod tests {
     use super::*;
     use soroban_sdk::{
         testutils::{Address as _, Ledger},
-        Address, Env, String,
+        token, Address, Env, String,
     };
 
-    fn setup() -> (Env, Address, Address, Address, PlatformGovernanceClient<'static>) {
+    fn setup() -> (Env, Address, Address, Address, Address, PlatformGovernanceClient<'static>) {
         let env = Env::default();
         env.mock_all_auths();
 
@@ -1138,23 +1348,39 @@ mod tests {
         let staking_contract = Address::generate(&env);
         let admin_controls = Address::generate(&env);
 
+        // Register a TREE SAC token with this contract as admin
+        let tree_token = env
+            .register_stellar_asset_contract_v2(contract_id.clone())
+            .address();
+
         client.initialize(
             &admin,
             &staking_contract,
             &admin_controls,
             &DEFAULT_PLATFORM_FEE,
             &DEFAULT_MIN_PLANTING_BOND,
+            &tree_token,
         );
 
-        (env, admin, staking_contract, admin_controls, client)
+        (env, admin, staking_contract, admin_controls, tree_token, client)
     }
 
-    // ── Existing tests ────────────────────────────────────────────────────────
+    /// Helper: mint `amount` TREE tokens to `voter` and lock them so they
+    /// have quadratic voting power of `isqrt(amount)`.
+    fn lock_for_voter(
+        env: &Env,
+        tree_token: &Address,
+        client: &PlatformGovernanceClient,
+        voter: &Address,
+        amount: i128,
+    ) {
+        token::StellarAssetClient::new(env, tree_token).mint(voter, &amount);
+        client.lock_tokens(voter, &amount);
+    }
 
     #[test]
     fn test_initialize() {
-        let (_, _admin, _, _, client) = setup();
-
+        let (_, _admin, _, _, _, client) = setup();
         assert_eq!(client.platform_fee(), DEFAULT_PLATFORM_FEE);
         assert_eq!(client.min_planting_bond(), DEFAULT_MIN_PLANTING_BOND);
         assert_eq!(client.quorum_percentage(), DEFAULT_QUORUM_PERCENTAGE);
@@ -1163,25 +1389,15 @@ mod tests {
 
     #[test]
     fn test_create_proposal() {
-        let (env, admin, _, _, client) = setup();
-
+        let (env, admin, _, _, tree_token, client) = setup();
+        lock_for_voter(&env, &tree_token, &client, &admin, 10_000);
         let description_hash = String::from_str(&env, "hash123");
         let proposal_type = ProposalType::PlatformFee;
-
         let mut options = Vec::new(&env);
-        options.push_back(VoteOption {
-            option_id: 1,
-            description: String::from_str(&env, "Set fee to 10%"),
-        });
-        options.push_back(VoteOption {
-            option_id: 2,
-            description: String::from_str(&env, "Set fee to 15%"),
-        });
-
+        options.push_back(VoteOption { option_id: 1, description: String::from_str(&env, "Set fee to 10%") });
+        options.push_back(VoteOption { option_id: 2, description: String::from_str(&env, "Set fee to 15%") });
         client.create_proposal(&description_hash, &proposal_type, &options, &604800, &admin);
-
         assert_eq!(client.proposal_count(), 1);
-
         let proposal = client.get_proposal(&0);
         assert_eq!(proposal.description_hash, description_hash);
         assert!(matches!(proposal.status, ProposalStatus::Active));
@@ -1189,109 +1405,68 @@ mod tests {
 
     #[test]
     fn test_vote_on_proposal() {
-        let (env, admin, _, _, client) = setup();
-
-        let description_hash = String::from_str(&env, "hash123");
-        let proposal_type = ProposalType::PlatformFee;
-
+        let (env, admin, _, _, tree_token, client) = setup();
+        // Lock 10000 tokens → sqrt(10000) = 100 voting power
+        lock_for_voter(&env, &tree_token, &client, &admin, 10_000);
         let mut options = Vec::new(&env);
-        options.push_back(VoteOption {
-            option_id: 1,
-            description: String::from_str(&env, "Set fee to 10%"),
-        });
-
-        client.create_proposal(&description_hash, &proposal_type, &options, &604800, &admin);
+        options.push_back(VoteOption { option_id: 1, description: String::from_str(&env, "Set fee to 10%") });
+        client.create_proposal(&String::from_str(&env, "hash123"), &ProposalType::PlatformFee, &options, &604800, &admin);
         client.vote(&0, &1, &admin);
-
         let proposal = client.get_proposal(&0);
-        assert_eq!(proposal.total_votes, 1000);
+        assert_eq!(proposal.total_votes, 100); // sqrt(10000) = 100
     }
 
     #[test]
     #[should_panic(expected = "already voted on this proposal")]
     fn test_double_vote_rejected() {
-        let (env, admin, _, _, client) = setup();
-
-        let description_hash = String::from_str(&env, "hash123");
-        let proposal_type = ProposalType::PlatformFee;
-
+        let (env, admin, _, _, tree_token, client) = setup();
+        lock_for_voter(&env, &tree_token, &client, &admin, 10_000);
         let mut options = Vec::new(&env);
-        options.push_back(VoteOption {
-            option_id: 1,
-            description: String::from_str(&env, "Set fee to 10%"),
-        });
-
-        client.create_proposal(&description_hash, &proposal_type, &options, &604800, &admin);
+        options.push_back(VoteOption { option_id: 1, description: String::from_str(&env, "Set fee to 10%") });
+        client.create_proposal(&String::from_str(&env, "hash123"), &ProposalType::PlatformFee, &options, &604800, &admin);
         client.vote(&0, &1, &admin);
         client.vote(&0, &1, &admin);
     }
 
     #[test]
     fn test_execute_passed_proposal() {
-        let (env, admin, _, _, client) = setup();
-
-        let description_hash = String::from_str(&env, "hash123");
-        let proposal_type = ProposalType::PlatformFee;
-
+        let (env, admin, _, _, tree_token, client) = setup();
+        lock_for_voter(&env, &tree_token, &client, &admin, 10_000);
         let mut options = Vec::new(&env);
-        options.push_back(VoteOption {
-            option_id: 1,
-            description: String::from_str(&env, "Set fee to 10%"),
-        });
-
-        client.create_proposal(&description_hash, &proposal_type, &options, &1, &admin);
-
-        // Vote with admin (single vote for simplicity)
+        options.push_back(VoteOption { option_id: 1, description: String::from_str(&env, "Set fee to 10%") });
+        client.create_proposal(&String::from_str(&env, "hash123"), &ProposalType::PlatformFee, &options, &1, &admin);
         client.vote(&0, &1, &admin);
-
-        // Advance past voting period and timelock
         env.ledger().set_timestamp(env.ledger().timestamp() + 200000);
-
         let _proposal = client.get_proposal(&0);
     }
 
     #[test]
     #[should_panic(expected = "proposal has not passed")]
     fn test_execute_failed_proposal_rejected() {
-        let (env, admin, _, _, client) = setup();
-
-        let description_hash = String::from_str(&env, "hash123");
-        let proposal_type = ProposalType::PlatformFee;
-
+        let (env, admin, _, _, _tree_token, client) = setup();
         let mut options = Vec::new(&env);
-        options.push_back(VoteOption {
-            option_id: 1,
-            description: String::from_str(&env, "Set fee to 10%"),
-        });
-
-        client.create_proposal(&description_hash, &proposal_type, &options, &1, &admin);
-
-        // Try to execute without meeting quorum
+        options.push_back(VoteOption { option_id: 1, description: String::from_str(&env, "Set fee to 10%") });
+        client.create_proposal(&String::from_str(&env, "hash123"), &ProposalType::PlatformFee, &options, &1, &admin);
         client.execute(&0);
     }
 
     #[test]
     fn test_admin_set_platform_fee() {
-        let (_, _admin, _, _, client) = setup();
-
+        let (_, _admin, _, _, _, client) = setup();
         client.set_platform_fee(&15);
         assert_eq!(client.platform_fee(), 15);
     }
 
     #[test]
     fn test_verifier_whitelist() {
-        let (env, _admin, _, _, client) = setup();
-
+        let (env, _admin, _, _, _, client) = setup();
         let verifier = Address::generate(&env);
         client.add_verifier_to_whitelist(&verifier);
-
         let whitelist = client.verifier_whitelist();
         assert_eq!(whitelist.len(), 1);
         assert_eq!(whitelist.get(0).unwrap(), verifier);
-
         client.remove_verifier_from_whitelist(&verifier);
-        let whitelist = client.verifier_whitelist();
-        assert_eq!(whitelist.len(), 0);
+        assert_eq!(client.verifier_whitelist().len(), 0);
     }
 
     #[test]
@@ -1304,7 +1479,6 @@ mod tests {
         assert_eq!(PlatformGovernance::isqrt(25), 5);
         assert_eq!(PlatformGovernance::isqrt(100), 10);
         assert_eq!(PlatformGovernance::isqrt(10000), 100);
-        // Test non-perfect squares
         assert_eq!(PlatformGovernance::isqrt(2), 1);
         assert_eq!(PlatformGovernance::isqrt(8), 2);
         assert_eq!(PlatformGovernance::isqrt(15), 3);
@@ -1313,94 +1487,58 @@ mod tests {
 
     #[test]
     fn test_quadratic_voting_species_selection() {
-        let (env, admin, _, _, client) = setup();
-
-        let description_hash = String::from_str(&env, "species_hash");
-        let proposal_type = ProposalType::SpeciesSelection;
-        
+        let (env, admin, _, _, tree_token, client) = setup();
+        // Lock 1000 tokens → sqrt(1000) ≈ 31
+        lock_for_voter(&env, &tree_token, &client, &admin, 1_000);
         let mut options = Vec::new(&env);
-        options.push_back(VoteOption {
-            option_id: 1,
-            description: String::from_str(&env, "Oak Tree"),
-        });
-        options.push_back(VoteOption {
-            option_id: 2,
-            description: String::from_str(&env, "Pine Tree"),
-        });
-
-        client.create_proposal(&description_hash, &proposal_type, &options, &604800, &admin);
+        options.push_back(VoteOption { option_id: 1, description: String::from_str(&env, "Oak Tree") });
+        options.push_back(VoteOption { option_id: 2, description: String::from_str(&env, "Pine Tree") });
+        client.create_proposal(&String::from_str(&env, "species_hash"), &ProposalType::SpeciesSelection, &options, &604800, &admin);
         client.vote(&0, &1, &admin);
-
         let proposal = client.get_proposal(&0);
-        // With raw power of 1000, sqrt(1000) ≈ 31
-        assert_eq!(proposal.total_votes, 31);
+        assert_eq!(proposal.total_votes, 31); // isqrt(1000) = 31
     }
 
     #[test]
     fn test_normal_voting_platform_fee() {
-        let (env, admin, _, _, client) = setup();
-
-        let description_hash = String::from_str(&env, "fee_hash");
-        let proposal_type = ProposalType::PlatformFee;
-        
+        let (env, admin, _, _, tree_token, client) = setup();
+        // Lock 10000 tokens → quadratic power = sqrt(10000) = 100
+        lock_for_voter(&env, &tree_token, &client, &admin, 10_000);
         let mut options = Vec::new(&env);
-        options.push_back(VoteOption {
-            option_id: 1,
-            description: String::from_str(&env, "Set fee to 10%"),
-        });
-
-        client.create_proposal(&description_hash, &proposal_type, &options, &604800, &admin);
+        options.push_back(VoteOption { option_id: 1, description: String::from_str(&env, "Set fee to 10%") });
+        client.create_proposal(&String::from_str(&env, "fee_hash"), &ProposalType::PlatformFee, &options, &604800, &admin);
         client.vote(&0, &1, &admin);
-
         let proposal = client.get_proposal(&0);
-        // Normal voting uses raw power (1000)
-        assert_eq!(proposal.total_votes, 1000);
+        assert_eq!(proposal.total_votes, 100); // isqrt(10000) = 100
     }
 
     #[test]
     fn test_species_selection_execution() {
-        let (env, admin, _, _, client) = setup();
-
-        let description_hash = String::from_str(&env, "species_hash");
-        let proposal_type = ProposalType::SpeciesSelection;
-        
+        let (env, admin, _, _, tree_token, client) = setup();
+        lock_for_voter(&env, &tree_token, &client, &admin, 10_000);
         let mut options = Vec::new(&env);
-        options.push_back(VoteOption {
-            option_id: 1,
-            description: String::from_str(&env, "Oak Tree"),
-        });
-
-        client.create_proposal(&description_hash, &proposal_type, &options, &1, &admin);
+        options.push_back(VoteOption { option_id: 1, description: String::from_str(&env, "Oak Tree") });
+        client.create_proposal(&String::from_str(&env, "species_hash"), &ProposalType::SpeciesSelection, &options, &1, &admin);
         client.vote(&0, &1, &admin);
-
-        // Manually set proposal to Passed for testing
         let mut proposal = client.get_proposal(&0);
         proposal.status = ProposalStatus::Passed;
-        env.storage()
-            .persistent()
-            .set(&proposal_key(0), &proposal);
-
-        // Queue it — starts the 48h timelock
+        env.storage().persistent().set(&proposal_key(0), &proposal);
         client.queue(&0);
-
-        // Advance past voting period and timelock (DEFAULT_TIMELOCK_SECONDS = 172800)
         env.ledger().set_timestamp(env.ledger().timestamp() + 200000);
-
         client.execute(&0);
-
-        let proposal = client.get_proposal(&0);
-        assert!(matches!(proposal.status, ProposalStatus::Executed));
+        assert!(matches!(client.get_proposal(&0).status, ProposalStatus::Executed));
     }
 
     // ── Timelock controller tests (#752) ──────────────────────────────────────
 
-    /// Helper: create a proposal, manually mark it Passed, and return its ID.
     fn create_passed_proposal(
         env: &Env,
         client: &PlatformGovernanceClient,
         admin: &Address,
+        tree_token: &Address,
         voting_period: u64,
     ) -> u64 {
+        lock_for_voter(env, tree_token, client, admin, 10_000);
         let mut options = Vec::new(env);
         options.push_back(VoteOption {
             option_id: 1,
@@ -1422,26 +1560,21 @@ mod tests {
 
     #[test]
     fn test_queue_transitions_passed_to_queued() {
-        let (env, admin, _, _, client) = setup();
-        let id = create_passed_proposal(&env, &client, &admin, 1);
-
+        let (env, admin, _, _, tree_token, client) = setup();
+        let id = create_passed_proposal(&env, &client, &admin, &tree_token, 1);
         client.queue(&id);
-
         let proposal = client.get_proposal(&id);
         assert!(matches!(proposal.status, ProposalStatus::Queued));
         assert!(proposal.queued_at > 0);
-        // executable_at must be queued_at + DEFAULT_TIMELOCK_SECONDS
         assert_eq!(proposal.executable_at, proposal.queued_at + DEFAULT_TIMELOCK_SECONDS);
     }
 
     #[test]
     fn test_queue_sets_executable_at_48h_from_now() {
-        let (env, admin, _, _, client) = setup();
-        let id = create_passed_proposal(&env, &client, &admin, 1);
-
+        let (env, admin, _, _, tree_token, client) = setup();
+        let id = create_passed_proposal(&env, &client, &admin, &tree_token, 1);
         let before = env.ledger().timestamp();
         client.queue(&id);
-
         let proposal = client.get_proposal(&id);
         assert_eq!(proposal.queued_at, before);
         assert_eq!(proposal.executable_at, before + DEFAULT_TIMELOCK_SECONDS);
@@ -1449,38 +1582,19 @@ mod tests {
 
     #[test]
     fn test_full_lifecycle_create_vote_queue_execute() {
-        let (env, admin, _, _, client) = setup();
-
-        // 1. Create
+        let (env, admin, _, _, tree_token, client) = setup();
+        lock_for_voter(&env, &tree_token, &client, &admin, 10_000);
         let mut options = Vec::new(&env);
-        options.push_back(VoteOption {
-            option_id: 1,
-            description: String::from_str(&env, "Set fee to 10%"),
-        });
-        client.create_proposal(
-            &String::from_str(&env, "hash"),
-            &ProposalType::PlatformFee,
-            &options,
-            &1,
-            &admin,
-        );
+        options.push_back(VoteOption { option_id: 1, description: String::from_str(&env, "Set fee to 10%") });
+        client.create_proposal(&String::from_str(&env, "hash"), &ProposalType::PlatformFee, &options, &1, &admin);
         let id = 0u64;
         assert!(matches!(client.get_proposal(&id).status, ProposalStatus::Active));
-
-        // 2. Vote — manually set Passed (simplified: skips quorum threshold)
         let mut proposal = client.get_proposal(&id);
         proposal.status = ProposalStatus::Passed;
         env.storage().persistent().set(&proposal_key(id), &proposal);
-        assert!(matches!(client.get_proposal(&id).status, ProposalStatus::Passed));
-
-        // 3. Queue
         client.queue(&id);
         assert!(matches!(client.get_proposal(&id).status, ProposalStatus::Queued));
-
-        // 4. Advance past timelock
         env.ledger().set_timestamp(env.ledger().timestamp() + DEFAULT_TIMELOCK_SECONDS + 1);
-
-        // 5. Execute
         client.execute(&id);
         assert!(matches!(client.get_proposal(&id).status, ProposalStatus::Executed));
     }
@@ -1488,105 +1602,72 @@ mod tests {
     #[test]
     #[should_panic(expected = "proposal has not passed")]
     fn test_queue_active_proposal_rejected() {
-        let (env, admin, _, _, client) = setup();
+        let (env, admin, _, _, _tree_token, client) = setup();
         let mut options = Vec::new(&env);
-        options.push_back(VoteOption {
-            option_id: 1,
-            description: String::from_str(&env, "Yes"),
-        });
-        client.create_proposal(
-            &String::from_str(&env, "hash"),
-            &ProposalType::PlatformFee,
-            &options,
-            &604800,
-            &admin,
-        );
-        // Proposal is Active, not Passed — must fail
+        options.push_back(VoteOption { option_id: 1, description: String::from_str(&env, "Yes") });
+        client.create_proposal(&String::from_str(&env, "hash"), &ProposalType::PlatformFee, &options, &604800, &admin);
         client.queue(&0);
     }
 
     #[test]
     #[should_panic(expected = "proposal has not passed")]
     fn test_queue_already_queued_proposal_rejected() {
-        let (env, admin, _, _, client) = setup();
-        let id = create_passed_proposal(&env, &client, &admin, 1);
+        let (env, admin, _, _, tree_token, client) = setup();
+        let id = create_passed_proposal(&env, &client, &admin, &tree_token, 1);
         client.queue(&id);
-        // Second queue call — now status is Queued, not Passed → must fail
         client.queue(&id);
     }
 
     #[test]
     #[should_panic(expected = "proposal not queued for execution")]
     fn test_execute_passed_but_not_queued_rejected() {
-        let (env, admin, _, _, client) = setup();
-        let id = create_passed_proposal(&env, &client, &admin, 1);
-        // Advance time past any timelock
+        let (env, admin, _, _, tree_token, client) = setup();
+        let id = create_passed_proposal(&env, &client, &admin, &tree_token, 1);
         env.ledger().set_timestamp(env.ledger().timestamp() + 300_000);
-        // Must fail — proposal is Passed but never queued
         client.execute(&id);
     }
 
     #[test]
     #[should_panic(expected = "proposal not queued for execution")]
     fn test_execute_active_proposal_rejected() {
-        let (env, admin, _, _, client) = setup();
+        let (env, admin, _, _, _tree_token, client) = setup();
         let mut options = Vec::new(&env);
-        options.push_back(VoteOption {
-            option_id: 1,
-            description: String::from_str(&env, "Yes"),
-        });
-        client.create_proposal(
-            &String::from_str(&env, "hash"),
-            &ProposalType::PlatformFee,
-            &options,
-            &604800,
-            &admin,
-        );
+        options.push_back(VoteOption { option_id: 1, description: String::from_str(&env, "Yes") });
+        client.create_proposal(&String::from_str(&env, "hash"), &ProposalType::PlatformFee, &options, &604800, &admin);
         client.execute(&0);
     }
 
     #[test]
     #[should_panic(expected = "timelock period has not elapsed")]
     fn test_execute_before_timelock_elapses_rejected() {
-        let (env, admin, _, _, client) = setup();
-        let id = create_passed_proposal(&env, &client, &admin, 1);
+        let (env, admin, _, _, tree_token, client) = setup();
+        let id = create_passed_proposal(&env, &client, &admin, &tree_token, 1);
         client.queue(&id);
-        // Do NOT advance time — timelock has not elapsed
         client.execute(&id);
     }
 
     #[test]
     fn test_execute_exactly_at_timelock_boundary_succeeds() {
-        let (env, admin, _, _, client) = setup();
-        let id = create_passed_proposal(&env, &client, &admin, 1);
-
+        let (env, admin, _, _, tree_token, client) = setup();
+        let id = create_passed_proposal(&env, &client, &admin, &tree_token, 1);
         let queue_time = env.ledger().timestamp();
         client.queue(&id);
-
-        // Advance to exactly executable_at
         env.ledger().set_timestamp(queue_time + DEFAULT_TIMELOCK_SECONDS);
-
         client.execute(&id);
         assert!(matches!(client.get_proposal(&id).status, ProposalStatus::Executed));
     }
 
     #[test]
     fn test_timelock_duration_is_configurable() {
-        let (env, admin, _, _, client) = setup();
-
-        // Admin sets a custom 1-hour timelock
+        let (env, admin, _, _, tree_token, client) = setup();
         let one_hour = 3600u64;
         client.update_timelock(&one_hour);
         assert_eq!(client.timelock_seconds(), one_hour);
-
-        let id = create_passed_proposal(&env, &client, &admin, 1);
+        let id = create_passed_proposal(&env, &client, &admin, &tree_token, 1);
         let queue_time = env.ledger().timestamp();
         client.queue(&id);
-
         let proposal = client.get_proposal(&id);
         assert_eq!(proposal.executable_at, queue_time + one_hour);
-
-        // Execute after 1 hour
         env.ledger().set_timestamp(queue_time + one_hour);
         client.execute(&id);
         assert!(matches!(client.get_proposal(&id).status, ProposalStatus::Executed));
@@ -1595,25 +1676,23 @@ mod tests {
     #[test]
     #[should_panic(expected = "timelock must be > 0")]
     fn test_set_zero_timelock_rejected() {
-        let (_, _, _, _, client) = setup();
+        let (_, _, _, _, _, client) = setup();
         client.update_timelock(&0);
     }
 
     #[test]
     fn test_default_timelock_is_48_hours() {
-        let (_, _, _, _, client) = setup();
+        let (_, _, _, _, _, client) = setup();
         assert_eq!(client.timelock_seconds(), DEFAULT_TIMELOCK_SECONDS);
-        assert_eq!(DEFAULT_TIMELOCK_SECONDS, 172800); // 48 × 3600
+        assert_eq!(DEFAULT_TIMELOCK_SECONDS, 172800);
     }
 
     #[test]
     fn test_queued_at_and_executable_at_stored_correctly() {
-        let (env, admin, _, _, client) = setup();
-        let id = create_passed_proposal(&env, &client, &admin, 1);
-
+        let (env, admin, _, _, tree_token, client) = setup();
+        let id = create_passed_proposal(&env, &client, &admin, &tree_token, 1);
         let t0 = env.ledger().timestamp();
         client.queue(&id);
-
         let p = client.get_proposal(&id);
         assert_eq!(p.queued_at, t0);
         assert_eq!(p.executable_at, t0 + DEFAULT_TIMELOCK_SECONDS);
@@ -1622,12 +1701,11 @@ mod tests {
 
     #[test]
     fn test_execute_double_call_rejected() {
-        let (env, admin, _, _, client) = setup();
-        let id = create_passed_proposal(&env, &client, &admin, 1);
+        let (env, admin, _, _, tree_token, client) = setup();
+        let id = create_passed_proposal(&env, &client, &admin, &tree_token, 1);
         client.queue(&id);
         env.ledger().set_timestamp(env.ledger().timestamp() + DEFAULT_TIMELOCK_SECONDS + 1);
         client.execute(&id);
-        // Second execute — status is now Executed, not Queued → must panic
         let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
             client.execute(&id);
         }));
@@ -1638,13 +1716,10 @@ mod tests {
 
     #[test]
     fn test_register_delegate() {
-        let (env, _, _, _, client) = setup();
-
+        let (env, _, _, _, _, client) = setup();
         let delegate = Address::generate(&env);
         let domain = String::from_str(&env, "climate");
-
         client.register_delegate(&delegate, &domain);
-
         let record = client.get_delegate(&delegate).expect("delegate not found");
         assert_eq!(record.delegate, delegate);
         assert_eq!(record.domain, domain);
@@ -1652,70 +1727,53 @@ mod tests {
 
     #[test]
     fn test_unregister_delegate_no_delegators() {
-        let (env, _, _, _, client) = setup();
-
+        let (env, _, _, _, _, client) = setup();
         let delegate = Address::generate(&env);
         client.register_delegate(&delegate, &String::from_str(&env, "verifier"));
         client.unregister_delegate(&delegate);
-
         assert!(client.get_delegate(&delegate).is_none());
     }
 
     #[test]
     #[should_panic(expected = "not a registered delegate")]
     fn test_unregister_non_existent_delegate_fails() {
-        let (env, _, _, _, client) = setup();
-        let random = Address::generate(&env);
-        client.unregister_delegate(&random);
+        let (env, _, _, _, _, client) = setup();
+        client.unregister_delegate(&Address::generate(&env));
     }
 
     #[test]
     #[should_panic(expected = "cannot unregister: active delegations exist")]
     fn test_unregister_with_active_delegations_fails() {
-        let (env, _, _, _, client) = setup();
-
+        let (env, _, _, _, _, client) = setup();
         let delegate = Address::generate(&env);
         let delegator = Address::generate(&env);
-
         client.register_delegate(&delegate, &String::from_str(&env, "climate"));
         client.delegate_to(&delegator, &delegate);
-
-        // Must fail — there is still an active delegation.
         client.unregister_delegate(&delegate);
     }
 
     #[test]
     fn test_delegate_to_registered_delegate() {
-        let (env, _, _, _, client) = setup();
-
+        let (env, _, _, _, _, client) = setup();
         let delegate = Address::generate(&env);
         let delegator = Address::generate(&env);
-
         client.register_delegate(&delegate, &String::from_str(&env, "climate"));
         client.delegate_to(&delegator, &delegate);
-
-        let stored = client
-            .get_delegation(&delegator)
-            .expect("delegation not found");
+        let stored = client.get_delegation(&delegator).expect("delegation not found");
         assert_eq!(stored, delegate);
     }
 
     #[test]
     #[should_panic(expected = "target is not a registered delegate")]
     fn test_delegate_to_non_registered_fails() {
-        let (env, _, _, _, client) = setup();
-
-        let delegator = Address::generate(&env);
-        let random = Address::generate(&env);
-
-        client.delegate_to(&delegator, &random);
+        let (env, _, _, _, _, client) = setup();
+        client.delegate_to(&Address::generate(&env), &Address::generate(&env));
     }
 
     #[test]
     #[should_panic(expected = "cannot delegate to yourself")]
     fn test_delegate_to_self_fails() {
-        let (env, _, _, _, client) = setup();
-
+        let (env, _, _, _, _, client) = setup();
         let user = Address::generate(&env);
         client.register_delegate(&user, &String::from_str(&env, "climate"));
         client.delegate_to(&user, &user);
@@ -1723,68 +1781,55 @@ mod tests {
 
     #[test]
     fn test_retract_delegation() {
-        let (env, _, _, _, client) = setup();
-
+        let (env, _, _, _, _, client) = setup();
         let delegate = Address::generate(&env);
         let delegator = Address::generate(&env);
-
         client.register_delegate(&delegate, &String::from_str(&env, "climate"));
         client.delegate_to(&delegator, &delegate);
         client.retract_delegation(&delegator);
-
         assert!(client.get_delegation(&delegator).is_none());
     }
 
     #[test]
     #[should_panic(expected = "no active delegation")]
     fn test_retract_with_no_delegation_fails() {
-        let (env, _, _, _, client) = setup();
-        let user = Address::generate(&env);
-        client.retract_delegation(&user);
+        let (env, _, _, _, _, client) = setup();
+        client.retract_delegation(&Address::generate(&env));
     }
 
     #[test]
     fn test_delegate_to_replaces_existing_delegation() {
-        let (env, _, _, _, client) = setup();
-
+        let (env, _, _, _, _, client) = setup();
         let delegate_a = Address::generate(&env);
         let delegate_b = Address::generate(&env);
         let delegator = Address::generate(&env);
-
         client.register_delegate(&delegate_a, &String::from_str(&env, "climate"));
         client.register_delegate(&delegate_b, &String::from_str(&env, "verifier"));
-
         client.delegate_to(&delegator, &delegate_a);
-        // Switch to delegate_b atomically.
         client.delegate_to(&delegator, &delegate_b);
-
-        let stored = client.get_delegation(&delegator).unwrap();
-        assert_eq!(stored, delegate_b);
-
-        // delegate_a should have no delegators left.
+        assert_eq!(client.get_delegation(&delegator).unwrap(), delegate_b);
         assert_eq!(client.get_delegated_power(&delegate_a), 0);
-        // delegate_b should have the delegator's power.
-        assert_eq!(client.get_delegated_power(&delegate_b), 1000);
+        assert_eq!(client.get_delegated_power(&delegate_b), 0); // delegator has no lock
     }
 
     #[test]
     fn test_vote_aggregates_delegated_power() {
-        let (env, _, _, _, client) = setup();
-
+        let (env, _, _, _, tree_token, client) = setup();
         let delegate = Address::generate(&env);
         let delegator_1 = Address::generate(&env);
         let delegator_2 = Address::generate(&env);
+
+        // Lock tokens for all three: sqrt(10000) = 100 each
+        lock_for_voter(&env, &tree_token, &client, &delegate, 10_000);
+        lock_for_voter(&env, &tree_token, &client, &delegator_1, 10_000);
+        lock_for_voter(&env, &tree_token, &client, &delegator_2, 10_000);
 
         client.register_delegate(&delegate, &String::from_str(&env, "climate"));
         client.delegate_to(&delegator_1, &delegate);
         client.delegate_to(&delegator_2, &delegate);
 
-        // Create a proposal and vote as the delegate.
         let mut options = Vec::new(&env);
-        options.push_back(VoteOption {
-            option_id: 1,
-            description: String::from_str(&env, "Yes"),
-        });
+        options.push_back(VoteOption { option_id: 1, description: String::from_str(&env, "Yes") });
         client.create_proposal(
             &String::from_str(&env, "hash_dlgt"),
             &ProposalType::PlatformFee,
@@ -1792,99 +1837,198 @@ mod tests {
             &604800,
             &delegate,
         );
-
         client.vote(&0, &1, &delegate);
 
         let proposal = client.get_proposal(&0);
-        // own (1000) + delegator_1 (1000) + delegator_2 (1000) = 3000
-        assert_eq!(proposal.total_votes, 3000);
-
-        let vote_rec = client.get_vote(&0, &delegate).unwrap();
-        assert_eq!(vote_rec.power, 3000);
+        // own (100) + delegator_1 (100) + delegator_2 (100) = 300
+        assert_eq!(proposal.total_votes, 300);
+        assert_eq!(client.get_vote(&0, &delegate).unwrap().power, 300);
     }
 
     #[test]
     #[should_panic(expected = "voting power delegated; retract delegation before voting")]
     fn test_delegated_user_cannot_vote_directly() {
-        let (env, _, _, _, client) = setup();
-
+        let (env, _, _, _, tree_token, client) = setup();
         let delegate = Address::generate(&env);
         let delegator = Address::generate(&env);
-
+        lock_for_voter(&env, &tree_token, &client, &delegate, 10_000);
+        lock_for_voter(&env, &tree_token, &client, &delegator, 10_000);
         client.register_delegate(&delegate, &String::from_str(&env, "climate"));
         client.delegate_to(&delegator, &delegate);
-
         let mut options = Vec::new(&env);
-        options.push_back(VoteOption {
-            option_id: 1,
-            description: String::from_str(&env, "Yes"),
-        });
-        client.create_proposal(
-            &String::from_str(&env, "hash"),
-            &ProposalType::PlatformFee,
-            &options,
-            &604800,
-            &delegate,
-        );
-
-        // delegator still has an active delegation → must panic.
+        options.push_back(VoteOption { option_id: 1, description: String::from_str(&env, "Yes") });
+        client.create_proposal(&String::from_str(&env, "hash"), &ProposalType::PlatformFee, &options, &604800, &delegate);
         client.vote(&0, &1, &delegator);
     }
 
     #[test]
     fn test_retract_then_vote_directly() {
-        let (env, _, _, _, client) = setup();
-
+        let (env, _, _, _, tree_token, client) = setup();
         let delegate = Address::generate(&env);
         let delegator = Address::generate(&env);
-
+        lock_for_voter(&env, &tree_token, &client, &delegate, 10_000);
+        lock_for_voter(&env, &tree_token, &client, &delegator, 10_000);
         client.register_delegate(&delegate, &String::from_str(&env, "climate"));
         client.delegate_to(&delegator, &delegate);
         client.retract_delegation(&delegator);
-
         let mut options = Vec::new(&env);
-        options.push_back(VoteOption {
-            option_id: 1,
-            description: String::from_str(&env, "Yes"),
-        });
-        client.create_proposal(
-            &String::from_str(&env, "hash"),
-            &ProposalType::PlatformFee,
-            &options,
-            &604800,
-            &delegate,
-        );
-
-        // After retraction the delegator should be able to vote directly.
+        options.push_back(VoteOption { option_id: 1, description: String::from_str(&env, "Yes") });
+        client.create_proposal(&String::from_str(&env, "hash"), &ProposalType::PlatformFee, &options, &604800, &delegate);
         client.vote(&0, &1, &delegator);
-
-        let proposal = client.get_proposal(&0);
-        assert_eq!(proposal.total_votes, 1000); // only own power, no delegated
+        assert_eq!(client.get_proposal(&0).total_votes, 100); // sqrt(10000) = 100
     }
 
     #[test]
     fn test_get_delegated_power_zero_when_no_delegators() {
-        let (env, _, _, _, client) = setup();
-
+        let (env, _, _, _, _, client) = setup();
         let delegate = Address::generate(&env);
         client.register_delegate(&delegate, &String::from_str(&env, "verifier"));
-
         assert_eq!(client.get_delegated_power(&delegate), 0);
     }
 
     #[test]
     fn test_get_delegated_power_accumulates_multiple_delegators() {
-        let (env, _, _, _, client) = setup();
-
+        let (env, _, _, _, tree_token, client) = setup();
         let delegate = Address::generate(&env);
         client.register_delegate(&delegate, &String::from_str(&env, "climate"));
-
+        // 5 delegators, each locking 100 tokens → sqrt(100) = 10 each
         for _ in 0..5u32 {
             let delegator = Address::generate(&env);
+            lock_for_voter(&env, &tree_token, &client, &delegator, 100);
             client.delegate_to(&delegator, &delegate);
         }
+        assert_eq!(client.get_delegated_power(&delegate), 50); // 5 × 10
+    }
 
-        // 5 delegators × 1000 each = 5000
-        assert_eq!(client.get_delegated_power(&delegate), 5000);
+    // ── Quadratic voting lock tests (issue #761) ──────────────────────────────
+
+    #[test]
+    fn test_lock_tokens_stores_correct_voting_power() {
+        let (env, admin, _, _, tree_token, client) = setup();
+        token::StellarAssetClient::new(&env, &tree_token).mint(&admin, &10_000);
+        client.lock_tokens(&admin, &10_000);
+        let lock = client.locked_balance(&admin).unwrap();
+        assert_eq!(lock.amount, 10_000);
+        assert_eq!(lock.voting_power, 100); // sqrt(10000) = 100
+    }
+
+    #[test]
+    fn test_lock_tokens_accumulates_on_successive_calls() {
+        let (env, admin, _, _, tree_token, client) = setup();
+        token::StellarAssetClient::new(&env, &tree_token).mint(&admin, &20_000);
+        client.lock_tokens(&admin, &9_000);
+        client.lock_tokens(&admin, &7_000);
+        let lock = client.locked_balance(&admin).unwrap();
+        assert_eq!(lock.amount, 16_000);
+        assert_eq!(lock.voting_power, PlatformGovernance::isqrt(16_000));
+    }
+
+    #[test]
+    fn test_unlock_tokens_reduces_balance_and_recomputes_power() {
+        let (env, admin, _, _, tree_token, client) = setup();
+        token::StellarAssetClient::new(&env, &tree_token).mint(&admin, &10_000);
+        client.lock_tokens(&admin, &10_000);
+        client.unlock_tokens(&admin, &6_000);
+        let lock = client.locked_balance(&admin).unwrap();
+        assert_eq!(lock.amount, 4_000);
+        assert_eq!(lock.voting_power, PlatformGovernance::isqrt(4_000));
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #202)")]
+    fn test_unlock_more_than_locked_rejected() {
+        let (env, admin, _, _, tree_token, client) = setup();
+        token::StellarAssetClient::new(&env, &tree_token).mint(&admin, &5_000);
+        client.lock_tokens(&admin, &5_000);
+        client.unlock_tokens(&admin, &6_000);
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #200)")]
+    fn test_unlock_with_no_lock_rejected() {
+        let (env, admin, _, _, _tree_token, client) = setup();
+        client.unlock_tokens(&admin, &100);
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #201)")]
+    fn test_lock_zero_amount_rejected() {
+        let (env, admin, _, _, _tree_token, client) = setup();
+        client.lock_tokens(&admin, &0);
+    }
+
+    #[test]
+    fn test_different_lock_amounts_produce_different_voting_powers() {
+        let (env, _, _, _, tree_token, client) = setup();
+        let voter_a = Address::generate(&env);
+        let voter_b = Address::generate(&env);
+        token::StellarAssetClient::new(&env, &tree_token).mint(&voter_a, &100);
+        token::StellarAssetClient::new(&env, &tree_token).mint(&voter_b, &10_000);
+        client.lock_tokens(&voter_a, &100);
+        client.lock_tokens(&voter_b, &10_000);
+        let power_a = client.locked_balance(&voter_a).unwrap().voting_power;
+        let power_b = client.locked_balance(&voter_b).unwrap().voting_power;
+        // A: sqrt(100) = 10; B: sqrt(10000) = 100 → 10x lock but same multiplier
+        assert_eq!(power_a, 10);
+        assert_eq!(power_b, 100);
+        // Power ratio should be sqrt(100) not 100x
+        assert_eq!(power_b / power_a, 10);
+    }
+
+    #[test]
+    fn test_voting_power_used_in_vote() {
+        let (env, _, _, _, tree_token, client) = setup();
+        let voter_a = Address::generate(&env);
+        let voter_b = Address::generate(&env);
+        // A locks 100 → power 10; B locks 10000 → power 100
+        token::StellarAssetClient::new(&env, &tree_token).mint(&voter_a, &100);
+        token::StellarAssetClient::new(&env, &tree_token).mint(&voter_b, &10_000);
+        client.lock_tokens(&voter_a, &100);
+        client.lock_tokens(&voter_b, &10_000);
+
+        let proposer = Address::generate(&env);
+        token::StellarAssetClient::new(&env, &tree_token).mint(&proposer, &1);
+        client.lock_tokens(&proposer, &1);
+
+        let mut options = Vec::new(&env);
+        options.push_back(VoteOption { option_id: 1, description: String::from_str(&env, "A") });
+        options.push_back(VoteOption { option_id: 2, description: String::from_str(&env, "B") });
+        client.create_proposal(&String::from_str(&env, "h"), &ProposalType::PlatformFee, &options, &604800, &proposer);
+
+        client.vote(&0, &1, &voter_a);
+        client.vote(&0, &2, &voter_b);
+
+        let proposal = client.get_proposal(&0);
+        assert_eq!(proposal.total_votes, 10 + 100); // 110
+        let tally_1 = proposal.tally.iter().find(|t| t.option_id == 1).unwrap();
+        let tally_2 = proposal.tally.iter().find(|t| t.option_id == 2).unwrap();
+        assert_eq!(tally_1.votes, 10);
+        assert_eq!(tally_2.votes, 100);
+    }
+
+    #[test]
+    #[should_panic(expected = "must lock TREE tokens to vote")]
+    fn test_vote_without_locked_tokens_rejected() {
+        let (env, admin, _, _, _tree_token, client) = setup();
+        let mut options = Vec::new(&env);
+        options.push_back(VoteOption { option_id: 1, description: String::from_str(&env, "Yes") });
+        client.create_proposal(&String::from_str(&env, "h"), &ProposalType::PlatformFee, &options, &604800, &admin);
+        client.vote(&0, &1, &admin); // admin has no locked tokens
+    }
+
+    #[test]
+    fn test_locked_balance_returns_none_for_unlocked_voter() {
+        let (env, admin, _, _, _tree_token, client) = setup();
+        assert!(client.locked_balance(&admin).is_none());
+    }
+
+    #[test]
+    fn test_quadratic_dampening_vs_linear() {
+        // Verify that doubling locked tokens does NOT double voting power
+        // (quadratic property: sqrt(4x) = 2*sqrt(x))
+        assert_eq!(PlatformGovernance::isqrt(400), 20);
+        assert_eq!(PlatformGovernance::isqrt(100), 10);
+        // 4x tokens → only 2x power
+        assert_eq!(PlatformGovernance::isqrt(400) / PlatformGovernance::isqrt(100), 2);
     }
 }
