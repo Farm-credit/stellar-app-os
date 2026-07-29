@@ -81,6 +81,8 @@ export async function POST(request: Request) {
       network,
       idempotencyKey,
       1,
+      'USDC',
+      undefined,
       regionId
     );
 

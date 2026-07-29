@@ -22,122 +22,79 @@ const typeConfig = {
   reforestation: { label: 'Reforestation', colorClass: 'bg-stellar-green' },
   renewable: { label: 'Renewable Energy', colorClass: 'bg-stellar-cyan text-stellar-navy' },
   conservation: { label: 'Conservation', colorClass: 'bg-stellar-purple' },
-};
+} as const;
 
-  const handleToggle = (projectId: string) => {
-    const alreadyFavorited = isFavorited(projectId);
+export function ProjectCard({
+  title,
+  location,
+  description,
+  imageUrl,
+  type,
+  progress,
+  price,
+  availableCredits,
+}: ProjectCardProps) {
+  const clampedProgress = Math.max(0, Math.min(100, progress));
+  const badgeConfig = typeConfig[type];
+  const isSoldOut = availableCredits <= 0;
 
-    toggleFavorite(projectId);
-
-    toast(
-      alreadyFavorited
-        ? `${project.name} removed from favorites`
-        : `${project.name} added to favorites!`,
-      {
-        action: {
-          label: 'Undo',
-          onClick: () => undoRemove(),
-        },
-      }
-    );
-  };
   return (
-    <div className="rounded-lg border bg-card p-6 space-y-4 hover:shadow-lg transition-shadow">
-      <div className="flex justify-end">
-        <button
-          onClick={() => handleToggle(project.id)}
-          aria-label={isFavorited(project.id) ? 'Remove from favorites' : 'Add to favorites'}
-          aria-pressed={isFavorited(project.id)}
-        >
-          <HeartIcon
-            className={
-              isFavorited(project.id) ? 'fill-red-500 stroke-red-500' : 'fill-none stroke-current'
-            }
-          />
+    <Card className="h-full overflow-hidden">
+      <div className="relative aspect-[16/10] bg-secondary/50">
+        {imageUrl ? (
+          <Image src={imageUrl} alt={title} fill className="object-cover" />
         ) : (
           <div className="flex h-full w-full flex-col items-center justify-center text-muted-foreground bg-secondary/50">
-            <ImageOff className="h-10 w-10 mb-2 opacity-50" />
+            <ImageOff className="mb-2 h-10 w-10 opacity-50" />
             <Text variant="small">No image available</Text>
           </div>
         )}
-
-        {/* Type Badge */}
-        <div className="absolute top-3 right-3 z-10">
+        <div className="absolute right-3 top-3 z-10">
           <Badge className={`border-none ${badgeConfig.colorClass}`}>{badgeConfig.label}</Badge>
         </div>
       </div>
-      <div>
-        <div className="flex items-start justify-between mb-2">
-          <Text variant="h4" as="h3" className="font-semibold">
-            {project.name}
-          </Text>
-          {project.isOutOfStock && (
-            <Badge variant="outline" className="ml-2">
-              Out of Stock
-            </Badge>
-          )}
-        </div>
-        <Text
-          as="h3"
-          variant="h4"
-          className="line-clamp-1 group-hover:text-stellar-blue transition-colors"
-        >
+
+      <CardHeader className="p-5 pb-3">
+        <Text variant="h4" as="h3" className="font-semibold">
           {title}
         </Text>
+        <div className="mt-2 flex items-center gap-2 text-sm text-muted-foreground">
+          <MapPin className="h-4 w-4" />
+          <span>{location}</span>
+        </div>
       </CardHeader>
 
-      <CardContent className="p-5 pt-0 flex-grow flex flex-col justify-between">
-        <Text variant="muted" className="line-clamp-2 mb-4">
+      <CardContent className="flex flex-grow flex-col justify-between p-5 pt-0">
+        <Text variant="muted" className="mb-4 line-clamp-3">
           {description}
         </Text>
-      </div>
 
-        {/* Progress Area */}
-        <div className="space-y-2 mt-auto">
-          <div className="flex justify-between items-end">
+        <div className="mt-auto space-y-2">
+          <div className="flex items-end justify-between">
             <Text variant="small" className="font-medium">
               {clampedProgress}% Funded
             </Text>
             <Text variant="small" className="text-xs text-muted-foreground">
-              {availableCredits > 0
-                ? `${availableCredits.toLocaleString()} credits left`
-                : '0 credits left'}
+              {availableCredits > 0 ? `${availableCredits.toLocaleString()} credits left` : '0 credits left'}
             </Text>
           </div>
-
-          <div className="h-2 w-full bg-secondary rounded-full overflow-hidden">
+          <div className="h-2 w-full overflow-hidden rounded-full bg-secondary">
             <div
-              className="h-full bg-stellar-green transition-all duration-1000 ease-out rounded-full"
+              className="h-full rounded-full bg-stellar-green transition-all duration-1000 ease-out"
               style={{ width: `${clampedProgress}%` }}
             />
           </div>
         </div>
-        <div className="flex items-center justify-between">
-          <Text variant="small" as="span" className="text-muted-foreground">
-            Price per Ton
-          </Text>
-          <Text variant="small" as="span" className="font-semibold">
-            ${project.pricePerTon.toFixed(2)}
-          </Text>
-        </div>
-        <div className="flex items-center justify-between">
-          <Text variant="small" as="span" className="text-muted-foreground">
-            Available
-          </Text>
-          <Text variant="small" as="span">
-            {project.availableSupply.toFixed(2)} tons
-          </Text>
-        </div>
-      </div>
+      </CardContent>
 
-      <CardFooter className="p-5 pt-4 border-t bg-muted/20 flex items-center justify-between flex-none gap-3">
+      <CardFooter className="flex items-center justify-between gap-3 border-t bg-muted/20 p-5">
         <div className="flex flex-col">
-          <Text variant="small" className="text-muted-foreground text-xs leading-tight">
+          <Text variant="small" className="text-xs leading-tight text-muted-foreground">
             Price
           </Text>
           <div className="flex items-baseline gap-1">
             <Text variant="h4">${price.toFixed(2)}</Text>
-            <Text variant="small" className="text-muted-foreground text-xs">
+            <Text variant="small" className="text-xs text-muted-foreground">
               /unit
             </Text>
           </div>
