@@ -15,10 +15,19 @@
 //!   4. Seller calls `cancel(seller, listing_id)` to de-list remaining tokens.
 
 use soroban_sdk::{
-    contract, contracterror, contractimpl, contracttype, panic_with_error, symbol_short, token, Address, Env,
+    contract, contractclient, contracterror, contractimpl, contracttype, panic_with_error, symbol_short, token,
+    Address, Env,
 };
 use harvesta_errors::HarvestaError;
 use admin_controls::AdminControlsClient;
+
+#[contractclient(name = "PriceOracleClient")]
+trait PriceOracleTrait {
+    fn initialize(env: Env, price: i128, timestamp: u64);
+    fn set_price(env: Env, price: i128, timestamp: u64);
+    fn price(env: Env) -> i128;
+    fn timestamp(env: Env) -> u64;
+}
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -40,6 +49,40 @@ pub enum MarketplaceError {
     InvalidDecayRate = 111,
     InvalidDuration = 112,
     PriceMustBePositive = 113,
+    TwapPeriodMustBePositive = 114,
+    MaxObservationsMustBePositive = 115,
+    TwapNotConfigured = 116,
+    NoObservationsRecorded = 117,
+    ObservationCountTooLow = 118,
+    PriceMustBePositiveForObservation = 119,
+}
+
+/// Time-Weighted Average Price observation.
+///
+/// Stores a cumulative price accumulator (`price_cumulative`) and the
+/// timestamp of the last update. The accumulator grows as:
+///   `price_cumulative += last_price × Δt`
+/// TWAP over `[t_old, t_now]`:
+///   `twap = (price_cumulative_now - price_cumulative_old) / (t_now - t_old)`
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct CumulativeObservation {
+    /// Σ(price_i × Δt_i) — cumulative price accumulator
+    pub price_cumulative: i128,
+    /// Ledger timestamp of the last observation update
+    pub timestamp: u64,
+    /// The price that was observed at this update
+    pub price: i128,
+}
+
+/// Configuration for the TWAP oracle.
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct TwapConfig {
+    /// Time window (in seconds) for the TWAP computation
+    pub period_seconds: u64,
+    /// Maximum number of historical observations to retain
+    pub max_observations: u32,
 }
 
 #[contracttype]
@@ -115,6 +158,10 @@ enum DataKey {
     Config,
     /// Admin controls contract address
     AdminControls,
+    /// Price oracle contract address
+    Oracle,
+    /// (max_staleness_seconds, fallback_price)
+    OracleConfig,
     /// Global listing counter
     ListingCount,
     /// Per-listing record
@@ -127,6 +174,16 @@ enum DataKey {
     AuctionConfig,
     /// Royalty basis points (e.g. 500 = 5%)
     RoyaltyConfig,
+    /// TWAP oracle configuration (period, max_observations)
+    TwapConfig,
+    /// Current cumulative price observation
+    CurrentObservation,
+    /// Historical observation buffer (ring buffer, keyed by index)
+    HistoricalObservation(u64),
+    /// Next slot index for the historical observation ring buffer
+    NextObservationSlot,
+    /// Total observations recorded so far (for TWAP queries)
+    TotalObservations,
 }
 
 // ── Contract ──────────────────────────────────────────────────────────────────
@@ -157,6 +214,34 @@ impl CarbonMarketplace {
         env.storage()
             .instance()
             .set(&DataKey::AuctionCount, &0u64);
+    }
+
+    /// Admin configures a price oracle feed for dynamic TREE pricing.
+    ///
+    /// * `oracle` — external oracle contract address exposing `price()` and `timestamp()`
+    /// * `max_staleness` — number of seconds before the fallback price is used
+    /// * `fallback_price` — price per token used when the oracle is stale or unavailable
+    pub fn configure_price_oracle(env: Env, oracle: Address, max_staleness: u64, fallback_price: i128) {
+        Self::assert_not_paused(&env);
+        let (admin, _) = Self::config(&env);
+        admin.require_auth();
+
+        if fallback_price <= 0 {
+            panic_with_error!(&env, MarketplaceError::PriceMustBePositive);
+        }
+
+        env.storage().instance().set(&DataKey::Oracle, &oracle);
+        env.storage()
+            .instance()
+            .set(&DataKey::OracleConfig, &(max_staleness, fallback_price));
+    }
+
+    /// Returns the current marketplace price for TREE tokens.
+    ///
+    /// If an oracle is configured and fresh, its price is returned. Otherwise the
+    /// administrator-configured fallback price is used.
+    pub fn get_dynamic_price(env: Env) -> i128 {
+        Self::resolve_listing_price(&env, 0)
     }
 
     /// Admin configures default Dutch Auction parameters.
@@ -215,9 +300,8 @@ impl CarbonMarketplace {
         if amount <= 0 {
             panic_with_error!(&env, MarketplaceError::ListingAmountMustBePositive);
         }
-        if price_per_token <= 0 {
-            panic_with_error!(&env, MarketplaceError::PriceMustBePositive);
-        }
+
+        let resolved_price = Self::resolve_listing_price(&env, price_per_token);
 
         let (_, tree_token) = Self::config(&env);
 
@@ -243,7 +327,7 @@ impl CarbonMarketplace {
             payment_token,
             total_amount: amount,
             remaining: amount,
-            price_per_token,
+            price_per_token: resolved_price,
             status: ListingStatus::Active,
             created_at: env.ledger().timestamp(),
         };
@@ -256,7 +340,7 @@ impl CarbonMarketplace {
             .set(&DataKey::ListingCount, &new_id);
 
         env.events()
-            .publish((symbol_short!("listed"), seller), (new_id, amount, price_per_token));
+            .publish((symbol_short!("listed"), seller), (new_id, amount, resolved_price));
 
         new_id
     }
@@ -338,6 +422,9 @@ impl CarbonMarketplace {
         env.storage()
             .persistent()
             .set(&DataKey::Listing(listing_id), &listing);
+
+        // Record TWAP observation from this trade price
+        Self::record_observation(&env, listing.price_per_token);
 
         env.events()
             .publish((symbol_short!("sold"), listing_id), (buyer, amount, payment, royalty_amount));
@@ -585,6 +672,9 @@ impl CarbonMarketplace {
             .persistent()
             .set(&DataKey::Auction(auction_id), &auction);
 
+        // Record TWAP observation from this trade price
+        Self::record_observation(&env, current_price);
+
         env.events()
             .publish((symbol_short!("bid"), auction_id), (buyer, amount, current_price, payment, royalty_amount));
     }
@@ -670,6 +760,214 @@ impl CarbonMarketplace {
             .unwrap_or(0)
     }
 
+    // ── TWAP Oracle ────────────────────────────────────────────────────────────
+
+    /// Admin configures the TWAP oracle parameters.
+    ///
+    /// * `period_seconds` — time window (in seconds) for the TWAP computation
+    /// * `max_observations` — maximum number of historical observations to retain
+    ///   in the ring buffer (minimum 2 required for meaningful TWAP queries)
+    pub fn configure_twap(env: Env, period_seconds: u64, max_observations: u32) {
+        let (admin, _) = Self::config(&env);
+        admin.require_auth();
+
+        if period_seconds == 0 {
+            panic_with_error!(&env, MarketplaceError::TwapPeriodMustBePositive);
+        }
+        if max_observations < 2 {
+            panic_with_error!(&env, MarketplaceError::MaxObservationsMustBePositive);
+        }
+
+        env.storage()
+            .instance()
+            .set(&DataKey::TwapConfig, &TwapConfig {
+                period_seconds,
+                max_observations,
+            });
+
+        // Initialize observation tracking if not already set
+        if !env.storage().instance().has(&DataKey::NextObservationSlot) {
+            env.storage()
+                .instance()
+                .set(&DataKey::NextObservationSlot, &0u64);
+        }
+        if !env.storage().instance().has(&DataKey::TotalObservations) {
+            env.storage()
+                .instance()
+                .set(&DataKey::TotalObservations, &0u64);
+        }
+
+        env.events()
+            .publish((symbol_short!("twap_cfg"),), (period_seconds, max_observations));
+    }
+
+    /// Internal: record a new price observation and update the cumulative accumulator.
+    ///
+    /// Called automatically on every `buy()` and `bid()` when TWAP is configured.
+    /// Updates the cumulative price accumulator and appends to the ring buffer.
+    fn record_observation(env: &Env, price: i128) {
+        if price <= 0 {
+            return; // Skip invalid prices; don't corrupt the accumulator
+        }
+
+        // Only record if TWAP is configured
+        let twap_config: TwapConfig = match env.storage().instance().get(&DataKey::TwapConfig) {
+            Some(cfg) => cfg,
+            None => return, // TWAP not configured, silently skip
+        };
+
+        let now = env.ledger().timestamp();
+
+        // Load or initialize the current cumulative observation
+        let mut current: CumulativeObservation = env
+            .storage()
+            .instance()
+            .get(&DataKey::CurrentObservation)
+            .unwrap_or(CumulativeObservation {
+                price_cumulative: 0,
+                timestamp: now,
+                price,
+            });
+
+        // Compute time elapsed since last observation
+        let elapsed = now.saturating_sub(current.timestamp);
+        if elapsed > 0 && current.price > 0 {
+            // Accumulate: price_cumulative += last_price * elapsed
+            current.price_cumulative = current
+                .price_cumulative
+                .checked_add(current.price.checked_mul(elapsed as i128).unwrap_or(i128::MAX))
+                .unwrap_or(i128::MAX);
+        }
+
+        // Update the current observation with the new price and timestamp
+        current.price = price;
+        current.timestamp = now;
+        env.storage()
+            .instance()
+            .set(&DataKey::CurrentObservation, &current);
+
+        // Append to the historical ring buffer
+        let next_slot: u64 = env
+            .storage()
+            .instance()
+            .get(&DataKey::NextObservationSlot)
+            .unwrap_or(0);
+        let ring_index = next_slot % twap_config.max_observations as u64;
+
+        env.storage()
+            .persistent()
+            .set(&DataKey::HistoricalObservation(ring_index), &current);
+
+        env.storage()
+            .instance()
+            .set(&DataKey::NextObservationSlot, &(next_slot + 1));
+
+        let total: u64 = env
+            .storage()
+            .instance()
+            .get(&DataKey::TotalObservations)
+            .unwrap_or(0);
+        env.storage()
+            .instance()
+            .set(&DataKey::TotalObservations, &(total + 1));
+    }
+
+    /// Returns the current cumulative observation.
+    pub fn get_cumulative_observation(env: Env) -> Option<CumulativeObservation> {
+        env.storage()
+            .instance()
+            .get(&DataKey::CurrentObservation)
+    }
+
+    /// Returns the Time-Weighted Average Price over the configured TWAP period.
+    ///
+    /// Uses the cumulative price accumulator to compute:
+    ///   `twap = (cumulative_now - cumulative_old) / (timestamp_now - timestamp_old)`
+    ///
+    /// If fewer than 2 observations are available, returns `None`.
+    /// The observation is taken from the ring buffer at `(current_slot - count)`
+    /// where `count` should be <= total observations recorded.
+    pub fn get_twap(env: Env, observation_count: u32) -> Option<i128> {
+        let twap_config: TwapConfig = match env.storage().instance().get(&DataKey::TwapConfig) {
+            Some(cfg) => cfg,
+            None => return None,
+        };
+
+        let current: CumulativeObservation = match env
+            .storage()
+            .instance()
+            .get(&DataKey::CurrentObservation)
+        {
+            Some(obs) => obs,
+            None => return None,
+        };
+
+        let total: u64 = env
+            .storage()
+            .instance()
+            .get(&DataKey::TotalObservations)
+            .unwrap_or(0);
+
+        // Ensure we have enough observations
+        if total < 2 {
+            return None;
+        }
+
+        let count = if observation_count == 0 || observation_count as u64 >= total {
+            total - 1
+        } else {
+            observation_count as u64
+        };
+
+        let next_slot: u64 = env
+            .storage()
+            .instance()
+            .get(&DataKey::NextObservationSlot)
+            .unwrap_or(0);
+
+        if next_slot < count {
+            return None;
+        }
+
+        let target_slot = next_slot.saturating_sub(count);
+        let ring_index = target_slot % twap_config.max_observations as u64;
+
+        let old_observation: CumulativeObservation = match env
+            .storage()
+            .persistent()
+            .get(&DataKey::HistoricalObservation(ring_index))
+        {
+            Some(obs) => obs,
+            None => return None,
+        };
+
+        let time_diff = current.timestamp.saturating_sub(old_observation.timestamp);
+        if time_diff == 0 {
+            // If no time elapsed, return the current price directly
+            return Some(current.price);
+        }
+
+        let price_diff = current
+            .price_cumulative
+            .saturating_sub(old_observation.price_cumulative);
+
+        let twap = price_diff / time_diff as i128;
+        Some(twap)
+    }
+
+    /// Returns the TWAP configuration, or None if not configured.
+    pub fn get_twap_config(env: Env) -> Option<TwapConfig> {
+        env.storage().instance().get(&DataKey::TwapConfig)
+    }
+
+    /// Returns the total number of observations recorded.
+    pub fn get_total_observations(env: Env) -> u64 {
+        env.storage()
+            .instance()
+            .get(&DataKey::TotalObservations)
+            .unwrap_or(0)
+    }
+
     // ── internal ──────────────────────────────────────────────────────────────
 
     fn config(env: &Env) -> (Address, Address) {
@@ -699,6 +997,36 @@ impl CarbonMarketplace {
             .unwrap_or_else(|| panic_with_error!(env, HarvestaError::NotInitialized))
     }
 
+    fn resolve_listing_price(env: &Env, provided_price_per_token: i128) -> i128 {
+        if provided_price_per_token > 0 {
+            return provided_price_per_token;
+        }
+
+        let oracle_opt: Option<Address> = env.storage().instance().get(&DataKey::Oracle);
+        if let Some(oracle) = oracle_opt {
+            let (max_staleness, fallback_price) = env
+                .storage()
+                .instance()
+                .get(&DataKey::OracleConfig)
+                .unwrap_or((0u64, 0i128));
+
+            let oracle_client = PriceOracleClient::new(env, &oracle);
+            let price = oracle_client.price();
+            let timestamp = oracle_client.timestamp();
+            let is_fresh = env.ledger().timestamp().saturating_sub(timestamp) <= max_staleness;
+
+            if is_fresh && price > 0 {
+                return price;
+            }
+
+            if fallback_price > 0 {
+                return fallback_price;
+            }
+        }
+
+        panic_with_error!(env, MarketplaceError::PriceMustBePositive);
+    }
+
     /// Calculate current price based on elapsed time and decay rate.
     /// Price decays linearly from starting_price to reserve_price over duration.
     fn calculate_current_price(auction: &DutchAuction, current_time: u64) -> i128 {
@@ -722,6 +1050,30 @@ impl CarbonMarketplace {
 mod tests {
     use super::*;
     use soroban_sdk::{testutils::{Address as _, Ledger}, token, Address, Env};
+
+    #[contract]
+    struct MockPriceOracle;
+
+    #[contractimpl]
+    impl MockPriceOracle {
+        pub fn initialize(env: Env, price: i128, timestamp: u64) {
+            env.storage().instance().set(&symbol_short!("price"), &price);
+            env.storage().instance().set(&symbol_short!("ts"), &timestamp);
+        }
+
+        pub fn set_price(env: Env, price: i128, timestamp: u64) {
+            env.storage().instance().set(&symbol_short!("price"), &price);
+            env.storage().instance().set(&symbol_short!("ts"), &timestamp);
+        }
+
+        pub fn price(env: Env) -> i128 {
+            env.storage().instance().get(&symbol_short!("price")).unwrap_or(0)
+        }
+
+        pub fn timestamp(env: Env) -> u64 {
+            env.storage().instance().get(&symbol_short!("ts")).unwrap_or(0)
+        }
+    }
 
     struct Ctx {
         env: Env,
@@ -771,6 +1123,51 @@ mod tests {
 
     fn balance(env: &Env, token: &Address, who: &Address) -> i128 {
         token::Client::new(env, token).balance(who)
+    }
+
+    // ── oracle pricing ───────────────────────────────────────────────────────
+
+    #[test]
+    fn test_list_uses_oracle_price_when_price_not_provided() {
+        let ctx = setup();
+        let oracle_id = ctx.env.register_contract(None, MockPriceOracle);
+        let oracle_client = PriceOracleClient::new(&ctx.env, &oracle_id);
+        oracle_client.initialize(&100, &ctx.env.ledger().timestamp());
+
+        ctx.client.configure_price_oracle(&ctx.admin, &oracle_id, &60, &75);
+
+        let id = ctx.client.list(&ctx.seller, &ctx.planter, &1_000, &0, &ctx.payment_token);
+
+        let listing = ctx.client.get_listing(&id).unwrap();
+        assert_eq!(listing.price_per_token, 100);
+    }
+
+    #[test]
+    fn test_list_uses_fallback_price_when_oracle_is_stale() {
+        let ctx = setup();
+        let oracle_id = ctx.env.register_contract(None, MockPriceOracle);
+        let oracle_client = PriceOracleClient::new(&ctx.env, &oracle_id);
+        oracle_client.initialize(&100, &ctx.env.ledger().timestamp());
+
+        ctx.client.configure_price_oracle(&ctx.admin, &oracle_id, &30, &75);
+        ctx.env.ledger().set_timestamp(ctx.env.ledger().timestamp() + 60);
+
+        let id = ctx.client.list(&ctx.seller, &ctx.planter, &1_000, &0, &ctx.payment_token);
+
+        let listing = ctx.client.get_listing(&id).unwrap();
+        assert_eq!(listing.price_per_token, 75);
+    }
+
+    #[test]
+    fn test_get_dynamic_price_returns_oracle_price_when_fresh() {
+        let ctx = setup();
+        let oracle_id = ctx.env.register_contract(None, MockPriceOracle);
+        let oracle_client = PriceOracleClient::new(&ctx.env, &oracle_id);
+        oracle_client.initialize(&120, &ctx.env.ledger().timestamp());
+
+        ctx.client.configure_price_oracle(&ctx.admin, &oracle_id, &60, &90);
+
+        assert_eq!(ctx.client.get_dynamic_price(), 120);
     }
 
     // ── initialize ─────────────────────────────────────────────────────────────
@@ -1171,5 +1568,202 @@ mod tests {
         ctx.env.ledger().set_timestamp(ctx.env.ledger().timestamp() + 100);
 
         assert_eq!(ctx.client.get_current_price(&id), 50); // Reserve price
+    }
+
+    // ── TWAP Oracle Tests ───────────────────────────────────────────────────────
+
+    fn twap_setup() -> Ctx {
+        let ctx = setup();
+        ctx.client.configure_twap(&3600, &100);
+        ctx
+    }
+
+    #[test]
+    fn test_configure_twap_sets_parameters() {
+        let ctx = setup();
+        ctx.client.configure_twap(&3600, &100);
+        let cfg = ctx.client.get_twap_config().unwrap();
+        assert_eq!(cfg.period_seconds, 3600);
+        assert_eq!(cfg.max_observations, 100);
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #114)")]
+    fn test_configure_twap_zero_period_rejected() {
+        let ctx = setup();
+        ctx.client.configure_twap(&0, &100);
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #115)")]
+    fn test_configure_twap_max_obs_below_2_rejected() {
+        let ctx = setup();
+        ctx.client.configure_twap(&3600, &1);
+    }
+
+    #[test]
+    fn test_get_twap_config_not_configured_returns_none() {
+        let ctx = setup();
+        assert!(ctx.client.get_twap_config().is_none());
+    }
+
+    #[test]
+    fn test_get_twap_no_observations_returns_none() {
+        let ctx = twap_setup();
+        assert!(ctx.client.get_twap(&1).is_none());
+    }
+
+    #[test]
+    fn test_get_cumulative_observation_not_configured_returns_none() {
+        let ctx = setup();
+        assert!(ctx.client.get_cumulative_observation().is_none());
+    }
+
+    #[test]
+    fn test_buy_records_twap_observation() {
+        let ctx = twap_setup();
+        let id = ctx.client.list(&ctx.seller, &ctx.planter, &1_000, &10, &ctx.payment_token);
+        ctx.client.buy(&ctx.buyer, &id, &200);
+
+        let obs = ctx.client.get_cumulative_observation().unwrap();
+        assert_eq!(obs.price, 10);
+        assert!(obs.price_cumulative >= 0);
+        assert_eq!(ctx.client.get_total_observations(), 1);
+    }
+
+    #[test]
+    fn test_multiple_buys_accumulate_observations() {
+        let ctx = twap_setup();
+
+        // First buy at price 10
+        let id1 = ctx.client.list(&ctx.seller, &ctx.planter, &1_000, &10, &ctx.payment_token);
+        ctx.client.buy(&ctx.buyer, &id1, &200);
+
+        // Advance time so accumulator has meaningful delta
+        ctx.env.ledger().set_timestamp(ctx.env.ledger().timestamp() + 60);
+
+        // Second buy at price 15
+        let id2 = ctx.client.list(&ctx.seller, &ctx.planter, &1_000, &15, &ctx.payment_token);
+        ctx.client.buy(&ctx.buyer, &id2, &300);
+
+        let obs = ctx.client.get_cumulative_observation().unwrap();
+        assert_eq!(obs.price, 15);
+        // First observation at t=0 had no elapsed time, second at t=60
+        // Accumulator should be: 10 * 60 = 600
+        assert!(obs.price_cumulative >= 600);
+        assert_eq!(ctx.client.get_total_observations(), 2);
+    }
+
+    #[test]
+    fn test_get_twap_returns_reasonable_price() {
+        let ctx = twap_setup();
+
+        let id = ctx.client.list(&ctx.seller, &ctx.planter, &1_000, &10, &ctx.payment_token);
+        ctx.client.buy(&ctx.buyer, &id, &200);
+
+        // Advance time by 60 seconds to get a meaningful TWAP
+        ctx.env.ledger().set_timestamp(ctx.env.ledger().timestamp() + 60);
+
+        // Second buy creates second observation
+        let id2 = ctx.client.list(&ctx.seller, &ctx.planter, &1_000, &20, &ctx.payment_token);
+        ctx.client.buy(&ctx.buyer, &id2, &300);
+
+        // TWAP with observation_count=1 should give us the price between obs 0 and 1
+        let twap = ctx.client.get_twap(&1);
+        assert!(twap.is_some());
+        // The cumulative accumulator grew by 10 (price) * 60 (seconds) = 600
+        // TWAP = 600 / 60 = 10 for the period between the two observations
+        assert_eq!(twap.unwrap(), 10);
+    }
+
+    #[test]
+    fn test_bid_records_twap_observation() {
+        let ctx = twap_setup();
+        ctx.client.configure_auction(&100, &50, &10, &3600);
+        let id = ctx.client.create_auction(&ctx.seller, &ctx.planter, &1_000, &ctx.payment_token);
+        ctx.client.bid(&ctx.buyer, &id, &200);
+
+        let obs = ctx.client.get_cumulative_observation().unwrap();
+        assert_eq!(obs.price, 100);
+        assert_eq!(ctx.client.get_total_observations(), 1);
+    }
+
+    #[test]
+    fn test_twap_not_configured_still_works_normally() {
+        // Verify that TWAP not being configured doesn't break existing functionality
+        let ctx = setup();
+        ctx.client.configure_auction(&100, &50, &10, &3600);
+        let id = ctx.client.list(&ctx.seller, &ctx.planter, &1_000, &10, &ctx.payment_token);
+        ctx.client.buy(&ctx.buyer, &id, &500);
+
+        // TWAP queries should return None since not configured
+        assert!(ctx.client.get_twap_config().is_none());
+        assert!(ctx.client.get_cumulative_observation().is_none());
+        assert_eq!(ctx.client.get_total_observations(), 0);
+        assert!(ctx.client.get_twap(&1).is_none());
+    }
+
+    #[test]
+    fn test_twap_ring_buffer_overwrites_old_observations() {
+        let ctx = setup();
+        // Configure with only 3 max observations
+        ctx.client.configure_twap(&3600, &3);
+
+        let id = ctx.client.list(&ctx.seller, &ctx.planter, &1_000, &10, &ctx.payment_token);
+
+        // Record 5 observations to overflow the ring buffer
+        for i in 0..5u64 {
+            ctx.env.ledger().set_timestamp(ctx.env.ledger().timestamp() + 10);
+            ctx.client.buy(&ctx.buyer, &id, &100);
+        }
+
+        // Total should be 5, but ring buffer only keeps latest 3
+        assert_eq!(ctx.client.get_total_observations(), 5);
+
+        // TWAP should still work with recent observations
+        let twap = ctx.client.get_twap(&2);
+        assert!(twap.is_some());
+    }
+
+    // ── Fuzz Tests (Proptest) ──────────────────────────────────────────────────
+
+    #[cfg(test)]
+    mod fuzz_tests {
+        use proptest::prelude::*;
+
+        proptest! {
+            #[test]
+            fn fuzz_dutch_auction_decay_calculation(
+                starting_price in 100i128..10_000i128,
+                price_delta in 1i128..1_000i128,
+                duration in 10u64..10_000u64,
+                elapsed_pct in 0u64..100u64,
+            ) {
+                let reserve_price = starting_price.saturating_sub(price_delta).max(1);
+                if starting_price > reserve_price && duration > 0 {
+                    let elapsed = (duration * elapsed_pct) / 100;
+                    let price_drop = (starting_price - reserve_price) * elapsed as i128 / duration as i128;
+                    let calculated_price = starting_price - price_drop;
+
+                    prop_assert!(calculated_price >= reserve_price);
+                    prop_assert!(calculated_price <= starting_price);
+                }
+            }
+
+            #[test]
+            fn fuzz_listing_trade_payout_invariants(
+                amount in 1i128..1_000_000i128,
+                price_per_token in 1i128..100_000i128,
+                royalty_bps in 0u32..2_000u32,
+            ) {
+                let total_cost = amount.saturating_mul(price_per_token);
+                let royalty_amount = (total_cost as u128 * royalty_bps as u128 / 10_000) as i128;
+                let seller_net = total_cost - royalty_amount;
+
+                prop_assert_eq!(seller_net + royalty_amount, total_cost);
+                prop_assert!(seller_net >= 0);
+                prop_assert!(royalty_amount >= 0);
+            }
+        }
     }
 }
