@@ -318,7 +318,7 @@ impl SpeciesVoting {
             panic!("proposal has not passed");
         }
 
-        let species_registry: Address = env
+        let _species_registry: Address = env
             .storage()
             .instance()
             .get(&species_registry_key())
