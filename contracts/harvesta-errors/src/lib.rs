@@ -4,7 +4,6 @@ use soroban_sdk::contracterror;
 
 #[contracterror]
 #[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
-#[repr(u32)]
 pub enum HarvestaError {
     AlreadyInitialized = 1,
     NotInitialized = 2,
@@ -60,7 +59,6 @@ pub enum HarvestaError {
 
 #[contracterror]
 #[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
-#[repr(u32)]
 pub enum GovernanceError {
     NotAdmin = 1,
     MinimumOneSignerRequired = 2,
@@ -78,7 +76,6 @@ pub enum GovernanceError {
 
 #[contracterror]
 #[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
-#[repr(u32)]
 pub enum NftError {
     TokenAlreadyMinted = 1,
     TokenNotFound = 2,
@@ -87,7 +84,6 @@ pub enum NftError {
 
 #[contracterror]
 #[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
-#[repr(u32)]
 pub enum FarmerError {
     FarmerAlreadyRegistered = 1,
     FarmerNotRegistered = 2,
