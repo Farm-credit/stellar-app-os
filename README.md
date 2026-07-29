@@ -140,6 +140,9 @@ Example:
 | Eucalyptus | 31 kg | 10 years |
 | Mangrove | 14 kg | 15 years |
 
+A daily cron job snapshots total CO₂ sequestered to date across all
+active trees using this table; see [docs/carbon-offset-cron.md](docs/carbon-offset-cron.md).
+
 ---
 
 ## For Planters
@@ -695,6 +698,9 @@ Example:
 | Eucalyptus | 31 kg | 10 years |
 | Mangrove | 14 kg | 15 years |
 
+A daily cron job snapshots total CO₂ sequestered to date across all
+active trees using this table; see [docs/carbon-offset-cron.md](docs/carbon-offset-cron.md).
+
 ---
 
 ## For Planters
@@ -869,6 +875,9 @@ Example:
 | Moringa | 9 kg | 3 years |
 | Eucalyptus | 31 kg | 10 years |
 | Mangrove | 14 kg | 15 years |
+
+A daily cron job snapshots total CO₂ sequestered to date across all
+active trees using this table; see [docs/carbon-offset-cron.md](docs/carbon-offset-cron.md).
 
 ---
 
@@ -1375,6 +1384,9 @@ Example:
 | Moringa | 9 kg | 3 years |
 | Eucalyptus | 31 kg | 10 years |
 | Mangrove | 14 kg | 15 years |
+
+A daily cron job snapshots total CO₂ sequestered to date across all
+active trees using this table; see [docs/carbon-offset-cron.md](docs/carbon-offset-cron.md).
 
 ---
 
