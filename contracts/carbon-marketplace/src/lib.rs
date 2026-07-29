@@ -211,6 +211,8 @@ enum DataKey {
     NextObservationSlot,
     /// Total observations recorded so far (for TWAP queries)
     TotalObservations,
+    /// Global emergency pause flag
+    Paused,
 }
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -253,6 +255,51 @@ impl CarbonMarketplace {
             .instance()
             .set(&DataKey::Config, &(admin, tree_token, payment_token));
         env.storage().instance().set(&DataKey::NextListingId, &0u64);
+        env.storage().instance().set(&DataKey::Paused, &false);
+    }
+
+    /// Pause contract operations. Admin only.
+    pub fn pause(env: Env) {
+        let (admin, _, _) = Self::config(&env);
+        admin.require_auth();
+        env.storage().instance().set(&DataKey::Paused, &true);
+        env.events().publish((symbol_short!("paused"),), env.ledger().timestamp());
+    }
+
+    /// Unpause contract operations. Admin only.
+    pub fn unpause(env: Env) {
+        let (admin, _, _) = Self::config(&env);
+        admin.require_auth();
+        env.storage().instance().set(&DataKey::Paused, &false);
+        env.events().publish((symbol_short!("unpaused"),), env.ledger().timestamp());
+    }
+
+    /// Returns true if the marketplace is currently paused.
+    pub fn is_paused(env: Env) -> bool {
+        env.storage().instance().get(&DataKey::Paused).unwrap_or(false)
+    }
+
+    /// Calculate dynamic swap fee in basis points based on trade volume (`amount_in`).
+    ///
+    /// Tiers:
+    /// - Tier 1 (< 10,000 units): 30 bps (0.30%)
+    /// - Tier 2 (10,000 to 100,000 units): 20 bps (0.20%)
+    /// - Tier 3 (>= 100,000 units): 10 bps (0.10%)
+    pub fn get_fee_bps(env: Env, amount_in: i128) -> i128 {
+        let _ = &env;
+        if amount_in >= 100_000 {
+            10
+        } else if amount_in >= 10_000 {
+            20
+        } else {
+            30
+        }
+    }
+
+    fn assert_not_paused(env: &Env) {
+        if Self::is_paused(env.clone()) {
+            panic_with_error!(env, HarvestaError::ContractPaused);
+        }
     }
 
     // ── Orderbook: fixed-price listings ─────────────────────────────────────
@@ -268,6 +315,7 @@ impl CarbonMarketplace {
         price_per_token: i128,
         payment_token: Address,
     ) -> u64 {
+        Self::assert_not_paused(&env);
         seller.require_auth();
         if amount <= 0 {
             panic_with_error!(&env, MarketplaceError::ListingAmountMustBePositive);
@@ -442,12 +490,20 @@ impl CarbonMarketplace {
     /// of the two ratio contributions.
     ///
     /// Transfers both tokens from `provider` into this contract.
+    /// Add liquidity to the constant-product AMM pool.
+    ///
+    /// On first deposit, mints `sqrt(tree_amount * payment_amount) * LP_PRECISION`
+    /// shares. On subsequent deposits, mints shares proportional to the smaller
+    /// of the two ratio contributions.
+    ///
+    /// Transfers both tokens from `provider` into this contract.
     pub fn amm_add_liquidity(
         env: Env,
         provider: Address,
         tree_amount: i128,
         payment_amount: i128,
     ) -> i128 {
+        Self::assert_not_paused(&env);
         provider.require_auth();
         if tree_amount <= 0 || payment_amount <= 0 {
             panic_with_error!(&env, MarketplaceError::AmmAmountMustBePositive);
@@ -521,12 +577,10 @@ impl CarbonMarketplace {
         provider: Address,
         lp_shares: i128,
     ) -> (i128, i128) {
+        Self::assert_not_paused(&env);
         provider.require_auth();
         if lp_shares <= 0 {
             panic_with_error!(&env, MarketplaceError::AmmAmountMustBePositive);
-        }
-        if max_payment_amount <= 0 {
-            panic_with_error!(&env, MarketplaceError::PaymentAmountMustBePositive);
         }
 
         let lp_key = DataKey::LpShares(provider.clone());
@@ -592,7 +646,7 @@ impl CarbonMarketplace {
     ///   - TREE  → payment token
     ///   - payment token → TREE
     ///
-    /// Fee of `FEE_NUMERATOR / FEE_DENOMINATOR` (30 bps) is deducted from
+    /// Fee tier (30 bps / 20 bps / 10 bps based on volume) is deducted from
     /// `amount_in` before applying the xy = k formula. The fee stays in the
     /// pool, incrementing k for all LP holders.
     ///
@@ -604,6 +658,7 @@ impl CarbonMarketplace {
         amount_in: i128,
         min_amount_out: i128,
     ) -> i128 {
+        Self::assert_not_paused(&env);
         caller.require_auth();
         if amount_in <= 0 {
             panic_with_error!(&env, MarketplaceError::AmmAmountMustBePositive);
@@ -623,17 +678,15 @@ impl CarbonMarketplace {
             panic_with_error!(&env, MarketplaceError::AmmInsufficientLiquidity);
         }
 
-        // Compute amount out using constant-product formula with fee:
-        //   amount_in_with_fee = amount_in * (FEE_DEN - FEE_NUM)
-        //   amount_out = (amount_in_with_fee * reserve_out)
-        //                / (reserve_in * FEE_DEN + amount_in_with_fee)
+        // Compute amount out using constant-product formula with dynamic fee:
+        let fee_bps = Self::get_fee_bps(env.clone(), amount_in);
         let (reserve_in, reserve_out) = if tree_to_payment {
             (pool.reserve_tree, pool.reserve_payment)
         } else {
             (pool.reserve_payment, pool.reserve_tree)
         };
 
-        let amount_in_with_fee = amount_in * (FEE_DENOMINATOR - FEE_NUMERATOR);
+        let amount_in_with_fee = amount_in * (FEE_DENOMINATOR - fee_bps);
         let numerator = amount_in_with_fee * reserve_out;
         let denominator = reserve_in * FEE_DENOMINATOR + amount_in_with_fee;
         let amount_out = numerator / denominator;
@@ -651,13 +704,13 @@ impl CarbonMarketplace {
             pool.reserve_tree += amount_in;
             pool.reserve_payment -= amount_out;
             // Track fee collected in payment-token equivalent
-            let fee = amount_in * FEE_NUMERATOR / FEE_DENOMINATOR;
+            let fee = amount_in * fee_bps / FEE_DENOMINATOR;
             let fee_payment = fee * pool.reserve_payment / pool.reserve_tree;
             (payment_token.clone(), fee_payment)
         } else {
             pool.reserve_payment += amount_in;
             pool.reserve_tree -= amount_out;
-            let fee = amount_in * FEE_NUMERATOR / FEE_DENOMINATOR;
+            let fee = amount_in * fee_bps / FEE_DENOMINATOR;
             (tree_token.clone(), fee)
         };
         pool.fees_collected += fee_in_payment_units;
@@ -710,7 +763,8 @@ impl CarbonMarketplace {
             return 0;
         }
 
-        let amount_in_with_fee = amount_in * (FEE_DENOMINATOR - FEE_NUMERATOR);
+        let fee_bps = Self::get_fee_bps(env.clone(), amount_in);
+        let amount_in_with_fee = amount_in * (FEE_DENOMINATOR - fee_bps);
         let numerator = amount_in_with_fee * reserve_out;
         let denominator = reserve_in * FEE_DENOMINATOR + amount_in_with_fee;
         numerator / denominator
@@ -2941,5 +2995,31 @@ mod tests {
                 }
             }
         }
+    }
+
+    #[test]
+    fn test_dynamic_fee_tier_system() {
+        let env = Env::default();
+        assert_eq!(CarbonMarketplace::get_fee_bps(env.clone(), 500), 30);
+        assert_eq!(CarbonMarketplace::get_fee_bps(env.clone(), 15_000), 20);
+        assert_eq!(CarbonMarketplace::get_fee_bps(env.clone(), 200_000), 10);
+    }
+
+    #[test]
+    fn test_emergency_pause_lifecycle() {
+        let ctx = TestContext::setup();
+        assert!(!ctx.client.is_paused());
+        ctx.client.pause();
+        assert!(ctx.client.is_paused());
+        ctx.client.unpause();
+        assert!(!ctx.client.is_paused());
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #4)")]
+    fn test_list_blocked_when_paused() {
+        let ctx = TestContext::setup();
+        ctx.client.pause();
+        ctx.client.list(&ctx.seller, &ctx.planter, &100i128, &10i128, &ctx.payment_token);
     }
 }

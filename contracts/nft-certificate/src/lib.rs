@@ -107,6 +107,73 @@ impl NftCertificate {
             .publish((symbol_short!("minted"), to), token_id);
     }
 
+    /// Mint multiple certificate NFTs in a single transaction (up to 50 certificates).
+    ///
+    /// `to` — recipient address for all minted tokens
+    /// `token_ids` — list of unique identifiers for the tokens
+    /// `metadatas` — list of corresponding certificate metadata
+    pub fn batch_mint(
+        env: Env,
+        to: Address,
+        token_ids: Vec<u64>,
+        metadatas: Vec<CertificateMetadata>,
+    ) {
+        Self::assert_not_paused(&env);
+
+        if token_ids.is_empty() {
+            panic_with_error!(&env, HarvestaError::BatchEmpty);
+        }
+
+        if token_ids.len() > 50 {
+            panic_with_error!(&env, HarvestaError::BatchTooLarge);
+        }
+
+        if token_ids.len() != metadatas.len() {
+            panic_with_error!(&env, NftError::MetadataMismatch);
+        }
+
+        let count: u64 = env
+            .storage()
+            .instance()
+            .get(&symbol_short!("TOK_COUNT"))
+            .unwrap_or(0);
+
+        let mut minted_count: u64 = 0;
+
+        for i in 0..token_ids.len() {
+            let token_id = token_ids.get(i).unwrap();
+            let metadata = metadatas.get(i).unwrap();
+
+            if metadata.tree_count <= 0 {
+                panic_with_error!(&env, HarvestaError::TreeCountMustBePositive);
+            }
+
+            if metadata.co2_offset_kg <= 0 {
+                panic_with_error!(&env, HarvestaError::Co2MustBePositive);
+            }
+
+            // Check if token already exists
+            if env.storage().instance().has(&token_id) {
+                panic_with_error!(&env, NftError::TokenAlreadyMinted);
+            }
+
+            let token = Token {
+                owner: to.clone(),
+                metadata,
+            };
+
+            env.storage().instance().set(&token_id, &token);
+            minted_count += 1;
+        }
+
+        env.storage()
+            .instance()
+            .set(&symbol_short!("TOK_COUNT"), &count.checked_add(minted_count).expect("token count overflow"));
+
+        env.events()
+            .publish((symbol_short!("btch_mnt"), to), token_ids.len() as u32);
+    }
+
     /// Merge multiple certificates into a single consolidated certificate.
     ///
     /// `owner` — address that owns all certificates being merged
@@ -509,5 +576,41 @@ mod tests {
 
         let uri = client.token_uri(&1);
         assert!(uri.len() > 0);
+    }
+
+    #[test]
+    fn test_batch_mint_success() {
+        let (env, _, client) = setup();
+        let to = Address::generate(&env);
+        let token_ids = Vec::from_array(&env, [10, 11, 12]);
+        let metadatas = Vec::from_array(
+            &env,
+            [
+                metadata(&env, 10, 500),
+                metadata(&env, 20, 1000),
+                metadata(&env, 30, 1500),
+            ],
+        );
+
+        client.batch_mint(&to, &token_ids, &metadatas);
+
+        assert_eq!(client.total_supply(), 3);
+        let t10 = client.get_token(&10).unwrap();
+        assert_eq!(t10.owner, to);
+        assert_eq!(t10.metadata.tree_count, 10);
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #29)")]
+    fn test_batch_mint_exceeds_max_limit() {
+        let (env, _, client) = setup();
+        let to = Address::generate(&env);
+        let mut token_ids = Vec::new(&env);
+        let mut metadatas = Vec::new(&env);
+        for i in 0..51u64 {
+            token_ids.push_back(i);
+            metadatas.push_back(metadata(&env, 10, 500));
+        }
+        client.batch_mint(&to, &token_ids, &metadatas);
     }
 }
