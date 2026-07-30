@@ -73,8 +73,7 @@ pub enum HarvestaError {
     /// Caller is not a registered verifier — attest_kyc / verify_kyc denied.
     NotVerifier = 61,
 
-    // ── Species registry (62–64, 74-75) ───────────────────────────────────────
-    // ── Dispute / arbiter (38–46) ─────────────────────────────────────────────
+    // ── Dispute / arbiter (38–41, 47) ──────────────────────────────────────────
     DisputeAlreadyOpen = 38,
     NoOpenDispute = 39,
     EscrowAlreadyFinalised = 40,
@@ -95,7 +94,7 @@ pub enum HarvestaError {
     /// The proposal has already been executed and its outcome finalized.
     ProposalAlreadyExecuted = 55,
 
-    // ── Location proof / KYC / ZK (64, 65–77) ────────────────────────────────
+    // ── Location proof / KYC / ZK (65–77) ─────────────────────────────────────
     /// Region geohash is outside the approved Northern Nigeria boundary.
     OutsideNigeriaRegion = 65,
     /// A location-proof commitment with this hash is already registered.
@@ -119,7 +118,7 @@ pub enum HarvestaError {
     /// The requested zone ID is not registered.
     ZoneNotFound = 77,
 
-    // ── Species registry (62–64, 68–70) ───────────────────────────────────────
+    // ── Species registry (62–64, 74, 78, 82) ──────────────────────────────────
     Co2MustBePositive = 62,
     GrowthRateMustBePositive = 78,
     MaturityYearsMustBePositive = 63,
@@ -130,36 +129,14 @@ pub enum HarvestaError {
     // ── Farmer registry hash integrity (73) ────────────────────────────────
     /// SHA-256 of the supplied document pre-image does not match the stored hash.
     HashMismatch = 73,
-    // ── Farmer registry validator gates (67) ──────────────────────────────
+
+    // ── Farmer registry validator gates (79) ──────────────────────────────
     /// Caller is not a registered validator — gated read/write denied.
     NotValidator = 79,
 
     // ── Arithmetic overflows (80–81) ──────────────────────────────────────────
     TreeTokenMintOverflow = 80,
     TokenUnitOverflow = 81,
-
-    // ── Tree lifecycle state machine (#462) ───────────────────────────────────
-    CommitmentAlreadyRegistered = 60,
-    NotVerifier = 61,
-    Co2MustBePositive = 62,
-    GrowthRateMustBePositive = 78,
-    MaturityYearsMustBePositive = 63,
-    SpeciesNotFound = 64,
-    InvasiveSpecies = 74,
-    HighWaterUse = 82,
-
-    // ── Farmer registry hash integrity (73) ────────────────────────────────
-    /// SHA-256 of the supplied document pre-image does not match the stored hash.
-    HashMismatch = 73,
-    // ── Farmer registry validator gates (67) ──────────────────────────────
-    /// Caller is not a registered validator — gated read/write denied.
-    NotValidator = 79,
-
-    // ── Arithmetic overflows (80–81) ──────────────────────────────────────────
-    TreeTokenMintOverflow = 80,
-    TokenUnitOverflow = 81,
-
-    // ── Tree lifecycle state machine (#462) ───────────────────────────────────
     InvalidTreeStatusTransition = 90,
     PlantingTimeoutNotReached = 91,
     PolicyNotFound = 101,
@@ -198,6 +175,12 @@ pub enum NftError {
     TokenAlreadyMinted = 1,
     TokenNotFound = 2,
     MetadataMismatch = 3,
+    /// Payment amount is zero or negative for a trade.
+    TradeAmountMustBePositive = 4,
+    /// Buyer attempted to trade with themselves.
+    SelfTrade = 5,
+    /// The seller does not own the token being traded.
+    NotTokenOwner = 6,
 }
 
 #[contracterror]
