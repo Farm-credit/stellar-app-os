@@ -481,7 +481,7 @@ function NotificationItem({
               {!notification.read && !notification.archived && (
                 <button
                   type="button"
-                  onClick={onMarkAsRead}
+                  onClick={(e) => onMarkAsRead(notification.id, e)}
                   className="p-1.5 rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
                   aria-label="Mark as read"
                 >
@@ -491,7 +491,7 @@ function NotificationItem({
               {!notification.archived && (
                 <button
                   type="button"
-                  onClick={onArchive}
+                  onClick={(e) => onArchive(notification.id, e)}
                   className="p-1.5 rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
                   aria-label="Archive notification"
                 >
@@ -500,7 +500,7 @@ function NotificationItem({
               )}
               <button
                 type="button"
-                onClick={onRemove}
+                onClick={(e) => onRemove(notification.id, e)}
                 className="p-1.5 rounded-lg text-gray-500 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 transition-colors focus:outline-none focus:ring-2 focus:ring-red-500"
                 aria-label={notification.archived ? 'Delete notification' : 'Remove notification'}
               >
