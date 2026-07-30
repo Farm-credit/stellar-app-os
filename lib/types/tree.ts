@@ -1,4 +1,19 @@
-export type TreeSpecies = 'Teak' | 'Moringa' | 'Eucalyptus' | 'Mangrove';
+export type TreeSpecies =
+  | 'Teak'
+  | 'Moringa'
+  | 'Eucalyptus'
+  | 'Mangrove'
+  | 'Acacia'
+  | 'Neem'
+  | 'African Mahogany'
+  | 'Baobab'
+  | 'Bamboo (Moso)'
+  | 'West African Cedar'
+  | 'Caribbean Pine'
+  | 'Iroko'
+  | 'Shea'
+  | 'Cashew'
+  | 'African Locust Bean';
 
 export type TreeStatus = 'funded' | 'planted' | 'verified' | 'completed' | 'failed';
 

@@ -9,6 +9,7 @@ import { QuickActions } from './QuickActions';
 import { AnalyticsWidget, type ChartDataPoint } from '@/components/AnalyticsWidget';
 import { Text } from '@/components/atoms/Text';
 import { Button } from '@/components/atoms/Button';
+import { TreeClusterMapClient } from '@/components/organisms/TreeClusterMap/TreeClusterMapClient';
 import { Heart, Coins, Wind, Zap, Download } from 'lucide-react';
 import { generateCertificatePdf } from '@/lib/certificate';
 
@@ -166,6 +167,21 @@ export function DashboardOverview() {
         </div>
       </section>
 
+      <section className="space-y-8">
+        <div className="flex flex-col space-y-2 border-t pt-8">
+          <Text variant="h2" className="text-3xl font-black tracking-tight">
+            Planting Footprint Map
+          </Text>
+          <Text variant="muted" className="text-lg font-medium opacity-70">
+            Interactive clusters of verified tree plantings with species filtering and smart popups.
+          </Text>
+        </div>
+
+        <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-950">
+          <TreeClusterMapClient />
+        </div>
+      </section>
+
       {/* Analytics Section */}
       <section className="space-y-8">
         <div className="flex flex-col space-y-2">
@@ -250,7 +266,10 @@ export function DashboardOverview() {
                 <Text variant="small" className="text-muted-foreground uppercase tracking-[0.2em]">
                   Trees planted
                 </Text>
-                <Text variant="h3" className="text-2xl font-semibold text-slate-900 dark:text-white">
+                <Text
+                  variant="h3"
+                  className="text-2xl font-semibold text-slate-900 dark:text-white"
+                >
                   {data?.stats.totalDonationsTrees ?? 0}
                 </Text>
               </div>

@@ -19,12 +19,12 @@ export default function StatsDisplay({ referralsCount, totalEarnings }: StatsDis
         Your Stats
       </h2>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div className="rounded-lg border border-gray-200 p-4 text-center">
-          <p className="text-sm text-gray-500">Referrals</p>
+        <div className="rounded-lg border border-border p-4 text-center">
+          <p className="text-sm text-muted-foreground">Referrals</p>
           <p className="text-3xl font-bold">{referralsCount}</p>
         </div>
-        <div className="rounded-lg border border-gray-200 p-4 text-center">
-          <p className="text-sm text-gray-500">Earnings</p>
+        <div className="rounded-lg border border-border p-4 text-center">
+          <p className="text-sm text-muted-foreground">Earnings</p>
           <p className="text-3xl font-bold">{formatter.format(totalEarnings)}</p>
         </div>
       </div>

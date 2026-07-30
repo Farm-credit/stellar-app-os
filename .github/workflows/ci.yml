@@ -96,6 +96,19 @@ jobs:
           fi
           # Non-blocking — placeholders are expected during development
 
+  migration-validate:
+    name: Migration files
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm db:migrate:validate
+
   # ═════════════════════════════════════════════════════════════════════════════
   # PHASE 2 — Expensive gate (build).  Waits for all Phase-1 gates to pass.
   # ═════════════════════════════════════════════════════════════════════════════
@@ -103,8 +116,8 @@ jobs:
   build:
     name: Build
     runs-on: ubuntu-latest
-    timeout-minutes: 10
-    needs: [lint, typecheck, test]
+    timeout-minutes: 15
+    needs: [lint, typecheck, test, migration-validate]
     outputs:
       build-cache-hit: ${{ steps.build-cache.outputs.cache-hit }}
     steps:
@@ -125,9 +138,17 @@ jobs:
           restore-keys: |
             nextjs-${{ runner.os }}-
 
+      - run: pnpm typecheck
+
+      - run: pnpm test
+
+      - run: pnpm build
       - name: Build
         run: pnpm build
         env:
+          # Cap Node's V8 heap at 5GB so the Webpack build worker + Node
+          # runtime + OS overhead fits in the 7GB GitHub-hosted runner.
+          NODE_OPTIONS: --max-old-space-size=5120
           NEXT_PUBLIC_STELLAR_NETWORK: testnet
           NEXT_PUBLIC_HORIZON_URL: https://horizon-testnet.stellar.org
           NEXT_PUBLIC_SOROBAN_RPC_URL: https://soroban-testnet.stellar.org
@@ -139,6 +160,7 @@ jobs:
           NEXT_PUBLIC_CONTRACT_ESCROW_MILESTONE: CBUILD0000000000000000000000000000000000000000000000000000
           NEXT_PUBLIC_CONTRACT_LOCATION_PROOF: CBUILD0000000000000000000000000000000000000000000000000000
           NEXT_PUBLIC_CONTRACT_NULLIFIER_REGISTRY: CBUILD0000000000000000000000000000000000000000000000000000
+          NEXT_PUBLIC_CONTRACT_CARBON_CREDITS: CBUILD0000000000000000000000000000000000000000000000000000
           NEXT_PUBLIC_PLANTING_ADDRESS: GABEMKJNR4GK7M4FROGA7I7PG63N2CKE3EGDSBSISG56SVL2O3KRNDXA
           NEXT_PUBLIC_REPLANTING_BUFFER_ADDRESS: GBUQWP3BOUZX34TOND2QV7QQ7K7VJTG6VSE62MFPXXXIAGKZ6YTDCXI
           NEXT_PUBLIC_BULK_RECIPIENT_ADDRESS: GABEMKJNR4GK7M4FROGA7I7PG63N2CKE3EGDSBSISG56SVL2O3KRNDXA

@@ -2,7 +2,10 @@ const REGION_POOL_PREFIX = 'NEXT_PUBLIC_REGION_POOL_';
 
 function normalizeRegionId(regionId?: string): string | null {
   if (!regionId) return null;
-  const normalized = regionId.trim().toUpperCase().replace(/[^A-Z0-9]+/g, '_');
+  const normalized = regionId
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, '_');
   return normalized.length > 0 ? normalized : null;
 }
 

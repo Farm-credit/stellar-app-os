@@ -5,10 +5,7 @@ import { Input } from '@/components/atoms/Input';
 import { Select } from '@/components/atoms/Select';
 import { Button } from '@/components/atoms/Button';
 import { Text } from '@/components/atoms/Text';
-import type {
-  FundingStatus,
-  MarketplaceFiltersProps,
-} from '@/lib/types/marketplace';
+import type { FundingStatus, MarketplaceFiltersProps } from '@/lib/types/marketplace';
 import { Search, X } from 'lucide-react';
 
 export function MarketplaceFilters({
@@ -119,7 +116,11 @@ export function MarketplaceFilters({
 
       <div className="grid gap-4">
         <div>
-          <Text variant="label" as="p" className="mb-2 text-xs uppercase tracking-wide text-muted-foreground">
+          <Text
+            variant="label"
+            as="p"
+            className="mb-2 text-xs uppercase tracking-wide text-muted-foreground"
+          >
             Category
           </Text>
           <Select
@@ -139,7 +140,11 @@ export function MarketplaceFilters({
         </div>
 
         <div>
-          <Text variant="label" as="p" className="mb-2 text-xs uppercase tracking-wide text-muted-foreground">
+          <Text
+            variant="label"
+            as="p"
+            className="mb-2 text-xs uppercase tracking-wide text-muted-foreground"
+          >
             Location
           </Text>
           <Select
@@ -159,7 +164,11 @@ export function MarketplaceFilters({
         </div>
 
         <div>
-          <Text variant="label" as="p" className="mb-2 text-xs uppercase tracking-wide text-muted-foreground">
+          <Text
+            variant="label"
+            as="p"
+            className="mb-2 text-xs uppercase tracking-wide text-muted-foreground"
+          >
             Funding status
           </Text>
           <Select
@@ -179,7 +188,11 @@ export function MarketplaceFilters({
         </div>
 
         <div>
-          <Text variant="label" as="p" className="mb-2 text-xs uppercase tracking-wide text-muted-foreground">
+          <Text
+            variant="label"
+            as="p"
+            className="mb-2 text-xs uppercase tracking-wide text-muted-foreground"
+          >
             Sort by
           </Text>
           <Select

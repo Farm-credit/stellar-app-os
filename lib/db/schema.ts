@@ -18,7 +18,7 @@ export interface PlanterRow {
   full_name: string;
   country_code: string;
   region: string;
-  lat: string | null;    // NUMERIC returned as string by pg driver
+  lat: string | null; // NUMERIC returned as string by pg driver
   lng: string | null;
   phone_e164: string | null;
   kyc_status: KycStatus;
@@ -39,7 +39,7 @@ export interface TreeRow {
   tree_ref: string;
   planter_id: number | null;
   species_slug: string | null;
-  lat: string;           // NUMERIC
+  lat: string; // NUMERIC
   lng: string;
   region: string;
   country_code: string;
@@ -81,12 +81,7 @@ export interface ProgressUpdateRow {
 
 // ── Disputes (migration 006) ──────────────────────────────────────────────────
 
-export type DisputeStatus =
-  | 'open'
-  | 'under_review'
-  | 'resolved'
-  | 'escalated'
-  | 'closed';
+export type DisputeStatus = 'open' | 'under_review' | 'resolved' | 'escalated' | 'closed';
 
 export type DisputeCategory =
   | 'planting_fraud'

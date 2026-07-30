@@ -13,12 +13,14 @@ import {
   Loader2,
   Copy,
   Check,
+  Award,
 } from 'lucide-react';
 import { FaWhatsapp, FaXTwitter } from 'react-icons/fa6';
 import { Button } from '@/components/atoms/Button';
 import { Text } from '@/components/atoms/Text';
 import { Badge } from '@/components/atoms/Badge';
 import { formatNumber } from '@/lib/constants/donation';
+import { useWalletContext } from '@/contexts/WalletContext';
 
 interface TransactionDetails {
   hash: string;
@@ -42,26 +44,97 @@ export function DonationConfirmationWithTx({ txHash }: DonationConfirmationWithT
   const [isExporting, setIsExporting] = useState(false);
   const receiptRef = useRef<HTMLDivElement>(null);
 
+  const { wallet, signTransaction } = useWalletContext();
+  const [mintStatus, setMintStatus] = useState<'idle' | 'minting' | 'success' | 'error'>('idle');
+  const [mintError, setMintError] = useState<string | null>(null);
+  const [mintedTokenId, setMintedTokenId] = useState<string | null>(null);
+  const [metadataUri, setMetadataUri] = useState<string | null>(null);
+
+  const handleMintCertificate = async () => {
+    if (!txDetails) return;
+    setMintStatus('minting');
+    setMintError(null);
+
+    try {
+      const response = await fetch('/api/nft/mint', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          donationId: txDetails.hash,
+          txHash: txDetails.hash,
+          projectId: txDetails.memo || 'default-project',
+          amount: txDetails.amount,
+          date: txDetails.timestamp,
+          recipientAddress: wallet?.publicKey || txDetails.from,
+          network: wallet?.network || 'testnet',
+        }),
+      });
+
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.error || 'Failed to construct mint transaction');
+      }
+
+      const { transactionXdr, networkPassphrase, tokenId, metadataUri: uri } = await response.json();
+
+      let signedXdr: string;
+      try {
+        if (!signTransaction) {
+          throw new Error('Wallet not connected or does not support signing');
+        }
+        signedXdr = await signTransaction(transactionXdr, networkPassphrase);
+      } catch (err: any) {
+        throw new Error('USER_REJECTED_SIGNING');
+      }
+
+      const submitRes = await fetch('/api/transaction/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          signedTransactionXdr: signedXdr,
+          network: wallet?.network || 'testnet',
+        }),
+      });
+
+      if (!submitRes.ok) {
+        const err = await submitRes.json();
+        throw new Error(err.error || 'Failed to submit mint transaction');
+      }
+
+      setMintedTokenId(tokenId);
+      setMetadataUri(uri);
+      setMintStatus('success');
+    } catch (err: any) {
+      console.error('Minting failed:', err);
+      setMintError(err.message || 'Failed to mint NFT certificate');
+      setMintStatus('error');
+    }
+  };
+
   useEffect(() => {
     const fetchTransactionDetails = async () => {
       try {
         setLoading(true);
         // Fetch from Horizon API
-        const horizonUrl = process.env.NEXT_PUBLIC_HORIZON_URL || 'https://horizon-testnet.stellar.org';
+        const horizonUrl =
+          process.env.NEXT_PUBLIC_HORIZON_URL || 'https://horizon-testnet.stellar.org';
         const response = await fetch(`${horizonUrl}/transactions/${txHash}`);
-        
+
         if (!response.ok) {
           throw new Error('Transaction not found');
         }
 
         const data = await response.json();
-        
+
         // Parse transaction operations to get payment details
         const opsResponse = await fetch(`${horizonUrl}/transactions/${txHash}/operations`);
         const opsData = await opsResponse.json();
-        
+
         const paymentOp = opsData._embedded?.records?.find(
-          (op: any) => op.type === 'payment' || op.type === 'path_payment_strict_send' || op.type === 'path_payment_strict_receive'
+          (op: any) =>
+            op.type === 'payment' ||
+            op.type === 'path_payment_strict_send' ||
+            op.type === 'path_payment_strict_receive'
         );
 
         const amount = paymentOp?.amount ? parseFloat(paymentOp.amount) : 0;
@@ -93,7 +166,7 @@ export function DonationConfirmationWithTx({ txHash }: DonationConfirmationWithT
 
   const handleExportReceipt = async () => {
     if (!receiptRef.current) return;
-    
+
     setIsExporting(true);
     try {
       const canvas = await html2canvas(receiptRef.current, {
@@ -101,11 +174,11 @@ export function DonationConfirmationWithTx({ txHash }: DonationConfirmationWithT
         scale: 2,
         logging: false,
       });
-      
+
       const blob = await new Promise<Blob>((resolve) => {
         canvas.toBlob((b) => resolve(b!), 'image/png');
       });
-      
+
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
@@ -140,10 +213,7 @@ export function DonationConfirmationWithTx({ txHash }: DonationConfirmationWithT
   };
 
   const handleShareWhatsApp = () => {
-    window.open(
-      `https://wa.me/?text=${encodeURIComponent(`${shareText} ${shareUrl}`)}`,
-      '_blank'
-    );
+    window.open(`https://wa.me/?text=${encodeURIComponent(`${shareText} ${shareUrl}`)}`, '_blank');
   };
 
   if (loading) {
@@ -165,7 +235,7 @@ export function DonationConfirmationWithTx({ txHash }: DonationConfirmationWithT
           <Text variant="muted" className="mb-6">
             {error || 'Unable to load transaction details.'}
           </Text>
-          <Button onClick={() => window.location.href = '/donate'} stellar="primary">
+          <Button onClick={() => (window.location.href = '/donate')} stellar="primary">
             Make a Donation
           </Button>
         </div>
@@ -304,12 +374,7 @@ export function DonationConfirmationWithTx({ txHash }: DonationConfirmationWithT
               )}
             </Button>
 
-            <Button
-              onClick={handleCopyLink}
-              variant="outline"
-              size="lg"
-              className="h-12"
-            >
+            <Button onClick={handleCopyLink} variant="outline" size="lg" className="h-12">
               {linkCopied ? (
                 <>
                   <Check className="w-4 h-4 mr-2" />
@@ -322,6 +387,65 @@ export function DonationConfirmationWithTx({ txHash }: DonationConfirmationWithT
                 </>
               )}
             </Button>
+          </div>
+
+          {/* Mint Certificate NFT Section */}
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden mb-8 p-6 sm:p-8 text-center">
+            <Award className="w-12 h-12 text-stellar-blue mx-auto mb-4" aria-hidden="true" />
+            <Text variant="h2" className="text-xl font-bold mb-2">
+              Claim Your CO₂ Certificate NFT
+            </Text>
+            <Text variant="muted" className="text-sm mb-6 max-w-md mx-auto">
+              Mint a transferable, verified on-chain NFT certificate representing your {trees} planted trees and {co2Offset} kg CO₂ offset.
+            </Text>
+
+            {mintStatus === 'idle' && (
+              <Button onClick={handleMintCertificate} stellar="primary" size="lg" className="w-full sm:w-auto px-8">
+                Mint NFT Certificate
+              </Button>
+            )}
+
+            {mintStatus === 'minting' && (
+              <Button disabled stellar="primary" size="lg" className="w-full sm:w-auto px-8">
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" aria-hidden="true" />
+                Minting in Progress...
+              </Button>
+            )}
+
+            {mintStatus === 'success' && (
+              <div className="space-y-4">
+                <div className="inline-flex items-center gap-2 text-green-600 font-semibold bg-green-50 px-4 py-2 rounded-lg">
+                  <Check className="w-5 h-5" aria-hidden="true" />
+                  Successfully Minted!
+                </div>
+                <div className="text-sm text-gray-600">
+                  <span className="font-semibold">Token ID:</span> {mintedTokenId?.slice(0, 16)}...
+                </div>
+                <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                  <a
+                    href={metadataUri || '#'}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center justify-center h-10 px-4 rounded-lg bg-stellar-blue text-white text-sm font-semibold hover:bg-stellar-blue/90"
+                  >
+                    View Metadata JSON
+                  </a>
+                </div>
+              </div>
+            )}
+
+            {mintStatus === 'error' && (
+              <div className="space-y-4">
+                <div className="text-red-600 text-sm font-semibold">
+                  {mintError === 'USER_REJECTED_SIGNING'
+                    ? 'Signing request rejected by user.'
+                    : `Minting failed: ${mintError}`}
+                </div>
+                <Button onClick={handleMintCertificate} stellar="primary" size="lg" className="w-full sm:w-auto px-8">
+                  Try Again
+                </Button>
+              </div>
+            )}
           </div>
 
           {/* Blockchain Explorer Link */}

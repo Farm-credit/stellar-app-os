@@ -63,6 +63,13 @@
   --color-stellar-purple: var(--stellar-purple);
   --color-stellar-cyan: var(--stellar-cyan);
   --color-stellar-green: var(--stellar-green);
+
+  /* Glassmorphism tokens */
+  --color-glass-surface: var(--glass-surface);
+  --color-glass-surface-hover: var(--glass-surface-hover);
+  --color-glass-border: var(--glass-border);
+  --color-glass-selected: var(--glass-selected-bg);
+  --color-glass-selected-border: var(--glass-selected-border);
 }
 
 /* ===== LIGHT THEME ===== */
@@ -90,15 +97,15 @@
 
   /* Primary — Stellar Blue */
   --primary: #14b6e7;
-  --primary-foreground: #ffffff;
+  --primary-foreground: #0d0b21;
 
   /* Secondary — Light blue tint */
   --secondary: #e8f7fc;
   --secondary-foreground: #0d0b21;
 
-  /* Muted */
+  /* Muted — WCAG AAA: 7:1+ on #ffffff */
   --muted: #f1f5f9;
-  --muted-foreground: #64748b;
+  --muted-foreground: #475569;
 
   /* Accent — Stellar Purple */
   --accent: #3e1bdb;
@@ -128,6 +135,15 @@
   --sidebar-accent-foreground: #0d0b21;
   --sidebar-border: #e2e8f0;
   --sidebar-ring: #14b6e7;
+
+  /* Glassmorphism — light */
+  --glass-surface: rgba(255, 255, 255, 0.72);
+  --glass-surface-hover: rgba(255, 255, 255, 0.88);
+  --glass-border: rgba(13, 11, 33, 0.1);
+  --glass-shadow: 0 8px 32px rgba(13, 11, 33, 0.08);
+  --glass-blur: 16px;
+  --glass-selected-bg: rgba(20, 182, 231, 0.14);
+  --glass-selected-border: rgba(20, 182, 231, 0.55);
 }
 
 /* ===== DARK THEME ===== */
@@ -159,9 +175,9 @@
   --secondary: #1e1b3a;
   --secondary-foreground: #f1f5f9;
 
-  /* Muted */
+  /* Muted — WCAG AAA: 7:1+ on #0d0b21 */
   --muted: #1e1b3a;
-  --muted-foreground: #94a3b8;
+  --muted-foreground: #cbd5e1;
 
   /* Accent — Stellar Purple (lighter for dark) */
   --accent: #6e56cf;
@@ -191,6 +207,15 @@
   --sidebar-accent-foreground: #f1f5f9;
   --sidebar-border: rgba(255, 255, 255, 0.1);
   --sidebar-ring: #14b6e7;
+
+  /* Glassmorphism — dark */
+  --glass-surface: rgba(20, 18, 48, 0.62);
+  --glass-surface-hover: rgba(30, 27, 58, 0.78);
+  --glass-border: rgba(255, 255, 255, 0.12);
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  --glass-blur: 16px;
+  --glass-selected-bg: rgba(20, 182, 231, 0.2);
+  --glass-selected-border: rgba(20, 182, 231, 0.65);
 }
 
 @layer base {
@@ -253,4 +278,21 @@ html.no-transitions *,
 html.no-transitions *::before,
 html.no-transitions *::after {
   transition: none !important;
+}
+
+/* ===== GLASSMORPHISM UTILITIES ===== */
+.glass-surface {
+  background: var(--glass-surface);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+}
+
+.glass-surface-selected {
+  background: var(--glass-selected-bg);
+  border-color: var(--glass-selected-border);
+  box-shadow:
+    var(--glass-shadow),
+    0 0 0 1px var(--glass-selected-border);
 }

@@ -78,3 +78,18 @@ export function decodeGeohash(geohash: string): { lat: number; lon: number } {
     lon: (lonMin + lonMax) / 2,
   };
 }
+
+/**
+ * Generates a regional geohash and its center coordinates.
+ * Used to snap a precise GPS location to a regional center for privacy.
+ */
+export function buildRegionHash({ lat, lon }: { lat: number; lon: number }) {
+  const regionKey = encodeGeohash(lat, lon, 5); // precision 5 = ~5km x 5km
+  const center = decodeGeohash(regionKey);
+
+  return {
+    regionKey,
+    centerLat: center.lat,
+    centerLon: center.lon,
+  };
+}

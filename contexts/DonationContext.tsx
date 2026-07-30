@@ -7,6 +7,7 @@ import {
   type RegionAllocation,
   DEFAULT_DONATION_FLOW_STATE,
 } from '@/lib/types/donor';
+import type { DonationAsset } from '@/lib/types/donation-payment';
 import type { GiftDetails } from '@/lib/types/gift';
 
 interface DonationContextValue {
@@ -14,6 +15,7 @@ interface DonationContextValue {
   setAmount: (_amount: number) => void;
   setTreeCount: (_count: number) => void;
   setIsMonthly: (_isMonthly: boolean) => void;
+  setAsset: (_asset: DonationAsset) => void;
   setDonorInfo: (_info: Partial<DonorInfo>) => void;
   setRegionAllocations: (_allocations: RegionAllocation[]) => void;
   setGift: (_gift: Partial<GiftDetails>) => void;
@@ -37,6 +39,10 @@ export function DonationProvider({ children }: { children: ReactNode }) {
 
   const setIsMonthly = useCallback((isMonthly: boolean) => {
     setState((prev) => ({ ...prev, isMonthly }));
+  }, []);
+
+  const setAsset = useCallback((asset: DonationAsset) => {
+    setState((prev) => ({ ...prev, asset }));
   }, []);
 
   const setDonorInfo = useCallback((info: Partial<DonorInfo>) => {
@@ -64,6 +70,7 @@ export function DonationProvider({ children }: { children: ReactNode }) {
       setAmount,
       setTreeCount,
       setIsMonthly,
+      setAsset,
       setDonorInfo,
       setRegionAllocations,
       setGift,
@@ -74,6 +81,7 @@ export function DonationProvider({ children }: { children: ReactNode }) {
       setAmount,
       setTreeCount,
       setIsMonthly,
+      setAsset,
       setDonorInfo,
       setRegionAllocations,
       setGift,

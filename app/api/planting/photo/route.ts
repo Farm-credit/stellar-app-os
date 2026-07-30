@@ -2,12 +2,14 @@ import { NextResponse } from 'next/server';
 import exifr from 'exifr';
 import { getDistance } from '@/lib/geo/distance';
 import { uploadImageToS3 } from '@/lib/aws/s3';
+import { uploadToIpfs } from '@/lib/ipfs/upload';
+import { invalidateMapCoordinateCache } from '@/lib/cache/map-cache';
 import { encryptGpsCoordinates } from '@/lib/zk/locationProof';
 import { sendPhotoUploadedEmail } from '@/lib/email/sendgrid';
 import { getPool } from '@/lib/db/client';
 import { encodeGeohash } from '@/lib/geo/geohash';
+import { buildRegionHash } from '@/lib/geo/regionHash';
 
-// Maximum allowable distance (in meters) between Exif GPS and farmer-submitted GPS.
 const MAX_DISTANCE_METERS = 500;
 
 export async function POST(request: Request) {
@@ -34,36 +36,60 @@ export async function POST(request: Request) {
 
     const buffer = Buffer.from(await photo.arrayBuffer());
 
-    // Extract EXIF GPS data (fails gracefully if none exists or it cannot be read)
+    // Extract EXIF GPS data for validation
     const exifData = await exifr.gps(buffer).catch((err) => {
       console.warn('Exifr extraction warning:', err);
       return null;
     });
 
-    if (!exifData || exifData.latitude === undefined || exifData.longitude === undefined) {
-      return NextResponse.json(
-        { error: 'No GPS EXIF metadata found in the provided photo.' },
-        { status: 422 }
-      );
+    if (exifData && exifData.latitude !== undefined && exifData.longitude !== undefined) {
+      const { latitude: exifLat, longitude: exifLon } = exifData;
+      const distance = getDistance(lat, lon, exifLat, exifLon);
+      if (distance > MAX_DISTANCE_METERS) {
+        return NextResponse.json(
+          {
+            error:
+              'Verification failed: Distance between photo GPS and submitted coordinates is too large.',
+            distanceMeters: Math.round(distance),
+          },
+          { status: 422 }
+        );
+      }
     }
 
-    const { latitude: exifLat, longitude: exifLon } = exifData;
-
-    // Validate distance constraint
-    const distance = getDistance(lat, lon, exifLat, exifLon);
-    if (distance > MAX_DISTANCE_METERS) {
-      return NextResponse.json(
-        {
-          error:
-            'Verification failed: Distance between photo GPS and submitted coordinates is too large.',
-          distanceMeters: Math.round(distance),
-        },
-        { status: 422 }
-      );
+    // Upload to S3 (private backup)
+    let s3Key: string | undefined;
+    try {
+      s3Key = await uploadImageToS3(farmerId, buffer, photo.type);
+    } catch (err) {
+      console.warn('[planting/photo] S3 upload failed, continuing with IPFS only:', err);
     }
 
-    // Upload to AWS S3 securely
-    const s3Key = await uploadImageToS3(farmerId, buffer, photo.type);
+    // Upload to IPFS
+    const ipfsResult = await uploadToIpfs(buffer, `${farmerId}-${Date.now()}.jpg`, photo.type);
+
+    // ── Record the pHash row now that we know the real S3 key ──────────────
+    // (Called exactly once — the earlier `findDuplicate` was read-only.)
+    if (phashHex) {
+      try {
+        await recordPhotoHash({
+          entityType: 'tree',
+          entityId: treeId || farmerId,
+          hashHex: phashHex,
+          storageRef: s3Key,
+          metadata: {
+            farmerId,
+            region,
+            exifLat,
+            exifLon,
+            s3Bucket: process.env.AWS_S3_BUCKET,
+          },
+        });
+      } catch (err) {
+        // Non-fatal.
+        console.error('[planting/photo] hash record failed:', err);
+      }
+    }
 
     // Store hashed region for the live map (no raw GPS persisted)
     const { regionKey, centerLat, centerLon } = buildRegionHash({ lat: exifLat, lon: exifLon });
@@ -80,7 +106,7 @@ export async function POST(request: Request) {
     }
 
     // Encrypt EXIF GPS coordinates for privacy
-    const encryptedGps = await encryptGpsCoordinates({ lat: exifLat, lon: exifLon });
+    const encryptedGps = await encryptGpsCoordinates({ lat, lon });
 
     // Upsert a hashed regional coordinate for the live map (precision-5 ≈ 5km cell).
     // Exact GPS is never stored.
@@ -96,10 +122,12 @@ export async function POST(request: Request) {
       )
       .catch((err) => console.error('[planting/photo] map upsert error:', err));
 
+    await invalidateMapCoordinateCache();
+
     // Notify sponsor if contact info provided
     if (sponsorEmail && sponsorName && treeId) {
       const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? '';
-      const photoUrl = `${appUrl}/api/planting/photo/${s3Key}`;
+      const photoUrl = s3Key ? `${appUrl}/api/planting/photo/${s3Key}` : ipfsResult.gatewayUrl;
       await sendPhotoUploadedEmail({ sponsorEmail, sponsorName, treeId, photoUrl }).catch((err) =>
         console.error('[planting/photo] email error:', err)
       );
@@ -107,9 +135,13 @@ export async function POST(request: Request) {
 
     return NextResponse.json(
       {
-        message: 'Photo uploaded and metadata verified successfully.',
+        message: 'Photo uploaded to IPFS and verified successfully.',
+        ipfsCid: ipfsResult.cid,
+        ipfsUrl: ipfsResult.ipfsUrl,
+        gatewayUrl: ipfsResult.gatewayUrl,
         s3Key,
         encryptedGps,
+        hash: phashHex,
       },
       { status: 201 }
     );

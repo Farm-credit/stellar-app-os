@@ -75,9 +75,7 @@ export async function buildAnonymousDonationTransaction(
 
     for (let i = 0; i < planterCount; i += 1) {
       const planterAmount =
-        i === 0
-          ? parseFloat((planting - baseShare * (planterCount - 1)).toFixed(7))
-          : baseShare;
+        i === 0 ? parseFloat((planting - baseShare * (planterCount - 1)).toFixed(7)) : baseShare;
 
       transactionBuilder.addOperation(
         Operation.payment({

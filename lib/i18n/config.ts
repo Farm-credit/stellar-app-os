@@ -5,14 +5,16 @@ import enTranslations from '@/lib/i18n/locales/en.json';
 import esTranslations from '@/lib/i18n/locales/es.json';
 import frTranslations from '@/lib/i18n/locales/fr.json';
 import ptTranslations from '@/lib/i18n/locales/pt.json';
+import haTranslations from '@/lib/i18n/locales/ha.json';
 
-export const SUPPORTED_LANGUAGES = ['en', 'es', 'fr', 'pt'] as const;
+export const SUPPORTED_LANGUAGES = ['en', 'ha', 'fr', 'es', 'pt'] as const;
 export type SupportedLanguage = (typeof SUPPORTED_LANGUAGES)[number];
 
 export const LANGUAGE_LABELS: Record<SupportedLanguage, string> = {
   en: 'English',
-  es: 'Español',
+  ha: 'Hausa',
   fr: 'Français',
+  es: 'Español',
   pt: 'Português',
 };
 
@@ -26,8 +28,9 @@ export function isRTL(lang: string): boolean {
 const i18nConfig: InitOptions = {
   resources: {
     en: { translation: enTranslations },
-    es: { translation: esTranslations },
+    ha: { translation: haTranslations },
     fr: { translation: frTranslations },
+    es: { translation: esTranslations },
     pt: { translation: ptTranslations },
   },
   fallbackLng: 'en',

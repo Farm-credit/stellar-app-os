@@ -1,23 +1,44 @@
 #![no_std]
 
-//! Treasury Contract — 2-of-3 Multisig for Platform Fee Withdrawals
+//! Treasury Contract — 4-of-7 Multisig with Emergency Withdrawal Guard
 //!
-//! Closes #492
+//! Closes #492, #797
 //!
 //! Platform fees accumulate in this contract. Any withdrawal requires
-//! 2-of-3 signers to approve a `WithdrawProposal` before funds move.
+//! 4-of-7 signers to approve a `WithdrawProposal` before funds move.
+//!
+//! For large transfers above `EMERGENCY_THRESHOLD` (50,000 USDC-equivalent
+//! stroops), an emergency guard enforces 4 approvals before execution.
+//! Regular transfers below the threshold also require 4 approvals
+//! (4-of-7 supermajority).
 //!
 //! ## Flow
-//! 1. `initialize(signers, token)` — set three signer addresses.
+//! 1. `initialize(signers[7], token)` — set seven signer addresses.
 //! 2. Anyone calls `deposit(from, amount)` to top up the treasury.
 //! 3. A signer calls `propose(signer, to, amount)` → returns `proposal_id`.
-//! 4. A *different* signer calls `approve(signer, proposal_id)` to reach 2/3.
-//! 5. On the second approval the token transfer executes automatically.
-//! 6. Any signer can `cancel(signer, proposal_id)` an open proposal.
+//! 4. Three *different* signers call `approve(signer, proposal_id)` to
+//!    reach 4/7. On the fourth approval the token transfer executes.
+//! 5. Any signer can `cancel(signer, proposal_id)` an open proposal.
+//!
+//! ## Emergency Guard
+//! Transfers with `amount >= EMERGENCY_THRESHOLD` are flagged as emergency
+//! proposals. They follow the same 4-of-7 flow but emit an additional
+//! `emrg_prp` event so off-chain monitors can raise alerts.
 
-use soroban_sdk::{contract, contractimpl, contracttype, symbol_short, token, Address, Env};
+use soroban_sdk::{contract, contractimpl, contracttype, symbol_short, token, Address, Env, Vec};
 
-// ── Types ─────────────────────────────────────────────────────────────────────
+// — Constants ————————————————————————————————————————————————————————————
+
+/// Number of required approvers (including proposer) to execute.
+const REQUIRED_APPROVALS: u32 = 4;
+/// Total number of signers in the multisig.
+const TOTAL_SIGNERS: u32 = 7;
+/// Transfers at or above this amount (in token stroops) trigger the
+/// emergency guard path and emit an extra alert event.
+/// 50,000 USDC with 7 decimal places = 50_000 * 10_000_000
+pub const EMERGENCY_THRESHOLD: i128 = 500_000_000_000;
+
+// — Types ——————————————————————————————————————————————————————————————
 
 #[contracttype]
 #[derive(Clone, Debug, PartialEq)]
@@ -31,16 +52,18 @@ pub enum ProposalStatus {
 #[derive(Clone, Debug)]
 pub struct WithdrawProposal {
     pub proposer: Address,
-    /// Address of the second signer who approved; None until approved.
-    pub approver: Option<Address>,
+    /// List of signers who have approved (includes proposer as first entry).
+    pub approvers: Vec<Address>,
     pub to: Address,
     pub amount: i128,
     pub status: ProposalStatus,
+    /// True when `amount >= EMERGENCY_THRESHOLD`.
+    pub is_emergency: bool,
 }
 
 #[contracttype]
 enum DataKey {
-    /// (signer_a, signer_b, signer_c)
+    /// Vec<Address> of the seven signers
     Signers,
     /// Payment token address
     Token,
@@ -50,40 +73,40 @@ enum DataKey {
     Proposal(u32),
 }
 
-// ── Contract ──────────────────────────────────────────────────────────────────
+// — Contract ——————————————————————————————————————————————————————————
 
 #[contract]
 pub struct Treasury;
 
 #[contractimpl]
 impl Treasury {
-    // ── Admin ─────────────────────────────────────────────────────────────────
+    // — Admin ———————————————————————————————————————————————————————
 
     /// One-time initialisation.
     ///
-    /// * `signer_a/b/c` — the three multisig keyholders; must be distinct.
-    /// * `token` — the token contract used to hold and disburse platform fees.
-    pub fn initialize(
-        env: Env,
-        signer_a: Address,
-        signer_b: Address,
-        signer_c: Address,
-        token: Address,
-    ) {
+    /// * `signers` — exactly 7 distinct multisig keyholders.
+    /// * `token`   — the token contract used to hold and disburse platform fees.
+    pub fn initialize(env: Env, signers: Vec<Address>, token: Address) {
         if env.storage().instance().has(&DataKey::Signers) {
             panic!("already initialized");
         }
-        if signer_a == signer_b || signer_a == signer_c || signer_b == signer_c {
-            panic!("signers must be distinct");
+        if signers.len() != TOTAL_SIGNERS {
+            panic!("must supply exactly 7 signers");
         }
-        env.storage()
-            .instance()
-            .set(&DataKey::Signers, &(signer_a, signer_b, signer_c));
+        // Ensure all signers are distinct
+        for i in 0..signers.len() {
+            for j in (i + 1)..signers.len() {
+                if signers.get(i).unwrap() == signers.get(j).unwrap() {
+                    panic!("signers must be distinct");
+                }
+            }
+        }
+        env.storage().instance().set(&DataKey::Signers, &signers);
         env.storage().instance().set(&DataKey::Token, &token);
         env.storage().instance().set(&DataKey::NextId, &0u32);
     }
 
-    // ── Deposit ───────────────────────────────────────────────────────────────
+    // — Deposit ———————————————————————————————————————————————————
 
     /// Transfer `amount` of the treasury token from `from` into this contract.
     pub fn deposit(env: Env, from: Address, amount: i128) {
@@ -96,16 +119,15 @@ impl Treasury {
             .instance()
             .get(&DataKey::Token)
             .expect("not initialized");
-        token::Client::new(&env, &token).transfer(
-            &from,
-            &env.current_contract_address(),
-            &amount,
-        );
+        token::Client::new(&env, &token).transfer(&from, &env.current_contract_address(), &amount);
     }
 
-    // ── Multisig flow ─────────────────────────────────────────────────────────
+    // — Multisig flow ————————————————————————————————————————————
 
-    /// A signer opens a withdrawal proposal.  Returns the new `proposal_id`.
+    /// A signer opens a withdrawal proposal. Returns the new `proposal_id`.
+    ///
+    /// If `amount >= EMERGENCY_THRESHOLD`, the proposal is flagged as an
+    /// emergency and an `emrg_prp` event is published.
     pub fn propose(env: Env, signer: Address, to: Address, amount: i128) -> u32 {
         signer.require_auth();
         Self::assert_signer(&env, &signer);
@@ -119,28 +141,36 @@ impl Treasury {
             .get(&DataKey::NextId)
             .expect("not initialized");
 
+        let is_emergency = amount >= EMERGENCY_THRESHOLD;
+
+        let mut approvers = Vec::new(&env);
+        approvers.push_back(signer.clone());
+
         let proposal = WithdrawProposal {
-            proposer: signer,
-            approver: None,
+            proposer: signer.clone(),
+            approvers,
             to,
             amount,
             status: ProposalStatus::Open,
+            is_emergency,
         };
         env.storage()
             .instance()
             .set(&DataKey::Proposal(id), &proposal);
-        env.storage()
-            .instance()
-            .set(&DataKey::NextId, &(id + 1));
+        env.storage().instance().set(&DataKey::NextId, &(id + 1));
 
-        env.events()
-            .publish((symbol_short!("proposed"),), (id,));
+        env.events().publish((symbol_short!("proposed"),), (id,));
+
+        if is_emergency {
+            env.events()
+                .publish((symbol_short!("emrg_prp"),), (id, amount));
+        }
 
         id
     }
 
     /// A *different* signer approves an open proposal.
-    /// Reaching 2 approvals immediately executes the transfer.
+    /// Reaching 4 total distinct approvals immediately executes the transfer.
     pub fn approve(env: Env, signer: Address, proposal_id: u32) {
         signer.require_auth();
         Self::assert_signer(&env, &signer);
@@ -154,34 +184,46 @@ impl Treasury {
         if proposal.status != ProposalStatus::Open {
             panic!("proposal is not open");
         }
-        if proposal.proposer == signer {
-            panic!("proposer cannot also approve");
+
+        // Ensure this signer hasn't already approved
+        for i in 0..proposal.approvers.len() {
+            if proposal.approvers.get(i).unwrap() == signer {
+                panic!("signer already approved");
+            }
         }
-        if proposal.approver.is_some() {
-            panic!("already approved");
+
+        proposal.approvers.push_back(signer.clone());
+
+        if proposal.approvers.len() >= REQUIRED_APPROVALS {
+            let token: Address = env
+                .storage()
+                .instance()
+                .get(&DataKey::Token)
+                .expect("not initialized");
+
+            token::Client::new(&env, &token).transfer(
+                &env.current_contract_address(),
+                &proposal.to,
+                &proposal.amount,
+            );
+
+            proposal.status = ProposalStatus::Executed;
+            env.storage()
+                .instance()
+                .set(&DataKey::Proposal(proposal_id), &proposal);
+
+            env.events()
+                .publish((symbol_short!("executed"),), (proposal_id,));
+        } else {
+            env.storage()
+                .instance()
+                .set(&DataKey::Proposal(proposal_id), &proposal);
+
+            env.events().publish(
+                (symbol_short!("approved"),),
+                (proposal_id, proposal.approvers.len()),
+            );
         }
-
-        // ── Execute transfer ──────────────────────────────────────────────────
-        let token: Address = env
-            .storage()
-            .instance()
-            .get(&DataKey::Token)
-            .expect("not initialized");
-
-        token::Client::new(&env, &token).transfer(
-            &env.current_contract_address(),
-            &proposal.to,
-            &proposal.amount,
-        );
-
-        proposal.approver = Some(signer);
-        proposal.status = ProposalStatus::Executed;
-        env.storage()
-            .instance()
-            .set(&DataKey::Proposal(proposal_id), &proposal);
-
-        env.events()
-            .publish((symbol_short!("executed"),), (proposal_id,));
     }
 
     /// Any signer can cancel an open proposal.
@@ -208,7 +250,7 @@ impl Treasury {
             .publish((symbol_short!("cancelled"),), (proposal_id,));
     }
 
-    // ── Queries ───────────────────────────────────────────────────────────────
+    // — Queries ———————————————————————————————————————————————————
 
     /// Return a proposal by id.
     pub fn get_proposal(env: Env, proposal_id: u32) -> WithdrawProposal {
@@ -216,6 +258,26 @@ impl Treasury {
             .instance()
             .get(&DataKey::Proposal(proposal_id))
             .expect("proposal not found")
+    }
+
+    /// Return the number of approvals a proposal has received.
+    pub fn approval_count(env: Env, proposal_id: u32) -> u32 {
+        let proposal: WithdrawProposal = env
+            .storage()
+            .instance()
+            .get(&DataKey::Proposal(proposal_id))
+            .expect("proposal not found");
+        proposal.approvers.len()
+    }
+
+    /// Return whether a proposal is marked as an emergency.
+    pub fn is_emergency(env: Env, proposal_id: u32) -> bool {
+        let proposal: WithdrawProposal = env
+            .storage()
+            .instance()
+            .get(&DataKey::Proposal(proposal_id))
+            .expect("proposal not found");
+        proposal.is_emergency
     }
 
     /// Return the current treasury token balance of this contract.
@@ -228,29 +290,42 @@ impl Treasury {
         token::Client::new(&env, &token).balance(&env.current_contract_address())
     }
 
-    // ── Internal helpers ──────────────────────────────────────────────────────
+    /// Return the list of configured signers.
+    pub fn get_signers(env: Env) -> Vec<Address> {
+        env.storage()
+            .instance()
+            .get(&DataKey::Signers)
+            .expect("not initialized")
+    }
+
+    // — Internal helpers ——————————————————————————————————————————
 
     fn assert_signer(env: &Env, addr: &Address) {
-        let (a, b, c): (Address, Address, Address) = env
+        let signers: Vec<Address> = env
             .storage()
             .instance()
             .get(&DataKey::Signers)
             .expect("not initialized");
-        if *addr != a && *addr != b && *addr != c {
+        let mut found = false;
+        for i in 0..signers.len() {
+            if signers.get(i).unwrap() == *addr {
+                found = true;
+                break;
+            }
+        }
+        if !found {
             panic!("not a signer");
         }
     }
 }
 
-// ── Tests ─────────────────────────────────────────────────────────────────────
+// — Tests ———————————————————————————————————————————————————————————
 
 #[cfg(test)]
 mod tests {
-    use soroban_sdk::{testutils::Address as _, Address, Env};
+    use soroban_sdk::{testutils::Address as _, Address, Env, Vec};
 
-    use crate::{ProposalStatus, Treasury, TreasuryClient};
-
-    // ── helpers ──────────────────────────────────────────────────────────────
+    use crate::{ProposalStatus, Treasury, TreasuryClient, EMERGENCY_THRESHOLD};
 
     fn deploy_token(env: &Env, admin: &Address) -> Address {
         env.register_stellar_asset_contract_v2(admin.clone()).address()
@@ -263,9 +338,7 @@ mod tests {
     struct Ctx {
         env: Env,
         contract: Address,
-        sa: Address,
-        sb: Address,
-        sc: Address,
+        signers: Vec<Address>,
         token: Address,
     }
 
@@ -274,43 +347,42 @@ mod tests {
         env.mock_all_auths();
         let admin = Address::generate(&env);
         let token = deploy_token(&env, &admin);
-        let sa = Address::generate(&env);
-        let sb = Address::generate(&env);
-        let sc = Address::generate(&env);
+        let mut signers = Vec::new(&env);
+        for _ in 0..7 {
+            signers.push_back(Address::generate(&env));
+        }
         let contract = env.register(Treasury, ());
-        TreasuryClient::new(&env, &contract).initialize(&sa, &sb, &sc, &token);
-        Ctx { env, contract, sa, sb, sc, token }
+        TreasuryClient::new(&env, &contract).initialize(&signers, &token);
+        Ctx { env, contract, signers, token }
     }
 
-    // ── happy path ────────────────────────────────────────────────────────────
+    #[test]
+    fn test_propose_and_four_approvals_execute_transfer() {
+        let Ctx { env, contract, signers, token } = setup();
+        let client = TreasuryClient::new(&env, &contract);
+        mint(&env, &token, &contract, 10_000);
+        let recipient = Address::generate(&env);
+        let pid = client.propose(&signers.get(0).unwrap(), &recipient, &1_000);
+        assert_eq!(client.approval_count(&pid), 1);
+        client.approve(&signers.get(1).unwrap(), &pid);
+        client.approve(&signers.get(2).unwrap(), &pid);
+        client.approve(&signers.get(3).unwrap(), &pid);
+        assert_eq!(soroban_sdk::token::Client::new(&env, &token).balance(&recipient), 1_000);
+        assert_eq!(client.get_proposal(&pid).status, ProposalStatus::Executed);
+    }
 
     #[test]
-    fn test_propose_and_approve_executes_transfer() {
-        let Ctx { env, contract, sa, sb, token, .. } = setup();
+    fn test_three_approvals_not_enough() {
+        let Ctx { env, contract, signers, token } = setup();
         let client = TreasuryClient::new(&env, &contract);
-        mint(&env, &token, &contract, 1_000);
-
+        mint(&env, &token, &contract, 10_000);
         let recipient = Address::generate(&env);
-        let proposal_id = client.propose(&sa, &recipient, &500);
+        let pid = client.propose(&signers.get(0).unwrap(), &recipient, &1_000);
+        client.approve(&signers.get(1).unwrap(), &pid);
+        client.approve(&signers.get(2).unwrap(), &pid);
         assert_eq!(soroban_sdk::token::Client::new(&env, &token).balance(&recipient), 0);
-
-        client.approve(&sb, &proposal_id);
-
-        assert_eq!(soroban_sdk::token::Client::new(&env, &token).balance(&recipient), 500);
-        assert_eq!(client.get_proposal(&proposal_id).status, ProposalStatus::Executed);
-    }
-
-    #[test]
-    fn test_third_signer_can_also_approve() {
-        let Ctx { env, contract, sa, sc, token, .. } = setup();
-        let client = TreasuryClient::new(&env, &contract);
-        mint(&env, &token, &contract, 1_000);
-
-        let recipient = Address::generate(&env);
-        let proposal_id = client.propose(&sa, &recipient, &300);
-        client.approve(&sc, &proposal_id);
-
-        assert_eq!(soroban_sdk::token::Client::new(&env, &token).balance(&recipient), 300);
+        assert_eq!(client.get_proposal(&pid).status, ProposalStatus::Open);
+        assert_eq!(client.approval_count(&pid), 3);
     }
 
     #[test]
@@ -325,22 +397,55 @@ mod tests {
 
     #[test]
     fn test_cancel_open_proposal() {
-        let Ctx { env, contract, sa, token, .. } = setup();
+        let Ctx { env, contract, signers, token } = setup();
         let client = TreasuryClient::new(&env, &contract);
         mint(&env, &token, &contract, 1_000);
         let recipient = Address::generate(&env);
-        let proposal_id = client.propose(&sa, &recipient, &100);
-        client.cancel(&sa, &proposal_id);
-        assert_eq!(client.get_proposal(&proposal_id).status, ProposalStatus::Cancelled);
+        let pid = client.propose(&signers.get(0).unwrap(), &recipient, &100);
+        client.cancel(&signers.get(0).unwrap(), &pid);
+        assert_eq!(client.get_proposal(&pid).status, ProposalStatus::Cancelled);
     }
 
-    // ── error paths ───────────────────────────────────────────────────────────
+    #[test]
+    fn test_emergency_flag_set_for_large_transfers() {
+        let Ctx { env, contract, signers, .. } = setup();
+        let client = TreasuryClient::new(&env, &contract);
+        let recipient = Address::generate(&env);
+        let pid_normal = client.propose(&signers.get(0).unwrap(), &recipient, &1_000);
+        assert!(!client.is_emergency(&pid_normal));
+        let pid_emerg = client.propose(&signers.get(0).unwrap(), &recipient, &EMERGENCY_THRESHOLD);
+        assert!(client.is_emergency(&pid_emerg));
+    }
+
+    #[test]
+    fn test_seven_signers_retrieved_correctly() {
+        let Ctx { env, contract, signers, .. } = setup();
+        let client = TreasuryClient::new(&env, &contract);
+        let stored = client.get_signers();
+        assert_eq!(stored.len(), 7);
+        for i in 0..7u32 {
+            assert_eq!(stored.get(i).unwrap(), signers.get(i).unwrap());
+        }
+    }
 
     #[test]
     #[should_panic(expected = "already initialized")]
     fn test_double_init_rejected() {
-        let Ctx { env, contract, sa, sb, sc, token } = setup();
-        TreasuryClient::new(&env, &contract).initialize(&sa, &sb, &sc, &token);
+        let Ctx { env, contract, signers, token } = setup();
+        TreasuryClient::new(&env, &contract).initialize(&signers, &token);
+    }
+
+    #[test]
+    #[should_panic(expected = "must supply exactly 7 signers")]
+    fn test_wrong_signer_count_rejected() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let admin = Address::generate(&env);
+        let token = deploy_token(&env, &admin);
+        let contract = env.register(Treasury, ());
+        let mut signers = Vec::new(&env);
+        for _ in 0..3 { signers.push_back(Address::generate(&env)); }
+        TreasuryClient::new(&env, &contract).initialize(&signers, &token);
     }
 
     #[test]
@@ -350,20 +455,22 @@ mod tests {
         env.mock_all_auths();
         let admin = Address::generate(&env);
         let token = deploy_token(&env, &admin);
-        let sa = Address::generate(&env);
+        let dup = Address::generate(&env);
         let contract = env.register(Treasury, ());
-        TreasuryClient::new(&env, &contract).initialize(&sa, &sa, &sa, &token);
+        let mut signers = Vec::new(&env);
+        for _ in 0..7 { signers.push_back(dup.clone()); }
+        TreasuryClient::new(&env, &contract).initialize(&signers, &token);
     }
 
     #[test]
-    #[should_panic(expected = "proposer cannot also approve")]
+    #[should_panic(expected = "signer already approved")]
     fn test_proposer_cannot_approve_own_proposal() {
-        let Ctx { env, contract, sa, token, .. } = setup();
+        let Ctx { env, contract, signers, token } = setup();
         let client = TreasuryClient::new(&env, &contract);
         mint(&env, &token, &contract, 1_000);
         let recipient = Address::generate(&env);
-        let proposal_id = client.propose(&sa, &recipient, &100);
-        client.approve(&sa, &proposal_id);
+        let pid = client.propose(&signers.get(0).unwrap(), &recipient, &100);
+        client.approve(&signers.get(0).unwrap(), &pid);
     }
 
     #[test]
@@ -380,12 +487,24 @@ mod tests {
     #[test]
     #[should_panic(expected = "proposal is not open")]
     fn test_approve_cancelled_proposal_rejected() {
-        let Ctx { env, contract, sa, sb, token, .. } = setup();
+        let Ctx { env, contract, signers, token } = setup();
         let client = TreasuryClient::new(&env, &contract);
         mint(&env, &token, &contract, 1_000);
         let recipient = Address::generate(&env);
-        let proposal_id = client.propose(&sa, &recipient, &100);
-        client.cancel(&sa, &proposal_id);
-        client.approve(&sb, &proposal_id);
+        let pid = client.propose(&signers.get(0).unwrap(), &recipient, &100);
+        client.cancel(&signers.get(0).unwrap(), &pid);
+        client.approve(&signers.get(1).unwrap(), &pid);
+    }
+
+    #[test]
+    #[should_panic(expected = "signer already approved")]
+    fn test_double_approve_rejected() {
+        let Ctx { env, contract, signers, token } = setup();
+        let client = TreasuryClient::new(&env, &contract);
+        mint(&env, &token, &contract, 1_000);
+        let recipient = Address::generate(&env);
+        let pid = client.propose(&signers.get(0).unwrap(), &recipient, &100);
+        client.approve(&signers.get(1).unwrap(), &pid);
+        client.approve(&signers.get(1).unwrap(), &pid);
     }
 }

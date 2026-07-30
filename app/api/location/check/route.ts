@@ -9,7 +9,10 @@ export async function POST(request: Request) {
     const regionCode = String(body?.regionCode ?? '').trim();
 
     if (!Number.isFinite(latitude) || !Number.isFinite(longitude) || !regionCode) {
-      return NextResponse.json({ error: 'latitude, longitude, and regionCode are required' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'latitude, longitude, and regionCode are required' },
+        { status: 400 }
+      );
     }
 
     return NextResponse.json({

@@ -1,0 +1,175 @@
+﻿cargo : warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+At line:4 char:111
++ ... \contracts; cargo build --target wasm32-unknown-unknown -p tree-regis ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (warning: profil...workspace root::String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+package:   C:\Users\Dev\Desktop\jessica\stellar-app-os\contracts\planter-registry\Cargo.toml
+workspace: C:\Users\Dev\Desktop\jessica\stellar-app-os\contracts\Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   C:\Users\Dev\Desktop\jessica\stellar-app-os\contracts\admin-controls\Cargo.toml
+workspace: C:\Users\Dev\Desktop\jessica\stellar-app-os\contracts\Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   C:\Users\Dev\Desktop\jessica\stellar-app-os\contracts\planter-blacklist\Cargo.toml
+workspace: C:\Users\Dev\Desktop\jessica\stellar-app-os\contracts\Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   C:\Users\Dev\Desktop\jessica\stellar-app-os\contracts\escrow\Cargo.toml
+workspace: C:\Users\Dev\Desktop\jessica\stellar-app-os\contracts\Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   C:\Users\Dev\Desktop\jessica\stellar-app-os\contracts\nullifier-registry\Cargo.toml
+workspace: C:\Users\Dev\Desktop\jessica\stellar-app-os\contracts\Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   C:\Users\Dev\Desktop\jessica\stellar-app-os\contracts\escrow-milestone\Cargo.toml
+workspace: C:\Users\Dev\Desktop\jessica\stellar-app-os\contracts\Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   C:\Users\Dev\Desktop\jessica\stellar-app-os\contracts\tree-escrow\Cargo.toml
+workspace: C:\Users\Dev\Desktop\jessica\stellar-app-os\contracts\Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   C:\Users\Dev\Desktop\jessica\stellar-app-os\contracts\farmer-registry\Cargo.toml
+workspace: C:\Users\Dev\Desktop\jessica\stellar-app-os\contracts\Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   C:\Users\Dev\Desktop\jessica\stellar-app-os\contracts\donation-escrow\Cargo.toml
+workspace: C:\Users\Dev\Desktop\jessica\stellar-app-os\contracts\Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   C:\Users\Dev\Desktop\jessica\stellar-app-os\contracts\zk-location-verifier\Cargo.toml
+workspace: C:\Users\Dev\Desktop\jessica\stellar-app-os\contracts\Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   C:\Users\Dev\Desktop\jessica\stellar-app-os\contracts\zk-verifier\Cargo.toml
+workspace: C:\Users\Dev\Desktop\jessica\stellar-app-os\contracts\Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   C:\Users\Dev\Desktop\jessica\stellar-app-os\contracts\location-proof\Cargo.toml
+workspace: C:\Users\Dev\Desktop\jessica\stellar-app-os\contracts\Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   C:\Users\Dev\Desktop\jessica\stellar-app-os\contracts\naira-payout\Cargo.toml
+workspace: C:\Users\Dev\Desktop\jessica\stellar-app-os\contracts\Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   C:\Users\Dev\Desktop\jessica\stellar-app-os\contracts\aggregate-impact-verifier\Cargo.toml
+workspace: C:\Users\Dev\Desktop\jessica\stellar-app-os\contracts\Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   C:\Users\Dev\Desktop\jessica\stellar-app-os\contracts\tree-token\Cargo.toml
+workspace: C:\Users\Dev\Desktop\jessica\stellar-app-os\contracts\Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   C:\Users\Dev\Desktop\jessica\stellar-app-os\contracts\treasury\Cargo.toml
+workspace: C:\Users\Dev\Desktop\jessica\stellar-app-os\contracts\Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   C:\Users\Dev\Desktop\jessica\stellar-app-os\contracts\carbon-credits\Cargo.toml
+workspace: C:\Users\Dev\Desktop\jessica\stellar-app-os\contracts\Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   C:\Users\Dev\Desktop\jessica\stellar-app-os\contracts\kyc-attestation\Cargo.toml
+workspace: C:\Users\Dev\Desktop\jessica\stellar-app-os\contracts\Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   C:\Users\Dev\Desktop\jessica\stellar-app-os\contracts\species-registry\Cargo.toml
+workspace: C:\Users\Dev\Desktop\jessica\stellar-app-os\contracts\Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   C:\Users\Dev\Desktop\jessica\stellar-app-os\contracts\species-voting\Cargo.toml
+workspace: C:\Users\Dev\Desktop\jessica\stellar-app-os\contracts\Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   C:\Users\Dev\Desktop\jessica\stellar-app-os\contracts\platform-governance\Cargo.toml
+workspace: C:\Users\Dev\Desktop\jessica\stellar-app-os\contracts\Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   C:\Users\Dev\Desktop\jessica\stellar-app-os\contracts\subscription-sponsorship\Cargo.toml
+workspace: C:\Users\Dev\Desktop\jessica\stellar-app-os\contracts\Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   C:\Users\Dev\Desktop\jessica\stellar-app-os\contracts\nft-certificate\Cargo.toml
+workspace: C:\Users\Dev\Desktop\jessica\stellar-app-os\contracts\Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   C:\Users\Dev\Desktop\jessica\stellar-app-os\contracts\sponsor-receipt\Cargo.toml
+workspace: C:\Users\Dev\Desktop\jessica\stellar-app-os\contracts\Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   C:\Users\Dev\Desktop\jessica\stellar-app-os\contracts\carbon-marketplace\Cargo.toml
+workspace: C:\Users\Dev\Desktop\jessica\stellar-app-os\contracts\Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   C:\Users\Dev\Desktop\jessica\stellar-app-os\contracts\tree-registry\Cargo.toml
+workspace: C:\Users\Dev\Desktop\jessica\stellar-app-os\contracts\Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   C:\Users\Dev\Desktop\jessica\stellar-app-os\contracts\verifier-staking\Cargo.toml
+workspace: C:\Users\Dev\Desktop\jessica\stellar-app-os\contracts\Cargo.toml
+   Compiling tree-registry v0.1.0 (C:\Users\Dev\Desktop\jessica\stellar-app-os\contracts\tree-registry)
+error: symbol too long: length 12, max 9
+   --> tree-registry\src\lib.rs:440:23
+    |
+440 |         symbol_short!("SPECIES_LIST")
+    |                       ^^^^^^^^^^^^^^
+
+error: symbol too long: length 13, max 9
+   --> tree-registry\src\lib.rs:444:24
+    |
+444 |         (symbol_short!("SPECIES_TREES"), species.clone()).into_val(env)
+    |                        ^^^^^^^^^^^^^^^
+
+error[E0308]: mismatched types
+   --> tree-registry\src\lib.rs:392:24
+    |
+387 |     pub fn get_species_count(env: Env, species: soroban_sdk::String) -> u64 {
+    |                                                                         --- this return type influences the call 
+expression's return type
+...
+392 |             .unwrap_or(0u64)
+    |              --------- ^^^^ expected `u32`, found `u64`
+    |              |
+    |              arguments to this method are incorrect
+    |
+help: the return type of this call is `u64` due to the type of the argument passed
+   --> tree-registry\src\lib.rs:388:9
+    |
+388 | /         env.storage()
+389 | |             .persistent()
+390 | |             .get(&Self::species_trees_key(&env, &species))
+391 | |             .map(|v: Vec<u64>| v.len())
+392 | |             .unwrap_or(0u64)
+    | |________________________----^
+    |                          |
+    |                          this argument influences the return type of `unwrap_or`
+note: method defined here
+   --> /rustc/8bab26f4f68e0e26f0bb7960be334d5b520ea452/library/core/src/option.rs:1035:17
+help: change the type of the numeric literal from `u64` to `u32`
+    |
+392 -             .unwrap_or(0u64)
+392 +             .unwrap_or(0u32)
+    |
+
+error[E0308]: mismatched types
+   --> tree-registry\src\lib.rs:388:9
+    |
+387 |       pub fn get_species_count(env: Env, species: soroban_sdk::String) -> u64 {
+    |                                                                           --- expected `u64` because of return 
+type
+388 | /         env.storage()
+389 | |             .persistent()
+390 | |             .get(&Self::species_trees_key(&env, &species))
+391 | |             .map(|v: Vec<u64>| v.len())
+392 | |             .unwrap_or(0u64)
+    | |____________________________^ expected `u64`, found `u32`
+    |
+help: you can convert a `u32` to a `u64`
+    |
+392 |             .unwrap_or(0u64).into()
+    |                             +++++++
+
+error[E0277]: the trait bound `soroban_sdk::Val: TryFromVal<Env, K>` is not satisfied
+   --> tree-registry\src\lib.rs:465:25
+    |
+465 |             .extend_ttl(key, DEFAULT_PERSISTENT_TTL, DEFAULT_PERSISTENT_TTL);
+    |              ---------- ^^^ the trait `TryFromVal<Env, K>` is not implemented for `soroban_sdk::Val`
+    |              |
+    |              required by a bound introduced by this call
+    |
+    = note: required for `soroban_sdk::Val` to implement `FromVal<Env, K>`
+    = note: required for `K` to implement `IntoVal<Env, soroban_sdk::Val>`
+note: required by a bound in `soroban_sdk::storage::Persistent::extend_ttl`
+   --> C:\Users\Dev\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\soroban-sdk-21.7.7\src\storage.rs:375:12
+    |
+373 |     pub fn extend_ttl<K>(&self, key: &K, threshold: u32, extend_to: u32)
+    |            ---------- required by a bound in this associated function
+374 |     where
+375 |         K: IntoVal<Env, Val>,
+    |            ^^^^^^^^^^^^^^^^^ required by this bound in `Persistent::extend_ttl`
+help: consider introducing a `where` clause, but there might be an alternative better way to express this requirement
+    |
+462 |     fn extend_persistent<K>(env: &Env, key: &K) where soroban_sdk::Val: TryFromVal<Env, K> {
+    |                                                 ++++++++++++++++++++++++++++++++++++++++++
+
+Some errors have detailed explanations: E0277, E0308.
+For more information about an error, try `rustc --explain E0277`.
+error: could not compile `tree-registry` (lib) due to 5 previous errors

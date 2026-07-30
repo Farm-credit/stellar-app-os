@@ -11,6 +11,7 @@ import { mockCarbonProjects } from '@/lib/api/mock/carbonProjects';
 import { trackEvent } from '@/lib/analytics';
 import type { CreditSelectionState } from '@/lib/types/carbon';
 import type { NetworkType } from '@/lib/types/wallet';
+import { useToast } from '@/contexts/ToastContext';
 
 export interface CreditConfirmationProps {
   selection: CreditSelectionState;
@@ -24,6 +25,7 @@ export function CreditConfirmation({
   network,
 }: CreditConfirmationProps) {
   const router = useRouter();
+  const { toast } = useToast();
   const selectedProject = mockCarbonProjects.find((p) => p.id === selection.projectId);
 
   useEffect(() => {
@@ -35,12 +37,36 @@ export function CreditConfirmation({
       transactionHash,
       network,
     });
+
+    // Trigger toast alerts for blockchain confirmation and tree sponsorship
+    toast.contract(
+      'Payment Received',
+      `Payment of ${selection.calculatedPrice.toFixed(2)} USDC confirmed on the Stellar network.`
+    );
+
+    const timer = setTimeout(() => {
+      toast.contract(
+        'Tree Sponsored',
+        `Successfully sponsored tree planting under ${selectedProject?.name || 'Project'}. Quantity: ${selection.quantity.toFixed(2)} tons of CO₂.`,
+        {
+          label: 'View Project',
+          onClick: () => {
+            router.push(`/admin/projects/${selection.projectId}`);
+          },
+        }
+      );
+    }, 1200);
+
+    return () => clearTimeout(timer);
   }, [
     selection.projectId,
     selection.quantity,
     selection.calculatedPrice,
     transactionHash,
     network,
+    selectedProject,
+    toast,
+    router,
   ]);
 
   const handleViewPortfolio = () => {

@@ -1,0 +1,55 @@
+{
+  "$schema": "./deploy.config.schema.json",
+  "_comment": "All values shown are the defaults. Copy to scripts/deploy.config.json (gitignored by convention) and edit per-environment.",
+
+  "network": "testnet",
+  "identity": "admin",
+
+  "_namespace_comment": "If you keep multiple deployments under different identities you can override their tokens here.",
+  "assets": {
+    "xlm": { "address_env": "XLM_TOKEN_ADDRESS" },
+    "usdc": { "address_env": "USDC_TOKEN_ADDRESS" },
+    "tree": {
+      "address_env": "TREE_TOKEN_ADDRESS",
+      "deploy_if_missing": true,
+      "lock_issuer": false
+    },
+    "stake_token": {
+      "address_env": "STAKE_TOKEN_ADDRESS",
+      "default_to": "usdc",
+      "min_stake_amount": 100000000
+    }
+  },
+
+  "_contracts_comment": "Per-contract tuning knobs. All contracts are deployed unless listed under `skip` below.",
+  "contracts": {
+    "skip": [],
+    "only": [],
+    "force": false,
+
+    "verifier-staking": {
+      "min_stake_amount": 100000000
+    },
+    "species-voting": {
+      "voting_threshold": 10000000000,
+      "voting_period_seconds": 604800
+    },
+    "platform-governance": {
+      "platform_fee_percent": 5,
+      "min_planting_bond": 1000000
+    },
+    "tree-escrow": {
+      "survival_threshold_percent": 70,
+      "min_density": 1000,
+      "job_size_threshold": 10
+    },
+    "naira-payout": {
+      "anchor_withdrawal_env": "NAIRA_ANCHOR_ADDRESS",
+      "min_interval_secs": 3600,
+      "max_daily_payout": 100000000
+    },
+    "treasury": {
+      "_comment": "Treasury is a multisig; supply signer_a/b/c via TREASURY_SIGNER_A/B/C env vars (distinct addresses)."
+    }
+  }
+}

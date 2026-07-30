@@ -1,126 +1,133 @@
-'use client';
-
-import { Text } from '@/components/atoms/Text';
+import * as React from 'react';
+import Image from 'next/image';
 import { Badge } from '@/components/atoms/Badge';
-import { HeartIcon } from 'lucide-react';
-import { toast } from 'sonner';
-import { useFavorites } from '@/contexts/FavouritesContext';
+import { Button } from '@/components/atoms/Button';
+import { Text } from '@/components/atoms/Text';
+import { Card, CardContent, CardFooter, CardHeader } from '@/components/molecules/Card';
+import { MapPin, ImageOff } from 'lucide-react';
 import type { CarbonProject } from '@/lib/types/carbon';
 
-export function ProjectCard({ project }: { project: CarbonProject }) {
-  const { isFavorited, toggleFavorite, undoRemove } = useFavorites();
+export interface ProjectCardProps {
+  project: CarbonProject;
+}
 
-  const handleToggle = (projectId: string) => {
-    const alreadyFavorited = isFavorited(projectId);
+const typeConfig: Record<string, { label: string; colorClass: string }> = {
+  Reforestation: { label: 'Reforestation', colorClass: 'bg-stellar-green' },
+  'Renewable Energy': {
+    label: 'Renewable Energy',
+    colorClass: 'bg-stellar-cyan text-stellar-navy',
+  },
+  'Mangrove Restoration': { label: 'Mangrove Restoration', colorClass: 'bg-stellar-purple' },
+  'Sustainable Agriculture': { label: 'Sustainable Agriculture', colorClass: 'bg-stellar-purple' },
+  Conservation: { label: 'Conservation', colorClass: 'bg-stellar-purple' },
+};
 
-    toggleFavorite(projectId);
-
-    toast(
-      alreadyFavorited
-        ? `${project.name} removed from favorites`
-        : `${project.name} added to favorites!`,
-      {
-        action: {
-          label: 'Undo',
-          onClick: () => undoRemove(),
-        },
-      }
-    );
+export function ProjectCard({ project }: ProjectCardProps) {
+  const badgeConfig = typeConfig[project.type] ?? {
+    label: project.type,
+    colorClass: 'bg-stellar-purple',
   };
+
+  const isSoldOut = project.isOutOfStock || project.availableSupply <= 0;
+
   return (
-    <div className="rounded-lg border bg-card p-6 space-y-4 hover:shadow-lg transition-shadow">
-      <div className="flex justify-end">
-        <button
-          onClick={() => handleToggle(project.id)}
-          aria-label={isFavorited(project.id) ? 'Remove from favorites' : 'Add to favorites'}
-          aria-pressed={isFavorited(project.id)}
-        >
-          <HeartIcon
-            className={
-              isFavorited(project.id) ? 'fill-red-500 stroke-red-500' : 'fill-none stroke-current'
-            }
-          />
-        </button>
-      </div>
-      <div>
-        <div className="flex items-start justify-between mb-2">
-          <Text variant="h4" as="h3" className="font-semibold">
-            {project.name}
-          </Text>
+    <Card className="overflow-hidden flex flex-col hover:shadow-lg transition-shadow">
+      <CardHeader className="p-0 relative">
+        <div className="relative w-full h-48 bg-secondary/50">
+          {project.imageUrl ? (
+            <Image
+              src={project.imageUrl}
+              alt={project.name}
+              fill
+              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+              className="object-cover"
+            />
+          ) : (
+            <div className="flex h-full w-full flex-col items-center justify-center text-muted-foreground">
+              <ImageOff className="h-10 w-10 mb-2 opacity-50" />
+              <Text variant="small">No image available</Text>
+            </div>
+          )}
+
+          <div className="absolute top-3 right-3 z-10">
+            <Badge className={`border-none ${badgeConfig.colorClass}`}>{badgeConfig.label}</Badge>
+          </div>
+
           {project.isOutOfStock && (
-            <Badge variant="outline" className="ml-2">
-              Out of Stock
-            </Badge>
+            <div className="absolute top-3 left-3 z-10">
+              <Badge variant="outline" className="bg-background/80 backdrop-blur">
+                Out of Stock
+              </Badge>
+            </div>
           )}
         </div>
-        <Text variant="muted" as="p" className="text-sm">
-          {project.description}
-        </Text>
-      </div>
+      </CardHeader>
 
-      <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <Text variant="small" as="span" className="text-muted-foreground">
-            Type
+      <CardContent className="p-5 pt-4 flex-grow flex flex-col gap-3">
+        <div className="flex items-start justify-between gap-2">
+          <Text variant="h4" as="h3" className="font-semibold leading-tight">
+            {project.name}
           </Text>
-          <Badge variant="default">{project.type}</Badge>
         </div>
-        <div className="flex items-center justify-between">
-          <Text variant="small" as="span" className="text-muted-foreground">
-            Location
-          </Text>
-          <Text variant="small" as="span">
+
+        <div className="flex items-center gap-1 text-muted-foreground">
+          <MapPin className="h-3.5 w-3.5" aria-hidden="true" />
+          <Text variant="small" as="span" className="text-xs">
             {project.location}
           </Text>
         </div>
-        <div className="flex items-center justify-between">
-          <Text variant="small" as="span" className="text-muted-foreground">
-            Vintage Year
-          </Text>
-          <Text variant="small" as="span">
-            {project.vintageYear}
-          </Text>
-        </div>
-        <div className="flex items-center justify-between">
-          <Text variant="small" as="span" className="text-muted-foreground">
-            Price per Ton
-          </Text>
-          <Text variant="small" as="span" className="font-semibold">
-            ${project.pricePerTon.toFixed(2)}
-          </Text>
-        </div>
-        <div className="flex items-center justify-between">
-          <Text variant="small" as="span" className="text-muted-foreground">
-            Available
-          </Text>
-          <Text variant="small" as="span">
-            {project.availableSupply.toFixed(2)} tons
-          </Text>
-        </div>
-      </div>
 
-      {project.coBenefits.length > 0 && (
-        <div>
-          <Text variant="small" as="span" className="text-muted-foreground block mb-2">
-            Co-benefits
-          </Text>
-          <div className="flex flex-wrap gap-2">
-            {project.coBenefits.map((benefit) => (
-              <Badge
-                key={benefit}
-                variant="accent"
-                className="bg-stellar-purple/10 text-stellar-purple border-stellar-purple/20"
-              >
-                {benefit}
-              </Badge>
-            ))}
+        <Text variant="muted" className="line-clamp-2 text-sm">
+          {project.description}
+        </Text>
+
+        <div className="mt-auto pt-2 space-y-1.5">
+          <div className="flex items-center justify-between">
+            <Text variant="small" as="span" className="text-muted-foreground text-xs">
+              Price per Ton
+            </Text>
+            <Text variant="small" as="span" className="font-semibold">
+              ${project.pricePerTon.toFixed(2)}
+            </Text>
+          </div>
+          <div className="flex items-center justify-between">
+            <Text variant="small" as="span" className="text-muted-foreground text-xs">
+              Available
+            </Text>
+            <Text variant="small" as="span">
+              {project.availableSupply.toFixed(2)} tons
+            </Text>
+          </div>
+          <div className="flex items-center justify-between">
+            <Text variant="small" as="span" className="text-muted-foreground text-xs">
+              Vintage
+            </Text>
+            <Text variant="small" as="span">
+              {project.vintageYear}
+            </Text>
           </div>
         </div>
-      )}
+      </CardContent>
 
-      <div className="pt-4 border-t">
-        <Badge variant="success">{project.verificationStatus}</Badge>
-      </div>
-    </div>
+      <CardFooter className="p-5 pt-4 border-t bg-muted/20 flex items-center justify-between flex-none gap-3">
+        <div className="flex flex-col">
+          <Text variant="small" className="text-muted-foreground text-xs leading-tight">
+            Price
+          </Text>
+          <div className="flex items-baseline gap-1">
+            <Text variant="h4">${project.pricePerTon.toFixed(2)}</Text>
+            <Text variant="small" className="text-muted-foreground text-xs">
+              /ton
+            </Text>
+          </div>
+        </div>
+
+        <Button stellar="primary" disabled={isSoldOut} className="w-full sm:w-auto font-semibold">
+          {isSoldOut ? 'Sold Out' : 'Donate'}
+        </Button>
+      </CardFooter>
+    </Card>
   );
 }
+
+export default ProjectCard;

@@ -1,0 +1,14 @@
+{
+  "name": "carbon-token-mint",
+  "version": "0.1.0",
+  "description": "Simple Stellar testnet minting tool for a transferable CO2 token (1 token = 1 kg CO2)",
+  "main": "mint.js",
+  "scripts": {
+    "mint": "node mint.js"
+  },
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "stellar-sdk": "^10.0.0"
+  }
+}

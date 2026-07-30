@@ -5,10 +5,18 @@
  * species catalogue. Voting power is proportional to TREE token holdings.
  */
 
-import { TransactionBuilder, Operation, BASE_FEE } from '@stellar/stellar-sdk';
+import {
+  TransactionBuilder,
+  BASE_FEE,
+  type xdr,
+  Contract,
+  scValToNative,
+} from '@stellar/stellar-sdk';
 import { Horizon } from '@stellar/stellar-sdk';
 import type { NetworkType } from '@/lib/types/wallet';
 import { networkConfig } from '@/lib/config/network';
+
+const TX_TIMEOUT_SECONDS = 300;
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -23,11 +31,11 @@ export interface ProposalRecord {
   id: number;
   slug: string;
   name: string;
-  co2_scaled: number;
+  co2_scaled: bigint;
   maturity_years: number;
   proposer: string;
-  votes_for: number;
-  votes_against: number;
+  votes_for: bigint;
+  votes_against: bigint;
   status: ProposalStatus;
   created_at: number;
   voting_ends_at: number;
@@ -36,23 +44,24 @@ export interface ProposalRecord {
 export interface VoteRecord {
   voter: string;
   vote_for: boolean;
-  power: number;
+  power: bigint;
   voted_at: number;
 }
 
 // ── Contract configuration ─────────────────────────────────────────────────────
 
-// TODO: Update with actual deployed contract addresses
-export const SPECIES_VOTING_CONTRACT_TESTNET = '' as const;
-export const SPECIES_VOTING_CONTRACT_MAINNET = '' as const;
+export const SPECIES_VOTING_CONTRACT_TESTNET =
+  (process.env.NEXT_PUBLIC_SPECIES_VOTING_CONTRACT_TESTNET as string) ?? '';
+export const SPECIES_VOTING_CONTRACT_MAINNET =
+  (process.env.NEXT_PUBLIC_SPECIES_VOTING_CONTRACT_MAINNET as string) ?? '';
 
 export function getSpeciesVotingContract(network: NetworkType): string {
   const address =
-    network === 'mainnet'
-      ? SPECIES_VOTING_CONTRACT_MAINNET
-      : SPECIES_VOTING_CONTRACT_TESTNET;
+    network === 'mainnet' ? SPECIES_VOTING_CONTRACT_MAINNET : SPECIES_VOTING_CONTRACT_TESTNET;
   if (!address) {
-    throw new Error('Species voting contract not deployed for this network');
+    throw new Error(
+      `Species voting contract not configured for ${network} network. Check your environment variables.`
+    );
   }
   return address;
 }
@@ -60,58 +69,24 @@ export function getSpeciesVotingContract(network: NetworkType): string {
 // ── Transaction builders ───────────────────────────────────────────────────────
 
 /**
- * Build a transaction to propose a new species.
- *
- * @param proposerPublicKey - Wallet address proposing the species
- * @param slug - Short identifier (e.g., "mahogany")
- * @param name - Human-readable name
- * @param co2_scaled - kg CO₂/year × 100
- * @param maturity_years - Years to biomass maturity
- * @param network - "testnet" | "mainnet"
- *
- * @returns Unsigned transaction XDR ready for signing
+ * A generic helper to build a transaction for a contract call.
+ * @private
  */
-export async function buildProposeSpeciesTransaction(
-  proposerPublicKey: string,
-  slug: string,
-  name: string,
-  co2_scaled: number,
-  maturity_years: number,
-  network: NetworkType
+async function buildContractCallTransaction(
+  userPublicKey: string,
+  network: NetworkType,
+  operation: xdr.Operation
 ): Promise<{ transactionXdr: string; networkPassphrase: string }> {
-  if (co2_scaled <= 0) {
-    throw new Error('co2_scaled must be positive');
-  }
-  if (maturity_years === 0) {
-    throw new Error('maturity_years must be > 0');
-  }
-
   const server = new Horizon.Server(networkConfig.horizonUrl);
-  const proposerAccount = await server.loadAccount(proposerPublicKey);
+  const userAccount = await server.loadAccount(userPublicKey);
   const networkPassphrase = networkConfig.networkPassphrase;
 
-  // TODO: Replace with actual Soroban contract invocation
-  // This is a placeholder - actual implementation will use soroban-sdk
-  const transaction = new TransactionBuilder(proposerAccount, {
+  const transaction = new TransactionBuilder(userAccount, {
     fee: BASE_FEE,
     networkPassphrase,
+    timebounds: await server.fetchTimebounds(TX_TIMEOUT_SECONDS),
   })
-    .addOperation(
-      Operation.invokeHostFunction({
-        func: {
-          args: [
-            // Contract function args will go here
-          ],
-          auth: [],
-        },
-        hostFunction: {
-          type: 'invokeContract',
-          contractId: getSpeciesVotingContract(network),
-          functionName: 'propose_species',
-        },
-      })
-    )
-    .setTimeout(300)
+    .addOperation(operation)
     .build();
 
   return {
@@ -121,14 +96,36 @@ export async function buildProposeSpeciesTransaction(
 }
 
 /**
+ * Build a transaction to propose a new species.
+ */
+export async function buildProposeSpeciesTransaction(
+  proposerPublicKey: string,
+  slug: string,
+  name: string,
+  co2_scaled: bigint,
+  maturity_years: number,
+  network: NetworkType
+): Promise<{ transactionXdr: string; networkPassphrase: string }> {
+  if (co2_scaled <= 0n) {
+    throw new Error('co2_scaled must be positive');
+  }
+  if (maturity_years === 0) {
+    throw new Error('maturity_years must be > 0');
+  }
+
+  const contract = new Contract(getSpeciesVotingContract(network));
+  const operation = contract.call('propose_species', {
+    slug,
+    name,
+    co2_scaled,
+    maturity_years,
+  });
+
+  return buildContractCallTransaction(proposerPublicKey, network, operation);
+}
+
+/**
  * Build a transaction to vote on a proposal.
- *
- * @param voterPublicKey - Wallet address voting
- * @param proposalId - Proposal ID to vote on
- * @param voteFor - true to vote for, false to vote against
- * @param network - "testnet" | "mainnet"
- *
- * @returns Unsigned transaction XDR ready for signing
  */
 export async function buildVoteTransaction(
   voterPublicKey: string,
@@ -136,80 +133,64 @@ export async function buildVoteTransaction(
   voteFor: boolean,
   network: NetworkType
 ): Promise<{ transactionXdr: string; networkPassphrase: string }> {
-  const server = new Horizon.Server(networkConfig.horizonUrl);
-  const voterAccount = await server.loadAccount(voterPublicKey);
-  const networkPassphrase = networkConfig.networkPassphrase;
+  const contract = new Contract(getSpeciesVotingContract(network));
+  const operation = contract.call('vote', {
+    proposal_id: proposalId,
+    vote_for: voteFor,
+  });
 
-  // TODO: Replace with actual Soroban contract invocation
-  const transaction = new TransactionBuilder(voterAccount, {
-    fee: BASE_FEE,
-    networkPassphrase,
-  })
-    .addOperation(
-      Operation.invokeHostFunction({
-        func: {
-          args: [],
-          auth: [],
-        },
-        hostFunction: {
-          type: 'invokeContract',
-          contractId: getSpeciesVotingContract(network),
-          functionName: 'vote',
-        },
-      })
-    )
-    .setTimeout(300)
-    .build();
-
-  return {
-    transactionXdr: transaction.toXDR(),
-    networkPassphrase,
-  };
+  return buildContractCallTransaction(voterPublicKey, network, operation);
 }
 
 /**
  * Build a transaction to execute a passed proposal.
- *
- * @param executorPublicKey - Wallet address executing the proposal
- * @param proposalId - Proposal ID to execute
- * @param network - "testnet" | "mainnet"
- *
- * @returns Unsigned transaction XDR ready for signing
  */
 export async function buildExecuteProposalTransaction(
   executorPublicKey: string,
   proposalId: number,
   network: NetworkType
 ): Promise<{ transactionXdr: string; networkPassphrase: string }> {
+  const contract = new Contract(getSpeciesVotingContract(network));
+  const operation = contract.call('execute_proposal', {
+    proposal_id: proposalId,
+  });
+
+  return buildContractCallTransaction(executorPublicKey, network, operation);
+}
+
+// ── Read-only Functions ───────────────────────────────────────────────────────
+
+/**
+ * Fetches a single proposal's details from the contract.
+ * This is a read-only operation and does not require a transaction.
+ */
+export async function getProposal(
+  proposalId: number,
+  network: NetworkType
+): Promise<ProposalRecord> {
   const server = new Horizon.Server(networkConfig.horizonUrl);
-  const executorAccount = await server.loadAccount(executorPublicKey);
-  const networkPassphrase = networkConfig.networkPassphrase;
+  const contract = new Contract(getSpeciesVotingContract(network));
 
-  // TODO: Replace with actual Soroban contract invocation
-  const transaction = new TransactionBuilder(executorAccount, {
-    fee: BASE_FEE,
-    networkPassphrase,
-  })
-    .addOperation(
-      Operation.invokeHostFunction({
-        func: {
-          args: [],
-          auth: [],
-        },
-        hostFunction: {
-          type: 'invokeContract',
-          contractId: getSpeciesVotingContract(network),
-          functionName: 'execute_proposal',
-        },
-      })
-    )
-    .setTimeout(300)
-    .build();
+  // Prepare the read-only contract call
+  const operation = contract.call('get_proposal', { proposal_id: proposalId });
 
-  return {
-    transactionXdr: transaction.toXDR(),
-    networkPassphrase,
-  };
+  // Use `server.call()` for read-only invocations. This is a simulation.
+  const result = await server.call(operation);
+
+  if (result.status !== 'SUCCESS' || !result.returnValue) {
+    throw new Error(`Failed to fetch proposal #${proposalId}.`);
+  }
+
+  // The return value from the contract is in XDR format; it must be converted to a native JS type.
+  const parsedResult = scValToNative(result.returnValue);
+
+  // IMPORTANT: The `parsedResult` will be a raw object or map from the contract.
+  // You must manually map its properties to your `ProposalRecord` interface,
+  // ensuring types like `bigint` are handled correctly.
+  // For example: `votes_for: BigInt(parsedResult.votes_for)`
+  console.info('Raw proposal data from contract:', parsedResult);
+
+  return parsedResult as ProposalRecord;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -217,10 +198,13 @@ export async function buildExecuteProposalTransaction(
 /**
  * Calculate the percentage of votes in favor.
  */
-export function calculateVotePercentage(votesFor: number, votesAgainst: number): number {
+export function calculateVotePercentage(votesFor: bigint, votesAgainst: bigint): number {
   const total = votesFor + votesAgainst;
-  if (total === 0) return 0;
-  return (votesFor / total) * 100;
+  if (total === 0n) return 0;
+
+  // Use bigint arithmetic to avoid precision loss before converting to a number.
+  // Multiply by 10000 to get two decimal places of precision.
+  return Number((votesFor * 10000n) / total) / 100;
 }
 
 /**
@@ -236,12 +220,12 @@ export function isVotingActive(votingEndsAt: number): boolean {
 export function formatVotingTimeRemaining(votingEndsAt: number): string {
   const now = Date.now() / 1000;
   const remaining = votingEndsAt - now;
-  
+
   if (remaining <= 0) return 'Voting ended';
-  
- const days = Math.floor(remaining / 86400);
+
+  const days = Math.floor(remaining / 86400);
   const hours = Math.floor((remaining % 86400) / 3600);
-  
+
   if (days > 0) return `${days} day${days > 1 ? 's' : ''} remaining`;
   if (hours > 0) return `${hours} hour${hours > 1 ? 's' : ''} remaining`;
   return 'Less than 1 hour remaining';
