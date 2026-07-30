@@ -632,7 +632,7 @@ impl TreeToken {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use soroban_sdk::{testutils::Address as _, token, Address, Env, String};
+    use soroban_sdk::{testutils::{Address as _, Ledger as _}, token, Address, Env, String};
 
     // ── Burn test helpers ─────────────────────────────────────────────────────
 
@@ -733,7 +733,7 @@ mod tests {
     #[test]
     #[should_panic(expected = "Error(Contract, #1)")]
     fn test_double_initialize_rejected() {
-        let (env, admin, _, tree_token, client) = setup();
+        let (_env, admin, _, tree_token, client) = setup();
         client.initialize(&admin, &tree_token);
     }
 
