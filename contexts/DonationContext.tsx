@@ -76,7 +76,17 @@ export function DonationProvider({ children }: { children: ReactNode }) {
       setGift,
       resetFlow,
     }),
-    [state, setAmount, setTreeCount, setIsMonthly, setAsset, setDonorInfo, setRegionAllocations, setGift, resetFlow]
+    [
+      state,
+      setAmount,
+      setTreeCount,
+      setIsMonthly,
+      setAsset,
+      setDonorInfo,
+      setRegionAllocations,
+      setGift,
+      resetFlow,
+    ]
   );
 
   return <DonationContext.Provider value={value}>{children}</DonationContext.Provider>;

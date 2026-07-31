@@ -1,9 +1,6 @@
 import type { WalletConnection } from '@/lib/types/wallet';
 import type { TransactionStatus } from '@/lib/types/payment';
-import type {
-  BuildDonationTransactionResponse,
-  DonationAsset,
-} from '@/lib/types/donation-payment';
+import type { BuildDonationTransactionResponse, DonationAsset } from '@/lib/types/donation-payment';
 import { signTransactionWithFreighter, signTransactionWithAlbedo } from './signing';
 
 export interface DonationPaymentResult {

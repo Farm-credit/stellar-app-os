@@ -1266,15 +1266,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "public-seal"
-version = "0.1.0"
-dependencies = [
- "harvesta-errors",
- "shared",
- "soroban-sdk 21.7.7",
-]
-
-[[package]]
 name = "quick-error"
 version = "1.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"

@@ -5,84 +5,106 @@ import { Button } from '@/components/atoms/Button';
 import { Text } from '@/components/atoms/Text';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/molecules/Card';
 import { MapPin, ImageOff } from 'lucide-react';
+import type { CarbonProject } from '@/lib/types/carbon';
 
 export interface ProjectCardProps {
-  id: string | number;
-  title: string;
-  location: string;
-  description: string;
-  imageUrl: string | null;
-  type: 'reforestation' | 'renewable' | 'conservation';
-  progress: number;
-  price: number;
-  availableCredits: number;
+  project: CarbonProject;
 }
 
-const typeConfig = {
-  reforestation: { label: 'Reforestation', colorClass: 'bg-stellar-green' },
-  renewable: { label: 'Renewable Energy', colorClass: 'bg-stellar-cyan text-stellar-navy' },
-  conservation: { label: 'Conservation', colorClass: 'bg-stellar-purple' },
-} as const;
+const typeConfig: Record<string, { label: string; colorClass: string }> = {
+  Reforestation: { label: 'Reforestation', colorClass: 'bg-stellar-green' },
+  'Renewable Energy': {
+    label: 'Renewable Energy',
+    colorClass: 'bg-stellar-cyan text-stellar-navy',
+  },
+  'Mangrove Restoration': { label: 'Mangrove Restoration', colorClass: 'bg-stellar-purple' },
+  'Sustainable Agriculture': { label: 'Sustainable Agriculture', colorClass: 'bg-stellar-purple' },
+  Conservation: { label: 'Conservation', colorClass: 'bg-stellar-purple' },
+};
 
-export function ProjectCard({
-  title,
-  location,
-  description,
-  imageUrl,
-  type,
-  progress,
-  price,
-  availableCredits,
-}: ProjectCardProps) {
-  const clampedProgress = Math.max(0, Math.min(100, progress));
-  const badgeConfig = typeConfig[type];
-  const isSoldOut = availableCredits <= 0;
+export function ProjectCard({ project }: ProjectCardProps) {
+  const badgeConfig = typeConfig[project.type] ?? {
+    label: project.type,
+    colorClass: 'bg-stellar-purple',
+  };
+
+  const isSoldOut = project.isOutOfStock || project.availableSupply <= 0;
 
   return (
-    <Card className="h-full overflow-hidden">
-      <div className="relative aspect-[16/10] bg-secondary/50">
-        {imageUrl ? (
-          <Image src={imageUrl} alt={title} fill className="object-cover" />
-        ) : (
-          <div className="flex h-full w-full flex-col items-center justify-center text-muted-foreground bg-secondary/50">
-            <ImageOff className="mb-2 h-10 w-10 opacity-50" />
-            <Text variant="small">No image available</Text>
-          </div>
-        )}
-        <div className="absolute right-3 top-3 z-10">
-          <Badge className={`border-none ${badgeConfig.colorClass}`}>{badgeConfig.label}</Badge>
-        </div>
-      </div>
+    <Card className="overflow-hidden flex flex-col hover:shadow-lg transition-shadow">
+      <CardHeader className="p-0 relative">
+        <div className="relative w-full h-48 bg-secondary/50">
+          {project.imageUrl ? (
+            <Image
+              src={project.imageUrl}
+              alt={project.name}
+              fill
+              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+              className="object-cover"
+            />
+          ) : (
+            <div className="flex h-full w-full flex-col items-center justify-center text-muted-foreground">
+              <ImageOff className="h-10 w-10 mb-2 opacity-50" />
+              <Text variant="small">No image available</Text>
+            </div>
+          )}
 
-      <CardHeader className="p-5 pb-3">
-        <Text variant="h4" as="h3" className="font-semibold">
-          {title}
-        </Text>
-        <div className="mt-2 flex items-center gap-2 text-sm text-muted-foreground">
-          <MapPin className="h-4 w-4" />
-          <span>{location}</span>
+          <div className="absolute top-3 right-3 z-10">
+            <Badge className={`border-none ${badgeConfig.colorClass}`}>{badgeConfig.label}</Badge>
+          </div>
+
+          {project.isOutOfStock && (
+            <div className="absolute top-3 left-3 z-10">
+              <Badge variant="outline" className="bg-background/80 backdrop-blur">
+                Out of Stock
+              </Badge>
+            </div>
+          )}
         </div>
       </CardHeader>
 
-      <CardContent className="flex flex-grow flex-col justify-between p-5 pt-0">
-        <Text variant="muted" className="mb-4 line-clamp-3">
-          {description}
+      <CardContent className="p-5 pt-4 flex-grow flex flex-col gap-3">
+        <div className="flex items-start justify-between gap-2">
+          <Text variant="h4" as="h3" className="font-semibold leading-tight">
+            {project.name}
+          </Text>
+        </div>
+
+        <div className="flex items-center gap-1 text-muted-foreground">
+          <MapPin className="h-3.5 w-3.5" aria-hidden="true" />
+          <Text variant="small" as="span" className="text-xs">
+            {project.location}
+          </Text>
+        </div>
+
+        <Text variant="muted" className="line-clamp-2 text-sm">
+          {project.description}
         </Text>
 
-        <div className="mt-auto space-y-2">
-          <div className="flex items-end justify-between">
-            <Text variant="small" className="font-medium">
-              {clampedProgress}% Funded
+        <div className="mt-auto pt-2 space-y-1.5">
+          <div className="flex items-center justify-between">
+            <Text variant="small" as="span" className="text-muted-foreground text-xs">
+              Price per Ton
             </Text>
-            <Text variant="small" className="text-xs text-muted-foreground">
-              {availableCredits > 0 ? `${availableCredits.toLocaleString()} credits left` : '0 credits left'}
+            <Text variant="small" as="span" className="font-semibold">
+              ${project.pricePerTon.toFixed(2)}
             </Text>
           </div>
-          <div className="h-2 w-full overflow-hidden rounded-full bg-secondary">
-            <div
-              className="h-full rounded-full bg-stellar-green transition-all duration-1000 ease-out"
-              style={{ width: `${clampedProgress}%` }}
-            />
+          <div className="flex items-center justify-between">
+            <Text variant="small" as="span" className="text-muted-foreground text-xs">
+              Available
+            </Text>
+            <Text variant="small" as="span">
+              {project.availableSupply.toFixed(2)} tons
+            </Text>
+          </div>
+          <div className="flex items-center justify-between">
+            <Text variant="small" as="span" className="text-muted-foreground text-xs">
+              Vintage
+            </Text>
+            <Text variant="small" as="span">
+              {project.vintageYear}
+            </Text>
           </div>
         </div>
       </CardContent>
@@ -93,9 +115,9 @@ export function ProjectCard({
             Price
           </Text>
           <div className="flex items-baseline gap-1">
-            <Text variant="h4">${price.toFixed(2)}</Text>
-            <Text variant="small" className="text-xs text-muted-foreground">
-              /unit
+            <Text variant="h4">${project.pricePerTon.toFixed(2)}</Text>
+            <Text variant="small" className="text-muted-foreground text-xs">
+              /ton
             </Text>
           </div>
         </div>
@@ -107,3 +129,5 @@ export function ProjectCard({
     </Card>
   );
 }
+
+export default ProjectCard;

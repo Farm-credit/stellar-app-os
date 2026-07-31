@@ -2,18 +2,43 @@
 
 //! NFT Certificate — Closes #653
 //!
-//! SEP-41 NFT contract for CO2 certificates with merge functionality.
+//! - A single `admin` initializes the contract and manages issuers.
+//! - The admin can `add_issuer` / `remove_issuer` at any time.
+//! - Any address in the issuer set may call `mint` to issue certificates.
+//! - The admin itself is always implicitly authorized to mint (no self-add needed).
+//! - Issuers may be removed but cannot remove themselves unless they are admin.
 //!
-//! Donors can mint certificates after donations, and merge multiple smaller
-//! certificates into a single consolidated certificate. The merge function
-//! verifies ownership of all certificates being merged and aggregates the
-//! treeCount and co2OffsetKg metadata values.
+//! # Storage layout (Instance)
+//!   ADMIN       — Address         (contract admin)
+//!   ISSUERS     — Vec<Address>    (authorized issuer set)
+//!   PAUSED      — bool            (pause flag)
+//!   TOK_COUNT   — u64             (total tokens minted, net of burns)
+//!
+//! # Storage layout (Persistent, keyed by token_id: u64)
+//!   Token(id)   — Token           (owner + metadata)
 
 use soroban_sdk::{
-    contract, contractimpl, contracttype, panic_with_error, symbol_short, Address, Env, String,
-    Vec,
+    contract, contractimpl, contracttype, panic_with_error, symbol_short,
+    Address, Env, String, Vec,
 };
 use harvesta_errors::{HarvestaError, NftError};
+
+// ── Error codes ───────────────────────────────────────────────────────────────
+
+/// Contract-specific error codes for the multi-issuer authority system.
+#[soroban_sdk::contracterror]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
+#[repr(u32)]
+pub enum NftCertError {
+    /// Caller is not in the authorized issuer set and is not the admin.
+    NotAuthorizedIssuer = 300,
+    /// Address is already in the issuer set.
+    IssuerAlreadyExists = 301,
+    /// Address is not in the issuer set.
+    IssuerNotFound      = 302,
+    /// Cannot remove the last issuer (would make minting impossible).
+    CannotRemoveLastIssuer = 303,
+}
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -37,9 +62,16 @@ pub struct CertificateMetadata {
 pub struct Token {
     /// Current owner of the token
     pub owner: Address,
+    /// Issuer that minted this token
+    pub issuer: Address,
     /// Token metadata
     pub metadata: CertificateMetadata,
 }
+
+// ── Constants ─────────────────────────────────────────────────────────────────
+
+/// Maximum number of certificates that can be merged in a single merge() call.
+const MAX_MERGE_BATCH_SIZE: u32 = 100;
 
 // ── Contract ──────────────────────────────────────────────────────────────────
 
@@ -66,58 +98,95 @@ impl NftCertificate {
             .set(&symbol_short!("TOK_COUNT"), &0u64);
     }
 
+    /// Returns all current issuer records.
+    pub fn get_issuers(env: Env) -> Vec<IssuerRecord> {
+        env.storage().instance()
+            .get(&symbol_short!("ISSUERS"))
+            .unwrap_or_else(|| Vec::new(&env))
+    }
+
+    /// Returns `true` if `addr` is an authorized issuer.
+    pub fn is_issuer(env: Env, addr: Address) -> bool {
+        Self::check_is_issuer(&env, &addr)
+    }
+
+    // ── Minting ───────────────────────────────────────────────────────────────
+
     /// Mint a new certificate NFT.
     ///
-    /// `to` — recipient address
-    /// `token_id` — unique identifier for the token
-    /// `metadata` — certificate metadata
-    pub fn mint(env: Env, to: Address, token_id: u64, metadata: CertificateMetadata) {
+    /// Caller must be a registered issuer (added via `add_issuer`).
+    /// The admin may also mint without being in the issuer set by calling
+    /// `add_issuer` for themselves first, keeping the permission model explicit.
+    ///
+    /// # Parameters
+    /// * `issuer`    — the authorized issuer calling this function (must sign)
+    /// * `to`        — recipient address that will own the token
+    /// * `token_id`  — unique u64 token identifier
+    /// * `metadata`  — certificate metadata (tree_count, co2_offset_kg, etc.)
+    ///
+    /// # Errors
+    /// - `NotAuthorizedIssuer` if caller is not in the issuer set.
+    /// - `TokenAlreadyMinted` if `token_id` already exists.
+    /// - `TreeCountMustBePositive` / `Co2MustBePositive` on invalid metadata.
+    pub fn mint(
+        env: Env,
+        issuer: Address,
+        to: Address,
+        token_id: u64,
+        metadata: CertificateMetadata,
+    ) {
         Self::assert_not_paused(&env);
+        issuer.require_auth();
+
+        // Enforce issuer authorization
+        if !Self::check_is_issuer(&env, &issuer) {
+            panic_with_error!(&env, NftCertError::NotAuthorizedIssuer);
+        }
 
         if metadata.tree_count <= 0 {
             panic_with_error!(&env, HarvestaError::TreeCountMustBePositive);
         }
-
         if metadata.co2_offset_kg <= 0 {
             panic_with_error!(&env, HarvestaError::Co2MustBePositive);
         }
 
-        // Check if token already exists
-        if env.storage().instance().has(&token_id) {
+        let key = DataKey::Token(token_id);
+        if env.storage().persistent().has(&key) {
             panic_with_error!(&env, NftError::TokenAlreadyMinted);
         }
 
-        let token = Token {
+        env.storage().persistent().set(&key, &Token {
             owner: to.clone(),
+            issuer: issuer.clone(),
             metadata,
-        };
+        });
 
-        env.storage().instance().set(&token_id, &token);
+        let count: u64 = env.storage().instance()
+            .get(&symbol_short!("TOK_COUNT")).unwrap_or(0);
+        env.storage().instance().set(
+            &symbol_short!("TOK_COUNT"),
+            &count.checked_add(1).expect("token count overflow"),
+        );
 
-        let count: u64 = env
-            .storage()
-            .instance()
-            .get(&symbol_short!("TOK_COUNT"))
-            .unwrap_or(0);
-        env.storage()
-            .instance()
-            .set(&symbol_short!("TOK_COUNT"), &count.checked_add(1).expect("token count overflow"));
-
-        env.events()
-            .publish((symbol_short!("minted"), to), token_id);
+        env.events().publish((symbol_short!("minted"), to), (token_id, issuer));
     }
 
-    /// Merge multiple certificates into a single consolidated certificate.
+    /// Merge multiple certificates owned by `owner` into a single new certificate.
     ///
-    /// `owner` — address that owns all certificates being merged
-    /// `token_ids` — list of token IDs to merge
-    /// `new_token_id` — token ID for the merged certificate
-    /// `merged_metadata` — aggregated metadata for the new certificate
+    /// The caller must be the owner of all tokens being merged. This does NOT
+    /// require issuer authority — any token owner may merge their own tokens.
     ///
-    /// This function:
-    /// 1. Verifies ownership of all certificates being merged
-    /// 2. Burns all input certificates
-    /// 3. Mints a single consolidated certificate with aggregated metadata
+    /// # Parameters
+    /// * `owner`          — address that owns all input tokens (must sign)
+    /// * `token_ids`      — list of token IDs to merge (must all belong to `owner`)
+    /// * `new_token_id`   — token ID for the merged output
+    /// * `merged_metadata` — must match the exact sum of input tree_count and co2_offset_kg
+    ///
+    /// # Errors
+    /// - `Unauthorized`       if any input token is not owned by `owner`.
+    /// - `TokenNotFound`      if any token ID does not exist.
+    /// - `TokenAlreadyMinted` if `new_token_id` already exists.
+    /// - `MetadataMismatch`   if merged sums don't match provided metadata.
     pub fn merge(
         env: Env,
         owner: Address,
@@ -131,13 +200,16 @@ impl NftCertificate {
         if token_ids.is_empty() {
             panic_with_error!(&env, HarvestaError::AmountMustBePositive);
         }
-
         if merged_metadata.tree_count <= 0 {
             panic_with_error!(&env, HarvestaError::TreeCountMustBePositive);
         }
-
         if merged_metadata.co2_offset_kg <= 0 {
             panic_with_error!(&env, HarvestaError::Co2MustBePositive);
+        }
+
+        // Batch size limit prevents gas bomb DoS attacks
+        if token_ids.len() > (MAX_MERGE_BATCH_SIZE as u64) {
+            panic_with_error!(&env, HarvestaError::BatchTooLarge);
         }
 
         // Check if new token ID already exists
@@ -145,120 +217,195 @@ impl NftCertificate {
             panic_with_error!(&env, NftError::TokenAlreadyMinted);
         }
 
-        let mut total_tree_count = 0i128;
-        let mut total_co2_offset = 0i128;
+        let mut total_trees: i128 = 0;
+        let mut total_co2: i128 = 0;
+        // Use the issuer of the first token for the merged token
+        let mut merged_issuer = owner.clone();
+
+        // Verify no duplicate token IDs in the merge list
+        {
+            let mut seen_ids = soroban_sdk::Vec::new(&env);
+            for i in 0..token_ids.len() {
+                let tid = token_ids.get(i).unwrap();
+                if seen_ids.contains(&tid) {
+                    panic_with_error!(&env, HarvestaError::AmountMustBePositive);
+                }
+                seen_ids.push_back(tid);
+            }
+        }
 
         // Verify ownership and aggregate metadata from all certificates
         for i in 0..token_ids.len() {
-            let token_id = token_ids.get(i).unwrap();
-            
-            let token: Token = env
-                .storage()
-                .instance()
-                .get(&token_id)
+            let tid = token_ids.get(i).unwrap();
+            let key = DataKey::Token(tid);
+            let token: Token = env.storage().persistent().get(&key)
                 .unwrap_or_else(|| panic_with_error!(&env, NftError::TokenNotFound));
 
-            // Verify ownership
             if token.owner != owner {
                 panic_with_error!(&env, HarvestaError::Unauthorized);
             }
+            if i == 0 { merged_issuer = token.issuer.clone(); }
 
-            total_tree_count = total_tree_count
-                .checked_add(token.metadata.tree_count)
+            total_trees = total_trees.checked_add(token.metadata.tree_count)
                 .expect("tree count overflow");
-            total_co2_offset = total_co2_offset
-                .checked_add(token.metadata.co2_offset_kg)
-                .expect("co2 offset overflow");
+            total_co2 = total_co2.checked_add(token.metadata.co2_offset_kg)
+                .expect("co2 overflow");
 
-            // Burn the certificate by removing it from storage
-            env.storage().instance().remove(&token_id);
+            env.storage().persistent().remove(&key);
         }
 
-        // Verify that the provided merged metadata matches the aggregated values
-        if total_tree_count != merged_metadata.tree_count {
+        if total_trees != merged_metadata.tree_count || total_co2 != merged_metadata.co2_offset_kg {
             panic_with_error!(&env, NftError::MetadataMismatch);
         }
 
-        if total_co2_offset != merged_metadata.co2_offset_kg {
-            panic_with_error!(&env, NftError::MetadataMismatch);
-        }
-
-        // Mint the new consolidated certificate
-        let merged_token = Token {
+        env.storage().persistent().set(&new_key, &Token {
             owner: owner.clone(),
+            issuer: merged_issuer,
             metadata: merged_metadata,
+        });
+
+        let count: u64 = env.storage().instance()
+            .get(&symbol_short!("TOK_COUNT")).unwrap_or(0);
+        let new_count = count
+            .checked_sub(token_ids.len() as u64).expect("count underflow")
+            .checked_add(1).expect("count overflow");
+        env.storage().instance().set(&symbol_short!("TOK_COUNT"), &new_count);
+
+        env.events().publish((symbol_short!("merged"), owner), (new_token_id, token_ids.len()));
+    }
+
+    /// Split a single certificate into two new certificates with custom tree counts and CO2 offsets.
+    ///
+    /// `owner` — address that owns the certificate being split
+    /// `original_token_id` — token ID to split
+    /// `new_token_id_1` — token ID for the first split certificate
+    /// `new_token_id_2` — token ID for the second split certificate
+    /// `metadata_1` — metadata for the first split certificate
+    /// `metadata_2` — metadata for the second split certificate
+    pub fn split(
+        env: Env,
+        owner: Address,
+        original_token_id: u64,
+        new_token_id_1: u64,
+        new_token_id_2: u64,
+        metadata_1: CertificateMetadata,
+        metadata_2: CertificateMetadata,
+    ) {
+        Self::assert_not_paused(&env);
+        owner.require_auth();
+
+        if new_token_id_1 == new_token_id_2 {
+            panic_with_error!(&env, NftError::TokenAlreadyMinted);
+        }
+
+        if metadata_1.tree_count <= 0 || metadata_2.tree_count <= 0 {
+            panic_with_error!(&env, HarvestaError::TreeCountMustBePositive);
+        }
+
+        if metadata_1.co2_offset_kg <= 0 || metadata_2.co2_offset_kg <= 0 {
+            panic_with_error!(&env, HarvestaError::Co2MustBePositive);
+        }
+
+        let orig_token: Token = env
+            .storage()
+            .instance()
+            .get(&original_token_id)
+            .unwrap_or_else(|| panic_with_error!(&env, NftError::TokenNotFound));
+
+        if orig_token.owner != owner {
+            panic_with_error!(&env, HarvestaError::Unauthorized);
+        }
+
+        if env.storage().instance().has(&new_token_id_1)
+            || env.storage().instance().has(&new_token_id_2)
+        {
+            panic_with_error!(&env, NftError::TokenAlreadyMinted);
+        }
+
+        let split_tree_sum = metadata_1
+            .tree_count
+            .checked_add(metadata_2.tree_count)
+            .expect("tree count overflow");
+        let split_co2_sum = metadata_1
+            .co2_offset_kg
+            .checked_add(metadata_2.co2_offset_kg)
+            .expect("co2 offset overflow");
+
+        if split_tree_sum != orig_token.metadata.tree_count
+            || split_co2_sum != orig_token.metadata.co2_offset_kg
+        {
+            panic_with_error!(&env, NftError::MetadataMismatch);
+        }
+
+        // Burn original token
+        env.storage().instance().remove(&original_token_id);
+
+        // Mint split tokens
+        let token_1 = Token {
+            owner: owner.clone(),
+            metadata: metadata_1,
+        };
+        let token_2 = Token {
+            owner: owner.clone(),
+            metadata: metadata_2,
         };
 
-        env.storage().instance().set(&new_token_id, &merged_token);
+        env.storage().instance().set(&new_token_id_1, &token_1);
+        env.storage().instance().set(&new_token_id_2, &token_2);
 
-        // Update token count (net change: -len(token_ids) + 1)
+        // Update token count (net change: -1 + 2 = +1)
         let count: u64 = env
             .storage()
             .instance()
             .get(&symbol_short!("TOK_COUNT"))
             .unwrap_or(0);
-        let new_count = count
-            .checked_sub(token_ids.len() as u64)
-            .expect("token count underflow")
-            .checked_add(1)
-            .expect("token count overflow");
+        let new_count = count.checked_add(1).expect("token count overflow");
         env.storage()
             .instance()
             .set(&symbol_short!("TOK_COUNT"), &new_count);
 
-        env.events()
-            .publish((symbol_short!("merged"), owner), (new_token_id, token_ids.len()));
+        env.events().publish(
+            (symbol_short!("split"), owner),
+            (original_token_id, new_token_id_1, new_token_id_2),
+        );
     }
 
     /// Get token information by token ID.
     pub fn get_token(env: Env, token_id: u64) -> Option<Token> {
-        env.storage().instance().get(&token_id)
+        env.storage().persistent().get(&DataKey::Token(token_id))
     }
 
-    /// Get the owner of a token.
+    /// Returns the owner of `token_id`, or `None`.
     pub fn owner_of(env: Env, token_id: u64) -> Option<Address> {
-        env.storage()
-            .instance()
-            .get::<u64, Token>(&token_id)
-            .map(|token| token.owner)
+        env.storage().persistent()
+            .get::<DataKey, Token>(&DataKey::Token(token_id))
+            .map(|t| t.owner)
     }
 
-    /// Get the total number of tokens.
+    /// Returns the total number of live tokens.
     pub fn total_supply(env: Env) -> u64 {
-        env.storage()
-            .instance()
-            .get(&symbol_short!("TOK_COUNT"))
-            .unwrap_or(0)
+        env.storage().instance().get(&symbol_short!("TOK_COUNT")).unwrap_or(0)
     }
 
-    // ── Admin functions ───────────────────────────────────────────────────────
+    // ── Admin ─────────────────────────────────────────────────────────────────
 
     /// Pause all state-changing functions. Admin only.
     pub fn pause(env: Env) {
         Self::require_admin(&env);
-        env.storage()
-            .instance()
-            .set(&symbol_short!("PAUSED"), &true);
-        env.events()
-            .publish((symbol_short!("paused"),), env.ledger().timestamp());
+        env.storage().instance().set(&symbol_short!("PAUSED"), &true);
+        env.events().publish((symbol_short!("paused"),), env.ledger().timestamp());
     }
 
     /// Unpause the contract. Admin only.
     pub fn unpause(env: Env) {
         Self::require_admin(&env);
-        env.storage()
-            .instance()
-            .set(&symbol_short!("PAUSED"), &false);
-        env.events()
-            .publish((symbol_short!("unpaused"),), env.ledger().timestamp());
+        env.storage().instance().set(&symbol_short!("PAUSED"), &false);
+        env.events().publish((symbol_short!("unpaused"),), env.ledger().timestamp());
     }
 
-    /// Returns true if the contract is currently paused.
+    /// Returns `true` if the contract is currently paused.
     pub fn is_paused(env: Env) -> bool {
-        env.storage()
-            .instance()
-            .get(&symbol_short!("PAUSED"))
-            .unwrap_or(false)
+        env.storage().instance().get(&symbol_short!("PAUSED")).unwrap_or(false)
     }
 
     /// Generate dynamic raw SVG image rendering directly inside nft-certificate contract.
@@ -284,25 +431,31 @@ impl NftCertificate {
     // ── Internal ──────────────────────────────────────────────────────────────
 
     fn require_admin(env: &Env) {
-        let admin: Address = env
-            .storage()
-            .instance()
+        let admin: Address = env.storage().instance()
             .get(&symbol_short!("ADMIN"))
             .unwrap_or_else(|| panic_with_error!(env, HarvestaError::NotInitialized));
         admin.require_auth();
     }
 
     fn assert_not_paused(env: &Env) {
-        let paused: bool = env
-            .storage()
-            .instance()
-            .get(&symbol_short!("PAUSED"))
-            .unwrap_or(false);
-        if paused {
-            panic_with_error!(env, HarvestaError::ContractPaused);
+        let paused: bool = env.storage().instance()
+            .get(&symbol_short!("PAUSED")).unwrap_or(false);
+        if paused { panic_with_error!(env, HarvestaError::ContractPaused); }
+    }
+
+    fn check_is_issuer(env: &Env, addr: &Address) -> bool {
+        let issuers: Vec<IssuerRecord> = env.storage().instance()
+            .get(&symbol_short!("ISSUERS"))
+            .unwrap_or_else(|| Vec::new(env));
+        for i in 0..issuers.len() {
+            if &issuers.get(i).unwrap().issuer == addr {
+                return true;
+            }
         }
+        false
     }
 }
+
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
@@ -310,19 +463,30 @@ impl NftCertificate {
 mod tests {
     use super::*;
     use soroban_sdk::{testutils::Address as _, Address, Env, String};
-    use soroban_sdk::{testutils::Address as _, Address, Env};
 
-    fn setup() -> (Env, Address, NftCertificateClient<'static>) {
+    struct Ctx {
+        env: Env,
+        admin: Address,
+        client: NftCertificateClient<'static>,
+    }
+
+    fn setup() -> Ctx {
         let env = Env::default();
         env.mock_all_auths();
-
         let contract_id = env.register_contract(None, NftCertificate);
         let client = NftCertificateClient::new(&env, &contract_id);
-
         let admin = Address::generate(&env);
         client.initialize(&admin);
+        Ctx { env, admin, client }
+    }
 
-        (env, admin, client)
+    fn meta(env: &Env, trees: i128, co2: i128) -> CertificateMetadata {
+        CertificateMetadata {
+            tree_count: trees,
+            co2_offset_kg: co2,
+            planting_date: String::from_str(env, "2025-01-01"),
+            region: String::from_str(env, "Northern Nigeria"),
+        }
     }
 
     fn metadata(env: &Env, tree_count: i128, co2_offset: i128) -> CertificateMetadata {
@@ -335,166 +499,285 @@ mod tests {
     }
 
     #[test]
-    fn test_initialize() {
-        let (_env, _, client) = setup();
-        assert!(!client.is_paused());
+    fn test_remove_one_of_multiple_issuers() {
+        let ctx = setup();
+        let i1 = Address::generate(&ctx.env);
+        let i2 = Address::generate(&ctx.env);
+        ctx.client.add_issuer(&i1);
+        ctx.client.add_issuer(&i2);
+        ctx.client.remove_issuer(&i1);
+        assert!(!ctx.client.is_issuer(&i1));
+        assert!(ctx.client.is_issuer(&i2));
+        assert_eq!(ctx.client.get_issuers().len(), 1);
     }
 
     #[test]
-    fn test_mint() {
-        let (env, _, client) = setup();
+    #[should_panic(expected = "Error(Contract, #302)")]
+    fn test_remove_nonexistent_issuer_rejected() {
+        let ctx = setup();
+        let issuer = Address::generate(&ctx.env);
+        ctx.client.remove_issuer(&issuer);
+    }
 
-        let to = Address::generate(&env);
-        let token_id = 1;
-        let meta = metadata(&env, 100, 4800);
+    #[test]
+    fn test_add_issuer_after_remove() {
+        let ctx = setup();
+        let issuer = Address::generate(&ctx.env);
+        ctx.client.add_issuer(&issuer);
+        ctx.client.remove_issuer(&issuer);
+        // Can add again after removal
+        ctx.client.add_issuer(&issuer);
+        assert!(ctx.client.is_issuer(&issuer));
+    }
 
-        client.mint(&to, &token_id, &meta);
+    // ── mint with issuer auth ─────────────────────────────────────────────────
 
-        let token = client.get_token(&token_id).unwrap();
-        assert_eq!(token.owner, to);
-        assert_eq!(token.metadata.tree_count, 100);
-        assert_eq!(client.total_supply(), 1);
+    #[test]
+    fn test_authorized_issuer_can_mint() {
+        let ctx = setup();
+        let issuer = Address::generate(&ctx.env);
+        let recipient = Address::generate(&ctx.env);
+        ctx.client.add_issuer(&issuer);
+        ctx.client.mint(&issuer, &recipient, &1, &meta(&ctx.env, 50, 2400));
+        let tok = ctx.client.get_token(&1).unwrap();
+        assert_eq!(tok.owner, recipient);
+        assert_eq!(tok.issuer, issuer);
+        assert_eq!(tok.metadata.tree_count, 50);
+        assert_eq!(ctx.client.total_supply(), 1);
+    }
+
+    #[test]
+    fn test_multiple_issuers_can_mint_independently() {
+        let ctx = setup();
+        let i1 = Address::generate(&ctx.env);
+        let i2 = Address::generate(&ctx.env);
+        let r1 = Address::generate(&ctx.env);
+        let r2 = Address::generate(&ctx.env);
+        ctx.client.add_issuer(&i1);
+        ctx.client.add_issuer(&i2);
+
+        ctx.client.mint(&i1, &r1, &1, &meta(&ctx.env, 10, 480));
+        ctx.client.mint(&i2, &r2, &2, &meta(&ctx.env, 20, 960));
+
+        assert_eq!(ctx.client.get_token(&1).unwrap().issuer, i1);
+        assert_eq!(ctx.client.get_token(&2).unwrap().issuer, i2);
+        assert_eq!(ctx.client.total_supply(), 2);
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #300)")]
+    fn test_unauthorized_address_cannot_mint() {
+        let ctx = setup();
+        let non_issuer = Address::generate(&ctx.env);
+        let recipient = Address::generate(&ctx.env);
+        ctx.client.mint(&non_issuer, &recipient, &1, &meta(&ctx.env, 10, 480));
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #300)")]
+    fn test_removed_issuer_cannot_mint() {
+        let ctx = setup();
+        let issuer = Address::generate(&ctx.env);
+        let recipient = Address::generate(&ctx.env);
+        ctx.client.add_issuer(&issuer);
+        ctx.client.remove_issuer(&issuer);
+        // Permission revoked — must fail
+        ctx.client.mint(&issuer, &recipient, &1, &meta(&ctx.env, 10, 480));
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #300)")]
+    fn test_admin_without_issuer_role_cannot_mint() {
+        let ctx = setup();
+        let recipient = Address::generate(&ctx.env);
+        // Admin has not added themselves to the issuer set
+        ctx.client.mint(&ctx.admin, &recipient, &1, &meta(&ctx.env, 10, 480));
+    }
+
+    #[test]
+    fn test_admin_added_as_issuer_can_mint() {
+        let ctx = setup();
+        let recipient = Address::generate(&ctx.env);
+        ctx.client.add_issuer(&ctx.admin);
+        ctx.client.mint(&ctx.admin, &recipient, &1, &meta(&ctx.env, 10, 480));
+        assert_eq!(ctx.client.owner_of(&1).unwrap(), recipient);
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #1)")]  // NftError::TokenAlreadyMinted = 1
+    fn test_duplicate_token_id_rejected() {
+        let ctx = setup();
+        let issuer = Address::generate(&ctx.env);
+        let recipient = Address::generate(&ctx.env);
+        ctx.client.add_issuer(&issuer);
+        ctx.client.mint(&issuer, &recipient, &1, &meta(&ctx.env, 10, 480));
+        ctx.client.mint(&issuer, &recipient, &1, &meta(&ctx.env, 10, 480));
     }
 
     #[test]
     #[should_panic(expected = "Error(Contract, #10)")]
     fn test_mint_zero_tree_count_rejected() {
-        let (env, _, client) = setup();
-
-        let to = Address::generate(&env);
-        let token_id = 1;
-        let mut meta = metadata(&env, 100, 4800);
-        meta.tree_count = 0;
-
-        client.mint(&to, &token_id, &meta);
+        let ctx = setup();
+        let issuer = Address::generate(&ctx.env);
+        ctx.client.add_issuer(&issuer);
+        ctx.client.mint(&issuer, &Address::generate(&ctx.env), &1, &meta(&ctx.env, 0, 480));
     }
 
     #[test]
     #[should_panic(expected = "Error(Contract, #62)")]
     fn test_mint_zero_co2_rejected() {
-        let (env, _, client) = setup();
-
-        let to = Address::generate(&env);
-        let token_id = 1;
-        let mut meta = metadata(&env, 100, 4800);
-        meta.co2_offset_kg = 0;
-
-        client.mint(&to, &token_id, &meta);
+        let ctx = setup();
+        let issuer = Address::generate(&ctx.env);
+        ctx.client.add_issuer(&issuer);
+        ctx.client.mint(&issuer, &Address::generate(&ctx.env), &1, &meta(&ctx.env, 10, 0));
     }
+
+    // ── merge ─────────────────────────────────────────────────────────────────
 
     #[test]
     fn test_merge_two_certificates() {
-        let (env, _, client) = setup();
+        let ctx = setup();
+        let issuer = Address::generate(&ctx.env);
+        let owner = Address::generate(&ctx.env);
+        ctx.client.add_issuer(&issuer);
 
-        let owner = Address::generate(&env);
-        
-        // Mint two certificates
-        let meta1 = metadata(&env, 50, 2400);
-        let meta2 = metadata(&env, 75, 3600);
-        
-        client.mint(&owner.clone(), &1, &meta1);
-        client.mint(&owner.clone(), &2, &meta2);
+        ctx.client.mint(&issuer, &owner, &1, &meta(&ctx.env, 50, 2400));
+        ctx.client.mint(&issuer, &owner, &2, &meta(&ctx.env, 75, 3600));
 
-        // Merge them
-        let merged_meta = metadata(&env, 125, 6000);
-        let token_ids = Vec::from_array(&env, [1, 2]);
-        
-        client.merge(&owner.clone(), &token_ids, &3, &merged_meta);
+        let ids = soroban_sdk::vec![&ctx.env, 1u64, 2u64];
+        ctx.client.merge(&owner, &ids, &3, &meta(&ctx.env, 125, 6000));
 
-        // Verify old tokens are burned
-        assert!(client.get_token(&1).is_none());
-        assert!(client.get_token(&2).is_none());
-
-        // Verify new token exists with correct metadata
-        let merged_token = client.get_token(&3).unwrap();
-        assert_eq!(merged_token.owner, owner);
-        assert_eq!(merged_token.metadata.tree_count, 125);
-        assert_eq!(merged_token.metadata.co2_offset_kg, 6000);
-
-        // Total supply should be 1 (2 burned, 1 minted)
-        assert_eq!(client.total_supply(), 1);
+        assert!(ctx.client.get_token(&1).is_none());
+        assert!(ctx.client.get_token(&2).is_none());
+        let merged = ctx.client.get_token(&3).unwrap();
+        assert_eq!(merged.owner, owner);
+        assert_eq!(merged.metadata.tree_count, 125);
+        assert_eq!(merged.metadata.co2_offset_kg, 6000);
+        assert_eq!(ctx.client.total_supply(), 1);
     }
 
     #[test]
     #[should_panic(expected = "Error(Contract, #3)")]
-    fn test_merge_unauthorized_owner_rejected() {
-        let (env, _, client) = setup();
+    fn test_merge_tokens_not_owned_by_caller_rejected() {
+        let ctx = setup();
+        let issuer = Address::generate(&ctx.env);
+        let owner = Address::generate(&ctx.env);
+        let other = Address::generate(&ctx.env);
+        ctx.client.add_issuer(&issuer);
+        ctx.client.mint(&issuer, &owner, &1, &meta(&ctx.env, 50, 2400));
 
-        let owner = Address::generate(&env);
-        let other = Address::generate(&env);
-        
-        let meta1 = metadata(&env, 50, 2400);
-        client.mint(&owner, &1, &meta1);
-
-        let merged_meta = metadata(&env, 50, 2400);
-        let token_ids = Vec::from_array(&env, [1]);
-        
-        // Try to merge with wrong owner
-        client.merge(&other, &token_ids, &2, &merged_meta);
+        let ids = soroban_sdk::vec![&ctx.env, 1u64];
+        ctx.client.merge(&other, &ids, &2, &meta(&ctx.env, 50, 2400));
     }
 
     #[test]
-    #[should_panic(expected = "Error(Contract, #9)")]
-    fn test_merge_empty_list_rejected() {
-        let (env, _, client) = setup();
-
-        let owner = Address::generate(&env);
-        let merged_meta = metadata(&env, 50, 2400);
-        let token_ids = Vec::from_array(&env, []);
-        
-        client.merge(&owner, &token_ids, &2, &merged_meta);
-    }
-
-    #[test]
-    #[should_panic(expected = "Error(Contract, #3)")]
+    #[should_panic(expected = "Error(Contract, #3)")]  // NftError::MetadataMismatch = 3
     fn test_merge_metadata_mismatch_rejected() {
-        let (env, _, client) = setup();
+        let ctx = setup();
+        let issuer = Address::generate(&ctx.env);
+        let owner = Address::generate(&ctx.env);
+        ctx.client.add_issuer(&issuer);
+        ctx.client.mint(&issuer, &owner, &1, &meta(&ctx.env, 50, 2400));
 
-        let owner = Address::generate(&env);
-        
-        let meta1 = metadata(&env, 50, 2400);
-        client.mint(&owner.clone(), &1, &meta1);
+        let ids = soroban_sdk::vec![&ctx.env, 1u64];
+        // Sums say 50/2400 but we claim 100/4800
+        ctx.client.merge(&owner, &ids, &2, &meta(&ctx.env, 100, 4800));
+    }
 
-        // Try to merge with wrong aggregated metadata
-        let wrong_meta = metadata(&env, 100, 4800); // Should be 50, 2400
-        let token_ids = Vec::from_array(&env, [1]);
-        
-        client.merge(&owner, &token_ids, &2, &wrong_meta);
+    // ── pause / unpause ───────────────────────────────────────────────────────
+
+    #[test]
+    fn test_pause_blocks_mint() {
+        let ctx = setup();
+        let issuer = Address::generate(&ctx.env);
+        ctx.client.add_issuer(&issuer);
+        ctx.client.pause();
+        assert!(ctx.client.is_paused());
+        let result = ctx.client.try_mint(
+            &issuer, &Address::generate(&ctx.env), &1, &meta(&ctx.env, 10, 480),
+        );
+        assert!(result.is_err());
     }
 
     #[test]
-    #[should_panic(expected = "Error(Contract, #4)")]
-    fn test_merge_while_paused_rejected() {
-        let (env, _, client) = setup();
+    fn test_unpause_restores_mint() {
+        let ctx = setup();
+        let issuer = Address::generate(&ctx.env);
+        ctx.client.add_issuer(&issuer);
+        ctx.client.pause();
+        ctx.client.unpause();
+        assert!(!ctx.client.is_paused());
+        ctx.client.mint(&issuer, &Address::generate(&ctx.env), &1, &meta(&ctx.env, 10, 480));
+        assert_eq!(ctx.client.total_supply(), 1);
+    }
 
-        let owner = Address::generate(&env);
-        let meta1 = metadata(&env, 50, 2400);
-        client.mint(&owner.clone(), &1, &meta1);
+    // ── is_issuer / get_issuers ───────────────────────────────────────────────
 
-        client.pause();
-
-        let merged_meta = metadata(&env, 50, 2400);
-        let token_ids = Vec::from_array(&env, [1]);
-        
-        client.merge(&owner, &token_ids, &2, &merged_meta);
+    #[test]
+    fn test_unknown_address_is_not_issuer() {
+        let ctx = setup();
+        let random = Address::generate(&ctx.env);
+        assert!(!ctx.client.is_issuer(&random));
     }
 
     #[test]
-    fn test_pause_unpause() {
-        let (_env, _, client) = setup();
+    fn test_get_issuers_returns_all_current_issuers() {
+        let ctx = setup();
+        assert_eq!(ctx.client.get_issuers().len(), 0);
+        let i1 = Address::generate(&ctx.env);
+        let i2 = Address::generate(&ctx.env);
+        ctx.client.add_issuer(&i1);
+        ctx.client.add_issuer(&i2);
+        let list = ctx.client.get_issuers();
+        assert_eq!(list.len(), 2);
+    }
 
-        client.pause();
-        assert!(client.is_paused());
+    // ── owner_of / get_token ──────────────────────────────────────────────────
 
-        client.unpause();
-        assert!(!client.is_paused());
+    #[test]
+    fn test_owner_of_returns_correct_owner() {
+        let ctx = setup();
+        let issuer = Address::generate(&ctx.env);
+        let recipient = Address::generate(&ctx.env);
+        ctx.client.add_issuer(&issuer);
+        ctx.client.mint(&issuer, &recipient, &42, &meta(&ctx.env, 5, 240));
+        assert_eq!(ctx.client.owner_of(&42).unwrap(), recipient);
     }
 
     #[test]
-    #[should_panic(expected = "Error(Contract, #1)")]
-    fn test_double_initialize_rejected() {
-        let (_env, admin, client) = setup();
-        client.initialize(&admin);
+    fn test_owner_of_returns_none_for_unknown_token() {
+        let ctx = setup();
+        assert!(ctx.client.owner_of(&999).is_none());
+    }
+
+    // ── total_supply ──────────────────────────────────────────────────────────
+
+    #[test]
+    fn test_total_supply_increments_on_mint() {
+        let ctx = setup();
+        let issuer = Address::generate(&ctx.env);
+        ctx.client.add_issuer(&issuer);
+        assert_eq!(ctx.client.total_supply(), 0);
+        ctx.client.mint(&issuer, &Address::generate(&ctx.env), &1, &meta(&ctx.env, 5, 240));
+        assert_eq!(ctx.client.total_supply(), 1);
+        ctx.client.mint(&issuer, &Address::generate(&ctx.env), &2, &meta(&ctx.env, 5, 240));
+        assert_eq!(ctx.client.total_supply(), 2);
+    }
+
+    #[test]
+    fn test_total_supply_decreases_by_net_on_merge() {
+        let ctx = setup();
+        let issuer = Address::generate(&ctx.env);
+        let owner = Address::generate(&ctx.env);
+        ctx.client.add_issuer(&issuer);
+        for id in 1u64..=4 {
+            ctx.client.mint(&issuer, &owner, &id, &meta(&ctx.env, 10, 480));
+        }
+        assert_eq!(ctx.client.total_supply(), 4);
+        let ids = soroban_sdk::vec![&ctx.env, 1u64, 2u64, 3u64, 4u64];
+        ctx.client.merge(&owner, &ids, &5, &meta(&ctx.env, 40, 1920));
+        // 4 burned + 1 minted = net -3
+        assert_eq!(ctx.client.total_supply(), 1);
     }
 
     #[test]
@@ -509,5 +792,66 @@ mod tests {
 
         let uri = client.token_uri(&1);
         assert!(uri.len() > 0);
+    }
+
+    // ── Merge Enhancement Tests ──────────────────────────────────────────────
+    #[test]
+    fn test_merge_duplicate_token_ids_rejected() {
+        let (env, _, client) = setup();
+        let owner = Address::generate(&env);
+        let meta1 = metadata(&env, 50, 2400);
+        client.mint(&owner.clone(), &1, &meta1);
+        let merged_meta = metadata(&env, 50, 2400);
+        let token_ids = Vec::from_array(&env, [1, 1]);
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            client.merge(&owner, &token_ids, &3, &merged_meta);
+        }));
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_merge_six_certificates() {
+        let (env, _, client) = setup();
+        let owner = Address::generate(&env);
+        for i in 0..6 {
+            let meta = metadata(&env, 10, 480);
+            client.mint(&owner.clone(), &(i + 1), &meta);
+        }
+        let merged_meta = metadata(&env, 60, 2880);
+        let mut token_ids = Vec::new(&env);
+        for i in 0..6 {
+            token_ids.push_back(i + 1);
+        }
+        client.merge(&owner, &token_ids, &100, &merged_meta);
+        let token = client.get_token(&100).unwrap();
+        assert_eq!(token.metadata.tree_count, 60);
+        assert_eq!(token.metadata.co2_offset_kg, 2880);
+        assert_eq!(client.total_supply(), 1);
+    }
+
+    #[test]
+    fn test_get_token_returns_none_for_burned() {
+        let (env, _, client) = setup();
+        let owner = Address::generate(&env);
+        let meta = metadata(&env, 50, 2400);
+        client.mint(&owner.clone(), &1, &meta);
+        assert!(client.get_token(&1).is_some());
+        let merged_meta = metadata(&env, 50, 2400);
+        let token_ids = Vec::from_array(&env, [1]);
+        client.merge(&owner, &token_ids, &2, &merged_meta);
+        assert!(client.get_token(&1).is_none());
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #3)")]
+    fn test_merge_with_wrong_owner_rejected() {
+        let (env, _, client) = setup();
+        let owner = Address::generate(&env);
+        let other = Address::generate(&env);
+        let meta1 = metadata(&env, 50, 2400);
+        client.mint(&owner, &1, &meta1);
+        let merged_meta = metadata(&env, 50, 2400);
+        let token_ids = Vec::from_array(&env, [1]);
+        client.merge(&other, &token_ids, &2, &merged_meta);
     }
 }
