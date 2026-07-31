@@ -30,8 +30,7 @@ import logger from '@/lib/logger';
 // ── Configuration ─────────────────────────────────────────────────────────────
 
 const NETWORK = (process.env.STELLAR_NETWORK ?? 'testnet') as NetworkType;
-const SOROBAN_RPC_URL =
-  process.env.SOROBAN_RPC_URL ?? 'https://soroban-testnet.stellar.org';
+const SOROBAN_RPC_URL = process.env.SOROBAN_RPC_URL ?? 'https://soroban-testnet.stellar.org';
 
 const CONTRACT_IDS = (process.env.TREE_CONTRACT_IDS ?? '')
   .split(',')
@@ -138,9 +137,7 @@ function createRpcClient(url: string, timeoutMs: number): SorobanRpc.Server {
 // ── Event Parsing ───────────────────────────────────────────────────────────
 
 function parseRpcEvent(event: SorobanRpc.Api.EventResponse): ParsedEvent {
-  const topicsXdr: string[] = Array.isArray(event.topic)
-    ? event.topic.map(scValToXdrBase64)
-    : [];
+  const topicsXdr: string[] = Array.isArray(event.topic) ? event.topic.map(scValToXdrBase64) : [];
 
   const eventType = classifyEvent(topicsXdr);
   const valueXdr = event.value != null ? scValToXdrBase64(event.value) : null;
@@ -168,6 +165,7 @@ export class CDCEventIndexer {
   private readonly config: CDCWorkerConfig;
   private running = false;
   private pollTimer: ReturnType<typeof setTimeout> | null = null;
+  private resolveDelay: (() => void) | null = null;
 
   constructor(config: Partial<CDCWorkerConfig> = {}) {
     this.config = {
@@ -225,6 +223,10 @@ export class CDCEventIndexer {
       clearTimeout(this.pollTimer);
       this.pollTimer = null;
     }
+    if (this.resolveDelay) {
+      this.resolveDelay();
+      this.resolveDelay = null;
+    }
   }
 
   private async poll(): Promise<void> {
@@ -270,7 +272,7 @@ export class CDCEventIndexer {
     const nextLedger =
       maxLedger > startLedger ? maxLedger + 1 : (response.latestLedger ?? maxLedger);
 
-    if (nextLedger > startLedger) {
+    if (processedCount > 0 && nextLedger > startLedger) {
       await withRetry(
         () => saveEventCursor(this.pool, this.config.network, nextLedger),
         this.config.maxRetries,
@@ -290,8 +292,10 @@ export class CDCEventIndexer {
 
   private delay(ms: number): Promise<void> {
     return new Promise((resolve) => {
+      this.resolveDelay = resolve;
       this.pollTimer = setTimeout(() => {
         this.pollTimer = null;
+        this.resolveDelay = null;
         resolve();
       }, ms);
     });
@@ -317,7 +321,9 @@ async function main(): Promise<void> {
 // Only run main if this file is executed directly (not imported for tests)
 if (import.meta.url === `file://${process.argv[1]}`) {
   main().catch((err) => {
-    logger.error('[cdc-worker] fatal error', { error: err instanceof Error ? err.message : String(err) });
+    logger.error('[cdc-worker] fatal error', {
+      error: err instanceof Error ? err.message : String(err),
+    });
     process.exit(1);
   });
 }

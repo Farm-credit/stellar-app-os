@@ -1,8 +1,8 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createServer, type Server as HttpServer } from 'http';
 import { io as clientIo, type Socket as ClientSocket } from 'socket.io-client';
 import { createTickerServer } from '@/lib/ticker/tickerServer';
-import { TickerService, resetTickerService } from '@/lib/ticker/tickerService';
+import { resetTickerService, type TickerService } from '@/lib/ticker/tickerService';
 import type {
   TickerClientToServerEvents,
   TickerServerToClientEvents,
@@ -78,6 +78,37 @@ describe('lib/ticker/tickerServer (integration)', () => {
       client.once('connect_error', (err) => reject(err));
     });
     return client;
+  }
+
+  function waitForEvent<T>(client: ClientType, event: string, timeoutMs = 2000): Promise<T> {
+    return new Promise<T>((resolve, reject) => {
+      const timer = setTimeout(
+        () => reject(new Error(`Timed out waiting for '${event}'`)),
+        timeoutMs
+      );
+      client.once(event as never, (data: T) => {
+        clearTimeout(timer);
+        resolve(data);
+      });
+    });
+  }
+
+  async function subscribeListing(client: ClientType, listingId: string): Promise<void> {
+    const ack = waitForEvent<ListingTickerUpdate>(client, 'listing:ticker');
+    client.emit('listing:subscribe', listingId);
+    await ack;
+  }
+
+  async function subscribeMarket(client: ClientType): Promise<void> {
+    const ack = waitForEvent<MarketTickerUpdate>(client, 'market:ticker');
+    client.emit('market:subscribe');
+    await ack;
+  }
+
+  async function flushPackets(client: ClientType): Promise<void> {
+    const pong = waitForEvent<number>(client, 'pong');
+    client.emit('ping', Date.now());
+    await pong;
   }
 
   beforeEach(async () => {
@@ -180,7 +211,7 @@ describe('lib/ticker/tickerServer (integration)', () => {
 
     it('broadcasts new trade to listing subscribers', async () => {
       const client = await connectClient();
-      client.emit('listing:subscribe', 'listing-99');
+      await subscribeListing(client, 'listing-99');
 
       const tradePromise = new Promise<CarbonCreditTradeFill>((resolve) => {
         client.once('trade:new', (trade) => resolve(trade));
@@ -234,7 +265,7 @@ describe('lib/ticker/tickerServer (integration)', () => {
 
     it('stops broadcasting after unsubscribe', async () => {
       const client = await connectClient();
-      client.emit('listing:subscribe', 'listing-X');
+      await subscribeListing(client, 'listing-X');
 
       const trade1Promise = new Promise<CarbonCreditTradeFill>((resolve) => {
         client.once('trade:new', resolve);
@@ -256,6 +287,7 @@ describe('lib/ticker/tickerServer (integration)', () => {
       expect(t1.listingId).toBe('listing-X');
 
       client.emit('listing:unsubscribe', 'listing-X');
+      await flushPackets(client);
 
       const received: CarbonCreditTradeFill[] = [];
       client.on('trade:new', (t) => received.push(t));
@@ -308,7 +340,7 @@ describe('lib/ticker/tickerServer (integration)', () => {
 
     it('broadcasts all trades to market subscribers', async () => {
       const client = await connectClient();
-      client.emit('market:subscribe');
+      await subscribeMarket(client);
 
       const tradePromiseA = new Promise<CarbonCreditTradeFill>((resolve) => {
         client.once('trade:new', (t) => resolve(t));
@@ -354,9 +386,9 @@ describe('lib/ticker/tickerServer (integration)', () => {
   describe('trade:update broadcast', () => {
     it('broadcasts trade status updates to listing and market', async () => {
       const clientA = await connectClient();
-      clientA.emit('listing:subscribe', 'listing-1');
+      await subscribeListing(clientA, 'listing-1');
       const clientB = await connectClient();
-      clientB.emit('market:subscribe');
+      await subscribeMarket(clientB);
 
       const trade = tickerService.recordTrade({
         listingId: 'listing-1',
@@ -414,7 +446,9 @@ describe('lib/ticker/tickerServer (integration)', () => {
         errPromise,
         new Promise<string>((resolve) => setTimeout(() => resolve('timeout'), 3000)),
       ]);
-      expect(['disconnected', 'timeout'].includes(result) || result.includes('capacity')).toBe(true);
+      expect(['disconnected', 'timeout'].includes(result) || result.includes('capacity')).toBe(
+        true
+      );
 
       c1.disconnect();
       c2.disconnect();

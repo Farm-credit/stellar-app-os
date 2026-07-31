@@ -21,7 +21,17 @@ const mockLeaflet = {
   marker: vi.fn(() => ({
     bindPopup: vi.fn().mockReturnThis(),
     addTo: vi.fn().mockReturnThis(),
+    on: vi.fn(),
+    off: vi.fn(),
   })),
+  polygon: vi.fn(() => ({
+    bindPopup: vi.fn().mockReturnThis(),
+    addTo: vi.fn().mockReturnThis(),
+    setStyle: vi.fn().mockReturnThis(),
+    on: vi.fn(),
+    off: vi.fn(),
+  })),
+  icon: vi.fn(() => ({ options: {} })),
 };
 
 vi.mock('leaflet', () => ({
@@ -39,6 +49,12 @@ describe('FarmPlotSatelliteView', () => {
     coordinates: { latitude: 0.2827, longitude: 34.7519 },
     showSatelliteToggle: true,
   };
+
+  async function waitForMapReady(): Promise<void> {
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /switch to street view/i })).toBeEnabled();
+    });
+  }
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -77,6 +93,7 @@ describe('FarmPlotSatelliteView', () => {
   it('toggles to satellite view when satellite button clicked', async () => {
     const user = userEvent.setup();
     render(<FarmPlotSatelliteView {...defaultProps} />);
+    await waitForMapReady();
 
     const satelliteButton = screen.getByRole('button', { name: /switch to satellite view/i });
     await user.click(satelliteButton);
@@ -91,6 +108,7 @@ describe('FarmPlotSatelliteView', () => {
   it('toggles back to street view when street button clicked', async () => {
     const user = userEvent.setup();
     render(<FarmPlotSatelliteView {...defaultProps} />);
+    await waitForMapReady();
 
     const satelliteButton = screen.getByRole('button', { name: /switch to satellite view/i });
     const streetButton = screen.getByRole('button', { name: /switch to street view/i });
@@ -156,6 +174,7 @@ describe('FarmPlotSatelliteView', () => {
   it('handles keyboard navigation on toggle buttons', async () => {
     const user = userEvent.setup();
     render(<FarmPlotSatelliteView {...defaultProps} />);
+    await waitForMapReady();
 
     const satelliteButton = screen.getByRole('button', { name: /switch to satellite view/i });
     await user.keyboard('{Tab}');
@@ -189,6 +208,7 @@ describe('FarmPlotSatelliteView', () => {
   it('has proper focus styles on buttons', async () => {
     const user = userEvent.setup();
     render(<FarmPlotSatelliteView {...defaultProps} />);
+    await waitForMapReady();
 
     const streetButton = screen.getByRole('button', { name: /switch to street view/i });
     await user.keyboard('{Tab}');
@@ -218,10 +238,26 @@ describe('FarmPlotSatelliteView', () => {
   it('updates description when switching to satellite view', async () => {
     const user = userEvent.setup();
     render(<FarmPlotSatelliteView {...defaultProps} />);
+    await waitForMapReady();
 
     const satelliteButton = screen.getByRole('button', { name: /switch to satellite view/i });
     await user.click(satelliteButton);
 
     expect(screen.getByText(/viewing high-resolution satellite imagery/i)).toBeInTheDocument();
+  });
+
+  it('disables toggle buttons until the map is ready', () => {
+    render(<FarmPlotSatelliteView {...defaultProps} />);
+
+    expect(screen.getByRole('button', { name: /switch to street view/i })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /switch to satellite view/i })).toBeDisabled();
+  });
+
+  it('enables toggle buttons once the map is ready', async () => {
+    render(<FarmPlotSatelliteView {...defaultProps} />);
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /switch to satellite view/i })).toBeEnabled();
+    });
   });
 });

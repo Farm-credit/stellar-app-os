@@ -1,21 +1,13 @@
 'use client';
 
-import type { ReactNode } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { CarbonChart } from './CarbonChart';
 import { BadgesList, type BadgeItem } from './BadgesList';
 import { SocialShareCard } from './SocialShareCard';
 import { Counter } from '@/components/atoms/Counter';
 import { Button } from '@/components/ui/button';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-  CardFooter,
-} from '@/components/ui/card';
-import { ArrowPath, Sparkles, TreePine, Wind } from 'lucide-react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { RefreshCw, Sparkles, TreePine, Wind } from 'lucide-react';
 
 interface CarbonDataPoint {
   date: string;
@@ -181,7 +173,7 @@ export function CarbonDashboard() {
     try {
       const stats = await getCarbonDashboardStats(range);
       setDashboardData(stats);
-    } catch (err) {
+    } catch {
       setError('Failed to load carbon dashboard data. Please try again.');
     } finally {
       setIsLoading(false);
@@ -213,17 +205,22 @@ export function CarbonDashboard() {
         return {
           ...current,
           totalOffsetKg: current.totalOffsetKg + delta,
-          avgOffsetPerTree: Math.max(1, Math.round((current.totalOffsetKg + delta) / current.totalTrees)),
+          avgOffsetPerTree: Math.max(
+            1,
+            Math.round((current.totalOffsetKg + delta) / current.totalTrees)
+          ),
           data: updatedData,
         };
       });
     }, 4000);
 
     return () => window.clearInterval(interval);
-  }, [dashboardData?.totalTrees]);
+  }, [dashboardData]);
 
-  const activeStats = useMemo(() => dashboardData ?? rangeData[selectedRange], [dashboardData, selectedRange]);
-  const totalOffsetLabel = `${activeStats.totalOffsetKg.toLocaleString()} kg`;
+  const activeStats = useMemo(
+    () => dashboardData ?? rangeData[selectedRange],
+    [dashboardData, selectedRange]
+  );
 
   return (
     <div className="flex flex-col gap-6">
@@ -231,7 +228,8 @@ export function CarbonDashboard() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Carbon Footprint</h1>
           <p className="mt-2 max-w-2xl text-sm text-slate-500 dark:text-slate-400">
-            View your live carbon offset accumulation, progress over time, and sustainability achievements.
+            View your live carbon offset accumulation, progress over time, and sustainability
+            achievements.
           </p>
         </div>
 
@@ -269,7 +267,7 @@ export function CarbonDashboard() {
             size="sm"
             className="min-w-[150px]"
           >
-            <ArrowPath className="h-4 w-4" />
+            <RefreshCw className="h-4 w-4" />
             {isLoading ? 'Refreshing…' : 'Refresh stats'}
           </Button>
         </div>
@@ -359,11 +357,15 @@ export function CarbonDashboard() {
               Real-time carbon accumulation
             </p>
             <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
-              The dashboard updates automatically as your offset numbers grow, and it is fully responsive across all devices.
+              The dashboard updates automatically as your offset numbers grow, and it is fully
+              responsive across all devices.
             </p>
           </div>
 
-          <SocialShareCard totalTrees={activeStats.totalTrees} totalOffsetKg={activeStats.totalOffsetKg} />
+          <SocialShareCard
+            totalTrees={activeStats.totalTrees}
+            totalOffsetKg={activeStats.totalOffsetKg}
+          />
         </div>
       </div>
 

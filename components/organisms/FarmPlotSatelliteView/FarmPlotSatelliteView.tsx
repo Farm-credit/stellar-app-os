@@ -151,11 +151,11 @@ function loadLeaflet(): Promise<LeafletGlobal> {
 
 function escapeHtml(value: string): string {
   return value
-    .replaceAll('&', '&')
-    .replaceAll('<', '<')
-    .replaceAll('>', '>')
-    .replaceAll('"', '"')
-    .replaceAll("'", '&apos;');
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
 }
 
 function formatCoordinate(value: number, positiveLabel: string, negativeLabel: string): string {
@@ -221,12 +221,17 @@ export function FarmPlotSatelliteView({
   const plotPolygonRef = useRef<LeafletPolygon | null>(null);
   const plotMarkerRef = useRef<LeafletMarker | null>(null);
   const activeLayerRef = useRef<MapViewMode | null>(null);
+  const viewModeRef = useRef<MapViewMode>(defaultViewMode);
   const isMapReadyRef = useRef(false);
 
   const [mapStatus, setMapStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [viewMode, setViewMode] = useState<MapViewMode>(defaultViewMode);
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [isHoveringPlot, setIsHoveringPlot] = useState(false);
+
+  useEffect(() => {
+    viewModeRef.current = viewMode;
+  }, [viewMode]);
 
   const descriptionId = useId();
   const [lat, lng] = [coordinates.latitude, coordinates.longitude];
@@ -277,9 +282,9 @@ export function FarmPlotSatelliteView({
           touchZoom: true,
         }).setView([lat, lng], zoomLevel);
 
-        const initialLayer = viewMode === 'satellite' ? satelliteLayer : streetLayer;
+        const initialLayer = viewModeRef.current === 'satellite' ? satelliteLayer : streetLayer;
         initialLayer.addTo(map);
-        activeLayerRef.current = viewMode;
+        activeLayerRef.current = viewModeRef.current;
 
         const plotBounds = generateFarmPlotBounds(lat, lng);
         const polygon = L.polygon(plotBounds, FARM_PLOT_STYLE).addTo(map);
@@ -369,7 +374,7 @@ export function FarmPlotSatelliteView({
       activeLayerRef.current = null;
       isMapReadyRef.current = false;
     };
-  }, [lat, lng, plotName, plotLocation, plotId, viewMode, zoomLevel]);
+  }, [lat, lng, plotName, plotLocation, plotId, zoomLevel]);
 
   useEffect(() => {
     const map = mapInstanceRef.current;
@@ -411,12 +416,18 @@ export function FarmPlotSatelliteView({
   const longitudeText = formatCoordinate(lng, 'E', 'W');
 
   const handleViewModeChange = (mode: MapViewMode): void => {
+    if (mapStatus !== 'ready') {
+      return;
+    }
     setViewMode(mode);
   };
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>): void => {
     if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault();
+      if (mapStatus !== 'ready') {
+        return;
+      }
       const button = event.currentTarget;
       const mode = button.getAttribute('data-view-mode') as MapViewMode;
       if (mode) {
@@ -452,8 +463,10 @@ export function FarmPlotSatelliteView({
             <button
               type="button"
               data-view-mode="street"
+              disabled={mapStatus !== 'ready'}
               className={cn(
                 'rounded px-3 py-1.5 text-xs font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-stellar-blue focus-visible:ring-offset-2',
+                'disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent disabled:hover:text-muted-foreground',
                 viewMode === 'street'
                   ? 'bg-stellar-blue text-white'
                   : 'text-muted-foreground hover:text-foreground hover:bg-muted'
@@ -483,8 +496,10 @@ export function FarmPlotSatelliteView({
             <button
               type="button"
               data-view-mode="satellite"
+              disabled={mapStatus !== 'ready'}
               className={cn(
                 'rounded px-3 py-1.5 text-xs font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-stellar-blue focus-visible:ring-offset-2',
+                'disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent disabled:hover:text-muted-foreground',
                 viewMode === 'satellite'
                   ? 'bg-stellar-blue text-white'
                   : 'text-muted-foreground hover:text-foreground hover:bg-muted'

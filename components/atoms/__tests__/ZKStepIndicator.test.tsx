@@ -16,10 +16,7 @@ describe('ZKStepIndicator', () => {
 
   it('renders sublabel when provided', () => {
     render(
-      <ZKStepIndicator
-        {...defaultProps}
-        sublabel="navigator.geolocation.getCurrentPosition()"
-      />
+      <ZKStepIndicator {...defaultProps} sublabel="navigator.geolocation.getCurrentPosition()" />
     );
     expect(screen.getByText('navigator.geolocation.getCurrentPosition()')).toBeInTheDocument();
   });
@@ -62,7 +59,7 @@ describe('ZKStepIndicator', () => {
 
   it('does not show duration badge when complete but no durationMs', () => {
     render(<ZKStepIndicator {...defaultProps} status="complete" />);
-    expect(screen.queryByText(/ms|s$/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/^\d+(\.\d+)?m?s$/)).not.toBeInTheDocument();
   });
 
   it('applies pending opacity styling', () => {
@@ -86,9 +83,7 @@ describe('ZKStepIndicator', () => {
   it('renders all four statuses without throwing', () => {
     const statuses = ['pending', 'active', 'complete', 'error'] as const;
     for (const status of statuses) {
-      expect(() =>
-        render(<ZKStepIndicator {...defaultProps} status={status} />)
-      ).not.toThrow();
+      expect(() => render(<ZKStepIndicator {...defaultProps} status={status} />)).not.toThrow();
     }
   });
 });

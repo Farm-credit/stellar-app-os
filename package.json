@@ -37,7 +37,7 @@
     "db:backup": "node scripts/db-backup.mjs",
     "prepare": "husky",
     "ticker": "tsx lib/ticker/worker.ts",
-    "ticker:simulate": "dotenvx run -e TICKER_SIMULATE_TRADES=true -- tsx lib/ticker/worker.ts"
+    "ticker:simulate": "dotenvx run -e TICKER_SIMULATE_TRADES=true -- tsx lib/ticker/worker.ts",
     "indexer:cdc": "tsx lib/indexer/cdc-worker.ts"
   },
   "dependencies": {

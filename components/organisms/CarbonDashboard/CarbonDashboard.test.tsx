@@ -7,7 +7,7 @@ describe('CarbonDashboard', () => {
 
     expect(screen.getByRole('heading', { name: /carbon footprint/i })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: /1 week/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /refresh stats/i })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: /refresh stats/i })).toBeInTheDocument();
 
     await waitFor(() => {
       expect(screen.getByText(/total trees sponsored/i)).toBeInTheDocument();
@@ -18,7 +18,10 @@ describe('CarbonDashboard', () => {
   it('shows live counter cards and updates when range is switched', async () => {
     render(<CarbonDashboard />);
 
-    const monthTab = screen.getByRole('tab', { name: /1 month/i });
+    const monthTab = await screen.findByRole('tab', { name: /1 month/i });
+    await waitFor(() => {
+      expect(monthTab).toBeEnabled();
+    });
     fireEvent.click(monthTab);
 
     await waitFor(() => {
