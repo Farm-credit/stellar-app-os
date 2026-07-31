@@ -67,12 +67,20 @@
 //! `set`.  This is efficient when the array is ≤ ~500 entries; beyond that
 //! the O(n) read/write cost per mutation becomes noticeable.
 
-use harvesta_errors::{HarvestaError, FarmerError};
-use soroban_sdk::{
-    contract, contractimpl, contracttype, panic_with_error, symbol_short, Address, Bytes,
-    BytesN, Env, String, Vec,
-};
 use admin_controls::AdminControlsClient;
+use harvesta_errors::{FarmerError, HarvestaError};
+use soroban_sdk::{
+    contract, contractimpl, contracttype, panic_with_error, symbol_short, Address, Bytes, BytesN,
+    Env, IntoVal, String, Vec,
+};
+
+/// Persistent co-operative records are renewed before their remaining lifetime
+/// becomes short.  This keeps long-lived group accounts discoverable without
+/// requiring every read to mutate storage.
+const COOP_TTL_THRESHOLD: u32 = 518_400;
+const COOP_TTL_EXTEND_TO: u32 = 1_036_800;
+/// A deliberately bounded signer list keeps one co-operative record small.
+const MAX_COOP_SIGNERS: u32 = 20;
 
 // ── TTL constants ─────────────────────────────────────────────────────────────
 
@@ -166,8 +174,27 @@ pub struct FarmPlot {
     pub registered_at: u64,
 }
 
-/// Land tenure verification record storing hash of legal land title and
-/// validation signatures.
+/// A farming co-operative controlled by a shared Stellar multisig account.
+///
+/// `multisig_account` is the authoritative account used for authorization.
+/// Calling `multisig_account.require_auth()` delegates threshold enforcement to
+/// Stellar/Soroban, so this contract never stores private keys or attempts to
+/// reproduce Stellar's signature rules. `signers` and `threshold` are a
+/// bounded, public declaration of the co-operative's expected configuration
+/// for indexers and auditors; changes to the Stellar account must be reflected
+/// by registering a new account.
+#[contracttype]
+#[derive(Clone, Debug, PartialEq)]
+pub struct CoopProfile {
+    /// Shared Stellar account whose configured multisig policy authorizes use.
+    pub multisig_account: Address,
+    /// Publicly declared co-operative signers, limited to `MAX_COOP_SIGNERS`.
+    pub signers: Vec<Address>,
+    /// Number of declared signers required by the co-operative policy.
+    pub threshold: u32,
+    pub registered_at: u64,
+}
+/// Land tenure verification record storing hash of legal land title and validation signatures.
 #[contracttype]
 #[derive(Clone, Debug, PartialEq)]
 pub struct LandTenureVerification {
@@ -181,40 +208,20 @@ pub struct LandTenureVerification {
 
 // ── Reputation types ─────────────────────────────────────────────────────────
 
-/// Reputation tier badge assigned based on a planter's accumulated score.
-///
-/// | Tier      | Min Score   | Fee Discount |
-/// |-----------|-------------|--------------|
-/// | Bronze    | 0           | 0 %          |
-/// | Silver    | 300         | 5 %          |
-/// | Gold      | 600         | 15 %         |
-/// | Platinum  | 900         | 30 %         |
-#[contracttype]
-#[derive(Clone, Debug, PartialEq)]
-pub enum ReputationTier {
-    Bronze,
-    Silver,
-    Gold,
-    Platinum,
-}
-
-/// A single planter's reputation record stored in the compact array.
-///
-/// Stored in a single `Vec<ReputationEntry>` under `DataKey::Reputation`
-/// to minimise storage key count.
-#[contracttype]
-#[derive(Clone, Debug, PartialEq)]
-pub struct ReputationEntry {
-    /// The planter's wallet address.
-    pub planter: Address,
-    /// Cumulative reputation score (0–1000+).
-    pub score: u32,
-    /// Derived tier badge based on `score`.
-    pub tier: ReputationTier,
-    /// Total successful tree-planting jobs completed.
-    pub completed_jobs: u64,
-    /// Unix timestamp of the last score update.
-    pub last_updated: u64,
+/// Errors specific to co-operative multisig registration.
+#[soroban_sdk::contracterror]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
+pub enum Error {
+    /// A co-operative record already exists for this shared account.
+    CoopAlreadyRegistered = 1,
+    /// A co-operative must declare between two and `MAX_COOP_SIGNERS` signers.
+    InvalidCoopSignerCount = 2,
+    /// The threshold must be non-zero and no larger than the signer count.
+    InvalidCoopThreshold = 3,
+    /// Each declared signer must occur only once.
+    DuplicateCoopSigner = 4,
+    /// The shared multisig account cannot also be a declared signer.
+    MultisigAccountCannotBeSigner = 5,
 }
 
 // ── Contract ──────────────────────────────────────────────────────────────────
@@ -307,10 +314,8 @@ impl FarmerRegistry {
         env.storage().persistent().set(&key, &true);
         env.storage().persistent().extend_ttl(&key, TTL_MIN, TTL_MAX);
 
-        env.events().publish(
-            (symbol_short!("Frozen"), wallet_address.clone()),
-            true,
-        );
+        env.events()
+            .publish((symbol_short!("Frozen"), wallet_address.clone()), true);
     }
 
     /// Unfreeze a farmer address.
@@ -327,10 +332,8 @@ impl FarmerRegistry {
         let key = DataKey::Frozen(wallet_address.clone());
         env.storage().persistent().remove(&key);
 
-        env.events().publish(
-            (symbol_short!("Frozen"), wallet_address.clone()),
-            false,
-        );
+        env.events()
+            .publish((symbol_short!("Frozen"), wallet_address.clone()), false);
     }
 
     /// Returns `true` if `wallet_address` is frozen.
@@ -398,19 +401,17 @@ impl FarmerRegistry {
 
         // Store initial history entry at version 0.
         let version: u32 = 0;
-        let hist_key = DataKey::History(wallet_address.clone(), version);
-        env.storage()
-            .persistent()
-            .set(&hist_key, &ProfileHistoryEntry {
+        env.storage().persistent().set(
+            &Self::history_key(&env, &wallet_address, version),
+            &ProfileHistoryEntry {
                 version,
                 profile: profile.clone(),
                 updated_at: env.ledger().timestamp(),
-            });
-        env.storage().persistent().extend_ttl(&hist_key, TTL_MIN, TTL_MAX);
-
-        let ver_key = DataKey::Version(wallet_address.clone());
-        env.storage().persistent().set(&ver_key, &version);
-        env.storage().persistent().extend_ttl(&ver_key, TTL_MIN, TTL_MAX);
+            },
+        );
+        env.storage()
+            .persistent()
+            .set(&Self::version_counter_key(&env, &wallet_address), &version);
 
         env.events().publish(
             (symbol_short!("FarmerReg"), wallet_address.clone()),
@@ -502,7 +503,81 @@ impl FarmerRegistry {
         new_profile
     }
 
+    // ── Co-operative multisig accounts ───────────────────────────────────────
+
+    /// Register a farming co-operative's shared multisig account.
+    ///
+    /// The registered `validator` and the `multisig_account` must both
+    /// authorize the invocation. The latter authorization is evaluated by the
+    /// Stellar/Soroban authorization system, which enforces the account's real
+    /// multisig threshold. This contract stores no signing material.
+    ///
+    /// `signers` and `threshold` are validated, bounded public metadata for
+    /// auditors and indexers. They are not a replacement for the multisig
+    /// configuration held by the shared Stellar account.
+    ///
+    /// # Errors
+    /// - `NotValidator` — `validator` is not registered
+    /// - `CoopAlreadyRegistered` — the shared account is already registered
+    /// - `InvalidCoopSignerCount` — fewer than two or more than twenty signers
+    /// - `InvalidCoopThreshold` — threshold is zero or exceeds signer count
+    /// - `DuplicateCoopSigner` — a signer occurs more than once
+    /// - `MultisigAccountCannotBeSigner` — account appears in its signer list
+    pub fn register_coop(
+        env: Env,
+        validator: Address,
+        multisig_account: Address,
+        signers: Vec<Address>,
+        threshold: u32,
+    ) -> CoopProfile {
+        Self::assert_not_paused(&env);
+        validator.require_auth();
+        // This is the critical authorization: for a Stellar multisig account,
+        // the host verifies the account's configured signer weights/threshold.
+        multisig_account.require_auth();
+        Self::require_validator(&env, &validator);
+        Self::assert_not_frozen(&env, &multisig_account);
+        Self::assert_valid_coop_policy(&env, &multisig_account, &signers, threshold);
+
+        let key = Self::coop_key(&env, &multisig_account);
+        if env.storage().persistent().has(&key) {
+            panic_with_error!(&env, Error::CoopAlreadyRegistered);
+        }
+
+        let profile = CoopProfile {
+            multisig_account: multisig_account.clone(),
+            signers,
+            threshold,
+            registered_at: env.ledger().timestamp(),
+        };
+        env.storage().persistent().set(&key, &profile);
+        Self::extend_coop_ttl(&env, &key);
+
+        env.events().publish(
+            (symbol_short!("CoopReg"), multisig_account),
+            (profile.threshold, profile.registered_at),
+        );
+
+        profile
+    }
+
     // ── Read operations ───────────────────────────────────────────────────────
+
+    /// Return a co-operative multisig record, if the shared account is registered.
+    ///
+    /// This read exposes only the co-operative's public account policy metadata.
+    pub fn get_coop(env: Env, multisig_account: Address) -> Option<CoopProfile> {
+        env.storage()
+            .persistent()
+            .get(&Self::coop_key(&env, &multisig_account))
+    }
+
+    /// Return `true` when `multisig_account` is registered as a co-operative.
+    pub fn is_coop(env: Env, multisig_account: Address) -> bool {
+        env.storage()
+            .persistent()
+            .has(&Self::coop_key(&env, &multisig_account))
+    }
 
     /// Public read — returns a privacy-safe view (hash + region, no wallet).
     ///
@@ -670,8 +745,9 @@ impl FarmerRegistry {
             .unwrap_or_else(|| Vec::new(&env));
 
         farmer_plots.push_back(plot_id.clone());
-        env.storage().persistent().set(&fplots_key, &farmer_plots);
-        env.storage().persistent().extend_ttl(&fplots_key, TTL_MIN, TTL_MAX);
+        env.storage()
+            .persistent()
+            .set(&farmer_plots_key, &farmer_plots);
 
         env.events().publish(
             (symbol_short!("PlotReg"), farmer),
@@ -694,7 +770,7 @@ impl FarmerRegistry {
             if let Some(plot) = env
                 .storage()
                 .persistent()
-                .get::<_, FarmPlot>(&DataKey::Plot(id))
+                .get::<_, FarmPlot>(&Self::plot_key(&env, &id))
             {
                 plots.push_back(plot);
             }
@@ -1040,17 +1116,82 @@ impl FarmerRegistry {
         panic_with_error!(env, FarmerError::InvalidRegion);
     }
 
-    /// Compute the reputation tier badge from a numeric score.
-    fn compute_tier(score: u32) -> ReputationTier {
-        if score >= 900 {
-            ReputationTier::Platinum
-        } else if score >= 600 {
-            ReputationTier::Gold
-        } else if score >= 300 {
-            ReputationTier::Silver
-        } else {
-            ReputationTier::Bronze
+    /// Validate the bounded, public declaration accompanying a co-op account.
+    fn assert_valid_coop_policy(
+        env: &Env,
+        multisig_account: &Address,
+        signers: &Vec<Address>,
+        threshold: u32,
+    ) {
+        let signer_count = signers.len();
+        if !(2..=MAX_COOP_SIGNERS).contains(&signer_count) {
+            panic_with_error!(env, Error::InvalidCoopSignerCount);
         }
+        if threshold == 0 || threshold > signer_count {
+            panic_with_error!(env, Error::InvalidCoopThreshold);
+        }
+
+        for i in 0..signer_count {
+            let signer = signers.get(i).unwrap();
+            if signer == *multisig_account {
+                panic_with_error!(env, Error::MultisigAccountCannotBeSigner);
+            }
+            for j in (i + 1)..signer_count {
+                if signer == signers.get(j).unwrap() {
+                    panic_with_error!(env, Error::DuplicateCoopSigner);
+                }
+            }
+        }
+    }
+
+    fn extend_coop_ttl(env: &Env, key: &soroban_sdk::Val) {
+        env.storage()
+            .persistent()
+            .extend_ttl(key, COOP_TTL_THRESHOLD, COOP_TTL_EXTEND_TO);
+    }
+
+    fn farmer_key(env: &Env, wallet: &Address) -> soroban_sdk::Val {
+        (symbol_short!("FARMER"), wallet.clone()).into_val(env)
+    }
+
+    fn coop_key(env: &Env, multisig_account: &Address) -> soroban_sdk::Val {
+        (symbol_short!("COOP"), multisig_account.clone()).into_val(env)
+    }
+
+    fn validator_key(env: &Env, addr: &Address) -> soroban_sdk::Val {
+        (symbol_short!("VALID"), addr.clone()).into_val(env)
+    }
+
+    fn frozen_key(env: &Env, wallet: &Address) -> soroban_sdk::Val {
+        (symbol_short!("FROZEN"), wallet.clone()).into_val(env)
+    }
+
+    fn version_counter_key(env: &Env, wallet: &Address) -> soroban_sdk::Val {
+        (symbol_short!("VER"), wallet.clone()).into_val(env)
+    }
+
+    fn history_key(env: &Env, wallet: &Address, version: u32) -> soroban_sdk::Val {
+        (symbol_short!("HIST"), wallet.clone(), version).into_val(env)
+    }
+
+    fn availability_key(env: &Env, wallet: &Address) -> soroban_sdk::Val {
+        (symbol_short!("AVAIL"), wallet.clone()).into_val(env)
+    }
+
+    fn plot_key(env: &Env, plot_id: &BytesN<32>) -> soroban_sdk::Val {
+        (symbol_short!("PLOT"), plot_id.clone()).into_val(env)
+    }
+
+    fn farmer_plots_key(env: &Env, farmer: &Address) -> soroban_sdk::Val {
+        (symbol_short!("FPLOTS"), farmer.clone()).into_val(env)
+    }
+
+    fn land_tenure_key(env: &Env, title_id: &BytesN<32>) -> soroban_sdk::Val {
+        (symbol_short!("TENURE"), title_id.clone()).into_val(env)
+    }
+
+    fn farmer_tenures_key(env: &Env, farmer: &Address) -> soroban_sdk::Val {
+        (symbol_short!("FTENURE"), farmer.clone()).into_val(env)
     }
 }
 
@@ -1067,9 +1208,10 @@ mod tests {
         let env = Env::default();
         env.mock_all_auths();
 
-        // Deploy admin-controls contract.
-        let ac_id = env.register_contract(None, admin_controls::AdminControls);
-        let ac_client = admin_controls::AdminControlsClient::new(&env, &ac_id);
+        // Deploy admin-controls contract
+        let admin_controls_id = env.register_contract(None, admin_controls::AdminControls);
+        let admin_controls_client =
+            admin_controls::AdminControlsClient::new(&env, &admin_controls_id);
         let admin = Address::generate(&env);
         let oracle = Address::generate(&env);
         ac_client.initialize(&admin, &oracle);
@@ -1097,6 +1239,14 @@ mod tests {
 
     fn region(env: &Env, s: &str) -> String {
         String::from_str(env, s)
+    }
+
+    fn coop_signers(env: &Env) -> soroban_sdk::Vec<Address> {
+        let mut signers = soroban_sdk::Vec::new(env);
+        signers.push_back(Address::generate(env));
+        signers.push_back(Address::generate(env));
+        signers.push_back(Address::generate(env));
+        signers
     }
 
     // ── validator management ──────────────────────────────────────────────────
@@ -1233,6 +1383,115 @@ mod tests {
             &hash,
             &preimage,
             &region(&env, "s1"),
+        );
+    }
+
+    // ── Co-operative multisig accounts ───────────────────────────────────────
+
+    #[test]
+    fn test_register_and_get_coop_multisig_account() {
+        let (env, _, validator, client) = setup();
+        let shared_account = Address::generate(&env);
+        let signers = coop_signers(&env);
+
+        let profile = client.register_coop(&validator, &shared_account, &signers, &2);
+
+        assert_eq!(profile.multisig_account, shared_account);
+        assert_eq!(profile.signers, signers);
+        assert_eq!(profile.threshold, 2);
+        assert!(client.is_coop(&shared_account));
+        assert_eq!(client.get_coop(&shared_account), Some(profile));
+    }
+
+    #[test]
+    fn test_coop_and_individual_farmer_records_are_independent() {
+        let (env, _, validator, client) = setup();
+        let shared_account = Address::generate(&env);
+        let signers = coop_signers(&env);
+        let (preimage, hash) = doc(&env, 21);
+
+        client.register_coop(&validator, &shared_account, &signers, &2);
+        client.register_farmer(
+            &validator,
+            &shared_account,
+            &hash,
+            &preimage,
+            &region(&env, "s1"),
+        );
+
+        assert!(client.is_coop(&shared_account));
+        assert!(client.is_registered(&shared_account));
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #1)")]
+    fn test_duplicate_coop_registration_rejected() {
+        let (env, _, validator, client) = setup();
+        let shared_account = Address::generate(&env);
+        let signers = coop_signers(&env);
+
+        client.register_coop(&validator, &shared_account, &signers, &2);
+        client.register_coop(&validator, &shared_account, &signers, &2);
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #2)")]
+    fn test_coop_requires_at_least_two_signers() {
+        let (env, _, validator, client) = setup();
+        let shared_account = Address::generate(&env);
+        let mut signers = soroban_sdk::Vec::new(&env);
+        signers.push_back(Address::generate(&env));
+
+        client.register_coop(&validator, &shared_account, &signers, &1);
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #3)")]
+    fn test_coop_rejects_zero_or_excessive_threshold() {
+        let (env, _, validator, client) = setup();
+        let shared_account = Address::generate(&env);
+        let signers = coop_signers(&env);
+
+        client.register_coop(&validator, &shared_account, &signers, &0);
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #4)")]
+    fn test_coop_rejects_duplicate_signers() {
+        let (env, _, validator, client) = setup();
+        let shared_account = Address::generate(&env);
+        let duplicate = Address::generate(&env);
+        let mut signers = soroban_sdk::Vec::new(&env);
+        signers.push_back(duplicate.clone());
+        signers.push_back(duplicate);
+
+        client.register_coop(&validator, &shared_account, &signers, &2);
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #5)")]
+    fn test_coop_rejects_shared_account_in_signer_list() {
+        let (env, _, validator, client) = setup();
+        let shared_account = Address::generate(&env);
+        let mut signers = soroban_sdk::Vec::new(&env);
+        signers.push_back(shared_account.clone());
+        signers.push_back(Address::generate(&env));
+
+        client.register_coop(&validator, &shared_account, &signers, &2);
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #6)")]
+    fn test_coop_registration_requires_registered_validator() {
+        let (env, _, _, client) = setup();
+        let unregistered_validator = Address::generate(&env);
+        let shared_account = Address::generate(&env);
+
+        client.register_coop(
+            &unregistered_validator,
+            &shared_account,
+            &coop_signers(&env),
+            &2,
         );
     }
 
@@ -1449,7 +1708,7 @@ mod tests {
         let farmer = Address::generate(&env);
         let plot_id = BytesN::from_array(&env, &[1u8; 32]);
 
-        let mut coords = Vec::new(&env);
+        let mut coords = soroban_sdk::Vec::new(&env);
         coords.push_back((1000000, 2000000));
         coords.push_back((1000000, 2000001));
         coords.push_back((1000001, 2000000));
@@ -1473,7 +1732,7 @@ mod tests {
         let farmer = Address::generate(&env);
         let plot_id = BytesN::from_array(&env, &[2u8; 32]);
 
-        let mut coords = Vec::new(&env);
+        let mut coords = soroban_sdk::Vec::new(&env);
         coords.push_back((1000000, 2000000));
         coords.push_back((1000000, 2000001));
 
@@ -1487,7 +1746,7 @@ mod tests {
         let farmer = Address::generate(&env);
         let plot_id = BytesN::from_array(&env, &[3u8; 32]);
 
-        let mut coords = Vec::new(&env);
+        let mut coords = soroban_sdk::Vec::new(&env);
         for i in 0..51 {
             coords.push_back((i as i64, i as i64));
         }
@@ -1502,7 +1761,7 @@ mod tests {
         let farmer = Address::generate(&env);
         let plot_id = BytesN::from_array(&env, &[4u8; 32]);
 
-        let mut coords = Vec::new(&env);
+        let mut coords = soroban_sdk::Vec::new(&env);
         coords.push_back((1000000, 2000000));
         coords.push_back((1000000, 2000001));
         coords.push_back((1000001, 2000000));
