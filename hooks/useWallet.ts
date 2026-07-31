@@ -3,6 +3,7 @@ import type { WalletType, NetworkType, WalletConnection } from '@/lib/types/wall
 import {
   connectFreighter,
   connectAlbedo,
+  connectRango,
   connectXBull,
   fetchBalance,
   getFreighterNetwork,
@@ -10,6 +11,7 @@ import {
 import {
   signTransactionWithFreighter,
   signTransactionWithAlbedo,
+  signTransactionWithRango,
   signTransactionWithXBull,
 } from '@/lib/stellar/signing';
 
@@ -58,6 +60,9 @@ export function useWallet() {
           break;
         case 'albedo':
           publicKey = await connectAlbedo(targetNetwork);
+          break;
+        case 'rango':
+          publicKey = await connectRango(targetNetwork);
           break;
         case 'xbull':
           publicKey = await connectXBull(targetNetwork);
@@ -173,6 +178,8 @@ export function useWallet() {
             return await signTransactionWithFreighter(transactionXdr, networkPassphrase);
           case 'albedo':
             return await signTransactionWithAlbedo(transactionXdr, wallet.network);
+          case 'rango':
+            return await signTransactionWithRango(transactionXdr, networkPassphrase);
           case 'xbull':
             return await signTransactionWithXBull(transactionXdr, networkPassphrase);
           default:

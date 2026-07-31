@@ -140,6 +140,52 @@ export function connectXBull(_network: NetworkType): Promise<string> {
   });
 }
 
+export function connectRango(_network: NetworkType): Promise<string> {
+  if (typeof window === 'undefined') {
+    throw new Error('Rango wallet can only be accessed in the browser');
+  }
+
+  return new Promise((resolve, reject) => {
+    const rango = (window as any).rango;
+
+    if (rango) {
+      if (typeof rango.getPublicKey === 'function') {
+        rango
+          .getPublicKey()
+          .then((pubKey: string) => resolve(pubKey))
+          .catch((error: any) => {
+            if (error?.message?.includes('rejected') || error?.message?.includes('cancel')) {
+              reject(new Error('Connection rejected by user'));
+            } else {
+              reject(new Error(error?.message || 'Failed to get public key from Rango'));
+            }
+          });
+        return;
+      } else if (typeof rango.connect === 'function') {
+        rango
+          .connect()
+          .then((res: any) => resolve(res.publicKey || res.address || res))
+          .catch((error: any) => {
+            if (error?.message?.includes('rejected') || error?.message?.includes('cancel')) {
+              reject(new Error('Connection rejected by user'));
+            } else {
+              reject(new Error(error?.message || 'Failed to get public key from Rango'));
+            }
+          });
+        return;
+      }
+    }
+
+    reject(new Error('Rango wallet extension not found. Please install it.'));
+  });
+}
+
+export async function isRangoInstalled(): Promise<boolean> {
+  if (typeof window === 'undefined') return false;
+
+  return !!(window as any).rango;
+}
+
 export async function isXBullInstalled(): Promise<boolean> {
   if (typeof window === 'undefined') return false;
 
