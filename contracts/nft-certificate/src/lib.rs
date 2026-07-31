@@ -41,6 +41,11 @@ pub struct Token {
     pub metadata: CertificateMetadata,
 }
 
+// ── Constants ─────────────────────────────────────────────────────────────────
+
+/// Maximum number of certificates that can be merged in a single merge() call.
+const MAX_MERGE_BATCH_SIZE: u32 = 100;
+
 // ── Contract ──────────────────────────────────────────────────────────────────
 
 #[contract]
@@ -140,6 +145,11 @@ impl NftCertificate {
             panic_with_error!(&env, HarvestaError::Co2MustBePositive);
         }
 
+        // Batch size limit prevents gas bomb DoS attacks
+        if token_ids.len() > (MAX_MERGE_BATCH_SIZE as u64) {
+            panic_with_error!(&env, HarvestaError::BatchTooLarge);
+        }
+
         // Check if new token ID already exists
         if env.storage().instance().has(&new_token_id) {
             panic_with_error!(&env, NftError::TokenAlreadyMinted);
@@ -147,6 +157,18 @@ impl NftCertificate {
 
         let mut total_tree_count = 0i128;
         let mut total_co2_offset = 0i128;
+
+        // Verify no duplicate token IDs in the merge list
+        {
+            let mut seen_ids = soroban_sdk::Vec::new(&env);
+            for i in 0..token_ids.len() {
+                let tid = token_ids.get(i).unwrap();
+                if seen_ids.contains(&tid) {
+                    panic_with_error!(&env, HarvestaError::AmountMustBePositive);
+                }
+                seen_ids.push_back(tid);
+            }
+        }
 
         // Verify ownership and aggregate metadata from all certificates
         for i in 0..token_ids.len() {
@@ -406,7 +428,6 @@ impl NftCertificate {
 mod tests {
     use super::*;
     use soroban_sdk::{testutils::Address as _, Address, Env, String};
-    use soroban_sdk::{testutils::Address as _, Address, Env};
 
     fn setup() -> (Env, Address, NftCertificateClient<'static>) {
         let env = Env::default();
@@ -605,5 +626,66 @@ mod tests {
 
         let uri = client.token_uri(&1);
         assert!(uri.len() > 0);
+    }
+
+    // ── Merge Enhancement Tests ──────────────────────────────────────────────
+    #[test]
+    fn test_merge_duplicate_token_ids_rejected() {
+        let (env, _, client) = setup();
+        let owner = Address::generate(&env);
+        let meta1 = metadata(&env, 50, 2400);
+        client.mint(&owner.clone(), &1, &meta1);
+        let merged_meta = metadata(&env, 50, 2400);
+        let token_ids = Vec::from_array(&env, [1, 1]);
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            client.merge(&owner, &token_ids, &3, &merged_meta);
+        }));
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_merge_six_certificates() {
+        let (env, _, client) = setup();
+        let owner = Address::generate(&env);
+        for i in 0..6 {
+            let meta = metadata(&env, 10, 480);
+            client.mint(&owner.clone(), &(i + 1), &meta);
+        }
+        let merged_meta = metadata(&env, 60, 2880);
+        let mut token_ids = Vec::new(&env);
+        for i in 0..6 {
+            token_ids.push_back(i + 1);
+        }
+        client.merge(&owner, &token_ids, &100, &merged_meta);
+        let token = client.get_token(&100).unwrap();
+        assert_eq!(token.metadata.tree_count, 60);
+        assert_eq!(token.metadata.co2_offset_kg, 2880);
+        assert_eq!(client.total_supply(), 1);
+    }
+
+    #[test]
+    fn test_get_token_returns_none_for_burned() {
+        let (env, _, client) = setup();
+        let owner = Address::generate(&env);
+        let meta = metadata(&env, 50, 2400);
+        client.mint(&owner.clone(), &1, &meta);
+        assert!(client.get_token(&1).is_some());
+        let merged_meta = metadata(&env, 50, 2400);
+        let token_ids = Vec::from_array(&env, [1]);
+        client.merge(&owner, &token_ids, &2, &merged_meta);
+        assert!(client.get_token(&1).is_none());
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #3)")]
+    fn test_merge_with_wrong_owner_rejected() {
+        let (env, _, client) = setup();
+        let owner = Address::generate(&env);
+        let other = Address::generate(&env);
+        let meta1 = metadata(&env, 50, 2400);
+        client.mint(&owner, &1, &meta1);
+        let merged_meta = metadata(&env, 50, 2400);
+        let token_ids = Vec::from_array(&env, [1]);
+        client.merge(&other, &token_ids, &2, &merged_meta);
     }
 }
