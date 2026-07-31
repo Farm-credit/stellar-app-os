@@ -1409,3 +1409,61 @@ Issues are open and labelled — see the [Issues tab](../../issues). Smart contr
 ## License
 
 Apache 2.0
+
+---
+
+## Certificate API
+
+Impact certificates are available as high-resolution PDFs with embedded QR codes that link to the Stellar blockchain explorer for on-chain verification.
+
+### Client-Side Usage
+
+```ts
+import { generateCertificatePdf, type CertificateData } from '@/lib/certificate';
+
+const data: CertificateData = {
+  userName: 'Alice',
+  walletAddress: 'G…',
+  treeCount: 50,
+  co2Offset: 2.4,
+  plantingDate: new Date('2025-01-15'),
+  region: 'Amazon Basin, Brazil',
+  projectName: 'Amazon Reforestation',
+  transactionHash: 'a1b2c3…',
+  retirementDate: new Date(),
+  isAnonymous: false,
+};
+
+const qrDataUrl = await QRCode.toDataURL(explorerUrl);
+await generateCertificatePdf({ qrDataUrl, data });
+```
+
+### Server-Side Endpoint
+
+`POST /api/certificate/generate`
+
+Generates and returns a downloadable PDF certificate.
+
+**Request body:**
+```json
+{
+  "userName": "Alice",
+  "walletAddress": "G…",
+  "treeCount": 50,
+  "co2Offset": 2.4,
+  "plantingDate": "2025-01-15T00:00:00.000Z",
+  "region": "Amazon Basin, Brazil",
+  "projectName": "Amazon Reforestation",
+  "transactionHash": "a1b2c3…",
+  "retirementDate": "2025-06-01T00:00:00.000Z"
+}
+```
+
+**Response:** `200` with `Content-Type: application/pdf` and the PDF file as download.
+
+### Environment Variables
+
+| Variable | Default | Description |
+|---|---|---|
+| `CERTIFICATE_EXPLORER_BASE_URL` | `https://stellar.expert/explorer/public/tx` | Base Stellar explorer URL embedded in QR code |
+| `CERTIFICATE_DPI` | `150` | PDF output resolution |

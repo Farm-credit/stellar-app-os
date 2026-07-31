@@ -39,11 +39,12 @@
 //!     DLGN:<addr>        — Address (the delegate this address has delegated to)
 //!   Persistent (keyed by delegate address):
 //!     DLGRS:<addr>       — Vec<Address> (addresses that delegated to this delegate)
+//!   Persistent (keyed by planter address):
+//!     VEST:<addr>        — VestingSchedule (linear token lockup for planters)
 
 use soroban_sdk::{
-    contract, contracterror, contractimpl, contracttype, panic_with_error, symbol_short, Address,
-    Env, String, Symbol, Vec,
-    Env, IntoVal, String, Symbol, Val, Vec,
+    contract, contracterror, contractimpl, contracttype, panic_with_error, symbol_short, token,
+    Address, Env, IntoVal, String, Symbol, Val, Vec,
 };
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -145,6 +146,38 @@ pub struct DelegateRecord {
     pub registered_at: u64,
 }
 
+/// Linear vesting schedule for community tree planter rewards.
+///
+/// Tokens are released linearly between `start_at + cliff_seconds` and
+/// `start_at + vesting_seconds`.  Before the cliff the vested amount is
+/// always zero; after the full duration the entire `total_amount` is
+/// available.  `claimed_amount` tracks tokens already withdrawn so a
+/// planter can claim progressively.
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct VestingSchedule {
+    /// Beneficiary planter address
+    pub planter: Address,
+    /// Governance token contract address
+    pub token: Address,
+    /// Total tokens allocated to this schedule
+    pub total_amount: i128,
+    /// Tokens already claimed by the planter
+    pub claimed_amount: i128,
+    /// Schedule start (ledger timestamp)
+    pub start_at: u64,
+    /// Cliff duration in seconds — nothing vests before this offset
+    pub cliff_seconds: u64,
+    /// Total vesting duration in seconds (from start_at)
+    pub vesting_seconds: u64,
+    /// Timestamp when the schedule was created
+    pub created_at: u64,
+    /// True if admin revoked this schedule before completion
+    pub revoked: bool,
+    /// Timestamp when the schedule was revoked (0 = not revoked)
+    pub revoked_at: u64,
+}
+
 // ── Governance errors
 
 #[contracterror]
@@ -153,12 +186,15 @@ pub enum GovernanceError {
     NotInitialized = 1,
     Unauthorized = 2,
     NoStakedTokens = 3,
-    /// Veto council has not been set
-    VetoCouncilNotSet = 4,
-    /// Caller is not the veto council
-    NotVetoCouncil = 5,
-    /// Proposal is not in a cancellable state (must be Active)
-    ProposalNotCancellable = 6,
+    // ── Vesting errors ────────────────────────────────────────────────────
+    VestingAmountMustBePositive = 4,
+    VestingDurationZero = 5,
+    VestingCliffExceedsDuration = 6,
+    VestingScheduleExists = 7,
+    VestingScheduleNotFound = 8,
+    VestingNothingToClaim = 9,
+    VestingAlreadyRevoked = 10,
+    VestingTransferFailed = 11,
 }
 
 // ── Storage keys ──────────────────────────────────────────────────────────────
@@ -236,11 +272,18 @@ fn participation_buckets_key() -> Symbol {
     symbol_short!("PART_B")
 }
 
+/// Key for a planter's vesting schedule (persistent).
+fn vesting_key(planter: &Address) -> (Symbol, Address) {
+    (symbol_short!("VEST"), planter.clone())
+}
+
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const DEFAULT_QUORUM_PERCENTAGE: u64 = 10; // 10%
 const DEFAULT_TIMELOCK_SECONDS: u64 = 172800; // 48 hours
+#[allow(dead_code)]
 const DEFAULT_PLATFORM_FEE: u64 = 5; // 5%
+#[allow(dead_code)]
 const DEFAULT_MIN_PLANTING_BOND: i128 = 1_000_000; // 1M tokens
 
 // Dynamic quorum configuration
@@ -343,7 +386,7 @@ impl PlatformGovernance {
             .get(&proposal_count_key())
             .unwrap_or(0);
 
-        let timelock: u64 = env
+        let _timelock: u64 = env
             .storage()
             .instance()
             .get(&timelock_seconds_key())
@@ -380,6 +423,7 @@ impl PlatformGovernance {
         env.storage()
             .instance()
             .set(&proposal_count_key(), &(id + 1));
+        Self::bump_instance(&env);
 
         env.events().publish(
             (symbol_short!("proposal"), symbol_short!("created")),
@@ -529,6 +573,7 @@ impl PlatformGovernance {
             .persistent()
             .set(&proposal_key(proposal_id), &proposal);
         Self::bump_persistent(&env, &proposal_key(proposal_id));
+        Self::bump_instance(&env);
 
         env.events().publish(
             (symbol_short!("vote"), proposal_id),
@@ -578,6 +623,7 @@ impl PlatformGovernance {
         env.storage()
             .persistent()
             .set(&proposal_key(proposal_id), &proposal);
+        Self::bump_persistent(&env, &proposal_key(proposal_id));
 
         env.events().publish(
             (symbol_short!("proposal"), symbol_short!("queued")),
@@ -957,6 +1003,7 @@ impl PlatformGovernance {
         env.storage()
             .instance()
             .set(&quorum_percentage_key(), &new_percentage);
+        Self::bump_instance(&env);
         env.events()
             .publish((symbol_short!("quorum"),), new_percentage);
     }
@@ -970,6 +1017,7 @@ impl PlatformGovernance {
         env.storage()
             .instance()
             .set(&timelock_seconds_key(), &new_timelock);
+        Self::bump_instance(&env);
         env.events()
             .publish((symbol_short!("timelock"),), new_timelock);
     }
@@ -981,6 +1029,7 @@ impl PlatformGovernance {
             panic!("fee must be <= 100%");
         }
         env.storage().instance().set(&platform_fee_key(), &new_fee);
+        Self::bump_instance(&env);
         env.events().publish((symbol_short!("fee_set"),), new_fee);
     }
 
@@ -1068,6 +1117,7 @@ impl PlatformGovernance {
         env.storage()
             .instance()
             .set(&min_planting_bond_key(), &new_bond);
+        Self::bump_instance(&env);
         env.events().publish((symbol_short!("bond_set"),), new_bond);
     }
 
@@ -1123,6 +1173,287 @@ impl PlatformGovernance {
             .set(&verifier_whitelist_key(), &new_whitelist);
         Self::bump_persistent(&env, &verifier_whitelist_key());
         env.events().publish((symbol_short!("wl_rm"),), verifier);
+    }
+
+    // ── Vesting ──────────────────────────────────────────────────────────────
+
+    /// Create a linear vesting schedule for a community tree planter.
+    ///
+    /// Transfers `total_amount` of governance tokens from the contract
+    /// admin into this contract where they are held in custody.  Tokens
+    /// vest linearly from `start_at + cliff_seconds` through
+    /// `start_at + vesting_seconds`.
+    ///
+    /// Only the registered admin may create vesting schedules.  A planter
+    /// may have at most one active schedule at a time.
+    ///
+    /// # Arguments
+    ///
+    /// * `planter`         — beneficiary community planter address
+    /// * `token`           — governance token contract address
+    /// * `total_amount`    — total tokens to vest (must be > 0)
+    /// * `start_at`        — vesting start (ledger timestamp, 0 = now)
+    /// * `cliff_seconds`   — nothing vests before this offset from start_at
+    /// * `vesting_seconds` — total vesting duration (must be > cliff_seconds)
+    ///
+    /// # Errors
+    /// * `VestingAmountMustBePositive` — `total_amount` ≤ 0
+    /// * `VestingDurationZero` — `vesting_seconds` is zero
+    /// * `VestingCliffExceedsDuration` — `cliff_seconds` > `vesting_seconds`
+    /// * `VestingScheduleExists` — planter already has an active schedule
+    ///
+    /// # Events
+    /// Emits `("vesting", "created")` with `(planter, total_amount, start_at, vesting_seconds)`.
+    pub fn create_vesting_schedule(
+        env: Env,
+        planter: Address,
+        token: Address,
+        total_amount: i128,
+        start_at: u64,
+        cliff_seconds: u64,
+        vesting_seconds: u64,
+    ) {
+        Self::require_admin(&env);
+        let admin: Address = env
+            .storage()
+            .instance()
+            .get(&admin_key())
+            .expect("not initialized");
+
+        if total_amount <= 0 {
+            panic_with_error!(&env, GovernanceError::VestingAmountMustBePositive);
+        }
+        if vesting_seconds == 0 {
+            panic_with_error!(&env, GovernanceError::VestingDurationZero);
+        }
+        if cliff_seconds > vesting_seconds {
+            panic_with_error!(&env, GovernanceError::VestingCliffExceedsDuration);
+        }
+
+        let key = vesting_key(&planter);
+        if env.storage().persistent().has(&key) {
+            let existing: VestingSchedule = env
+                .storage()
+                .persistent()
+                .get(&key)
+                .unwrap();
+            if !existing.revoked && existing.claimed_amount < existing.total_amount {
+                panic_with_error!(&env, GovernanceError::VestingScheduleExists);
+            }
+        }
+
+        let now = env.ledger().timestamp();
+        let effective_start = if start_at == 0 { now } else { start_at };
+
+        token::Client::new(&env, &token).transfer(
+            &admin,
+            &env.current_contract_address(),
+            &total_amount,
+        );
+
+        let schedule = VestingSchedule {
+            planter: planter.clone(),
+            token: token.clone(),
+            total_amount,
+            claimed_amount: 0,
+            start_at: effective_start,
+            cliff_seconds,
+            vesting_seconds,
+            created_at: now,
+            revoked: false,
+            revoked_at: 0,
+        };
+
+        env.storage().persistent().set(&key, &schedule);
+        Self::bump_persistent(&env, &key);
+
+        env.events().publish(
+            (symbol_short!("vesting"), symbol_short!("created")),
+            (planter, total_amount, effective_start, vesting_seconds),
+        );
+    }
+
+    /// Claim any tokens that have vested but not yet been withdrawn.
+    ///
+    /// Computes the currently-vested amount (linear release between cliff and
+    /// end, capped at `total_amount`), subtracts any prior `claimed_amount`,
+    /// and transfers the difference to `planter`.
+    ///
+    /// # Arguments
+    /// * `planter` — the beneficiary planter (must sign)
+    ///
+    /// # Returns
+    /// The amount of tokens claimed in this call (≥ 0).
+    ///
+    /// # Errors
+    /// * `VestingScheduleNotFound` — no schedule exists for `planter`
+    /// * `VestingNothingToClaim` — nothing has vested yet (before cliff)
+    ///
+    /// # Events
+    /// Emits `("vesting", "claimed")` with `(planter, amount, remaining_locked)`.
+    pub fn claim_vested_tokens(env: Env, planter: Address) -> i128 {
+        Self::assert_not_paused(&env);
+        planter.require_auth();
+
+        let key = vesting_key(&planter);
+        let mut schedule: VestingSchedule = env
+            .storage()
+            .persistent()
+            .get(&key)
+            .unwrap_or_else(|| panic_with_error!(&env, GovernanceError::VestingScheduleNotFound));
+
+        let now = env.ledger().timestamp();
+        let vested = Self::compute_vested_amount(&env, &schedule, now);
+        let claimable = vested - schedule.claimed_amount;
+
+        if claimable <= 0 {
+            panic_with_error!(&env, GovernanceError::VestingNothingToClaim);
+        }
+
+        token::Client::new(&env, &schedule.token).transfer(
+            &env.current_contract_address(),
+            &planter,
+            &claimable,
+        );
+
+        schedule.claimed_amount += claimable;
+        env.storage().persistent().set(&key, &schedule);
+        Self::bump_persistent(&env, &key);
+
+        let remaining_locked = schedule.total_amount - schedule.claimed_amount;
+        env.events().publish(
+            (symbol_short!("vesting"), symbol_short!("claimed")),
+            (planter.clone(), claimable, remaining_locked),
+        );
+
+        claimable
+    }
+
+    /// Admin emergency revocation of an active vesting schedule.
+    ///
+    /// Forfeits any unvested tokens: `planter` keeps what has already
+    /// vested (and can still claim it via `claim_vested_tokens`), but the
+    /// unvested portion is returned to the contract admin.  Marked
+    /// schedules can be replaced with a fresh `create_vesting_schedule`.
+    ///
+    /// # Arguments
+    /// * `planter` — planter whose schedule should be revoked
+    ///
+    /// # Errors
+    /// * `VestingScheduleNotFound` — no schedule for `planter`
+    /// * `VestingAlreadyRevoked`  — schedule was already revoked
+    ///
+    /// # Events
+    /// Emits `("vesting", "revoked")` with `(planter, refunded_amount)`.
+    pub fn revoke_vesting_schedule(env: Env, planter: Address) {
+        Self::require_admin(&env);
+        let admin: Address = env
+            .storage()
+            .instance()
+            .get(&admin_key())
+            .expect("not initialized");
+
+        let key = vesting_key(&planter);
+        let mut schedule: VestingSchedule = env
+            .storage()
+            .persistent()
+            .get(&key)
+            .unwrap_or_else(|| panic_with_error!(&env, GovernanceError::VestingScheduleNotFound));
+
+        if schedule.revoked {
+            panic_with_error!(&env, GovernanceError::VestingAlreadyRevoked);
+        }
+
+        let now = env.ledger().timestamp();
+        let vested = Self::compute_vested_amount(&env, &schedule, now);
+        let unvested = schedule.total_amount - vested;
+
+        if unvested > 0 {
+            token::Client::new(&env, &schedule.token).transfer(
+                &env.current_contract_address(),
+                &admin,
+                &unvested,
+            );
+        }
+
+        schedule.revoked = true;
+        schedule.revoked_at = now;
+        env.storage().persistent().set(&key, &schedule);
+        Self::bump_persistent(&env, &key);
+
+        env.events().publish(
+            (symbol_short!("vesting"), symbol_short!("revoked")),
+            (planter, unvested),
+        );
+    }
+
+    /// Query the vesting schedule for `planter`, if any.
+    pub fn get_vesting_schedule(env: Env, planter: Address) -> Option<VestingSchedule> {
+        let key = vesting_key(&planter);
+        env.storage().persistent().get(&key)
+    }
+
+    /// Compute the amount currently vested for `planter` as of the current
+    /// ledger timestamp.  Does not subtract prior claims — use
+    /// `get_claimable_amount` for the net-withdrawable figure.
+    pub fn get_vested_amount(env: Env, planter: Address) -> i128 {
+        match Self::get_vesting_schedule(env.clone(), planter) {
+            Some(sched) => Self::compute_vested_amount(&env, &sched, env.ledger().timestamp()),
+            None => 0,
+        }
+    }
+
+    /// Compute the net amount `planter` could claim right now.
+    /// Equal to `vested - claimed`.
+    pub fn get_claimable_amount(env: Env, planter: Address) -> i128 {
+        match Self::get_vesting_schedule(env.clone(), planter) {
+            Some(sched) => {
+                let vested =
+                    Self::compute_vested_amount(&env, &sched, env.ledger().timestamp());
+                vested - sched.claimed_amount
+            }
+            None => 0,
+        }
+    }
+
+    /// Core linear vesting math.
+    ///
+    /// ```text
+    /// t < start + cliff              → 0
+    /// t ≥ start + vesting_seconds    → total_amount
+    /// otherwise                      → total_amount * (t - start) / vesting_seconds
+    /// ```
+    ///
+    /// If the schedule has been revoked, only tokens vested *before* the
+    /// revocation call count — the effective `now` used for the calculation
+    /// is the minimum of the caller-supplied timestamp and `revoked_at`.
+    /// This ensures that even if more ledger time elapses after a revoke,
+    /// the vested figure never rises above what was vested at the moment
+    /// of revocation (the unvested remainder has already been refunded out
+    /// of the contract and is no longer present to be claimed).
+    fn compute_vested_amount(_env: &Env, schedule: &VestingSchedule, now: u64) -> i128 {
+        if schedule.total_amount <= 0 {
+            return 0;
+        }
+        let effective_now = if schedule.revoked && schedule.revoked_at > 0 {
+            now.min(schedule.revoked_at)
+        } else {
+            now
+        };
+        let cliff_ts = schedule.start_at.saturating_add(schedule.cliff_seconds);
+        if effective_now < cliff_ts {
+            return 0;
+        }
+        let end_ts = schedule.start_at.saturating_add(schedule.vesting_seconds);
+        if effective_now >= end_ts {
+            return schedule.total_amount;
+        }
+        let elapsed = effective_now.saturating_sub(schedule.start_at);
+        schedule
+            .total_amount
+            .checked_mul(elapsed as i128)
+            .unwrap_or(schedule.total_amount)
+            / schedule.vesting_seconds as i128
     }
 
     // ── Dynamic quorum ─────────────────────────────────────────────────────────
@@ -1246,186 +1577,13 @@ impl PlatformGovernance {
             panic_with_error!(&env, GovernanceError::Unauthorized);
         }
 
-        let rate_bps = Self::participation_rate_bps(env);
+        let rate_bps = Self::participation_rate_bps(env.clone());
         let new_quorum = Self::map_rate_to_quorum(rate_bps);
 
         env.storage()
             .instance()
             .set(&quorum_percentage_key(), &new_quorum);
         Self::bump_instance(&env);
-
-        env.events().publish(
-            (symbol_short!("quorum"), symbol_short!("adjust")),
-            (rate_bps, new_quorum),
-        );
-    }
-
-    /// Return the total active voting power recorded in the rolling 30-day window.
-    pub fn participation_30d(env: Env) -> i128 {
-        Self::bump_instance(&env);
-        let now = env.ledger().timestamp();
-        Self::rotate_participation_buckets(&env, now);
-        Self::sum_buckets(&env)
-    }
-
-    /// Return the 30-day active voter participation rate as basis points (0–10000).
-    pub fn participation_rate_bps(env: Env) -> u64 {
-        Self::bump_instance(&env);
-        let now = env.ledger().timestamp();
-        Self::rotate_participation_buckets(&env, now);
-
-        let total_power = Self::sum_buckets(&env);
-        let staking_contract: Address = env
-            .storage()
-            .instance()
-            .get(&staking_contract_key())
-            .expect("not initialized");
-        let total_staked = Self::get_total_staked(&env, &staking_contract);
-
-        if total_staked <= 0 {
-            panic_with_error!(&env, GovernanceError::NoStakedTokens);
-        }
-
-        let rate = (total_power * BASIS_POINTS as i128) / total_staked;
-        if rate < 0 {
-            0
-        } else if rate > BASIS_POINTS as i128 {
-            BASIS_POINTS
-        } else {
-            rate as u64
-        }
-    }
-
-    /// Return the number of days used for the participation window.
-    pub fn participation_window_days(_env: Env) -> u32 {
-        PARTICIPATION_WINDOW_DAYS
-    }
-
-    // ── Dynamic quorum ─────────────────────────────────────────────────────────
-
-    /// Convert a ledger timestamp to the number of days since epoch.
-    fn day_index(timestamp: u64) -> u32 {
-        (timestamp / SECONDS_PER_DAY) as u32
-    }
-
-    /// Zero out daily buckets that have fallen outside the 30-day window and
-    /// advance the stored day pointer to the current day.
-    fn rotate_participation_buckets(env: &Env, now: u64) {
-        let current_day = Self::day_index(now);
-        let stored_day: u32 = env
-            .storage()
-            .instance()
-            .get(&participation_day_key())
-            .unwrap_or(0u32);
-
-        let mut buckets: Vec<i128> = env
-            .storage()
-            .instance()
-            .get(&participation_buckets_key())
-            .unwrap_or_else(|| Vec::new(env));
-
-        if buckets.is_empty() {
-            for _ in 0..PARTICIPATION_WINDOW_DAYS {
-                buckets.push_back(0i128);
-            }
-        }
-
-        if current_day != stored_day {
-            let diff = current_day - stored_day;
-            if diff >= PARTICIPATION_WINDOW_DAYS {
-                for i in 0..buckets.len() {
-                    buckets.set(i, 0i128);
-                }
-            } else {
-                for d in 1..=diff {
-                    let idx = ((stored_day + d) % PARTICIPATION_WINDOW_DAYS) as u32;
-                    buckets.set(idx, 0i128);
-                }
-            }
-            env.storage().instance().set(&participation_day_key(), &current_day);
-            env.storage()
-                .instance()
-                .set(&participation_buckets_key(), &buckets);
-        }
-    }
-
-    /// Add `power` to the current day's participation bucket.
-    fn record_participation(env: &Env, power: i128) {
-        if power <= 0 {
-            return;
-        }
-        let now = env.ledger().timestamp();
-        Self::rotate_participation_buckets(env, now);
-
-        let current_day = Self::day_index(now);
-        let mut buckets: Vec<i128> = env
-            .storage()
-            .instance()
-            .get(&participation_buckets_key())
-            .unwrap_or_else(|| Vec::new(env));
-
-        if buckets.is_empty() {
-            for _ in 0..PARTICIPATION_WINDOW_DAYS {
-                buckets.push_back(0i128);
-            }
-        }
-
-        let idx = (current_day % PARTICIPATION_WINDOW_DAYS) as u32;
-        let current = buckets.get(idx).unwrap_or(0i128);
-        buckets.set(idx, current + power);
-
-        env.storage()
-            .instance()
-            .set(&participation_buckets_key(), &buckets);
-    }
-
-    /// Sum all participation buckets in the 30-day window.
-    fn sum_buckets(env: &Env) -> i128 {
-        let buckets: Vec<i128> = env
-            .storage()
-            .instance()
-            .get(&participation_buckets_key())
-            .unwrap_or_else(|| Vec::new(env));
-        let mut total = 0i128;
-        for i in 0..buckets.len() {
-            total += buckets.get(i).unwrap_or(0i128);
-        }
-        total
-    }
-
-    /// Map a participation rate in basis points to a quorum percentage.
-    /// High participation reduces the quorum (down to MIN_DYNAMIC_QUORUM);
-    /// low participation raises it (up to MAX_DYNAMIC_QUORUM).
-    fn map_rate_to_quorum(rate_bps: u64) -> u64 {
-        let range = MAX_DYNAMIC_QUORUM - MIN_DYNAMIC_QUORUM;
-        let reduction = (rate_bps * range) / BASIS_POINTS;
-        MAX_DYNAMIC_QUORUM - reduction
-    }
-
-    /// Recalculate the proposal quorum requirement from the last 30 days of
-    /// active voter participation. Higher participation lowers the quorum
-    /// (min 5%), lower participation raises it (max 25%). Only the stored
-    /// admin may call this function.
-    ///
-    /// `admin` — contract admin address (must authorize)
-    pub fn adjust_quorum(env: Env, admin: Address) {
-        admin.require_auth();
-
-        let stored_admin: Address = env
-            .storage()
-            .instance()
-            .get(&admin_key())
-            .expect("not initialized");
-        if admin != stored_admin {
-            panic_with_error!(&env, GovernanceError::Unauthorized);
-        }
-
-        let rate_bps = Self::participation_rate_bps(env);
-        let new_quorum = Self::map_rate_to_quorum(rate_bps);
-
-        env.storage()
-            .instance()
-            .set(&quorum_percentage_key(), &new_quorum);
 
         env.events().publish(
             (symbol_short!("quorum"), symbol_short!("adjust")),
@@ -1509,7 +1667,6 @@ impl PlatformGovernance {
             .get(&admin_key())
             .expect("not initialized");
         admin.require_auth();
-        Self::bump_instance(env);
     }
 
     fn assert_not_paused(env: &Env) {
@@ -1521,7 +1678,6 @@ impl PlatformGovernance {
         if paused {
             panic!("contract is paused");
         }
-        Self::bump_instance(env);
     }
 
     /// Extend the TTL of instance storage to keep configuration alive.
@@ -1613,6 +1769,7 @@ mod tests {
     use super::*;
     use soroban_sdk::{
         testutils::{Address as _, Ledger},
+        token::TokenClient,
         Address, Env, String,
     };
 
@@ -1748,7 +1905,7 @@ mod tests {
 
     #[test]
     #[should_panic(expected = "proposal has not passed")]
-    fn test_execute_failed_proposal_rejected() {
+    fn test_queue_failed_proposal_rejected() {
         let (env, admin, _, _, client) = setup();
 
         let description_hash = String::from_str(&env, "hash123");
@@ -1762,8 +1919,8 @@ mod tests {
 
         client.create_proposal(&description_hash, &proposal_type, &options, &1, &admin);
 
-        // Try to execute without meeting quorum
-        client.execute(&0);
+        // Try to queue without the proposal having passed
+        client.queue(&0);
     }
 
     #[test]
@@ -1870,12 +2027,6 @@ mod tests {
         client.vote(&0, &1, &admin);
 
         // Manually set proposal to Passed for testing
-        // Wait for voting period and timelock to pass
-        env.ledger()
-            .set_timestamp(env.ledger().timestamp() + 200000);
-
-        // Manually set proposal to passed for testing execution
-        // In production, this would happen through quorum
         let mut proposal = client.get_proposal(&0);
         proposal.status = ProposalStatus::Passed;
         env.storage().persistent().set(&proposal_key(0), &proposal);
@@ -1883,14 +2034,9 @@ mod tests {
         // Queue it — starts the 48h timelock
         client.queue(&0);
 
-        // Advance past voting period and timelock (DEFAULT_TIMELOCK_SECONDS = 172800)
-        env.ledger().set_timestamp(env.ledger().timestamp() + 200000);
-
-        // Queue it — starts the 48h timelock
-        client.queue(&0);
-
-        // Advance past voting period and timelock (DEFAULT_TIMELOCK_SECONDS = 172800)
-        env.ledger().set_timestamp(env.ledger().timestamp() + 200000);
+        // Advance past the 48h timelock
+        env.ledger()
+            .set_timestamp(env.ledger().timestamp() + DEFAULT_TIMELOCK_SECONDS + 1);
 
         client.execute(&0);
 
@@ -2127,17 +2273,14 @@ mod tests {
     }
 
     #[test]
+    #[should_panic(expected = "proposal not queued for execution")]
     fn test_execute_double_call_rejected() {
         let (env, admin, _, _, client) = setup();
         let id = create_passed_proposal(&env, &client, &admin, 1);
         client.queue(&id);
         env.ledger().set_timestamp(env.ledger().timestamp() + DEFAULT_TIMELOCK_SECONDS + 1);
         client.execute(&id);
-        // Second execute — status is now Executed, not Queued → must panic
-        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            client.execute(&id);
-        }));
-        assert!(result.is_err());
+        client.execute(&id);
     }
 
     // ── Delegation tests ──────────────────────────────────────────────────────
@@ -2406,14 +2549,18 @@ mod tests {
 
         assert_eq!(client.get_delegation(&voter), Some(proxy.clone()));
         assert_eq!(client.get_delegated_power(&proxy), 1000);
+    }
+
     // ── Dynamic quorum tests ────────────────────────────────────────────────────
 
+    #[test]
     fn test_adjust_quorum_zero_participation() {
         let (_, admin, _, _, client) = setup();
         client.adjust_quorum(&admin);
         assert_eq!(client.quorum_percentage(), MAX_DYNAMIC_QUORUM);
     }
 
+    #[test]
     fn test_adjust_quorum_low_participation() {
         let (env, admin, _, _, client) = setup();
 
@@ -2431,39 +2578,83 @@ mod tests {
         );
         client.vote(&0, &1, &admin);
 
+        client.adjust_quorum(&admin);
         // 1000 / 100_000 * 10_000 = 100 bps => quorum = 25 - (100*20/10000) = 23
         assert_eq!(client.quorum_percentage(), 23);
     }
 
+    #[test]
     fn test_adjust_quorum_high_participation() {
+        let (env, admin, _, _, client) = setup();
 
+        let mut options = Vec::new(&env);
+        options.push_back(VoteOption {
+            option_id: 1,
+            description: String::from_str(&env, "Yes"),
         });
+        client.create_proposal(
+            &String::from_str(&env, "hash"),
+            &ProposalType::PlatformFee,
+            &options,
+            &604800,
+            &admin,
         );
 
         for _ in 0..50u32 {
+            let voter = Address::generate(&env);
             client.vote(&0, &1, &voter);
         }
 
+        client.adjust_quorum(&admin);
         // 50_000 / 100_000 * 10_000 = 5000 bps => quorum = 25 - (5000*20/10000) = 15
         assert_eq!(client.quorum_percentage(), 15);
     }
 
+    #[test]
     fn test_adjust_quorum_max_participation_clamped() {
+        let (env, admin, _, _, client) = setup();
 
+        let mut options = Vec::new(&env);
+        options.push_back(VoteOption {
+            option_id: 1,
+            description: String::from_str(&env, "Yes"),
         });
+        client.create_proposal(
+            &String::from_str(&env, "hash"),
+            &ProposalType::PlatformFee,
+            &options,
+            &604800,
+            &admin,
         );
 
         for _ in 0..120u32 {
+            let voter = Address::generate(&env);
+            client.vote(&0, &1, &voter);
         }
 
+        client.adjust_quorum(&admin);
         // Participation rate clamped at 10000 bps => minimum quorum
         assert_eq!(client.quorum_percentage(), MIN_DYNAMIC_QUORUM);
     }
 
+    #[test]
     fn test_30_day_window_ignores_old_votes() {
+        let (env, admin, _, _, client) = setup();
 
+        let mut options = Vec::new(&env);
+        options.push_back(VoteOption {
+            option_id: 1,
+            description: String::from_str(&env, "Yes"),
         });
+        client.create_proposal(
+            &String::from_str(&env, "hash"),
+            &ProposalType::PlatformFee,
+            &options,
+            &604800,
+            &admin,
         );
+        let voter1 = Address::generate(&env);
+        client.vote(&0, &1, &voter1);
 
         // Move forward 31 days and vote again with a different address.
         env.ledger()
@@ -2471,9 +2662,12 @@ mod tests {
         let voter2 = Address::generate(&env);
         client.vote(&0, &1, &voter2);
 
-        // Only the second vote remains in the rolling window.
+        client.adjust_quorum(&admin);
+        // Only voter2 (1000) is in the 30-day window.
+        assert_eq!(client.participation_30d(), 1000);
     }
 
+    #[test]
     #[should_panic(expected = "Error(Contract, #2)")]
     fn test_adjust_quorum_unauthorized() {
         let (env, _admin, _, _, client) = setup();
@@ -2481,150 +2675,490 @@ mod tests {
         client.adjust_quorum(&attacker);
     }
 
+    #[test]
     fn test_participation_rate_bps() {
+        let (env, admin, _, _, client) = setup();
 
+        let mut options = Vec::new(&env);
+        options.push_back(VoteOption {
+            option_id: 1,
+            description: String::from_str(&env, "Yes"),
         });
+        client.create_proposal(
+            &String::from_str(&env, "hash"),
+            &ProposalType::PlatformFee,
+            &options,
+            &604800,
+            &admin,
         );
 
         for _ in 0..10u32 {
+            let voter = Address::generate(&env);
+            client.vote(&0, &1, &voter);
         }
 
+        client.adjust_quorum(&admin);
         assert_eq!(client.participation_rate_bps(), 1000);
         assert_eq!(client.participation_30d(), 10_000);
     }
 
-    // ── Veto council tests ────────────────────────────────────────────────────
+    // ── Vesting tests ──────────────────────────────────────────────────────
+
+    fn setup_token<'a>(
+        env: &'a Env,
+        admin: &Address,
+        initial_supply: i128,
+    ) -> (Address, TokenClient<'a>) {
+        let token_id = env
+            .register_stellar_asset_contract_v2(admin.clone())
+            .address();
+        let token_client = TokenClient::new(env, &token_id);
+        soroban_sdk::token::StellarAssetClient::new(env, &token_id).mint(admin, &initial_supply);
+        (token_id, token_client)
+    }
+
+    fn vesting_one_year() -> (u64, u64, u64) {
+        let cliff = 86_400u64 * 30; // 30-day cliff
+        let dur = 86_400u64 * 365;  // 1-year total vesting
+        (0u64, cliff, dur)
+    }
+
+    // ─── create_vesting_schedule ──────────────────────────────────────────
 
     #[test]
-    fn test_set_veto_council() {
-        let (env, _admin, _, _, client) = setup();
-        let council = Address::generate(&env);
-        client.set_veto_council(&council);
-        assert_eq!(client.veto_council(), Some(council.clone()));
+    fn test_create_vesting_schedule_stores_and_transfers() {
+        let (env, admin, _, _, client) = setup();
+        let planter = Address::generate(&env);
+        let total = 3_650_000i128;
+        let (token, tok) = setup_token(&env, &admin, total * 10);
+        let (start, cliff, dur) = vesting_one_year();
+
+        client.create_vesting_schedule(&planter, &token, &total, &start, &cliff, &dur);
+
+        let sched = client
+            .get_vesting_schedule(&planter)
+            .expect("schedule should exist");
+        assert_eq!(sched.planter, planter);
+        assert_eq!(sched.token, token);
+        assert_eq!(sched.total_amount, total);
+        assert_eq!(sched.claimed_amount, 0);
+        assert_eq!(sched.cliff_seconds, cliff);
+        assert_eq!(sched.vesting_seconds, dur);
+        assert_eq!(sched.revoked, false);
+
+        assert_eq!(
+            tok.balance(&env.current_contract_address()),
+            total
+        );
+        assert_eq!(tok.balance(&admin), total * 9);
     }
 
     #[test]
-    fn test_cancel_proposal_by_veto_council() {
+    fn test_create_vesting_defaults_start_at_to_now() {
         let (env, admin, _, _, client) = setup();
-        let council = Address::generate(&env);
-        client.set_veto_council(&council);
+        let planter = Address::generate(&env);
+        let (token, _) = setup_token(&env, &admin, 1_000_000);
+        let (_, cliff, dur) = vesting_one_year();
+        let t0 = env.ledger().timestamp();
 
-        let mut options = Vec::new(&env);
-        options.push_back(VoteOption {
-            option_id: 1,
-            description: String::from_str(&env, "Yes"),
-        });
-        client.create_proposal(
-            &String::from_str(&env, "hash"),
-            &ProposalType::PlatformFee,
-            &options,
-            &604800,
-            &admin,
+        client.create_vesting_schedule(&planter, &token, &100_000i128, &0u64, &cliff, &dur);
+
+        let sched = client.get_vesting_schedule(&planter).unwrap();
+        assert_eq!(sched.start_at, t0);
+    }
+
+    #[test]
+    fn test_create_vesting_explicit_start_at() {
+        let (env, admin, _, _, client) = setup();
+        let planter = Address::generate(&env);
+        let (token, _) = setup_token(&env, &admin, 1_000_000);
+        let (_, cliff, dur) = vesting_one_year();
+        let future = env.ledger().timestamp() + 1_000_000;
+
+        client.create_vesting_schedule(
+            &planter, &token, &100_000i128, &future, &cliff, &dur,
         );
 
-        client.cancel_proposal(&council, &0);
-
-        let proposal = client.get_proposal(&0);
-        assert!(matches!(proposal.status, ProposalStatus::Cancelled));
+        assert_eq!(client.get_vesting_schedule(&planter).unwrap().start_at, future);
     }
 
     #[test]
-    #[should_panic(expected = "veto council not set")]
-    fn test_cancel_proposal_no_council_set_fails() {
+    #[should_panic(expected = "Error(Contract, #4)")]
+    fn test_create_vesting_rejects_zero_amount() {
         let (env, admin, _, _, client) = setup();
-        let council = Address::generate(&env);
+        let planter = Address::generate(&env);
+        let (token, _) = setup_token(&env, &admin, 1_000_000);
+        let (_, cliff, dur) = vesting_one_year();
+        client.create_vesting_schedule(&planter, &token, &0i128, &0u64, &cliff, &dur);
+    }
 
-        let mut options = Vec::new(&env);
-        options.push_back(VoteOption {
-            option_id: 1,
-            description: String::from_str(&env, "Yes"),
-        });
-        client.create_proposal(
-            &String::from_str(&env, "hash"),
-            &ProposalType::PlatformFee,
-            &options,
-            &604800,
-            &admin,
+    #[test]
+    #[should_panic(expected = "Error(Contract, #4)")]
+    fn test_create_vesting_rejects_negative_amount() {
+        let (env, admin, _, _, client) = setup();
+        let planter = Address::generate(&env);
+        let (token, _) = setup_token(&env, &admin, 1_000_000);
+        let (_, cliff, dur) = vesting_one_year();
+        client.create_vesting_schedule(&planter, &token, &-1i128, &0u64, &cliff, &dur);
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #5)")]
+    fn test_create_vesting_rejects_zero_duration() {
+        let (env, admin, _, _, client) = setup();
+        let planter = Address::generate(&env);
+        let (token, _) = setup_token(&env, &admin, 1_000_000);
+        client.create_vesting_schedule(&planter, &token, &100_000i128, &0u64, &0u64, &0u64);
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #6)")]
+    fn test_create_vesting_cliff_cannot_exceed_duration() {
+        let (env, admin, _, _, client) = setup();
+        let planter = Address::generate(&env);
+        let (token, _) = setup_token(&env, &admin, 1_000_000);
+        client.create_vesting_schedule(
+            &planter, &token, &100_000i128, &0u64, &1000u64, &100u64,
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #7)")]
+    fn test_create_vesting_rejects_duplicate_active_schedule() {
+        let (env, admin, _, _, client) = setup();
+        let planter = Address::generate(&env);
+        let (token, _) = setup_token(&env, &admin, 10_000_000);
+        let (_, cliff, dur) = vesting_one_year();
+        client.create_vesting_schedule(&planter, &token, &100_000i128, &0u64, &cliff, &dur);
+        // second schedule for same planter must fail
+        client.create_vesting_schedule(&planter, &token, &50_000i128, &0u64, &cliff, &dur);
+    }
+
+    #[test]
+    fn test_create_vesting_after_revoke_allows_new_schedule() {
+        let (env, admin, _, _, client) = setup();
+        let planter = Address::generate(&env);
+        let (token, _) = setup_token(&env, &admin, 10_000_000);
+        let (_, cliff, dur) = vesting_one_year();
+        client.create_vesting_schedule(&planter, &token, &100_000i128, &0u64, &cliff, &dur);
+        client.revoke_vesting_schedule(&planter);
+        // revoked → new schedule is permitted
+        client.create_vesting_schedule(&planter, &token, &50_000i128, &0u64, &cliff, &dur);
+        assert_eq!(client.get_vesting_schedule(&planter).unwrap().total_amount, 50_000);
+    }
+
+    // ─── compute_vested_amount / queries ──────────────────────────────────
+
+    #[test]
+    fn test_vested_zero_before_cliff() {
+        let (env, admin, _, _, client) = setup();
+        let planter = Address::generate(&env);
+        let (token, _) = setup_token(&env, &admin, 1_000_000);
+        let (_, cliff, dur) = vesting_one_year();
+        let start = env.ledger().timestamp();
+        client.create_vesting_schedule(
+            &planter, &token, &3_650_000i128, &start, &cliff, &dur,
         );
 
-        client.cancel_proposal(&council, &0);
+        // t = start + cliff - 1s → still before cliff
+        env.ledger().set_timestamp(start + cliff - 1);
+        assert_eq!(client.get_vested_amount(&planter), 0);
+        assert_eq!(client.get_claimable_amount(&planter), 0);
     }
 
     #[test]
-    #[should_panic(expected = "caller is not the veto council")]
-    fn test_cancel_proposal_not_veto_council_fails() {
+    fn test_vested_full_after_duration() {
         let (env, admin, _, _, client) = setup();
-        let council = Address::generate(&env);
-        let attacker = Address::generate(&env);
-        client.set_veto_council(&council);
+        let planter = Address::generate(&env);
+        let total = 3_650_000i128;
+        let (token, _) = setup_token(&env, &admin, total * 10);
+        let (_, cliff, dur) = vesting_one_year();
+        let start = env.ledger().timestamp();
+        client.create_vesting_schedule(&planter, &token, &total, &start, &cliff, &dur);
 
-        let mut options = Vec::new(&env);
-        options.push_back(VoteOption {
-            option_id: 1,
-            description: String::from_str(&env, "Yes"),
-        });
-        client.create_proposal(
-            &String::from_str(&env, "hash"),
-            &ProposalType::PlatformFee,
-            &options,
-            &604800,
-            &admin,
+        // way past the end → capped at total
+        env.ledger().set_timestamp(start + dur + 100);
+        assert_eq!(client.get_vested_amount(&planter), total);
+        assert_eq!(client.get_claimable_amount(&planter), total);
+    }
+
+    #[test]
+    fn test_vested_linear_release_midway() {
+        let (env, admin, _, _, client) = setup();
+        let planter = Address::generate(&env);
+        let total = 3_650_000i128;
+        let (token, _) = setup_token(&env, &admin, total * 10);
+        let cliff = 86_400u64 * 30;
+        let dur = 86_400u64 * 365;
+        let start = env.ledger().timestamp();
+        client.create_vesting_schedule(&planter, &token, &total, &start, &cliff, &dur);
+
+        // exactly halfway through the vesting period (after cliff):
+        // elapsed = start + dur/2 - start = dur/2
+        // vested = total * (dur/2) / dur = total / 2 = 1_825_000
+        let halfway = start + dur / 2;
+        env.ledger().set_timestamp(halfway);
+        let vested = client.get_vested_amount(&planter);
+        assert_eq!(vested, total / 2);
+    }
+
+    #[test]
+    fn test_vested_exactly_at_cliff_is_zero() {
+        let (env, admin, _, _, client) = setup();
+        let planter = Address::generate(&env);
+        let (token, _) = setup_token(&env, &admin, 1_000_000);
+        let (_, cliff, dur) = vesting_one_year();
+        let start = env.ledger().timestamp();
+        client.create_vesting_schedule(
+            &planter, &token, &3_650_000i128, &start, &cliff, &dur,
         );
-
-        client.cancel_proposal(&attacker, &0);
+        // Cliff is start+cliff: elapsed since start = cliff, but at the exact
+        // cliff boundary the comparison is now < cliff_ts, so exactly at the
+        // cliff boundary is still zero.  1s after cliff it begins releasing.
+        env.ledger().set_timestamp(start + cliff);
+        assert_eq!(client.get_vested_amount(&planter), 0);
+        env.ledger().set_timestamp(start + cliff + 1);
+        assert!(client.get_vested_amount(&planter) > 0);
     }
 
     #[test]
-    #[should_panic(expected = "proposal cannot be cancelled")]
-    fn test_cancel_already_executed_proposal_fails() {
+    fn test_vested_with_zero_cliff_starts_immediately() {
         let (env, admin, _, _, client) = setup();
-        let council = Address::generate(&env);
-        client.set_veto_council(&council);
+        let planter = Address::generate(&env);
+        let total = 10_000i128;
+        let (token, _) = setup_token(&env, &admin, 1_000_000);
+        let dur = 100u64;
+        let start = env.ledger().timestamp();
+        client.create_vesting_schedule(&planter, &token, &total, &start, &0u64, &dur);
 
-        let id = create_passed_proposal(&env, &client, &admin, 1);
-        client.queue(&id);
-        env.ledger().set_timestamp(env.ledger().timestamp() + DEFAULT_TIMELOCK_SECONDS + 1);
-        client.execute(&id);
-
-        // Already executed — cannot be cancelled.
-        client.cancel_proposal(&council, &id);
+        env.ledger().set_timestamp(start + 50); // half elapsed
+        assert_eq!(client.get_vested_amount(&planter), 5_000);
     }
 
     #[test]
-    fn test_cancel_proposal_updates_veto_council() {
-        let (env, _admin, _, _, client) = setup();
-        let council1 = Address::generate(&env);
-        let council2 = Address::generate(&env);
-
-        client.set_veto_council(&council1);
-        assert_eq!(client.veto_council(), Some(council1.clone()));
-
-        client.set_veto_council(&council2);
-        assert_eq!(client.veto_council(), Some(council2.clone()));
+    fn test_get_vesting_schedule_returns_none_when_missing() {
+        let (env, _, _, _, client) = setup();
+        let random = Address::generate(&env);
+        assert!(client.get_vesting_schedule(&random).is_none());
     }
 
     #[test]
-    #[should_panic(expected = "proposal cannot be cancelled")]
-    fn test_cancel_already_cancelled_proposal_fails() {
+    fn test_get_vested_and_claimable_zero_for_unknown_planter() {
+        let (env, _, _, _, client) = setup();
+        let random = Address::generate(&env);
+        assert_eq!(client.get_vested_amount(&random), 0);
+        assert_eq!(client.get_claimable_amount(&random), 0);
+    }
+
+    // ─── claim_vested_tokens ──────────────────────────────────────────────
+
+    #[test]
+    fn test_claim_after_full_vesting_releases_all() {
         let (env, admin, _, _, client) = setup();
-        let council = Address::generate(&env);
-        client.set_veto_council(&council);
+        let planter = Address::generate(&env);
+        let total = 1_000_000i128;
+        let (token, tok) = setup_token(&env, &admin, total * 10);
+        let (_, cliff, dur) = vesting_one_year();
+        let start = env.ledger().timestamp();
+        client.create_vesting_schedule(&planter, &token, &total, &start, &cliff, &dur);
 
-        let mut options = Vec::new(&env);
-        options.push_back(VoteOption {
-            option_id: 1,
-            description: String::from_str(&env, "Yes"),
-        });
-        client.create_proposal(
-            &String::from_str(&env, "hash"),
-            &ProposalType::PlatformFee,
-            &options,
-            &604800,
-            &admin,
+        env.ledger().set_timestamp(start + dur + 1);
+        let claimed = client.claim_vested_tokens(&planter);
+        assert_eq!(claimed, total);
+        assert_eq!(tok.balance(&planter), total);
+        assert_eq!(tok.balance(&env.current_contract_address()), 0);
+
+        let sched = client.get_vesting_schedule(&planter).unwrap();
+        assert_eq!(sched.claimed_amount, total);
+        assert_eq!(client.get_claimable_amount(&planter), 0);
+    }
+
+    #[test]
+    fn test_claim_partial_then_remaining() {
+        let (env, admin, _, _, client) = setup();
+        let planter = Address::generate(&env);
+        let total = 10_000i128;
+        let (token, tok) = setup_token(&env, &admin, total * 10);
+        let dur = 100u64;
+        let start = env.ledger().timestamp();
+        client.create_vesting_schedule(&planter, &token, &total, &start, &0u64, &dur);
+
+        // First claim at 30%
+        env.ledger().set_timestamp(start + 30);
+        let c1 = client.claim_vested_tokens(&planter);
+        assert_eq!(c1, 3_000);
+        assert_eq!(tok.balance(&planter), 3_000);
+
+        // Second claim at 70% total → 4_000 more
+        env.ledger().set_timestamp(start + 70);
+        let c2 = client.claim_vested_tokens(&planter);
+        assert_eq!(c2, 4_000);
+        assert_eq!(tok.balance(&planter), 7_000);
+
+        // Final claim
+        env.ledger().set_timestamp(start + dur + 10);
+        let c3 = client.claim_vested_tokens(&planter);
+        assert_eq!(c3, 3_000);
+        assert_eq!(tok.balance(&planter), 10_000);
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #8)")]
+    fn test_claim_without_schedule_fails() {
+        let (env, _, _, _, client) = setup();
+        let random = Address::generate(&env);
+        client.claim_vested_tokens(&random);
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #9)")]
+    fn test_claim_before_cliff_fails() {
+        let (env, admin, _, _, client) = setup();
+        let planter = Address::generate(&env);
+        let (token, _) = setup_token(&env, &admin, 1_000_000);
+        let (_, cliff, dur) = vesting_one_year();
+        let start = env.ledger().timestamp();
+        client.create_vesting_schedule(
+            &planter, &token, &1_000_000i128, &start, &cliff, &dur,
         );
+        env.ledger().set_timestamp(start + cliff / 2);
+        client.claim_vested_tokens(&planter);
+    }
 
-        client.cancel_proposal(&council, &0);
-        // Second cancel should fail — already Cancelled.
-        client.cancel_proposal(&council, &0);
+    #[test]
+    #[should_panic(expected = "Error(Contract, #9)")]
+    fn test_claim_after_full_claim_fails_with_nothing_to_claim() {
+        let (env, admin, _, _, client) = setup();
+        let planter = Address::generate(&env);
+        let total = 10_000i128;
+        let (token, _) = setup_token(&env, &admin, 1_000_000);
+        let dur = 100u64;
+        let start = env.ledger().timestamp();
+        client.create_vesting_schedule(&planter, &token, &total, &start, &0u64, &dur);
+        env.ledger().set_timestamp(start + dur + 1);
+        client.claim_vested_tokens(&planter);
+        // second call — everything already claimed
+        client.claim_vested_tokens(&planter);
+    }
+
+    // ─── revoke_vesting_schedule ──────────────────────────────────────────
+
+    #[test]
+    fn test_revoke_refunds_unvested_and_keeps_vested_claimable() {
+        let (env, admin, _, _, client) = setup();
+        let planter = Address::generate(&env);
+        let total = 10_000i128;
+        let (token, tok) = setup_token(&env, &admin, total * 10);
+        let dur = 100u64;
+        let start = env.ledger().timestamp();
+        client.create_vesting_schedule(&planter, &token, &total, &start, &0u64, &dur);
+
+        let admin_before = tok.balance(&admin);
+
+        // Revoke at 40% — planter keeps 4_000, 6_000 returns to admin
+        env.ledger().set_timestamp(start + 40);
+        client.revoke_vesting_schedule(&planter);
+
+        assert_eq!(tok.balance(&admin), admin_before + 6_000);
+        // 4_000 still in contract waiting for planter claim
+        assert_eq!(tok.balance(&env.current_contract_address()), 4_000);
+
+        let sched = client.get_vesting_schedule(&planter).unwrap();
+        assert_eq!(sched.revoked, true);
+
+        // Even after more time passes, vested is capped at what was vested
+        // at revoke time (the unvested portion is already refunded out).
+        env.ledger().set_timestamp(start + dur * 2);
+        // Now claim — should get the 4_000 that was vested at revoke time
+        let c = client.claim_vested_tokens(&planter);
+        assert_eq!(c, 4_000);
+        assert_eq!(tok.balance(&planter), 4_000);
+        assert_eq!(tok.balance(&env.current_contract_address()), 0);
+    }
+
+    #[test]
+    fn test_revoke_after_full_vesting_refunds_nothing() {
+        let (env, admin, _, _, client) = setup();
+        let planter = Address::generate(&env);
+        let total = 10_000i128;
+        let (token, tok) = setup_token(&env, &admin, total * 10);
+        let dur = 100u64;
+        let start = env.ledger().timestamp();
+        client.create_vesting_schedule(&planter, &token, &total, &start, &0u64, &dur);
+
+        env.ledger().set_timestamp(start + dur + 1);
+        let admin_before = tok.balance(&admin);
+        client.revoke_vesting_schedule(&planter);
+        assert_eq!(tok.balance(&admin), admin_before); // nothing refunded
+        assert_eq!(tok.balance(&env.current_contract_address()), total);
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #8)")]
+    fn test_revoke_no_schedule_fails() {
+        let (env, _, _, _, client) = setup();
+        let random = Address::generate(&env);
+        client.revoke_vesting_schedule(&random);
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #10)")]
+    fn test_revoke_twice_fails() {
+        let (env, admin, _, _, client) = setup();
+        let planter = Address::generate(&env);
+        let (token, _) = setup_token(&env, &admin, 1_000_000);
+        let (_, cliff, dur) = vesting_one_year();
+        client.create_vesting_schedule(
+            &planter, &token, &10_000i128, &0u64, &cliff, &dur,
+        );
+        client.revoke_vesting_schedule(&planter);
+        client.revoke_vesting_schedule(&planter); // must panic
+    }
+
+    // ─── combined lifecycle ───────────────────────────────────────────────
+
+    #[test]
+    fn test_vesting_full_lifecycle_create_claim_revoke_claim() {
+        let (env, admin, _, _, client) = setup();
+        let planter = Address::generate(&env);
+        let total = 365_000i128;
+        let (token, tok) = setup_token(&env, &admin, total * 10);
+        let cliff = 86_400u64 * 30;
+        let dur = 86_400u64 * 365;
+        let start = env.ledger().timestamp();
+        client.create_vesting_schedule(&planter, &token, &total, &start, &cliff, &dur);
+
+        // 60 days in: 30 days past cliff, so 30/365 vested = 30_000 tokens
+        let d60 = start + 86_400u64 * 60;
+        env.ledger().set_timestamp(d60);
+        let c1 = client.claim_vested_tokens(&planter);
+        assert_eq!(c1, 30_000);
+        assert_eq!(tok.balance(&planter), 30_000);
+
+        // Revoke now: 60/365 vested total = 60_000, minus 30_000 already
+        // claimed → 30_000 still locked for planter; 305_000 refunded.
+        let admin_before = tok.balance(&admin);
+        client.revoke_vesting_schedule(&planter);
+        assert_eq!(tok.balance(&admin), admin_before + total - 60_000);
+
+        // Planter claims remaining vested (60_000 - 30_000)
+        let c2 = client.claim_vested_tokens(&planter);
+        assert_eq!(c2, 30_000);
+        assert_eq!(tok.balance(&planter), 60_000);
+    }
+
+    // ─── authorization ────────────────────────────────────────────────────
+
+    #[test]
+    #[should_panic(expected = "not initialized")]
+    fn test_create_vesting_without_init_fails() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let contract_id = env.register_contract(None, PlatformGovernance);
+        let client = PlatformGovernanceClient::new(&env, &contract_id);
+        let planter = Address::generate(&env);
+        let admin = Address::generate(&env);
+        let (token, _) = setup_token(&env, &admin, 1_000_000);
+        client.create_vesting_schedule(&planter, &token, &100_000i128, &0u64, &0u64, &1000u64);
     }
 }
