@@ -848,3 +848,4 @@ mod tests {
         let ledger_after_withdraw = client.get_last_interaction_ledger(&token, &provider);
         assert_eq!(ledger_after_withdraw, ledger_after_deposit + 1);
     }
+}

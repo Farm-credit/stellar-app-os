@@ -1,13 +1,14 @@
 #![no_std]
 
-//! Escrow Contract — with configurable Platform Fee on Release (#467)
+//! Escrow Contract — with configurable Platform Fee on Release (#467) and Anonymous Donations (#461)
 //!
 //! ## Standard flow
-//!   1. `initialize(verifier, admin, treasury, fee_bps)` — one-time setup.
+//!   1. `initialize(admin, verifier, admin_controls)` — one-time setup.
 //!      - `verifier` is the only party that may call `release()` (oracle/admin).
 //!      - `admin` is a separate governance role that may adjust the platform fee
 //!        or rotate the treasury address. Splitting these is deliberate so a
 //!        compromised verifier cannot redirect future releases to an attacker.
+//!      - `admin_controls` gates pause/unpause.
 //!      - `treasury` receives the platform fee on every release.
 //!      - `fee_bps` is the fee in basis points (e.g. `200` = 2.00%).
 //!   2. Sponsor calls `deposit(...)` — funds locked against a `tree_id`.
@@ -21,16 +22,22 @@
 //!   4. After 90 days sponsor may call `refund(tree_id)` — refund ignores the
 //!      fee entirely (no deduction on the way back to the sponsor).
 //!
+//! ## Anonymous donations (#461)
+//!   - `initialize_registries(tree_registry, planter_registry)` — verifier only.
+//!   - `donate_anonymous(donor, amount, token, species, region)` — the donor's
+//!     identity is never stored (`sponsor: None`); a planter is auto-assigned
+//!     and an anonymous tree is minted on the tree registry.
+//!
 //! ## Governance (#467)
 //!   - `set_fee_bps(bps)` — admin only; asserted `0 ≤ bps ≤ MAX_FEE_BPS`.
 //!   - `set_treasury(addr)` — admin only.
 //!   - `get_fee_bps()` / `get_treasury()` — query helpers.
 
+use admin_controls::AdminControlsClient;
 use soroban_sdk::{
     contract, contracterror, contractimpl, contracttype, panic_with_error, symbol_short, token,
     Address, Env, IntoVal, Symbol, Vec,
 };
-use admin_controls::AdminControlsClient;
 
 /// 90 days in seconds
 const REFUND_WINDOW: u64 = 90 * 24 * 60 * 60;
@@ -55,6 +62,7 @@ pub enum EscrowError {
     EscrowNotFound = 5,
     EscrowAlreadySettled = 6,
     RefundWindowNotOpen = 7,
+    // ── #461 — anonymous donation ─────────────────────────────────────────
     InsufficientDonation = 8,
     NoPlantersAvailable = 9,
     InvalidSpecies = 10,
@@ -62,9 +70,9 @@ pub enum EscrowError {
     PlanterRegistryNotSet = 12,
     TreeMintingFailed = 13,
     // ── #467 — platform fee on release ─────────────────────────────────────
-    PlatformFeeBpsOutOfRange = 8,
-    PlatformFeeTreasuryNotSet = 9,
-    UnauthorizedAdmin = 10,
+    PlatformFeeBpsOutOfRange = 14,
+    PlatformFeeTreasuryNotSet = 15,
+    UnauthorizedAdmin = 16,
 }
 
 #[contracttype]
@@ -94,8 +102,8 @@ pub struct Escrow;
 
 #[contractimpl]
 impl Escrow {
-    pub fn initialize(env: Env, verifier: Address) {
-    /// Initialize with a verifier address and admin-controls address.
+    /// Initialize with an admin address, a verifier address and the
+    /// admin-controls contract address.
     pub fn initialize(env: Env, admin: Address, verifier: Address, admin_controls: Address) {
         if env.storage().instance().has(&symbol_short!("VERIFIER")) {
             panic_with_error!(&env, EscrowError::AlreadyInitialized);
@@ -112,15 +120,15 @@ impl Escrow {
             .set(&symbol_short!("ADMC"), &admin_controls);
     }
 
-    pub fn initialize_registries(
-        env: Env,
-        tree_registry: Address,
-        planter_registry: Address,
-    ) {
+    /// Point the anonymous-donation flow at the tree/planter registries.
+    /// Verifier-only.
+    pub fn initialize_registries(env: Env, tree_registry: Address, planter_registry: Address) {
         Self::require_verifier(&env);
         env.storage()
             .instance()
             .set(&symbol_short!("TREE_REG"), &tree_registry);
+        env.storage()
+            .instance()
             .set(&symbol_short!("PLANT_REG"), &planter_registry);
     }
 
@@ -133,16 +141,20 @@ impl Escrow {
         if bps > MAX_FEE_BPS {
             panic_with_error!(&env, EscrowError::PlatformFeeBpsOutOfRange);
         }
+        env.storage()
+            .instance()
             .set(&symbol_short!("FEE_BPS"), &bps);
-        env.events().publish(
-            (symbol_short!("FeeUpd"),),
-            (bps, env.ledger().timestamp()),
-        );
+        env.events()
+            .publish((symbol_short!("FeeUpd"),), (bps, env.ledger().timestamp()));
     }
 
     /// Rotate the platform treasury address. Admin-only.
     pub fn set_treasury(env: Env, treasury: Address) {
+        Self::require_admin(&env);
+        env.storage()
+            .instance()
             .set(&symbol_short!("TREASURY"), &treasury);
+        env.events().publish(
             (symbol_short!("TreasUpd"),),
             (treasury, env.ledger().timestamp()),
         );
@@ -150,12 +162,16 @@ impl Escrow {
 
     /// Current platform fee in basis points.
     pub fn get_fee_bps(env: Env) -> u32 {
+        env.storage()
+            .instance()
             .get(&symbol_short!("FEE_BPS"))
             .unwrap_or(0u32)
     }
 
     /// Current platform treasury address. Panics if not initialized.
     pub fn get_treasury(env: Env) -> Address {
+        env.storage()
+            .instance()
             .get(&symbol_short!("TREASURY"))
             .unwrap_or_else(|| panic_with_error!(&env, EscrowError::PlatformFeeTreasuryNotSet))
     }
@@ -173,18 +189,22 @@ impl Escrow {
     ) {
         Self::assert_not_paused(&env);
         sponsor.require_auth();
+
         if amount <= 0 {
             panic_with_error!(&env, EscrowError::AmountMustBePositive);
         }
+
         let key = Self::escrow_key(&env, tree_id);
         if env.storage().persistent().has(&key) {
             panic_with_error!(&env, EscrowError::EscrowAlreadyFunded);
         }
+
         token::Client::new(&env, &token).transfer(
             &sponsor,
             &env.current_contract_address(),
             &amount,
         );
+
         env.storage().persistent().set(
             &key,
             &EscrowRecord {
@@ -199,29 +219,30 @@ impl Escrow {
                 is_anonymous: false,
             },
         );
+
         env.events().publish(
             (symbol_short!("FundsDep"), tree_id),
             (sponsor, token, amount),
         );
     }
 
+    /// Anonymous donation: no sponsor is recorded. A planter is auto-assigned
+    /// for the requested region and an anonymous tree is minted.
     pub fn donate_anonymous(
         env: Env,
+        donor: Address,
         amount: i128,
         token: Address,
         species: Symbol,
         region: Symbol,
     ) -> (u64, Address) {
+        donor.require_auth();
         let species_cost = Self::get_species_cost(&env, species);
         if amount < species_cost {
             panic_with_error!(&env, EscrowError::InsufficientDonation);
         }
         let planter = Self::assign_planter(&env, region);
-        token::Client::new(&env, &token).transfer(
-            &env.invoker(),
-            &env.current_contract_address(),
-            &amount,
-        );
+        token::Client::new(&env, &token).transfer(&donor, &env.current_contract_address(), &amount);
         let tree_id = Self::mint_anonymous_tree(&env, species, region, planter.clone());
         let key = Self::escrow_key(&env, tree_id);
         env.storage().persistent().set(
@@ -257,12 +278,14 @@ impl Escrow {
     pub fn release(env: Env, tree_id: u64) {
         Self::assert_not_paused(&env);
         Self::require_verifier(&env);
+
         let key = Self::escrow_key(&env, tree_id);
         let mut record: EscrowRecord = env
             .storage()
             .persistent()
             .get(&key)
             .unwrap_or_else(|| panic_with_error!(&env, EscrowError::EscrowNotFound));
+
         if record.status != EscrowStatus::Pending {
             panic_with_error!(&env, EscrowError::EscrowAlreadySettled);
         }
@@ -276,6 +299,7 @@ impl Escrow {
             .expect("fee division error");
 
         let planter_amount = record
+            .amount
             .checked_sub(fee)
             .expect("planter amount underflow");
 
@@ -297,6 +321,7 @@ impl Escrow {
             &record.planter,
             &planter_amount,
         );
+
         record.status = EscrowStatus::Released;
         env.storage().persistent().set(&key, &record);
         if record.is_anonymous {
@@ -314,17 +339,14 @@ impl Escrow {
         if fee > 0 {
             env.events().publish(
                 (symbol_short!("FeeColl"), tree_id),
-                (
-                    treasury.expect("treasury set when fee > 0"),
-                    fee,
-                    fee_bps,
-                ),
+                (treasury.expect("treasury set when fee > 0"), fee, fee_bps),
             );
         }
     }
 
     /// Refund funds to sponsor if 90 days have elapsed without a release.
     /// Only the original sponsor may call this. Refund ignores any fee.
+    /// Anonymous escrows (no sponsor) can never be refunded.
     pub fn refund(env: Env, tree_id: u64) {
         Self::assert_not_paused(&env);
         let key = Self::escrow_key(&env, tree_id);
@@ -333,105 +355,63 @@ impl Escrow {
             .persistent()
             .get(&key)
             .unwrap_or_else(|| panic_with_error!(&env, EscrowError::EscrowNotFound));
+
         if record.status != EscrowStatus::Pending {
             panic_with_error!(&env, EscrowError::EscrowAlreadySettled);
         }
+
         let sponsor = record.sponsor.clone().unwrap_or_else(|| {
             panic_with_error!(&env, EscrowError::EscrowAlreadySettled);
         });
         sponsor.require_auth();
+
         let elapsed = env.ledger().timestamp().saturating_sub(record.deposit_time);
         if elapsed < REFUND_WINDOW {
             panic_with_error!(&env, EscrowError::RefundWindowNotOpen);
         }
+
         token::Client::new(&env, &record.token).transfer(
             &env.current_contract_address(),
             &sponsor,
             &record.amount,
         );
+
         record.status = EscrowStatus::Refunded;
         env.storage().persistent().set(&key, &record);
+
         env.events().publish(
             (symbol_short!("FundsRef"), tree_id),
             (sponsor, record.amount),
         );
     }
 
+    /// Get escrow record for a tree.
     pub fn get_escrow(env: Env, tree_id: u64) -> Option<EscrowRecord> {
         env.storage()
             .persistent()
             .get(&Self::escrow_key(&env, tree_id))
     }
 
+    /// Fixed per-species donation cost (in 7-decimal units).
     pub fn get_species_cost(env: Env, species: Symbol) -> i128 {
-        if species == symbol_short!("teak") { 50_0000000i128 }
-        else if species == symbol_short!("moringa") { 10_0000000i128 }
-        else if species == symbol_short!("eucalyptus") { 35_0000000i128 }
-        else if species == symbol_short!("mangrove") { 25_0000000i128 }
-        else if species == symbol_short!("acacia") { 15_0000000i128 }
-        else if species == symbol_short!("bamboo") { 8_0000000i128 }
-        else { panic_with_error!(&env, EscrowError::InvalidSpecies); }
-    }
-
-    fn assign_planter(env: &Env, region: Symbol) -> Address {
-        let planter_registry: Address = env
-            .storage()
-            .instance()
-            .get(&symbol_short!("PLANT_REG"))
-            .unwrap_or_else(|| panic_with_error!(env, EscrowError::PlanterRegistryNotSet));
-        let planters: Vec<Address> = env.invoke_contract(
-            &planter_registry,
-            &symbol_short!("get_avail"),
-            Vec::from_array(env, [region.into_val(env)]),
-        );
-        if planters.is_empty() {
-            panic_with_error!(env, EscrowError::NoPlantersAvailable);
+        if species == symbol_short!("teak") {
+            50_0000000i128
+        } else if species == symbol_short!("moringa") {
+            10_0000000i128
+        } else if species == symbol_short!("eucalyptus") {
+            35_0000000i128
+        } else if species == symbol_short!("mangrove") {
+            25_0000000i128
+        } else if species == symbol_short!("acacia") {
+            15_0000000i128
+        } else if species == symbol_short!("bamboo") {
+            8_0000000i128
+        } else {
+            panic_with_error!(&env, EscrowError::InvalidSpecies);
         }
-        planters.get(0).unwrap()
     }
 
-    fn mint_anonymous_tree(env: &Env, species: Symbol, region: Symbol, planter: Address) -> u64 {
-        let tree_registry: Address = env
-            .storage()
-            .instance()
-            .get(&symbol_short!("TREE_REG"))
-            .unwrap_or_else(|| panic_with_error!(env, EscrowError::TreeRegistryNotSet));
-        env.invoke_contract(
-            &tree_registry,
-            &symbol_short!("mint_anon"),
-            Vec::from_array(env, [
-                species.into_val(env),
-                region.into_val(env),
-                planter.into_val(env),
-            ]),
-        )
-    }
-
-    fn increment_planter_workload(env: &Env, planter: Address) {
-        let planter_registry: Address = env
-            .storage()
-            .instance()
-            .get(&symbol_short!("PLANT_REG"))
-            .unwrap_or_else(|| panic_with_error!(env, EscrowError::PlanterRegistryNotSet));
-        env.invoke_contract(
-            &planter_registry,
-            &symbol_short!("inc_work"),
-            Vec::from_array(env, [planter.into_val(env)]),
-        );
-    }
-
-    fn decrement_planter_workload(env: &Env, planter: Address) {
-        let planter_registry: Address = env
-            .storage()
-            .instance()
-            .get(&symbol_short!("PLANT_REG"))
-            .unwrap_or_else(|| panic_with_error!(env, EscrowError::PlanterRegistryNotSet));
-        env.invoke_contract(
-            &planter_registry,
-            &symbol_short!("dec_work"),
-            Vec::from_array(env, [planter.into_val(env)]),
-        );
-    }
+    // ── Internal ──────────────────────────────────────────────────────────────
 
     fn escrow_key(env: &Env, tree_id: u64) -> soroban_sdk::Val {
         (symbol_short!("ESC"), tree_id).into_val(env)
@@ -474,7 +454,72 @@ impl Escrow {
             .get(&symbol_short!("FEE_BPS"))
             .unwrap_or(0u32)
     }
+
+    fn assign_planter(env: &Env, region: Symbol) -> Address {
+        let planter_registry: Address = env
+            .storage()
+            .instance()
+            .get(&symbol_short!("PLANT_REG"))
+            .unwrap_or_else(|| panic_with_error!(env, EscrowError::PlanterRegistryNotSet));
+        let planters: Vec<Address> = env.invoke_contract(
+            &planter_registry,
+            &symbol_short!("get_avail"),
+            Vec::from_array(env, [region.into_val(env)]),
+        );
+        if planters.is_empty() {
+            panic_with_error!(env, EscrowError::NoPlantersAvailable);
+        }
+        planters.get(0).unwrap()
+    }
+
+    fn mint_anonymous_tree(env: &Env, species: Symbol, region: Symbol, planter: Address) -> u64 {
+        let tree_registry: Address = env
+            .storage()
+            .instance()
+            .get(&symbol_short!("TREE_REG"))
+            .unwrap_or_else(|| panic_with_error!(env, EscrowError::TreeRegistryNotSet));
+        env.invoke_contract(
+            &tree_registry,
+            &symbol_short!("mint_anon"),
+            Vec::from_array(
+                env,
+                [
+                    species.into_val(env),
+                    region.into_val(env),
+                    planter.into_val(env),
+                ],
+            ),
+        )
+    }
+
+    fn increment_planter_workload(env: &Env, planter: Address) {
+        let planter_registry: Address = env
+            .storage()
+            .instance()
+            .get(&symbol_short!("PLANT_REG"))
+            .unwrap_or_else(|| panic_with_error!(env, EscrowError::PlanterRegistryNotSet));
+        env.invoke_contract(
+            &planter_registry,
+            &symbol_short!("inc_work"),
+            Vec::from_array(env, [planter.into_val(env)]),
+        );
+    }
+
+    fn decrement_planter_workload(env: &Env, planter: Address) {
+        let planter_registry: Address = env
+            .storage()
+            .instance()
+            .get(&symbol_short!("PLANT_REG"))
+            .unwrap_or_else(|| panic_with_error!(env, EscrowError::PlanterRegistryNotSet));
+        env.invoke_contract(
+            &planter_registry,
+            &symbol_short!("dec_work"),
+            Vec::from_array(env, [planter.into_val(env)]),
+        );
+    }
 }
+
+// ── Tests ─────────────────────────────────────────────────────────────────────
 
 #[cfg(test)]
 mod tests {
@@ -487,13 +532,23 @@ mod tests {
     /// Helper for the existing test bodies. Disables the platform fee by
     /// passing `fee_bps = 0`, so legacy "planter receives 100%" assertions
     /// keep holding. New fee tests use `setup_with_fee`.
-    fn setup() -> (Env, Address, Address, Address, Address, Address, EscrowClient<'static>) {
+    fn setup() -> (
+        Env,
+        Address,
+        Address,
+        Address,
+        Address,
+        Address,
+        EscrowClient<'static>,
+    ) {
         setup_with_fee(0u32)
     }
 
     /// Full-fat helper used by the new fee tests. Verifier is its own address so
     /// we never bleed auth between admin & verifier.
-    fn setup_with_fee(fee_bps: u32) -> (
+    fn setup_with_fee(
+        fee_bps: u32,
+    ) -> (
         Env,
         Address,
         Address,
@@ -504,28 +559,29 @@ mod tests {
     ) {
         let env = Env::default();
         env.mock_all_auths();
-        let contract_id = env.register_contract(None, Escrow);
-        let client = EscrowClient::new(&env, &contract_id);
 
         // Deploy admin-controls contract
         let admin_controls_id = env.register_contract(None, admin_controls::AdminControls);
-        let admin_controls_client = admin_controls::AdminControlsClient::new(&env, &admin_controls_id);
+        let admin_controls_client =
+            admin_controls::AdminControlsClient::new(&env, &admin_controls_id);
         let admin = Address::generate(&env);
         let oracle = Address::generate(&env);
         admin_controls_client.initialize(&admin, &oracle);
 
+        let contract_id = env.register_contract(None, Escrow);
+        let client = EscrowClient::new(&env, &contract_id);
 
+        let admin = Address::generate(&env);
         let verifier = Address::generate(&env);
         let sponsor = Address::generate(&env);
         let planter = Address::generate(&env);
         let token_admin = Address::generate(&env);
-        let token = env.register_stellar_asset_contract(token_admin.clone());
-        token::StellarAssetClient::new(&env, &token).mint(&sponsor, &1_000_000);
-        client.initialize(&verifier);
-        (env, verifier, sponsor, planter, token, client)
         let treasury = Address::generate(&env);
 
-        let token = env.register_stellar_asset_contract_v2(token_admin.clone()).address();
+        let token = env
+            .register_stellar_asset_contract_v2(token_admin.clone())
+            .address();
+        token::StellarAssetClient::new(&env, &token).mint(&sponsor, &1_000_000);
 
         client.initialize(&admin, &verifier, &admin_controls_id);
         client.set_treasury(&treasury);
@@ -534,30 +590,64 @@ mod tests {
         (env, admin, verifier, sponsor, planter, token, client)
     }
 
-    fn setup_with_registries() -> (Env, Address, Address, Address, Address, Address, Address, EscrowClient<'static>) {
+    /// Anonymous-donation helper with mock registries wired up.
+    fn setup_with_registries() -> (
+        Env,
+        Address,
+        Address,
+        Address,
+        Address,
+        Address,
+        Address,
+        EscrowClient<'static>,
+    ) {
         let env = Env::default();
         env.mock_all_auths();
+
+        // Deploy admin-controls contract
+        let admin_controls_id = env.register_contract(None, admin_controls::AdminControls);
+        let admin_controls_client =
+            admin_controls::AdminControlsClient::new(&env, &admin_controls_id);
+        let admin = Address::generate(&env);
+        let oracle = Address::generate(&env);
+        admin_controls_client.initialize(&admin, &oracle);
+
         let contract_id = env.register_contract(None, Escrow);
         let client = EscrowClient::new(&env, &contract_id);
+
         let verifier = Address::generate(&env);
         let sponsor = Address::generate(&env);
         let planter = Address::generate(&env);
         let token_admin = Address::generate(&env);
         let tree_registry = Address::generate(&env);
         let planter_registry = Address::generate(&env);
-        let token = env.register_stellar_asset_contract(token_admin.clone());
+
+        let token = env
+            .register_stellar_asset_contract_v2(token_admin.clone())
+            .address();
         token::StellarAssetClient::new(&env, &token).mint(&sponsor, &1_000_000_000);
-        client.initialize(&verifier);
+
+        client.initialize(&admin, &verifier, &admin_controls_id);
         client.initialize_registries(&tree_registry, &planter_registry);
-        (env, verifier, sponsor, planter, token, tree_registry, planter_registry, client)
+
+        (
+            env,
+            verifier,
+            sponsor,
+            planter,
+            token,
+            tree_registry,
+            planter_registry,
+            client,
+        )
     }
 
     #[test]
     fn test_deposit_stores_record() {
-        let (_env, _verifier, sponsor, planter, token, client) = setup();
         let (_env, _admin, _verifier, sponsor, planter, token, client) = setup();
 
         client.deposit(&sponsor, &planter, &1u64, &token, &10_000);
+
         let rec = client.get_escrow(&1u64).unwrap();
         assert_eq!(rec.amount, 10_000);
         assert_eq!(rec.sponsor, Some(sponsor));
@@ -569,14 +659,16 @@ mod tests {
 
     #[test]
     fn test_release_transfers_to_planter() {
-        let (env, _verifier, sponsor, planter, token, client) = setup();
         let (env, _admin, _verifier, sponsor, planter, token, client) = setup();
 
         client.deposit(&sponsor, &planter, &1u64, &token, &10_000);
+
         let before = token::Client::new(&env, &token).balance(&planter);
         client.release(&1u64);
         let after = token::Client::new(&env, &token).balance(&planter);
+
         assert_eq!(after - before, 10_000);
+
         let rec = client.get_escrow(&1u64).unwrap();
         assert_eq!(rec.status, EscrowStatus::Released);
     }
@@ -588,22 +680,25 @@ mod tests {
 
         client.deposit(&sponsor, &planter, &1u64, &token, &10_000);
 
-        // Only the sponsor is authorised, not the verifier.
+        // Only the verifier is authorised, not the sponsor.
         env.mock_auths(&[]);
         client.release(&1u64);
     }
 
     #[test]
     fn test_refund_after_90_days_returns_to_sponsor() {
-        let (env, _verifier, sponsor, planter, token, client) = setup();
         let (env, _admin, _verifier, sponsor, planter, token, client) = setup();
 
         client.deposit(&sponsor, &planter, &1u64, &token, &10_000);
+
         env.ledger().with_mut(|l| l.timestamp += REFUND_WINDOW + 1);
+
         let before = token::Client::new(&env, &token).balance(&sponsor);
         client.refund(&1u64);
         let after = token::Client::new(&env, &token).balance(&sponsor);
+
         assert_eq!(after - before, 10_000);
+
         let rec = client.get_escrow(&1u64).unwrap();
         assert_eq!(rec.status, EscrowStatus::Refunded);
     }
@@ -611,18 +706,17 @@ mod tests {
     #[test]
     #[should_panic(expected = "Error(Contract, #7)")]
     fn test_refund_before_90_days_panics() {
-        let (env, _verifier, sponsor, planter, token, client) = setup();
         let (env, _admin, _verifier, sponsor, planter, token, client) = setup();
 
         client.deposit(&sponsor, &planter, &1u64, &token, &10_000);
         env.ledger().with_mut(|l| l.timestamp += REFUND_WINDOW - 1);
+
         client.refund(&1u64);
     }
 
     #[test]
     #[should_panic(expected = "Error(Contract, #4)")]
     fn test_double_deposit_rejected() {
-        let (_env, _verifier, sponsor, planter, token, client) = setup();
         let (_env, _admin, _verifier, sponsor, planter, token, client) = setup();
 
         client.deposit(&sponsor, &planter, &1u64, &token, &10_000);
@@ -632,7 +726,6 @@ mod tests {
     #[test]
     #[should_panic(expected = "Error(Contract, #6)")]
     fn test_release_twice_panics() {
-        let (_env, _verifier, sponsor, planter, token, client) = setup();
         let (_env, _admin, _verifier, sponsor, planter, token, client) = setup();
 
         client.deposit(&sponsor, &planter, &1u64, &token, &10_000);
@@ -643,11 +736,11 @@ mod tests {
     #[test]
     #[should_panic(expected = "Error(Contract, #6)")]
     fn test_refund_after_release_panics() {
-        let (env, _verifier, sponsor, planter, token, client) = setup();
         let (env, _admin, _verifier, sponsor, planter, token, client) = setup();
 
         client.deposit(&sponsor, &planter, &1u64, &token, &10_000);
         client.release(&1u64);
+
         env.ledger().with_mut(|l| l.timestamp += REFUND_WINDOW + 1);
         client.refund(&1u64);
     }
@@ -655,7 +748,6 @@ mod tests {
     #[test]
     #[should_panic(expected = "Error(Contract, #5)")]
     fn test_release_nonexistent_panics() {
-        let (_env, _verifier, _sponsor, _planter, _token, client) = setup();
         let (_env, _admin, _verifier, _sponsor, _planter, _token, client) = setup();
 
         client.release(&999u64);
@@ -664,7 +756,6 @@ mod tests {
     #[test]
     #[should_panic(expected = "Error(Contract, #3)")]
     fn test_zero_amount_rejected() {
-        let (_env, _verifier, sponsor, planter, token, client) = setup();
         let (_env, _admin, _verifier, sponsor, planter, token, client) = setup();
 
         client.deposit(&sponsor, &planter, &1u64, &token, &0);
@@ -672,27 +763,42 @@ mod tests {
 
     #[test]
     fn test_different_tree_ids_are_independent() {
-        let (_env, _verifier, sponsor, planter, token, client) = setup();
         let (_env, _admin, _verifier, sponsor, planter, token, client) = setup();
 
         client.deposit(&sponsor, &planter, &1u64, &token, &1_000);
         client.deposit(&sponsor, &planter, &2u64, &token, &2_000);
+
         client.release(&1u64);
+
         let rec1 = client.get_escrow(&1u64).unwrap();
         let rec2 = client.get_escrow(&2u64).unwrap();
+
         assert_eq!(rec1.status, EscrowStatus::Released);
         assert_eq!(rec2.status, EscrowStatus::Pending);
     }
 
+    // ── #461 — anonymous donation tests ──────────────────────────────────────
+
     #[test]
     fn test_donate_anonymous_success() {
-        let (env, _verifier, sponsor, _planter, token, tree_reg, plant_reg, client) = setup_with_registries();
+        let (env, _verifier, sponsor, _planter, token, tree_reg, plant_reg, client) =
+            setup_with_registries();
         env.register_contract(&tree_reg, MockTreeRegistry);
         env.register_contract(&plant_reg, MockPlanterRegistry);
         let amount = 50_0000000i128;
         token::Client::new(&env, &token).approve(&sponsor, &client.address, &amount, &999999);
-        let (tree_id, assigned_planter) = client.donate_anonymous(&amount, &token, &symbol_short!("teak"), &symbol_short!("kenya"));
+        let (tree_id, assigned_planter) = client.donate_anonymous(
+            &sponsor,
+            &amount,
+            &token,
+            &symbol_short!("teak"),
+            &symbol_short!("kenya"),
+        );
         assert_eq!(tree_id, 1u64);
+        assert_eq!(
+            assigned_planter,
+            client.get_escrow(&tree_id).unwrap().planter
+        );
         let rec = client.get_escrow(&tree_id).unwrap();
         assert_eq!(rec.sponsor, None);
         assert_eq!(rec.amount, amount);
@@ -702,21 +808,164 @@ mod tests {
         assert_eq!(rec.status, EscrowStatus::Pending);
     }
 
+    #[test]
     #[should_panic(expected = "Error(Contract, #8)")]
     fn test_donate_anonymous_insufficient_funds() {
-        let (env, _verifier, _sponsor, _planter, token, tree_reg, plant_reg, client) = setup_with_registries();
+        let (env, _verifier, sponsor, _planter, token, tree_reg, plant_reg, client) =
+            setup_with_registries();
+        env.register_contract(&tree_reg, MockTreeRegistry);
+        env.register_contract(&plant_reg, MockPlanterRegistry);
         let amount = 5_0000000i128;
-        client.donate_anonymous(&amount, &token, &symbol_short!("teak"), &symbol_short!("kenya"));
+        client.donate_anonymous(
+            &sponsor,
+            &amount,
+            &token,
+            &symbol_short!("teak"),
+            &symbol_short!("kenya"),
+        );
     }
 
+    #[test]
     #[should_panic(expected = "Error(Contract, #9)")]
     fn test_donate_anonymous_no_planters() {
+        let (env, _verifier, sponsor, _planter, token, tree_reg, plant_reg, client) =
+            setup_with_registries();
+        env.register_contract(&tree_reg, MockTreeRegistry);
         env.register_contract(&plant_reg, MockEmptyPlanterRegistry);
-        client.donate_anonymous(&amount, &token, &symbol_short!("teak"), &symbol_short!("antarctica"));
+        let amount = 50_0000000i128;
+        client.donate_anonymous(
+            &sponsor,
+            &amount,
+            &token,
+            &symbol_short!("teak"),
+            &symbol_short!("antarctica"),
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #10)")]
+    fn test_donate_anonymous_invalid_species() {
+        let (env, _verifier, sponsor, _planter, token, tree_reg, plant_reg, client) =
+            setup_with_registries();
+        env.register_contract(&tree_reg, MockTreeRegistry);
+        env.register_contract(&plant_reg, MockPlanterRegistry);
+        let amount = 50_0000000i128;
+        client.donate_anonymous(
+            &sponsor,
+            &amount,
+            &token,
+            &symbol_short!("alien"),
+            &symbol_short!("kenya"),
+        );
+    }
+
+    #[test]
+    fn test_species_costs() {
+        let (_env, _verifier, _sponsor, _planter, _token, _tree_reg, _plant_reg, client) =
+            setup_with_registries();
+        assert_eq!(
+            client.get_species_cost(&symbol_short!("teak")),
+            50_0000000i128
+        );
+        assert_eq!(
+            client.get_species_cost(&symbol_short!("moringa")),
+            10_0000000i128
+        );
+        assert_eq!(
+            client.get_species_cost(&symbol_short!("eucalyptus")),
+            35_0000000i128
+        );
+        assert_eq!(
+            client.get_species_cost(&symbol_short!("mangrove")),
+            25_0000000i128
+        );
+        assert_eq!(
+            client.get_species_cost(&symbol_short!("acacia")),
+            15_0000000i128
+        );
+        assert_eq!(
+            client.get_species_cost(&symbol_short!("bamboo")),
+            8_0000000i128
+        );
+    }
+
+    #[test]
+    fn test_anonymous_release_works() {
+        let (env, _verifier, sponsor, planter, token, tree_reg, plant_reg, client) =
+            setup_with_registries();
+        env.register_contract(&tree_reg, MockTreeRegistry);
+        env.register_contract(&plant_reg, MockPlanterRegistry);
+        let amount = 50_0000000i128;
+        token::Client::new(&env, &token).approve(&sponsor, &client.address, &amount, &999999);
+        let (tree_id, _) = client.donate_anonymous(
+            &sponsor,
+            &amount,
+            &token,
+            &symbol_short!("teak"),
+            &symbol_short!("kenya"),
+        );
+        let before = token::Client::new(&env, &token).balance(&planter);
+        client.release(&tree_id);
+        let after = token::Client::new(&env, &token).balance(&planter);
+        assert_eq!(after - before, amount);
+        let rec = client.get_escrow(&tree_id).unwrap();
+        assert_eq!(rec.status, EscrowStatus::Released);
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #6)")]
+    fn test_anonymous_refund_rejected() {
+        let (env, _verifier, sponsor, _planter, token, tree_reg, plant_reg, client) =
+            setup_with_registries();
+        env.register_contract(&tree_reg, MockTreeRegistry);
+        env.register_contract(&plant_reg, MockPlanterRegistry);
+        let amount = 50_0000000i128;
+        token::Client::new(&env, &token).approve(&sponsor, &client.address, &amount, &999999);
+        let (tree_id, _) = client.donate_anonymous(
+            &sponsor,
+            &amount,
+            &token,
+            &symbol_short!("teak"),
+            &symbol_short!("kenya"),
+        );
+        env.ledger().with_mut(|l| l.timestamp += REFUND_WINDOW + 1);
+        client.refund(&tree_id);
+    }
+
+    use soroban_sdk::{contract, contractimpl};
+
+    #[contract]
+    pub struct MockPlanterRegistry;
+    #[contractimpl]
+    impl MockPlanterRegistry {
+        pub fn get_avail(env: Env, _region: Symbol) -> Vec<Address> {
+            vec![&env, Address::generate(&env)]
+        }
+        pub fn inc_work(_env: Env, _planter: Address) {}
+        pub fn dec_work(_env: Env, _planter: Address) {}
+    }
+
+    #[contract]
+    pub struct MockEmptyPlanterRegistry;
+    #[contractimpl]
+    impl MockEmptyPlanterRegistry {
+        pub fn get_avail(env: Env, _region: Symbol) -> Vec<Address> {
+            vec![&env]
+        }
+    }
+
+    #[contract]
+    pub struct MockTreeRegistry;
+    #[contractimpl]
+    impl MockTreeRegistry {
+        pub fn mint_anon(_env: Env, _species: Symbol, _region: Symbol, _planter: Address) -> u64 {
+            1u64
+        }
+    }
+
     // ── #467 — platform fee tests ────────────────────────────────────────────
 
-    // Deleted test_initialize_stores_literal_fee_bps
-
+    #[test]
     fn test_release_deducts_platform_fee_default() {
         // 2% (200 bps): planter receives 98%, treasury receives 2%.
         let (env, _admin, _verifier, sponsor, planter, token, client) = setup_with_fee(200);
@@ -737,85 +986,22 @@ mod tests {
             9_800,
             "planter receives 98% (10_000 - 200 bps of 10_000)"
         );
+        assert_eq!(
             token::Client::new(&env, &token).balance(&treasury) - treasury_before,
             200,
             "treasury receives the 2% fee"
         );
     }
 
-    // Deleted test_initialize_rejects_fee_bps_above_max
-
+    #[test]
+    #[should_panic(expected = "Error(Contract, #14)")]
     fn test_set_fee_bps_above_max_rejected() {
         let (_env, _admin, _verifier, _sponsor, _planter, _token, client) = setup();
         client.set_fee_bps(&10_001u32);
     }
 
     #[test]
-    #[should_panic(expected = "Error(Contract, #10)")]
-    fn test_donate_anonymous_invalid_species() {
-        let (env, _verifier, _sponsor, _planter, token, tree_reg, plant_reg, client) = setup_with_registries();
-        env.register_contract(&tree_reg, MockTreeRegistry);
-        env.register_contract(&plant_reg, MockPlanterRegistry);
-        let amount = 50_0000000i128;
-        client.donate_anonymous(&amount, &token, &symbol_short!("alien"), &symbol_short!("kenya"));
-    }
-
-    #[test]
-    fn test_species_costs() {
-        let (_env, _verifier, _sponsor, _planter, _token, _tree_reg, _plant_reg, client) = setup_with_registries();
-        assert_eq!(client.get_species_cost(&symbol_short!("teak")), 50_0000000i128);
-        assert_eq!(client.get_species_cost(&symbol_short!("moringa")), 10_0000000i128);
-        assert_eq!(client.get_species_cost(&symbol_short!("eucalyptus")), 35_0000000i128);
-        assert_eq!(client.get_species_cost(&symbol_short!("mangrove")), 25_0000000i128);
-        assert_eq!(client.get_species_cost(&symbol_short!("acacia")), 15_0000000i128);
-        assert_eq!(client.get_species_cost(&symbol_short!("bamboo")), 8_0000000i128);
-    }
-
-    fn test_anonymous_release_works() {
-        let (env, _verifier, sponsor, planter, token, tree_reg, plant_reg, client) = setup_with_registries();
-        token::Client::new(&env, &token).approve(&sponsor, &client.address, &amount, &999999);
-        let (tree_id, _) = client.donate_anonymous(&amount, &token, &symbol_short!("teak"), &symbol_short!("kenya"));
-        let before = token::Client::new(&env, &token).balance(&planter);
-        client.release(&tree_id);
-        let after = token::Client::new(&env, &token).balance(&planter);
-        assert_eq!(after - before, amount);
-        let rec = client.get_escrow(&tree_id).unwrap();
-        assert_eq!(rec.status, EscrowStatus::Released);
-    }
-
-    #[should_panic(expected = "Error(Contract, #6)")]
-    fn test_anonymous_refund_rejected() {
-        let (env, _verifier, sponsor, _planter, token, tree_reg, plant_reg, client) = setup_with_registries();
-        env.ledger().with_mut(|l| l.timestamp += REFUND_WINDOW + 1);
-        client.refund(&tree_id);
-    }
-
-    use soroban_sdk::{contract, contractimpl};
-
-    #[contract]
-    pub struct MockPlanterRegistry;
-    #[contractimpl]
-    impl MockPlanterRegistry {
-        pub fn get_avail(env: Env, _region: Symbol) -> Vec<Address> {
-            vec![&env, Address::generate(&env)]
-        }
-        pub fn inc_work(_env: Env, _planter: Address) {}
-        pub fn dec_work(_env: Env, _planter: Address) {}
-    }
-
-    pub struct MockEmptyPlanterRegistry;
-    impl MockEmptyPlanterRegistry {
-            vec![&env]
-        }
-    }
-
-    pub struct MockTreeRegistry;
-    impl MockTreeRegistry {
-        pub fn mint_anon(_env: Env, _species: Symbol, _region: Symbol, _planter: Address) -> u64 {
-            1u64
-        }
-    }
-}
+    #[should_panic(expected = "Error(Contract, #16)")]
     fn test_set_fee_bps_rejects_uninitialized_contract() {
         // Cannot call require_admin() before ADMIN is stored.
         let env = Env::default();
@@ -825,6 +1011,7 @@ mod tests {
         client.set_fee_bps(&100u32);
     }
 
+    #[test]
     fn test_set_fee_bps_updates_fee() {
         let (_env, _admin, _verifier, _sponsor, _planter, _token, client) = setup();
 
@@ -832,10 +1019,12 @@ mod tests {
         client.set_fee_bps(&500u32);
         assert_eq!(client.get_fee_bps(), 500);
         client.set_fee_bps(&0u32);
+        assert_eq!(client.get_fee_bps(), 0);
         client.set_fee_bps(&DEFAULT_FEE_BPS);
         assert_eq!(client.get_fee_bps(), DEFAULT_FEE_BPS);
     }
 
+    #[test]
     fn test_set_treasury_updates_address() {
         let (env, _admin, _verifier, _sponsor, _planter, _token, client) = setup();
         let new_treasury_a = Address::generate(&env);
@@ -848,9 +1037,9 @@ mod tests {
         assert_eq!(client.get_treasury(), new_treasury_b);
     }
 
+    #[test]
     fn test_release_with_zero_fee_full_amount_to_planter() {
-        let (env, _admin, _verifier, sponsor, planter, token, client) =
-            setup_with_fee(0u32);
+        let (env, _admin, _verifier, sponsor, planter, token, client) = setup_with_fee(0u32);
 
         client.deposit(&sponsor, &planter, &1u64, &token, &10_000);
         client.release(&1u64);
@@ -862,65 +1051,102 @@ mod tests {
         );
     }
 
+    #[test]
     fn test_release_with_2pct_fee_splits_correctly() {
-            setup_with_fee(200u32);
+        let (env, _admin, _verifier, sponsor, planter, token, client) = setup_with_fee(200u32);
 
+        client.deposit(&sponsor, &planter, &1u64, &token, &10_000);
 
         let treasury = client.get_treasury();
         let planter_before = token::Client::new(&env, &token).balance(&planter);
         let treasury_before = token::Client::new(&env, &token).balance(&treasury);
 
+        client.release(&1u64);
 
+        assert_eq!(
             token::Client::new(&env, &token).balance(&planter) - planter_before,
             9_800,
             "planter receives 98% of the gross (10_000 - 200 bps of 10_000)"
         );
+        assert_eq!(
             token::Client::new(&env, &token).balance(&treasury) - treasury_before,
             200,
             "treasury receives the 2% fee"
         );
     }
 
+    #[test]
     fn test_release_with_5pct_fee() {
-            setup_with_fee(500u32);
+        let (env, _admin, _verifier, sponsor, planter, token, client) = setup_with_fee(500u32);
 
+        client.deposit(&sponsor, &planter, &1u64, &token, &10_000);
 
+        let treasury = client.get_treasury();
+        let planter_before = token::Client::new(&env, &token).balance(&planter);
+        let treasury_before = token::Client::new(&env, &token).balance(&treasury);
 
+        client.release(&1u64);
 
+        assert_eq!(
+            token::Client::new(&env, &token).balance(&planter) - planter_before,
             9_500
         );
+        assert_eq!(
+            token::Client::new(&env, &token).balance(&treasury) - treasury_before,
             500
         );
     }
 
+    #[test]
     fn test_release_with_100pct_fee_pays_treasury_only() {
-            setup_with_fee(10_000u32);
+        let (env, _admin, _verifier, sponsor, planter, token, client) = setup_with_fee(10_000u32);
 
+        client.deposit(&sponsor, &planter, &1u64, &token, &10_000);
 
+        let treasury = client.get_treasury();
+        let planter_before = token::Client::new(&env, &token).balance(&planter);
+        let treasury_before = token::Client::new(&env, &token).balance(&treasury);
 
+        client.release(&1u64);
 
+        assert_eq!(
+            token::Client::new(&env, &token).balance(&planter) - planter_before,
             0,
             "100% fee means planter receives nothing"
         );
+        assert_eq!(
+            token::Client::new(&env, &token).balance(&treasury) - treasury_before,
             10_000
         );
     }
 
+    #[test]
     fn test_refund_is_unaffected_by_fee() {
+        let (env, _admin, _verifier, sponsor, planter, token, client) = setup_with_fee(200u32);
 
+        client.deposit(&sponsor, &planter, &1u64, &token, &10_000);
 
+        env.ledger().with_mut(|l| l.timestamp += REFUND_WINDOW + 1);
 
+        let treasury = client.get_treasury();
         let sponsor_before = token::Client::new(&env, &token).balance(&sponsor);
+        let treasury_before = token::Client::new(&env, &token).balance(&treasury);
 
         client.refund(&1u64);
 
+        assert_eq!(
             token::Client::new(&env, &token).balance(&sponsor) - sponsor_before,
+            10_000,
             "refund returns the full amount to sponsor"
         );
+        assert_eq!(
+            token::Client::new(&env, &token).balance(&treasury) - treasury_before,
+            0,
             "no fee is collected on refund"
         );
     }
 
+    #[test]
     fn test_set_fee_bps_zero_disables_fee() {
         let (env, _admin, _verifier, sponsor, planter, token, client) = setup();
         client.set_treasury(&Address::generate(&env));
@@ -931,16 +1157,22 @@ mod tests {
         client.release(&2u64);
 
         // Disable fee and run another release.
+        client.set_fee_bps(&0u32);
         client.deposit(&sponsor, &planter, &3u64, &token, &10_000);
+        let planter_before = token::Client::new(&env, &token).balance(&planter);
         client.release(&3u64);
+        assert_eq!(
+            token::Client::new(&env, &token).balance(&planter) - planter_before,
+            10_000,
             "zero bps skips fee entirely"
         );
     }
 
+    #[test]
     #[should_panic(expected = "Error(Contract, #1)")]
     fn test_double_initialize_rejected() {
         let (_env, admin, verifier, _sponsor, _planter, _token, client) = setup();
-        
+
         let admin_controls_id = _env.register_contract(None, admin_controls::AdminControls);
         client.initialize(&admin, &verifier, &admin_controls_id);
     }
@@ -952,6 +1184,7 @@ mod tests {
         use proptest::prelude::*;
 
         proptest! {
+            #[test]
             fn fuzz_escrow_fee_calculation_invariants(
                 deposit_amount in 1i128..1_000_000_000_000i128,
                 fee_bps in 0u32..10_000u32,
@@ -966,6 +1199,7 @@ mod tests {
                 prop_assert!(planter_payout <= deposit_amount);
             }
 
+            #[test]
             fn fuzz_escrow_refund_window_math(
                 deposit_time in 0u64..1_000_000_000u64,
                 elapsed_seconds in 0u64..10_000_000u64,
