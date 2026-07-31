@@ -1,4 +1,5 @@
 #![no_std]
+#![allow(dead_code)]
 
 //! Tree Escrow Contract — issue #749: Cross-Contract Reentrancy Guard
 //!
@@ -46,6 +47,9 @@ pub enum EscrowStatus {
     Planted,
     Completed,
     Refunded,
+    Survived,
+    Dead,
+    JobExpired,
 }
 
 #[contracttype]
@@ -98,12 +102,9 @@ enum DataKey {
     Escrow(Address),
     OracleReport(u64),
     TreeFunding(u64),
-    /// Track used proof hashes for replay attack prevention (#481)
     UsedProof(BytesN<32>),
-    /// Sponsor dispute on a verification outcome (#469)
     Dispute(u64),
     DaoMembers,
-    /// Registered arbiter address (#649)
     Arbiter,
     SponsorRating(Address, Address),
     PlanterReputation(Address),
@@ -555,6 +556,7 @@ mod tests {
 
     // ── Test context ──────────────────────────────────────────────────────────
 
+    #[allow(dead_code)]
     struct Ctx {
         env: Env,
         admin: Address,

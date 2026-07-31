@@ -1,24 +1,22 @@
+import { type NextRequest, NextResponse } from 'next/server';
 import jsPDF from 'jspdf';
+import QRCode from 'qrcode';
 
-export interface CertificateData {
-  userName: string | null;
+export const runtime = 'nodejs';
+
+interface CertificateApiRequest {
+  userName?: string | null;
   walletAddress: string;
-  quantityRetired: number;
   treeCount: number;
   co2Offset: number;
-  plantingDate: Date;
+  plantingDate: string;
   region: string;
   projectName: string;
-  projectDescription: string;
+  projectDescription?: string;
   transactionHash: string;
-  retirementDate: Date;
+  retirementDate: string;
   isAnonymous?: boolean;
   explorerBaseUrl?: string;
-}
-
-export interface GenerateCertificateOptions {
-  qrDataUrl: string;
-  data: CertificateData;
 }
 
 const STELLAR_BLUE = '#14B6E7';
@@ -37,7 +35,8 @@ function truncate(text: string, maxLength: number): string {
   return text.length > maxLength ? `${text.slice(0, maxLength - 3)}...` : text;
 }
 
-function formatDate(date: Date): string {
+function formatDate(dateStr: string): string {
+  const date = new Date(dateStr);
   return date.toLocaleDateString('en-US', {
     year: 'numeric',
     month: 'long',
@@ -45,55 +44,42 @@ function formatDate(date: Date): string {
   });
 }
 
-export function getExplorerUrl(txHash: string, baseUrl?: string): string {
-  const base = baseUrl ?? 'https://stellar.expert/explorer/public/tx';
-  return `${base}/${txHash}`;
-}
-
-export function getDisplayName(
-  data: Pick<CertificateData, 'userName' | 'walletAddress' | 'isAnonymous'>
+function getDisplayName(
+  userName: string | null | undefined,
+  walletAddress: string,
+  isAnonymous?: boolean
 ): string {
-  if (data.isAnonymous) return 'Anonymous Donor';
-  return data.userName?.trim() || data.walletAddress;
+  if (isAnonymous) return 'Anonymous Donor';
+  return userName?.trim() || walletAddress;
 }
 
-export class CertificateError extends Error {
-  constructor(
-    message: string,
-    public readonly code: string
-  ) {
-    super(message);
-    this.name = 'CertificateError';
-  }
-}
-
-function validateOptions({ qrDataUrl, data }: GenerateCertificateOptions): void {
-  if (!qrDataUrl) {
-    throw new CertificateError('QR data URL is required', 'MISSING_QR_DATA');
-  }
-  if (!data.transactionHash) {
-    throw new CertificateError('Transaction hash is required', 'MISSING_TX_HASH');
-  }
-  if (data.treeCount < 0) {
-    throw new CertificateError('Tree count must be non-negative', 'INVALID_TREE_COUNT');
-  }
-  if (data.co2Offset < 0) {
-    throw new CertificateError('CO2 offset must be non-negative', 'INVALID_CO2_OFFSET');
-  }
-}
-
-export async function generateCertificatePdf(options: GenerateCertificateOptions): Promise<void> {
-  validateOptions(options);
-
-  const { qrDataUrl, data } = options;
-
-  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-
-  const displayName = getDisplayName(data);
-  const explorerUrl = getExplorerUrl(data.transactionHash, data.explorerBaseUrl);
-  const projectLabel = truncate(data.projectName, 60);
-
+export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
+    let body: CertificateApiRequest;
+    try {
+      body = (await request.json()) as CertificateApiRequest;
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    }
+
+    if (!body.transactionHash) {
+      return NextResponse.json({ error: 'transactionHash is required' }, { status: 400 });
+    }
+    if (body.treeCount < 0 || body.co2Offset < 0) {
+      return NextResponse.json(
+        { error: 'treeCount and co2Offset must be non-negative' },
+        { status: 400 }
+      );
+    }
+
+    const explorerBaseUrl = body.explorerBaseUrl ?? 'https://stellar.expert/explorer/public/tx';
+    const explorerUrl = `${explorerBaseUrl}/${body.transactionHash}`;
+
+    const qrDataUrl = await QRCode.toDataURL(explorerUrl, { width: 200, margin: 1 });
+
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    const displayName = getDisplayName(body.userName, body.walletAddress, body.isAnonymous);
+
     doc.setFillColor(STELLAR_NAVY);
     doc.rect(0, 0, PAGE_W, 52, 'F');
     doc.setFillColor(STELLAR_BLUE);
@@ -106,7 +92,7 @@ export async function generateCertificatePdf(options: GenerateCertificateOptions
     doc.setFontSize(11);
     doc.text('Environmental Impact Verification on Stellar', PAGE_W / 2, 32, { align: 'center' });
     doc.setFontSize(9);
-    doc.text(`Issued: ${formatDate(data.retirementDate)}`, PAGE_W / 2, 42, { align: 'center' });
+    doc.text(`Issued: ${formatDate(body.retirementDate)}`, PAGE_W / 2, 42, { align: 'center' });
 
     const badgeX = PAGE_W - MARGIN - 32;
     const badgeY = 6;
@@ -143,10 +129,10 @@ export async function generateCertificatePdf(options: GenerateCertificateOptions
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(18);
     doc.setTextColor(STELLAR_NAVY);
-    doc.text(`${data.treeCount.toLocaleString()} Trees Planted`, PAGE_W / 4 + 10, y + 4, {
+    doc.text(`${body.treeCount.toLocaleString()} Trees Planted`, PAGE_W / 4 + 10, y + 4, {
       align: 'center',
     });
-    doc.text(`${data.co2Offset.toLocaleString()} tCO2e Offset`, (PAGE_W * 3) / 4 - 10, y + 4, {
+    doc.text(`${body.co2Offset.toLocaleString()} tCO2e Offset`, (PAGE_W * 3) / 4 - 10, y + 4, {
       align: 'center',
     });
     doc.setFont('helvetica', 'normal');
@@ -165,7 +151,7 @@ export async function generateCertificatePdf(options: GenerateCertificateOptions
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(13);
     doc.setTextColor(STELLAR_BLUE);
-    doc.text(`${data.region} · Planted ${formatDate(data.plantingDate)}`, PAGE_W / 2, y, {
+    doc.text(`${body.region} · Planted ${formatDate(body.plantingDate)}`, PAGE_W / 2, y, {
       align: 'center',
     });
 
@@ -173,14 +159,14 @@ export async function generateCertificatePdf(options: GenerateCertificateOptions
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(11);
     doc.setTextColor(STELLAR_NAVY);
-    doc.text('Project: ' + projectLabel, PAGE_W / 2, y, { align: 'center' });
+    doc.text('Project: ' + truncate(body.projectName, 60), PAGE_W / 2, y, { align: 'center' });
 
-    if (data.projectDescription) {
+    if (body.projectDescription) {
       y += 8;
       doc.setFont('helvetica', 'italic');
       doc.setFontSize(9);
       doc.setTextColor(MID_GRAY);
-      const descLines = doc.splitTextToSize(truncate(data.projectDescription, 200), CONTENT_W);
+      const descLines = doc.splitTextToSize(truncate(body.projectDescription, 200), CONTENT_W);
       doc.text(descLines as string[], PAGE_W / 2, y, { align: 'center' });
       y += (descLines as string[]).length * 5;
     }
@@ -204,8 +190,7 @@ export async function generateCertificatePdf(options: GenerateCertificateOptions
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(7);
     doc.setTextColor(WHITE);
-    const hashDisplay = truncate(data.transactionHash, 56);
-    doc.text(hashDisplay, MARGIN + 3, y + 2.5);
+    doc.text(truncate(body.transactionHash, 56), MARGIN + 3, y + 2.5);
 
     y += 14;
     doc.setFont('helvetica', 'normal');
@@ -214,17 +199,11 @@ export async function generateCertificatePdf(options: GenerateCertificateOptions
     doc.text(truncate(explorerUrl, 70), MARGIN, y);
 
     const qrY = y - 30;
-    try {
-      doc.addImage(qrDataUrl, 'PNG', qrX, qrY, qrSize, qrSize);
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(7);
-      doc.setTextColor(MID_GRAY);
-      doc.text('Scan to verify', qrX + qrSize / 2, qrY + qrSize + 4, { align: 'center' });
-    } catch {
-      doc.setFontSize(8);
-      doc.setTextColor(MID_GRAY);
-      doc.text('[QR unavailable]', qrX + qrSize / 2, qrY + qrSize / 2, { align: 'center' });
-    }
+    doc.addImage(qrDataUrl, 'PNG', qrX, qrY, qrSize, qrSize);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7);
+    doc.setTextColor(MID_GRAY);
+    doc.text('Scan to verify', qrX + qrSize / 2, qrY + qrSize + 4, { align: 'center' });
 
     doc.setFillColor(STELLAR_NAVY);
     doc.rect(0, PAGE_H - 20, PAGE_W, 20, 'F');
@@ -240,10 +219,22 @@ export async function generateCertificatePdf(options: GenerateCertificateOptions
       { align: 'center' }
     );
 
+    const pdfBuffer = Buffer.from(doc.output('arraybuffer'));
+
     const safeName = displayName.replace(/[^a-z0-9]/gi, '_').slice(0, 30);
-    doc.save(`retirement-certificate-${safeName}.pdf`);
+    const filename = `retirement-certificate-${safeName}.pdf`;
+
+    return new NextResponse(pdfBuffer, {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': `attachment; filename="${filename}"`,
+        'Content-Length': pdfBuffer.length.toString(),
+      },
+    });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unknown error during PDF generation';
-    throw new CertificateError(message, 'PDF_GENERATION_FAILED');
+    console.error('[certificate/generate] error:', error);
+    const message = error instanceof Error ? error.message : 'Internal server error';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
