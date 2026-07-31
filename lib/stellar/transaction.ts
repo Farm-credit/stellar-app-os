@@ -9,11 +9,7 @@ import type {
 import { calculateDonationAllocation } from '@/lib/constants/donation';
 import { networkConfig } from '@/lib/config/network';
 import { getTreeAsset } from './tree-asset';
-import {
-  DEFAULT_CONVERSION_SLIPPAGE,
-  computeSendMax,
-  getXlmPerUsdcRate,
-} from './conversion';
+import { DEFAULT_CONVERSION_SLIPPAGE, computeSendMax, getXlmPerUsdcRate } from './conversion';
 import type { DonationAsset } from '@/lib/types/donation-payment';
 import { getRegionPlanterAddresses } from './region-pools';
 
@@ -176,12 +172,9 @@ export async function buildDonationTransaction(
   idempotencyKey: string,
   treeCount = 1,
   asset: DonationAsset = 'USDC',
-  slippageTolerance: number = DEFAULT_CONVERSION_SLIPPAGE
-): Promise<DonationTransactionResult> {
-  treeCount = 1
-  treeCount = 1,
+  slippageTolerance: number = DEFAULT_CONVERSION_SLIPPAGE,
   regionId?: string
-): Promise<{ transactionXdr: string; networkPassphrase: string }> {
+): Promise<DonationTransactionResult> {
   if (amount <= 0) {
     throw new Error('Donation amount must be greater than zero');
   }
@@ -202,27 +195,48 @@ export async function buildDonationTransaction(
     networkPassphrase,
   });
 
+  const regionPlanterAddresses = getRegionPlanterAddresses(regionId);
+
   let estimatedSourceAmount: string;
 
   if (asset === 'USDC') {
-    // Direct USDC payments: two operations per tree (70% planting + 30% buffer).
+    // Direct USDC payments: 70% to planting escrow (or region planters) + 30% buffer.
     for (let i = 0; i < treeCount; i++) {
       const { planting, buffer } = calculateDonationAllocation(amount);
-      builder
-        .addOperation(
+
+      if (regionPlanterAddresses.length > 0) {
+        const planterCount = regionPlanterAddresses.length;
+        const baseShare = Math.floor((planting / planterCount) * 1e7) / 1e7;
+        for (let j = 0; j < planterCount; j += 1) {
+          const amountForPlanter =
+            j === 0
+              ? parseFloat((planting - baseShare * (planterCount - 1)).toFixed(7))
+              : baseShare;
+          builder.addOperation(
+            Operation.payment({
+              destination: regionPlanterAddresses[j],
+              asset: usdcAsset,
+              amount: amountForPlanter.toFixed(7),
+            })
+          );
+        }
+      } else {
+        builder.addOperation(
           Operation.payment({
             destination: PLANTING_ADDRESS,
             asset: usdcAsset,
             amount: planting.toFixed(7),
           })
-        )
-        .addOperation(
-          Operation.payment({
-            destination: REPLANTING_BUFFER_ADDRESS,
-            asset: usdcAsset,
-            amount: buffer.toFixed(7),
-          })
         );
+      }
+
+      builder.addOperation(
+        Operation.payment({
+          destination: REPLANTING_BUFFER_ADDRESS,
+          asset: usdcAsset,
+          amount: buffer.toFixed(7),
+        })
+      );
     }
     estimatedSourceAmount = (amount * treeCount).toFixed(7);
   } else {
@@ -234,12 +248,34 @@ export async function buildDonationTransaction(
     let totalSendMax = 0;
     for (let i = 0; i < treeCount; i++) {
       const { planting, buffer } = calculateDonationAllocation(amount);
-      const plantingMax = computeSendMax(planting, xlmPerUsdc, slippageTolerance);
       const bufferMax = computeSendMax(buffer, xlmPerUsdc, slippageTolerance);
-      totalSendMax += parseFloat(plantingMax) + parseFloat(bufferMax);
+      totalSendMax += parseFloat(bufferMax);
 
-      builder
-        .addOperation(
+      if (regionPlanterAddresses.length > 0) {
+        const planterCount = regionPlanterAddresses.length;
+        const baseShare = Math.floor((planting / planterCount) * 1e7) / 1e7;
+        for (let j = 0; j < planterCount; j += 1) {
+          const amountForPlanter =
+            j === 0
+              ? parseFloat((planting - baseShare * (planterCount - 1)).toFixed(7))
+              : baseShare;
+          const planterMax = computeSendMax(amountForPlanter, xlmPerUsdc, slippageTolerance);
+          totalSendMax += parseFloat(planterMax);
+          builder.addOperation(
+            Operation.pathPaymentStrictReceive({
+              sendAsset: Asset.native(),
+              sendMax: planterMax,
+              destination: regionPlanterAddresses[j],
+              destAsset: usdcAsset,
+              destAmount: amountForPlanter.toFixed(7),
+              path: [],
+            })
+          );
+        }
+      } else {
+        const plantingMax = computeSendMax(planting, xlmPerUsdc, slippageTolerance);
+        totalSendMax += parseFloat(plantingMax);
+        builder.addOperation(
           Operation.pathPaymentStrictReceive({
             sendAsset: Asset.native(),
             sendMax: plantingMax,
@@ -248,76 +284,21 @@ export async function buildDonationTransaction(
             destAmount: planting.toFixed(7),
             path: [],
           })
-        )
-        .addOperation(
-          Operation.pathPaymentStrictReceive({
-            sendAsset: Asset.native(),
-            sendMax: bufferMax,
-            destination: REPLANTING_BUFFER_ADDRESS,
-            destAsset: usdcAsset,
-            destAmount: buffer.toFixed(7),
-            path: [],
-          })
-        );
-    }
-    estimatedSourceAmount = totalSendMax.toFixed(7);
-  const regionPlanterAddresses = getRegionPlanterAddresses(regionId);
-
-  const builder = new TransactionBuilder(sourceAccount, {
-    fee: baseFee,
-    networkPassphrase,
-  });
-
-  // Add two operations per tree: 70% planting + 30% buffer
-  for (let i = 0; i < treeCount; i++) {
-    const { planting, buffer } = calculateDonationAllocation(amount);
-    builder
-      .addOperation(
-  // Add two operations per tree: 70% planting + 30% buffer
-  for (let i = 0; i < treeCount; i++) {
-    const { planting, buffer } = calculateDonationAllocation(amount);
-
-    if (regionPlanterAddresses.length > 0) {
-      const planterCount = regionPlanterAddresses.length;
-      const baseShare = Math.floor((planting / planterCount) * 1e7) / 1e7;
-
-      for (let j = 0; j < planterCount; j += 1) {
-        const amountForPlanter =
-          j === 0 ? parseFloat((planting - baseShare * (planterCount - 1)).toFixed(7)) : baseShare;
-
-        builder.addOperation(
-          Operation.payment({
-            destination: regionPlanterAddresses[j],
-            asset: usdcAsset,
-            amount: amountForPlanter.toFixed(7),
-          })
         );
       }
-    } else {
+
       builder.addOperation(
-        Operation.payment({
-          destination: PLANTING_ADDRESS,
-          asset: usdcAsset,
-          amount: planting.toFixed(7),
-        })
-      )
-      .addOperation(
-        Operation.payment({
+        Operation.pathPaymentStrictReceive({
+          sendAsset: Asset.native(),
+          sendMax: bufferMax,
           destination: REPLANTING_BUFFER_ADDRESS,
-          asset: usdcAsset,
-          amount: buffer.toFixed(7),
+          destAsset: usdcAsset,
+          destAmount: buffer.toFixed(7),
+          path: [],
         })
-      );
       );
     }
-
-    builder.addOperation(
-      Operation.payment({
-        destination: REPLANTING_BUFFER_ADDRESS,
-        asset: usdcAsset,
-        amount: buffer.toFixed(7),
-      })
-    );
+    estimatedSourceAmount = totalSendMax.toFixed(7);
   }
 
   const transaction = builder
@@ -332,7 +313,6 @@ export async function buildDonationTransaction(
     estimatedSourceAmount,
   };
 }
-
 export function getStellarExplorerUrl(transactionHash: string, network?: NetworkType): string {
   const net = network ?? networkConfig.network;
   const networkParam = net === 'mainnet' ? 'public' : 'testnet';

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/atoms/Button';
@@ -13,6 +14,7 @@ import {
   CardTitle,
 } from '@/components/molecules/Card';
 import { hasCompletedOnboardingTour, requestOnboardingTourRestart } from '@/lib/onboardingTour';
+import { cn } from '@/lib/utils';
 import { PreferencesSection } from '@/components/organisms/settings/PreferencesSection';
 
 type TabId = 'profile' | 'notifications' | 'preferences' | 'danger';
@@ -24,7 +26,6 @@ interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
-const NAV_ITEMS: { id: TabId; label: string; icon: ReactNode }[] = [
   { id: 'profile', label: 'Profile', icon: '👤' },
   { id: 'notifications', label: 'Notifications', icon: '🔔' },
   { id: 'preferences', label: 'Preferences', icon: '⚙️' },

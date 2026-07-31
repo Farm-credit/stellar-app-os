@@ -48,12 +48,16 @@ type LeafletTileLayer = LeafletLayer;
 interface LeafletMarker extends LeafletLayer {
   bindPopup: (content: string) => LeafletMarker;
   addTo: (map: LeafletMapInstance) => LeafletMarker;
+  on: (event: string, handler: (e: LeafletEvent) => void, context?: unknown) => LeafletMarker;
+  off: (event: string, handler?: (e: LeafletEvent) => void, context?: unknown) => LeafletMarker;
 }
 
 interface LeafletPolygon extends LeafletLayer {
   bindPopup: (content: string) => LeafletPolygon;
   addTo: (map: LeafletMapInstance) => LeafletPolygon;
   setStyle: (style: Record<string, unknown>) => LeafletPolygon;
+  on: (event: string, handler: (e: LeafletEvent) => void, context?: unknown) => LeafletPolygon;
+  off: (event: string, handler?: (e: LeafletEvent) => void, context?: unknown) => LeafletPolygon;
 }
 
 interface LeafletIcon {
@@ -71,10 +75,8 @@ interface LeafletGlobal {
   };
 }
 
-declare global {
-  interface Window {
-    L?: LeafletGlobal;
-  }
+function getLeaflet(): LeafletGlobal | undefined {
+  return (window as unknown as { L?: LeafletGlobal }).L;
 }
 
 const LEAFLET_SCRIPT_ID = 'leaflet-cdn-script';
@@ -103,8 +105,9 @@ function loadLeaflet(): Promise<LeafletGlobal> {
     return Promise.reject(new Error('Leaflet can only load in the browser'));
   }
 
-  if (window.L) {
-    return Promise.resolve(window.L);
+  const loadedLeaflet = getLeaflet();
+  if (loadedLeaflet) {
+    return Promise.resolve(loadedLeaflet);
   }
 
   if (leafletLoaderPromise) {
@@ -115,8 +118,9 @@ function loadLeaflet(): Promise<LeafletGlobal> {
     ensureLeafletStylesheet();
 
     const onLoad = (): void => {
-      if (window.L) {
-        resolve(window.L);
+      const leaflet = getLeaflet();
+      if (leaflet) {
+        resolve(leaflet);
         return;
       }
       reject(new Error('Leaflet loaded but window.L was unavailable'));
