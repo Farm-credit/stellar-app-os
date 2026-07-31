@@ -10,7 +10,7 @@ export type ComplianceReportType =
   | 'project-registry'
   | 'carbon-credits'
   | 'tree-inventory'
-  | 'verification-audit'
+  | 'verification-audits'
   | 'issuance-report'
   | 'retirement-report';
 
@@ -95,6 +95,7 @@ export interface TreeInventoryRecord {
   treeId: string;
   projectId: string;
   projectName: string;
+  registry: ComplianceRegistry;
   species: string;
   region: string;
   coordinates: {
@@ -114,6 +115,7 @@ export interface VerificationAuditRecord {
   auditId: string;
   projectId: string;
   projectName: string;
+  registry: ComplianceRegistry;
   auditorName: string;
   auditDate: string;
   auditType: 'validation' | 'verification' | 'surveillance';

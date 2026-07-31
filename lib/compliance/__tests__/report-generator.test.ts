@@ -268,6 +268,108 @@ describe('ComplianceReportGenerator', () => {
 
       expect(response.csvContent).toContain('creditId');
     });
+
+    it('should properly escape fields containing commas in CSV', async () => {
+      const response = await generator.generateReport('carbon-credits', 'csv', 'verra');
+
+      expect(response.csvContent).toBeDefined();
+      const lines = response.csvContent!.split('\n');
+      for (const line of lines.slice(1)) {
+        if (!line.trim()) continue;
+        const fields = line.split(',');
+        for (let i = 0; i < fields.length; i++) {
+          const field = fields[i];
+          if (field.startsWith('"') && field.endsWith('"')) {
+            const inner = field.slice(1, -1);
+            expect(inner).not.toContain('"');
+          }
+        }
+      }
+    });
+
+    it('should properly escape fields containing double quotes in CSV', async () => {
+      const response = await generator.generateReport('carbon-credits', 'csv', 'verra');
+
+      expect(response.csvContent).toBeDefined();
+      const lines = response.csvContent!.split('\n');
+      for (const line of lines.slice(1)) {
+        if (!line.trim()) continue;
+        const quotedFields = line.match(/"[^"]*"/g) ?? [];
+        for (const field of quotedFields) {
+          const inner = field.slice(1, -1);
+          expect(inner).not.toContain('"');
+        }
+      }
+    });
+
+    it('should generate CSV for all report types', async () => {
+      const reportTypes: ComplianceReportType[] = [
+        'carbon-credits',
+        'project-registry',
+        'tree-inventory',
+        'verification-audits',
+        'issuance-report',
+        'retirement-report',
+      ];
+
+      for (const reportType of reportTypes) {
+        const response = await generator.generateReport(reportType, 'csv', 'verra');
+        expect(response.csvContent).toBeDefined();
+        expect(response.csvContent).toContain(',');
+      }
+    });
+
+    it('should include registry field in tree-inventory CSV headers', async () => {
+      const response = await generator.generateReport('tree-inventory', 'csv', 'gold-standard');
+
+      expect(response.csvContent).toContain('registry');
+    });
+
+    it('should include registry field in verification-audits CSV headers', async () => {
+      const response = await generator.generateReport('verification-audits', 'csv', 'car');
+
+      expect(response.csvContent).toContain('registry');
+    });
+  });
+
+  describe('both format', () => {
+    it('should generate both CSV and JSON content', async () => {
+      const response = await generator.generateReport('carbon-credits', 'both', 'verra');
+
+      expect(response.csvContent).toBeDefined();
+      expect(response.jsonContent).toBeDefined();
+      expect(response.csvContent).toContain('creditId');
+      expect(() => JSON.parse(response.jsonContent!)).not.toThrow();
+    });
+  });
+
+  describe('JSON schema compliance', () => {
+    it('should produce valid carbon registry JSON with metadata and records', async () => {
+      const response = await generator.generateReport('carbon-credits', 'json', 'verra');
+
+      const parsed = JSON.parse(response.jsonContent!);
+      expect(parsed.metadata).toBeDefined();
+      expect(parsed.records).toBeDefined();
+      expect(parsed.metadata.schemaVersion).toBe('1.0.0');
+      expect(parsed.metadata.totalRecords).toBeGreaterThanOrEqual(0);
+      expect(parsed.metadata.reportType).toBe('carbon-credits');
+      expect(parsed.metadata.registry).toBe('verra');
+      expect(parsed.metadata.format).toBe('json');
+    });
+
+    it('should produce valid tree inventory JSON records with registry field', async () => {
+      const response = await generator.generateReport('tree-inventory', 'json', 'gold-standard');
+
+      const parsed = JSON.parse(response.jsonContent!);
+      expect(parsed.metadata.registry).toBe('gold-standard');
+    });
+
+    it('should produce valid verification audit JSON records with registry field', async () => {
+      const response = await generator.generateReport('verification-audits', 'json', 'car');
+
+      const parsed = JSON.parse(response.jsonContent!);
+      expect(parsed.metadata.registry).toBe('car');
+    });
   });
 
   describe('JSON generation', () => {

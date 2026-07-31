@@ -132,7 +132,7 @@ export class ComplianceReportGenerator {
           speciesMap,
           registry,
           dateRange,
-          filters
+          _filters
         );
       case 'project-registry':
         return this.generateProjectRegistryRecords(
@@ -140,7 +140,7 @@ export class ComplianceReportGenerator {
           speciesMap,
           registry,
           dateRange,
-          filters
+          _filters
         );
       case 'tree-inventory':
         return this.generateTreeInventoryRecords(
@@ -148,14 +148,14 @@ export class ComplianceReportGenerator {
           speciesMap,
           registry,
           dateRange,
-          filters
+          _filters
         );
       case 'verification-audits':
-        return this.generateVerificationAuditRecords(filteredTrees, registry, dateRange, filters);
+        return this.generateVerificationAuditRecords(filteredTrees, registry, dateRange, _filters);
       case 'issuance-report':
-        return this.generateIssuanceReportRecords(filteredTrees, registry, dateRange, filters);
+        return this.generateIssuanceReportRecords(filteredTrees, registry, dateRange, _filters);
       case 'retirement-report':
-        return this.generateRetirementReportRecords(filteredTrees, registry, dateRange, filters);
+        return this.generateRetirementReportRecords(filteredTrees, registry, dateRange, _filters);
       default:
         throw new Error(`Unknown report type: ${reportType}`);
     }
@@ -338,6 +338,7 @@ export class ComplianceReportGenerator {
         treeId: tree.treeId,
         projectId: tree.id,
         projectName: tree.projectName,
+        registry,
         species: tree.species,
         region: tree.region,
         coordinates: {
@@ -403,6 +404,7 @@ export class ComplianceReportGenerator {
         auditId: `AUD-${String(auditId++).padStart(4, '0')}`,
         projectId: tree.id,
         projectName,
+        registry,
         auditorName: auditors[Math.floor(Math.random() * auditors.length)],
         auditDate: auditDate.toISOString(),
         auditType,
@@ -623,18 +625,27 @@ export class ComplianceReportGenerator {
     return baseFindings;
   }
 
+  private csvEscape(value: string): string {
+    if (value.includes(',') || value.includes('"') || value.includes('\n') || value.includes('\r')) {
+      return '"' + value.replace(/"/g, '""') + '"';
+    }
+    return value;
+  }
+
   private generateCSV(data: ComplianceRecord[], reportType: ComplianceReportType): string {
     if (data.length === 0) {
       const headers = this.getCSVHeadersForType(reportType);
-      return headers.join(',') + '\n';
+      return headers.map((h) => this.csvEscape(h)).join(',') + '\n';
     }
 
     const firstRecord = data[0];
     const headers = this.getCSVHeaders(firstRecord, reportType);
 
-    const rows = data.map((record) => this.recordToCSVRow(record, reportType, headers));
+    const rows = data.map((record) =>
+      this.recordToCSVRow(record, reportType, headers).map((v) => this.csvEscape(v))
+    );
 
-    return [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
+    return [headers.map((h) => this.csvEscape(h)).join(','), ...rows.map((r) => r.join(','))].join('\n');
   }
 
   private getCSVHeadersForType(reportType: ComplianceReportType): string[] {
@@ -854,7 +865,14 @@ export class ComplianceReportGenerator {
     reportType: ComplianceReportType,
     _headers: string[]
   ): string[] {
-    const commonValues = [reportType, (record as CarbonCreditRecord).registry ?? 'generic'];
+    const getRegistry = (r: ComplianceRecord): string => {
+      if ('registry' in r && typeof (r as Record<string, unknown>).registry === 'string') {
+        return (r as Record<string, unknown>).registry as string;
+      }
+      return 'generic';
+    };
+
+    const commonValues = [reportType, getRegistry(record)];
 
     switch (reportType) {
       case 'carbon-credits': {
@@ -903,6 +921,7 @@ export class ComplianceReportGenerator {
           r.treeId,
           r.projectId,
           r.projectName,
+          r.registry,
           r.species,
           r.region,
           String(r.coordinates.latitude),
@@ -923,6 +942,7 @@ export class ComplianceReportGenerator {
           r.auditId,
           r.projectId,
           r.projectName,
+          r.registry,
           r.auditorName,
           r.auditDate,
           r.auditType,
@@ -988,7 +1008,7 @@ export class ComplianceReportGenerator {
     if ('creditId' in record) return 'carbon-credit';
     if ('projectName' in record && 'verificationStandard' in record) return 'project-registry';
     if ('treeId' in record) return 'tree-inventory';
-    if ('auditId' in record) return 'verification-audit';
+    if ('auditId' in record) return 'verification-audits';
     if ('issuanceId' in record) return 'issuance-report';
     if ('retirementId' in record) return 'retirement-report';
     return 'unknown';

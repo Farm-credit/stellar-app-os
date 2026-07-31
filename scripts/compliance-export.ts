@@ -19,6 +19,7 @@
  */
 
 import { parseArgs } from 'node:util';
+import { z } from 'zod';
 import {
   ComplianceReportGenerator,
   getComplianceReportGenerator,
@@ -37,18 +38,72 @@ interface CliOptions {
   dryRun?: boolean;
 }
 
+const EnvSchema = z.object({
+  COMPLIANCE_EXPORT_ENABLED: z.enum(['true', 'false']).optional().default('true'),
+  COMPLIANCE_EXPORT_TYPE: z.enum([
+    'carbon-credits',
+    'project-registry',
+    'tree-inventory',
+    'verification-audits',
+    'issuance-report',
+    'retirement-report',
+  ]).optional(),
+  COMPLIANCE_EXPORT_FORMAT: z.enum(['csv', 'json', 'both']).optional(),
+  COMPLIANCE_EXPORT_REGISTRY: z.enum([
+    'verra',
+    'gold-standard',
+    'car',
+    'plan-vivo',
+    'cdm',
+    'generic',
+  ]).optional(),
+  COMPLIANCE_EXPORT_OUTPUT_PATH: z.string().optional(),
+  COMPLIANCE_EXPORT_CRON: z.string().optional(),
+  COMPLIANCE_EXPORT_WEBHOOK_URL: z.string().url().optional(),
+  COMPLIANCE_EXPORT_EMAIL_RECIPIENTS: z.string().optional(),
+  COMPLIANCE_EXPORT_RETENTION_DAYS: z.coerce.number().int().positive().optional(),
+});
+
+type EnvConfig = z.infer<typeof EnvSchema>;
+
+function loadEnvConfig(): Partial<ScheduledExportConfig> {
+  const parsed = EnvSchema.safeParse(process.env);
+  if (!parsed.success) {
+    logger.error('Invalid environment configuration', { errors: parsed.error.flatten().fieldErrors });
+    process.exit(1);
+  }
+
+  const env = parsed.data as EnvConfig;
+  const config: Partial<ScheduledExportConfig> = {};
+
+  if (env.COMPLIANCE_EXPORT_TYPE) config.reportType = env.COMPLIANCE_EXPORT_TYPE as any;
+  if (env.COMPLIANCE_EXPORT_FORMAT) config.format = env.COMPLIANCE_EXPORT_FORMAT as any;
+  if (env.COMPLIANCE_EXPORT_REGISTRY) config.registry = env.COMPLIANCE_EXPORT_REGISTRY as any;
+  if (env.COMPLIANCE_EXPORT_OUTPUT_PATH) config.outputPath = env.COMPLIANCE_EXPORT_OUTPUT_PATH;
+  if (env.COMPLIANCE_EXPORT_CRON) config.cronExpression = env.COMPLIANCE_EXPORT_CRON;
+  if (env.COMPLIANCE_EXPORT_WEBHOOK_URL) config.webhookUrl = env.COMPLIANCE_EXPORT_WEBHOOK_URL;
+  if (env.COMPLIANCE_EXPORT_EMAIL_RECIPIENTS) {
+    config.emailRecipients = env.COMPLIANCE_EXPORT_EMAIL_RECIPIENTS.split(',').map((e) => e.trim());
+  }
+  if (env.COMPLIANCE_EXPORT_RETENTION_DAYS) config.retentionDays = env.COMPLIANCE_EXPORT_RETENTION_DAYS;
+
+  return config;
+}
+
 async function main() {
+  const envConfig = loadEnvConfig();
+
   const args = parseArgs({
     args: process.argv.slice(2),
     options: {
-      type: { type: 'string', short: 't', default: 'carbon-credits' },
-      format: { type: 'string', short: 'f', default: 'csv' },
-      registry: { type: 'string', short: 'r', default: 'verra' },
-      output: { type: 'string', short: 'o', default: './exports/compliance' },
-      cron: { type: 'string', short: 'c', default: '0 2 * * *' },
+      type: { type: 'string', short: 't', default: envConfig.reportType ?? 'carbon-credits' },
+      format: { type: 'string', short: 'f', default: envConfig.format ?? 'csv' },
+      registry: { type: 'string', short: 'r', default: envConfig.registry ?? 'verra' },
+      output: { type: 'string', short: 'o', default: envConfig.outputPath ?? './exports/compliance' },
+      cron: { type: 'string', short: 'c', default: envConfig.cronExpression ?? '0 2 * * *' },
       webhook: { type: 'string', short: 'w' },
       email: { type: 'string', short: 'e' },
-      retention: { type: 'string', short: 'd', default: '90' },
+      retention: { type: 'string', short: 'd', default: String(envConfig.retentionDays ?? '90') },
       dryRun: { type: 'boolean', default: false },
     },
     allowPositionals: true,
@@ -65,13 +120,16 @@ async function main() {
   console.log('');
 
   const generator = getComplianceReportGenerator({
+    ...envConfig,
     enabled: true,
     reportType: options.type as any,
     format: options.format as any,
     registry: options.registry as any,
     outputPath: options.output,
-    webhookUrl: options.webhook,
-    emailRecipients: options.email ? options.email.split(',').map((e) => e.trim()) : [],
+    webhookUrl: options.webhook ?? envConfig.webhookUrl,
+    emailRecipients: options.email
+      ? options.email.split(',').map((e) => e.trim())
+      : envConfig.emailRecipients ?? [],
     retentionDays: parseInt(options.retention || '90', 10),
   });
 

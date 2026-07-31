@@ -3,7 +3,7 @@
  * Generate compliance reports for carbon registry standards
  *
  * Query Parameters:
- * - type: project-registry | carbon-credits | tree-inventory | verification-audit | issuance-report | retirement-report
+ * - type: project-registry | carbon-credits | tree-inventory | verification-audits | issuance-report | retirement-report
  * - format: csv | json | both
  * - registry: verra | gold-standard | car | plan-vivo | cdm | generic
  * - startDate: ISO 8601 date string (default: 30 days ago)
@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
       | 'project-registry'
       | 'carbon-credits'
       | 'tree-inventory'
-      | 'verification-audit'
+      | 'verification-audits'
       | 'issuance-report'
       | 'retirement-report') || 'carbon-credits';
 

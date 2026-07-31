@@ -5,6 +5,7 @@ import path from 'path';
 export default defineConfig({
   resolve: {
     alias: [{ find: /^@\/(.*)$/, replacement: fileURLToPath(new URL('./$1', import.meta.url)) }],
+  },
   test: {
     globals: true,
     setupFiles: ['./vitest.setup.ts'],

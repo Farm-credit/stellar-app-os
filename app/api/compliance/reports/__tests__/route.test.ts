@@ -127,7 +127,7 @@ describe('GET /api/compliance/reports', () => {
   });
 
   it('should handle verification-audit report type', async () => {
-    const request = createNextRequest({ type: 'verification-audit' });
+    const request = createNextRequest({ type: 'verification-audits' });
     const response = await GET(request);
 
     expect(response.status).toBe(200);
@@ -272,6 +272,33 @@ describe('GET /api/compliance/reports', () => {
 
     expect(response.status).toBe(500);
     expect(data.error).toBe('Generator error');
+  });
+
+  it('should handle both format', async () => {
+    const request = createNextRequest({ type: 'carbon-credits', format: 'both' });
+    const response = await GET(request);
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data.csvContent).toBeDefined();
+    expect(data.jsonContent).toBeDefined();
+  });
+
+  it('should include registry in all record types', async () => {
+    const reportTypes = [
+      'carbon-credits',
+      'project-registry',
+      'tree-inventory',
+      'verification-audits',
+      'issuance-report',
+      'retirement-report',
+    ];
+
+    for (const type of reportTypes) {
+      const request = createNextRequest({ type, format: 'json' });
+      const response = await GET(request);
+      expect(response.status).toBe(200);
+    }
   });
 });
 
