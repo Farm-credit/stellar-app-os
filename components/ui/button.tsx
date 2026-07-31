@@ -45,15 +45,18 @@ function Button({
   variant = 'purple',
   size = 'default',
   asChild = false,
+  type = 'button',
   ...props
 }: React.ComponentProps<'button'> &
   VariantProps<typeof buttonVariants> & {
     asChild?: boolean;
   }) {
   const Comp = asChild ? Slot.Root : 'button';
+  const buttonType = asChild ? undefined : type;
 
   return (
     <Comp
+      type={buttonType}
       data-slot="button"
       data-variant={variant}
       data-size={size}
