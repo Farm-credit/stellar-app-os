@@ -72,7 +72,7 @@ function DonationConfirmationContent() {
     }
   }, [txHash, amount, method, trees]);
 
-  const handleDownloadCertificate = () => {
+  const handleDownloadCertificate = async () => {
     if (!qrDataUrl) return;
 
     setIsGeneratingPdf(true);
@@ -93,7 +93,7 @@ function DonationConfirmationContent() {
         explorerBaseUrl: 'https://stellar.expert/explorer/public/tx',
       };
 
-      generateCertificatePdf({
+      await generateCertificatePdf({
         qrDataUrl,
         data: certificateData,
       });

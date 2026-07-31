@@ -31,7 +31,7 @@ interface SubmitAnonymousRequest {
 export async function POST(request: Request) {
   try {
     const ip = getClientIp(request);
-    const rateLimit = checkSubmitAnonRateLimit(ip);
+    const rateLimit = await checkSubmitAnonRateLimit(ip);
 
     if (!rateLimit.allowed) {
       return NextResponse.json(

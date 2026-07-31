@@ -1,4 +1,5 @@
 #![no_std]
+#![allow(dead_code)]
 
 //! Tree Escrow Contract — issue #749: Cross-Contract Reentrancy Guard
 //!
@@ -46,6 +47,9 @@ pub enum EscrowStatus {
     Planted,
     Completed,
     Refunded,
+    Survived,
+    Dead,
+    JobExpired,
 }
 
 #[contracttype]
@@ -66,16 +70,59 @@ pub struct EscrowRecord {
     pub survival_rate_percent: u32,
 }
 
+/// Recurring milestone payment stream record — Closes #773.
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct MilestoneStream {
+    pub stream_id: u64,
+    pub farmer: Address,
+    pub funder: Address,
+    pub token: Address,
+    pub total_amount: i128,
+    pub released_amount: i128,
+    pub total_milestones: u32,
+    pub milestone_interval_secs: u64,
+    pub start_time: u64,
+    pub verifier_approved_count: u32,
+    pub active: bool,
+}
+
 // ── Storage keys ──────────────────────────────────────────────────────────────
 
 #[contracttype]
 enum DataKey {
-    /// (admin, tree_token)
-    Config,
-    /// Per-farmer escrow record
+    AdminTree,
+    Oracle,
+    SurvivalThreshold,
+    /// Minimum planting density (trees per hectare) for large jobs
+    MinDensity,
+    /// Job size threshold (hectares) above which density rules apply
+    JobSizeThreshold,
+    Paused,
     Escrow(Address),
+    OracleReport(u64),
+    TreeFunding(u64),
+    UsedProof(BytesN<32>),
+    Dispute(u64),
+    DaoMembers,
+    Arbiter,
+    SponsorRating(Address, Address),
+    PlanterReputation(Address),
+    PayoutHistory(Address),
+    CorpBatchSeq,
+    CorpBatch(u64),
+    MilestoneStreamSeq,
+    MilestoneStream(u64),
 }
 
+
+/// A single slot in a batch deposit: one farmer address and the amount for that tree.
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct BatchSlot {
+    pub farmer: Address,
+    pub amount: i128,
+}
 
 // ── Contract ──────────────────────────────────────────────────────────────────
 
@@ -102,7 +149,173 @@ impl TreeEscrow {
         env.storage().instance().set(&DataKey::Config, &(admin, tree_token));
     }
 
+    // ── Recurring Milestone Payment Stream (Closes #773) ──────────────────────
+
+    /// Create an automated recurring milestone payment stream.
+    ///
+    /// The `funder` deposits `total_amount` into escrow. Funds are unlocked in `total_milestones`
+    /// tranches as elapsed time reaches `milestone_interval_secs` and `verifier` approves green lights.
+    pub fn create_milestone_stream(
+        env: Env,
+        funder: Address,
+        farmer: Address,
+        token: Address,
+        total_amount: i128,
+        total_milestones: u32,
+        milestone_interval_secs: u64,
+    ) -> u64 {
+        funder.require_auth();
+
+        if total_amount <= 0 {
+            panic!("total amount must be positive");
+        }
+        if total_milestones == 0 {
+            panic!("milestones must be greater than zero");
+        }
+        if milestone_interval_secs == 0 {
+            panic!("milestone interval must be greater than zero");
+        }
+
+        // Transfer funds from funder into escrow
+        token::Client::new(&env, &token).transfer(&funder, &env.current_contract_address(), &total_amount);
+
+        let stream_seq: u64 = env
+            .storage()
+            .instance()
+            .get(&DataKey::MilestoneStreamSeq)
+            .unwrap_or(0);
+        let stream_id = stream_seq + 1;
+
+        let stream = MilestoneStream {
+            stream_id,
+            farmer: farmer.clone(),
+            funder: funder.clone(),
+            token,
+            total_amount,
+            released_amount: 0,
+            total_milestones,
+            milestone_interval_secs,
+            start_time: env.ledger().timestamp(),
+            verifier_approved_count: 0,
+            active: true,
+        };
+
+        env.storage()
+            .persistent()
+            .set(&DataKey::MilestoneStream(stream_id), &stream);
+        env.storage()
+            .instance()
+            .set(&DataKey::MilestoneStreamSeq, &stream_id);
+
+        env.events()
+            .publish((symbol_short!("strm_crtd"), stream_id), (funder, farmer, total_amount));
+
+        stream_id
+    }
+
+    /// Verifier approves green light for a milestone stream tranche.
+    pub fn approve_milestone_greenlight(env: Env, verifier: Address, stream_id: u64) {
+        verifier.require_auth();
+
+        let mut stream: MilestoneStream = env
+            .storage()
+            .persistent()
+            .get(&DataKey::MilestoneStream(stream_id))
+            .expect("stream not found");
+
+        if !stream.active {
+            panic!("stream is inactive");
+        }
+
+        stream.verifier_approved_count += 1;
+
+        env.storage()
+            .persistent()
+            .set(&DataKey::MilestoneStream(stream_id), &stream);
+
+        env.events().publish(
+            (symbol_short!("strm_appr"), stream_id),
+            (verifier, stream.verifier_approved_count),
+        );
+    }
+
+    /// Release unlocked milestone stream payment to farmer based on elapsed time and verifier approvals.
+    pub fn release_stream_payment(env: Env, stream_id: u64) -> i128 {
+        let mut stream: MilestoneStream = env
+            .storage()
+            .persistent()
+            .get(&DataKey::MilestoneStream(stream_id))
+            .expect("stream not found");
+
+        if !stream.active {
+            panic!("stream is inactive");
+        }
+
+        let current_time = env.ledger().timestamp();
+        let elapsed = current_time.saturating_sub(stream.start_time);
+        let time_eligible_milestones = (elapsed / stream.milestone_interval_secs) as u32;
+
+        // Eligible milestones capped by verifier greenlight approvals and total_milestones
+        let eligible_milestones = time_eligible_milestones
+            .min(stream.verifier_approved_count)
+            .min(stream.total_milestones);
+
+        if eligible_milestones == 0 {
+            return 0;
+        }
+
+        let amount_per_milestone = stream.total_amount / (stream.total_milestones as i128);
+        let target_release = amount_per_milestone * (eligible_milestones as i128);
+        let payout = target_release.saturating_sub(stream.released_amount);
+
+        if payout <= 0 {
+            return 0;
+        }
+
+        stream.released_amount += payout;
+        if eligible_milestones == stream.total_milestones {
+            stream.active = false;
+        }
+
+        env.storage()
+            .persistent()
+            .set(&DataKey::MilestoneStream(stream_id), &stream);
+
+        token::Client::new(&env, &stream.token).transfer(
+            &env.current_contract_address(),
+            &stream.farmer,
+            &payout,
+        );
+
+        env.events().publish(
+            (symbol_short!("strm_payout"), stream_id),
+            (stream.farmer.clone(), payout, stream.released_amount),
+        );
+
+        payout
+    }
+
+    /// Returns the milestone stream record by ID.
+    pub fn get_milestone_stream(env: Env, stream_id: u64) -> Option<MilestoneStream> {
+        env.storage()
+            .persistent()
+            .get(&DataKey::MilestoneStream(stream_id))
+    }
+
+    // ── Soroban Instance Storage Auto-Bump Helpers (Closes #774) ─────────────
+
+    /// Extend the contract instance storage TTL to prevent expiration.
+    pub fn extend_instance_ttl(env: Env, threshold: u32, extend_to: u32) {
+        env.storage().instance().extend_ttl(threshold, extend_to);
+    }
+
+    /// Bump the contract instance storage TTL using default parameters (1 day threshold, 30 days extension).
+    pub fn bump_instance_ttl(env: Env) {
+        env.storage().instance().extend_ttl(17_280, 518_400);
+    }
+
     /// Donor deposits `amount` of `token` into escrow for `farmer`.
+
     ///
     /// REENTRANCY GUARD: The token transfer is a cross-contract call. A malicious
     /// token contract could call back into `deposit` before this invocation
@@ -343,6 +556,7 @@ mod tests {
 
     // ── Test context ──────────────────────────────────────────────────────────
 
+    #[allow(dead_code)]
     struct Ctx {
         env: Env,
         admin: Address,

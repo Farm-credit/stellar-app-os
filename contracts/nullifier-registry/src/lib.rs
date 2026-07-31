@@ -229,7 +229,7 @@ mod tests {
     use super::*;
     use soroban_sdk::{
         testutils::{Address as _, Ledger},
-        Address, Env, String,
+        vec, Address, Env, String,
     };
 
     fn setup() -> (Env, Address, NullifierRegistryClient<'static>) {
@@ -582,7 +582,7 @@ mod tests {
         commitments.push_back(registered.get(1).unwrap());
         commitments.push_back(registered.get(2).unwrap());
         let results = client.is_registered_batch(&commitments);
-        assert_eq!(results, vec![true, true, true]);
+        assert_eq!(results, vec![&env, true, true, true]);
     }
 
     #[test]
