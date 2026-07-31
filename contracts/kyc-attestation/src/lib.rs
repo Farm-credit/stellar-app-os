@@ -299,7 +299,7 @@ impl KycAttestation {
             farmer: farmer.clone(),
             verifier: verifier.clone(),
             proof_integrity_hash,
-            age_commitment: proof.age_commitment,
+            age_commitment: proof.age_commitment.clone(),
             region_commitment: proof.region_commitment,
             verified_region: proof.region_plaintext,
             verified_at: env.ledger().timestamp(),

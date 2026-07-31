@@ -46,6 +46,15 @@ use admin_controls::AdminControlsClient;
 
 // ── Error types ───────────────────────────────────────────────────────────────
 
+/// TTL threshold (in ledgers) below which we bump a persistent entry back up.
+const PERSISTENT_BUMP_THRESHOLD: u32 = 100_000;
+/// Bump a persistent entry's TTL to this value (ledgers ≈ ~5s each → ~14 days).
+const PERSISTENT_BUMP_AMOUNT: u32 = 250_000;
+/// Instance TTL bump threshold.
+const INSTANCE_BUMP_THRESHOLD: u32 = 100_000;
+/// Instance TTL bump amount.
+const INSTANCE_BUMP_AMOUNT: u32 = 250_000;
+
 #[contracterror]
 #[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 #[repr(u32)]
@@ -276,6 +285,7 @@ impl CarbonMarketplace {
             &amount,
         );
 
+        Self::bump_instance_ttl(&env);
         let id: u64 = env
             .storage()
             .instance()
@@ -309,6 +319,9 @@ impl CarbonMarketplace {
         if amount <= 0 {
             panic_with_error!(&env, MarketplaceError::BuyAmountMustBePositive);
         }
+        if max_payment_amount <= 0 {
+            panic_with_error!(&env, MarketplaceError::PaymentAmountMustBePositive);
+        }
 
         let mut listing: Listing = env
             .storage()
@@ -332,6 +345,7 @@ impl CarbonMarketplace {
         // Transfer payment from buyer to seller
         token::Client::new(&env, &listing.payment_token).transfer(
             &buyer,
+            &listing.planter,
             &listing.seller,
             &total_cost,
         );
@@ -359,11 +373,16 @@ impl CarbonMarketplace {
     pub fn cancel(env: Env, seller: Address, listing_id: u64) {
         seller.require_auth();
 
+        Self::bump_listing_ttl(&env, listing_id);
         let mut listing: Listing = env
             .storage()
             .instance()
             .get(&DataKey::Listing(listing_id))
             .unwrap_or_else(|| panic_with_error!(&env, MarketplaceError::ListingNotFound));
+
+        if listing.seller != seller {
+            panic_with_error!(&env, HarvestaError::Unauthorized);
+        }
 
         if listing.status != ListingStatus::Active {
             panic_with_error!(&env, MarketplaceError::ListingNotActive);
@@ -505,6 +524,9 @@ impl CarbonMarketplace {
         provider.require_auth();
         if lp_shares <= 0 {
             panic_with_error!(&env, MarketplaceError::AmmAmountMustBePositive);
+        }
+        if max_payment_amount <= 0 {
+            panic_with_error!(&env, MarketplaceError::PaymentAmountMustBePositive);
         }
 
         let lp_key = DataKey::LpShares(provider.clone());
@@ -2120,6 +2142,62 @@ impl CarbonMarketplace {
 
     // ── Internal helpers ──────────────────────────────────────────────────────
 
+    fn bump_instance_ttl(env: &Env) {
+        env.storage()
+            .instance()
+            .extend_ttl(INSTANCE_BUMP_THRESHOLD, INSTANCE_BUMP_AMOUNT);
+    }
+
+    fn bump_listing_ttl(env: &Env, id: u64) {
+        env.storage()
+            .persistent()
+            .extend_ttl(&DataKey::Listing(id), PERSISTENT_BUMP_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
+    }
+
+    fn bump_auction_ttl(env: &Env, id: u64) {
+        env.storage()
+            .persistent()
+            .extend_ttl(&DataKey::Auction(id), PERSISTENT_BUMP_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
+    }
+
+    fn split_payment(
+        env: &Env,
+        payment: i128,
+        payment_token: &Address,
+        from: &Address,
+        planter: &Address,
+        seller: &Address,
+    ) -> i128 {
+        let royalty_bps: u32 = env
+            .storage()
+            .instance()
+            .get(&DataKey::RoyaltyConfig)
+            .unwrap_or(0);
+
+        let royalty_amount = if royalty_bps > 0 && planter != seller {
+            (payment * royalty_bps as i128) / 10_000
+        } else {
+            0
+        };
+        let seller_amount = payment - royalty_amount;
+
+        if royalty_amount > 0 {
+            token::Client::new(env, payment_token).transfer(
+                from,
+                planter,
+                &royalty_amount,
+            );
+        }
+
+        token::Client::new(env, payment_token).transfer(
+            from,
+            seller,
+            &seller_amount,
+        );
+
+        royalty_amount
+    }
+
     fn config(env: &Env) -> (Address, Address) {
         env.storage().instance().get(&DataKey::Config)
             .unwrap_or_else(|| panic_with_error!(env, HarvestaError::NotInitialized))
@@ -2257,6 +2335,7 @@ mod tests {
         planter: Address,
         tree_token: Address,
         payment_token: Address,
+        admin_controls: Address,
         client: CarbonMarketplaceClient<'static>,
     }
 
@@ -2285,7 +2364,7 @@ mod tests {
 
         client.initialize(&admin, &tree_token, &admin_controls_id);
 
-        Ctx { env, admin, seller, buyer, planter, tree_token, payment_token, client }
+        Ctx { env, admin, seller, buyer, planter, tree_token, payment_token, admin_controls: admin_controls_id, client }
     }
 
     fn bal(env: &Env, token: &Address, who: &Address) -> i128 {
@@ -2321,7 +2400,7 @@ mod tests {
     #[should_panic(expected = "Error(Contract, #1)")]
     fn test_double_initialize_rejected() {
         let ctx = setup();
-        ctx.client.initialize(&ctx.admin, &ctx.tree_token, &ctx.tree_token);
+        ctx.client.initialize(&ctx.admin, &ctx.tree_token, &ctx.admin_controls);
     }
 
     #[test]
@@ -2366,7 +2445,7 @@ mod tests {
     fn test_buy_more_than_remaining_rejected() {
         let ctx = setup();
         let id = ctx.client.list(&ctx.seller, &ctx.planter, &500, &10, &ctx.payment_token);
-        ctx.client.buy(&ctx.buyer, &id, &501);
+        ctx.client.buy(&ctx.buyer, &id, &501, &MAX);
     }
 
     #[test]
@@ -2843,6 +2922,23 @@ mod tests {
                 let remaining_final = remaining_after_f1 - f2;
                 prop_assert!(remaining_final >= 0);
                 prop_assert_eq!(f1 + f2 + remaining_final, total);
+            }
+
+            #[test]
+            fn fuzz_exact_payment_roundtrip_invariants(
+                price in 1i128..1_000i128,
+                payment in 1i128..1_000_000i128,
+            ) {
+                // tokens_out = payment / price (floor)
+                // actual_cost = tokens_out * price
+                // Invariant: actual_cost <= payment  (never overspend)
+                // Invariant: actual_cost + price > payment  (tight floor)
+                let tokens_out = payment / price;
+                let actual_cost = tokens_out * price;
+                prop_assert!(actual_cost <= payment);
+                if tokens_out > 0 {
+                    prop_assert!(actual_cost + price > payment || actual_cost == payment);
+                }
             }
         }
     }

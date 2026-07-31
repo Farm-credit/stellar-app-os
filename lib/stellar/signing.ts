@@ -137,3 +137,42 @@ export async function signTransactionWithXBull(
     throw new Error('Failed to sign transaction with xBull');
   }
 }
+
+export async function signTransactionWithRango(
+  transactionXdr: string,
+  networkPassphrase: string
+): Promise<string> {
+  if (typeof window === 'undefined') {
+    throw new Error('Rango wallet can only be accessed in the browser');
+  }
+
+  if (!(window as any).rango) {
+    throw new Error('Rango wallet not found. Please install the extension.');
+  }
+
+  try {
+    const rango = (window as any).rango;
+    const signedXdr =
+      typeof rango.signTransaction === 'function'
+        ? await rango.signTransaction(transactionXdr, { networkPassphrase })
+        : await rango.sign({ transactionXdr, networkPassphrase });
+
+    if (!signedXdr) {
+      throw new Error('Transaction signing was cancelled or failed');
+    }
+
+    return typeof signedXdr === 'string' ? signedXdr : signedXdr.signedXdr || signedXdr.xdr;
+  } catch (error) {
+    if (error instanceof Error) {
+      if (
+        error.message.includes('rejected') ||
+        error.message.includes('denied') ||
+        error.message.includes('cancel')
+      ) {
+        throw new Error('Transaction signing rejected by user');
+      }
+      throw error;
+    }
+    throw new Error('Failed to sign transaction with Rango');
+  }
+}

@@ -67,6 +67,18 @@ pub struct BurnRecord {
     pub burned_at: u64,
 }
 
+/// On-chain record of a cross-chain asset bridge lock.
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct BridgeLockRecord {
+    pub lock_id: u64,
+    pub sender: Address,
+    pub amount: i128,
+    pub target_chain: soroban_sdk::String,
+    pub recipient_address: soroban_sdk::String,
+    pub locked_at: u64,
+}
+
 /// Payload that a user signs off-chain to authorise a gasless transfer.
 ///
 /// The relayer passes this struct together with the 64-byte Ed25519
@@ -632,7 +644,7 @@ impl TreeToken {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use soroban_sdk::{testutils::Address as _, token, Address, Env, String};
+    use soroban_sdk::{testutils::{Address as _, Ledger as _}, token, Address, Env, String};
 
     // ── Burn test helpers ─────────────────────────────────────────────────────
 
@@ -733,7 +745,7 @@ mod tests {
     #[test]
     #[should_panic(expected = "Error(Contract, #1)")]
     fn test_double_initialize_rejected() {
-        let (env, admin, _, tree_token, client) = setup();
+        let (_env, admin, _, tree_token, client) = setup();
         client.initialize(&admin, &tree_token);
     }
 
