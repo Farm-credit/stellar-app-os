@@ -70,6 +70,8 @@ pub enum ProposalStatus {
     Rejected,
     Executed,
     Expired,
+    /// Proposal was cancelled by the veto council
+    Cancelled,
 }
 
 /// Vote option for multi-choice proposals
@@ -231,6 +233,10 @@ fn min_planting_bond_key() -> Symbol {
 
 fn verifier_whitelist_key() -> Symbol {
     symbol_short!("VER_WL")
+}
+
+fn veto_council_key() -> Symbol {
+    symbol_short!("VETO_C")
 }
 
 fn proposal_key(id: u64) -> (Symbol, u64) {
@@ -986,6 +992,63 @@ impl PlatformGovernance {
         Self::aggregate_delegated_power(&env, &staking_contract, &delegate)
     }
 
+    // ── Timelock Queue Query Endpoints ──────────────────────────────────────
+
+    /// Returns all proposals that have passed and are queued (awaiting timelock) or executable.
+    pub fn get_pending_queue(env: Env) -> Vec<ProposalRecord> {
+        let count = Self::proposal_count(env.clone());
+        let mut list = Vec::new(&env);
+        for id in 0..count {
+            if let Some(prop) = env.storage().persistent().get::<_, ProposalRecord>(&proposal_key(id)) {
+                if prop.status == ProposalStatus::Passed {
+                    list.push_back(prop);
+                }
+            }
+        }
+        list
+    }
+
+    /// Returns all proposals currently in the timelock queue (passed, but executable_at is in the future).
+    pub fn get_queued_proposals(env: Env) -> Vec<ProposalRecord> {
+        let count = Self::proposal_count(env.clone());
+        let now = env.ledger().timestamp();
+        let mut list = Vec::new(&env);
+        for id in 0..count {
+            if let Some(prop) = env.storage().persistent().get::<_, ProposalRecord>(&proposal_key(id)) {
+                if prop.status == ProposalStatus::Passed && now < prop.executable_at {
+                    list.push_back(prop);
+                }
+            }
+        }
+        list
+    }
+
+    /// Returns all proposals that have passed and whose timelock period has elapsed (ready to execute).
+    pub fn get_executable_proposals(env: Env) -> Vec<ProposalRecord> {
+        let count = Self::proposal_count(env.clone());
+        let now = env.ledger().timestamp();
+        let mut list = Vec::new(&env);
+        for id in 0..count {
+            if let Some(prop) = env.storage().persistent().get::<_, ProposalRecord>(&proposal_key(id)) {
+                if prop.status == ProposalStatus::Passed && now >= prop.executable_at {
+                    list.push_back(prop);
+                }
+            }
+        }
+        list
+    }
+
+    /// Returns `(is_queued, remaining_seconds, executable_at)` for a specific proposal.
+    pub fn get_proposal_timelock_status(env: Env, proposal_id: u64) -> (bool, u64, u64) {
+        let prop = Self::get_proposal(env.clone(), proposal_id);
+        let now = env.ledger().timestamp();
+        if prop.status == ProposalStatus::Passed && now < prop.executable_at {
+            (true, prop.executable_at - now, prop.executable_at)
+        } else {
+            (false, 0, prop.executable_at)
+        }
+    }
+
     // ── Admin functions ───────────────────────────────────────────────────────
 
     /// Update the quorum percentage. Admin only.
@@ -1025,6 +1088,81 @@ impl PlatformGovernance {
         env.storage().instance().set(&platform_fee_key(), &new_fee);
         Self::bump_instance(&env);
         env.events().publish((symbol_short!("fee_set"),), new_fee);
+    }
+
+    /// Set the veto council address. Admin only.
+    ///
+    /// The veto council has emergency authority to cancel malicious proposals.
+    /// Only the admin may set or update this address.
+    ///
+    /// # Arguments
+    /// * `council` - The address to designate as the veto council.
+    pub fn set_veto_council(env: Env, council: Address) {
+        Self::require_admin(&env);
+        env.storage()
+            .instance()
+            .set(&veto_council_key(), &council);
+        Self::bump_instance(&env);
+        env.events()
+            .publish((symbol_short!("veto"), symbol_short!("set")), council);
+    }
+
+    /// Returns the current veto council address, if set.
+    pub fn veto_council(env: Env) -> Option<Address> {
+        env.storage().instance().get(&veto_council_key())
+    }
+
+    /// Cancel a malicious proposal. Veto council only.
+    ///
+    /// The veto council can cancel any proposal that is in `Active` status.
+    /// Once cancelled, the proposal cannot be voted on, queued, or executed.
+    ///
+    /// # Arguments
+    /// * `council` - The veto council address (must sign).
+    /// * `proposal_id` - The ID of the proposal to cancel.
+    ///
+    /// # Errors
+    /// * Panics with `"veto council not set"` if no council has been designated.
+    /// * Panics with `"caller is not the veto council"` if unauthorized.
+    /// * Panics with `"proposal not found"` if the proposal does not exist.
+    /// * Panics with `"proposal cannot be cancelled"` if not in `Active` status.
+    ///
+    /// # Events
+    /// Emits `("proposal", "cancelled")` with `(proposal_id, council)`.
+    pub fn cancel_proposal(env: Env, council: Address, proposal_id: u64) {
+        Self::assert_not_paused(&env);
+
+        let stored_council: Address = env
+            .storage()
+            .instance()
+            .get(&veto_council_key())
+            .expect("veto council not set");
+
+        if council != stored_council {
+            panic!("caller is not the veto council");
+        }
+        council.require_auth();
+
+        let mut proposal: ProposalRecord = env
+            .storage()
+            .persistent()
+            .get(&proposal_key(proposal_id))
+            .expect("proposal not found");
+
+        if proposal.status != ProposalStatus::Active {
+            panic!("proposal cannot be cancelled");
+        }
+
+        proposal.status = ProposalStatus::Cancelled;
+        env.storage()
+            .persistent()
+            .set(&proposal_key(proposal_id), &proposal);
+        Self::bump_persistent(&env, &proposal_key(proposal_id));
+
+        env.events().publish(
+            (symbol_short!("proposal"), symbol_short!("cancelled")),
+            (proposal_id, council),
+        );
     }
 
     /// Directly set minimum planting bond (emergency override). Admin only.
