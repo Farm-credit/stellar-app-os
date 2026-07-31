@@ -1,5 +1,14 @@
 'use client';
 
+/**
+ * ProposalList — Species voting dashboard (#663)
+ *
+ * Displays active proposals with:
+ *  - Species details (name, slug, CO₂ sequestration, maturity)
+ *  - Vote percentages rendered with Progress bar
+ *  - Remaining campaign timeline
+ *  - Vote buttons that trigger wallet signature (pending → confirmed / failed)
+ */
 import { useState, useCallback } from 'react';
 import {
   Card,
@@ -434,3 +443,5 @@ export function ProposalList() {
     </div>
   );
 }
+
+export default ProposalList;
