@@ -67,6 +67,18 @@ pub struct BurnRecord {
     pub burned_at: u64,
 }
 
+/// On-chain record of a cross-chain asset bridge lock.
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct BridgeLockRecord {
+    pub lock_id: u64,
+    pub sender: Address,
+    pub amount: i128,
+    pub target_chain: soroban_sdk::String,
+    pub recipient_address: soroban_sdk::String,
+    pub locked_at: u64,
+}
+
 /// Payload that a user signs off-chain to authorise a gasless transfer.
 ///
 /// The relayer passes this struct together with the 64-byte Ed25519
