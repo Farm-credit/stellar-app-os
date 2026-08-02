@@ -4,6 +4,8 @@ import { Footer } from '@/components/organisms/Footer/Footer';
 import { I18nProvider } from '@/components/providers/I18nProvider';
 import { WalletProvider } from '@/contexts/WalletContext';
 
+const inter = Inter({ subsets: ['latin'] });
+
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://farmcredit.app';
 const siteName = 'FarmCredit';
 const siteDescription = 'FarmCredit - Decentralized agricultural credit on Stellar';

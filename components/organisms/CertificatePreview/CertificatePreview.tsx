@@ -9,6 +9,7 @@ import { Button } from '@/components/atoms/Button';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/molecules/Card';
 import { CertificateField } from '@/components/molecules/CertificateField';
 import { QrCode } from '@/components/atoms/QrCode';
+import { TiltCard } from '@/components/atoms/TiltCard';
 import {
   type CertificateData,
   generateCertificatePdf,
@@ -52,6 +53,11 @@ function CertificatePreview({ data, className }: CertificatePreviewProps) {
   }, []);
 
   const handleDownload = useCallback(async () => {
+    if (!qrDataUrl) {
+      setDownloadError('QR code is still loading. Please wait a moment.');
+      return;
+    }
+
     setIsGenerating(true);
     setDownloadError(null);
 
@@ -65,8 +71,9 @@ function CertificatePreview({ data, className }: CertificatePreviewProps) {
   }, [qrDataUrl, currentData]);
 
   return (
+    <TiltCard className="mx-auto w-full max-w-2xl print:transform-none">
     <Card
-      className={cn('mx-auto w-full max-w-2xl overflow-hidden print:shadow-none', className)}
+      className={cn('w-full overflow-hidden print:shadow-none', className)}
       role="region"
       aria-label="Impact Certificate Preview"
     >
@@ -272,6 +279,7 @@ function CertificatePreview({ data, className }: CertificatePreviewProps) {
         </div>
       </CardFooter>
     </Card>
+    </TiltCard>
   );
 }
 

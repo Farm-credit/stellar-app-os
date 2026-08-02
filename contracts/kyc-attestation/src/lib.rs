@@ -40,7 +40,7 @@
 //!   `("KYC_HST", farmer)`              → `Vec<Attestation>`
 
 use harvesta_errors::HarvestaError;
-use soroban_sdk::{contract, contractimpl, contracttype, panic_with_error, symbol_short, Address, Bytes, BytesN, Env, IntoVal, String, Vec};
+use soroban_sdk::{contract, contracterror, contractimpl, contracttype, panic_with_error, symbol_short, Address, Bytes, BytesN, Env, IntoVal, String, Vec};
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -49,6 +49,15 @@ use soroban_sdk::{contract, contractimpl, contracttype, panic_with_error, symbol
 pub const MIN_AGE_YEARS: u32 = 18;
 /// Approved 2-char geohash prefixes for Northern Nigeria (s0–s8).
 const VALID_REGIONS: [&str; 9] = ["s0", "s1", "s2", "s3", "s4", "s5", "s6", "s7", "s8"];
+
+/// Geographic jurisdiction compliance bitflags — Closes #772.
+pub const JURISDICTION_EU: u32 = 1 << 0;
+pub const JURISDICTION_US: u32 = 1 << 1;
+pub const JURISDICTION_UK: u32 = 1 << 2;
+pub const JURISDICTION_APAC: u32 = 1 << 3;
+pub const JURISDICTION_LATAM: u32 = 1 << 4;
+pub const JURISDICTION_AFRICA: u32 = 1 << 5;
+
 
 #[contracterror]
 #[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
@@ -165,6 +174,11 @@ fn zk_record_key(env: &Env, farmer: &Address) -> soroban_sdk::Val {
 fn zk_commitment_key(env: &Env, commitment: &BytesN<32>) -> soroban_sdk::Val {
     (symbol_short!("ZK_CMT"), commitment.clone()).into_val(env)
 }
+
+fn jurisdiction_key(env: &Env, user: &Address) -> soroban_sdk::Val {
+    (symbol_short!("JUR_FLG"), user.clone()).into_val(env)
+}
+
 
 // ── Contract ──────────────────────────────────────────────────────────────────
 
@@ -285,7 +299,7 @@ impl KycAttestation {
             farmer: farmer.clone(),
             verifier: verifier.clone(),
             proof_integrity_hash,
-            age_commitment: proof.age_commitment,
+            age_commitment: proof.age_commitment.clone(),
             region_commitment: proof.region_commitment,
             verified_region: proof.region_plaintext,
             verified_at: env.ledger().timestamp(),
@@ -379,6 +393,51 @@ impl KycAttestation {
             .get(&history_key(&env, &farmer_id))
             .unwrap_or(Vec::new(&env))
     }
+
+    // ── Multi-Jurisdiction Compliance (Closes #772) ───────────────────────────
+
+    /// Set geographic jurisdiction compliance bitflags for a user account.
+    ///
+    /// # Access
+    /// Only a registered verifier may set jurisdiction tags.
+    pub fn set_jurisdiction_flags(env: Env, verifier: Address, user: Address, flags: u32) {
+        verifier.require_auth();
+        Self::require_verifier(&env, &verifier);
+
+        env.storage()
+            .persistent()
+            .set(&jurisdiction_key(&env, &user), &flags);
+
+        env.events()
+            .publish((symbol_short!("jur_set"), user), flags);
+    }
+
+    /// Returns the geographic jurisdiction compliance bitflags for a user account.
+    pub fn get_jurisdiction_flags(env: Env, user: Address) -> u32 {
+        env.storage()
+            .persistent()
+            .get(&jurisdiction_key(&env, &user))
+            .unwrap_or(0u32)
+    }
+
+    /// Checks whether a user account satisfies the required jurisdiction compliance bitflags.
+    pub fn has_jurisdiction_compliance(env: Env, user: Address, required_flags: u32) -> bool {
+        let current_flags = Self::get_jurisdiction_flags(env, user);
+        (current_flags & required_flags) == required_flags
+    }
+
+    // ── Soroban Instance Storage Auto-Bump Helpers (Closes #774) ─────────────
+
+    /// Extend the contract instance storage TTL to prevent expiration.
+    pub fn extend_instance_ttl(env: Env, threshold: u32, extend_to: u32) {
+        env.storage().instance().extend_ttl(threshold, extend_to);
+    }
+
+    /// Bump the contract instance storage TTL using default parameters (1 day threshold, 30 days extension).
+    pub fn bump_instance_ttl(env: Env) {
+        env.storage().instance().extend_ttl(17_280, 518_400);
+    }
+
 
     // ── Internal helpers ──────────────────────────────────────────────────────
 

@@ -17,6 +17,7 @@ import { Button } from '@/components/atoms/Button';
 import { Text } from '@/components/atoms/Text';
 import { generateEsgReport } from '@/lib/corporate';
 import { cn } from '@/lib/utils';
+import { CarbonOffsetCalculator } from '@/components/organisms/CarbonOffsetCalculator';
 
 export function CorporateDashboard() {
   const [isExporting, setIsExporting] = useState(false);
@@ -95,6 +96,8 @@ export function CorporateDashboard() {
           </Card>
         ))}
       </div>
+
+      <CarbonOffsetCalculator />
 
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
         {/* Main Chart */}

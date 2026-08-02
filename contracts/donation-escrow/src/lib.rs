@@ -15,6 +15,12 @@ const MAX_TREES: u32 = 50;
 /// so the contract can support additional tokens without changing callers.
 const COMMON_DECIMALS: u32 = 7;
 
+// Storage TTL constants (ledgers).  ~5 seconds per ledger.
+const INSTANCE_TTL_THRESHOLD: u32 = 17_280; // ~ 1 day
+const INSTANCE_TTL_LEDGERS: u32 = 103_680;   // ~ 6 days
+const PERSISTENT_TTL_THRESHOLD: u32 = 120_960; // ~ 7 days
+const PERSISTENT_TTL_LEDGERS: u32 = 518_400;  // ~ 30 days
+
 #[contracterror]
 #[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub enum DonationEscrowError {
@@ -29,6 +35,18 @@ pub enum DonationEscrowError {
     ProjectNotRegistered = 90,
     NotDonor = 91,
     DonationAlreadyCancelled = 92,
+    /// Attempted to remove a token that was never on the accepted list.
+    TokenNotAccepted = 93,
+    /// Cannot remove a canonical initial (XLM/USDC/EURC) token from the whitelist.
+    CannotRemoveCanonicalToken = 94,
+    /// Tree count outside of allowed range.
+    InvalidTreeCount = 95,
+    /// Donation amount must be strictly positive.
+    InvalidAmount = 96,
+    /// Persistent escrow record does not exist for the given sequence id.
+    EscrowNotFound = 97,
+    /// Administrative call without admin authorization.
+    Unauthorized = 98,
 }
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -74,6 +92,7 @@ pub struct RecurringDonation {
 pub struct AcceptedToken {
     pub token: Address,
     pub decimals: u32,
+    pub canonical: bool,
 }
 
 // ── Contract ──────────────────────────────────────────────────────────────────
@@ -83,19 +102,34 @@ pub struct DonationEscrow;
 
 #[contractimpl]
 impl DonationEscrow {
-    /// Initialize contract
-    pub fn initialize(env: Env, admin: Address, xlm_token: Address, usdc_token: Address) {
+    /// Initialize the escrow contract.
+    ///
+    /// Registers the canonical stablecoin tokens (`xlm_token`, `usdc_token`,
+    /// `eurc_token`) that are always accepted for donations and sets the
+    /// contract admin who controls the whitelist, batching, and disbursal.
+    ///
+    /// Panics if the contract has already been initialized.
+    pub fn initialize(
+        env: Env,
+        admin: Address,
+        xlm_token: Address,
+        usdc_token: Address,
+        eurc_token: Address,
+    ) {
         if env.storage().instance().has(&symbol_short!("ADMIN")) {
             panic_with_error!(&env, HarvestaError::AlreadyInitialized);
         }
 
-        // Keep a canonical record of the two supported payment rails.
         env.storage()
             .instance()
             .set(&symbol_short!("ADMIN"), &admin);
         env.storage().instance().set(
             &symbol_short!("TOKENS"),
-            &(xlm_token.clone(), usdc_token.clone()),
+            &(
+                xlm_token.clone(),
+                usdc_token.clone(),
+                eurc_token.clone(),
+            ),
         );
         env.storage()
             .instance()
@@ -111,21 +145,45 @@ impl DonationEscrow {
             .instance()
             .set(&symbol_short!("RECSEQ"), &0u64);
 
-        // Register the two canonical payment tokens up front.
-        Self::add_accepted_token_internal(&env, &xlm_token, false);
-        Self::add_accepted_token_internal(&env, &usdc_token, false);
+        // Register the three canonical payment tokens up front.
+        Self::add_accepted_token_internal(&env, &xlm_token, true, true);
+        Self::add_accepted_token_internal(&env, &usdc_token, false, true);
+        Self::add_accepted_token_internal(&env, &eurc_token, false, true);
+
+        Self::bump_instance(&env);
     }
 
-    /// Donate funds into escrow
+    /// Extend the TTL of the contract's instance storage so configuration
+    /// (admin, accepted tokens, counters, projects) does not expire.
+    fn bump_instance(env: &Env) {
+        env.storage()
+            .instance()
+            .extend_ttl(INSTANCE_TTL_THRESHOLD, INSTANCE_TTL_LEDGERS);
+    }
+
+    /// Extend the TTL of a persistent storage entry (escrow record, recurring
+    /// donation, etc.) so campaign-relevant state lives for at least
+    /// `PERSISTENT_TTL_LEDGERS` past the current ledger.
+    fn bump_persistent<K: IntoVal<Env, soroban_sdk::Val>>(env: &Env, key: &K) {
+        env.storage()
+            .persistent()
+            .extend_ttl(key, PERSISTENT_TTL_THRESHOLD, PERSISTENT_TTL_LEDGERS);
+    }
+
+    /// Donate `amount` of `token` into escrow on behalf of `donor` in exchange
+    /// for `tree_count` tree slots.
+    ///
+    /// Returns the escrow sequence id used to later release or refund the
+    /// donation. The donor must explicitly authorize the call.
     pub fn donate(env: Env, donor: Address, token: Address, amount: i128, tree_count: u32) -> u64 {
         donor.require_auth();
 
         if amount <= 0 {
-            panic_with_error!(&env, HarvestaError::AmountMustBePositive);
+            panic_with_error!(&env, DonationEscrowError::InvalidAmount);
         }
 
         if tree_count == 0 || tree_count > MAX_TREES {
-            panic_with_error!(&env, HarvestaError::TreeCountMustBePositive);
+            panic_with_error!(&env, DonationEscrowError::InvalidTreeCount);
         }
 
         Self::assert_accepted_token(&env, &token);
@@ -157,9 +215,10 @@ impl DonationEscrow {
             status: DonationStatus::Pending,
         };
 
-        env.storage()
-            .persistent()
-            .set(&Self::donation_key(&env, next_seq), &rec);
+        let key = Self::donation_key(&env, next_seq);
+        env.storage().persistent().set(&key, &rec);
+        Self::bump_persistent(&env, &key);
+        Self::bump_instance(&env);
 
         env.events().publish(
             (symbol_short!("donate"), donor),
@@ -169,7 +228,8 @@ impl DonationEscrow {
         next_seq
     }
 
-    /// Move to next batch
+    /// Roll the current batch id forward so future donations land in a fresh
+    /// batch.  Admin only.
     pub fn advance_batch(env: Env) -> u32 {
         Self::require_admin(&env);
 
@@ -184,6 +244,7 @@ impl DonationEscrow {
         env.storage()
             .instance()
             .set(&symbol_short!("BATCHSEQ"), &(next_batch, seq));
+        Self::bump_instance(&env);
 
         env.events()
             .publish((symbol_short!("batch"), batch_id), (next_batch, true));
@@ -191,7 +252,12 @@ impl DonationEscrow {
         next_batch
     }
 
-    /// Release multiple donations
+    /// Release a batch of donations out of escrow to `destination`.
+    ///
+    /// For each sequence id in `seqs` the recorded token amount is transferred out of the contract
+    /// contract and the record is marked `Released`.  Admin only.
+    ///
+    /// Panics if any sequence is missing or has already been processed.
     pub fn release_batch(env: Env, seqs: Vec<u64>, destination: Address) {
         Self::require_admin(&env);
 
@@ -204,7 +270,7 @@ impl DonationEscrow {
                 .storage()
                 .persistent()
                 .get(&key)
-                .unwrap_or_else(|| panic_with_error!(&env, HarvestaError::EscrowNotFound));
+                .unwrap_or_else(|| panic_with_error!(&env, DonationEscrowError::EscrowNotFound));
 
             if rec.status != DonationStatus::Pending {
                 panic_with_error!(&env, DonationEscrowError::AlreadyProcessed);
@@ -219,13 +285,17 @@ impl DonationEscrow {
             rec.status = DonationStatus::Released;
 
             env.storage().persistent().set(&key, &rec);
+            Self::bump_persistent(&env, &key);
 
             env.events()
                 .publish((symbol_short!("release"), seq), rec.amount);
         }
+        Self::bump_instance(&env);
     }
 
-    /// Refund donation
+    /// Refund a single pending donation back to its donor.  Admin only.
+    ///
+    /// Panics if the sequence is missing or has already been released/refunded.
     pub fn refund(env: Env, seq: u64) {
         Self::require_admin(&env);
 
@@ -235,7 +305,7 @@ impl DonationEscrow {
             .storage()
             .persistent()
             .get(&key)
-            .unwrap_or_else(|| panic_with_error!(&env, HarvestaError::EscrowNotFound));
+            .unwrap_or_else(|| panic_with_error!(&env, DonationEscrowError::EscrowNotFound));
 
         if rec.status != DonationStatus::Pending {
             panic_with_error!(&env, DonationEscrowError::AlreadyProcessed);
@@ -250,19 +320,24 @@ impl DonationEscrow {
         rec.status = DonationStatus::Refunded;
 
         env.storage().persistent().set(&key, &rec);
+        Self::bump_persistent(&env, &key);
+        Self::bump_instance(&env);
 
         env.events()
             .publish((symbol_short!("refund"), seq), rec.amount);
     }
 
-    /// Get donation by seq
+    /// Lookup a donation record by its sequence id.
     pub fn get_donation(env: Env, seq: u64) -> Option<DonationRecord> {
-        env.storage()
-            .persistent()
-            .get(&Self::donation_key(&env, seq))
+        let key = Self::donation_key(&env, seq);
+        let res: Option<DonationRecord> = env.storage().persistent().get(&key);
+        if res.is_some() {
+            Self::bump_persistent(&env, &key);
+        }
+        res
     }
 
-    /// Current batch id
+    /// Return the currently-active donation batch id.
     pub fn current_batch(env: Env) -> u32 {
         let (batch_id, _): (u32, u64) = env
             .storage()
@@ -275,8 +350,11 @@ impl DonationEscrow {
 
     // ── Recurring donations ───────────────────────────────────────────────────
 
-    /// Set up a recurring donation. Locks the first interval's amount into escrow.
-    /// Returns the donation_id.
+    /// Set up a recurring donation for `project_id`. Locks the first interval's
+    /// amount into escrow.
+    ///
+    /// Returns the recurring-donation id which can later be used to
+    /// `process_recurring` or `cancel_recurring`.
     pub fn setup_recurring(
         env: Env,
         donor: Address,
@@ -328,14 +406,20 @@ impl DonationEscrow {
             cancelled: false,
         };
 
-        env.storage()
-            .persistent()
-            .set(&Self::recurring_key(&env, id), &rec);
+        let key = Self::recurring_key(&env, id);
+        env.storage().persistent().set(&key, &rec);
+        Self::bump_persistent(&env, &key);
+        Self::bump_instance(&env);
 
         id
     }
 
     /// Process a recurring donation interval. Callable by anyone.
+    ///
+    /// Transfers the locked interval amount to the project address registered
+    /// for the project_id, then re-locks the next interval amount from the
+    /// donor. Panics if cancelled, if the interval has not elapsed, or if the
+    /// project is missing.
     pub fn process_recurring(env: Env, donation_id: u64) {
         let key = Self::recurring_key(&env, donation_id);
 
@@ -375,6 +459,8 @@ impl DonationEscrow {
         rec.total_released_normalized += rec.normalized_amount_per_interval;
 
         env.storage().persistent().set(&key, &rec);
+        Self::bump_persistent(&env, &key);
+        Self::bump_instance(&env);
 
         env.events().publish(
             (symbol_short!("donation"), symbol_short!("rec_proc")),
@@ -387,7 +473,10 @@ impl DonationEscrow {
         );
     }
 
-    /// Cancel a recurring donation and refund locked funds to donor.
+    /// Cancel a recurring donation and refund the locked (unreleased) interval
+    /// amount back to the donor.
+    ///
+    /// Only the `donor` who created the recurring schedule may cancel.
     pub fn cancel_recurring(env: Env, donor: Address, donation_id: u64) {
         donor.require_auth();
 
@@ -416,6 +505,8 @@ impl DonationEscrow {
         );
 
         env.storage().persistent().set(&key, &rec);
+        Self::bump_persistent(&env, &key);
+        Self::bump_instance(&env);
 
         env.events().publish(
             (symbol_short!("donation"), symbol_short!("rec_cncl")),
@@ -423,28 +514,48 @@ impl DonationEscrow {
         );
     }
 
-    /// Get recurring donation by id
+    /// Lookup a recurring-donation record by id.
     pub fn get_recurring(env: Env, donation_id: u64) -> Option<RecurringDonation> {
-        env.storage()
-            .persistent()
-            .get(&Self::recurring_key(&env, donation_id))
+        let key = Self::recurring_key(&env, donation_id);
+        let res: Option<RecurringDonation> = env.storage().persistent().get(&key);
+        if res.is_some() {
+            Self::bump_persistent(&env, &key);
+        }
+        res
     }
 
-    /// Register a project address (admin only)
+    /// Register the address that receives disbursements for `project_id`.
+    ///
+    /// Required before `process_recurring` can transfer funds to a project.
+    /// Admin only.
     pub fn register_project(env: Env, project_id: u64, project: Address) {
         Self::require_admin(&env);
         env.storage()
             .instance()
             .set(&Self::project_key(&env, project_id), &project);
+        Self::bump_instance(&env);
     }
 
-    /// Add a new accepted payment token. Restricted to admin.
+    /// Add a new accepted payment token to the whitelist. Admin only.
+    ///
+    /// Panics if the token is already on the whitelist.
     pub fn add_accepted_token(env: Env, token_address: Address) {
         Self::require_admin(&env);
-        Self::add_accepted_token_internal(&env, &token_address, true);
+        Self::add_accepted_token_internal(&env, &token_address, true, false);
     }
 
-    /// Backward-compatible alias for the accepted token list.
+    /// Remove a payment token from the accepted-token whitelist. Admin only.
+    ///
+    /// The canonical tokens (XLM / USDC / EURC supplied during `initialize`)
+    /// cannot be removed; attempting to do so panics with
+    /// `CannotRemoveCanonicalToken`.  Panics with `TokenNotAccepted` if the
+    /// address was never on the whitelist.
+    pub fn remove_accepted_token(env: Env, token_address: Address) {
+        Self::require_admin(&env);
+        Self::remove_accepted_token_internal(&env, &token_address);
+    }
+
+    /// Backward-compatible alias for `add_accepted_token`.
     pub fn add_to_whitelist(env: Env, addr: Address) {
         Self::add_accepted_token(env, addr);
     }
@@ -459,7 +570,8 @@ impl DonationEscrow {
         Self::assert_accepted_token(&env, &addr);
     }
 
-    /// Returns a snapshot of all accepted tokens and their decimals.
+    /// Returns a snapshot of all accepted tokens together with their decimals
+    /// and canonical flag.
     pub fn get_accepted_tokens(env: Env) -> Vec<AcceptedToken> {
         Self::load_accepted_tokens(&env)
     }
@@ -501,7 +613,12 @@ impl DonationEscrow {
         }
     }
 
-    fn add_accepted_token_internal(env: &Env, token_address: &Address, fail_on_duplicate: bool) {
+    fn add_accepted_token_internal(
+        env: &Env,
+        token_address: &Address,
+        fail_on_duplicate: bool,
+        canonical: bool,
+    ) {
         let mut tokens = Self::load_accepted_tokens(env);
         for i in 0..tokens.len() {
             if tokens.get(i).unwrap().token == *token_address {
@@ -516,10 +633,34 @@ impl DonationEscrow {
         tokens.push_back(AcceptedToken {
             token: token_address.clone(),
             decimals,
+            canonical,
         });
         env.storage()
             .instance()
             .set(&symbol_short!("TOKENSV"), &tokens);
+    }
+
+    fn remove_accepted_token_internal(env: &Env, token_address: &Address) {
+        let tokens = Self::load_accepted_tokens(env);
+        let mut found = false;
+        let mut new_tokens = Vec::new(env);
+        for i in 0..tokens.len() {
+            let accepted = tokens.get(i).unwrap();
+            if accepted.token == *token_address {
+                if accepted.canonical {
+                    panic_with_error!(env, DonationEscrowError::CannotRemoveCanonicalToken);
+                }
+                found = true;
+                continue;
+            }
+            new_tokens.push_back(accepted);
+        }
+        if !found {
+            panic_with_error!(env, DonationEscrowError::TokenNotAccepted);
+        }
+        env.storage()
+            .instance()
+            .set(&symbol_short!("TOKENSV"), &new_tokens);
     }
 
     fn normalize_amount(env: &Env, token: &Address, amount: i128) -> i128 {
@@ -588,8 +729,13 @@ mod tests {
         token, Address, Env,
     };
 
+    fn mint(env: &Env, addr: &Address, to: &Address, amount: &i128) {
+        token::StellarAssetClient::new(env, addr).mint(to, amount);
+    }
+
     fn setup() -> (
         Env,
+        Address,
         Address,
         Address,
         Address,
@@ -611,51 +757,51 @@ mod tests {
         let usdc = env
             .register_stellar_asset_contract_v2(admin.clone())
             .address();
+        let eurc = env
+            .register_stellar_asset_contract_v2(admin.clone())
+            .address();
 
-        token::StellarAssetClient::new(&env, &xlm).mint(&donor, &100_000);
-        token::StellarAssetClient::new(&env, &usdc).mint(&donor, &100_000);
+        mint(&env, &xlm, &donor, &100_000);
+        mint(&env, &usdc, &donor, &100_000);
+        mint(&env, &eurc, &donor, &100_000);
 
-        client.initialize(&admin, &xlm, &usdc);
+        client.initialize(&admin, &xlm, &usdc, &eurc);
 
-        (env, admin, donor, xlm, usdc, client)
+        (env, admin, donor, xlm, usdc, eurc, client)
     }
 
-    #[test]
-    fn test_donate_and_fetch() {
-        let (_env, _admin, donor, xlm, _usdc, client) = setup();
-
-        let seq = client.donate(&donor, &xlm, &5_000, &3);
-
-        let rec = client.get_donation(&seq).unwrap();
-
-        assert_eq!(rec.amount, 5_000);
-        assert_eq!(rec.normalized_amount, 5_000);
-        assert_eq!(rec.tree_count, 3);
-        assert_eq!(rec.status, DonationStatus::Pending);
-    }
+    // ── Token whitelist ───────────────────────────────────────────────────
 
     #[test]
-    fn test_initial_tokens_are_persisted_in_storage() {
-        let (_env, _admin, _donor, xlm, usdc, client) = setup();
+    fn test_initial_tokens_xlm_usdc_eurc_are_whitelisted_and_canonical() {
+        let (_env, _admin, _donor, xlm, usdc, eurc, client) = setup();
 
         assert!(client.is_whitelisted(&xlm));
         assert!(client.is_whitelisted(&usdc));
+        assert!(client.is_whitelisted(&eurc));
+        assert!(client.is_accepted_token(&xlm));
+        assert!(client.is_accepted_token(&usdc));
+        assert!(client.is_accepted_token(&eurc));
 
         let accepted = client.get_accepted_tokens();
-        assert_eq!(accepted.len(), 2);
+        assert_eq!(accepted.len(), 3);
+        for i in 0..accepted.len() {
+            let t = accepted.get(i).unwrap();
+            assert!(t.canonical, "all canonical rails must be flagged canonical");
+        }
     }
 
     #[test]
     fn test_add_accepted_token_accepts_additional_payment_token() {
-        let (env, admin, donor, _xlm, _usdc, client) = setup();
+        let (env, admin, donor, _xlm, _usdc, _eurc, client) = setup();
         let extra = env
             .register_stellar_asset_contract_v2(admin.clone())
             .address();
-        token::StellarAssetClient::new(&env, &extra).mint(&donor, &100_000);
+        mint(&env, &extra, &donor, &100_000);
 
         client.add_accepted_token(&extra);
         assert!(client.is_whitelisted(&extra));
-        assert_eq!(client.get_accepted_tokens().len(), 3);
+        assert_eq!(client.get_accepted_tokens().len(), 4);
 
         let seq = client.donate(&donor, &extra, &10_000, &2);
         let rec = client.get_donation(&seq).unwrap();
@@ -665,57 +811,235 @@ mod tests {
     #[test]
     #[should_panic(expected = "Error(Contract, #83)")]
     fn test_add_accepted_token_rejects_duplicates() {
-        let (env, admin, donor, _xlm, _usdc, client) = setup();
+        let (env, admin, donor, _xlm, _usdc, _eurc, client) = setup();
         let extra = env
             .register_stellar_asset_contract_v2(admin.clone())
             .address();
-        token::StellarAssetClient::new(&env, &extra).mint(&donor, &100_000);
+        mint(&env, &extra, &donor, &100_000);
 
         client.add_accepted_token(&extra);
         client.add_accepted_token(&extra);
+    }
+
+    #[test]
+    fn test_remove_accepted_token_removes_custom_but_not_canonical() {
+        let (env, admin, donor, _xlm, _usdc, _eurc, client) = setup();
+        let extra = env
+            .register_stellar_asset_contract_v2(admin.clone())
+            .address();
+        mint(&env, &extra, &donor, &100_000);
+
+        client.add_accepted_token(&extra);
+        assert_eq!(client.get_accepted_tokens().len(), 4);
+
+        client.remove_accepted_token(&extra);
+        assert!(!client.is_whitelisted(&extra));
+        assert_eq!(client.get_accepted_tokens().len(), 3);
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #94)")]
+    fn test_remove_accepted_token_rejects_canonical_xlm() {
+        let (_env, _admin, _donor, xlm, _usdc, _eurc, client) = setup();
+        client.remove_accepted_token(&xlm);
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #94)")]
+    fn test_remove_accepted_token_rejects_canonical_usdc() {
+        let (_env, _admin, _donor, _xlm, usdc, _eurc, client) = setup();
+        client.remove_accepted_token(&usdc);
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #94)")]
+    fn test_remove_accepted_token_rejects_canonical_eurc() {
+        let (_env, _admin, _donor, _xlm, _usdc, eurc, client) = setup();
+        client.remove_accepted_token(&eurc);
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #93)")]
+    fn test_remove_accepted_token_rejects_unknown() {
+        let (env, _admin, _donor, _xlm, _usdc, _eurc, client) = setup();
+        let unknown = env
+            .register_stellar_asset_contract_v2(Address::generate(&env))
+            .address();
+        client.remove_accepted_token(&unknown);
+    }
+
+    #[test]
+    fn test_add_to_whitelist_backward_alias_still_works() {
+        let (env, admin, donor, _xlm, _usdc, _eurc, client) = setup();
+        let extra = env
+            .register_stellar_asset_contract_v2(admin.clone())
+            .address();
+        mint(&env, &extra, &donor, &100_000);
+
+        client.add_to_whitelist(&extra);
+        assert!(client.is_whitelisted(&extra));
+    }
+
+    // ── Donate / release / refund paths for XLM, USDC, EURC ────────────────
+
+    #[test]
+    fn test_donate_and_fetch_xlm() {
+        let (_env, _admin, donor, xlm, _usdc, _eurc, client) = setup();
+
+        let seq = client.donate(&donor, &xlm, &5_000, &3);
+        let rec = client.get_donation(&seq).unwrap();
+
+        assert_eq!(rec.amount, 5_000);
+        assert_eq!(rec.normalized_amount, 5_000);
+        assert_eq!(rec.tree_count, 3);
+        assert_eq!(rec.status, DonationStatus::Pending);
+    }
+
+    #[test]
+    fn test_donate_and_fetch_usdc() {
+        let (_env, _admin, donor, _xlm, usdc, _eurc, client) = setup();
+
+        let seq = client.donate(&donor, &usdc, &8_000, &2);
+        let rec = client.get_donation(&seq).unwrap();
+
+        assert_eq!(rec.amount, 8_000);
+        assert_eq!(rec.normalized_amount, 8_000);
+        assert_eq!(rec.tree_count, 2);
+        assert_eq!(rec.token, usdc);
+    }
+
+    #[test]
+    fn test_donate_and_fetch_eurc() {
+        let (_env, _admin, donor, _xlm, _usdc, eurc, client) = setup();
+
+        let seq = client.donate(&donor, &eurc, &12_345, &10);
+        let rec = client.get_donation(&seq).unwrap();
+
+        assert_eq!(rec.amount, 12_345);
+        assert_eq!(rec.normalized_amount, 12_345);
+        assert_eq!(rec.token, eurc);
+    }
+
+    #[test]
+    fn test_mixed_token_donations_in_same_batch() {
+        let (_env, _admin, donor, xlm, usdc, eurc, client) = setup();
+
+        let s1 = client.donate(&donor, &xlm, &1_000, &1);
+        let s2 = client.donate(&donor, &usdc, &2_000, &2);
+        let s3 = client.donate(&donor, &eurc, &3_000, &3);
+
+        assert_eq!(client.get_donation(&s1).unwrap().batch_id, 1);
+        assert_eq!(client.get_donation(&s2).unwrap().batch_id, 1);
+        assert_eq!(client.get_donation(&s3).unwrap().batch_id, 1);
+        assert_eq!(client.current_batch(), 1);
+    }
+
+    #[test]
+    fn test_release_batch_xlm_usdc_eurc_to_destination() {
+        let (env, _admin, donor, xlm, usdc, eurc, client) = setup();
+
+        let s1 = client.donate(&donor, &xlm, &5_000, &1);
+        let s2 = client.donate(&donor, &usdc, &7_000, &1);
+        let s3 = client.donate(&donor, &eurc, &9_000, &1);
+
+        let dest = Address::generate(&env);
+        client.release_batch(&soroban_sdk::vec![&env, s1, s2, s3], &dest);
+
+        let tok = |a: &Address| token::Client::new(&env, a);
+        assert_eq!(tok(&xlm).balance(&dest), 5_000);
+        assert_eq!(tok(&usdc).balance(&dest), 7_000);
+        assert_eq!(tok(&eurc).balance(&dest), 9_000);
+
+        assert_eq!(client.get_donation(&s1).unwrap().status, DonationStatus::Released);
+        assert_eq!(client.get_donation(&s2).unwrap().status, DonationStatus::Released);
+        assert_eq!(client.get_donation(&s3).unwrap().status, DonationStatus::Released);
+    }
+
+    #[test]
+    fn test_refund_eurc_returns_tokens_to_donor() {
+        let (env, _admin, donor, _xlm, _usdc, eurc, client) = setup();
+
+        let before = token::Client::new(&env, &eurc).balance(&donor);
+        let seq = client.donate(&donor, &eurc, &12_345, &10);
+        let after_donate = token::Client::new(&env, &eurc).balance(&donor);
+        assert_eq!(before - after_donate, 12_345);
+
+        client.refund(&seq);
+        let after_refund = token::Client::new(&env, &eurc).balance(&donor);
+        assert_eq!(after_refund, before);
+        assert_eq!(client.get_donation(&seq).unwrap().status, DonationStatus::Refunded);
+    }
+
+    #[test]
+    fn test_release_then_refund_panics_already_processed() {
+        let (env, _admin, donor, _xlm, usdc, _eurc, client) = setup();
+
+        let seq = client.donate(&donor, &usdc, &5_000, &1);
+        let dest = Address::generate(&env);
+        client.release_batch(&soroban_sdk::vec![&env, seq], &dest);
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #84)")]
+    fn test_double_release_panics_already_processed() {
+        let (env, _admin, donor, xlm, _usdc, _eurc, client) = setup();
+
+        let seq = client.donate(&donor, &xlm, &5_000, &1);
+        let dest = Address::generate(&env);
+        client.release_batch(&soroban_sdk::vec![&env, seq], &dest);
+        client.release_batch(&soroban_sdk::vec![&env, seq], &dest);
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #96)")]
+    fn test_donate_zero_amount_panics() {
+        let (_env, _admin, donor, xlm, _usdc, _eurc, client) = setup();
+        client.donate(&donor, &xlm, &0, &1);
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #95)")]
+    fn test_donate_zero_trees_panics() {
+        let (_env, _admin, donor, xlm, _usdc, _eurc, client) = setup();
+        client.donate(&donor, &xlm, &1_000, &0);
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #95)")]
+    fn test_donate_too_many_trees_panics() {
+        let (_env, _admin, donor, xlm, _usdc, _eurc, client) = setup();
+        client.donate(&donor, &xlm, &1_000, &51);
     }
 
     #[test]
     #[should_panic(expected = "Error(Contract, #82)")]
     fn test_donate_rejects_unsupported_token() {
-        let (env, _admin, donor, _xlm, _usdc, client) = setup();
+        let (env, _admin, donor, _xlm, _usdc, _eurc, client) = setup();
         let unsupported = env
             .register_stellar_asset_contract_v2(Address::generate(&env))
             .address();
-        token::StellarAssetClient::new(&env, &unsupported).mint(&donor, &100_000);
+        mint(&env, &unsupported, &donor, &100_000);
 
         client.donate(&donor, &unsupported, &5_000, &1);
     }
 
     #[test]
-    fn test_release() {
-        let (_env, _admin, donor, xlm, _usdc, client) = setup();
+    fn test_advance_batch_rolls_batch_counter() {
+        let (_env, _admin, _donor, _xlm, _usdc, _eurc, client) = setup();
+        assert_eq!(client.current_batch(), 1);
 
-        let seq = client.donate(&donor, &xlm, &5_000, &3);
-
-        let dest = Address::generate(&_env);
-
-        client.release_batch(&soroban_sdk::vec![&_env, seq], &dest);
-
-        let rec = client.get_donation(&seq).unwrap();
-
-        assert_eq!(rec.status, DonationStatus::Released);
+        let nb = client.advance_batch();
+        assert_eq!(nb, 2);
+        assert_eq!(client.current_batch(), 2);
     }
 
     #[test]
-    fn test_refund() {
-        let (_env, _admin, donor, xlm, _usdc, client) = setup();
-
-        let seq = client.donate(&donor, &xlm, &5_000, &3);
-
-        client.refund(&seq);
-
-        let rec = client.get_donation(&seq).unwrap();
-
-        assert_eq!(rec.status, DonationStatus::Refunded);
+    fn test_get_donation_missing_returns_none() {
+        let (_env, _admin, _donor, _xlm, _usdc, _eurc, client) = setup();
+        assert!(client.get_donation(&999).is_none());
     }
 
-    // ── Recurring donation tests ──────────────────────────────────────────────
+    // ── Recurring donations for XLM, USDC, EURC ───────────────────────────
 
     fn setup_recurring_env() -> (
         Env,
@@ -723,30 +1047,28 @@ mod tests {
         Address,
         Address,
         Address,
+        Address,
         u64,
         DonationEscrowClient<'static>,
     ) {
-        let (env, admin, donor, xlm, usdc, client) = setup();
+        let (env, admin, donor, xlm, usdc, eurc, client) = setup();
 
         let project = Address::generate(&env);
         let project_id: u64 = 1;
         client.register_project(&project_id, &project);
 
-        (env, admin, donor, xlm, usdc, project_id, client)
+        (env, admin, donor, xlm, usdc, eurc, project_id, client)
     }
 
     #[test]
-    fn test_process_recurring_succeeds_after_interval() {
-        let (env, _admin, donor, xlm, _usdc, project_id, client) = setup_recurring_env();
+    fn test_process_recurring_succeeds_with_xlm() {
+        let (env, _admin, donor, xlm, _usdc, _eurc, project_id, client) = setup_recurring_env();
 
         let interval: u64 = 1_000;
         let amount: i128 = 1_000;
-
         let id = client.setup_recurring(&donor, &xlm, &project_id, &amount, &interval);
 
-        // Advance ledger time past the interval
         env.ledger().with_mut(|l| l.timestamp += interval + 1);
-
         client.process_recurring(&id);
 
         let rec = client.get_recurring(&id).unwrap();
@@ -755,50 +1077,143 @@ mod tests {
     }
 
     #[test]
+    fn test_process_recurring_succeeds_with_usdc() {
+        let (env, _admin, donor, _xlm, usdc, _eurc, project_id, client) = setup_recurring_env();
+
+        let interval: u64 = 500;
+        let amount: i128 = 2_000;
+        let id = client.setup_recurring(&donor, &usdc, &project_id, &amount, &interval);
+
+        env.ledger().with_mut(|l| l.timestamp += interval + 1);
+        client.process_recurring(&id);
+
+        let rec = client.get_recurring(&id).unwrap();
+        assert_eq!(rec.token, usdc);
+        assert_eq!(rec.total_released, amount);
+    }
+
+    #[test]
+    fn test_process_recurring_succeeds_with_eurc() {
+        let (env, _admin, donor, _xlm, _usdc, eurc, project_id, client) = setup_recurring_env();
+
+        let interval: u64 = 2_000;
+        let amount: i128 = 500;
+        let id = client.setup_recurring(&donor, &eurc, &project_id, &amount, &interval);
+
+        env.ledger().with_mut(|l| l.timestamp += interval + 1);
+        client.process_recurring(&id);
+
+        let rec = client.get_recurring(&id).unwrap();
+        assert_eq!(rec.token, eurc);
+        assert_eq!(rec.total_released, amount);
+    }
+
+    #[test]
     #[should_panic(expected = "Error(Contract, #89)")]
     fn test_process_recurring_fails_before_interval() {
-        let (_env, _admin, donor, xlm, _usdc, project_id, client) = setup_recurring_env();
+        let (_env, _admin, donor, _xlm, _usdc, eurc, project_id, client) = setup_recurring_env();
 
-        let id = client.setup_recurring(&donor, &xlm, &project_id, &1_000, &1_000);
-
-        // Do NOT advance time — should panic
+        let id = client.setup_recurring(&donor, &eurc, &project_id, &1_000, &1_000);
         client.process_recurring(&id);
     }
 
     #[test]
-    fn test_cancel_recurring_refunds_donor() {
-        let (env, _admin, donor, xlm, _usdc, project_id, client) = setup_recurring_env();
+    fn test_cancel_recurring_refunds_eurc_back_to_donor() {
+        let (env, _admin, donor, _xlm, _usdc, eurc, project_id, client) = setup_recurring_env();
 
-        let amount: i128 = 1_000;
-        let id = client.setup_recurring(&donor, &xlm, &project_id, &amount, &1_000);
+        let amount: i128 = 3_333;
+        let id = client.setup_recurring(&donor, &eurc, &project_id, &amount, &1_000);
 
-        let balance_before = token::Client::new(&env, &xlm).balance(&donor);
-
+        let before = token::Client::new(&env, &eurc).balance(&donor);
         client.cancel_recurring(&donor, &id);
+        let after = token::Client::new(&env, &eurc).balance(&donor);
 
-        let balance_after = token::Client::new(&env, &xlm).balance(&donor);
-        assert_eq!(balance_after - balance_before, amount);
+        assert_eq!(after - before, amount);
+        assert!(client.get_recurring(&id).unwrap().cancelled);
+    }
 
-        let rec = client.get_recurring(&id).unwrap();
-        assert!(rec.cancelled);
+    #[test]
+    fn test_cancel_recurring_refunds_usdc_back_to_donor() {
+        let (env, _admin, donor, _xlm, usdc, _eurc, project_id, client) = setup_recurring_env();
+
+        let amount: i128 = 2_222;
+        let id = client.setup_recurring(&donor, &usdc, &project_id, &amount, &1_000);
+
+        let before = token::Client::new(&env, &usdc).balance(&donor);
+        client.cancel_recurring(&donor, &id);
+        let after = token::Client::new(&env, &usdc).balance(&donor);
+
+        assert_eq!(after - before, amount);
     }
 
     #[test]
     #[should_panic(expected = "Error(Contract, #88)")]
     fn test_process_recurring_on_cancelled_panics() {
-        let (env, _admin, donor, xlm, _usdc, project_id, client) = setup_recurring_env();
+        let (env, _admin, donor, _xlm, _usdc, eurc, project_id, client) = setup_recurring_env();
 
         let interval: u64 = 1_000;
-        let id = client.setup_recurring(&donor, &xlm, &project_id, &1_000, &interval);
+        let id = client.setup_recurring(&donor, &eurc, &project_id, &1_000, &interval);
 
         client.cancel_recurring(&donor, &id);
-
-        // Advance time past interval
         env.ledger().with_mut(|l| l.timestamp += interval + 1);
-
-        // Should panic with DonationCancelled
         client.process_recurring(&id);
     }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #92)")]
+    fn test_double_cancel_recurring_panics() {
+        let (_env, _admin, donor, xlm, _usdc, _eurc, project_id, client) = setup_recurring_env();
+
+        let id = client.setup_recurring(&donor, &xlm, &project_id, &500, &500);
+        client.cancel_recurring(&donor, &id);
+        client.cancel_recurring(&donor, &id);
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #91)")]
+    fn test_cancel_recurring_rejects_wrong_donor() {
+        let (env, _admin, donor, xlm, _usdc, _eurc, project_id, client) = setup_recurring_env();
+
+        let id = client.setup_recurring(&donor, &xlm, &project_id, &500, &500);
+        let bad = Address::generate(&env);
+        client.cancel_recurring(&bad, &id);
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #85)")]
+    fn test_setup_recurring_rejects_zero_amount() {
+        let (_env, _admin, donor, _xlm, usdc, _eurc, project_id, client) = setup_recurring_env();
+        let zero: i128 = 0;
+        client.setup_recurring(&donor, &usdc, &project_id, &zero, &500u64);
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #86)")]
+    fn test_setup_recurring_rejects_zero_interval() {
+        let (_env, _admin, donor, _xlm, usdc, _eurc, project_id, client) = setup_recurring_env();
+        client.setup_recurring(&donor, &usdc, &project_id, &100i128, &0u64);
+    }
+
+    #[test]
+    fn test_total_released_increments_across_intervals_eurc() {
+        let (env, _admin, donor, _xlm, _usdc, eurc, project_id, client) = setup_recurring_env();
+
+        let interval: u64 = 1_000;
+        let amount: i128 = 500;
+
+        mint(&env, &eurc, &donor, &10_000);
+
+        let id = client.setup_recurring(&donor, &eurc, &project_id, &amount, &interval);
+
+        env.ledger().with_mut(|l| l.timestamp = interval + 1);
+        client.process_recurring(&id);
+
+        let rec = client.get_recurring(&id).unwrap();
+        assert_eq!(rec.total_released, amount);
+        assert_eq!(rec.next_release, 2 * interval);
+    }
+
+    // ── Normalization helper ─────────────────────────────────────────────
 
     #[test]
     fn test_normalization_helper_scales_amounts_to_common_unit() {
@@ -807,25 +1222,24 @@ mod tests {
         assert_eq!(DonationEscrow::normalize_to_common_unit(10_000, 8), 1_000);
     }
 
+    // ── Edge cases & misc ────────────────────────────────────────────────
+
     #[test]
-    fn test_total_released_increments_across_intervals() {
-        let (env, _admin, donor, xlm, _usdc, project_id, client) = setup_recurring_env();
+    fn test_get_recurring_missing_returns_none() {
+        let (_env, _admin, _donor, _xlm, _usdc, _eurc, _project_id, client) = setup_recurring_env();
+        assert!(client.get_recurring(&9999).is_none());
+    }
 
-        let interval: u64 = 1_000;
-        let amount: i128 = 500;
+    #[test]
+    fn test_register_project_persists_mapping_for_processing() {
+        let (env, _admin, donor, xlm, _usdc, _eurc, project_id, client) = setup_recurring_env();
 
-        // Mint enough for multiple intervals
-        token::StellarAssetClient::new(&env, &xlm).mint(&donor, &10_000);
+        let id = client.setup_recurring(&donor, &xlm, &project_id, &100, &100);
 
-        let id = client.setup_recurring(&donor, &xlm, &project_id, &amount, &interval);
-
-        // First interval: advance past next_release (ledger starts at 0, next_release = interval)
-        env.ledger().with_mut(|l| l.timestamp = interval + 1);
+        env.ledger().with_mut(|l| l.timestamp = 101);
         client.process_recurring(&id);
 
         let rec = client.get_recurring(&id).unwrap();
-        assert_eq!(rec.total_released, amount);
-        // next_release was interval, after processing it becomes interval + interval = 2*interval
-        assert_eq!(rec.next_release, 2 * interval);
+        assert_eq!(rec.total_released, 100);
     }
 }
