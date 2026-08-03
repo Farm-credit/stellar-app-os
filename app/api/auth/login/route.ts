@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { Keypair } from '@stellar/stellar-sdk';
 import { consumeNonce } from '@/lib/auth/nonce';
 import { signPlanterJwt } from '@/lib/auth/jwt';
+import logger from '@/lib/logger';
 
 export const runtime = 'nodejs';
 
@@ -37,25 +38,36 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     );
   }
 
-  // Consume nonce first — prevents timing attacks from re-using a valid nonce.
-  if (!consumeNonce(walletAddress, nonce)) {
-    return NextResponse.json({ error: 'Invalid or expired nonce' }, { status: 401 });
-  }
-
-  // Verify the Ed25519 signature produced by the planter's Stellar keypair.
   try {
-    const keypair = Keypair.fromPublicKey(walletAddress);
-    const message = Buffer.from(`stellar-auth:${nonce}`);
-    const sigBytes = Buffer.from(signature, 'base64');
-
-    if (!keypair.verify(message, sigBytes)) {
-      return NextResponse.json({ error: 'Signature verification failed' }, { status: 401 });
+    // Consume nonce first — prevents timing attacks from re-using a valid nonce.
+    // Redis-backed atomic consume via Lua script ensures single-use even across replicas.
+    const consumed = await consumeNonce(walletAddress, nonce);
+    if (!consumed) {
+      logger.warn('[api:auth:login] Invalid or expired nonce', { walletAddress });
+      return NextResponse.json({ error: 'Invalid or expired nonce' }, { status: 401 });
     }
-  } catch {
-    return NextResponse.json({ error: 'Invalid wallet address or signature' }, { status: 400 });
+
+    // Verify the Ed25519 signature produced by the planter's Stellar keypair.
+    try {
+      const keypair = Keypair.fromPublicKey(walletAddress);
+      const message = Buffer.from(`stellar-auth:${nonce}`);
+      const sigBytes = Buffer.from(signature, 'base64');
+
+      if (!keypair.verify(message, sigBytes)) {
+        return NextResponse.json({ error: 'Signature verification failed' }, { status: 401 });
+      }
+    } catch {
+      return NextResponse.json({ error: 'Invalid wallet address or signature' }, { status: 400 });
+    }
+
+    const token = await signPlanterJwt(walletAddress);
+
+    logger.info('[api:auth:login] Successful login', { walletAddress });
+
+    return NextResponse.json({ token, expiresIn: '8h' });
+  } catch (err) {
+    logger.error('[api:auth:login] Error during login', { walletAddress, err });
+    const msg = err instanceof Error ? err.message : 'Login failed';
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
-
-  const token = await signPlanterJwt(walletAddress);
-
-  return NextResponse.json({ token, expiresIn: '8h' });
 }
