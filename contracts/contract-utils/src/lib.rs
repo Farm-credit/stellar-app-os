@@ -54,3 +54,24 @@ pub fn assert_whitelisted(env: &Env, addr: &Address) {
         panic!("address not whitelisted");
     }
 }
+
+/// TTL extension constants and helper functions for Soroban instance storage.
+pub mod ttl {
+    use soroban_sdk::Env;
+
+    /// Default threshold ledgers (~1 day of ledgers assuming 5s/ledger)
+    pub const DEFAULT_TTL_THRESHOLD: u32 = 17_280;
+    /// Default extension target ledgers (~30 days of ledgers)
+    pub const DEFAULT_TTL_EXTEND_TO: u32 = 518_400;
+
+    /// Extends the instance storage TTL of the executing contract.
+    pub fn extend_instance_ttl(env: &Env, threshold: u32, extend_to: u32) {
+        env.storage().instance().extend_ttl(threshold, extend_to);
+    }
+
+    /// Extends instance storage TTL using default parameters (1 day threshold, 30 days extension).
+    pub fn bump_instance_ttl(env: &Env) {
+        extend_instance_ttl(env, DEFAULT_TTL_THRESHOLD, DEFAULT_TTL_EXTEND_TO);
+    }
+}
+
