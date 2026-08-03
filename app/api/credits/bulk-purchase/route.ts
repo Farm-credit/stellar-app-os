@@ -2,6 +2,10 @@ import { NextResponse } from 'next/server';
 import { buildBulkPurchaseTransaction } from '@/lib/stellar/transaction';
 import { BULK_PURCHASE_MIN_QUANTITY } from '@/lib/types/carbon';
 import type { BulkPurchaseOrder } from '@/lib/types/carbon';
+import { withWalletLock } from '@/lib/cache/redlock';
+import logger from '@/lib/logger';
+
+export const runtime = 'nodejs';
 
 export async function POST(request: Request) {
   try {
@@ -27,19 +31,31 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Invalid network' }, { status: 400 });
     }
 
-    const result = await buildBulkPurchaseTransaction({
-      projectId,
-      quantity,
-      totalPrice,
+    const result = await withWalletLock(
       buyerPublicKey,
-      network,
-      metadata,
-    });
+      async () => {
+        logger.info('[api:bulk-purchase] Building bulk purchase tx with wallet lock', {
+          buyerPublicKey,
+          projectId,
+          quantity,
+        });
+        return buildBulkPurchaseTransaction({
+          projectId,
+          quantity,
+          totalPrice,
+          buyerPublicKey,
+          network,
+          metadata,
+        });
+      },
+      { ttlMs: 15_000, retryCount: 15 }
+    );
 
     return NextResponse.json(result);
   } catch (error) {
-    console.error('Bulk purchase transaction build failed:', error);
+    logger.error('[api:bulk-purchase] Bulk purchase transaction build failed', { error });
     const message = error instanceof Error ? error.message : 'Failed to build transaction';
-    return NextResponse.json({ error: message }, { status: 500 });
+    const status = message.includes('acquire lock') ? 409 : 500;
+    return NextResponse.json({ error: message }, { status });
   }
 }

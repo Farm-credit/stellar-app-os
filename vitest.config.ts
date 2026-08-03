@@ -12,5 +12,6 @@ export default defineConfig({
     globals: true,
     include: ['**/*.{test,spec}.{ts,tsx}', '**/__tests__/**/*.test.{ts,tsx}'],
     exclude: ['node_modules', '.next', 'contracts'],
+
   },
 });

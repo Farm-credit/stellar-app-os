@@ -369,6 +369,12 @@ export function CarbonDashboard() {
         </div>
       </div>
 
+      {/* Swap Widget */}
+      <div className="grid grid-cols-1 gap-6">
+        <CarbonCreditSwapWidget />
+      </div>
+
+      {/* Main Chart Area */}
       <div className="grid grid-cols-1 gap-6">
         {isLoading ? (
           <div
