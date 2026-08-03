@@ -682,7 +682,7 @@ mod tests {
         let sa = Address::generate(&env);
         let sb = Address::generate(&env);
         let sc = Address::generate(&env);
-        let contract = env.register(PublicSeal, ());
+        let contract = env.register_contract(None, PublicSeal);
         let client = PublicSealClient::new(&env, &contract);
 
         let signers = soroban_sdk::vec![&env, sa.clone(), sb.clone(), sc.clone()];
@@ -729,7 +729,7 @@ mod tests {
         let sa = Address::generate(&env);
         let sb = Address::generate(&env);
         let sc = Address::generate(&env);
-        let contract = env.register(PublicSeal, ());
+        let contract = env.register_contract(None, PublicSeal);
         let client = PublicSealClient::new(&env, &contract);
 
         let signers = soroban_sdk::vec![&env, sa.clone(), sb.clone(), sc.clone()];
@@ -796,7 +796,7 @@ mod tests {
         let client = PublicSealClient::new(&ctx.env, &ctx.contract);
         let hash = make_hash(&ctx.env);
 
-        let req_id = client.propose(&hash);
+        let _req_id = client.propose(&hash);
         client.revoke_signer(&ctx.sa);
 
         assert!(client.is_signer_revoked(&ctx.sa));
@@ -867,7 +867,7 @@ mod tests {
         env.mock_all_auths();
         let admin = Address::generate(&env);
         let sa = Address::generate(&env);
-        let contract = env.register(PublicSeal, ());
+        let contract = env.register_contract(None, PublicSeal);
         let signers = soroban_sdk::vec![&env, sa];
         PublicSealClient::new(&env, &contract).initialize(&admin, &signers, &0, &0);
     }
@@ -878,7 +878,7 @@ mod tests {
         let env = Env::default();
         env.mock_all_auths();
         let admin = Address::generate(&env);
-        let contract = env.register(PublicSeal, ());
+        let contract = env.register_contract(None, PublicSeal);
         let signers = soroban_sdk::vec![&env];
         PublicSealClient::new(&env, &contract).initialize(&admin, &signers, &1, &0);
     }
@@ -890,7 +890,7 @@ mod tests {
         env.mock_all_auths();
         let admin = Address::generate(&env);
         let sa = Address::generate(&env);
-        let contract = env.register(PublicSeal, ());
+        let contract = env.register_contract(None, PublicSeal);
         let signers = soroban_sdk::vec![&env, sa.clone(), sa];
         PublicSealClient::new(&env, &contract).initialize(&admin, &signers, &1, &0);
     }
@@ -940,7 +940,7 @@ mod tests {
     #[test]
     fn test_proposer_is_also_approver() {
         let ctx = setup();
-        let client = PublicSealClient::new(&ctx.env, &ctx.contract);
+        let _client = PublicSealClient::new(&ctx.env, &ctx.contract);
         let hash = make_hash(&ctx.env);
 
         // Admin proposes (is also a signer via admin role).
@@ -954,7 +954,7 @@ mod tests {
             ctx.sc.clone()
         ];
         // Reinitialize with admin as signer.
-        let contract2 = ctx.env.register(PublicSeal, ());
+        let contract2 = ctx.env.register_contract(None, PublicSeal);
         let client2 = PublicSealClient::new(&ctx.env, &contract2);
         client2.initialize(&ctx.admin, &signers, &2, &0);
 
