@@ -1,37 +1,24 @@
 'use client';
 
-import { type JSX, useState } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/atoms/Button';
+import { Badge } from '@/components/atoms/Badge';
 import { Text } from '@/components/atoms/Text';
 import { Counter } from '@/components/atoms/Counter';
-import { OnboardingTour } from '@/components/organisms/OnboardingTour/OnboardingTour';
 import { LandingHero } from '@/components/organisms/LandingHero';
 import SocialShareButtons from '@/components/SocialShareButtons';
 import {
   Card,
+  CardContent,
+  CardDescription,
   CardHeader,
   CardTitle,
-  CardDescription,
-  CardContent,
 } from '@/components/molecules/Card';
-import { TransactionHistoryModal } from '@/components/ui/TransactionHistoryModal';
-import { EventSimulator } from '@/components/organisms/EventSimulator/EventSimulator';
-import { useToast } from '@/hooks/useToast';
-import { useAppTranslation } from '@/hooks/useTranslation';
-
-export default function HomePage(): JSX.Element {
-  const [showTx, setShowTx] = useState(false);
-  const { addToast } = useToast();
-  const { t } = useAppTranslation();
 
 export default function HomePage() {
   return (
-    <main
-      id="main-content"
-      className="flex min-h-screen flex-col items-center justify-center gap-8 p-8"
-    >
-      <div data-tour-id="hero-section" className="flex flex-col items-center gap-4 text-center">
+    <main id="main-content" className="flex min-h-screen flex-col items-center justify-center gap-8 p-8">
+      <section className="flex flex-col items-center gap-4 text-center max-w-4xl">
         <Badge variant="default">Powered by Stellar</Badge>
         <Text variant="h1">FarmCredit</Text>
         <Text variant="muted" className="max-w-md">
@@ -40,23 +27,13 @@ export default function HomePage() {
         <Button asChild variant="default" size="sm">
           <Link href="/api-docs">API Docs</Link>
         </Button>
-      </header>
+      </section>
 
-      <div data-tour-id="hero-section" className="flex flex-col items-center gap-4 text-center">
-        <Badge variant="default">Decentralized Tree Planting</Badge>
-        <Text variant="h1">FarmCredit</Text>
-        <Text variant="muted" className="max-w-md">
-          A decentralized agricultural credit platform built on Stellar
-        </Text>
-      <div data-tour-id="hero-section">
+      <section className="w-full max-w-7xl">
         <LandingHero />
-      </div>
+      </section>
 
-      {/* Platform Stats */}
-      <div
-        data-tour-id="stats-grid"
-        className="grid grid-cols-1 sm:grid-cols-3 gap-6 w-full max-w-4xl"
-      >
+      <section data-tour-id="stats-grid" className="grid grid-cols-1 sm:grid-cols-3 gap-6 w-full max-w-4xl">
         <div className="flex flex-col items-center gap-2 p-6 rounded-lg bg-muted/50">
           <Counter end={1234567} prefix="$" className="text-center" />
           <Text variant="muted" className="text-sm">
@@ -75,59 +52,49 @@ export default function HomePage() {
             Repayment Rate
           </Text>
         </div>
-      </div>
+      </section>
 
-      <Card data-tour-id="get-started-card" className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle>Get Started</CardTitle>
-          <CardDescription>
-            Connect your wallet to start planting trees and earning credits.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-3">
-          <Button asChild variant="default" size="lg" className="w-full">
-            <Link href="/farmer/verification">Farmer Verification</Link>
-          </Button>
-          <Button asChild variant="outline" size="lg" className="w-full">
-            <Link href="/dashboard/farmer">Farmer Dashboard</Link>
-            <Link href="/blog">{t('home.readBlog')}</Link>
-          </Button>
-          <Button
-            data-tour-id="purchase-credits-button"
-            asChild
-            variant="outline"
-            size="lg"
-            className="w-full"
-          >
-            <Link href="/credits/purchase">Purchase Carbon Credits</Link>
-          </Button>
-          <Button asChild variant="outline" size="lg" className="w-full">
-            <Link href="/blog">Read Blog</Link>
-          </Button>
-          <Button asChild variant="outline" size="lg" className="w-full">
-            <Link href="/credits/purchase">Purchase Carbon Credits</Link>
-          </Button>
-          <Button asChild variant="outline" size="lg" className="w-full">
-            <Link href="/api-docs">Explore API Documentation</Link>
-          </Button>
-        </CardContent>
-      </Card>
+      <section className="w-full max-w-md">
+        <Card data-tour-id="get-started-card">
+          <CardHeader>
+            <CardTitle>Get Started</CardTitle>
+            <CardDescription>Connect your wallet to start planting trees and earning credits.</CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-3">
+            <Button asChild variant="default" size="lg" className="w-full">
+              <Link href="/farmer/verification">Farmer Verification</Link>
+            </Button>
+            <Button asChild variant="outline" size="lg" className="w-full">
+              <Link href="/dashboard/farmer">Farmer Dashboard</Link>
+            </Button>
+            <Button asChild variant="outline" size="lg" className="w-full">
+              <Link href="/credits/purchase">Purchase Carbon Credits</Link>
+            </Button>
+            <Button asChild variant="outline" size="lg" className="w-full">
+              <Link href="/blog">Read Blog</Link>
+            </Button>
+            <Button asChild variant="outline" size="lg" className="w-full">
+              <Link href="/api-docs">Explore API Documentation</Link>
+            </Button>
+          </CardContent>
+        </Card>
+      </section>
 
-      <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle>Share FarmCredit</CardTitle>
-          <CardDescription>Help spread the word about sustainable agriculture.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <SocialShareButtons
-            title="Check out FarmCredit!"
-            description="A decentralized agricultural credit platform built on Stellar"
-            impact="Supporting sustainable farming and equal access to credit"
-          />
-        </CardContent>
-      </Card>
-
-      <OnboardingTour />
+      <section className="w-full max-w-md">
+        <Card>
+          <CardHeader>
+            <CardTitle>Share FarmCredit</CardTitle>
+            <CardDescription>Help spread the word about sustainable agriculture.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <SocialShareButtons
+              title="Check out FarmCredit!"
+              description="A decentralized agricultural credit platform built on Stellar"
+              impact="Supporting sustainable farming and equal access to credit"
+            />
+          </CardContent>
+        </Card>
+      </section>
     </main>
   );
 }

@@ -3,9 +3,9 @@ import jsPDF from 'jspdf';
 export interface CertificateData {
   userName: string | null;
   walletAddress: string;
-  quantityRetired: number; // For compatibility
+  quantityRetired: number;
   treeCount: number;
-  co2Offset: number; // in tCO2e
+  co2Offset: number;
   plantingDate: Date;
   region: string;
   projectName: string;
@@ -57,187 +57,193 @@ export function getDisplayName(
   return data.userName?.trim() || data.walletAddress;
 }
 
-export function generateCertificatePdf({ qrDataUrl, data }: GenerateCertificateOptions): void {
+export class CertificateError extends Error {
+  constructor(
+    message: string,
+    public readonly code: string
+  ) {
+    super(message);
+    this.name = 'CertificateError';
+  }
+}
+
+function validateOptions({ qrDataUrl, data }: GenerateCertificateOptions): void {
+  if (!qrDataUrl) {
+    throw new CertificateError('QR data URL is required', 'MISSING_QR_DATA');
+  }
+  if (!data.transactionHash) {
+    throw new CertificateError('Transaction hash is required', 'MISSING_TX_HASH');
+  }
+  if (data.treeCount < 0) {
+    throw new CertificateError('Tree count must be non-negative', 'INVALID_TREE_COUNT');
+  }
+  if (data.co2Offset < 0) {
+    throw new CertificateError('CO2 offset must be non-negative', 'INVALID_CO2_OFFSET');
+  }
+}
+
+export async function generateCertificatePdf(options: GenerateCertificateOptions): Promise<void> {
+  validateOptions(options);
+
+  const { qrDataUrl, data } = options;
+
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
 
   const displayName = getDisplayName(data);
   const explorerUrl = getExplorerUrl(data.transactionHash, data.explorerBaseUrl);
   const projectLabel = truncate(data.projectName, 60);
 
-  // ── Header band ──────────────────────────────────────────────────────────
-  doc.setFillColor(STELLAR_NAVY);
-  doc.rect(0, 0, PAGE_W, 52, 'F');
+  try {
+    doc.setFillColor(STELLAR_NAVY);
+    doc.rect(0, 0, PAGE_W, 52, 'F');
+    doc.setFillColor(STELLAR_BLUE);
+    doc.rect(0, 48, PAGE_W, 4, 'F');
+    doc.setTextColor(WHITE);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(22);
+    doc.text('IMPACT CERTIFICATE', PAGE_W / 2, 22, { align: 'center' });
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(11);
+    doc.text('Environmental Impact Verification on Stellar', PAGE_W / 2, 32, { align: 'center' });
+    doc.setFontSize(9);
+    doc.text(`Issued: ${formatDate(data.retirementDate)}`, PAGE_W / 2, 42, { align: 'center' });
 
-  // Stellar blue accent stripe
-  doc.setFillColor(STELLAR_BLUE);
-  doc.rect(0, 48, PAGE_W, 4, 'F');
+    const badgeX = PAGE_W - MARGIN - 32;
+    const badgeY = 6;
+    doc.setFillColor(STELLAR_GREEN);
+    doc.roundedRect(badgeX, badgeY, 32, 10, 2, 2, 'F');
+    doc.setTextColor(WHITE);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7);
+    doc.text('✓ VERIFIED', badgeX + 16, badgeY + 6.5, { align: 'center' });
 
-  doc.setTextColor(WHITE);
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(22);
-  doc.text('IMPACT CERTIFICATE', PAGE_W / 2, 22, { align: 'center' });
+    let y = 64;
+    doc.setTextColor(STELLAR_NAVY);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(11);
+    doc.text('This certifies that', PAGE_W / 2, y, { align: 'center' });
 
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(11);
-  doc.text('Environmental Impact Verification on Stellar', PAGE_W / 2, 32, {
-    align: 'center',
-  });
+    y += 10;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(16);
+    doc.setTextColor(STELLAR_BLUE);
+    doc.text(truncate(displayName, 55), PAGE_W / 2, y, { align: 'center' });
 
-  doc.setFontSize(9);
-  doc.text(`Issued: ${formatDate(data.retirementDate)}`, PAGE_W / 2, 42, { align: 'center' });
-
-  // ── Verified badge ────────────────────────────────────────────────────────
-  const badgeX = PAGE_W - MARGIN - 32;
-  const badgeY = 6;
-  doc.setFillColor(STELLAR_GREEN);
-  doc.roundedRect(badgeX, badgeY, 32, 10, 2, 2, 'F');
-  doc.setTextColor(WHITE);
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(7);
-  doc.text('✓ VERIFIED', badgeX + 16, badgeY + 6.5, { align: 'center' });
-
-  // ── Body ──────────────────────────────────────────────────────────────────
-  let y = 64;
-
-  // Intro text
-  doc.setTextColor(STELLAR_NAVY);
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(11);
-  doc.text('This certifies that', PAGE_W / 2, y, { align: 'center' });
-
-  // Display name
-  y += 10;
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(16);
-  doc.setTextColor(STELLAR_BLUE);
-  doc.text(truncate(displayName, 55), PAGE_W / 2, y, { align: 'center' });
-
-  y += 8;
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(11);
-  doc.setTextColor(STELLAR_NAVY);
-  doc.text('has contributed to environmental restoration through', PAGE_W / 2, y, {
-    align: 'center',
-  });
-
-  // Impact Stats
-  y += 12;
-  doc.setFillColor(LIGHT_GRAY);
-  doc.roundedRect(MARGIN, y - 7, CONTENT_W, 24, 3, 3, 'F');
-
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(18);
-  doc.setTextColor(STELLAR_NAVY);
-  doc.text(`${data.treeCount.toLocaleString()} Trees Planted`, PAGE_W / 4 + 10, y + 4, {
-    align: 'center',
-  });
-
-  doc.text(`${data.co2Offset.toLocaleString()} tCO2e Offset`, (PAGE_W * 3) / 4 - 10, y + 4, {
-    align: 'center',
-  });
-
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(9);
-  doc.setTextColor(MID_GRAY);
-  doc.text('Reforestation Impact', PAGE_W / 4 + 10, y + 10, { align: 'center' });
-  doc.text('Estimated CO2 Sequestration', (PAGE_W * 3) / 4 - 10, y + 10, { align: 'center' });
-
-  y += 30;
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(11);
-  doc.setTextColor(STELLAR_NAVY);
-  doc.text('Location & Timeline', PAGE_W / 2, y, { align: 'center' });
-
-  // Project details
-  y += 9;
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(13);
-  doc.setTextColor(STELLAR_BLUE);
-  doc.text(`${data.region} · Planted ${formatDate(data.plantingDate)}`, PAGE_W / 2, y, {
-    align: 'center',
-  });
-
-  y += 8;
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(11);
-  doc.setTextColor(STELLAR_NAVY);
-  doc.text('Project: ' + projectLabel, PAGE_W / 2, y, { align: 'center' });
-
-  // Project description
-  if (data.projectDescription) {
     y += 8;
-    doc.setFont('helvetica', 'italic');
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(11);
+    doc.setTextColor(STELLAR_NAVY);
+    doc.text('has contributed to environmental restoration through', PAGE_W / 2, y, {
+      align: 'center',
+    });
+
+    y += 12;
+    doc.setFillColor(LIGHT_GRAY);
+    doc.roundedRect(MARGIN, y - 7, CONTENT_W, 24, 3, 3, 'F');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(18);
+    doc.setTextColor(STELLAR_NAVY);
+    doc.text(`${data.treeCount.toLocaleString()} Trees Planted`, PAGE_W / 4 + 10, y + 4, {
+      align: 'center',
+    });
+    doc.text(`${data.co2Offset.toLocaleString()} tCO2e Offset`, (PAGE_W * 3) / 4 - 10, y + 4, {
+      align: 'center',
+    });
+    doc.setFont('helvetica', 'normal');
     doc.setFontSize(9);
     doc.setTextColor(MID_GRAY);
-    const descLines = doc.splitTextToSize(truncate(data.projectDescription, 200), CONTENT_W);
-    doc.text(descLines as string[], PAGE_W / 2, y, { align: 'center' });
-    y += (descLines as string[]).length * 5;
-  }
+    doc.text('Reforestation Impact', PAGE_W / 4 + 10, y + 10, { align: 'center' });
+    doc.text('Estimated CO2 Sequestration', (PAGE_W * 3) / 4 - 10, y + 10, { align: 'center' });
 
-  // ── Divider ───────────────────────────────────────────────────────────────
-  y += 8;
-  doc.setDrawColor(STELLAR_BLUE);
-  doc.setLineWidth(0.5);
-  doc.line(MARGIN, y, PAGE_W - MARGIN, y);
+    y += 30;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(11);
+    doc.setTextColor(STELLAR_NAVY);
+    doc.text('Location & Timeline', PAGE_W / 2, y, { align: 'center' });
 
-  // ── Transaction details + QR ──────────────────────────────────────────────
-  y += 10;
-  const qrSize = 38;
-  const qrX = PAGE_W - MARGIN - qrSize;
+    y += 9;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(13);
+    doc.setTextColor(STELLAR_BLUE);
+    doc.text(`${data.region} · Planted ${formatDate(data.plantingDate)}`, PAGE_W / 2, y, {
+      align: 'center',
+    });
 
-  // Left: tx hash block
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(9);
-  doc.setTextColor(STELLAR_NAVY);
-  doc.text('TRANSACTION HASH', MARGIN, y);
+    y += 8;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(11);
+    doc.setTextColor(STELLAR_NAVY);
+    doc.text('Project: ' + projectLabel, PAGE_W / 2, y, { align: 'center' });
 
-  y += 6;
-  doc.setFillColor(STELLAR_NAVY);
-  doc.roundedRect(MARGIN, y - 4, CONTENT_W - qrSize - 8, 10, 2, 2, 'F');
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(7);
-  doc.setTextColor(WHITE);
-  const hashDisplay = truncate(data.transactionHash, 56);
-  doc.text(hashDisplay, MARGIN + 3, y + 2.5);
+    if (data.projectDescription) {
+      y += 8;
+      doc.setFont('helvetica', 'italic');
+      doc.setFontSize(9);
+      doc.setTextColor(MID_GRAY);
+      const descLines = doc.splitTextToSize(truncate(data.projectDescription, 200), CONTENT_W);
+      doc.text(descLines as string[], PAGE_W / 2, y, { align: 'center' });
+      y += (descLines as string[]).length * 5;
+    }
 
-  y += 14;
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(8);
-  doc.setTextColor(STELLAR_BLUE);
-  doc.text(truncate(explorerUrl, 70), MARGIN, y);
+    y += 8;
+    doc.setDrawColor(STELLAR_BLUE);
+    doc.setLineWidth(0.5);
+    doc.line(MARGIN, y, PAGE_W - MARGIN, y);
 
-  // Right: QR code
-  const qrY = y - 30;
-  try {
-    doc.addImage(qrDataUrl, 'PNG', qrX, qrY, qrSize, qrSize);
+    y += 10;
+    const qrSize = 38;
+    const qrX = PAGE_W - MARGIN - qrSize;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.setTextColor(STELLAR_NAVY);
+    doc.text('TRANSACTION HASH', MARGIN, y);
+
+    y += 6;
+    doc.setFillColor(STELLAR_NAVY);
+    doc.roundedRect(MARGIN, y - 4, CONTENT_W - qrSize - 8, 10, 2, 2, 'F');
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(7);
-    doc.setTextColor(MID_GRAY);
-    doc.text('Scan to verify', qrX + qrSize / 2, qrY + qrSize + 4, { align: 'center' });
-  } catch {
+    doc.setTextColor(WHITE);
+    const hashDisplay = truncate(data.transactionHash, 56);
+    doc.text(hashDisplay, MARGIN + 3, y + 2.5);
+
+    y += 14;
+    doc.setFont('helvetica', 'normal');
     doc.setFontSize(8);
-    doc.setTextColor(MID_GRAY);
-    doc.text('[QR unavailable]', qrX + qrSize / 2, qrY + qrSize / 2, { align: 'center' });
-  }
+    doc.setTextColor(STELLAR_BLUE);
+    doc.text(truncate(explorerUrl, 70), MARGIN, y);
 
-  // ── Footer ────────────────────────────────────────────────────────────────
-  doc.setFillColor(STELLAR_NAVY);
-  doc.rect(0, PAGE_H - 20, PAGE_W, 20, 'F');
-  doc.setFillColor(STELLAR_BLUE);
-  doc.rect(0, PAGE_H - 20, PAGE_W, 2, 'F');
-
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(8);
-  doc.setTextColor(WHITE);
-  doc.text(
-    'Powered by Stellar Network · Immutable · Verifiable · Permanent',
-    PAGE_W / 2,
-    PAGE_H - 10,
-    {
-      align: 'center',
+    const qrY = y - 30;
+    try {
+      doc.addImage(qrDataUrl, 'PNG', qrX, qrY, qrSize, qrSize);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7);
+      doc.setTextColor(MID_GRAY);
+      doc.text('Scan to verify', qrX + qrSize / 2, qrY + qrSize + 4, { align: 'center' });
+    } catch {
+      doc.setFontSize(8);
+      doc.setTextColor(MID_GRAY);
+      doc.text('[QR unavailable]', qrX + qrSize / 2, qrY + qrSize / 2, { align: 'center' });
     }
-  );
 
-  const safeName = displayName.replace(/[^a-z0-9]/gi, '_').slice(0, 30);
-  doc.save(`retirement-certificate-${safeName}.pdf`);
+    doc.setFillColor(STELLAR_NAVY);
+    doc.rect(0, PAGE_H - 20, PAGE_W, 20, 'F');
+    doc.setFillColor(STELLAR_BLUE);
+    doc.rect(0, PAGE_H - 20, PAGE_W, 2, 'F');
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(WHITE);
+    doc.text(
+      'Powered by Stellar Network · Immutable · Verifiable · Permanent',
+      PAGE_W / 2,
+      PAGE_H - 10,
+      { align: 'center' }
+    );
+
+    const safeName = displayName.replace(/[^a-z0-9]/gi, '_').slice(0, 30);
+    doc.save(`retirement-certificate-${safeName}.pdf`);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown error during PDF generation';
+    throw new CertificateError(message, 'PDF_GENERATION_FAILED');
+  }
 }
