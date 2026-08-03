@@ -482,13 +482,44 @@ impl TreeRegistry {
         env.storage().persistent().set(&tree_key, &tree_record);
         Self::extend_ttl(env, &tree_key);
 
-        let amount = Self::co2_credits_for_years(milestone_years);
+        // ── Dynamic CO₂ rate lookup ────────────────────────────────────────────
+        // Look up the species-specific CO₂ sequestration rate from the on-chain
+        // SpeciesInfo table.  If the species is not registered, fall back to the
+        // default hardcoded CO₂ rate for backward compatibility.
+        let co2_rate = Self::get_species_co2_rate(&env, &tree_record.species);
+        let amount = Self::co2_credits_for_years(co2_rate, milestone_years);
+
         env.events().publish(
             (Symbol::new(&env, "MilestoneClaimed"), tree_id),
             (sponsor, milestone_years, amount),
         );
 
         amount
+    }
+
+    /// Look up the species-specific CO₂ kg/year rate.
+    ///
+    /// Converts the tree's species name (stored as `soroban_sdk::String`)
+    /// to a `Symbol` via `Display`/`ToString` — available in Soroban SDK
+    /// v21 — then retrieves the `SpeciesInfo` record.  Returns the CO₂ rate
+    /// in kg/year (by dividing the scaled `co2_scaled` value by 100).
+    /// Falls back to `CO2_KG_PER_YEAR` if no species info is registered.
+    fn get_species_co2_rate(env: &Env, species: &soroban_sdk::String) -> i128 {
+        let slug = Symbol::new(env, &species.to_string());
+        if let Some(info) = env
+            .storage()
+            .persistent()
+            .get::<_, SpeciesInfo>(&Self::species_info_key(env, &slug))
+        {
+            // co2_scaled is kg/year × 100, so divide by 100 to get kg/year
+            if info.co2_scaled > 0 {
+                info.co2_scaled / 100
+            } else {
+                CO2_KG_PER_YEAR
+            }
+        } else {
+            CO2_KG_PER_YEAR
+        }
     }
 
     pub fn tree_count(env: Env) -> u64 {
@@ -713,9 +744,8 @@ impl TreeRegistry {
         }
     }
 
-    fn co2_credits_for_years(years: u64) -> i128 {
-        CO2_KG_PER_YEAR
-            .checked_mul(i128::from(years))
+    fn co2_credits_for_years(rate: i128, years: u64) -> i128 {
+        rate.checked_mul(i128::from(years))
             .expect("CO2 credit overflow")
     }
 

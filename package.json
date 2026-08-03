@@ -23,7 +23,13 @@
     "indexer": "tsx lib/indexer/worker.ts",
     "indexer:events": "tsx lib/indexer/event-worker.ts",
     "integrity-check": "tsx lib/integrity-checker.ts",
+
+
+
+    "db:migrate": "node scripts/run-migrations.mjs",
+
     "db:migrate:species": "psql $DATABASE_URL -f db/migrations/002_create_species_catalogue.sql",
+
     "monitor:treasury": "tsx lib/monitor/worker.ts",
     "db:migrate:status": "node scripts/run-migrations.mjs status",
     "db:migrate:validate": "node scripts/run-migrations.mjs validate",
