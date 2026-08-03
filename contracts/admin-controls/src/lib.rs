@@ -373,7 +373,7 @@ mod tests {
     #[test]
     #[should_panic(expected = "Error(Contract, #1)")]
     fn test_double_initialize_rejected() {
-        let (env, admin, oracle, client) = setup();
+        let (_env, admin, oracle, client) = setup();
         client.initialize(&admin, &oracle);
     }
 

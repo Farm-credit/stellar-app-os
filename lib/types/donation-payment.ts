@@ -48,12 +48,6 @@ export interface DonationAllocationBreakdown {
   buffer: number;
 }
 
-export interface DonationAllocationBreakdown {
-  total: number;
-  planting: number;
-  buffer: number;
-}
-
 export interface BuildDonationTransactionResponse {
   transactionXdr: string;
   networkPassphrase: string;

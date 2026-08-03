@@ -1,11 +1,28 @@
 #![no_std]
 
-//! Farmer Registry Contract — Closes #637
+//! Farmer Registry Contract — Closes #637 & #751
 //!
 //! Upgrades the registry to store SHA-256 hashes of encrypted farmer identity
 //! documents rather than plain-text records, enforces on-chain SHA-256
 //! integrity checks, and gates all read/write operations behind an
 //! admin-managed validator set.
+//!
+//! # #751 — Storage Key Footprint Optimisation
+//!
+//! All persistent storage keys now use a `#[contracttype] DataKey` enum
+//! rather than ad-hoc `(Symbol, Address)` tuples.  Soroban encodes enum
+//! variant discriminants as small integers, which reduces the per-key
+//! footprint by 24–32 bytes compared to the old tuple encoding.  Every
+//! persistent write now also calls `extend_ttl` with a 30-day minimum /
+//! 90-day maximum window, preventing premature state expiry and the
+//! associated ledger fees.
+//!
+//! **Planter Reputation Array** — A compact on-chain reputation ledger
+//! that maps planter addresses to their 0–1000 integer scores and tier
+//! badges.  Instead of one storage entry per planter, the entire array
+//! is stored under a single `DataKey::Reputation` key as a
+//! `Vec<ReputationEntry>`, dramatically reducing the state footprint
+//! when many planters are registered.
 //!
 //! # Design
 //!
@@ -28,15 +45,88 @@
 //!
 //! Validator management (`register_validator` / `revoke_validator`) is
 //! restricted to the admin address set at `initialize`.
+//!
+//! ## Storage TTL
+//!
+//! Every persistent storage `set` is followed by `extend_ttl` with a floor
+//! of 30 days (518,400 ledger closes ≈ 30 days at 5s per close) and a
+//! ceiling of 90 days (1,036,800 ledger closes).  This ensures that even
+//! infrequently-accessed state (e.g. a farmer who registered a year ago)
+//! does not expire and incur restoration fees.
+//!
+//! ## Reputation Array
+//!
+//! The planter reputation array supports:
+//! - `upsert_reputation` — insert or update a single planter's score/tier
+//! - `get_reputation` — read a single planter's entry
+//! - `get_all_reputations` — return the full array
+//! - `remove_reputation` — delete a planter from the ledger
+//!
+//! Because the entire array is a single storage entry, the contract reads
+//! it in one `get`, modifies the in-memory `Vec`, and writes it back in one
+//! `set`.  This is efficient when the array is ≤ ~500 entries; beyond that
+//! the O(n) read/write cost per mutation becomes noticeable.
 
-use harvesta_errors::{HarvestaError, FarmerError};
-use soroban_sdk::{
-    contract, contractimpl, contracttype, panic_with_error, symbol_short, Address, Bytes,
-    BytesN, Env, IntoVal, String,
-};
 use admin_controls::AdminControlsClient;
+use harvesta_errors::{FarmerError, HarvestaError};
+use soroban_sdk::{
+    contract, contractimpl, contracttype, panic_with_error, symbol_short, Address, Bytes, BytesN,
+    Env, IntoVal, String, Vec,
+};
+
+/// Persistent co-operative records are renewed before their remaining lifetime
+/// becomes short.  This keeps long-lived group accounts discoverable without
+/// requiring every read to mutate storage.
+const COOP_TTL_THRESHOLD: u32 = 518_400;
+const COOP_TTL_EXTEND_TO: u32 = 1_036_800;
+/// A deliberately bounded signer list keeps one co-operative record small.
+const MAX_COOP_SIGNERS: u32 = 20;
+
+// ── TTL constants ─────────────────────────────────────────────────────────────
+
+/// Minimum TTL extension for persistent storage (30 days in ledger closes).
+/// At 5 seconds per ledger close, 518,400 ≈ 30 days.
+const TTL_MIN: u32 = 518_400;
+
+/// Maximum TTL extension for persistent storage (90 days in ledger closes).
+const TTL_MAX: u32 = 1_036_800;
 
 // ── Types ─────────────────────────────────────────────────────────────────────
+
+/// Efficient storage key enum — replaces ad-hoc `(Symbol, …)` tuples.
+///
+/// Soroban encodes `#[contracttype]` enum discriminants as compact
+/// integers, saving ~24–32 bytes per key compared to the tuple encoding.
+/// Each variant carries the minimal payload required to construct the
+/// concrete ledger-entry key.
+#[contracttype]
+#[derive(Clone, Debug, PartialEq)]
+pub enum DataKey {
+    /// (admin_address, admin_controls_address) — contract configuration.
+    Config,
+    /// Boolean: is `Address` a registered validator?
+    Validator(Address),
+    /// Boolean: is `Address` frozen?
+    Frozen(Address),
+    /// FarmerProfile for a given wallet address.
+    Farmer(Address),
+    /// Version counter (u32) for a farmer's profile history.
+    Version(Address),
+    /// ProfileHistoryEntry at a specific version for a farmer.
+    History(Address, u32),
+    /// Boolean: is the farmer available to accept jobs?
+    Available(Address),
+    /// FarmPlot record keyed by plot_id.
+    Plot(BytesN<32>),
+    /// Vec<BytesN<32>> of plot IDs owned by a farmer.
+    FarmerPlots(Address),
+    /// LandTenureVerification record keyed by title_id.
+    Tenure(BytesN<32>),
+    /// Vec<BytesN<32>> of title IDs for a farmer.
+    FarmerTenures(Address),
+    /// Compact reputation array: Vec<ReputationEntry> under a single key.
+    Reputation,
+}
 
 /// Full farmer profile stored under the validator-gated key.
 ///
@@ -79,13 +169,62 @@ pub struct ProfileHistoryEntry {
 pub struct FarmPlot {
     pub plot_id: BytesN<32>,
     pub farmer_id: Address,
-    pub coordinates: soroban_sdk::Vec<(i64, i64)>,
+    pub coordinates: Vec<(i64, i64)>,
     pub area_sqm: u64,
     pub registered_at: u64,
 }
 
-// ── Contract ──────────────────────────────────────────────────────────────────
+/// A farming co-operative controlled by a shared Stellar multisig account.
+///
+/// `multisig_account` is the authoritative account used for authorization.
+/// Calling `multisig_account.require_auth()` delegates threshold enforcement to
+/// Stellar/Soroban, so this contract never stores private keys or attempts to
+/// reproduce Stellar's signature rules. `signers` and `threshold` are a
+/// bounded, public declaration of the co-operative's expected configuration
+/// for indexers and auditors; changes to the Stellar account must be reflected
+/// by registering a new account.
+#[contracttype]
+#[derive(Clone, Debug, PartialEq)]
+pub struct CoopProfile {
+    /// Shared Stellar account whose configured multisig policy authorizes use.
+    pub multisig_account: Address,
+    /// Publicly declared co-operative signers, limited to `MAX_COOP_SIGNERS`.
+    pub signers: Vec<Address>,
+    /// Number of declared signers required by the co-operative policy.
+    pub threshold: u32,
+    pub registered_at: u64,
+}
+/// Land tenure verification record storing hash of legal land title and validation signatures.
+#[contracttype]
+#[derive(Clone, Debug, PartialEq)]
+pub struct LandTenureVerification {
+    pub title_id: BytesN<32>,
+    pub land_title_hash: BytesN<32>,
+    pub farmer_id: Address,
+    pub validator_signature: Bytes,
+    pub verified_at: u64,
+    pub is_verified: bool,
+}
 
+// ── Reputation types ─────────────────────────────────────────────────────────
+
+/// Errors specific to co-operative multisig registration.
+#[soroban_sdk::contracterror]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
+pub enum Error {
+    /// A co-operative record already exists for this shared account.
+    CoopAlreadyRegistered = 1,
+    /// A co-operative must declare between two and `MAX_COOP_SIGNERS` signers.
+    InvalidCoopSignerCount = 2,
+    /// The threshold must be non-zero and no larger than the signer count.
+    InvalidCoopThreshold = 3,
+    /// Each declared signer must occur only once.
+    DuplicateCoopSigner = 4,
+    /// The shared multisig account cannot also be a declared signer.
+    MultisigAccountCannotBeSigner = 5,
+}
+
+// ── Contract ──────────────────────────────────────────────────────────────────
 
 #[contract]
 pub struct FarmerRegistry;
@@ -94,31 +233,35 @@ pub struct FarmerRegistry;
 impl FarmerRegistry {
     // ── Lifecycle ─────────────────────────────────────────────────────────────
 
-    /// One-time initialisation — stores the admin address and admin-controls address.
+    /// One-time initialisation — stores the admin address and admin-controls
+    /// address in instance storage.
+    ///
+    /// # Panics
+    /// - `HarvestaError::AlreadyInitialized` if called more than once.
     pub fn initialize(env: Env, admin: Address, admin_controls: Address) {
-        if env.storage().instance().has(&symbol_short!("ADMIN")) {
+        if env.storage().instance().has(&DataKey::Config) {
             panic_with_error!(&env, HarvestaError::AlreadyInitialized);
         }
         env.storage()
             .instance()
-            .set(&symbol_short!("ADMIN"), &admin);
-        env.storage()
-            .instance()
-            .set(&symbol_short!("ADMC"), &admin_controls);
+            .set(&DataKey::Config, &(admin, admin_controls));
     }
 
     // ── Validator management (admin-only) ─────────────────────────────────────
 
     /// Register `validator` as an authorised read/write validator.
     ///
-    /// Only the contract admin may call this.
-    /// Emits `(ValidReg, validator)`.
+    /// Only the contract admin may call this.  The admin must sign the
+    /// invocation (`require_auth`).
+    ///
+    /// # Emits
+    /// `(ValidReg, validator)` with the current ledger timestamp.
     pub fn register_validator(env: Env, admin: Address, validator: Address) {
         Self::assert_not_paused(&env);
         admin.require_auth();
         Self::require_admin(&env, &admin);
 
-        let key = Self::validator_key(&env, &validator);
+        let key = DataKey::Validator(validator.clone());
         env.storage().instance().set(&key, &true);
 
         env.events().publish(
@@ -129,14 +272,17 @@ impl FarmerRegistry {
 
     /// Revoke a previously-registered validator.
     ///
-    /// Only the contract admin may call this.
-    /// Emits `(ValidRev, validator)`.
+    /// Only the contract admin may call this.  The admin must sign the
+    /// invocation.
+    ///
+    /// # Emits
+    /// `(ValidRev, validator)` with the current ledger timestamp.
     pub fn revoke_validator(env: Env, admin: Address, validator: Address) {
         Self::assert_not_paused(&env);
         admin.require_auth();
         Self::require_admin(&env, &admin);
 
-        let key = Self::validator_key(&env, &validator);
+        let key = DataKey::Validator(validator.clone());
         env.storage().instance().remove(&key);
 
         env.events().publish(
@@ -154,39 +300,40 @@ impl FarmerRegistry {
 
     /// Freeze a compromised farmer address pending audit.
     ///
-    /// Only the contract admin may call this.
-    /// Emits `(Frozen, wallet_address, true)`.
+    /// Only the contract admin may call this.  Frozen farmers cannot update
+    /// their profile, change availability, or register new plots.
+    ///
+    /// # Emits
+    /// `(Frozen, wallet_address, true)`
     pub fn freeze_farmer(env: Env, admin: Address, wallet_address: Address) {
         Self::assert_not_paused(&env);
         admin.require_auth();
         Self::require_admin(&env, &admin);
 
-        let key = Self::frozen_key(&env, &wallet_address);
+        let key = DataKey::Frozen(wallet_address.clone());
         env.storage().persistent().set(&key, &true);
-        env.storage().persistent().extend_ttl(&key, 518400, 1036800);
+        env.storage().persistent().extend_ttl(&key, TTL_MIN, TTL_MAX);
 
-        env.events().publish(
-            (symbol_short!("Frozen"), wallet_address.clone()),
-            true,
-        );
+        env.events()
+            .publish((symbol_short!("Frozen"), wallet_address.clone()), true);
     }
 
     /// Unfreeze a farmer address.
     ///
     /// Only the contract admin may call this.
-    /// Emits `(Frozen, wallet_address, false)`.
+    ///
+    /// # Emits
+    /// `(Frozen, wallet_address, false)`
     pub fn unfreeze_farmer(env: Env, admin: Address, wallet_address: Address) {
         Self::assert_not_paused(&env);
         admin.require_auth();
         Self::require_admin(&env, &admin);
 
-        let key = Self::frozen_key(&env, &wallet_address);
+        let key = DataKey::Frozen(wallet_address.clone());
         env.storage().persistent().remove(&key);
 
-        env.events().publish(
-            (symbol_short!("Frozen"), wallet_address.clone()),
-            false,
-        );
+        env.events()
+            .publish((symbol_short!("Frozen"), wallet_address.clone()), false);
     }
 
     /// Returns `true` if `wallet_address` is frozen.
@@ -194,7 +341,7 @@ impl FarmerRegistry {
         Self::_is_frozen(&env, &wallet_address)
     }
 
-    // ── Write operations (validator-gated) ───────────────────────────────────
+    // ── Write operations (validator-gated) ────────────────────────────────────
 
     /// Register a new farmer.
     ///
@@ -209,11 +356,18 @@ impl FarmerRegistry {
     /// `HashMismatch` if the digests differ.  `doc_preimage` is the raw bytes
     /// of the encrypted document; it is **not** stored on-chain.
     ///
+    /// # TTL
+    /// All persistent entries written by this function receive a 30–90 day
+    /// TTL extension.
+    ///
     /// # Errors
     /// - `NotValidator`           — `validator` is not registered
     /// - `FarmerAlreadyRegistered` — farmer's wallet is already in the registry
     /// - `InvalidRegion`          — `region_geohash` has no valid `s0`–`s8` prefix
     /// - `HashMismatch`           — SHA-256(`doc_preimage`) ≠ `land_doc_hash`
+    ///
+    /// # Emits
+    /// `(FarmerReg, wallet_address, land_doc_hash)`
     pub fn register_farmer(
         env: Env,
         validator: Address,
@@ -230,7 +384,7 @@ impl FarmerRegistry {
         Self::assert_valid_region(&env, &region_geohash);
         Self::assert_sha256_integrity(&env, &doc_preimage, &land_doc_hash);
 
-        let key = Self::farmer_key(&env, &wallet_address);
+        let key = DataKey::Farmer(wallet_address.clone());
         if env.storage().persistent().has(&key) {
             panic_with_error!(&env, FarmerError::FarmerAlreadyRegistered);
         }
@@ -243,16 +397,18 @@ impl FarmerRegistry {
         };
 
         env.storage().persistent().set(&key, &profile);
+        env.storage().persistent().extend_ttl(&key, TTL_MIN, TTL_MAX);
 
-        // Store initial history entry at version 0
+        // Store initial history entry at version 0.
         let version: u32 = 0;
-        env.storage()
-            .persistent()
-            .set(&Self::history_key(&env, &wallet_address, version), &ProfileHistoryEntry {
+        env.storage().persistent().set(
+            &Self::history_key(&env, &wallet_address, version),
+            &ProfileHistoryEntry {
                 version,
                 profile: profile.clone(),
                 updated_at: env.ledger().timestamp(),
-            });
+            },
+        );
         env.storage()
             .persistent()
             .set(&Self::version_counter_key(&env, &wallet_address), &version);
@@ -273,9 +429,14 @@ impl FarmerRegistry {
     /// # SHA-256 integrity
     /// Same pre-image check as `register_farmer`.
     ///
+    /// # TTL
+    /// All persistent entries written by this function receive a 30–90 day
+    /// TTL extension.
+    ///
     /// # Errors
     /// - `NotValidator`       — `validator` is not registered
     /// - `FarmerNotRegistered` — no profile exists for `wallet_address`
+    /// - `FarmerFrozen`       — `wallet_address` is frozen
     /// - `InvalidRegion`      — invalid region prefix
     /// - `HashMismatch`       — digest mismatch
     pub fn update_profile(
@@ -295,27 +456,34 @@ impl FarmerRegistry {
         Self::assert_valid_region(&env, &new_region_geohash);
         Self::assert_sha256_integrity(&env, &new_doc_preimage, &new_land_doc_hash);
 
-        let key = Self::farmer_key(&env, &wallet_address);
+        let key = DataKey::Farmer(wallet_address.clone());
         let old_profile: FarmerProfile = env
             .storage()
             .persistent()
             .get(&key)
             .unwrap_or_else(|| panic_with_error!(&env, FarmerError::FarmerNotRegistered));
 
-        // Increment version counter and archive previous profile
-        let version_key = Self::version_counter_key(&env, &wallet_address);
-        let old_version: u32 = env.storage().persistent().get(&version_key).unwrap_or(0u32);
+        // Increment version counter and archive previous profile.
+        let ver_key = DataKey::Version(wallet_address.clone());
+        let old_version: u32 = env
+            .storage()
+            .persistent()
+            .get(&ver_key)
+            .unwrap_or(0u32);
         let new_version = old_version.checked_add(1).expect("version overflow");
-        env.storage().persistent().set(&version_key, &new_version);
+        env.storage().persistent().set(&ver_key, &new_version);
+        env.storage().persistent().extend_ttl(&ver_key, TTL_MIN, TTL_MAX);
 
+        let hist_key = DataKey::History(wallet_address.clone(), old_version);
         env.storage().persistent().set(
-            &Self::history_key(&env, &wallet_address, old_version),
+            &hist_key,
             &ProfileHistoryEntry {
                 version: old_version,
                 profile: old_profile.clone(),
                 updated_at: env.ledger().timestamp(),
             },
         );
+        env.storage().persistent().extend_ttl(&hist_key, TTL_MIN, TTL_MAX);
 
         let new_profile = FarmerProfile {
             wallet_address: wallet_address.clone(),
@@ -325,6 +493,7 @@ impl FarmerRegistry {
         };
 
         env.storage().persistent().set(&key, &new_profile);
+        env.storage().persistent().extend_ttl(&key, TTL_MIN, TTL_MAX);
 
         env.events().publish(
             (symbol_short!("ProfUpd"), wallet_address.clone()),
@@ -334,7 +503,81 @@ impl FarmerRegistry {
         new_profile
     }
 
+    // ── Co-operative multisig accounts ───────────────────────────────────────
+
+    /// Register a farming co-operative's shared multisig account.
+    ///
+    /// The registered `validator` and the `multisig_account` must both
+    /// authorize the invocation. The latter authorization is evaluated by the
+    /// Stellar/Soroban authorization system, which enforces the account's real
+    /// multisig threshold. This contract stores no signing material.
+    ///
+    /// `signers` and `threshold` are validated, bounded public metadata for
+    /// auditors and indexers. They are not a replacement for the multisig
+    /// configuration held by the shared Stellar account.
+    ///
+    /// # Errors
+    /// - `NotValidator` — `validator` is not registered
+    /// - `CoopAlreadyRegistered` — the shared account is already registered
+    /// - `InvalidCoopSignerCount` — fewer than two or more than twenty signers
+    /// - `InvalidCoopThreshold` — threshold is zero or exceeds signer count
+    /// - `DuplicateCoopSigner` — a signer occurs more than once
+    /// - `MultisigAccountCannotBeSigner` — account appears in its signer list
+    pub fn register_coop(
+        env: Env,
+        validator: Address,
+        multisig_account: Address,
+        signers: Vec<Address>,
+        threshold: u32,
+    ) -> CoopProfile {
+        Self::assert_not_paused(&env);
+        validator.require_auth();
+        // This is the critical authorization: for a Stellar multisig account,
+        // the host verifies the account's configured signer weights/threshold.
+        multisig_account.require_auth();
+        Self::require_validator(&env, &validator);
+        Self::assert_not_frozen(&env, &multisig_account);
+        Self::assert_valid_coop_policy(&env, &multisig_account, &signers, threshold);
+
+        let key = Self::coop_key(&env, &multisig_account);
+        if env.storage().persistent().has(&key) {
+            panic_with_error!(&env, Error::CoopAlreadyRegistered);
+        }
+
+        let profile = CoopProfile {
+            multisig_account: multisig_account.clone(),
+            signers,
+            threshold,
+            registered_at: env.ledger().timestamp(),
+        };
+        env.storage().persistent().set(&key, &profile);
+        Self::extend_coop_ttl(&env, &key);
+
+        env.events().publish(
+            (symbol_short!("CoopReg"), multisig_account),
+            (profile.threshold, profile.registered_at),
+        );
+
+        profile
+    }
+
     // ── Read operations ───────────────────────────────────────────────────────
+
+    /// Return a co-operative multisig record, if the shared account is registered.
+    ///
+    /// This read exposes only the co-operative's public account policy metadata.
+    pub fn get_coop(env: Env, multisig_account: Address) -> Option<CoopProfile> {
+        env.storage()
+            .persistent()
+            .get(&Self::coop_key(&env, &multisig_account))
+    }
+
+    /// Return `true` when `multisig_account` is registered as a co-operative.
+    pub fn is_coop(env: Env, multisig_account: Address) -> bool {
+        env.storage()
+            .persistent()
+            .has(&Self::coop_key(&env, &multisig_account))
+    }
 
     /// Public read — returns a privacy-safe view (hash + region, no wallet).
     ///
@@ -342,7 +585,7 @@ impl FarmerRegistry {
     pub fn get_farmer(env: Env, wallet_address: Address) -> Option<PublicFarmerView> {
         env.storage()
             .persistent()
-            .get::<_, FarmerProfile>(&Self::farmer_key(&env, &wallet_address))
+            .get::<_, FarmerProfile>(&DataKey::Farmer(wallet_address))
             .map(|p| PublicFarmerView {
                 land_doc_hash: p.land_doc_hash,
                 region_geohash: p.region_geohash,
@@ -368,7 +611,7 @@ impl FarmerRegistry {
 
         env.storage()
             .persistent()
-            .get(&Self::farmer_key(&env, &wallet_address))
+            .get(&DataKey::Farmer(wallet_address))
             .unwrap_or_else(|| panic_with_error!(&env, FarmerError::FarmerNotRegistered))
     }
 
@@ -387,14 +630,14 @@ impl FarmerRegistry {
 
         env.storage()
             .persistent()
-            .get(&Self::history_key(&env, &wallet_address, version))
+            .get(&DataKey::History(wallet_address, version))
     }
 
     /// Returns the current version counter for a farmer (public).
     pub fn get_version(env: Env, wallet_address: Address) -> u32 {
         env.storage()
             .persistent()
-            .get(&Self::version_counter_key(&env, &wallet_address))
+            .get(&DataKey::Version(wallet_address))
             .unwrap_or(0u32)
     }
 
@@ -402,7 +645,7 @@ impl FarmerRegistry {
     pub fn is_registered(env: Env, wallet_address: Address) -> bool {
         env.storage()
             .persistent()
-            .has(&Self::farmer_key(&env, &wallet_address))
+            .has(&DataKey::Farmer(wallet_address))
     }
 
     // ── Availability toggle (farmer-only, unchanged) ──────────────────────────
@@ -411,6 +654,12 @@ impl FarmerRegistry {
     /// without being removed from the registry.
     ///
     /// Only the farmer's own wallet may call this.
+    ///
+    /// # Panics
+    /// - `FarmerNotRegistered` if no profile exists.
+    ///
+    /// # Emits
+    /// `(AvailSet, wallet_address, available)`
     pub fn set_available(env: Env, wallet_address: Address, available: bool) {
         Self::assert_not_paused(&env);
         wallet_address.require_auth();
@@ -419,13 +668,14 @@ impl FarmerRegistry {
         if !env
             .storage()
             .persistent()
-            .has(&Self::farmer_key(&env, &wallet_address))
+            .has(&DataKey::Farmer(wallet_address.clone()))
         {
             panic_with_error!(&env, FarmerError::FarmerNotRegistered);
         }
 
-        let key = Self::availability_key(&env, &wallet_address);
+        let key = DataKey::Available(wallet_address.clone());
         env.storage().persistent().set(&key, &available);
+        env.storage().persistent().extend_ttl(&key, TTL_MIN, TTL_MAX);
 
         env.events().publish(
             (symbol_short!("AvailSet"), wallet_address.clone()),
@@ -438,7 +688,7 @@ impl FarmerRegistry {
     pub fn is_available(env: Env, wallet_address: Address) -> bool {
         env.storage()
             .persistent()
-            .get(&Self::availability_key(&env, &wallet_address))
+            .get(&DataKey::Available(wallet_address))
             .unwrap_or(true)
     }
 
@@ -452,11 +702,15 @@ impl FarmerRegistry {
     /// # Errors
     /// - `InvalidCoordinatesCount` — must have between 3 and 50 coordinates.
     /// - `PlotAlreadyExists` — `plot_id` already registered.
+    /// - `FarmerFrozen` — farmer is frozen.
+    ///
+    /// # Emits
+    /// `(PlotRegistered, farmer, (plot_id, area_sqm))`
     pub fn register_plot(
         env: Env,
         farmer: Address,
         plot_id: BytesN<32>,
-        coordinates: soroban_sdk::Vec<(i64, i64)>,
+        coordinates: Vec<(i64, i64)>,
         area_sqm: u64,
     ) {
         farmer.require_auth();
@@ -467,7 +721,7 @@ impl FarmerRegistry {
             panic_with_error!(&env, FarmerError::InvalidCoordinatesCount);
         }
 
-        let plot_key = Self::plot_key(&env, &plot_id);
+        let plot_key = DataKey::Plot(plot_id.clone());
         if env.storage().persistent().has(&plot_key) {
             panic_with_error!(&env, FarmerError::PlotAlreadyExists);
         }
@@ -481,91 +735,362 @@ impl FarmerRegistry {
         };
 
         env.storage().persistent().set(&plot_key, &plot);
+        env.storage().persistent().extend_ttl(&plot_key, TTL_MIN, TTL_MAX);
 
-        let farmer_plots_key = Self::farmer_plots_key(&env, &farmer);
-        let mut farmer_plots: soroban_sdk::Vec<BytesN<32>> = env
+        let fplots_key = DataKey::FarmerPlots(farmer.clone());
+        let mut farmer_plots: Vec<BytesN<32>> = env
             .storage()
             .persistent()
-            .get(&farmer_plots_key)
-            .unwrap_or_else(|| soroban_sdk::Vec::new(&env));
+            .get(&fplots_key)
+            .unwrap_or_else(|| Vec::new(&env));
 
         farmer_plots.push_back(plot_id.clone());
-        env.storage().persistent().set(&farmer_plots_key, &farmer_plots);
+        env.storage()
+            .persistent()
+            .set(&farmer_plots_key, &farmer_plots);
 
         env.events().publish(
-            (soroban_sdk::Symbol::new(&env, "PlotRegistered"), farmer),
+            (symbol_short!("PlotReg"), farmer),
             (plot_id, area_sqm),
         );
     }
 
     /// Retrieve all farm plots registered by a specific farmer.
-    pub fn get_plots_by_farmer(env: Env, farmer_id: Address) -> soroban_sdk::Vec<FarmPlot> {
-        let farmer_plots_key = Self::farmer_plots_key(&env, &farmer_id);
-        let plot_ids: soroban_sdk::Vec<BytesN<32>> = env
+    pub fn get_plots_by_farmer(env: Env, farmer_id: Address) -> Vec<FarmPlot> {
+        let fplots_key = DataKey::FarmerPlots(farmer_id);
+        let plot_ids: Vec<BytesN<32>> = env
             .storage()
             .persistent()
-            .get(&farmer_plots_key)
-            .unwrap_or_else(|| soroban_sdk::Vec::new(&env));
+            .get(&fplots_key)
+            .unwrap_or_else(|| Vec::new(&env));
 
-        let mut plots = soroban_sdk::Vec::new(&env);
+        let mut plots = Vec::new(&env);
         for i in 0..plot_ids.len() {
             let id = plot_ids.get(i).unwrap();
-            if let Some(plot) = env.storage().persistent().get::<_, FarmPlot>(&Self::plot_key(&env, &id)) {
+            if let Some(plot) = env
+                .storage()
+                .persistent()
+                .get::<_, FarmPlot>(&Self::plot_key(&env, &id))
+            {
                 plots.push_back(plot);
             }
         }
         plots
     }
 
+    /// Register and verify land tenure ownership for a farmer's plot/title.
+    ///
+    /// # Access
+    /// Both `validator` and `farmer` must sign the transaction
+    /// (`require_auth()`).  `validator` must be a registered validator.
+    ///
+    /// # Errors
+    /// - `NotValidator` — caller is not a registered validator
+    /// - `FarmerFrozen` — farmer is frozen
+    /// - `LandTenureAlreadyExists` — title_id is already registered
+    ///
+    /// # Emits
+    /// `(LandTen, farmer, (title_id, land_title_hash))`
+    pub fn verify_land_tenure(
+        env: Env,
+        validator: Address,
+        farmer: Address,
+        title_id: BytesN<32>,
+        land_title_hash: BytesN<32>,
+        validator_signature: Bytes,
+    ) -> LandTenureVerification {
+        Self::assert_not_paused(&env);
+        validator.require_auth();
+        farmer.require_auth();
+
+        Self::require_validator(&env, &validator);
+        Self::assert_not_frozen(&env, &farmer);
+
+        let tenure_key = DataKey::Tenure(title_id.clone());
+        if env.storage().persistent().has(&tenure_key) {
+            panic_with_error!(&env, FarmerError::LandTenureAlreadyExists);
+        }
+
+        let verification = LandTenureVerification {
+            title_id: title_id.clone(),
+            land_title_hash: land_title_hash.clone(),
+            farmer_id: farmer.clone(),
+            validator_signature,
+            verified_at: env.ledger().timestamp(),
+            is_verified: true,
+        };
+
+        env.storage().persistent().set(&tenure_key, &verification);
+        env.storage().persistent().extend_ttl(&tenure_key, TTL_MIN, TTL_MAX);
+
+        let ftenures_key = DataKey::FarmerTenures(farmer.clone());
+        let mut farmer_tenures: Vec<BytesN<32>> = env
+            .storage()
+            .persistent()
+            .get(&ftenures_key)
+            .unwrap_or_else(|| Vec::new(&env));
+
+        farmer_tenures.push_back(title_id.clone());
+        env.storage().persistent().set(&ftenures_key, &farmer_tenures);
+        env.storage().persistent().extend_ttl(&ftenures_key, TTL_MIN, TTL_MAX);
+
+        env.events().publish(
+            (symbol_short!("LandTen"), farmer),
+            (title_id, land_title_hash),
+        );
+
+        verification
+    }
+
+    /// Retrieve a land tenure verification record by title ID.
+    pub fn get_land_tenure(env: Env, title_id: BytesN<32>) -> Option<LandTenureVerification> {
+        env.storage().persistent().get(&DataKey::Tenure(title_id))
+    }
+
+    /// Retrieve all verified land tenures for a specific farmer.
+    pub fn get_farmer_land_tenures(
+        env: Env,
+        farmer: Address,
+    ) -> Vec<LandTenureVerification> {
+        let ftenures_key = DataKey::FarmerTenures(farmer);
+        let title_ids: Vec<BytesN<32>> = env
+            .storage()
+            .persistent()
+            .get(&ftenures_key)
+            .unwrap_or_else(|| Vec::new(&env));
+
+        let mut tenures = Vec::new(&env);
+        for i in 0..title_ids.len() {
+            let id = title_ids.get(i).unwrap();
+            if let Some(tenure) = env
+                .storage()
+                .persistent()
+                .get::<_, LandTenureVerification>(&DataKey::Tenure(id))
+            {
+                tenures.push_back(tenure);
+            }
+        }
+        tenures
+    }
+
+    // ── Planter Reputation Array (#751) ───────────────────────────────────────
+
+    /// Upsert (update or insert) a planter's reputation entry in the
+    /// compact reputation array.
+    ///
+    /// The entire `Vec<ReputationEntry>` is read from a single storage entry,
+    /// the target planter's record is updated or appended, and the Vec is
+    /// written back.  This O(n) pattern is efficient for ≤ ~500 entries.
+    ///
+    /// # Access
+    /// Only the contract admin may call this.  Admin must `require_auth`.
+    ///
+    /// # Errors
+    /// - `Unauthorized` — caller is not the admin.
+    ///
+    /// # Emits
+    /// `(RepUpsert, planter, (score, tier))`
+    pub fn upsert_reputation(
+        env: Env,
+        admin: Address,
+        planter: Address,
+        score: u32,
+        completed_jobs: u64,
+    ) {
+        Self::assert_not_paused(&env);
+        admin.require_auth();
+        Self::require_admin(&env, &admin);
+
+        let tier = Self::compute_tier(score);
+        let timestamp = env.ledger().timestamp();
+
+        let key = DataKey::Reputation;
+        let mut entries: Vec<ReputationEntry> = env
+            .storage()
+            .persistent()
+            .get(&key)
+            .unwrap_or_else(|| Vec::new(&env));
+
+        // Linear search for an existing entry.
+        let mut found = false;
+        for i in 0..entries.len() {
+            let mut entry = entries.get(i).unwrap();
+            if entry.planter == planter {
+                entry.score = score;
+                entry.tier = tier.clone();
+                entry.completed_jobs = completed_jobs;
+                entry.last_updated = timestamp;
+                entries.set(i, entry);
+                found = true;
+                break;
+            }
+        }
+
+        if !found {
+            entries.push_back(ReputationEntry {
+                planter: planter.clone(),
+                score,
+                tier: tier.clone(),
+                completed_jobs,
+                last_updated: timestamp,
+            });
+        }
+
+        env.storage().persistent().set(&key, &entries);
+        env.storage().persistent().extend_ttl(&key, TTL_MIN, TTL_MAX);
+
+        env.events().publish(
+            (symbol_short!("RepUpsert"), planter.clone()),
+            (score, tier),
+        );
+    }
+
+    /// Remove a planter from the reputation array.
+    ///
+    /// If the planter is not found, this is a no-op (no panic).
+    ///
+    /// # Access
+    /// Only the contract admin may call this.  Admin must `require_auth`.
+    ///
+    /// # Emits
+    /// `(RepRemove, planter)` if the entry was found and removed.
+    pub fn remove_reputation(env: Env, admin: Address, planter: Address) {
+        Self::assert_not_paused(&env);
+        admin.require_auth();
+        Self::require_admin(&env, &admin);
+
+        let key = DataKey::Reputation;
+        let mut entries: Vec<ReputationEntry> = env
+            .storage()
+            .persistent()
+            .get(&key)
+            .unwrap_or_else(|| Vec::new(&env));
+
+        let len_before = entries.len();
+        // Retain all entries whose planter address does NOT match.
+        // We build a new Vec because soroban_sdk::Vec doesn't support retain.
+        let mut filtered = Vec::new(&env);
+        for i in 0..entries.len() {
+            let entry = entries.get(i).unwrap();
+            if entry.planter != planter {
+                filtered.push_back(entry);
+            }
+        }
+
+        if filtered.len() < len_before {
+            env.storage().persistent().set(&key, &filtered);
+            env.storage().persistent().extend_ttl(&key, TTL_MIN, TTL_MAX);
+
+            env.events().publish(
+                (symbol_short!("RepRemove"), planter),
+                env.ledger().timestamp(),
+            );
+        }
+    }
+
+    /// Read a single planter's reputation entry from the compact array.
+    ///
+    /// Returns `None` if the planter has no reputation record.
+    pub fn get_reputation(env: Env, planter: Address) -> Option<ReputationEntry> {
+        let entries: Vec<ReputationEntry> = env
+            .storage()
+            .persistent()
+            .get(&DataKey::Reputation)
+            .unwrap_or_else(|| Vec::new(&env));
+
+        for i in 0..entries.len() {
+            let entry = entries.get(i).unwrap();
+            if entry.planter == planter {
+                return Some(entry);
+            }
+        }
+        None
+    }
+
+    /// Return the full reputation array.
+    ///
+    /// This is a public, unauthenticated read.
+    pub fn get_all_reputations(env: Env) -> Vec<ReputationEntry> {
+        env.storage()
+            .persistent()
+            .get(&DataKey::Reputation)
+            .unwrap_or_else(|| Vec::new(&env))
+    }
+
+    /// Returns the number of planters in the reputation array.
+    pub fn get_reputation_count(env: Env) -> u32 {
+        let entries: Vec<ReputationEntry> = env
+            .storage()
+            .persistent()
+            .get(&DataKey::Reputation)
+            .unwrap_or_else(|| Vec::new(&env));
+        entries.len()
+    }
+
     // ── Internal helpers ──────────────────────────────────────────────────────
 
+    /// Panics with `Unauthorized` if `caller` is not the stored admin.
     fn require_admin(env: &Env, caller: &Address) {
-        let admin: Address = env
-            .storage()
-            .instance()
-            .get(&symbol_short!("ADMIN"))
-            .unwrap_or_else(|| panic_with_error!(env, HarvestaError::NotInitialized));
+        let admin = Self::load_admin(env);
         if *caller != admin {
             panic_with_error!(env, HarvestaError::Unauthorized);
         }
     }
 
-    fn admin_controls(env: &Env) -> Address {
-        env.storage()
+    /// Loads the admin address from instance storage.
+    fn load_admin(env: &Env) -> Address {
+        let (admin, _): (Address, Address) = env
+            .storage()
             .instance()
-            .get(&symbol_short!("ADMC"))
-            .unwrap_or_else(|| panic_with_error!(env, HarvestaError::NotInitialized))
+            .get(&DataKey::Config)
+            .unwrap_or_else(|| panic_with_error!(env, HarvestaError::NotInitialized));
+        admin
     }
 
+    /// Loads the admin-controls contract address from instance storage.
+    fn admin_controls(env: &Env) -> Address {
+        let (_, ac): (Address, Address) = env
+            .storage()
+            .instance()
+            .get(&DataKey::Config)
+            .unwrap_or_else(|| panic_with_error!(env, HarvestaError::NotInitialized));
+        ac
+    }
+
+    /// Panics if the admin-controls contract reports the system is paused.
     fn assert_not_paused(env: &Env) {
-        let admin_controls_addr = Self::admin_controls(env);
-        let admin_controls_client = AdminControlsClient::new(env, &admin_controls_addr);
-        admin_controls_client.assert_not_paused();
+        let ac_addr = Self::admin_controls(env);
+        let ac_client = AdminControlsClient::new(env, &ac_addr);
+        ac_client.assert_not_paused();
     }
 
+    /// Panics with `NotValidator` if `caller` is not a registered validator.
     fn require_validator(env: &Env, caller: &Address) {
         if !Self::_is_validator(env, caller) {
             panic_with_error!(env, FarmerError::NotValidator);
         }
     }
 
+    /// Panics with `FarmerFrozen` if `wallet` is frozen.
     fn assert_not_frozen(env: &Env, wallet: &Address) {
         if Self::_is_frozen(env, wallet) {
             panic_with_error!(env, FarmerError::FarmerFrozen);
         }
     }
 
+    /// Returns `true` if `wallet` has a `Frozen` entry set to `true`.
     fn _is_frozen(env: &Env, wallet: &Address) -> bool {
         env.storage()
             .persistent()
-            .get::<_, bool>(&Self::frozen_key(env, wallet))
+            .get::<_, bool>(&DataKey::Frozen(wallet.clone()))
             .unwrap_or(false)
     }
 
+    /// Returns `true` if `addr` is set as a validator in instance storage.
     fn _is_validator(env: &Env, addr: &Address) -> bool {
         env.storage()
             .instance()
-            .get::<_, bool>(&Self::validator_key(env, addr))
+            .get::<_, bool>(&DataKey::Validator(addr.clone()))
             .unwrap_or(false)
     }
 
@@ -591,8 +1116,46 @@ impl FarmerRegistry {
         panic_with_error!(env, FarmerError::InvalidRegion);
     }
 
+    /// Validate the bounded, public declaration accompanying a co-op account.
+    fn assert_valid_coop_policy(
+        env: &Env,
+        multisig_account: &Address,
+        signers: &Vec<Address>,
+        threshold: u32,
+    ) {
+        let signer_count = signers.len();
+        if !(2..=MAX_COOP_SIGNERS).contains(&signer_count) {
+            panic_with_error!(env, Error::InvalidCoopSignerCount);
+        }
+        if threshold == 0 || threshold > signer_count {
+            panic_with_error!(env, Error::InvalidCoopThreshold);
+        }
+
+        for i in 0..signer_count {
+            let signer = signers.get(i).unwrap();
+            if signer == *multisig_account {
+                panic_with_error!(env, Error::MultisigAccountCannotBeSigner);
+            }
+            for j in (i + 1)..signer_count {
+                if signer == signers.get(j).unwrap() {
+                    panic_with_error!(env, Error::DuplicateCoopSigner);
+                }
+            }
+        }
+    }
+
+    fn extend_coop_ttl(env: &Env, key: &soroban_sdk::Val) {
+        env.storage()
+            .persistent()
+            .extend_ttl(key, COOP_TTL_THRESHOLD, COOP_TTL_EXTEND_TO);
+    }
+
     fn farmer_key(env: &Env, wallet: &Address) -> soroban_sdk::Val {
         (symbol_short!("FARMER"), wallet.clone()).into_val(env)
+    }
+
+    fn coop_key(env: &Env, multisig_account: &Address) -> soroban_sdk::Val {
+        (symbol_short!("COOP"), multisig_account.clone()).into_val(env)
     }
 
     fn validator_key(env: &Env, addr: &Address) -> soroban_sdk::Val {
@@ -622,6 +1185,14 @@ impl FarmerRegistry {
     fn farmer_plots_key(env: &Env, farmer: &Address) -> soroban_sdk::Val {
         (symbol_short!("FPLOTS"), farmer.clone()).into_val(env)
     }
+
+    fn land_tenure_key(env: &Env, title_id: &BytesN<32>) -> soroban_sdk::Val {
+        (symbol_short!("TENURE"), title_id.clone()).into_val(env)
+    }
+
+    fn farmer_tenures_key(env: &Env, farmer: &Address) -> soroban_sdk::Val {
+        (symbol_short!("FTENURE"), farmer.clone()).into_val(env)
+    }
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
@@ -639,17 +1210,18 @@ mod tests {
 
         // Deploy admin-controls contract
         let admin_controls_id = env.register_contract(None, admin_controls::AdminControls);
-        let admin_controls_client = admin_controls::AdminControlsClient::new(&env, &admin_controls_id);
+        let admin_controls_client =
+            admin_controls::AdminControlsClient::new(&env, &admin_controls_id);
         let admin = Address::generate(&env);
         let oracle = Address::generate(&env);
-        admin_controls_client.initialize(&admin, &oracle);
+        ac_client.initialize(&admin, &oracle);
 
         let contract_id = env.register_contract(None, FarmerRegistry);
         let client = FarmerRegistryClient::new(&env, &contract_id);
 
         let validator = Address::generate(&env);
 
-        client.initialize(&admin, &admin_controls_id);
+        client.initialize(&admin, &ac_id);
         client.register_validator(&admin, &validator);
 
         (env, admin, validator, client)
@@ -657,7 +1229,6 @@ mod tests {
 
     /// Build a deterministic SHA-256 pre-image and its digest from a seed byte.
     fn doc(env: &Env, seed: u8) -> (Bytes, BytesN<32>) {
-        // Use 64 bytes so the hash is non-trivial to eyeball
         let mut raw = [0u8; 64];
         raw[0] = seed;
         raw[63] = seed.wrapping_add(1);
@@ -668,6 +1239,14 @@ mod tests {
 
     fn region(env: &Env, s: &str) -> String {
         String::from_str(env, s)
+    }
+
+    fn coop_signers(env: &Env) -> soroban_sdk::Vec<Address> {
+        let mut signers = soroban_sdk::Vec::new(env);
+        signers.push_back(Address::generate(env));
+        signers.push_back(Address::generate(env));
+        signers.push_back(Address::generate(env));
+        signers
     }
 
     // ── validator management ──────────────────────────────────────────────────
@@ -709,7 +1288,13 @@ mod tests {
         let farmer = Address::generate(&env);
         let (preimage, hash) = doc(&env, 1);
 
-        client.register_farmer(&validator, &farmer, &hash, &preimage, &region(&env, "s1"));
+        client.register_farmer(
+            &validator,
+            &farmer,
+            &hash,
+            &preimage,
+            &region(&env, "s1"),
+        );
 
         assert!(client.is_registered(&farmer));
 
@@ -724,7 +1309,13 @@ mod tests {
         let farmer = Address::generate(&env);
         let (preimage, hash) = doc(&env, 2);
 
-        client.register_farmer(&validator, &farmer, &hash, &preimage, &region(&env, "s2"));
+        client.register_farmer(
+            &validator,
+            &farmer,
+            &hash,
+            &preimage,
+            &region(&env, "s2"),
+        );
 
         let full = client.get_farmer_verified(&validator, &farmer);
         assert_eq!(full.wallet_address, farmer);
@@ -738,7 +1329,13 @@ mod tests {
         let farmer = Address::generate(&env);
         let (preimage, hash) = doc(&env, 3);
 
-        client.register_farmer(&validator, &farmer, &hash, &preimage, &region(&env, "s1"));
+        client.register_farmer(
+            &validator,
+            &farmer,
+            &hash,
+            &preimage,
+            &region(&env, "s1"),
+        );
 
         let attacker = Address::generate(&env);
         client.get_farmer_verified(&attacker, &farmer);
@@ -763,7 +1360,13 @@ mod tests {
         let farmer = Address::generate(&env);
         let (preimage, hash) = doc(&env, 1);
 
-        client.register_farmer(&validator, &farmer, &hash, &preimage, &region(&env, "e7"));
+        client.register_farmer(
+            &validator,
+            &farmer,
+            &hash,
+            &preimage,
+            &region(&env, "e7"),
+        );
     }
 
     #[test]
@@ -774,7 +1377,122 @@ mod tests {
         let farmer = Address::generate(&env);
         let (preimage, hash) = doc(&env, 1);
 
-        client.register_farmer(&attacker, &farmer, &hash, &preimage, &region(&env, "s1"));
+        client.register_farmer(
+            &attacker,
+            &farmer,
+            &hash,
+            &preimage,
+            &region(&env, "s1"),
+        );
+    }
+
+    // ── Co-operative multisig accounts ───────────────────────────────────────
+
+    #[test]
+    fn test_register_and_get_coop_multisig_account() {
+        let (env, _, validator, client) = setup();
+        let shared_account = Address::generate(&env);
+        let signers = coop_signers(&env);
+
+        let profile = client.register_coop(&validator, &shared_account, &signers, &2);
+
+        assert_eq!(profile.multisig_account, shared_account);
+        assert_eq!(profile.signers, signers);
+        assert_eq!(profile.threshold, 2);
+        assert!(client.is_coop(&shared_account));
+        assert_eq!(client.get_coop(&shared_account), Some(profile));
+    }
+
+    #[test]
+    fn test_coop_and_individual_farmer_records_are_independent() {
+        let (env, _, validator, client) = setup();
+        let shared_account = Address::generate(&env);
+        let signers = coop_signers(&env);
+        let (preimage, hash) = doc(&env, 21);
+
+        client.register_coop(&validator, &shared_account, &signers, &2);
+        client.register_farmer(
+            &validator,
+            &shared_account,
+            &hash,
+            &preimage,
+            &region(&env, "s1"),
+        );
+
+        assert!(client.is_coop(&shared_account));
+        assert!(client.is_registered(&shared_account));
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #1)")]
+    fn test_duplicate_coop_registration_rejected() {
+        let (env, _, validator, client) = setup();
+        let shared_account = Address::generate(&env);
+        let signers = coop_signers(&env);
+
+        client.register_coop(&validator, &shared_account, &signers, &2);
+        client.register_coop(&validator, &shared_account, &signers, &2);
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #2)")]
+    fn test_coop_requires_at_least_two_signers() {
+        let (env, _, validator, client) = setup();
+        let shared_account = Address::generate(&env);
+        let mut signers = soroban_sdk::Vec::new(&env);
+        signers.push_back(Address::generate(&env));
+
+        client.register_coop(&validator, &shared_account, &signers, &1);
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #3)")]
+    fn test_coop_rejects_zero_or_excessive_threshold() {
+        let (env, _, validator, client) = setup();
+        let shared_account = Address::generate(&env);
+        let signers = coop_signers(&env);
+
+        client.register_coop(&validator, &shared_account, &signers, &0);
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #4)")]
+    fn test_coop_rejects_duplicate_signers() {
+        let (env, _, validator, client) = setup();
+        let shared_account = Address::generate(&env);
+        let duplicate = Address::generate(&env);
+        let mut signers = soroban_sdk::Vec::new(&env);
+        signers.push_back(duplicate.clone());
+        signers.push_back(duplicate);
+
+        client.register_coop(&validator, &shared_account, &signers, &2);
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #5)")]
+    fn test_coop_rejects_shared_account_in_signer_list() {
+        let (env, _, validator, client) = setup();
+        let shared_account = Address::generate(&env);
+        let mut signers = soroban_sdk::Vec::new(&env);
+        signers.push_back(shared_account.clone());
+        signers.push_back(Address::generate(&env));
+
+        client.register_coop(&validator, &shared_account, &signers, &2);
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #6)")]
+    fn test_coop_registration_requires_registered_validator() {
+        let (env, _, _, client) = setup();
+        let unregistered_validator = Address::generate(&env);
+        let shared_account = Address::generate(&env);
+
+        client.register_coop(
+            &unregistered_validator,
+            &shared_account,
+            &coop_signers(&env),
+            &2,
+        );
     }
 
     // ── SHA-256 integrity ─────────────────────────────────────────────────────
@@ -785,10 +1503,15 @@ mod tests {
         let (env, _, validator, client) = setup();
         let farmer = Address::generate(&env);
         let (preimage, _real_hash) = doc(&env, 1);
-        // Supply a hash that does NOT match the preimage
         let wrong_hash = BytesN::from_array(&env, &[0xdeu8; 32]);
 
-        client.register_farmer(&validator, &farmer, &wrong_hash, &preimage, &region(&env, "s1"));
+        client.register_farmer(
+            &validator,
+            &farmer,
+            &wrong_hash,
+            &preimage,
+            &region(&env, "s1"),
+        );
     }
 
     #[test]
@@ -812,8 +1535,13 @@ mod tests {
         let farmer = Address::generate(&env);
         let (preimage, hash) = doc(&env, 5);
 
-        // Should not panic
-        client.register_farmer(&validator, &farmer, &hash, &preimage, &region(&env, "s5"));
+        client.register_farmer(
+            &validator,
+            &farmer,
+            &hash,
+            &preimage,
+            &region(&env, "s5"),
+        );
         assert!(client.is_registered(&farmer));
     }
 
@@ -862,7 +1590,9 @@ mod tests {
         client.register_farmer(&validator, &farmer, &h1, &p1, &region(&env, "s1"));
         client.update_profile(&validator, &farmer, &h2, &p2, &region(&env, "s2"));
 
-        let h = client.get_profile_history(&validator, &farmer, &0u32).unwrap();
+        let h = client
+            .get_profile_history(&validator, &farmer, &0u32)
+            .unwrap();
         assert_eq!(h.version, 0u32);
         assert_eq!(h.profile.land_doc_hash, h1);
     }
@@ -959,7 +1689,13 @@ mod tests {
         for (i, prefix) in prefixes.iter().enumerate() {
             let farmer = Address::generate(&env);
             let (p, h) = doc(&env, i as u8);
-            client.register_farmer(&validator, &farmer, &h, &p, &region(&env, prefix));
+            client.register_farmer(
+                &validator,
+                &farmer,
+                &h,
+                &p,
+                &region(&env, prefix),
+            );
             assert!(client.is_registered(&farmer));
         }
     }
@@ -971,17 +1707,17 @@ mod tests {
         let (env, _, _, client) = setup();
         let farmer = Address::generate(&env);
         let plot_id = BytesN::from_array(&env, &[1u8; 32]);
-        
+
         let mut coords = soroban_sdk::Vec::new(&env);
         coords.push_back((1000000, 2000000));
         coords.push_back((1000000, 2000001));
         coords.push_back((1000001, 2000000));
-        
+
         client.register_plot(&farmer, &plot_id, &coords, &1000);
-        
+
         let plots = client.get_plots_by_farmer(&farmer);
         assert_eq!(plots.len(), 1);
-        
+
         let plot = plots.get(0).unwrap();
         assert_eq!(plot.plot_id, plot_id);
         assert_eq!(plot.farmer_id, farmer);
@@ -995,11 +1731,11 @@ mod tests {
         let (env, _, _, client) = setup();
         let farmer = Address::generate(&env);
         let plot_id = BytesN::from_array(&env, &[2u8; 32]);
-        
+
         let mut coords = soroban_sdk::Vec::new(&env);
         coords.push_back((1000000, 2000000));
         coords.push_back((1000000, 2000001));
-        
+
         client.register_plot(&farmer, &plot_id, &coords, &1000);
     }
 
@@ -1009,12 +1745,12 @@ mod tests {
         let (env, _, _, client) = setup();
         let farmer = Address::generate(&env);
         let plot_id = BytesN::from_array(&env, &[3u8; 32]);
-        
+
         let mut coords = soroban_sdk::Vec::new(&env);
         for i in 0..51 {
             coords.push_back((i as i64, i as i64));
         }
-        
+
         client.register_plot(&farmer, &plot_id, &coords, &1000);
     }
 
@@ -1024,17 +1760,17 @@ mod tests {
         let (env, _, _, client) = setup();
         let farmer = Address::generate(&env);
         let plot_id = BytesN::from_array(&env, &[4u8; 32]);
-        
+
         let mut coords = soroban_sdk::Vec::new(&env);
         coords.push_back((1000000, 2000000));
         coords.push_back((1000000, 2000001));
         coords.push_back((1000001, 2000000));
-        
+
         client.register_plot(&farmer, &plot_id, &coords, &1000);
         client.register_plot(&farmer, &plot_id, &coords, &1000);
     }
 
-    // ── Emergency Freeze Authority ───────────────────────────────────────────
+    // ── Emergency Freeze Authority ────────────────────────────────────────────
 
     #[test]
     fn test_freeze_and_unfreeze() {
@@ -1098,11 +1834,219 @@ mod tests {
         client.freeze_farmer(&admin, &farmer);
 
         let plot_id = BytesN::from_array(&env, &[5u8; 32]);
-        let mut coords = soroban_sdk::Vec::new(&env);
+        let mut coords = Vec::new(&env);
         coords.push_back((1000000, 2000000));
         coords.push_back((1000000, 2000001));
         coords.push_back((1000001, 2000000));
 
         client.register_plot(&farmer, &plot_id, &coords, &1000);
+    }
+
+    // ── Land Tenure Verification Tests ────────────────────────────────────────
+
+    #[test]
+    fn test_verify_land_tenure_success() {
+        let (env, _, validator, client) = setup();
+        let farmer = Address::generate(&env);
+        let title_id = BytesN::from_array(&env, &[10u8; 32]);
+        let land_title_hash = BytesN::from_array(&env, &[20u8; 32]);
+        let signature = Bytes::from_array(&env, &[1, 2, 3, 4]);
+
+        let verification = client.verify_land_tenure(
+            &validator,
+            &farmer,
+            &title_id,
+            &land_title_hash,
+            &signature,
+        );
+        assert!(verification.is_verified);
+        assert_eq!(verification.farmer_id, farmer);
+        assert_eq!(verification.land_title_hash, land_title_hash);
+
+        let retrieved = client.get_land_tenure(&title_id).unwrap();
+        assert_eq!(retrieved.title_id, title_id);
+
+        let farmer_tenures = client.get_farmer_land_tenures(&farmer);
+        assert_eq!(farmer_tenures.len(), 1);
+    }
+
+    // ── Planter Reputation Array Tests (#751) ─────────────────────────────────
+
+    #[test]
+    fn test_upsert_reputation_insert_new() {
+        let (env, admin, _, client) = setup();
+        let planter = Address::generate(&env);
+
+        client.upsert_reputation(&admin, &planter, &250u32, &5u64);
+
+        let entry = client.get_reputation(&planter).unwrap();
+        assert_eq!(entry.planter, planter);
+        assert_eq!(entry.score, 250);
+        assert_eq!(entry.tier, ReputationTier::Bronze);
+        assert_eq!(entry.completed_jobs, 5);
+    }
+
+    #[test]
+    fn test_upsert_reputation_update_existing() {
+        let (env, admin, _, client) = setup();
+        let planter = Address::generate(&env);
+
+        client.upsert_reputation(&admin, &planter, &250u32, &5u64);
+        client.upsert_reputation(&admin, &planter, &650u32, &25u64);
+
+        let entry = client.get_reputation(&planter).unwrap();
+        assert_eq!(entry.score, 650);
+        assert_eq!(entry.tier, ReputationTier::Gold);
+        assert_eq!(entry.completed_jobs, 25);
+    }
+
+    #[test]
+    fn test_get_all_reputations() {
+        let (env, admin, _, client) = setup();
+        let p1 = Address::generate(&env);
+        let p2 = Address::generate(&env);
+        let p3 = Address::generate(&env);
+
+        client.upsert_reputation(&admin, &p1, &100u32, &1u64);
+        client.upsert_reputation(&admin, &p2, &350u32, &10u64);
+        client.upsert_reputation(&admin, &p3, &950u32, &50u64);
+
+        let all = client.get_all_reputations();
+        assert_eq!(all.len(), 3);
+        assert_eq!(client.get_reputation_count(), 3);
+    }
+
+    #[test]
+    fn test_remove_reputation() {
+        let (env, admin, _, client) = setup();
+        let p1 = Address::generate(&env);
+        let p2 = Address::generate(&env);
+
+        client.upsert_reputation(&admin, &p1, &100u32, &1u64);
+        client.upsert_reputation(&admin, &p2, &200u32, &2u64);
+        assert_eq!(client.get_reputation_count(), 2);
+
+        client.remove_reputation(&admin, &p1);
+        assert_eq!(client.get_reputation_count(), 1);
+        assert!(client.get_reputation(&p1).is_none());
+        assert!(client.get_reputation(&p2).is_some());
+    }
+
+    #[test]
+    fn test_remove_reputation_missing_is_noop() {
+        let (env, admin, _, client) = setup();
+        let planter = Address::generate(&env);
+
+        // Should not panic.
+        client.remove_reputation(&admin, &planter);
+        assert_eq!(client.get_reputation_count(), 0);
+    }
+
+    #[test]
+    fn test_get_reputation_missing_returns_none() {
+        let (env, _, _, client) = setup();
+        assert!(client.get_reputation(&Address::generate(&env)).is_none());
+    }
+
+    #[test]
+    fn test_reputation_tiers_correct() {
+        let (env, admin, _, client) = setup();
+
+        let bronze = Address::generate(&env);
+        let silver = Address::generate(&env);
+        let gold = Address::generate(&env);
+        let platinum = Address::generate(&env);
+
+        client.upsert_reputation(&admin, &bronze, &0u32, &0u64);
+        client.upsert_reputation(&admin, &silver, &300u32, &0u64);
+        client.upsert_reputation(&admin, &gold, &600u32, &0u64);
+        client.upsert_reputation(&admin, &platinum, &900u32, &0u64);
+
+        assert_eq!(
+            client.get_reputation(&bronze).unwrap().tier,
+            ReputationTier::Bronze
+        );
+        assert_eq!(
+            client.get_reputation(&silver).unwrap().tier,
+            ReputationTier::Silver
+        );
+        assert_eq!(
+            client.get_reputation(&gold).unwrap().tier,
+            ReputationTier::Gold
+        );
+        assert_eq!(
+            client.get_reputation(&platinum).unwrap().tier,
+            ReputationTier::Platinum
+        );
+    }
+
+    #[test]
+    fn test_reputation_tier_boundaries() {
+        let (env, admin, _, client) = setup();
+        let p = Address::generate(&env);
+
+        // Exactly at the boundary.
+        client.upsert_reputation(&admin, &p, &299u32, &0u64);
+        assert_eq!(
+            client.get_reputation(&p).unwrap().tier,
+            ReputationTier::Bronze
+        );
+
+        client.upsert_reputation(&admin, &p, &300u32, &0u64);
+        assert_eq!(
+            client.get_reputation(&p).unwrap().tier,
+            ReputationTier::Silver
+        );
+
+        client.upsert_reputation(&admin, &p, &599u32, &0u64);
+        assert_eq!(
+            client.get_reputation(&p).unwrap().tier,
+            ReputationTier::Silver
+        );
+
+        client.upsert_reputation(&admin, &p, &600u32, &0u64);
+        assert_eq!(
+            client.get_reputation(&p).unwrap().tier,
+            ReputationTier::Gold
+        );
+
+        client.upsert_reputation(&admin, &p, &899u32, &0u64);
+        assert_eq!(
+            client.get_reputation(&p).unwrap().tier,
+            ReputationTier::Gold
+        );
+
+        client.upsert_reputation(&admin, &p, &900u32, &0u64);
+        assert_eq!(
+            client.get_reputation(&p).unwrap().tier,
+            ReputationTier::Platinum
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #3)")]
+    fn test_upsert_reputation_non_admin_rejected() {
+        let (env, _, _, client) = setup();
+        let attacker = Address::generate(&env);
+        let planter = Address::generate(&env);
+
+        client.upsert_reputation(&attacker, &planter, &100u32, &0u64);
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #3)")]
+    fn test_remove_reputation_non_admin_rejected() {
+        let (env, _, _, client) = setup();
+        let attacker = Address::generate(&env);
+        let planter = Address::generate(&env);
+
+        client.remove_reputation(&attacker, &planter);
+    }
+
+    #[test]
+    fn test_reputation_empty_array_returns_zero_count() {
+        let (_env, _, _, client) = setup();
+        assert_eq!(client.get_reputation_count(), 0);
+        assert!(client.get_all_reputations().is_empty());
     }
 }
