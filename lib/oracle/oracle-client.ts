@@ -1,8 +1,5 @@
-<<<<<<< HEAD
-=======
 import { hexToBytes } from '@noble/hashes/utils';
 import { ed25519 } from '@noble/curves/ed25519';
-import { invokeSurvivalVerification } from '@/lib/stellar/survival-verifier-client';
 import type { NdviSubmissionRequest, NdviSubmissionResponse } from '@/lib/types/oracle';
 /**
  * Verify an ed25519 signature using the configured oracle public key.
@@ -35,9 +32,7 @@ function ndviToSurvivalRate(ndvi: number): number {
  * Verifies the oracle signature, converts NDVI → survivalRate and invokes
  * the existing on-chain survival verification flow.
  */
-export async function submitNdviSurvival(
-  req: NdviSubmissionRequest
-): Promise<NdviSubmissionResponse> {
+export function submitNdviSurvival(req: NdviSubmissionRequest): Promise<NdviSubmissionResponse> {
   const { farmerPublicKey, ndvi, proofHash, contractType, network, signature } = req;
 
   if (!farmerPublicKey) throw new Error('Missing farmerPublicKey');
@@ -72,11 +67,10 @@ export async function submitNdviSurvival(
 
   const outcome = survivalRate >= 70 ? 'completed' : 'disputed';
 
-  return {
+  return Promise.resolve({
     outcome,
     amountReleased: outcome === 'completed' ? 'tranche2' : '0',
     survivalRate,
     transactionHash: txHash,
-  };
+  });
 }
->>>>>>> 982c64ba2f219ccef8caa51fd46f92faa951b468

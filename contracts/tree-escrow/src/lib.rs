@@ -97,6 +97,9 @@ enum DataKey {
     Escrow(Address),
 }
 
+    Escrow(Address),
+}
+
     AdminTree,
     Oracle,
     SurvivalThreshold,
@@ -163,6 +166,10 @@ impl TreeEscrow {
     /// token contract could call back into `deposit` before this invocation
     /// completes. The guard prevents that scenario.
     ///
+    /// REENTRANCY GUARD: The token transfer is a cross-contract call. A malicious
+    /// token contract could call back into `deposit` before this invocation
+    /// completes. The guard prevents that scenario.
+    ///
     /// # Authorization
     /// `donor` must sign the transaction.
     pub fn deposit(
@@ -181,6 +188,19 @@ impl TreeEscrow {
 
         if amount <= 0 { panic_with_error!(&env, HarvestaError::AmountMustBePositive); }
         if tree_count <= 0 { panic_with_error!(&env, HarvestaError::TreeCountMustBePositive); }
+
+        let key = DataKey::Escrow(farmer.clone());
+        if env.storage().persistent().has(&key) {
+            panic_with_error!(&env, HarvestaError::EscrowAlreadyExists);
+        }
+
+        // Cross-contract call — guard prevents reentrant deposit
+        token::Client::new(&env, &token).transfer(
+            &donor,
+            &env.current_contract_address(),
+            &amount,
+        );
+
 
         let key = DataKey::Escrow(farmer.clone());
         if env.storage().persistent().has(&key) {
@@ -404,6 +424,10 @@ impl TreeEscrow {
     }
 
     /// Admin verifies planting. Releases 75% to the farmer and mints TREE tokens.
+    ///
+    /// REENTRANCY GUARD: Two cross-contract calls (token transfer + mint).
+    /// A malicious token could re-enter `verify_planting` between them.
+    ///
     ///
     /// REENTRANCY GUARD: Two cross-contract calls (token transfer + mint).
     /// A malicious token could re-enter `verify_planting` between them.
