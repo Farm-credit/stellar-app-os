@@ -14,9 +14,6 @@ export interface NdviSubmissionRequest {
   /** Latitude of the planting location */
   lat: number;
   /** Longitude of the planting location */
-  /** Latitude of the measurement */
-  lat: number;
-  /** Longitude of the measurement */
   lon: number;
 }
 
