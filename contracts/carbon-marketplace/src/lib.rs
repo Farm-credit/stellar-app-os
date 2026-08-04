@@ -184,6 +184,8 @@ enum DataKey {
     NextObservationSlot,
     /// Total observations recorded so far (for TWAP queries)
     TotalObservations,
+    /// Global emergency pause flag
+    Paused,
 }
 
 // ── Contract ──────────────────────────────────────────────────────────────────
@@ -233,7 +235,53 @@ impl CarbonMarketplace {
         env.storage().instance().set(&DataKey::Oracle, &oracle);
         env.storage()
             .instance()
-            .set(&DataKey::OracleConfig, &(max_staleness, fallback_price));
+            .set(&DataKey::Config, &(admin, tree_token, payment_token));
+        env.storage().instance().set(&DataKey::NextListingId, &0u64);
+        env.storage().instance().set(&DataKey::Paused, &false);
+    }
+
+    /// Pause contract operations. Admin only.
+    pub fn pause(env: Env) {
+        let (admin, _, _) = Self::config(&env);
+        admin.require_auth();
+        env.storage().instance().set(&DataKey::Paused, &true);
+        env.events().publish((symbol_short!("paused"),), env.ledger().timestamp());
+    }
+
+    /// Unpause contract operations. Admin only.
+    pub fn unpause(env: Env) {
+        let (admin, _, _) = Self::config(&env);
+        admin.require_auth();
+        env.storage().instance().set(&DataKey::Paused, &false);
+        env.events().publish((symbol_short!("unpaused"),), env.ledger().timestamp());
+    }
+
+    /// Returns true if the marketplace is currently paused.
+    pub fn is_paused(env: Env) -> bool {
+        env.storage().instance().get(&DataKey::Paused).unwrap_or(false)
+    }
+
+    /// Calculate dynamic swap fee in basis points based on trade volume (`amount_in`).
+    ///
+    /// Tiers:
+    /// - Tier 1 (< 10,000 units): 30 bps (0.30%)
+    /// - Tier 2 (10,000 to 100,000 units): 20 bps (0.20%)
+    /// - Tier 3 (>= 100,000 units): 10 bps (0.10%)
+    pub fn get_fee_bps(env: Env, amount_in: i128) -> i128 {
+        let _ = &env;
+        if amount_in >= 100_000 {
+            10
+        } else if amount_in >= 10_000 {
+            20
+        } else {
+            30
+        }
+    }
+
+    fn assert_not_paused(env: &Env) {
+        if Self::is_paused(env.clone()) {
+            panic_with_error!(env, HarvestaError::ContractPaused);
+        }
     }
 
     /// Returns the current marketplace price for TREE tokens.
@@ -517,19 +565,24 @@ impl CarbonMarketplace {
     /// Uses configured auction parameters (starting_price, reserve_price, decay_rate, duration).
     /// TREE tokens are escrowed in the contract.
     ///
-    /// Returns the new auction ID.
-    pub fn create_auction(
+    /// Transfers both tokens from `provider` into this contract.
+    /// Add liquidity to the constant-product AMM pool.
+    ///
+    /// On first deposit, mints `sqrt(tree_amount * payment_amount) * LP_PRECISION`
+    /// shares. On subsequent deposits, mints shares proportional to the smaller
+    /// of the two ratio contributions.
+    ///
+    /// Transfers both tokens from `provider` into this contract.
+    pub fn amm_add_liquidity(
         env: Env,
-        seller: Address,
-        planter: Address,
-        amount: i128,
-        payment_token: Address,
-    ) -> u64 {
+        provider: Address,
+        tree_amount: i128,
+        payment_amount: i128,
+    ) -> i128 {
         Self::assert_not_paused(&env);
-        seller.require_auth();
-
-        if amount <= 0 {
-            panic_with_error!(&env, MarketplaceError::ListingAmountMustBePositive);
+        provider.require_auth();
+        if tree_amount <= 0 || payment_amount <= 0 {
+            panic_with_error!(&env, MarketplaceError::AmmAmountMustBePositive);
         }
 
         let (starting_price, reserve_price, decay_rate, duration) = Self::auction_config(&env);
@@ -580,17 +633,1079 @@ impl CarbonMarketplace {
 
     /// Buyer bids on auction `auction_id` for `amount` TREE tokens.
     ///
-    /// The current price is calculated based on elapsed time and decay rate.
-    /// Payment is transferred atomically from buyer to seller, and TREE tokens
-    /// are transferred to the buyer.
+    /// Returns proportional amounts of both tokens to `provider`.
+    pub fn amm_remove_liquidity(
+        env: Env,
+        provider: Address,
+        lp_shares: i128,
+    ) -> (i128, i128) {
+        Self::assert_not_paused(&env);
+        provider.require_auth();
+        if lp_shares <= 0 {
+            panic_with_error!(&env, MarketplaceError::AmmAmountMustBePositive);
+        }
+
+        let lp_key = DataKey::LpShares(provider.clone());
+        let existing_shares: i128 = env
+            .storage()
+            .persistent()
+            .get(&lp_key)
+            .unwrap_or(0i128);
+        if existing_shares < lp_shares {
+            panic_with_error!(&env, MarketplaceError::AmmInsufficientShares);
+        }
+
+        let mut pool = Self::pool(&env);
+        if pool.total_lp_shares == 0 {
+            panic_with_error!(&env, MarketplaceError::AmmNotInitialized);
+        }
+
+        // Proportional withdrawal
+        let tree_out = lp_shares * pool.reserve_tree / pool.total_lp_shares;
+        let payment_out = lp_shares * pool.reserve_payment / pool.total_lp_shares;
+
+        if tree_out <= 0 || payment_out <= 0 {
+            panic_with_error!(&env, MarketplaceError::AmmInsufficientLiquidity);
+        }
+
+        pool.reserve_tree -= tree_out;
+        pool.reserve_payment -= payment_out;
+        pool.total_lp_shares -= lp_shares;
+        Self::save_pool(&env, &pool);
+
+        // Burn shares
+        let remaining = existing_shares - lp_shares;
+        if remaining == 0 {
+            env.storage().persistent().remove(&lp_key);
+        } else {
+            env.storage().persistent().set(&lp_key, &remaining);
+        }
+
+        let (_, tree_token, payment_token): (Address, Address, Address) = Self::config(&env);
+        token::Client::new(&env, &tree_token).transfer(
+            &env.current_contract_address(),
+            &provider,
+            &tree_out,
+        );
+        token::Client::new(&env, &payment_token).transfer(
+            &env.current_contract_address(),
+            &provider,
+            &payment_out,
+        );
+
+        env.events().publish(
+            (symbol_short!("amm_rem"),),
+            (provider, tree_out, payment_out, lp_shares),
+        );
+
+        (tree_out, payment_out)
+    }
+
+    /// Swap an exact amount of `token_in` for at least `min_amount_out` of
+    /// the other token.
     ///
-    /// If the entire auction is filled, it's marked as completed.
+    /// Supports both directions:
+    ///   - TREE  → payment token
+    ///   - payment token → TREE
+    ///
+    /// Fee tier (30 bps / 20 bps / 10 bps based on volume) is deducted from
+    /// `amount_in` before applying the xy = k formula. The fee stays in the
+    /// pool, incrementing k for all LP holders.
+    ///
+    /// Panics with `AmmSlippageExceeded` if `amount_out < min_amount_out`.
+    pub fn amm_swap_exact_in(
+        env: Env,
+        caller: Address,
+        token_in: Address,
+        amount_in: i128,
+        min_amount_out: i128,
+    ) -> i128 {
+        Self::assert_not_paused(&env);
+        caller.require_auth();
+        if amount_in <= 0 {
+            panic_with_error!(&env, MarketplaceError::AmmAmountMustBePositive);
+        }
+
+        let (_, tree_token, payment_token): (Address, Address, Address) = Self::config(&env);
+
+        // Determine swap direction
+        let tree_to_payment = token_in == tree_token;
+        let payment_to_tree = token_in == payment_token;
+        if !tree_to_payment && !payment_to_tree {
+            panic_with_error!(&env, MarketplaceError::AmmInvalidTokenIn);
+        }
+
+        let mut pool = Self::pool(&env);
+        if pool.total_lp_shares == 0 || pool.reserve_tree == 0 || pool.reserve_payment == 0 {
+            panic_with_error!(&env, MarketplaceError::AmmInsufficientLiquidity);
+        }
+
+        // Compute amount out using constant-product formula with dynamic fee:
+        let fee_bps = Self::get_fee_bps(env.clone(), amount_in);
+        let (reserve_in, reserve_out) = if tree_to_payment {
+            (pool.reserve_tree, pool.reserve_payment)
+        } else {
+            (pool.reserve_payment, pool.reserve_tree)
+        };
+
+        let amount_in_with_fee = amount_in * (FEE_DENOMINATOR - fee_bps);
+        let numerator = amount_in_with_fee * reserve_out;
+        let denominator = reserve_in * FEE_DENOMINATOR + amount_in_with_fee;
+        let amount_out = numerator / denominator;
+
+        if amount_out <= 0 {
+            panic_with_error!(&env, MarketplaceError::AmmInsufficientLiquidity);
+        }
+        if amount_out < min_amount_out {
+            panic_with_error!(&env, MarketplaceError::AmmSlippageExceeded);
+        }
+
+        // Fee is implicitly retained in pool (not deducted from reserve_in update)
+        // reserve_in increases by the FULL amount_in (including fee portion)
+        let (token_out, fee_in_payment_units) = if tree_to_payment {
+            pool.reserve_tree += amount_in;
+            pool.reserve_payment -= amount_out;
+            // Track fee collected in payment-token equivalent
+            let fee = amount_in * fee_bps / FEE_DENOMINATOR;
+            let fee_payment = fee * pool.reserve_payment / pool.reserve_tree;
+            (payment_token.clone(), fee_payment)
+        } else {
+            pool.reserve_payment += amount_in;
+            pool.reserve_tree -= amount_out;
+            let fee = amount_in * fee_bps / FEE_DENOMINATOR;
+            (tree_token.clone(), fee)
+        };
+        pool.fees_collected += fee_in_payment_units;
+        Self::save_pool(&env, &pool);
+
+        // Execute token transfers
+        token::Client::new(&env, &token_in).transfer(
+            &caller,
+            &env.current_contract_address(),
+            &amount_in,
+        );
+        token::Client::new(&env, &token_out).transfer(
+            &env.current_contract_address(),
+            &caller,
+            &amount_out,
+        );
+
+        env.events().publish(
+            (symbol_short!("amm_swp"),),
+            (caller, token_in, amount_in, amount_out),
+        );
+
+        amount_out
+    }
+
+    /// View-only price quote: given `amount_in` of `token_in`, return the
+    /// expected output amount (before slippage, assuming current reserves).
+    ///
+    /// Does NOT execute the swap or emit events.
+    pub fn amm_get_quote(env: Env, token_in: Address, amount_in: i128) -> i128 {
+        if amount_in <= 0 {
+            return 0;
+        }
+        let (_, tree_token, payment_token): (Address, Address, Address) = Self::config(&env);
+
+        let pool = Self::pool(&env);
+        if pool.total_lp_shares == 0 {
+            return 0;
+        }
+
+        let (reserve_in, reserve_out) = if token_in == tree_token {
+            (pool.reserve_tree, pool.reserve_payment)
+        } else if token_in == payment_token {
+            (pool.reserve_payment, pool.reserve_tree)
+        } else {
+            return 0;
+        };
+
+        if reserve_in == 0 || reserve_out == 0 {
+            return 0;
+        }
+
+        let fee_bps = Self::get_fee_bps(env.clone(), amount_in);
+        let amount_in_with_fee = amount_in * (FEE_DENOMINATOR - fee_bps);
+        let numerator = amount_in_with_fee * reserve_out;
+        let denominator = reserve_in * FEE_DENOMINATOR + amount_in_with_fee;
+        numerator / denominator
+    }
+
+    /// Return current AMM pool state (reserves, LP shares, fees collected).
+    pub fn amm_pool_info(env: Env) -> AmmPool {
+        Self::pool(&env)
+    }
+
+    /// Return the LP share balance for a given provider.
+    pub fn amm_lp_balance(env: Env, provider: Address) -> i128 {
+        env.storage()
+            .persistent()
+            .get(&DataKey::LpShares(provider))
+            .unwrap_or(0i128)
+    }
+
+    // ── Internal helpers ──────────────────────────────────────────────────────
+
+    fn config(env: &Env) -> (Address, Address, Address) {
+        env.storage()
+            .instance()
+            .get(&DataKey::Config)
+            .expect("not initialized")
+    }
+
+    fn pool(env: &Env) -> AmmPool {
+        env.storage()
+            .instance()
+            .get(&DataKey::AmmPool)
+            .unwrap_or(AmmPool {
+                reserve_tree: 0,
+                reserve_payment: 0,
+                total_lp_shares: 0,
+                fees_collected: 0,
+            })
+    }
+
+    fn save_pool(env: &Env, pool: &AmmPool) {
+        env.storage().instance().set(&DataKey::AmmPool, pool);
+    }
+
+    /// Integer square root (floor) using Newton's method.
+    /// Handles the xy = k geometric mean for initial LP share minting.
+    fn isqrt(n: i128) -> i128 {
+        if n <= 0 {
+            return 0;
+        }
+        let mut x = n;
+        let mut y = (x + 1) / 2;
+        while y < x {
+            x = y;
+            y = (x + n / x) / 2;
+        }
+        x
+    }
+}
+
+// ── Tests ─────────────────────────────────────────────────────────────────────
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use soroban_sdk::{testutils::Address as _, token, Address, Env};
+
+    fn deploy_token(env: &Env, admin: &Address) -> Address {
+        env.register_stellar_asset_contract_v2(admin.clone())
+            .address()
+    }
+
+    fn mint(env: &Env, token: &Address, to: &Address, amount: i128) {
+        token::StellarAssetClient::new(env, token).mint(to, &amount);
+    }
+
+    struct Ctx {
+        env: Env,
+        contract: Address,
+        client: CarbonMarketplaceClient<'static>,
+        tree_token: Address,
+        payment_token: Address,
+        admin: Address,
+    }
+
+    fn setup() -> Ctx {
+        let env = Env::default();
+        env.mock_all_auths();
+        let admin = Address::generate(&env);
+        let tree_token = deploy_token(&env, &admin);
+        let payment_token = deploy_token(&env, &admin);
+        let contract = env.register(CarbonMarketplace, ());
+        let client = CarbonMarketplaceClient::new(&env, &contract);
+        client.initialize(&admin, &tree_token, &payment_token);
+        Ctx { env, contract, client, tree_token, payment_token, admin }
+    }
+
+    // ── AMM: add liquidity ─────────────────────────────────────────────────────
+
+    #[test]
+    fn test_amm_first_deposit_mints_geometric_mean_shares() {
+        let ctx = setup();
+        let lp = Address::generate(&ctx.env);
+        mint(&ctx.env, &ctx.tree_token, &lp, 1_000_000);
+        mint(&ctx.env, &ctx.payment_token, &lp, 1_000_000);
+
+        // 1,000,000 * 1,000,000 = 1e12; sqrt = 1,000,000
+        let shares = ctx.client.amm_add_liquidity(&lp, &1_000_000i128, &1_000_000i128);
+        // shares = isqrt(1e12) * LP_PRECISION = 1_000_000 * 1_000_000_000_000
+        assert_eq!(shares, 1_000_000 * 1_000_000_000_000i128);
+
+        let pool = ctx.client.amm_pool_info();
+        assert_eq!(pool.reserve_tree, 1_000_000);
+        assert_eq!(pool.reserve_payment, 1_000_000);
+        assert_eq!(pool.total_lp_shares, shares);
+
+        assert_eq!(ctx.client.amm_lp_balance(&lp), shares);
+    }
+
+    #[test]
+    fn test_amm_second_deposit_proportional_shares() {
+        let ctx = setup();
+        let lp1 = Address::generate(&ctx.env);
+        let lp2 = Address::generate(&ctx.env);
+        mint(&ctx.env, &ctx.tree_token, &lp1, 2_000_000);
+        mint(&ctx.env, &ctx.payment_token, &lp1, 2_000_000);
+        mint(&ctx.env, &ctx.tree_token, &lp2, 1_000_000);
+        mint(&ctx.env, &ctx.payment_token, &lp2, 1_000_000);
+
+        let shares1 = ctx.client.amm_add_liquidity(&lp1, &2_000_000i128, &2_000_000i128);
+        let shares2 = ctx.client.amm_add_liquidity(&lp2, &1_000_000i128, &1_000_000i128);
+
+        // lp2 contributes half of lp1's deposit; expects half the shares
+        assert_eq!(shares2, shares1 / 2);
+
+        let pool = ctx.client.amm_pool_info();
+        assert_eq!(pool.total_lp_shares, shares1 + shares2);
+    }
+
+    // ── AMM: remove liquidity ──────────────────────────────────────────────────
+
+    #[test]
+    fn test_amm_remove_returns_proportional_tokens() {
+        let ctx = setup();
+        let lp = Address::generate(&ctx.env);
+        mint(&ctx.env, &ctx.tree_token, &lp, 4_000);
+        mint(&ctx.env, &ctx.payment_token, &lp, 4_000);
+
+        let shares = ctx.client.amm_add_liquidity(&lp, &4_000i128, &4_000i128);
+
+        let tree_pre = token::Client::new(&ctx.env, &ctx.tree_token).balance(&lp);
+        let payment_pre = token::Client::new(&ctx.env, &ctx.payment_token).balance(&lp);
+
+        // Remove half the shares
+        let half = shares / 2;
+        let (tree_out, payment_out) = ctx.client.amm_remove_liquidity(&lp, &half);
+
+        assert_eq!(tree_out, 2_000);
+        assert_eq!(payment_out, 2_000);
+
+        assert_eq!(
+            token::Client::new(&ctx.env, &ctx.tree_token).balance(&lp),
+            tree_pre + tree_out
+        );
+        assert_eq!(
+            token::Client::new(&ctx.env, &ctx.payment_token).balance(&lp),
+            payment_pre + payment_out
+        );
+        assert_eq!(ctx.client.amm_lp_balance(&lp), shares - half);
+    }
+
+    #[test]
+    fn test_amm_full_removal_zeros_balance() {
+        let ctx = setup();
+        let lp = Address::generate(&ctx.env);
+        mint(&ctx.env, &ctx.tree_token, &lp, 2_000);
+        mint(&ctx.env, &ctx.payment_token, &lp, 2_000);
+
+        let shares = ctx.client.amm_add_liquidity(&lp, &2_000i128, &2_000i128);
+        ctx.client.amm_remove_liquidity(&lp, &shares);
+
+        assert_eq!(ctx.client.amm_lp_balance(&lp), 0);
+    }
+
+    // ── AMM: constant-product swap ─────────────────────────────────────────────
+
+    #[test]
+    fn test_amm_swap_tree_to_payment() {
+        let ctx = setup();
+        let lp = Address::generate(&ctx.env);
+        mint(&ctx.env, &ctx.tree_token, &lp, 10_000_000);
+        mint(&ctx.env, &ctx.payment_token, &lp, 10_000_000);
+        ctx.client.amm_add_liquidity(&lp, &10_000_000i128, &10_000_000i128);
+
+        let trader = Address::generate(&ctx.env);
+        mint(&ctx.env, &ctx.tree_token, &trader, 100_000);
+
+        let amount_in: i128 = 100_000;
+        let quote = ctx.client.amm_get_quote(&ctx.tree_token, &amount_in);
+        assert!(quote > 0);
+        assert!(quote < amount_in); // output < input due to fee + slippage
+
+        let amount_out = ctx.client.amm_swap_exact_in(
+            &trader,
+            &ctx.tree_token,
+            &amount_in,
+            &1i128,
+        );
+        assert_eq!(amount_out, quote);
+
+        // Trader received payment tokens
+        let payment_balance = token::Client::new(&ctx.env, &ctx.payment_token).balance(&trader);
+        assert_eq!(payment_balance, amount_out);
+
+        // xy should have increased (k increases with fees)
+        let pool = ctx.client.amm_pool_info();
+        let new_k = pool.reserve_tree * pool.reserve_payment;
+        assert!(new_k >= 10_000_000i128 * 10_000_000i128);
+    }
+
+    #[test]
+    fn test_amm_swap_payment_to_tree() {
+        let ctx = setup();
+        let lp = Address::generate(&ctx.env);
+        mint(&ctx.env, &ctx.tree_token, &lp, 10_000_000);
+        mint(&ctx.env, &ctx.payment_token, &lp, 10_000_000);
+        ctx.client.amm_add_liquidity(&lp, &10_000_000i128, &10_000_000i128);
+
+        let trader = Address::generate(&ctx.env);
+        mint(&ctx.env, &ctx.payment_token, &trader, 200_000);
+
+        let amount_out = ctx.client.amm_swap_exact_in(
+            &trader,
+            &ctx.payment_token,
+            &200_000i128,
+            &1i128,
+        );
+        assert!(amount_out > 0);
+
+        let tree_balance = token::Client::new(&ctx.env, &ctx.tree_token).balance(&trader);
+        assert_eq!(tree_balance, amount_out);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_amm_slippage_exceeded_panics() {
+        let ctx = setup();
+        let lp = Address::generate(&ctx.env);
+        mint(&ctx.env, &ctx.tree_token, &lp, 1_000_000);
+        mint(&ctx.env, &ctx.payment_token, &lp, 1_000_000);
+        ctx.client.amm_add_liquidity(&lp, &1_000_000i128, &1_000_000i128);
+
+        let trader = Address::generate(&ctx.env);
+        mint(&ctx.env, &ctx.tree_token, &trader, 1_000);
+        // Set min_amount_out impossibly high
+        ctx.client.amm_swap_exact_in(&trader, &ctx.tree_token, &1_000i128, &999_999_999i128);
+    }
+
+    #[test]
+    fn test_amm_get_quote_matches_swap() {
+        let ctx = setup();
+        let lp = Address::generate(&ctx.env);
+        mint(&ctx.env, &ctx.tree_token, &lp, 5_000_000);
+        mint(&ctx.env, &ctx.payment_token, &lp, 5_000_000);
+        ctx.client.amm_add_liquidity(&lp, &5_000_000i128, &5_000_000i128);
+
+        let amount_in: i128 = 50_000;
+        let quote = ctx.client.amm_get_quote(&ctx.tree_token, &amount_in);
+
+        let trader = Address::generate(&ctx.env);
+        mint(&ctx.env, &ctx.tree_token, &trader, amount_in);
+        let actual_out = ctx.client.amm_swap_exact_in(&trader, &ctx.tree_token, &amount_in, &1i128);
+
+        assert_eq!(quote, actual_out);
+    }
+
+    // ── AMM: integer sqrt test ────────────────────────────────────────────────
+
+    #[test]
+    fn test_isqrt_correctness() {
+        // Test via amm_add_liquidity geometric mean (indirect)
+        let ctx = setup();
+        let lp = Address::generate(&ctx.env);
+        // 9 * 4 = 36; sqrt = 6; shares = 6 * LP_PRECISION
+        mint(&ctx.env, &ctx.tree_token, &lp, 9);
+        mint(&ctx.env, &ctx.payment_token, &lp, 4);
+        let shares = ctx.client.amm_add_liquidity(&lp, &9i128, &4i128);
+        assert_eq!(shares, 6 * 1_000_000_000_000i128);
+    }
+
+    // ── Fixed-price listing tests ─────────────────────────────────────────────
+
+    #[test]
+    fn test_list_and_buy() {
+        let ctx = setup();
+        let seller = Address::generate(&ctx.env);
+        let buyer = Address::generate(&ctx.env);
+        let planter = Address::generate(&ctx.env);
+
+        mint(&ctx.env, &ctx.tree_token, &seller, 1_000);
+        // price 100 payment per TREE, scaled by 1e7
+        let price: i128 = 100 * 1_000_0000;
+        let listing_id = ctx.client.list(&seller, &planter, &1_000i128, &price, &ctx.payment_token);
+
+        let cost = 500i128 * price / 1_000_0000; // 500 TREE at price 100 = 50,000
+        mint(&ctx.env, &ctx.payment_token, &buyer, cost);
+        ctx.client.buy(&buyer, &listing_id, &500i128);
+
+        let listing = ctx.client.get_listing(&listing_id);
+        assert_eq!(listing.filled, 500);
+        assert_eq!(listing.status, ListingStatus::Active); // partial fill
+
+        let tree_balance = token::Client::new(&ctx.env, &ctx.tree_token).balance(&buyer);
+        assert_eq!(tree_balance, 500);
+    }
+
+    #[test]
+    fn test_cancel_listing_returns_tokens() {
+        let ctx = setup();
+        let seller = Address::generate(&ctx.env);
+        let planter = Address::generate(&ctx.env);
+        mint(&ctx.env, &ctx.tree_token, &seller, 1_000);
+
+        let listing_id = ctx.client.list(&seller, &planter, &1_000i128, &1_000_0000i128, &ctx.payment_token);
+        ctx.client.cancel(&seller, &listing_id);
+
+        let listing = ctx.client.get_listing(&listing_id);
+        assert_eq!(listing.status, ListingStatus::Cancelled);
+
+        let tree_balance = token::Client::new(&ctx.env, &ctx.tree_token).balance(&seller);
+        assert_eq!(tree_balance, 1_000); // tokens returned
+    }
+}
+#[contractclient(name = "PriceOracleClient")]
+trait PriceOracleTrait {
+    fn initialize(env: Env, price: i128, timestamp: u64);
+    fn set_price(env: Env, price: i128, timestamp: u64);
+    fn price(env: Env) -> i128;
+    fn timestamp(env: Env) -> u64;
+}
+
+// ── Error codes ───────────────────────────────────────────────────────────────
+
+#[contracterror]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
+#[repr(u32)]
+pub enum MarketplaceError {
+    ListingAmountMustBePositive  = 100,
+    BuyAmountMustBePositive      = 101,
+    AuctionNotFound              = 102,
+    AuctionNotActive             = 103,
+    SelfTrade                    = 104,
+    InsufficientLiquidity        = 105,
+    AuctionExpired               = 106,
+    BidBelowReservePrice         = 107,
+    ListingNotFound              = 108,
+    ListingNotActive             = 109,
+    InvalidPriceRange            = 110,
+    InvalidDecayRate             = 111,
+    InvalidDuration              = 112,
+    PriceMustBePositive          = 113,
+    /// Order does not exist
+    OrderNotFound                = 114,
+    /// Order is no longer open (already filled or cancelled)
+    OrderNotOpen                 = 115,
+    /// Caller is not the owner of the order
+    Unauthorized                 = 116,
+    /// Amount requested exceeds remaining order quantity
+    OrderAmountExceeded          = 117,
+}
+
+// ── Types ─────────────────────────────────────────────────────────────────────
+
+#[contracttype]
+#[derive(Clone, Debug, PartialEq)]
+pub enum ListingStatus {
+    Active,
+    Filled,
+    Cancelled,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, PartialEq)]
+pub enum AuctionStatus {
+    Active,
+    Completed,
+    Cancelled,
+}
+
+/// Status of a partial-match order.
+#[contracttype]
+#[derive(Clone, Debug, PartialEq)]
+pub enum OrderStatus {
+    /// Order is open and available for matching
+    Open,
+    /// Order has been completely filled
+    Filled,
+    /// Order was cancelled by the owner
+    Cancelled,
+}
+
+/// Side of an order in the partial-matching orderbook.
+#[contracttype]
+#[derive(Clone, Debug, PartialEq)]
+pub enum OrderSide {
+    Buy,
+    Sell,
+}
+
+/// An open order in the partial-match orderbook.
+///
+/// For `Buy` orders:
+///   - `owner` is the prospective buyer
+///   - `price_limit` is the maximum price per token the buyer will pay
+///   - TREE tokens are NOT escrowed; the buyer pays on each match
+///
+/// For `Sell` orders:
+///   - `owner` is the seller
+///   - `price_limit` is the minimum price per token the seller will accept
+///   - `remaining` TREE tokens are escrowed in the contract
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct Order {
+    pub id: u64,
+    pub side: OrderSide,
+    pub owner: Address,
+    /// Original planter (for royalty routing on sell orders)
+    pub planter: Address,
+    pub tree_token: Address,
+    pub payment_token: Address,
+    /// Original requested quantity
+    pub total_amount: i128,
+    /// Quantity not yet matched
+    pub remaining: i128,
+    /// Buy: max price per token willing to pay. Sell: min acceptable price.
+    pub price_limit: i128,
+    pub status: OrderStatus,
+    pub created_at: u64,
+}
+
+
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct Listing {
+    pub id: u64,
+    pub seller: Address,
+    pub planter: Address,
+    pub tree_token: Address,
+    pub payment_token: Address,
+    pub total_amount: i128,
+    pub remaining: i128,
+    pub price_per_token: i128,
+    pub status: ListingStatus,
+    pub created_at: u64,
+}
+
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct DutchAuction {
+    pub id: u64,
+    pub seller: Address,
+    pub planter: Address,
+    pub tree_token: Address,
+    pub payment_token: Address,
+    pub total_amount: i128,
+    pub remaining: i128,
+    pub starting_price: i128,
+    pub reserve_price: i128,
+    pub decay_rate: u64,
+    pub start_time: u64,
+    pub duration: u64,
+    pub status: AuctionStatus,
+}
+
+// ── Storage keys ──────────────────────────────────────────────────────────────
+
+#[contracttype]
+enum DataKey {
+    Config,
+    AdminControls,
+    Oracle,
+    OracleConfig,
+    ListingCount,
+    Listing(u64),
+    AuctionCount,
+    Auction(u64),
+    AuctionConfig,
+    RoyaltyConfig,
+    /// Minimum trade size threshold
+    MinTradeSize,
+    /// Global order counter (covers both buy and sell orders)
+    OrderCount,
+    /// Per-order record
+    Order(u64),
+    /// Index: list of active buy order IDs (for sell-order matching)
+    BuyOrderIndex,
+    /// Index: list of active sell order IDs (for buy-order matching)
+    SellOrderIndex,
+}
+
+/// Default minimum trade size: 1.0 metric ton CO2 (1,000,000 base units).
+pub const MIN_TRADE_SIZE: i128 = 1_000_000;
+
+// ── Contract ──────────────────────────────────────────────────────────────────
+
+#[contract]
+pub struct CarbonMarketplace;
+
+#[contractimpl]
+impl CarbonMarketplace {
+
+    /// One-time initialisation.
+    pub fn initialize(env: Env, admin: Address, tree_token: Address, admin_controls: Address) {
+        if env.storage().instance().has(&DataKey::Config) {
+            panic_with_error!(&env, HarvestaError::AlreadyInitialized);
+        }
+        env.storage().instance().set(&DataKey::Config, &(admin, tree_token));
+        env.storage().instance().set(&DataKey::AdminControls, &admin_controls);
+        env.storage().instance().set(&DataKey::ListingCount, &0u64);
+        env.storage().instance().set(&DataKey::AuctionCount, &0u64);
+        env.storage().instance().set(&DataKey::OrderCount, &0u64);
+        env.storage().instance().set(&DataKey::BuyOrderIndex, &Vec::<u64>::new(&env));
+        env.storage().instance().set(&DataKey::SellOrderIndex, &Vec::<u64>::new(&env));
+    }
+
+
+    /// Admin configures a price oracle feed.
+    pub fn configure_price_oracle(env: Env, oracle: Address, max_staleness: u64, fallback_price: i128) {
+        Self::assert_not_paused(&env);
+        let (admin, _) = Self::config(&env);
+        admin.require_auth();
+        if fallback_price <= 0 {
+            panic_with_error!(&env, MarketplaceError::PriceMustBePositive);
+        }
+        env.storage().instance().set(&DataKey::Oracle, &oracle);
+        env.storage().instance().set(&DataKey::OracleConfig, &(max_staleness, fallback_price));
+    }
+
+    }
+
+    /// Returns the minimum trade size threshold in base units (default: 1_000_000 = 1.0 metric ton CO2).
+    pub fn get_min_trade_size(env: &Env) -> i128 {
+        env.storage()
+            .instance()
+            .get(&DataKey::MinTradeSize)
+            .unwrap_or(MIN_TRADE_SIZE)
+    }
+
+    /// Admin configures the minimum trade size threshold.
+    pub fn set_min_trade_size(env: Env, min_size: i128) {
+        Self::assert_not_paused(&env);
+        let (admin, _) = Self::config(&env);
+        admin.require_auth();
+
+        if min_size <= 0 {
+            panic_with_error!(&env, MarketplaceError::PriceMustBePositive);
+        }
+
+            .set(&DataKey::MinTradeSize, &min_size);
+    }
+
+    /// Returns the current marketplace price for TREE tokens.
+    ///
+    /// If an oracle is configured and fresh, its price is returned. Otherwise the
+    /// administrator-configured fallback price is used.
+    /// Returns the current oracle-or-fallback price for TREE tokens.
+    pub fn get_dynamic_price(env: Env) -> i128 {
+        Self::resolve_listing_price(&env, 0)
+    }
+
+    /// Admin configures default Dutch Auction parameters.
+    pub fn configure_auction(
+        env: Env,
+        starting_price: i128,
+        reserve_price: i128,
+        decay_rate: u64,
+        duration: u64,
+    ) {
+        Self::assert_not_paused(&env);
+        let (admin, _) = Self::config(&env);
+        admin.require_auth();
+        if starting_price <= 0 { panic_with_error!(&env, MarketplaceError::PriceMustBePositive); }
+        if reserve_price <= 0  { panic_with_error!(&env, MarketplaceError::PriceMustBePositive); }
+        if reserve_price >= starting_price { panic_with_error!(&env, MarketplaceError::InvalidPriceRange); }
+        if decay_rate == 0 || decay_rate > 10000 { panic_with_error!(&env, MarketplaceError::InvalidDecayRate); }
+        if duration == 0 { panic_with_error!(&env, MarketplaceError::InvalidDuration); }
+        env.storage().instance().set(&DataKey::AuctionConfig, &(starting_price, reserve_price, decay_rate, duration));
+    }
+
+    /// Seller lists TREE tokens at a fixed price. TREE tokens are escrowed.
+    pub fn list(
+        env: Env,
+        seller: Address,
+        planter: Address,
+        amount: i128,
+        price_per_token: i128,
+        payment_token: Address,
+    ) -> u64 {
+        Self::assert_not_paused(&env);
+        seller.require_auth();
+
+        if amount <= 0 {
+            panic_with_error!(&env, MarketplaceError::ListingAmountMustBePositive);
+        }
+
+        if amount < Self::get_min_trade_size(&env) {
+            panic_with_error!(&env, MarketplaceError::BelowMinimumTradeSize);
+        }
+
+        if amount <= 0 { panic_with_error!(&env, MarketplaceError::ListingAmountMustBePositive); }
+        let resolved_price = Self::resolve_listing_price(&env, price_per_token);
+        let (_, tree_token) = Self::config(&env);
+        token::Client::new(&env, &tree_token).transfer(&seller, &env.current_contract_address(), &amount);
+        let id: u64 = env.storage().instance().get(&DataKey::ListingCount).unwrap_or(0);
+        let new_id = id + 1;
+        let listing = Listing {
+            id: new_id,
+            seller: seller.clone(),
+            planter,
+            tree_token,
+            payment_token,
+            total_amount: amount,
+            remaining: amount,
+            price_per_token: resolved_price,
+            status: ListingStatus::Active,
+            created_at: env.ledger().timestamp(),
+        };
+        env.storage().persistent().set(&DataKey::Listing(new_id), &listing);
+        env.storage().instance().set(&DataKey::ListingCount, &new_id);
+        env.events().publish((symbol_short!("listed"), seller), (new_id, amount, resolved_price));
+        new_id
+    }
+
+
+    /// Buy from a specific listing (partial or full fill).
+    pub fn buy(env: Env, buyer: Address, listing_id: u64, amount: i128) {
+        Self::assert_not_paused(&env);
+        buyer.require_auth();
+        if amount <= 0 { panic_with_error!(&env, MarketplaceError::BuyAmountMustBePositive); }
+        let mut listing: Listing = env.storage().persistent()
+            .get(&DataKey::Listing(listing_id))
+            .unwrap_or_else(|| panic_with_error!(&env, MarketplaceError::ListingNotFound));
+        if listing.status != ListingStatus::Active { panic_with_error!(&env, MarketplaceError::ListingNotActive); }
+        if buyer == listing.seller { panic_with_error!(&env, MarketplaceError::SelfTrade); }
+        if amount > listing.remaining { panic_with_error!(&env, MarketplaceError::InsufficientLiquidity); }
+        let payment = amount.checked_mul(listing.price_per_token)
+            .unwrap_or_else(|| panic_with_error!(&env, HarvestaError::AmountMustBePositive));
+        let (royalty_amount, seller_amount) = Self::split_payment(&env, payment, &listing.planter, &listing.seller);
+        if royalty_amount > 0 {
+            token::Client::new(&env, &listing.payment_token).transfer(&buyer, &listing.planter, &royalty_amount);
+        }
+        token::Client::new(&env, &listing.payment_token).transfer(&buyer, &listing.seller, &seller_amount);
+        token::Client::new(&env, &listing.tree_token).transfer(&env.current_contract_address(), &buyer, &amount);
+        listing.remaining -= amount;
+        if listing.remaining == 0 { listing.status = ListingStatus::Filled; }
+        env.storage().persistent().set(&DataKey::Listing(listing_id), &listing);
+        env.events().publish((symbol_short!("sold"), listing_id), (buyer, amount, payment, royalty_amount));
+    }
+
+    /// Seller cancels a listing, reclaiming remaining TREE tokens.
+    pub fn cancel(env: Env, seller: Address, listing_id: u64) {
+        Self::assert_not_paused(&env);
+        seller.require_auth();
+        let mut listing: Listing = env.storage().persistent()
+            .get(&DataKey::Listing(listing_id))
+            .unwrap_or_else(|| panic_with_error!(&env, MarketplaceError::ListingNotFound));
+        if listing.status != ListingStatus::Active { panic_with_error!(&env, MarketplaceError::ListingNotActive); }
+        if listing.remaining > 0 {
+            token::Client::new(&env, &listing.tree_token).transfer(
+                &env.current_contract_address(), &seller, &listing.remaining,
+            );
+        }
+        listing.status = ListingStatus::Cancelled;
+        env.storage().persistent().set(&DataKey::Listing(listing_id), &listing);
+        env.events().publish((symbol_short!("cancelled"), listing_id), listing.remaining);
+    }
+
+    /// Admin de-lists any active listing.
+    pub fn admin_cancel(env: Env, listing_id: u64) {
+        Self::assert_not_paused(&env);
+        let (admin, _) = Self::config(&env);
+        admin.require_auth();
+        let mut listing: Listing = env.storage().persistent()
+            .get(&DataKey::Listing(listing_id))
+            .unwrap_or_else(|| panic_with_error!(&env, MarketplaceError::ListingNotFound));
+        if listing.status != ListingStatus::Active { panic_with_error!(&env, MarketplaceError::ListingNotActive); }
+        if listing.remaining > 0 {
+            token::Client::new(&env, &listing.tree_token).transfer(
+                &env.current_contract_address(), &listing.seller, &listing.remaining,
+            );
+        }
+        listing.status = ListingStatus::Cancelled;
+        env.storage().persistent().set(&DataKey::Listing(listing_id), &listing);
+        env.events().publish((symbol_short!("adm_cncl"), listing_id), ());
+    }
+
+    pub fn get_listing(env: Env, listing_id: u64) -> Option<Listing> {
+        env.storage().persistent().get(&DataKey::Listing(listing_id))
+    }
+
+    pub fn listing_count(env: Env) -> u64 {
+        env.storage().instance().get(&DataKey::ListingCount).unwrap_or(0)
+    }
+
+
+    // ── Dutch Auction ─────────────────────────────────────────────────────────
+
+    pub fn create_auction(env: Env, seller: Address, planter: Address, amount: i128, payment_token: Address) -> u64 {
+        Self::assert_not_paused(&env);
+        seller.require_auth();
+        if amount <= 0 { panic_with_error!(&env, MarketplaceError::ListingAmountMustBePositive); }
+        let (starting_price, reserve_price, decay_rate, duration) = Self::auction_config(&env);
+        let (_, tree_token) = Self::config(&env);
+        token::Client::new(&env, &tree_token).transfer(&seller, &env.current_contract_address(), &amount);
+        let id: u64 = env.storage().instance().get(&DataKey::AuctionCount).unwrap_or(0);
+        let new_id = id + 1;
+        let auction = DutchAuction {
+            id: new_id, seller: seller.clone(), planter, tree_token, payment_token,
+            total_amount: amount, remaining: amount, starting_price, reserve_price,
+            decay_rate, start_time: env.ledger().timestamp(), duration, status: AuctionStatus::Active,
+        };
+        env.storage().persistent().set(&DataKey::Auction(new_id), &auction);
+        env.storage().instance().set(&DataKey::AuctionCount, &new_id);
+        env.events().publish((symbol_short!("auct_crtd"), seller), (new_id, amount, starting_price));
+        new_id
+    }
+
     pub fn bid(env: Env, buyer: Address, auction_id: u64, amount: i128) {
         Self::assert_not_paused(&env);
         buyer.require_auth();
+        if amount <= 0 { panic_with_error!(&env, MarketplaceError::BuyAmountMustBePositive); }
+        let mut auction: DutchAuction = env.storage().persistent()
+            .get(&DataKey::Auction(auction_id))
+            .unwrap_or_else(|| panic_with_error!(&env, MarketplaceError::AuctionNotFound));
+        if auction.status != AuctionStatus::Active { panic_with_error!(&env, MarketplaceError::AuctionNotActive); }
+        if buyer == auction.seller { panic_with_error!(&env, MarketplaceError::SelfTrade); }
+        if amount > auction.remaining { panic_with_error!(&env, MarketplaceError::InsufficientLiquidity); }
+        let elapsed = env.ledger().timestamp().saturating_sub(auction.start_time);
+        if elapsed > auction.duration { panic_with_error!(&env, MarketplaceError::AuctionExpired); }
+        let current_price = Self::calculate_current_price(&auction, env.ledger().timestamp());
+        if current_price < auction.reserve_price { panic_with_error!(&env, MarketplaceError::BidBelowReservePrice); }
+        let payment = amount.checked_mul(current_price)
+            .unwrap_or_else(|| panic_with_error!(&env, HarvestaError::AmountMustBePositive));
+        let (royalty_amount, seller_amount) = Self::split_payment(&env, payment, &auction.planter, &auction.seller);
+        if royalty_amount > 0 {
+            token::Client::new(&env, &auction.payment_token).transfer(&buyer, &auction.planter, &royalty_amount);
+        }
+        token::Client::new(&env, &auction.payment_token).transfer(&buyer, &auction.seller, &seller_amount);
+        token::Client::new(&env, &auction.tree_token).transfer(&env.current_contract_address(), &buyer, &amount);
+        auction.remaining -= amount;
+        if auction.remaining == 0 { auction.status = AuctionStatus::Completed; }
+        env.storage().persistent().set(&DataKey::Auction(auction_id), &auction);
+        env.events().publish((symbol_short!("bid"), auction_id), (buyer, amount, current_price, payment, royalty_amount));
+    }
 
-        if amount <= 0 {
-            panic_with_error!(&env, MarketplaceError::BuyAmountMustBePositive);
+    pub fn cancel_auction(env: Env, seller: Address, auction_id: u64) {
+        Self::assert_not_paused(&env);
+        seller.require_auth();
+        let mut auction: DutchAuction = env.storage().persistent()
+            .get(&DataKey::Auction(auction_id))
+            .unwrap_or_else(|| panic_with_error!(&env, MarketplaceError::AuctionNotFound));
+        if auction.status != AuctionStatus::Active { panic_with_error!(&env, MarketplaceError::AuctionNotActive); }
+        if auction.remaining > 0 {
+            token::Client::new(&env, &auction.tree_token).transfer(
+                &env.current_contract_address(), &seller, &auction.remaining,
+            );
+        }
+        auction.status = AuctionStatus::Cancelled;
+        env.storage().persistent().set(&DataKey::Auction(auction_id), &auction);
+        env.events().publish((symbol_short!("auct_cncl"), auction_id), auction.remaining);
+    }
+
+    pub fn get_auction(env: Env, auction_id: u64) -> Option<DutchAuction> {
+        env.storage().persistent().get(&DataKey::Auction(auction_id))
+    }
+
+    pub fn get_current_price(env: Env, auction_id: u64) -> i128 {
+        let auction: DutchAuction = env.storage().persistent()
+            .get(&DataKey::Auction(auction_id))
+            .unwrap_or_else(|| panic_with_error!(&env, MarketplaceError::AuctionNotFound));
+        Self::calculate_current_price(&auction, env.ledger().timestamp())
+    }
+
+    pub fn auction_count(env: Env) -> u64 {
+        env.storage().instance().get(&DataKey::AuctionCount).unwrap_or(0)
+    }
+
+
+    // ── Partial Order Matching (issue #760) ───────────────────────────────────
+
+    /// Place a buy order and immediately match it against existing sell listings.
+    ///
+    /// The engine walks active sell listings in ascending price order (cheapest
+    /// first) and fills as many tokens as possible at or below `max_price_per_token`.
+    /// Any unmatched quantity is stored as an open `Buy` order available for
+    /// future sell orders to match against.
+    ///
+    /// # Authorization
+    /// `buyer` must sign the transaction.
+    ///
+    /// # Parameters
+    /// * `buyer`               — account placing the buy order
+    /// * `payment_token`       — token used for payment (e.g. USDC)
+    /// * `amount`              — total TREE tokens to acquire
+    /// * `max_price_per_token` — maximum price per token the buyer will pay
+    ///
+    /// # Returns
+    /// The new order ID. Query with `get_order`.
+    pub fn place_buy_order(
+        env: Env,
+        buyer: Address,
+        payment_token: Address,
+        amount: i128,
+        max_price_per_token: i128,
+    ) -> u64 {
+        Self::assert_not_paused(&env);
+        buyer.require_auth();
+        if amount <= 0 { panic_with_error!(&env, MarketplaceError::ListingAmountMustBePositive); }
+        if max_price_per_token <= 0 { panic_with_error!(&env, MarketplaceError::PriceMustBePositive); }
+
+        let (_, tree_token) = Self::config(&env);
+
+        // Allocate order ID
+        let order_id = Self::next_order_id(&env);
+
+        let mut order = Order {
+            id: order_id,
+            side: OrderSide::Buy,
+            owner: buyer.clone(),
+            planter: buyer.clone(), // buy orders don't have a planter
+            tree_token: tree_token.clone(),
+            payment_token: payment_token.clone(),
+            total_amount: amount,
+            remaining: amount,
+            price_limit: max_price_per_token,
+            status: OrderStatus::Open,
+            created_at: env.ledger().timestamp(),
+        };
+
+        // Match against sell listings (price ascending)
+        let sell_ids: Vec<u64> = env.storage().instance()
+            .get(&DataKey::SellOrderIndex)
+            .unwrap_or_else(|| Vec::new(&env));
+
+        let mut matched_total: i128 = 0;
+
+        // Collect eligible sell order IDs sorted by price ascending
+        let mut eligible: Vec<u64> = Vec::new(&env);
+        for i in 0..sell_ids.len() {
+            let sid = sell_ids.get(i).unwrap();
+            if let Some(sell_order) = env.storage().persistent().get::<DataKey, Order>(&DataKey::Order(sid)) {
+                if sell_order.status == OrderStatus::Open
+                    && sell_order.payment_token == payment_token
+                    && sell_order.price_limit <= max_price_per_token
+                    && sell_order.remaining > 0
+                {
+                    eligible.push_back(sid);
+                }
+            }
+        }
+
+        // Simple insertion sort by price_limit ascending (eligible list is typically small)
+        let n = eligible.len();
+        for i in 1..n {
+            for j in (1..=i).rev() {
+                let a = eligible.get(j - 1).unwrap();
+                let b = eligible.get(j).unwrap();
+                let pa: i128 = env.storage().persistent()
+                    .get::<DataKey, Order>(&DataKey::Order(a))
+                    .map(|o| o.price_limit).unwrap_or(i128::MAX);
+                let pb: i128 = env.storage().persistent()
+                    .get::<DataKey, Order>(&DataKey::Order(b))
+                    .map(|o| o.price_limit).unwrap_or(i128::MAX);
+                if pa > pb {
+                    eligible.set(j - 1, b);
+                    eligible.set(j, a);
+                } else {
+                    break;
+                }
+            }
         }
 
         let mut auction: DutchAuction = env
@@ -1765,5 +2880,31 @@ mod tests {
                 prop_assert!(royalty_amount >= 0);
             }
         }
+    }
+
+    #[test]
+    fn test_dynamic_fee_tier_system() {
+        let env = Env::default();
+        assert_eq!(CarbonMarketplace::get_fee_bps(env.clone(), 500), 30);
+        assert_eq!(CarbonMarketplace::get_fee_bps(env.clone(), 15_000), 20);
+        assert_eq!(CarbonMarketplace::get_fee_bps(env.clone(), 200_000), 10);
+    }
+
+    #[test]
+    fn test_emergency_pause_lifecycle() {
+        let ctx = TestContext::setup();
+        assert!(!ctx.client.is_paused());
+        ctx.client.pause();
+        assert!(ctx.client.is_paused());
+        ctx.client.unpause();
+        assert!(!ctx.client.is_paused());
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #4)")]
+    fn test_list_blocked_when_paused() {
+        let ctx = TestContext::setup();
+        ctx.client.pause();
+        ctx.client.list(&ctx.seller, &ctx.planter, &100i128, &10i128, &ctx.payment_token);
     }
 }
