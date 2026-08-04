@@ -177,6 +177,7 @@ pub enum NftError {
     TokenAlreadyMinted = 1,
     TokenNotFound = 2,
     MetadataMismatch = 3,
+    TokenIsSoulbound = 4,
 }
 
 #[contracterror]

@@ -73,25 +73,12 @@ export interface SponsorOffset {
   totalKg: number;
 }
 
-export const BULK_PURCHASE_MIN_QUANTITY = 1000;
-
-export type MetadataStorageType = 'on-chain' | 'ipfs' | 'none';
-
-export interface CorporateMetadata {
-  storageType: MetadataStorageType;
-  companyName?: string;
-  initiativeDescription?: string;
-  initiativeUrl?: string;
-  storageRef?: string;
-}
-
 export interface BulkPurchaseOrder {
   projectId: string;
   quantity: number;
   totalPrice: number;
   buyerPublicKey: string;
   network: NetworkType;
-  network: 'testnet' | 'mainnet';
   metadata?: CorporateMetadata;
 }
 
