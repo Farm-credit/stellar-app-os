@@ -11,9 +11,12 @@ import {
   MapPin,
   Upload,
   Globe,
-  ImageIcon,
   ClipboardList,
   ChevronDown,
+  Lock,
+  ShieldCheck,
+  Send,
+  FileImage,
 } from 'lucide-react';
 import { Badge } from '@/components/atoms/Badge';
 import { Button } from '@/components/atoms/Button';
@@ -40,7 +43,14 @@ interface JobOption {
   treesTarget: number;
 }
 
-type UploadStatus = 'idle' | 'reading-gps' | 'uploading' | 'success' | 'error';
+interface GpsReading {
+  lat: number;
+  lon: number;
+  capturedAt?: Date | null;
+  source?: 'exif' | 'manual';
+}
+
+type Status = 'idle' | 'reading-gps' | 'reading-photo' | 'uploading' | 'success' | 'error';
 
 const FARMER_JOBS: JobOption[] = [
   {
@@ -68,7 +78,7 @@ export function FarmerVerificationPortal() {
   const [selectedJobId, setSelectedJobId] = useState('');
   const [photo, setPhoto] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
-  const [gps, setGps] = useState<{ lat: number; lon: number } | null>(null);
+  const [gps, setGps] = useState<GpsReading | null>(null);
   const [gpsSource, setGpsSource] = useState<'exif' | 'manual' | null>(null);
   const [manualLat, setManualLat] = useState('');
   const [manualLon, setManualLon] = useState('');
@@ -94,7 +104,6 @@ export function FarmerVerificationPortal() {
     setPhoto(file);
     setPhotoPreview(file ? URL.createObjectURL(file) : null);
     setGps(null);
-    setGpsSource(null);
     setResult(null);
     setError(null);
 
@@ -102,10 +111,20 @@ export function FarmerVerificationPortal() {
 
     try {
       setStatus('reading-gps');
-      const reading = (await exifr.gps(file)) as { latitude?: number; longitude?: number } | null;
-
-      if (typeof reading?.latitude === 'number' && typeof reading.longitude === 'number') {
-        setGps({ lat: reading.latitude, lon: reading.longitude });
+      const data = await exifr.parse(file, [
+        'latitude',
+        'longitude',
+        'DateTimeOriginal',
+        'CreateDate',
+      ]);
+      if (data?.latitude != null && data?.longitude != null) {
+        const photoDate: Date | null = data.DateTimeOriginal || data.CreateDate || null;
+        setGps({
+          lat: data.latitude,
+          lon: data.longitude,
+          capturedAt: photoDate,
+          source: 'exif',
+        });
         setGpsSource('exif');
       }
 
@@ -233,6 +252,22 @@ export function FarmerVerificationPortal() {
             </p>
           </div>
         ))}
+      </div>
+
+      {/* Process steps */}
+      <div className="grid grid-cols-3 gap-2 rounded-lg border bg-card p-2 text-center shadow-sm sm:gap-3 sm:p-3">
+        <div className="px-2">
+          <Lock className="mx-auto h-5 w-5 text-stellar-blue" />
+          <p className="mt-1 text-xs font-semibold">Encrypt</p>
+        </div>
+        <div className="px-2">
+          <ShieldCheck className="mx-auto h-5 w-5 text-stellar-green" />
+          <p className="mt-1 text-xs font-semibold">Prove</p>
+        </div>
+        <div className="px-2">
+          <Send className="mx-auto h-5 w-5 text-stellar-purple" />
+          <p className="mt-1 text-xs font-semibold">Verify</p>
+        </div>
       </div>
 
       {status === 'success' && result ? (
@@ -367,7 +402,7 @@ export function FarmerVerificationPortal() {
                   </div>
                 ) : (
                   <>
-                    <ImageIcon className="h-8 w-8 text-stellar-blue/60" />
+                    <FileImage className="h-8 w-8 text-stellar-blue/60" />
                     <p className="mt-3 text-sm font-semibold">Tap to take or choose a photo</p>
                     <p className="mt-1 max-w-xs text-xs text-muted-foreground">
                       Enable GPS/camera permissions. Photos with embedded GPS metadata are
@@ -401,14 +436,49 @@ export function FarmerVerificationPortal() {
               )}
 
               {/* GPS from EXIF */}
-              {gpsSource === 'exif' && (
+              {gpsSource === 'exif' && gps && (
                 <div className="flex items-start gap-3 rounded-lg border border-stellar-green/30 bg-stellar-green/5 p-4">
                   <MapPin className="mt-0.5 h-5 w-5 shrink-0 text-stellar-green" />
                   <div className="min-w-0">
                     <p className="text-sm font-semibold">GPS from photo metadata</p>
                     <p className="font-mono text-xs text-muted-foreground break-all">
-                      {gps!.lat.toFixed(6)}, {gps!.lon.toFixed(6)}
+                      {gps.lat.toFixed(6)}, {gps.lon.toFixed(6)}
                     </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Warning: missing GPS */}
+              {photoLacksCoordinates && (
+                <div
+                  className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4 text-amber-800"
+                  role="alert"
+                >
+                  <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
+                  <div>
+                    <p className="text-sm font-semibold">Warning: Missing Location Coordinates</p>
+                    <p className="mt-1 text-xs text-amber-700 leading-relaxed">
+                      This photo does not contain GPS coordinate metadata. Please use a photo taken
+                      with GPS location enabled on your device.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* GPS found */}
+              {gps && gpsSource !== 'exif' && (
+                <div className="flex flex-wrap items-center gap-3 rounded-lg border bg-background p-4">
+                  <MapPin className="h-5 w-5 text-stellar-green" />
+                  <div>
+                    <p className="text-sm font-semibold">GPS metadata found</p>
+                    <p className="font-mono text-xs text-muted-foreground text-left">
+                      Location: {gps.lat.toFixed(6)}, {gps.lon.toFixed(6)}
+                    </p>
+                    {gps.capturedAt && (
+                      <p className="text-xs text-muted-foreground mt-1 text-left">
+                        Captured At: {new Date(gps.capturedAt).toLocaleString()}
+                      </p>
+                    )}
                   </div>
                 </div>
               )}

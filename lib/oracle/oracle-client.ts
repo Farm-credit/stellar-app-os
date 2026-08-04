@@ -73,7 +73,7 @@ export async function submitNdviSurvival(
 
   const outcome = survivalRate >= 70 ? 'completed' : 'disputed';
 
-  return {
+  return Promise.resolve({
     outcome,
     amountReleased: outcome === 'completed' ? 'tranche2' : '0',
     survivalRate,
