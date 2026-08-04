@@ -4,6 +4,10 @@ import fs from 'fs';
 import path from 'path';
 import { buildMintCertificateTransaction, getMintingContractAddress } from '@/lib/stellar/nft-certificate';
 import { TREES_PER_DOLLAR } from '@/lib/constants/donation';
+import { withWalletLock } from '@/lib/cache/redlock';
+import logger from '@/lib/logger';
+
+export const runtime = 'nodejs';
 
 export async function POST(req: Request) {
   try {
@@ -72,12 +76,14 @@ export async function POST(req: Request) {
     const url = new URL(req.url);
     const metadataUri = `${url.origin}/metadata/${tokenId}.json`;
 
-    // 8. Build Soroban minting transaction XDR
-    const { transactionXdr, networkPassphrase } = await buildMintCertificateTransaction(
+    // 8. Build Soroban minting transaction XDR with wallet lock to prevent nonce collisions
+    const { transactionXdr, networkPassphrase } = await withWalletLock(
       recipientAddress,
-      tokenId,
-      metadataUri,
-      network
+      async () => {
+        logger.info('[api:nft:mint] Building mint tx with wallet lock', { recipientAddress, tokenId });
+        return buildMintCertificateTransaction(recipientAddress, tokenId, metadataUri, network);
+      },
+      { ttlMs: 15_000, retryCount: 10 }
     );
 
     return NextResponse.json({
@@ -87,7 +93,9 @@ export async function POST(req: Request) {
       metadataUri,
     });
   } catch (err: any) {
-    console.error('Mint API Error:', err);
-    return NextResponse.json({ error: err.message || 'Internal Server Error' }, { status: 500 });
+    logger.error('[api:nft:mint] Mint API Error', { err });
+    const msg = err.message || 'Internal Server Error';
+    const status = msg.includes('acquire lock') ? 409 : 500;
+    return NextResponse.json({ error: msg }, { status });
   }
 }
