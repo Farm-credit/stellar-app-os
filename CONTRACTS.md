@@ -10,6 +10,7 @@ All contracts are deployed on the Stellar network (Soroban). Invoke them via the
 |---|---|
 | `tree-escrow` | Two-tranche donor escrow (75% on planting, 25% after 6 months) |
 | `escrow-milestone` | Single-milestone escrow with remainder release |
+| `donation-escrow` | Campaign donation escrow w/ XLM / USDC / EURC rails + recurring subscriptions |
 | `location-proof` | ZK location proofs for Northern Nigeria boundary |
 | `nullifier-registry` | SHA-256 commitment registry — prevents double-counting |
 | `species-voting` | On-chain governance for adding new tree species to the catalogue |
@@ -784,6 +785,125 @@ await client.update_voting_period({
   new_period: BigInt(1_209_600), // 14 days
 });
 ```
+
+---
+
+## donation-escrow
+
+Escrow contract for one-off donation campaigns and recurring (interval-based) subscription donations into community planting campaigns. Batches donations so they can be released in aggregate to a campaign destination, or refunded individually.
+
+**Multi-token support (XLM / USDC / EURC):** At `initialize` the admin registers three canonical stablecoin rails (SAC addresses). Any one of these is accepted by `donate` / `setup_recurring` / `release_batch` with no additional configuration. Admin can expand the accepted-token list further via `add_accepted_token` and revoke custom (non-canonical) entries via `remove_accepted_token`. Canonical tokens (XLM / USDC / EURC) are pinned and cannot be removed.
+
+**Accepted-token normalization:** All accepted tokens are normalized to `COMMON_DECIMALS = 7` before being written to the `normalized_amount` fields so reports and off-chain aggregators can work with one unit without per-token sharding. Normalization never changes the raw `amount` that is actually transferred.
+
+**Recurring-donation state machine:** `setup_recurring` locks the first interval's amount in the contract and schedules `next_release = now + interval_seconds`. Any caller may then `process_recurring` after `next_release` to send the locked amount to the registered project address; the donor must then have approved a subsequent transfer for the next interval (the contract only ever holds at most one interval at a time).
+
+### Accepted tokens — initialize
+
+```bash
+stellar contract invoke --id $ESCROW_ID --network testnet --source deployer -- \
+  initialize \
+    --admin GADMIN... \
+    --xlm_token GNATIVE... \
+    --usdc_token GUSDC... \
+    --eurc_token GEURC...
+```
+
+| Parameter | Description |
+|---|---|
+| `xlm_token` | Address of the canonical XLM SAC (7 decimals) |
+| `usdc_token` | Address of the canonical USDC SAC (7 decimals) |
+| `eurc_token` | Address of the canonical EURC SAC (7 decimals) |
+
+All three are flagged `canonical = true` on the accepted-token list and cannot be removed.
+
+### One-off donations
+
+#### `donate`
+
+Lock `amount` of `token` from `donor` into escrow against `tree_count` tree slots. Returns a monotonically increasing `seq` id used later in `release_batch` / `refund`.
+
+**Auth:** `donor` (caller-auth)
+
+| Parameter | Type | Notes |
+|---|---|---|
+| `token` | `Address` | Must be on the accepted-token whitelist |
+| `amount` | `i128` | Strictly positive |
+| `tree_count` | `u32` | 1..=50 inclusive |
+
+#### `release_batch(seqs, destination)`
+
+Admin batches any number of pending donations and transfers each token amount out to `destination`. Each sequence id's `status` moves from `Pending → Released`. A given `seq` can be released or refunded at most once.
+
+**Auth:** admin-only
+
+#### `refund(seq)`
+
+Admin refunds a single pending donation back to its original donor. `status` moves from `Pending → Refunded`.
+
+**Auth:** admin-only
+
+#### `advance_batch()`
+
+Admin rolls the current batch id forward so future donations land in a fresh batch id. `current_batch()` returns the active id.
+
+### Recurring donations
+
+#### `setup_recurring(donor, token, project_id, amount_per_interval, interval_seconds)`
+
+Donor locks the first interval's amount and schedules `next_release = now + interval_seconds`. Returns a `donation_id`.
+
+**Auth:** `donor` (caller-auth)
+
+#### `process_recurring(donation_id)`
+
+Any caller may invoke once `ledger.timestamp ≥ next_release`. Transfers the currently-locked amount to the `project_id → Address` mapping set via `register_project`. Bumps `next_release` forward by `interval_seconds` and `total_released` by `amount_per_interval`. The donor must have pre-approved another transfer for the next cycle.
+
+**Auth:** none
+
+#### `cancel_recurring(donor, donation_id)`
+
+Only the recurring schedule's donor may cancel. Refunds the currently-locked interval amount back to the donor and marks the schedule `cancelled = true`; subsequent `process_recurring` calls panic with `DonationCancelled (#88)`.
+
+**Auth:** `donor` (caller-auth)
+
+#### `register_project(project_id, project_address)`
+
+Admin maps a numeric project id to the payout address used by `process_recurring`. Required before a recurring schedule for a project can be processed.
+
+**Auth:** admin-only
+
+### Token whitelist management
+
+| Function | Auth | Description |
+|---|---|---|
+| `add_accepted_token(addr)` | admin | Adds a new SAC to the whitelist. Panics `TokenAlreadyAccepted (#83)` if already registered. |
+| `remove_accepted_token(addr)` | admin | Removes a non-canonical token. Panics `CannotRemoveCanonicalToken (#94)` for XLM/USDC/EURC, `TokenNotAccepted (#93)` for unknown addresses. |
+| `is_whitelisted(addr)` / `is_accepted_token(addr)` | any | Read-only boolean. |
+| `assert_whitelisted(addr)` | any | Panics `UnsupportedToken (#82)` if not whitelisted. |
+| `get_accepted_tokens()` | any | Returns `Vec<AcceptedToken { token, decimals, canonical }>`. |
+
+### Error codes (DonationEscrowError)
+
+| Code | Variant |
+|---|---|
+| 82 | `UnsupportedToken` |
+| 83 | `TokenAlreadyAccepted` |
+| 84 | `AlreadyProcessed` (release / refund twice) |
+| 85 | `AmountPerIntervalMustBePositive` |
+| 86 | `IntervalSecondsMustBePositive` |
+| 87 | `RecurringDonationNotFound` |
+| 88 | `DonationCancelled` |
+| 89 | `IntervalNotElapsed` |
+| 90 | `ProjectNotRegistered` |
+| 91 | `NotDonor` (wrong canceller) |
+| 92 | `DonationAlreadyCancelled` |
+| 93 | `TokenNotAccepted` (remove unknown) |
+| 94 | `CannotRemoveCanonicalToken` |
+| 95 | `InvalidTreeCount` |
+| 96 | `InvalidAmount` |
+| 97 | `EscrowNotFound` |
+| 98 | `Unauthorized` |
 
 ---
 

@@ -5,42 +5,20 @@ import { useEffect, useMemo, useState } from 'react';
 import { CarbonChart } from './CarbonChart';
 import { BadgesList, type BadgeItem } from './BadgesList';
 import { SocialShareCard } from './SocialShareCard';
-import { Counter } from '@/components/atoms/Counter';
-import { Button } from '@/components/ui/button';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-  CardFooter,
-} from '@/components/ui/card';
-import { ArrowPath, Sparkles, TreePine, Wind } from 'lucide-react';
+import { CarbonCreditSwapWidget } from '@/components/organisms/CarbonCreditSwapWidget';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { TreePine, Wind } from 'lucide-react';
 
-interface CarbonDataPoint {
-  date: string;
-  offset_kg: number;
-}
-
-type CarbonRange = '7d' | '30d' | 'all';
-
-interface CarbonDashboardStats {
-  totalTrees: number;
-  totalOffsetKg: number;
-  avgOffsetPerTree: number;
-  contributorCount: number;
-  data: CarbonDataPoint[];
-}
-
-const mockCarbonData: CarbonDataPoint[] = [
-  { date: '2024-01-01', offset_kg: 42 },
-  { date: '2024-02-01', offset_kg: 50 },
-  { date: '2024-03-01', offset_kg: 58 },
-  { date: '2024-04-01', offset_kg: 72 },
-  { date: '2024-05-01', offset_kg: 86 },
-  { date: '2024-06-01', offset_kg: 95 },
-  { date: '2024-07-01', offset_kg: 118 },
-  { date: '2024-08-01', offset_kg: 132 },
+// Static/Dummy Data
+const mockCarbonData = [
+  { date: '2023-01-01', offset_kg: 50 },
+  { date: '2023-02-01', offset_kg: 55 },
+  { date: '2023-03-01', offset_kg: 60 },
+  { date: '2023-04-01', offset_kg: 80 },
+  { date: '2023-05-01', offset_kg: 90 },
+  { date: '2023-06-01', offset_kg: 105 },
+  { date: '2023-07-01', offset_kg: 120 },
+  { date: '2023-08-01', offset_kg: 150 },
 ];
 
 const mockBadges: BadgeItem[] = [
@@ -367,6 +345,12 @@ export function CarbonDashboard() {
         </div>
       </div>
 
+      {/* Swap Widget */}
+      <div className="grid grid-cols-1 gap-6">
+        <CarbonCreditSwapWidget />
+      </div>
+
+      {/* Main Chart Area */}
       <div className="grid grid-cols-1 gap-6">
         {isLoading ? (
           <div

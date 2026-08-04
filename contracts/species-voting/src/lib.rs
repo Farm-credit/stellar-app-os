@@ -489,6 +489,7 @@ mod tests {
     fn test_vote_on_proposal() {
         let (env, admin, tree_token, _, client) = setup();
 
+        let proposer = Address::generate(&env);
         let voter = Address::generate(&env);
         token::StellarAssetClient::new(&env, &tree_token).mint(&voter, &500_000);
 
@@ -508,6 +509,7 @@ mod tests {
     fn test_double_vote_rejected() {
         let (env, admin, tree_token, _, client) = setup();
 
+        let proposer = Address::generate(&env);
         let voter = Address::generate(&env);
         token::StellarAssetClient::new(&env, &tree_token).mint(&voter, &500_000);
 
@@ -536,6 +538,7 @@ mod tests {
     fn test_proposal_passes_threshold() {
         let (env, admin, tree_token, _, client) = setup();
 
+        let proposer = Address::generate(&env);
         let voter1 = Address::generate(&env);
         let voter2 = Address::generate(&env);
         token::StellarAssetClient::new(&env, &tree_token).mint(&voter1, &600_000);
@@ -555,6 +558,7 @@ mod tests {
     fn test_execute_passed_proposal() {
         let (env, admin, tree_token, _, client) = setup();
 
+        let proposer = Address::generate(&env);
         let voter = Address::generate(&env);
         token::StellarAssetClient::new(&env, &tree_token).mint(&voter, &2_000_000);
 
@@ -577,6 +581,7 @@ mod tests {
     fn test_execute_failed_proposal_rejected() {
         let (env, admin, _, _, client) = setup();
 
+        let proposer = Address::generate(&env);
         let slug = Symbol::short("elm");
         let name = String::from_str(&env, "Elm");
         client.propose_species(&admin, &slug, &name, &2400_i128, &22_u32);
