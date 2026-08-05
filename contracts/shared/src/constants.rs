@@ -1,5 +1,3 @@
-#![no_std]
-
 //! Shared numeric & time constants used by multiple FarmCredit contracts.
 //!
 //! These are pure compile-time `const`s so they cost zero runtime / Wasm
