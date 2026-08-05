@@ -139,27 +139,6 @@ pub enum HarvestaError {
     TokenUnitOverflow = 81,
 
     // ── Tree lifecycle state machine (#462) ───────────────────────────────────
-    CommitmentAlreadyRegistered = 60,
-    NotVerifier = 61,
-    Co2MustBePositive = 62,
-    GrowthRateMustBePositive = 78,
-    MaturityYearsMustBePositive = 63,
-    SpeciesNotFound = 64,
-    InvasiveSpecies = 74,
-    HighWaterUse = 82,
-
-    // ── Farmer registry hash integrity (73) ────────────────────────────────
-    /// SHA-256 of the supplied document pre-image does not match the stored hash.
-    HashMismatch = 73,
-    // ── Farmer registry validator gates (67) ──────────────────────────────
-    /// Caller is not a registered validator — gated read/write denied.
-    NotValidator = 79,
-
-    // ── Arithmetic overflows (80–81) ──────────────────────────────────────────
-    TreeTokenMintOverflow = 80,
-    TokenUnitOverflow = 81,
-
-    // ── Tree lifecycle state machine (#462) ───────────────────────────────────
     InvalidTreeStatusTransition = 90,
     PlantingTimeoutNotReached = 91,
     PolicyNotFound = 101,
@@ -198,6 +177,7 @@ pub enum NftError {
     TokenAlreadyMinted = 1,
     TokenNotFound = 2,
     MetadataMismatch = 3,
+    TokenIsSoulbound = 4,
 }
 
 #[contracterror]

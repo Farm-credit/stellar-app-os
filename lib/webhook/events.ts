@@ -5,7 +5,14 @@
 
 import { getPool } from '@/lib/db/client';
 import { dispatchEvent } from './dispatch';
-import type { MilestonePayoutApprovedPayload, WebhookDeliveryRow } from './types';
+import type {
+  MilestonePayoutApprovedPayload,
+  PlanterTreeRegisteredPayload,
+  PlanterTreeVerifiedPayload,
+  PlanterTreeHealthUpdatedPayload,
+  PlanterMilestoneClaimedPayload,
+  WebhookDeliveryRow,
+} from './types';
 
 /**
  * Emit `milestone.payout.approved` after a milestone escrow release is confirmed
@@ -26,6 +33,54 @@ export async function emitMilestonePayoutApproved(
     });
   } catch (err) {
     console.error('[webhook] failed to emit milestone.payout.approved', err);
+    return [];
+  }
+}
+
+export async function emitPlanterTreeRegistered(
+  payload: PlanterTreeRegisteredPayload
+): Promise<WebhookDeliveryRow[]> {
+  try {
+    const pool = getPool();
+    return await dispatchEvent(pool, 'planter.tree.registered', { ...payload });
+  } catch (err) {
+    console.error('[webhook] failed to emit planter.tree.registered', err);
+    return [];
+  }
+}
+
+export async function emitPlanterTreeVerified(
+  payload: PlanterTreeVerifiedPayload
+): Promise<WebhookDeliveryRow[]> {
+  try {
+    const pool = getPool();
+    return await dispatchEvent(pool, 'planter.tree.verified', { ...payload });
+  } catch (err) {
+    console.error('[webhook] failed to emit planter.tree.verified', err);
+    return [];
+  }
+}
+
+export async function emitPlanterTreeHealthUpdated(
+  payload: PlanterTreeHealthUpdatedPayload
+): Promise<WebhookDeliveryRow[]> {
+  try {
+    const pool = getPool();
+    return await dispatchEvent(pool, 'planter.tree.health.updated', { ...payload });
+  } catch (err) {
+    console.error('[webhook] failed to emit planter.tree.health.updated', err);
+    return [];
+  }
+}
+
+export async function emitPlanterMilestoneClaimed(
+  payload: PlanterMilestoneClaimedPayload
+): Promise<WebhookDeliveryRow[]> {
+  try {
+    const pool = getPool();
+    return await dispatchEvent(pool, 'planter.milestone.claimed', { ...payload });
+  } catch (err) {
+    console.error('[webhook] failed to emit planter.milestone.claimed', err);
     return [];
   }
 }
