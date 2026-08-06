@@ -24,9 +24,15 @@ const pool = getPool();
 
 export async function pollContractEvents() {
   const startLedger = await loadEventCursor(pool, NETWORK);
-  const response = await server.getEvents({
-    filters: [{ type: 'contract' }],
-    limit: 100,
+
+  const filter: SorobanRpc.Api.EventFilter = {
+    type: 'contract',
+    ...(CONTRACT_IDS.length > 0 ? { contractIds: CONTRACT_IDS } : {}),
+  };
+
+  const request: SorobanRpc.Server.GetEventsRequest = {
+    filters: [filter],
+    limit: MAX_EVENTS_PER_POLL,
     ...(startLedger > 0 ? { startLedger } : {}),
   });
 

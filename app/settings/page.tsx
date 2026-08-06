@@ -17,13 +17,7 @@ import { PreferencesSection } from '@/components/organisms/settings/PreferencesS
 
 type TabId = 'profile' | 'notifications' | 'preferences' | 'danger';
 
-interface NavItem {
-  id: TabId;
-  label: string;
-  icon: string;
-}
-
-const NAV_ITEMS: NavItem[] = [
+const NAV_ITEMS: { id: TabId; label: string; icon: ReactNode }[] = [
   { id: 'profile', label: 'Profile', icon: '👤' },
   { id: 'notifications', label: 'Notifications', icon: '🔔' },
   { id: 'preferences', label: 'Preferences', icon: '⚙️' },

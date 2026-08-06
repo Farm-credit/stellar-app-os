@@ -19,9 +19,12 @@ function ndviToSurvivalRate(ndvi: number): number {
   return Math.round(clamped * 100);
 }
 
-export async function submitNdviSurvival(
-  req: NdviSubmissionRequest
-): Promise<NdviSubmissionResponse> {
+/**
+ * Trusted satellite oracle submission entrypoint.
+ * Verifies the oracle signature, converts NDVI → survivalRate and invokes
+ * the existing on-chain survival verification flow.
+ */
+export function submitNdviSurvival(req: NdviSubmissionRequest): Promise<NdviSubmissionResponse> {
   const { farmerPublicKey, ndvi, proofHash, contractType, network, signature } = req;
 
   if (!farmerPublicKey) throw new Error('Missing farmerPublicKey');
@@ -42,10 +45,10 @@ export async function submitNdviSurvival(
   const survivalRate = ndviToSurvivalRate(ndvi);
   const outcome = survivalRate >= 70 ? 'completed' : 'disputed';
 
-  return {
+  return Promise.resolve({
     outcome,
     amountReleased: outcome === 'completed' ? 'tranche2' : '0',
     survivalRate,
-    transactionHash: 'mock_tx_hash_pending_implementation',
-  };
+    transactionHash: txHash,
+  });
 }

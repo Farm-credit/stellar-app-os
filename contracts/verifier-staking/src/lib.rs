@@ -67,6 +67,8 @@ enum DataKey {
     Registered(Address),
     /// Tracks plot assignments: (verifier, plot_id) -> assigned_at timestamp
     PlotAssignment(Address, u64),
+    /// Tracks offense count for exponential slashing penalty calculation
+    OffenseCount(Address),
 }
 
 // ── Contract ──────────────────────────────────────────────────────────────────
@@ -232,6 +234,72 @@ impl VerifierStaking {
                 (symbol_short!("slash_buf"), verifier),
                 slash_amount,
             );
+    }
+
+    /// Returns the recorded offense count for a given verifier.
+    pub fn get_offense_count(env: Env, verifier: Address) -> u32 {
+        env.storage()
+            .persistent()
+            .get(&DataKey::OffenseCount(verifier))
+            .unwrap_or(0)
+    }
+
+    /// Admin slashes a verifier's bond with exponential penalty escalation for repeat offenses.
+    ///
+    /// The penalty multiplier is 2^(n-1) where n is the 1-based offense count.
+    /// Effective slash amount is capped at the verifier's current staked balance.
+    pub fn slash_escalated(env: Env, verifier: Address, base_slash_amount: i128) -> i128 {
+        let (admin, _, _, _, replanting_buffer_pool, _) = Self::config(&env);
+        admin.require_auth();
+
+        if base_slash_amount <= 0 {
+            panic_with_error!(&env, HarvestaError::AmountMustBePositive);
+        }
+
+        let key = DataKey::Stake(verifier.clone());
+        let mut rec: VerifierStake = env
+            .storage()
+            .persistent()
+            .get(&key)
+            .unwrap_or_else(|| panic_with_error!(&env, VerifierStakingError::VerifierNotStaked));
+
+        let current_offense = Self::get_offense_count(env.clone(), verifier.clone());
+        let new_offense = current_offense.saturating_add(1);
+
+        // Exponential multiplier 2^(new_offense - 1), capped at 16x
+        let shift = (new_offense - 1).min(4);
+        let multiplier = 1i128 << shift;
+
+        let calculated_penalty = base_slash_amount.saturating_mul(multiplier);
+        let effective_slash = calculated_penalty.min(rec.amount);
+
+        if effective_slash == 0 {
+            panic_with_error!(&env, VerifierStakingError::SlashExceedsStake);
+        }
+
+        rec.amount -= effective_slash;
+        rec.slashed += effective_slash;
+        rec.slashed_to_buffer_pool += effective_slash;
+        env.storage().persistent().set(&key, &rec);
+
+        // Record updated offense count
+        env.storage()
+            .persistent()
+            .set(&DataKey::OffenseCount(verifier.clone()), &new_offense);
+
+        let token = token::Client::new(&env, &rec.token);
+        token.transfer(
+            &env.current_contract_address(),
+            &replanting_buffer_pool,
+            &effective_slash,
+        );
+
+        env.events()
+            .publish((symbol_short!("offense"), verifier.clone()), new_offense);
+        env.events()
+            .publish((symbol_short!("slashed"), verifier), effective_slash);
+
+        effective_slash
     }
 
     /// Verifier begins the unbonding process for their entire stake, exiting
@@ -918,5 +986,27 @@ mod tests {
         let ctx = setup();
         ctx.client.register(&ctx.verifier);
         ctx.client.penalize_sla(&ctx.verifier, &789u64);
+    }
+
+    #[test]
+    fn test_slash_escalated_exponential_multipliers() {
+        let ctx = setup();
+        ctx.client.register(&ctx.verifier);
+        ctx.client.stake(&ctx.verifier, &100_000i128);
+
+        // 1st offense (1x base_slash = 1,000)
+        let slashed_1 = ctx.client.slash_escalated(&ctx.verifier, &1_000i128);
+        assert_eq!(slashed_1, 1_000);
+        assert_eq!(ctx.client.get_offense_count(&ctx.verifier), 1);
+
+        // 2nd offense (2x base_slash = 2,000)
+        let slashed_2 = ctx.client.slash_escalated(&ctx.verifier, &1_000i128);
+        assert_eq!(slashed_2, 2_000);
+        assert_eq!(ctx.client.get_offense_count(&ctx.verifier), 2);
+
+        // 3rd offense (4x base_slash = 4,000)
+        let slashed_3 = ctx.client.slash_escalated(&ctx.verifier, &1_000i128);
+        assert_eq!(slashed_3, 4_000);
+        assert_eq!(ctx.client.get_offense_count(&ctx.verifier), 3);
     }
 }
