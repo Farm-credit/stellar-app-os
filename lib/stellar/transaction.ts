@@ -9,11 +9,7 @@ import type {
 import { calculateDonationAllocation } from '@/lib/constants/donation';
 import { networkConfig } from '@/lib/config/network';
 import { getTreeAsset } from './tree-asset';
-import {
-  DEFAULT_CONVERSION_SLIPPAGE,
-  computeSendMax,
-  getXlmPerUsdcRate,
-} from './conversion';
+import { DEFAULT_CONVERSION_SLIPPAGE, computeSendMax, getXlmPerUsdcRate } from './conversion';
 import type { DonationAsset } from '@/lib/types/donation-payment';
 import { getRegionPlanterAddresses } from './region-pools';
 import logger from '@/lib/logger';
@@ -188,37 +184,6 @@ export async function buildDonationTransaction(
   slippageTolerance: number = DEFAULT_CONVERSION_SLIPPAGE,
   regionId?: string
 ): Promise<DonationTransactionResult> {
-  // --- Normalize overloaded arguments for backward compatibility ---
-  // Some call sites pass regionId as 6th argument (legacy signature)
-  // Detect: if asset is not USDC/XLM but is a string, treat it as regionId
-  let normalizedAsset: DonationAsset = 'USDC';
-  let normalizedSlippage = DEFAULT_CONVERSION_SLIPPAGE;
-  let normalizedRegionId: string | undefined = regionId;
-
-  // Cast loose args to allow legacy detection
-  const assetArg = asset as unknown;
-  const slipArg = slippageTolerance as unknown;
-
-  if (typeof assetArg === 'string' && (assetArg === 'USDC' || assetArg === 'XLM')) {
-    normalizedAsset = assetArg as DonationAsset;
-  } else if (typeof assetArg === 'string') {
-    // 6th arg was regionId string
-    normalizedRegionId = assetArg as string;
-  }
-
-  if (typeof slipArg === 'number') {
-    normalizedSlippage = slipArg;
-  } else if (typeof slipArg === 'string') {
-    // Overloaded case where 7th arg was actually regionId
-    normalizedRegionId = slipArg as string;
-  }
-
-  // If 8th param provided explicitly, it wins
-  if (typeof regionId === 'string' && regionId.length > 0) {
-    normalizedRegionId = regionId;
-  }
-
-  // Final validation
   if (amount <= 0) {
     throw new Error('Donation amount must be greater than zero');
   }
@@ -239,25 +204,24 @@ export async function buildDonationTransaction(
     networkPassphrase,
   });
 
+  const regionPlanterAddresses = getRegionPlanterAddresses(regionId);
+
   let estimatedSourceAmount: string;
   const regionPlanterAddresses = getRegionPlanterAddresses(normalizedRegionId);
 
-  if (normalizedAsset === 'USDC') {
-    // Direct USDC payments
+  if (asset === 'USDC') {
+    // Direct USDC payments: 70% to planting escrow (or region planters) + 30% buffer.
     for (let i = 0; i < treeCount; i++) {
       const { planting, buffer } = calculateDonationAllocation(amount);
 
       if (regionPlanterAddresses.length > 0) {
-        // Split planting allocation equally among regional planters
         const planterCount = regionPlanterAddresses.length;
         const baseShare = Math.floor((planting / planterCount) * 1e7) / 1e7;
-
-        for (let j = 0; j < planterCount; j++) {
+        for (let j = 0; j < planterCount; j += 1) {
           const amountForPlanter =
             j === 0
               ? parseFloat((planting - baseShare * (planterCount - 1)).toFixed(7))
               : baseShare;
-
           builder.addOperation(
             Operation.payment({
               destination: regionPlanterAddresses[j],
@@ -294,23 +258,23 @@ export async function buildDonationTransaction(
 
     for (let i = 0; i < treeCount; i++) {
       const { planting, buffer } = calculateDonationAllocation(amount);
+      const bufferMax = computeSendMax(buffer, xlmPerUsdc, slippageTolerance);
+      totalSendMax += parseFloat(bufferMax);
 
       if (regionPlanterAddresses.length > 0) {
         const planterCount = regionPlanterAddresses.length;
         const baseShare = Math.floor((planting / planterCount) * 1e7) / 1e7;
-
-        for (let j = 0; j < planterCount; j++) {
+        for (let j = 0; j < planterCount; j += 1) {
           const amountForPlanter =
             j === 0
               ? parseFloat((planting - baseShare * (planterCount - 1)).toFixed(7))
               : baseShare;
-          const sendMax = computeSendMax(amountForPlanter, xlmPerUsdc, normalizedSlippage);
-          totalSendMax += parseFloat(sendMax);
-
+          const planterMax = computeSendMax(amountForPlanter, xlmPerUsdc, slippageTolerance);
+          totalSendMax += parseFloat(planterMax);
           builder.addOperation(
             Operation.pathPaymentStrictReceive({
               sendAsset: Asset.native(),
-              sendMax,
+              sendMax: planterMax,
               destination: regionPlanterAddresses[j],
               destAsset: usdcAsset,
               destAmount: amountForPlanter.toFixed(7),
@@ -319,7 +283,7 @@ export async function buildDonationTransaction(
           );
         }
       } else {
-        const plantingMax = computeSendMax(planting, xlmPerUsdc, normalizedSlippage);
+        const plantingMax = computeSendMax(planting, xlmPerUsdc, slippageTolerance);
         totalSendMax += parseFloat(plantingMax);
         builder.addOperation(
           Operation.pathPaymentStrictReceive({
@@ -333,8 +297,6 @@ export async function buildDonationTransaction(
         );
       }
 
-      const bufferMax = computeSendMax(buffer, xlmPerUsdc, normalizedSlippage);
-      totalSendMax += parseFloat(bufferMax);
       builder.addOperation(
         Operation.pathPaymentStrictReceive({
           sendAsset: Asset.native(),
@@ -346,7 +308,6 @@ export async function buildDonationTransaction(
         })
       );
     }
-
     estimatedSourceAmount = totalSendMax.toFixed(7);
   }
 
@@ -369,7 +330,6 @@ export async function buildDonationTransaction(
     estimatedSourceAmount,
   };
 }
-
 export function getStellarExplorerUrl(transactionHash: string, network?: NetworkType): string {
   const net = network ?? networkConfig.network;
   const networkParam = net === 'mainnet' ? 'public' : 'testnet';

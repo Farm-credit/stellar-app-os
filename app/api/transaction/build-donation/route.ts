@@ -42,36 +42,21 @@ export async function POST(request: Request) {
     }
 
     if (asset !== 'USDC' && asset !== 'XLM') {
-      return NextResponse.json({ error: 'Unsupported asset (expected USDC or XLM)' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Unsupported asset (expected USDC or XLM)' },
+        { status: 400 }
+      );
     }
 
     // Serialize per-wallet transaction building to prevent sequence/nonce collisions
     const result = await withWalletLock(
       walletPublicKey,
-      async () => {
-        logger.info('[api:build-donation] Building donation tx with wallet lock', {
-          walletPublicKey,
-          amount,
-          treeCount,
-          asset,
-          regionId,
-        });
-        return buildDonationTransaction(
-          amount,
-          walletPublicKey,
-          network,
-          idempotencyKey,
-          treeCount,
-          asset,
-          slippageTolerance,
-          regionId
-        );
-      },
-      {
-        ttlMs: 15_000,
-        retryCount: 15,
-        retryDelayMs: 100,
-      }
+      network,
+      idempotencyKey,
+      treeCount,
+      asset,
+      slippageTolerance,
+      regionId
     );
 
     const perTreeAllocation = calculateDonationAllocation(amount);

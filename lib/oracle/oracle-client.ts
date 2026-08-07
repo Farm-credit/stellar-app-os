@@ -1,5 +1,6 @@
 import { hexToBytes } from '@noble/hashes/utils';
 import { ed25519 } from '@noble/curves/ed25519';
+import { buildRegionHash } from '@/lib/geo/regionHash';
 import type { NdviSubmissionRequest, NdviSubmissionResponse } from '@/lib/types/oracle';
 
 function verifyOracleSignature(payload: string, signatureHex: string): boolean {
@@ -24,8 +25,11 @@ function ndviToSurvivalRate(ndvi: number): number {
  * Verifies the oracle signature, converts NDVI → survivalRate and invokes
  * the existing on-chain survival verification flow.
  */
-export function submitNdviSurvival(req: NdviSubmissionRequest): Promise<NdviSubmissionResponse> {
-  const { farmerPublicKey, ndvi, proofHash, contractType, network, signature } = req;
+// eslint-disable-next-line require-await -- async for the future on-chain invocation (see TODO below)
+export async function submitNdviSurvival(
+  req: NdviSubmissionRequest
+): Promise<NdviSubmissionResponse> {
+  const { farmerPublicKey, ndvi, proofHash, contractType, network, signature, lat, lon } = req;
 
   if (!farmerPublicKey) throw new Error('Missing farmerPublicKey');
   if (typeof ndvi !== 'number' || ndvi < 0 || ndvi > 1)
@@ -37,6 +41,8 @@ export function submitNdviSurvival(req: NdviSubmissionRequest): Promise<NdviSubm
   if (network !== 'testnet' && network !== 'mainnet') throw new Error('UNSUPPORTED_NETWORK');
   if (!signature || !/^[0-9a-f]+$/i.test(signature) || signature.length !== 128)
     throw new Error('signature must be a 64-byte hex string (128 hex chars)');
+  if (typeof lat !== 'number' || typeof lon !== 'number' || !isFinite(lat) || !isFinite(lon))
+    throw new Error('lat and lon must be finite numbers');
 
   const payload = `${farmerPublicKey}|${proofHash}|${ndvi.toFixed(6)}|${contractType}|${network}`;
   const ok = verifyOracleSignature(payload, signature);
@@ -50,5 +56,6 @@ export function submitNdviSurvival(req: NdviSubmissionRequest): Promise<NdviSubm
     amountReleased: outcome === 'completed' ? 'tranche2' : '0',
     survivalRate,
     transactionHash: txHash,
-  });
+    region: buildRegionHash({ lat, lon }),
+  };
 }

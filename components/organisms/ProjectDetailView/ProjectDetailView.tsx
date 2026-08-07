@@ -20,7 +20,7 @@ import { Button } from '@/components/atoms/Button';
 import { Text } from '@/components/atoms/Text';
 import { Badge } from '@/components/atoms/Badge';
 import { Card } from '@/components/molecules/Card';
-import { ProjectLocationMap } from '@/components/organisms/ProjectLocationMap/ProjectLocationMap';
+import { FarmPlotSatelliteView } from '@/components/organisms/FarmPlotSatelliteView/FarmPlotSatelliteView';
 import {
   ImpactMetrics,
   type ImpactMetric,
@@ -237,10 +237,11 @@ export function ProjectDetailView({ adminProject, carbonProject }: ProjectDetail
           <aside className="w-full lg:w-[380px] space-y-8">
             {/* Map Card */}
             <Card className="p-0 overflow-hidden border-stellar-blue/10">
-              <ProjectLocationMap
-                projectName={adminProject.name}
-                locationLabel={adminProject.location}
+              <FarmPlotSatelliteView
+                plotName={adminProject.name}
+                plotLocation={`${adminProject.location}, ${adminProject.country}`}
                 coordinates={carbonProject.coordinates}
+                plotId={adminProject.id}
                 className="p-4"
               />
             </Card>

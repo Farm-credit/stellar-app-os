@@ -54,8 +54,7 @@ export function FarmerVerificationPortal() {
   const [gpsSource, setGpsSource] = useState<'exif' | 'manual' | null>(null);
   const [manualLat, setManualLat] = useState('');
   const [manualLon, setManualLon] = useState('');
-  const [photoLacksCoordinates, setPhotoLacksCoordinates] = useState(false);
-  const [status, setStatus] = useState<Status>('idle');
+  const [status, setStatus] = useState<UploadStatus>('idle');
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<IpfsUploadResult | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -76,8 +75,6 @@ export function FarmerVerificationPortal() {
     setGps(null);
     setResult(null);
     setError(null);
-    setPhotoLacksCoordinates(false);
-    setGpsSource(null);
 
     if (!file) return;
 
@@ -98,9 +95,8 @@ export function FarmerVerificationPortal() {
           source: 'exif',
         });
         setGpsSource('exif');
-      } else {
-        setPhotoLacksCoordinates(true);
       }
+
       setStatus('idle');
     } catch {
       setStatus('idle');

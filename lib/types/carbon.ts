@@ -1,3 +1,5 @@
+import type { NetworkType } from '@/lib/types/wallet';
+
 export type ProjectType =
   | 'Reforestation'
   | 'Renewable Energy'
@@ -50,8 +52,6 @@ export interface CorporateMetadata {
   storageType: MetadataStorageType;
   storageRef?: string;
 }
-
-import type { NetworkType } from '@/lib/types/wallet';
 
 export interface SpeciesRate {
   slug: string;

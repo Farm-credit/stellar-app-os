@@ -84,7 +84,7 @@ describe('EXIFExtractionService', () => {
     it('should extract GPS coordinates when available', async () => {
       const mockEXIFData = {
         latitude: 40.7128,
-        longitude: -74.0060,
+        longitude: -74.006,
         GPSAltitude: 10,
       };
 
@@ -94,7 +94,7 @@ describe('EXIFExtractionService', () => {
 
       expect(result.metadata?.gps).toEqual({
         latitude: 40.7128,
-        longitude: -74.0060,
+        longitude: -74.006,
         altitude: 10,
       });
     });
@@ -265,7 +265,7 @@ describe('EXIFExtractionService', () => {
   });
 
   describe('configuration', () => {
-    it('should use custom configuration', () => {
+    it('should use custom configuration', async () => {
       const customService = new EXIFExtractionService({
         maxFileSize: 10 * 1024 * 1024,
         allowedMimeTypes: ['image/jpeg'],
@@ -273,9 +273,10 @@ describe('EXIFExtractionService', () => {
 
       const largeBuffer = Buffer.alloc(11 * 1024 * 1024);
 
-      expect(async () => {
-        await customService.extractFromBuffer(largeBuffer, 'image/jpeg');
-      }).rejects.toThrow();
+      const result = await customService.extractFromBuffer(largeBuffer, 'image/jpeg');
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('exceeds maximum allowed size');
     });
 
     it('should disable GPS extraction when configured', async () => {
