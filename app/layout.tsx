@@ -5,6 +5,11 @@ import { Header } from '@/components/organisms/Header/Header';
 import { QueryProvider } from '@/components/providers/QueryProvider';
 import { ToastProvider } from '@/contexts/ToastContext';
 import { WalletProvider } from '@/contexts/WalletContext';
+import { NotificationProvider } from '@/contexts/NotificationContext';
+import {
+  NotificationCenterDrawer,
+  ToastContainer,
+} from '@/components/organisms/NotificationCenter';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter', display: 'swap' });
 

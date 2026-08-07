@@ -5,9 +5,7 @@ import { signTransactionWithFreighter, signTransactionWithAlbedo } from './signi
 
 export interface DonationPaymentResult {
   transactionHash: string;
-  /** Asset the donor paid with. */
   asset: DonationAsset;
-  /** Amount debited from the donor in the payment asset (XLM is the sendMax ceiling). */
   estimatedSourceAmount: string;
 }
 
@@ -22,7 +20,6 @@ export async function processDonationPayment(
   asset: DonationAsset = 'USDC',
   regionId?: string
 ): Promise<DonationPaymentResult> {
-  // Step 1: Build transaction
   onStatusChange?.('preparing');
 
   const buildRes = await fetch('/api/transaction/build-donation', {
@@ -51,7 +48,6 @@ export async function processDonationPayment(
     estimatedSourceAmount,
   } = (await buildRes.json()) as BuildDonationTransactionResponse;
 
-  // Step 2: Sign transaction
   onStatusChange?.('signing');
 
   let signedXdr: string;
@@ -63,7 +59,6 @@ export async function processDonationPayment(
     throw new Error('Unsupported wallet type for signing');
   }
 
-  // Step 3: Submit transaction
   onStatusChange?.('submitting');
 
   const submitRes = await fetch('/api/transaction/submit', {

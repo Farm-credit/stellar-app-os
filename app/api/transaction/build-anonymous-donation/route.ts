@@ -83,6 +83,12 @@ export async function POST(request: Request) {
     // This is critical for custodial fee-payer account used for anonymous donations
     const { transactionXdr, networkPassphrase } = await withWalletLock(
       feePayerPublicKey,
+      network,
+      idempotencyKey,
+      1,
+      'USDC',
+      undefined,
+      regionId
       async () => {
         logger.info('[api:anon-donation] Building anon donation tx with wallet lock', {
           feePayerPublicKey,

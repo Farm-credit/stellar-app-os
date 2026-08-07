@@ -100,9 +100,9 @@ export function ProjectCard({ project }: ProjectCardProps) {
         </div>
       </CardContent>
 
-      <CardFooter className="p-5 pt-4 border-t bg-muted/20 flex items-center justify-between flex-none gap-3">
+      <CardFooter className="flex items-center justify-between gap-3 border-t bg-muted/20 p-5">
         <div className="flex flex-col">
-          <Text variant="small" className="text-muted-foreground text-xs leading-tight">
+          <Text variant="small" className="text-xs leading-tight text-muted-foreground">
             Price
           </Text>
           <div className="flex items-baseline gap-1">
