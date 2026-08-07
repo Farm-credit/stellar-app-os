@@ -131,12 +131,15 @@ pub enum HarvestaError {
     HashMismatch = 73,
 
     // ── Farmer registry validator gates (79) ──────────────────────────────
+    // ── Farmer registry validator gates (67) ──────────────────────────────
     /// Caller is not a registered validator — gated read/write denied.
     NotValidator = 79,
 
     // ── Arithmetic overflows (80–81) ──────────────────────────────────────────
     TreeTokenMintOverflow = 80,
     TokenUnitOverflow = 81,
+
+    // ── Tree lifecycle state machine (#462) ───────────────────────────────────
     InvalidTreeStatusTransition = 90,
     PlantingTimeoutNotReached = 91,
     PolicyNotFound = 101,
@@ -181,6 +184,7 @@ pub enum NftError {
     SelfTrade = 5,
     /// The seller does not own the token being traded.
     NotTokenOwner = 6,
+    TokenIsSoulbound = 4,
 }
 
 #[contracterror]

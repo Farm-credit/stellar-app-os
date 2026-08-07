@@ -1266,15 +1266,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "public-seal"
-version = "0.1.0"
-dependencies = [
- "harvesta-errors",
- "shared",
- "soroban-sdk 21.7.7",
-]
-
-[[package]]
 name = "quick-error"
 version = "1.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2256,8 +2247,11 @@ name = "tree-token"
 version = "0.1.0"
 dependencies = [
  "contract-utils",
+ "ed25519-dalek",
  "harvesta-errors",
+ "soroban-env-host 21.2.1",
  "soroban-sdk 21.7.7",
+ "stellar-strkey 0.0.8",
 ]
 
 [[package]]
