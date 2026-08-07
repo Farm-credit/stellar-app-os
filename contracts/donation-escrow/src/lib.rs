@@ -156,6 +156,34 @@ pub struct AcceptedToken {
     pub canonical: bool,
 }
 
+// ── Interest accrual types ────────────────────────────────────────────────────
+
+/// Contract-wide interest configuration stored in instance storage.
+/// A single rate applies across all tracked tokens.
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct InterestConfig {
+    /// Annual interest rate in basis points (1 bp = 0.01%).
+    /// Valid range: 1–10_000 (inclusive).
+    pub rate_bps: u32,
+    /// The treasury contract address that receives redirected interest.
+    pub treasury: Address,
+}
+
+/// Per-token accrual state stored in persistent storage.
+/// Updated every time a donation is locked, released, or refunded.
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct AccrualState {
+    /// Sum of all currently locked (Pending) donation amounts for this token.
+    pub locked_principal: i128,
+    /// Ledger timestamp at which `locked_principal` was last snapshotted.
+    /// Interest accrues on `locked_principal` from this point forward.
+    pub last_accrual_ts: u64,
+    /// Accumulated interest (in token stroops) not yet sent to the treasury.
+    pub pending_interest: i128,
+}
+
 // ── Contract ──────────────────────────────────────────────────────────────────
 
 #[contract]
@@ -289,6 +317,9 @@ impl DonationEscrow {
         Self::bump_persistent(&env, &key);
         Self::bump_instance(&env);
 
+        // Track this amount in the interest accrual ledger.
+        Self::record_lock(&env, &token, amount);
+
         env.events().publish(
             (symbol_short!("donate"), donor),
             (batch_id, tree_count, amount, token),
@@ -356,6 +387,9 @@ impl DonationEscrow {
             env.storage().persistent().set(&key, &rec);
             Self::bump_persistent(&env, &key);
 
+            // Reduce locked principal for interest accounting.
+            Self::record_unlock(&env, &rec.token, rec.amount);
+
             env.events()
                 .publish((symbol_short!("release"), seq), rec.amount);
         }
@@ -391,6 +425,9 @@ impl DonationEscrow {
         env.storage().persistent().set(&key, &rec);
         Self::bump_persistent(&env, &key);
         Self::bump_instance(&env);
+
+        // Reduce locked principal for interest accounting.
+        Self::record_unlock(&env, &rec.token, rec.amount);
 
         env.events()
             .publish((symbol_short!("refund"), seq), rec.amount);
@@ -1136,6 +1173,135 @@ impl DonationEscrow {
         } else {
             amount * factor
         }
+    }
+
+    // ── Interest accrual internals ────────────────────────────────────────────
+
+    /// Storage key for a token's AccrualState in persistent storage.
+    fn accrual_key(env: &Env, token: &Address) -> soroban_sdk::Val {
+        (symbol_short!("ACCR"), token.clone()).into_val(env)
+    }
+
+    /// Internal version of `accrue_interest` that can be called from within
+    /// other contract functions (does not panic if config is missing — simply
+    /// returns early, making it safe to call before config is set).
+    fn accrue_interest_internal(env: &Env, token: &Address) {
+        let cfg_opt: Option<InterestConfig> = env
+            .storage()
+            .instance()
+            .get(&symbol_short!("INT_CFG"));
+        let cfg = match cfg_opt {
+            Some(c) => c,
+            None => return, // config not set yet; skip silently
+        };
+
+        let key = Self::accrual_key(env, token);
+        let mut state: AccrualState = env
+            .storage()
+            .persistent()
+            .get(&key)
+            .unwrap_or(AccrualState {
+                locked_principal: 0,
+                last_accrual_ts: env.ledger().timestamp(),
+                pending_interest: 0,
+            });
+
+        let now = env.ledger().timestamp();
+        let new_interest =
+            Self::compute_interest(state.locked_principal, cfg.rate_bps, state.last_accrual_ts, now);
+
+        state.pending_interest = state
+            .pending_interest
+            .checked_add(new_interest)
+            .expect("pending_interest overflow");
+        state.last_accrual_ts = now;
+
+        env.storage().persistent().set(&key, &state);
+        env.storage()
+            .persistent()
+            .extend_ttl(&key, TTL_BUMP_LEDGERS, TTL_BUMP_LEDGERS);
+    }
+
+    /// Increase locked principal for a token by `delta`, snapshotting interest
+    /// first so the new principal only accrues from this moment onward.
+    fn record_lock(env: &Env, token: &Address, delta: i128) {
+        // Snapshot interest at the current principal before changing it.
+        Self::accrue_interest_internal(env, token);
+
+        let key = Self::accrual_key(env, token);
+        let mut state: AccrualState = env
+            .storage()
+            .persistent()
+            .get(&key)
+            .unwrap_or(AccrualState {
+                locked_principal: 0,
+                last_accrual_ts: env.ledger().timestamp(),
+                pending_interest: 0,
+            });
+
+        state.locked_principal = state
+            .locked_principal
+            .checked_add(delta)
+            .expect("locked_principal overflow");
+
+        env.storage().persistent().set(&key, &state);
+        env.storage()
+            .persistent()
+            .extend_ttl(&key, TTL_BUMP_LEDGERS, TTL_BUMP_LEDGERS);
+    }
+
+    /// Decrease locked principal for a token by `delta`, snapshotting interest
+    /// first.  Saturates to zero rather than underflowing.
+    fn record_unlock(env: &Env, token: &Address, delta: i128) {
+        // Snapshot interest at the current principal before reducing it.
+        Self::accrue_interest_internal(env, token);
+
+        let key = Self::accrual_key(env, token);
+        let mut state: AccrualState = env
+            .storage()
+            .persistent()
+            .get(&key)
+            .unwrap_or(AccrualState {
+                locked_principal: 0,
+                last_accrual_ts: env.ledger().timestamp(),
+                pending_interest: 0,
+            });
+
+        // Saturate to zero to guard against accounting inconsistencies.
+        state.locked_principal = state.locked_principal.saturating_sub(delta);
+        if state.locked_principal < 0 {
+            state.locked_principal = 0;
+        }
+
+        env.storage().persistent().set(&key, &state);
+        env.storage()
+            .persistent()
+            .extend_ttl(&key, TTL_BUMP_LEDGERS, TTL_BUMP_LEDGERS);
+    }
+
+    /// Pure interest computation.
+    ///
+    /// `interest = principal * rate_bps * elapsed_secs
+    ///             / (BPS_DENOMINATOR * SECONDS_PER_YEAR)`
+    ///
+    /// Uses integer arithmetic only; fractional stroops are truncated.
+    /// Returns 0 if elapsed time is zero or principal is zero.
+    fn compute_interest(
+        principal: i128,
+        rate_bps: u32,
+        from_ts: u64,
+        to_ts: u64,
+    ) -> i128 {
+        if principal <= 0 || to_ts <= from_ts {
+            return 0;
+        }
+        let elapsed = (to_ts - from_ts) as i128;
+        let rate = rate_bps as i128;
+        // Multiply before dividing to preserve precision.
+        principal
+            .saturating_mul(rate)
+            .saturating_mul(elapsed)
+            / (BPS_DENOMINATOR * SECONDS_PER_YEAR as i128)
     }
 }
 

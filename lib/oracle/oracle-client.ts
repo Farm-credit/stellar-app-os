@@ -1,15 +1,7 @@
-<<<<<<< HEAD
-=======
 import { hexToBytes } from '@noble/hashes/utils';
 import { ed25519 } from '@noble/curves/ed25519';
-import { invokeSurvivalVerification } from '@/lib/stellar/survival-verifier-client';
 import type { NdviSubmissionRequest, NdviSubmissionResponse } from '@/lib/types/oracle';
-/**
- * Verify an ed25519 signature using the configured oracle public key.
- *
- * The environment variable `ORACLE_PUBLIC_KEY_HEX` must contain the 32-byte
- * ed25519 public key as lowercase hex.
- */
+
 function verifyOracleSignature(payload: string, signatureHex: string): boolean {
   const pubHex = process.env.ORACLE_PUBLIC_KEY_HEX;
   if (!pubHex) throw new Error('ORACLE_PUBLIC_KEY_HEX environment variable not set');
@@ -21,9 +13,6 @@ function verifyOracleSignature(payload: string, signatureHex: string): boolean {
   return ed25519.verify(sig, msg, pub);
 }
 
-/**
- * Convert an NDVI (0.0-1.0) into an integer survival rate 0-100.
- */
 function ndviToSurvivalRate(ndvi: number): number {
   if (Number.isNaN(ndvi) || !isFinite(ndvi)) throw new Error('ndvi must be a finite number');
   const clamped = Math.max(0, Math.min(1, ndvi));
@@ -35,9 +24,7 @@ function ndviToSurvivalRate(ndvi: number): number {
  * Verifies the oracle signature, converts NDVI → survivalRate and invokes
  * the existing on-chain survival verification flow.
  */
-export async function submitNdviSurvival(
-  req: NdviSubmissionRequest
-): Promise<NdviSubmissionResponse> {
+export function submitNdviSurvival(req: NdviSubmissionRequest): Promise<NdviSubmissionResponse> {
   const { farmerPublicKey, ndvi, proofHash, contractType, network, signature } = req;
 
   if (!farmerPublicKey) throw new Error('Missing farmerPublicKey');
@@ -51,32 +38,17 @@ export async function submitNdviSurvival(
   if (!signature || !/^[0-9a-f]+$/i.test(signature) || signature.length !== 128)
     throw new Error('signature must be a 64-byte hex string (128 hex chars)');
 
-  // Canonical payload used for signing by the oracle. Keep stable across clients.
   const payload = `${farmerPublicKey}|${proofHash}|${ndvi.toFixed(6)}|${contractType}|${network}`;
-
   const ok = verifyOracleSignature(payload, signature);
   if (!ok) throw new Error('ORACLE_SIGNATURE_INVALID');
 
   const survivalRate = ndviToSurvivalRate(ndvi);
-
-  // TODO: Implement actual contract invocation once the Stellar contract logic is ready
-  // const txHash = await invokeSurvivalVerification(
-  //   farmerPublicKey,
-  //   proofHash,
-  //   survivalRate,
-  //   contractType,
-  //   network
-  // );
-
-  const txHash = 'mock_tx_hash_pending_implementation';
-
   const outcome = survivalRate >= 70 ? 'completed' : 'disputed';
 
-  return {
+  return Promise.resolve({
     outcome,
     amountReleased: outcome === 'completed' ? 'tranche2' : '0',
     survivalRate,
     transactionHash: txHash,
-  };
+  });
 }
->>>>>>> 982c64ba2f219ccef8caa51fd46f92faa951b468
