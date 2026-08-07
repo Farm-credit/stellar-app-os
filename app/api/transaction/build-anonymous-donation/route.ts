@@ -4,6 +4,10 @@ import { buildDonationTransaction } from '@/lib/stellar/transaction';
 import { calculateDonationAllocation } from '@/lib/constants/donation';
 import { deserialiseProof, deserialiseInputs } from '@/lib/zk/proof-generator';
 import type { AnonymousDonationRequest, AnonymousDonationResponse } from '@/lib/zk/types';
+import { withWalletLock } from '@/lib/cache/redlock';
+import logger from '@/lib/logger';
+
+export const runtime = 'nodejs';
 
 export async function POST(request: Request) {
   let body: AnonymousDonationRequest;
@@ -58,7 +62,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'NULLIFIER_ALREADY_SPENT' }, { status: 409 });
     }
 
-    console.error('ZK verifier error:', err);
+    logger.error('[api:anon-donation] ZK verifier error', { err });
     return NextResponse.json({ error: 'Proof verification failed' }, { status: 500 });
   }
 
@@ -75,13 +79,34 @@ export async function POST(request: Request) {
       throw new Error('STELLAR_FEE_PAYER_PUBLIC_KEY environment variable is not set');
     }
 
-    const { transactionXdr, networkPassphrase } = await buildDonationTransaction(
-      amount,
+    // Serialize builds for fee-payer wallet to prevent nonce collisions
+    // This is critical for custodial fee-payer account used for anonymous donations
+    const { transactionXdr, networkPassphrase } = await withWalletLock(
       feePayerPublicKey,
       network,
       idempotencyKey,
       1,
+      'USDC',
+      undefined,
       regionId
+      async () => {
+        logger.info('[api:anon-donation] Building anon donation tx with wallet lock', {
+          feePayerPublicKey,
+          amount,
+          regionId,
+        });
+        return buildDonationTransaction(
+          amount,
+          feePayerPublicKey,
+          network,
+          idempotencyKey,
+          1,
+          'USDC',
+          undefined,
+          regionId
+        );
+      },
+      { ttlMs: 15_000, retryCount: 15 }
     );
 
     const allocation = calculateDonationAllocation(amount);
@@ -94,8 +119,9 @@ export async function POST(request: Request) {
 
     return NextResponse.json(response);
   } catch (err) {
-    console.error('Error building anonymous donation transaction:', err);
+    logger.error('[api:anon-donation] Error building anonymous donation transaction', { err });
     const msg = err instanceof Error ? err.message : 'Failed to build transaction';
-    return NextResponse.json({ error: msg }, { status: 500 });
+    const status = msg.includes('acquire lock') ? 409 : 500;
+    return NextResponse.json({ error: msg }, { status });
   }
 }

@@ -1,8 +1,10 @@
+import { redis } from './redis';
+
 /**
- * In-memory sliding-window rate limiter and IP blocklist.
+ * Sliding-window rate limiter and IP blocklist.
  *
- * Production note: for multi-replica deployments, replace the Map with a
- * Redis-backed store (e.g. @upstash/ratelimit) to share state across workers.
+ * Uses Redis if REDIS_URL is configured, otherwise falls back to an
+ * in-memory Map (suitable for single-instance or development environments).
  */
 
 const WINDOW_MS = 60_000; // 1-minute window
@@ -28,10 +30,58 @@ export type RateLimitResult =
   | { allowed: true }
   | { allowed: false; reason: 'blocklist' | 'rate_limit'; retryAfter?: number };
 
-export function checkRateLimit(ip: string, limit = DEFAULT_LIMIT): RateLimitResult {
+export async function checkRateLimit(ip: string, limit = DEFAULT_LIMIT): Promise<RateLimitResult> {
   if (BLOCKLIST.has(ip)) return { allowed: false, reason: 'blocklist' };
 
   const now = Date.now();
+
+  if (redis) {
+    try {
+      const key = `ratelimit:${ip}`;
+      const cutoff = now - WINDOW_MS;
+
+      const multi = redis.multi();
+      multi.zRemRangeByScore(key, 0, cutoff);
+      multi.zAdd(key, [{ score: now, value: `${now}-${Math.random()}` }]);
+      multi.zRange(key, 0, 0, { WITHSCORES: true });
+      multi.zCard(key);
+      multi.expire(key, Math.ceil(WINDOW_MS / 1000));
+
+      const [, , firstElem, count] = (await multi.exec()) as [
+        number,
+        number,
+        string[] | Array<{ value: string; score: number }>,
+        number,
+        boolean
+      ];
+
+      if (count > limit) {
+        // firstElem could be string[] or object array depending on redis version/client options
+        let oldestScore = now;
+        if (Array.isArray(firstElem) && firstElem.length > 0) {
+          const first = firstElem[0];
+          if (typeof first === 'object' && 'score' in first) {
+            oldestScore = first.score;
+          } else if (typeof first === 'string' && firstElem.length > 1) {
+             // If withScores returned flat array [value, score, value, score]
+             oldestScore = parseFloat(firstElem[1] as string);
+          }
+        }
+        
+        return {
+          allowed: false,
+          reason: 'rate_limit',
+          retryAfter: Math.ceil((oldestScore + WINDOW_MS - now) / 1000),
+        };
+      }
+      return { allowed: true };
+    } catch (error) {
+      console.error('Redis rate limit error, falling back to memory:', error);
+      // Fallback below if Redis fails
+    }
+  }
+
+  // In-memory fallback
   const entry = windows.get(ip);
 
   if (!entry || now >= entry.resetAt) {
@@ -79,13 +129,56 @@ export type SlidingRateLimitResult =
       reset: number;
     };
 
-export function checkSubmitAnonRateLimit(ip: string): SlidingRateLimitResult {
+export async function checkSubmitAnonRateLimit(ip: string): Promise<SlidingRateLimitResult> {
   if (BLOCKLIST.has(ip)) {
     return { allowed: false, reason: 'blocklist', remaining: 0, reset: 0 };
   }
 
   const now = Date.now();
   const cutoff = now - SUBMIT_ANON_WINDOW_MS;
+
+  if (redis) {
+    try {
+      const key = `ratelimit:anon:${ip}`;
+
+      const multi = redis.multi();
+      multi.zRemRangeByScore(key, 0, cutoff);
+      multi.zAdd(key, [{ score: now, value: `${now}-${Math.random()}` }]);
+      multi.zRangeWithScores(key, 0, 0); // Using zRangeWithScores directly avoids type ambiguity
+      multi.zCard(key);
+      multi.expire(key, Math.ceil(SUBMIT_ANON_WINDOW_MS / 1000));
+
+      const [, , firstElem, count] = (await multi.exec()) as [
+        number,
+        number,
+        Array<{ value: string; score: number }>,
+        number,
+        boolean
+      ];
+
+      if (count > SUBMIT_ANON_LIMIT) {
+        const oldestScore = firstElem?.[0]?.score ?? now;
+        return {
+          allowed: false,
+          reason: 'rate_limit',
+          retryAfter: Math.ceil((oldestScore + SUBMIT_ANON_WINDOW_MS - now) / 1000),
+          remaining: 0,
+          reset: oldestScore + SUBMIT_ANON_WINDOW_MS,
+        };
+      }
+
+      return {
+        allowed: true,
+        remaining: SUBMIT_ANON_LIMIT - count,
+        reset: now + SUBMIT_ANON_WINDOW_MS,
+      };
+    } catch (error) {
+      console.error('Redis anon rate limit error, falling back to memory:', error);
+      // Fallback below
+    }
+  }
+
+  // In-memory fallback
   const entry = submitAnonWindows.get(ip);
 
   if (!entry) {
