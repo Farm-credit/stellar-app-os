@@ -27,8 +27,7 @@ interface WindowEntry {
 const windows = new Map<string, WindowEntry>();
 
 export type RateLimitResult =
-  | { allowed: true }
-  | { allowed: false; reason: 'blocklist' | 'rate_limit'; retryAfter?: number };
+  { allowed: true } | { allowed: false; reason: 'blocklist' | 'rate_limit'; retryAfter?: number };
 
 export async function checkRateLimit(ip: string, limit = DEFAULT_LIMIT): Promise<RateLimitResult> {
   if (BLOCKLIST.has(ip)) return { allowed: false, reason: 'blocklist' };

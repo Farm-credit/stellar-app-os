@@ -9,6 +9,7 @@ import { Text } from '@/components/atoms/Text';
 import { MobileDrawer } from '@/components/organisms/Header/MobileDrawer';
 import { LanguageSelector } from '@/components/organisms/Header/LanguageSelector';
 import { WalletModal } from '@/components/organisms/WalletModal/WalletModal';
+import { NotificationBell } from '@/components/organisms/NotificationCenter/NotificationBell';
 import { useWalletModal } from '@/components/organisms/WalletModal/useWalletModal';
 import { useWalletContext } from '@/contexts/WalletContext';
 import { useAppTranslation } from '@/hooks/useTranslation';
@@ -162,11 +163,15 @@ export function Header(): JSX.Element {
             >
               {walletLabel}
             </Button>
+
+            <NotificationBell />
           </div>
 
           {/* ── Mobile Controls ── */}
           <div className="flex md:hidden items-center gap-2">
             <CompactThemeSwitcher />
+            <NotificationBell />
+
             <button
               type="button"
               onClick={toggleTheme}

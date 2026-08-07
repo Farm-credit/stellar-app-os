@@ -735,6 +735,10 @@ impl TreeRegistry {
         (symbol_short!("RGLST"), region.clone())
     }
 
+    fn weather_key(env: &Env, region: &soroban_sdk::String) -> soroban_sdk::Val {
+        (symbol_short!("WTHR"), region.clone()).into_val(env)
+    }
+
     fn milestone_flag(milestone_years: u64) -> Option<u32> {
         match milestone_years {
             1 => Some(1),
