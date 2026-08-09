@@ -217,6 +217,51 @@ impl KycAttestation {
             .set(&verifier_key(&env, &verifier), &true);
     }
 
+    /// Batch revoke/blacklist KYC attestations for sanction compliance.
+    /// Only callable by compliance admin.
+    pub fn batch_revoke_kyc(env: Env, admin: Address, farmers: Vec<Address>) {
+        admin.require_auth();
+        let stored_admin: Address = env
+            .storage()
+            .instance()
+            .get(&symbol_short!("ADMIN"))
+            .unwrap_or_else(|| panic_with_error!(&env, HarvestaError::NotInitialized));
+        if admin != stored_admin {
+            panic_with_error!(&env, HarvestaError::Unauthorized);
+        }
+
+        for farmer in farmers.iter() {
+            // Update legacy KYC status to Rejected
+            env.storage()
+                .persistent()
+                .set(&status_key(&env, &farmer), &KycStatus::Rejected);
+
+            // Update ZK-KYC status to Rejected
+            env.storage()
+                .instance()
+                .set(&zk_status_key(&env, &farmer), &KycStatus::Rejected);
+
+            // Record batch revocation entry in attestation history
+            let hkey = history_key(&env, &farmer);
+            let mut history: Vec<Attestation> = env
+                .storage()
+                .persistent()
+                .get(&hkey)
+                .unwrap_or(Vec::new(&env));
+            history.push_back(Attestation {
+                verifier: admin.clone(),
+                status: KycStatus::Rejected,
+                timestamp: env.ledger().timestamp(),
+            });
+            env.storage().persistent().set(&hkey, &history);
+
+            env.events().publish(
+                (symbol_short!("KYCBRevok"), farmer.clone()),
+                admin.clone(),
+            );
+        }
+    }
+
     // ── ZK-KYC path (new — #638) ──────────────────────────────────────────────
 
     /// Verify a farmer's KYC using ZK-proof inputs.

@@ -3,16 +3,17 @@
 import { type JSX, useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Menu, Sun, Moon } from 'lucide-react';
+import { Menu } from 'lucide-react';
 import { Button } from '@/components/atoms/Button';
 import { Text } from '@/components/atoms/Text';
 import { MobileDrawer } from '@/components/organisms/Header/MobileDrawer';
 import { LanguageSelector } from '@/components/organisms/Header/LanguageSelector';
 import { WalletModal } from '@/components/organisms/WalletModal/WalletModal';
+import { NotificationBell } from '@/components/organisms/NotificationCenter/NotificationBell';
 import { useWalletModal } from '@/components/organisms/WalletModal/useWalletModal';
 import { useWalletContext } from '@/contexts/WalletContext';
 import { useAppTranslation } from '@/hooks/useTranslation';
-import { useTheme } from '@/hooks/useTheme';
+import { CompactThemeSwitcher } from '@/components/molecules/ThemeSwitcher/ThemeSwitcher';
 import { cn } from '@/lib/utils';
 
 const NAV_LINKS = [
@@ -104,6 +105,7 @@ export function Header(): JSX.Element {
 
           {/* ── Desktop Right Controls ── */}
           <div className="hidden md:flex items-center gap-2">
+            <CompactThemeSwitcher />
             <button
               type="button"
               onClick={toggleTheme}
@@ -161,10 +163,15 @@ export function Header(): JSX.Element {
             >
               {walletLabel}
             </Button>
+
+            <NotificationBell />
           </div>
 
           {/* ── Mobile Controls ── */}
           <div className="flex md:hidden items-center gap-2">
+            <CompactThemeSwitcher />
+            <NotificationBell />
+
             <button
               type="button"
               onClick={toggleTheme}

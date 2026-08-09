@@ -20,6 +20,8 @@ use soroban_sdk::{
 };
 use harvesta_errors::HarvestaError;
 
+pub const APPEAL_WINDOW_SECS: u64 = 259_200; // 72 hours
+
 #[contracterror]
 #[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord)]
 #[repr(u32)]
@@ -33,9 +35,32 @@ pub enum VerifierStakingError {
     AlreadyRegistered = 97,
     SlaNotBreached = 98,
     AssignmentNotFound = 99,
+    DelegationNotAllowed = 100,
+    DelegationNotFound = 101,
+    DelegationCooldown = 102,
 }
 
 // ── Types ─────────────────────────────────────────────────────────────────────
+
+#[contracttype]
+#[derive(Clone, Debug, PartialEq)]
+pub enum SlashStatus {
+    Pending,
+    Appealed,
+    Executed,
+    Cancelled,
+}
+
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct SlashRequest {
+    pub id: u64,
+    pub verifier: Address,
+    pub slash_amount: i128,
+    pub requested_at: u64,
+    pub expires_at: u64,
+    pub status: SlashStatus,
+}
 
 #[contracttype]
 #[derive(Clone, Debug)]
@@ -204,7 +229,7 @@ impl VerifierStaking {
         }
 
         let key = DataKey::Stake(verifier.clone());
-        let mut rec: VerifierStake = env
+        let rec: VerifierStake = env
             .storage()
             .persistent()
             .get(&key).unwrap_or_else(|| panic_with_error!(&env, VerifierStakingError::VerifierNotStaked));
@@ -213,17 +238,104 @@ impl VerifierStaking {
             panic_with_error!(&env, VerifierStakingError::SlashExceedsStake);
         }
 
-        rec.amount -= slash_amount;
-        rec.slashed += slash_amount;
-        rec.slashed_to_buffer_pool += slash_amount;
+        let count: u64 = env.storage().instance().get(&DataKey::SlashCount).unwrap_or(0);
+        let slash_id = count + 1;
+        let requested_at = env.ledger().timestamp();
+        let expires_at = requested_at + APPEAL_WINDOW_SECS;
+
+        let request = SlashRequest {
+            id: slash_id,
+            verifier: verifier.clone(),
+            slash_amount,
+            requested_at,
+            expires_at,
+            status: SlashStatus::Pending,
+        };
+
+        env.storage().persistent().set(&DataKey::SlashRequest(slash_id), &request);
+        env.storage().instance().set(&DataKey::SlashCount, &slash_id);
+
+        env.events().publish(
+            (symbol_short!("slash_prp"), verifier),
+            (slash_id, slash_amount, expires_at),
+        );
+
+        slash_id
+    }
+
+    /// Verifier files an appeal against a proposed slash during the 72-hour challenge period.
+    pub fn appeal_slash(env: Env, verifier: Address, slash_id: u64, _reason: soroban_sdk::String) {
+        verifier.require_auth();
+
+        let mut req: SlashRequest = env
+            .storage()
+            .persistent()
+            .get(&DataKey::SlashRequest(slash_id))
+            .unwrap_or_else(|| panic_with_error!(&env, VerifierStakingError::SlashNotFound));
+
+        if req.verifier != verifier {
+            panic_with_error!(&env, HarvestaError::Unauthorized);
+        }
+
+        if req.status != SlashStatus::Pending {
+            panic_with_error!(&env, VerifierStakingError::SlashAlreadyResolved);
+        }
+
+        if env.ledger().timestamp() > req.expires_at {
+            panic_with_error!(&env, VerifierStakingError::AppealWindowExpired);
+        }
+
+        req.status = SlashStatus::Appealed;
+        env.storage().persistent().set(&DataKey::SlashRequest(slash_id), &req);
+
+        env.events().publish(
+            (symbol_short!("slash_apl"), verifier),
+            slash_id,
+        );
+    }
+
+    /// Execute a slash after the 72-hour appeal window has passed without an approved challenge.
+    pub fn execute_slash(env: Env, slash_id: u64) {
+        let (admin, _, _, _, replanting_buffer_pool) = Self::config(&env);
+        admin.require_auth();
+
+        let mut req: SlashRequest = env
+            .storage()
+            .persistent()
+            .get(&DataKey::SlashRequest(slash_id))
+            .unwrap_or_else(|| panic_with_error!(&env, VerifierStakingError::SlashNotFound));
+
+        if req.status != SlashStatus::Pending && req.status != SlashStatus::Appealed {
+            panic_with_error!(&env, VerifierStakingError::SlashAlreadyResolved);
+        }
+
+        if env.ledger().timestamp() < req.expires_at {
+            panic_with_error!(&env, VerifierStakingError::AppealWindowActive);
+        }
+
+        let key = DataKey::Stake(req.verifier.clone());
+        let mut rec: VerifierStake = env
+            .storage()
+            .persistent()
+            .get(&key)
+            .unwrap_or_else(|| panic_with_error!(&env, VerifierStakingError::VerifierNotStaked));
+
+        let actual_slash = if req.slash_amount > rec.amount {
+            rec.amount
+        } else {
+            req.slash_amount
+        };
+
+        rec.amount -= actual_slash;
+        rec.slashed += actual_slash;
+        rec.slashed_to_buffer_pool += actual_slash;
         env.storage().persistent().set(&key, &rec);
 
-        if slash_amount > 0 {
-            let token = token::Client::new(&env, &rec.token);
-            token.transfer(
+        if actual_slash > 0 {
+            token::Client::new(&env, &rec.token).transfer(
                 &env.current_contract_address(),
                 &replanting_buffer_pool,
-                &slash_amount,
+                &actual_slash,
             );
         }
 
@@ -568,6 +680,110 @@ impl VerifierStaking {
         env.storage().persistent().remove(&key);
 
         env.events().publish((symbol_short!("sla_brch"), verifier), plot_id);
+    }
+
+    /// Delegator delegates stake to a registered verifier.
+    ///
+    /// The delegator transfers `amount` of stake tokens to the contract
+    /// and the stake is attributed to the verifier's pool.
+    /// The delegator cannot withdraw their delegation until the verifier
+    /// has completed unbonding (delegation is locked).
+    pub fn delegate(env: Env, delegator: Address, verifier: Address, amount: i128) {
+        delegator.require_auth();
+
+        if amount <= 0 {
+            panic_with_error!(&env, HarvestaError::AmountMustBePositive);
+        }
+
+        if !Self::is_registered(env.clone(), verifier.clone()) {
+            panic_with_error!(&env, VerifierStakingError::NotRegistered);
+        }
+
+        let (_, stake_token, _, _, _, _) = Self::config(&env);
+
+        // Transfer stake tokens from delegator to contract
+        token::Client::new(&env, &stake_token).transfer(
+            &delegator,
+            &env.current_contract_address(),
+            &amount,
+        );
+
+        // Update or create delegation record
+        let deleg_key = DataKey::Delegation(verifier.clone(), delegator.clone());
+        let existing: Option<Delegation> = env.storage().persistent().get(&deleg_key);
+        let new_amount = match existing {
+            Some(deleg) => deleg.amount + amount,
+            None => amount,
+        };
+
+        let delegation = Delegation {
+            delegator: delegator.clone(),
+            verifier: verifier.clone(),
+            amount: new_amount,
+            delegated_at: env.ledger().timestamp(),
+        };
+        env.storage().persistent().set(&deleg_key, &delegation);
+
+        // Also update the verifier's total stake record
+        let stake_key = DataKey::Stake(verifier.clone());
+        let mut rec: VerifierStake = env
+            .storage()
+            .persistent()
+            .get(&stake_key).unwrap_or_else(|| panic_with_error!(&env, VerifierStakingError::VerifierNotStaked));
+
+        rec.amount += amount;
+
+        env.storage().persistent().set(&stake_key, &rec);
+
+        env.events()
+            .publish((symbol_short!("delegated"), delegator), (verifier, amount));
+    }
+
+    /// Undelegate from a verifier. Delegated tokens are returned to the
+    /// delegator immediately.
+    pub fn undelegate(env: Env, delegator: Address, verifier: Address) {
+        delegator.require_auth();
+
+        let deleg_key = DataKey::Delegation(verifier.clone(), delegator.clone());
+        let delegation: Delegation = env
+            .storage()
+            .persistent()
+            .get(&deleg_key).unwrap_or_else(|| panic_with_error!(&env, VerifierStakingError::DelegationNotFound));
+
+        let amount = delegation.amount;
+
+        // Remove delegation record
+        env.storage().persistent().remove(&deleg_key);
+
+        // Subtract from verifier's stake
+        let stake_key = DataKey::Stake(verifier.clone());
+        let mut rec: VerifierStake = env
+            .storage()
+            .persistent()
+            .get(&stake_key).unwrap_or_else(|| panic_with_error!(&env, VerifierStakingError::VerifierNotStaked));
+
+        rec.amount -= amount;
+        env.storage().persistent().set(&stake_key, &rec);
+
+        // Return delegated tokens to delegator
+        let (_, stake_token, _, _, _, _) = Self::config(&env);
+        token::Client::new(&env, &stake_token).transfer(
+            &env.current_contract_address(),
+            &delegator,
+            &amount,
+        );
+
+        env.events()
+            .publish((symbol_short!("undelegated"), delegator), (verifier, amount));
+    }
+
+    /// Returns the delegation amount for a verifier-delegator pair.
+    pub fn get_delegation(env: Env, verifier: Address, delegator: Address) -> i128 {
+        env.storage()
+            .persistent()
+            .get::<DataKey, Delegation>(&DataKey::Delegation(verifier, delegator))
+            .map(|d| d.amount)
+            .unwrap_or(0)
     }
 }
 

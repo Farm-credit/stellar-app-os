@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 import { ComparisonTool } from '@/components/organisms/ComparisonTool/ComparisonTool';
 import { mockCarbonProjects } from '@/lib/api/mock/carbonProjects';
+import { useAppTranslation } from '@/hooks/useTranslation';
 import { Text } from '@/components/atoms/Text';
 
 export default function ComparePage() {

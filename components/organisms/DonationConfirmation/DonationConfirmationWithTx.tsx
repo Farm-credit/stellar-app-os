@@ -88,7 +88,7 @@ export function DonationConfirmationWithTx({ txHash }: DonationConfirmationWithT
           throw new Error('Wallet not connected or does not support signing');
         }
         signedXdr = await signTransaction(transactionXdr, networkPassphrase);
-      } catch (err: any) {
+      } catch {
         throw new Error('USER_REJECTED_SIGNING');
       }
 

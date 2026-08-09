@@ -1,8 +1,8 @@
 import { useEffect, useId, useRef, useState } from 'react';
-import { useExifData } from './useExifData';
-import { ThumbnailErrorBoundary } from './ThumbnailErrorBoundary';
-import { formatAltitude, formatCapturedAt, formatCoordinates } from './format';
-import type { ExifParser, PhotoMetadata } from './types';
+import { useExifData } from '@/hooks/useExifData';
+import { ThumbnailErrorBoundary } from '@/components/molecules/ThumbnailErrorBoundary';
+import { formatAltitude, formatCapturedAt, formatCoordinates } from '@/lib/exif/format';
+import type { ExifParser, PhotoMetadata } from '@/lib/exif/types';
 
 export interface PhotoMetadataModalProps {
   /** The photo the person just picked. Pass null to keep the modal closed. */

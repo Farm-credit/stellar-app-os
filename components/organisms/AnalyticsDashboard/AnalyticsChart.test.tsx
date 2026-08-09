@@ -12,7 +12,7 @@ describe('AnalyticsChart', () => {
   it('renders chart with title', () => {
     render(<AnalyticsChart title="Test Chart" data={mockData} />);
 
-    expect(screen.getByText('Test Chart')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Test Chart' })).toBeInTheDocument();
   });
 
   it('renders line chart by default', () => {

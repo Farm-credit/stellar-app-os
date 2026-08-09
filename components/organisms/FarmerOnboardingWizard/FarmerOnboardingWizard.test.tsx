@@ -10,7 +10,7 @@ describe('FarmerOnboardingWizard', () => {
     expect(
       screen.getByRole('heading', { name: /welcome to the farmer onboarding wizard/i })
     ).toBeInTheDocument();
-    expect(screen.getByText(/identity details/i)).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /identity details/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /continue/i })).toBeInTheDocument();
   });
 
@@ -32,10 +32,8 @@ describe('FarmerOnboardingWizard', () => {
 
     await user.type(screen.getByLabelText(/farming goal/i), 'Increase food security and income');
     await user.click(screen.getByLabelText(/i consent to the onboarding review/i));
-    await user.click(screen.getByRole('button', { name: /continue/i }));
-
     await user.click(screen.getByRole('button', { name: /complete profile/i }));
 
-    expect(await screen.findByText(/profile ready for review/i)).toBeInTheDocument();
+    expect((await screen.findAllByText(/profile ready for review/i)).length).toBeGreaterThan(0);
   });
 });

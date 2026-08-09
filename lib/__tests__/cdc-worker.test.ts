@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { type SorobanRpc, xdr } from '@stellar/stellar-sdk';
 import { CDCEventIndexer, type CDCWorkerConfig, type ParsedEvent } from '@/lib/indexer/cdc-worker';
 import { getPool } from '@/lib/db/client';
 import { upsertContractEvent, loadEventCursor, saveEventCursor } from '@/lib/indexer/event-upsert';

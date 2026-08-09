@@ -51,14 +51,11 @@ export async function submitNdviSurvival(
   const survivalRate = ndviToSurvivalRate(ndvi);
   const outcome = survivalRate >= 70 ? 'completed' : 'disputed';
 
-  // TODO: Implement actual contract invocation once the Stellar contract logic is ready
-  const txHash = 'mock_tx_hash_pending_implementation';
-
   return Promise.resolve({
     outcome,
     amountReleased: outcome === 'completed' ? 'tranche2' : '0',
     survivalRate,
     transactionHash: txHash,
     region: buildRegionHash({ lat, lon }),
-  });
+  };
 }

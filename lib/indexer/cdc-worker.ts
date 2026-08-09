@@ -165,6 +165,7 @@ export class CDCEventIndexer {
   private readonly config: CDCWorkerConfig;
   private running = false;
   private pollTimer: ReturnType<typeof setTimeout> | null = null;
+  private resolveDelay: (() => void) | null = null;
 
   constructor(config: Partial<CDCWorkerConfig> = {}) {
     this.config = {
@@ -222,6 +223,10 @@ export class CDCEventIndexer {
       clearTimeout(this.pollTimer);
       this.pollTimer = null;
     }
+    if (this.resolveDelay) {
+      this.resolveDelay();
+      this.resolveDelay = null;
+    }
   }
 
   private async poll(): Promise<void> {
@@ -267,7 +272,7 @@ export class CDCEventIndexer {
     const nextLedger =
       maxLedger > startLedger ? maxLedger + 1 : (response.latestLedger ?? maxLedger);
 
-    if (nextLedger > startLedger) {
+    if (processedCount > 0 && nextLedger > startLedger) {
       await withRetry(
         () => saveEventCursor(this.pool, this.config.network, nextLedger),
         this.config.maxRetries,
@@ -287,8 +292,10 @@ export class CDCEventIndexer {
 
   private delay(ms: number): Promise<void> {
     return new Promise((resolve) => {
+      this.resolveDelay = resolve;
       this.pollTimer = setTimeout(() => {
         this.pollTimer = null;
+        this.resolveDelay = null;
         resolve();
       }, ms);
     });

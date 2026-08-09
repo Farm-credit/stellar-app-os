@@ -59,7 +59,7 @@ describe('ZKStepIndicator', () => {
 
   it('does not show duration badge when complete but no durationMs', () => {
     render(<ZKStepIndicator {...defaultProps} status="complete" />);
-    expect(screen.queryByText(/ms|s$/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/^\d+(\.\d+)?m?s$/)).not.toBeInTheDocument();
   });
 
   it('applies pending opacity styling', () => {

@@ -295,12 +295,7 @@ export function TreeClusterMap(): JSX.Element {
           >
             {isLoading ? (
               <div className="flex h-[520px] w-full items-center justify-center bg-slate-100 dark:bg-slate-900">
-                <div className="text-center">
-                  <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-4 border-slate-300 border-t-stellar-blue dark:border-slate-700 dark:border-t-stellar-blue" />
-                  <p className="text-sm text-slate-600 dark:text-slate-400">
-                    Loading planting coordinates...
-                  </p>
-                </div>
+                <div className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-slate-300 border-t-stellar-blue dark:border-slate-700 dark:border-t-stellar-blue" />
               </div>
             ) : (
               <MapContainer

@@ -22,12 +22,12 @@ describe('ImageDropzone Component', () => {
     expect(screen.getByText(/JPEG, PNG, WebP up to 5MB/i)).toBeInTheDocument();
   });
 
-  it('handles invalid file types', async () => {
+  it('handles invalid file types', () => {
     render(<ImageDropzone onImageProcessed={mockOnImageProcessed} />);
     const file = new File(['dummy content'], 'document.pdf', { type: 'application/pdf' });
     const input = screen.getByLabelText(/Image upload dropzone/i).querySelector('input');
 
-    await userEvent.upload(input!, file);
+    fireEvent.change(input!, { target: { files: [file] } });
 
     expect(screen.getByText(/Please upload a valid image file/i)).toBeInTheDocument();
     expect(mockOnImageProcessed).not.toHaveBeenCalled();
@@ -71,7 +71,7 @@ describe('ImageDropzone Component', () => {
     expect(screen.getByAltText(/Upload preview/i)).toBeInTheDocument();
   });
 
-  it('supports keyboard navigation', async () => {
+  it('supports keyboard navigation', () => {
     render(<ImageDropzone onImageProcessed={mockOnImageProcessed} />);
     const dropzone = screen.getByRole('button', { name: /Image upload dropzone/i });
 

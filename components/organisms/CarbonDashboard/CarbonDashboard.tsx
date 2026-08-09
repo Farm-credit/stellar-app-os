@@ -1,14 +1,18 @@
 'use client';
 
-import type { ReactNode } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { CarbonChart } from './CarbonChart';
 import { BadgesList, type BadgeItem } from './BadgesList';
 import { SocialShareCard } from './SocialShareCard';
-import { CarbonCreditSwapWidget } from '@/components/organisms/CarbonCreditSwapWidget';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Counter } from '@/components/atoms/Counter';
 import { Button } from '@/components/ui/button';
-import { TreePine, Wind, Sparkles, RefreshCw } from 'lucide-react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { RefreshCw, Sparkles, TreePine, Wind } from 'lucide-react';
+
+interface CarbonDataPoint {
+  date: string;
+  offset_kg: number;
+}
 
 type CarbonRange = '7d' | '30d' | 'all';
 
@@ -17,36 +21,18 @@ interface CarbonDashboardStats {
   totalOffsetKg: number;
   avgOffsetPerTree: number;
   contributorCount: number;
-  data: Array<{ date: string; offset_kg: number }>;
+  data: CarbonDataPoint[];
 }
 
-interface CounterProps {
-  end: number;
-  prefix?: string;
-  suffix?: string;
-  className?: string;
-}
-
-function Counter({ end, prefix = '', suffix = '', className = '' }: CounterProps) {
-  return (
-    <span className={className}>
-      {prefix}
-      {end.toLocaleString()}
-      {suffix}
-    </span>
-  );
-}
-
-// Static/Dummy Data
-const mockCarbonData = [
-  { date: '2023-01-01', offset_kg: 50 },
-  { date: '2023-02-01', offset_kg: 55 },
-  { date: '2023-03-01', offset_kg: 60 },
-  { date: '2023-04-01', offset_kg: 80 },
-  { date: '2023-05-01', offset_kg: 90 },
-  { date: '2023-06-01', offset_kg: 105 },
-  { date: '2023-07-01', offset_kg: 120 },
-  { date: '2023-08-01', offset_kg: 150 },
+const mockCarbonData: CarbonDataPoint[] = [
+  { date: '2024-01-01', offset_kg: 42 },
+  { date: '2024-02-01', offset_kg: 50 },
+  { date: '2024-03-01', offset_kg: 58 },
+  { date: '2024-04-01', offset_kg: 72 },
+  { date: '2024-05-01', offset_kg: 86 },
+  { date: '2024-06-01', offset_kg: 95 },
+  { date: '2024-07-01', offset_kg: 118 },
+  { date: '2024-08-01', offset_kg: 132 },
 ];
 
 const mockBadges: BadgeItem[] = [
@@ -187,7 +173,7 @@ export function CarbonDashboard() {
     try {
       const stats = await getCarbonDashboardStats(range);
       setDashboardData(stats);
-    } catch (err) {
+    } catch {
       setError('Failed to load carbon dashboard data. Please try again.');
     } finally {
       setIsLoading(false);
@@ -229,13 +215,12 @@ export function CarbonDashboard() {
     }, 4000);
 
     return () => window.clearInterval(interval);
-  }, [dashboardData?.totalTrees]);
+  }, [dashboardData]);
 
   const activeStats = useMemo(
     () => dashboardData ?? rangeData[selectedRange],
     [dashboardData, selectedRange]
   );
-  const totalOffsetLabel = `${activeStats.totalOffsetKg.toLocaleString()} kg`;
 
   return (
     <div className="flex flex-col gap-6">
