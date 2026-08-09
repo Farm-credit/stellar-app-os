@@ -19,7 +19,7 @@ export const ImageDropzone: React.FC<ImageDropzoneProps> = ({
   const [isProcessing, setIsProcessing] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFile = useCallback(
@@ -41,7 +41,7 @@ export const ImageDropzone: React.FC<ImageDropzoneProps> = ({
       try {
         const compressedFile = await compressImage(file, 1920, 0.8);
         const objectUrl = URL.createObjectURL(compressedFile);
-        
+
         setPreviewUrl(objectUrl);
         onImageProcessed(compressedFile);
       } catch (err) {
@@ -145,13 +145,13 @@ export const ImageDropzone: React.FC<ImageDropzoneProps> = ({
           </div>
         ) : (
           <div className="flex flex-col items-center text-gray-500">
-            <UploadCloud className={`w-12 h-12 mb-4 ${isDragging ? 'text-blue-500' : 'text-gray-400'}`} />
+            <UploadCloud
+              className={`w-12 h-12 mb-4 ${isDragging ? 'text-blue-500' : 'text-gray-400'}`}
+            />
             <p className="text-base font-semibold text-gray-700 mb-1">
               Drag & drop your image here
             </p>
-            <p className="text-sm text-gray-500 text-center">
-              or click to browse files
-            </p>
+            <p className="text-sm text-gray-500 text-center">or click to browse files</p>
             <div className="flex items-center gap-2 mt-4 text-xs text-gray-400 font-medium">
               <ImageIcon className="w-4 h-4" />
               <span>JPEG, PNG, WebP up to {maxSizeMB}MB</span>

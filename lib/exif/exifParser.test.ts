@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { parseJpegExif } from "./exifParser";
+import { describe, expect, it } from 'vitest';
+import { parseJpegExif } from './exifParser';
 
 type FieldSpec =
   | { tag: number; type: 2; ascii: string } // ASCII, null-terminated
@@ -29,9 +29,9 @@ function buildFakeJpegWithExif({
   make: string;
   model: string;
   dateTimeOriginal: string;
-  latRef: "N" | "S";
+  latRef: 'N' | 'S';
   lat: [number, number][];
-  lonRef: "E" | "W";
+  lonRef: 'E' | 'W';
   lon: [number, number][];
 }): ArrayBuffer {
   const ifd0: IfdSpec = {
@@ -99,14 +99,15 @@ function buildFakeJpegWithExif({
   view.setUint16(0, 0xffd8); // SOI
   view.setUint16(2, 0xffe1); // APP1
   view.setUint16(4, 2 + 6 + tiffSize); // segment length (big-endian per JPEG spec)
-  "Exif\0\0".split("").forEach((ch, i) => bytes.set([ch.charCodeAt(0)], 6 + i));
+  'Exif\0\0'.split('').forEach((ch, i) => bytes.set([ch.charCodeAt(0)], 6 + i));
 
   view.setUint16(tiffStart, 0x4949, true); // "II" little-endian
   view.setUint16(tiffStart + 2, 42, true);
   view.setUint32(tiffStart + 4, 8, true); // IFD0 offset
 
   function writeAsciiInline(entryValueOffset: number, text: string) {
-    for (let i = 0; i < 4; i++) bytes[entryValueOffset + i] = i < text.length ? text.charCodeAt(i) : 0;
+    for (let i = 0; i < 4; i++)
+      bytes[entryValueOffset + i] = i < text.length ? text.charCodeAt(i) : 0;
   }
   function writeAsciiExternal(dataOffset: number, text: string) {
     for (let i = 0; i < text.length; i++) bytes[dataOffset + i] = text.charCodeAt(i);
@@ -119,7 +120,12 @@ function buildFakeJpegWithExif({
     });
   }
 
-  function writeIfd(dirOffset: number, ifd: IfdSpec, dataOffsets: number[], extraEntries: { tag: number; type: number; count: number; value: number }[] = []) {
+  function writeIfd(
+    dirOffset: number,
+    ifd: IfdSpec,
+    dataOffsets: number[],
+    extraEntries: { tag: number; type: number; count: number; value: number }[] = []
+  ) {
     const abs = tiffStart + dirOffset;
     const totalEntries = ifd.fields.length + extraEntries.length;
     view.setUint16(abs, totalEntries, true);
@@ -163,22 +169,22 @@ function buildFakeJpegWithExif({
 }
 
 function bufferToFile(buffer: ArrayBuffer) {
-  return new File([buffer], "tree.jpg", { type: "image/jpeg" });
+  return new File([buffer], 'tree.jpg', { type: 'image/jpeg' });
 }
 
-describe("parseJpegExif", () => {
+describe('parseJpegExif', () => {
   it("extracts device, timestamp, and GPS position from a JPEG's EXIF segment", async () => {
     const buffer = buildFakeJpegWithExif({
-      make: "Google",
-      model: "Pixel 8",
-      dateTimeOriginal: "2026:07:24 09:15:32",
-      latRef: "N",
+      make: 'Google',
+      model: 'Pixel 8',
+      dateTimeOriginal: '2026:07:24 09:15:32',
+      latRef: 'N',
       lat: [
         [6, 1],
         [31, 1],
         [2784, 100], // 6°31'27.84"N
       ],
-      lonRef: "E",
+      lonRef: 'E',
       lon: [
         [3, 1],
         [22, 1],
@@ -188,25 +194,25 @@ describe("parseJpegExif", () => {
 
     const metadata = await parseJpegExif(bufferToFile(buffer));
 
-    expect(metadata.deviceMake).toBe("Google");
-    expect(metadata.deviceModel).toBe("Pixel 8");
-    expect(metadata.capturedAt?.toISOString().slice(0, 10)).toBe("2026-07-24");
+    expect(metadata.deviceMake).toBe('Google');
+    expect(metadata.deviceModel).toBe('Pixel 8');
+    expect(metadata.capturedAt?.toISOString().slice(0, 10)).toBe('2026-07-24');
     expect(metadata.gps?.latitude).toBeCloseTo(6.5244, 3);
     expect(metadata.gps?.longitude).toBeCloseTo(3.3792, 3);
   });
 
-  it("flips the sign for southern and western hemispheres", async () => {
+  it('flips the sign for southern and western hemispheres', async () => {
     const buffer = buildFakeJpegWithExif({
-      make: "Apple",
-      model: "iPhone 15",
-      dateTimeOriginal: "2026:03:11 14:00:00",
-      latRef: "S",
+      make: 'Apple',
+      model: 'iPhone 15',
+      dateTimeOriginal: '2026:03:11 14:00:00',
+      latRef: 'S',
       lat: [
         [23, 1],
         [33, 1],
         [0, 1],
       ],
-      lonRef: "W",
+      lonRef: 'W',
       lon: [
         [46, 1],
         [38, 1],
@@ -220,9 +226,9 @@ describe("parseJpegExif", () => {
     expect(metadata.gps?.longitude).toBeLessThan(0);
   });
 
-  it("returns empty metadata for a file with no EXIF segment", async () => {
-    const plainJpeg = new File([new Uint8Array([0xff, 0xd8, 0xff, 0xd9])], "plain.jpg", {
-      type: "image/jpeg",
+  it('returns empty metadata for a file with no EXIF segment', async () => {
+    const plainJpeg = new File([new Uint8Array([0xff, 0xd8, 0xff, 0xd9])], 'plain.jpg', {
+      type: 'image/jpeg',
     });
 
     const metadata = await parseJpegExif(plainJpeg);

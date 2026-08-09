@@ -1,4 +1,4 @@
-import { exifr } from 'exifr';
+import exifr from 'exifr';
 
 export interface GPSCoordinates {
   latitude: number;
@@ -92,7 +92,7 @@ export class EXIFExtractionService {
 
       const exifData = await exifr.parse(buffer, {
         tiff: true,
-        ifd0: true,
+        ifd0: {},
         ifd1: true,
         exif: true,
         gps: this.config.extractGPS,
@@ -121,7 +121,7 @@ export class EXIFExtractionService {
         const gpsResult = this.extractGPSData(exifData);
         if (gpsResult) {
           metadata.gps = gpsResult;
-          
+
           if (this.config.validateCoordinates) {
             const coordValidation = this.validateCoordinates(gpsResult);
             if (!coordValidation.valid) {
@@ -197,7 +197,8 @@ export class EXIFExtractionService {
     if (exifData.FocalLength) cameraInfo.focalLength = exifData.FocalLength;
     if (exifData.ISO) cameraInfo.iso = exifData.ISO;
     if (exifData.FNumber) cameraInfo.aperture = exifData.FNumber;
-    if (exifData.ExposureTime) cameraInfo.shutterSpeed = this.formatShutterSpeed(exifData.ExposureTime);
+    if (exifData.ExposureTime)
+      cameraInfo.shutterSpeed = this.formatShutterSpeed(exifData.ExposureTime);
 
     return Object.keys(cameraInfo).length > 0 ? cameraInfo : null;
   }
@@ -262,11 +263,14 @@ export class EXIFExtractionService {
     };
   }
 
-  verifyTimestamp(metadata: EXIFMetadata, options: {
-    maxAge?: number;
-    minDate?: Date;
-    maxDate?: Date;
-  } = {}): { valid: boolean; error?: string } {
+  verifyTimestamp(
+    metadata: EXIFMetadata,
+    options: {
+      maxAge?: number;
+      minDate?: Date;
+      maxDate?: Date;
+    } = {}
+  ): { valid: boolean; error?: string } {
     if (!metadata.timestamp?.dateTimeOriginal) {
       return {
         valid: false,
@@ -284,7 +288,7 @@ export class EXIFExtractionService {
       };
     }
 
-    if (options.maxAge && (now.getTime() - captureDate.getTime()) > options.maxAge) {
+    if (options.maxAge && now.getTime() - captureDate.getTime() > options.maxAge) {
       return {
         valid: false,
         error: `Capture timestamp exceeds maximum age of ${options.maxAge}ms`,
@@ -308,7 +312,10 @@ export class EXIFExtractionService {
     return { valid: true };
   }
 
-  verifyCameraModel(metadata: EXIFMetadata, expectedModel?: string): { valid: boolean; error?: string } {
+  verifyCameraModel(
+    metadata: EXIFMetadata,
+    expectedModel?: string
+  ): { valid: boolean; error?: string } {
     if (!expectedModel) {
       return { valid: true };
     }

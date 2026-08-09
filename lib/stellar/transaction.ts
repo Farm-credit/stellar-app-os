@@ -9,11 +9,7 @@ import type {
 import { calculateDonationAllocation } from '@/lib/constants/donation';
 import { networkConfig } from '@/lib/config/network';
 import { getTreeAsset } from './tree-asset';
-import {
-  DEFAULT_CONVERSION_SLIPPAGE,
-  computeSendMax,
-  getXlmPerUsdcRate,
-} from './conversion';
+import { DEFAULT_CONVERSION_SLIPPAGE, computeSendMax, getXlmPerUsdcRate } from './conversion';
 import type { DonationAsset } from '@/lib/types/donation-payment';
 import { getRegionPlanterAddresses } from './region-pools';
 import logger from '@/lib/logger';

@@ -1,7 +1,10 @@
 import { render, screen, fireEvent, within, act } from '@testing-library/react';
 import { vi } from 'vitest';
 import { MapPin, Hash, Database, Cpu, Package, ShieldCheck } from 'lucide-react';
-import { ZKProofLoader, type ZKProofStep } from '@/components/organisms/ZKProofLoader/ZKProofLoader';
+import {
+  ZKProofLoader,
+  type ZKProofStep,
+} from '@/components/organisms/ZKProofLoader/ZKProofLoader';
 
 // ── Mock framer-motion to avoid jsdom animation issues ────────────────────────
 vi.mock('framer-motion', async () => {
@@ -11,16 +14,35 @@ vi.mock('framer-motion', async () => {
     motion: new Proxy(
       {},
       {
-        get: (_target, tag: string) =>
-          ({ children, ...props }: React.HTMLAttributes<HTMLElement> & { children?: React.ReactNode }) => {
+        get:
+          (_target, tag: string) =>
+          ({
+            children,
+            ...props
+          }: React.HTMLAttributes<HTMLElement> & { children?: React.ReactNode }) => {
             const React = require('react');
             // Strip framer-specific props to avoid warnings
             const {
-              initial, animate, exit, transition, whileHover, whileTap,
-              variants, layout, layoutId, ...rest
+              initial,
+              animate,
+              exit,
+              transition,
+              whileHover,
+              whileTap,
+              variants,
+              layout,
+              layoutId,
+              ...rest
             } = props as Record<string, unknown>;
-            void initial; void animate; void exit; void transition;
-            void whileHover; void whileTap; void variants; void layout; void layoutId;
+            void initial;
+            void animate;
+            void exit;
+            void transition;
+            void whileHover;
+            void whileTap;
+            void variants;
+            void layout;
+            void layoutId;
             return React.createElement(tag, rest, children);
           },
       }
@@ -38,7 +60,12 @@ function makeSteps(overrides?: Partial<ZKProofStep>[]): ZKProofStep[] {
     { id: 'witness', label: 'Building Witness', icon: <Database />, status: 'pending' as const },
     { id: 'prove', label: 'Running ZK Prover', icon: <Cpu />, status: 'pending' as const },
     { id: 'serialize', label: 'Serialising Proof', icon: <Package />, status: 'pending' as const },
-    { id: 'nullifier', label: 'Verifying Nullifier', icon: <ShieldCheck />, status: 'pending' as const },
+    {
+      id: 'nullifier',
+      label: 'Verifying Nullifier',
+      icon: <ShieldCheck />,
+      status: 'pending' as const,
+    },
   ];
   if (!overrides) return defs;
   return defs.map((d, i) => ({ ...d, ...(overrides[i] ?? {}) }));
@@ -61,16 +88,12 @@ describe('ZKProofLoader — idle state', () => {
 
   it('shows "Generate Proof" button when idle', () => {
     render(<ZKProofLoader />);
-    expect(
-      screen.getByRole('button', { name: /Generate.*Proof/i })
-    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Generate.*Proof/i })).toBeInTheDocument();
   });
 
   it('"Generate Proof" button is not disabled in idle state', () => {
     render(<ZKProofLoader />);
-    expect(
-      screen.getByRole('button', { name: /Generate.*Proof/i })
-    ).not.toBeDisabled();
+    expect(screen.getByRole('button', { name: /Generate.*Proof/i })).not.toBeDisabled();
   });
 
   it('renders all 6 default steps', () => {
@@ -99,32 +122,15 @@ describe('ZKProofLoader — idle state', () => {
 // ─── Running state (controlled) ───────────────────────────────────────────────
 
 describe('ZKProofLoader — running state (controlled)', () => {
-  const runningSteps = makeSteps([
-    { status: 'complete', durationMs: 400 },
-    { status: 'active' },
-  ]);
+  const runningSteps = makeSteps([{ status: 'complete', durationMs: 400 }, { status: 'active' }]);
 
   it('shows "Generating…" status badge', () => {
-    render(
-      <ZKProofLoader
-        steps={runningSteps}
-        overallProgress={30}
-        status="running"
-        logs={[]}
-      />
-    );
+    render(<ZKProofLoader steps={runningSteps} overallProgress={30} status="running" logs={[]} />);
     expect(screen.getByRole('status', { name: /Generating/i })).toBeInTheDocument();
   });
 
   it('shows disabled "Proving…" button when running', () => {
-    render(
-      <ZKProofLoader
-        steps={runningSteps}
-        overallProgress={30}
-        status="running"
-        logs={[]}
-      />
-    );
+    render(<ZKProofLoader steps={runningSteps} overallProgress={30} status="running" logs={[]} />);
     const btn = screen.getByRole('button', { name: /Proof generation in progress/i });
     expect(btn).toBeDisabled();
   });
@@ -158,26 +164,12 @@ describe('ZKProofLoader — running state (controlled)', () => {
   });
 
   it('renders progressbar with correct value', () => {
-    render(
-      <ZKProofLoader
-        steps={runningSteps}
-        overallProgress={47}
-        status="running"
-        logs={[]}
-      />
-    );
+    render(<ZKProofLoader steps={runningSteps} overallProgress={47} status="running" logs={[]} />);
     expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '47');
   });
 
   it('does not show Generate Proof button when running', () => {
-    render(
-      <ZKProofLoader
-        steps={runningSteps}
-        overallProgress={30}
-        status="running"
-        logs={[]}
-      />
-    );
+    render(<ZKProofLoader steps={runningSteps} overallProgress={30} status="running" logs={[]} />);
     expect(screen.queryByRole('button', { name: /Generate.*Proof/i })).not.toBeInTheDocument();
   });
 });
@@ -393,77 +385,47 @@ describe('ZKProofLoader — log console', () => {
 
   it('shows log toggle button when logs exist', () => {
     render(
-      <ZKProofLoader
-        steps={runningSteps}
-        overallProgress={10}
-        status="running"
-        logs={sampleLogs}
-      />
+      <ZKProofLoader steps={runningSteps} overallProgress={10} status="running" logs={sampleLogs} />
     );
     expect(screen.getByRole('button', { name: /PROVER_STDOUT/i })).toBeInTheDocument();
   });
 
   it('does not show log toggle when no logs', () => {
-    render(
-      <ZKProofLoader
-        steps={runningSteps}
-        overallProgress={10}
-        status="running"
-        logs={[]}
-      />
-    );
+    render(<ZKProofLoader steps={runningSteps} overallProgress={10} status="running" logs={[]} />);
     expect(screen.queryByRole('button', { name: /PROVER_STDOUT/i })).not.toBeInTheDocument();
   });
 
   it('shows log count in toggle button', () => {
     render(
-      <ZKProofLoader
-        steps={runningSteps}
-        overallProgress={10}
-        status="running"
-        logs={sampleLogs}
-      />
+      <ZKProofLoader steps={runningSteps} overallProgress={10} status="running" logs={sampleLogs} />
     );
     expect(screen.getByText('2')).toBeInTheDocument();
   });
 
   it('logs are hidden by default (aria-expanded=false)', () => {
     render(
-      <ZKProofLoader
-        steps={runningSteps}
-        overallProgress={10}
-        status="running"
-        logs={sampleLogs}
-      />
+      <ZKProofLoader steps={runningSteps} overallProgress={10} status="running" logs={sampleLogs} />
     );
-    expect(
-      screen.getByRole('button', { name: /PROVER_STDOUT/i })
-    ).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.getByRole('button', { name: /PROVER_STDOUT/i })).toHaveAttribute(
+      'aria-expanded',
+      'false'
+    );
   });
 
   it('expands log console on button click', () => {
     render(
-      <ZKProofLoader
-        steps={runningSteps}
-        overallProgress={10}
-        status="running"
-        logs={sampleLogs}
-      />
+      <ZKProofLoader steps={runningSteps} overallProgress={10} status="running" logs={sampleLogs} />
     );
     fireEvent.click(screen.getByRole('button', { name: /PROVER_STDOUT/i }));
-    expect(
-      screen.getByRole('button', { name: /PROVER_STDOUT/i })
-    ).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByRole('button', { name: /PROVER_STDOUT/i })).toHaveAttribute(
+      'aria-expanded',
+      'true'
+    );
   });
 
   it('renders log lines when expanded', () => {
     render(
-      <ZKProofLoader
-        steps={runningSteps}
-        overallProgress={10}
-        status="running"
-        logs={sampleLogs}
-      />
+      <ZKProofLoader steps={runningSteps} overallProgress={10} status="running" logs={sampleLogs} />
     );
     fireEvent.click(screen.getByRole('button', { name: /PROVER_STDOUT/i }));
     expect(screen.getByRole('log')).toBeInTheDocument();
@@ -474,12 +436,7 @@ describe('ZKProofLoader — log console', () => {
 
   it('collapses log console on second click', () => {
     render(
-      <ZKProofLoader
-        steps={runningSteps}
-        overallProgress={10}
-        status="running"
-        logs={sampleLogs}
-      />
+      <ZKProofLoader steps={runningSteps} overallProgress={10} status="running" logs={sampleLogs} />
     );
     const btn = screen.getByRole('button', { name: /PROVER_STDOUT/i });
     fireEvent.click(btn); // open

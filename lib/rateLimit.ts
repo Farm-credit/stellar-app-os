@@ -27,8 +27,7 @@ interface WindowEntry {
 const windows = new Map<string, WindowEntry>();
 
 export type RateLimitResult =
-  | { allowed: true }
-  | { allowed: false; reason: 'blocklist' | 'rate_limit'; retryAfter?: number };
+  { allowed: true } | { allowed: false; reason: 'blocklist' | 'rate_limit'; retryAfter?: number };
 
 export async function checkRateLimit(ip: string, limit = DEFAULT_LIMIT): Promise<RateLimitResult> {
   if (BLOCKLIST.has(ip)) return { allowed: false, reason: 'blocklist' };
@@ -43,17 +42,22 @@ export async function checkRateLimit(ip: string, limit = DEFAULT_LIMIT): Promise
       const multi = redis.multi();
       multi.zRemRangeByScore(key, 0, cutoff);
       multi.zAdd(key, [{ score: now, value: `${now}-${Math.random()}` }]);
-      multi.zRange(key, 0, 0, { WITHSCORES: true });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      multi.zRange(key, 0, 0, { WITHSCORES: true } as any);
       multi.zCard(key);
       multi.expire(key, Math.ceil(WINDOW_MS / 1000));
 
-      const [, , firstElem, count] = (await multi.exec()) as [
+      const [, , firstElem, count] = (await multi.exec()) as unknown as [
         number,
         number,
         string[] | Array<{ value: string; score: number }>,
         number,
-        boolean
+        boolean,
       ];
+
+      if (!Array.isArray(firstElem)) {
+        // fallback
+      }
 
       if (count > limit) {
         // firstElem could be string[] or object array depending on redis version/client options
@@ -63,11 +67,11 @@ export async function checkRateLimit(ip: string, limit = DEFAULT_LIMIT): Promise
           if (typeof first === 'object' && 'score' in first) {
             oldestScore = first.score;
           } else if (typeof first === 'string' && firstElem.length > 1) {
-             // If withScores returned flat array [value, score, value, score]
-             oldestScore = parseFloat(firstElem[1] as string);
+            // If withScores returned flat array [value, score, value, score]
+            oldestScore = parseFloat(firstElem[1] as string);
           }
         }
-        
+
         return {
           allowed: false,
           reason: 'rate_limit',
@@ -148,12 +152,12 @@ export async function checkSubmitAnonRateLimit(ip: string): Promise<SlidingRateL
       multi.zCard(key);
       multi.expire(key, Math.ceil(SUBMIT_ANON_WINDOW_MS / 1000));
 
-      const [, , firstElem, count] = (await multi.exec()) as [
+      const [, , firstElem, count] = (await multi.exec()) as unknown as [
         number,
         number,
         Array<{ value: string; score: number }>,
         number,
-        boolean
+        boolean,
       ];
 
       if (count > SUBMIT_ANON_LIMIT) {

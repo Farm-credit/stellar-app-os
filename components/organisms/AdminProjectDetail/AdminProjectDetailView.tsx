@@ -129,12 +129,12 @@ export function AdminProjectDetailView({ initialProject }: AdminProjectDetailVie
     );
 
     if (nextChecked) {
-      toast.contract(
+      console.info(
         'Verification Complete',
         `Project "${project.name}" has been successfully verified on the blockchain.`
       );
     } else {
-      toast.info(
+      console.info(
         'Verification Disabled',
         `Verification has been disabled for project "${project.name}".`
       );

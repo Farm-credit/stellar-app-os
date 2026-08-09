@@ -35,9 +35,7 @@ describe('CountdownTimer', () => {
 
   it('applies custom className', () => {
     const deadline = new Date('2026-07-31T12:00:00Z').toISOString();
-    const { container } = render(
-      <CountdownTimer deadline={deadline} className="my-timer" />
-    );
+    const { container } = render(<CountdownTimer deadline={deadline} className="my-timer" />);
     expect(container.firstChild).toHaveClass('my-timer');
   });
 

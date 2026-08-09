@@ -1,9 +1,11 @@
-import { useEffect, useRef, useState } from "react";
-import { parseJpegExif } from "./exifParser";
-import type { ExifParser, ExtractionResult, PhotoMetadata } from "./types";
+import { useEffect, useRef, useState } from 'react';
+import { parseJpegExif } from '@/lib/exif/exifParser';
+import type { ExifParser, ExtractionResult, PhotoMetadata } from '@/lib/exif/types';
 
 function hasUsableMetadata(metadata: PhotoMetadata): boolean {
-  return Boolean(metadata.gps || metadata.capturedAt || metadata.deviceMake || metadata.deviceModel);
+  return Boolean(
+    metadata.gps || metadata.capturedAt || metadata.deviceMake || metadata.deviceModel
+  );
 }
 
 /**
@@ -12,9 +14,12 @@ function hasUsableMetadata(metadata: PhotoMetadata): boolean {
  * UI can recover from a transient read failure without asking the person
  * to re-pick the photo.
  */
-export function useExifData(file: File | null, parser: ExifParser = parseJpegExif): ExtractionResult & { retry: () => void } {
+export function useExifData(
+  file: File | null,
+  parser: ExifParser = parseJpegExif
+): ExtractionResult & { retry: () => void } {
   const [result, setResult] = useState<ExtractionResult>({
-    status: file ? "reading" : "idle",
+    status: file ? 'reading' : 'idle',
     metadata: null,
     error: null,
   });
@@ -32,19 +37,19 @@ export function useExifData(file: File | null, parser: ExifParser = parseJpegExi
 
   useEffect(() => {
     if (!file) {
-      setResult({ status: "idle", metadata: null, error: null });
+      setResult({ status: 'idle', metadata: null, error: null });
       return;
     }
 
     let cancelled = false;
-    setResult({ status: "reading", metadata: null, error: null });
+    setResult({ status: 'reading', metadata: null, error: null });
 
     parserRef
       .current(file)
       .then((metadata) => {
         if (cancelled) return;
         setResult({
-          status: hasUsableMetadata(metadata) ? "success" : "no-metadata",
+          status: hasUsableMetadata(metadata) ? 'success' : 'no-metadata',
           metadata,
           error: null,
         });
@@ -52,7 +57,7 @@ export function useExifData(file: File | null, parser: ExifParser = parseJpegExi
       .catch((err: unknown) => {
         if (cancelled) return;
         const message = err instanceof Error ? err.message : "Could not read this photo's details.";
-        setResult({ status: "error", metadata: null, error: message });
+        setResult({ status: 'error', metadata: null, error: message });
       });
 
     return () => {

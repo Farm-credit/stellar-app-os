@@ -1,3 +1,5 @@
+import type { NetworkType } from '@/lib/types/wallet';
+
 export type ProjectType =
   | 'Reforestation'
   | 'Renewable Energy'
@@ -6,11 +8,7 @@ export type ProjectType =
   | 'Other';
 
 export type VerificationStatus =
-  | 'Gold Standard'
-  | 'Verra (VCS)'
-  | 'Climate Action Reserve'
-  | 'Plan Vivo'
-  | 'Pending';
+  'Gold Standard' | 'Verra (VCS)' | 'Climate Action Reserve' | 'Plan Vivo' | 'Pending';
 
 export interface ProjectCoordinates {
   latitude: number;
@@ -55,8 +53,6 @@ export interface CorporateMetadata {
   storageRef?: string;
 }
 
-import type { NetworkType } from '@/lib/types/wallet';
-
 export interface SpeciesRate {
   slug: string;
   co2ScaledX100: number;
@@ -77,25 +73,12 @@ export interface SponsorOffset {
   totalKg: number;
 }
 
-export const BULK_PURCHASE_MIN_QUANTITY = 1000;
-
-export type MetadataStorageType = 'on-chain' | 'ipfs' | 'none';
-
-export interface CorporateMetadata {
-  storageType: MetadataStorageType;
-  companyName?: string;
-  initiativeDescription?: string;
-  initiativeUrl?: string;
-  storageRef?: string;
-}
-
 export interface BulkPurchaseOrder {
   projectId: string;
   quantity: number;
   totalPrice: number;
   buyerPublicKey: string;
   network: NetworkType;
-  network: 'testnet' | 'mainnet';
   metadata?: CorporateMetadata;
 }
 

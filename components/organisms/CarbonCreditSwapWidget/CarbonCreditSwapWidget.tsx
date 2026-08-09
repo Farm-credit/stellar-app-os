@@ -400,7 +400,7 @@ export function CarbonCreditSwapWidget({
         {/* Primary Action Button */}
         <Button
           type="button"
-          variant="primary"
+          variant="default"
           size="lg"
           onClick={handlePurchase}
           disabled={!canPurchase}

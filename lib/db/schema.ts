@@ -57,11 +57,7 @@ export interface TreeRow {
 // ── Progress Updates (migration 005) ─────────────────────────────────────────
 
 export type UpdateType =
-  | 'status_change'
-  | 'photo_submitted'
-  | 'gps_ping'
-  | 'survival_check'
-  | 'note';
+  'status_change' | 'photo_submitted' | 'gps_ping' | 'survival_check' | 'note';
 
 export interface ProgressUpdateRow {
   id: number;

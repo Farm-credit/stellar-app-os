@@ -1,8 +1,8 @@
-import { useEffect, useId, useRef, useState } from "react";
-import { useExifData } from "./useExifData";
-import { ThumbnailErrorBoundary } from "./ThumbnailErrorBoundary";
-import { formatAltitude, formatCapturedAt, formatCoordinates } from "./format";
-import type { ExifParser, PhotoMetadata } from "./types";
+import { useEffect, useId, useRef, useState } from 'react';
+import { useExifData } from './useExifData';
+import { ThumbnailErrorBoundary } from './ThumbnailErrorBoundary';
+import { formatAltitude, formatCapturedAt, formatCoordinates } from './format';
+import type { ExifParser, PhotoMetadata } from './types';
 
 export interface PhotoMetadataModalProps {
   /** The photo the person just picked. Pass null to keep the modal closed. */
@@ -21,20 +21,20 @@ export interface PhotoMetadataModalProps {
   parser?: ExifParser;
 }
 
-function StatusStamp({ state }: { state: "locked" | "missing" | "reading" }) {
+function StatusStamp({ state }: { state: 'locked' | 'missing' | 'reading' }) {
   const copy = {
-    locked: "GPS LOCKED",
-    missing: "NO GPS DATA",
-    reading: "READING\u2026",
+    locked: 'GPS LOCKED',
+    missing: 'NO GPS DATA',
+    reading: 'READING\u2026',
   }[state];
 
   // stellar-navy/stellar-green/stellar-blue are flat single-value brand
   // colors (no 50-900 scale) - opacity modifiers stand in for tints/shades
   // instead of assuming shade steps that don't exist in the design system.
   const tone = {
-    locked: "border-stellar-green text-stellar-green bg-stellar-green/10",
-    missing: "border-red-600 text-red-700 bg-red-50",
-    reading: "border-stellar-navy/30 text-stellar-navy/60 bg-stellar-navy/5",
+    locked: 'border-stellar-green text-stellar-green bg-stellar-green/10',
+    missing: 'border-red-600 text-red-700 bg-red-50',
+    reading: 'border-stellar-navy/30 text-stellar-navy/60 bg-stellar-navy/5',
   }[state];
 
   return (
@@ -54,14 +54,14 @@ function DataRow({
 }: {
   label: string;
   value: string;
-  status: "ok" | "missing";
+  status: 'ok' | 'missing';
 }) {
   return (
     <div className="flex items-center justify-between gap-3 border-b border-dashed border-stellar-navy/15 py-2.5 last:border-b-0">
       <span className="font-serif text-sm text-stellar-navy/60">{label}</span>
       <span
         className={`font-mono text-sm ${
-          status === "ok" ? "text-stellar-navy" : "italic text-stellar-navy/40"
+          status === 'ok' ? 'text-stellar-navy' : 'italic text-stellar-navy/40'
         }`}
       >
         {value}
@@ -109,7 +109,7 @@ export function PhotoMetadataModal({
   useEffect(() => {
     if (!isOpen) return;
     const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    document.body.style.overflow = 'hidden';
     return () => {
       document.body.style.overflow = previousOverflow;
     };
@@ -118,11 +118,11 @@ export function PhotoMetadataModal({
   useEffect(() => {
     if (!isOpen) return;
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
+      if (event.key === 'Escape') {
         onClose();
         return;
       }
-      if (event.key !== "Tab" || !panelRef.current) return;
+      if (event.key !== 'Tab' || !panelRef.current) return;
 
       const focusable = panelRef.current.querySelectorAll<HTMLElement>(
         'button:not(:disabled), [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
@@ -139,14 +139,14 @@ export function PhotoMetadataModal({
         first.focus();
       }
     };
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
 
   if (!isOpen || !file) return null;
 
-  const isLoading = status === "reading";
-  const hasGps = status === "success" && Boolean(metadata?.gps);
+  const isLoading = status === 'reading';
+  const hasGps = status === 'success' && Boolean(metadata?.gps);
 
   return (
     <div
@@ -161,8 +161,8 @@ export function PhotoMetadataModal({
         onClick={(event) => event.stopPropagation()}
         className="relative w-full max-w-md rounded-t-2xl border-t-4 border-dashed border-stellar-blue bg-stellar-navy/5 p-5 shadow-xl sm:rounded-2xl sm:border-t-4"
       >
-        {status !== "error" && (
-          <StatusStamp state={isLoading ? "reading" : hasGps ? "locked" : "missing"} />
+        {status !== 'error' && (
+          <StatusStamp state={isLoading ? 'reading' : hasGps ? 'locked' : 'missing'} />
         )}
 
         <div className="mb-4 flex items-start justify-between gap-4">
@@ -182,7 +182,12 @@ export function PhotoMetadataModal({
             className="rounded-full p-1.5 text-stellar-navy/40 transition hover:bg-stellar-navy/5 hover:text-stellar-navy focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stellar-green"
           >
             <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true" fill="none">
-              <path d="M2 2L16 16M16 2L2 16" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+              <path
+                d="M2 2L16 16M16 2L2 16"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+              />
             </svg>
           </button>
         </div>
@@ -205,7 +210,7 @@ export function PhotoMetadataModal({
           )}
         </ThumbnailErrorBoundary>
 
-        {status === "error" ? (
+        {status === 'error' ? (
           <div
             role="alert"
             className="mb-4 rounded-lg border border-red-300 bg-red-50 p-3 text-sm text-red-700"
@@ -235,31 +240,35 @@ export function PhotoMetadataModal({
                   value={
                     metadata?.gps
                       ? formatCoordinates(metadata.gps) +
-                        (metadata.gps.altitude ? ` \u00b7 ${formatAltitude(metadata.gps.altitude)}` : "")
-                      : "No GPS data found"
+                        (metadata.gps.altitude
+                          ? ` \u00b7 ${formatAltitude(metadata.gps.altitude)}`
+                          : '')
+                      : 'No GPS data found'
                   }
-                  status={metadata?.gps ? "ok" : "missing"}
+                  status={metadata?.gps ? 'ok' : 'missing'}
                 />
                 <DataRow
                   label="Captured"
-                  value={metadata?.capturedAt ? formatCapturedAt(metadata.capturedAt) : "Not available"}
-                  status={metadata?.capturedAt ? "ok" : "missing"}
+                  value={
+                    metadata?.capturedAt ? formatCapturedAt(metadata.capturedAt) : 'Not available'
+                  }
+                  status={metadata?.capturedAt ? 'ok' : 'missing'}
                 />
                 <DataRow
                   label="Device"
                   value={
                     metadata?.deviceMake || metadata?.deviceModel
-                      ? [metadata.deviceMake, metadata.deviceModel].filter(Boolean).join(" ")
-                      : "Unknown device"
+                      ? [metadata.deviceMake, metadata.deviceModel].filter(Boolean).join(' ')
+                      : 'Unknown device'
                   }
-                  status={metadata?.deviceMake || metadata?.deviceModel ? "ok" : "missing"}
+                  status={metadata?.deviceMake || metadata?.deviceModel ? 'ok' : 'missing'}
                 />
               </>
             )}
           </div>
         )}
 
-        {!isLoading && status !== "error" && !hasGps && (
+        {!isLoading && status !== 'error' && !hasGps && (
           <p className="mb-4 text-xs leading-relaxed text-stellar-navy/60">
             This photo is missing location data, so it may need manual review before it counts
             toward your credit. You can still submit it.
@@ -276,7 +285,7 @@ export function PhotoMetadataModal({
           </button>
           <button
             type="button"
-            disabled={isLoading || status === "error"}
+            disabled={isLoading || status === 'error'}
             onClick={() => onConfirm(metadata)}
             className="flex-1 rounded-lg bg-stellar-green py-2.5 text-sm font-semibold text-white transition hover:bg-stellar-green/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stellar-green disabled:cursor-not-allowed disabled:bg-stellar-navy/10 disabled:text-stellar-navy/30"
           >

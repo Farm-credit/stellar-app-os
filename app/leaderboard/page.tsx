@@ -37,7 +37,8 @@ import Link from 'next/link';
 // --- MOCK WALLET CONTEXT ---
 // Added to bypass the Webpack "Module not found" error.
 // Swap this out for your actual wallet import later.
-const useWalletContext = () => ({ wallet: null });
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const useWalletContext = () => ({ wallet: null as any });
 // ---------------------------
 
 // Mock function (replace with your actual API call)
@@ -82,8 +83,8 @@ function LeaderboardContent() {
   const remainingSponsors = sponsors.slice(3);
 
   // User details
-  const userAddress = wallet?.publicKey || '';
-  const userStats = userAddress ? getMockUserStats(userAddress, period) : null;
+  const userAddress = (wallet as any)?.publicKey || '';
+  const userStats = userAddress ? getMockUserStats(userAddress, period) : (null as any);
   const _isUserInTop10 = userStats
     ? sponsors.some((s) => s.address.toLowerCase() === userAddress.toLowerCase())
     : false;

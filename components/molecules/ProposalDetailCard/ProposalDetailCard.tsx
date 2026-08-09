@@ -8,7 +8,10 @@ import { CountdownTimer } from './CountdownTimer';
 import { VoteProgressBar } from './VoteProgressBar';
 import type { ProposalDetailCardProps, VoteOption, ProposalStatus } from './types';
 
-const statusConfig: Record<ProposalStatus, { label: string; variant: 'success' | 'destructive' | 'secondary' | 'default' }> = {
+const statusConfig: Record<
+  ProposalStatus,
+  { label: string; variant: 'success' | 'destructive' | 'secondary' | 'default' }
+> = {
   active: { label: 'Active', variant: 'default' },
   passed: { label: 'Passed', variant: 'success' },
   rejected: { label: 'Rejected', variant: 'destructive' },
@@ -62,9 +65,7 @@ const ProposalDetailCard = forwardRef<HTMLDivElement, Props>(
             </p>
           </div>
           <div className="flex items-center gap-2 shrink-0">
-            {(isActive || isPending) && (
-              <CountdownTimer deadline={deadline} />
-            )}
+            {(isActive || isPending) && <CountdownTimer deadline={deadline} />}
             {status !== 'active' && status !== 'pending' && (
               <span className="text-sm text-muted-foreground">
                 Ended {new Date(deadline).toLocaleDateString()}
@@ -94,10 +95,10 @@ const ProposalDetailCard = forwardRef<HTMLDivElement, Props>(
                 against: 'Vote Against',
                 abstain: 'Abstain',
               };
-              const stellarMap: Record<VoteOption, 'success' | 'destructive' | 'accent-outline'> = {
+              const stellarMap: Record<VoteOption, 'success' | 'accent' | 'primary-outline'> = {
                 for: 'success',
-                against: 'destructive',
-                abstain: 'accent-outline',
+                against: 'accent',
+                abstain: 'primary-outline',
               };
               return (
                 <Button
@@ -117,9 +118,7 @@ const ProposalDetailCard = forwardRef<HTMLDivElement, Props>(
               );
             })}
           </div>
-          <span className="text-xs text-muted-foreground">
-            ID: {proposalId}
-          </span>
+          <span className="text-xs text-muted-foreground">ID: {proposalId}</span>
         </footer>
       </div>
     );
@@ -128,4 +127,6 @@ const ProposalDetailCard = forwardRef<HTMLDivElement, Props>(
 ProposalDetailCard.displayName = 'ProposalDetailCard';
 
 export { ProposalDetailCard };
-export type { ProposalDetailCardProps, VoteOption, VoteTally, ProposalStatus };
+export type { ProposalDetailCardProps, VoteOption, ProposalStatus };
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type VoteTally = any;

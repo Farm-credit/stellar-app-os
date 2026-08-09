@@ -75,7 +75,12 @@ export function DonationConfirmationWithTx({ txHash }: DonationConfirmationWithT
         throw new Error(err.error || 'Failed to construct mint transaction');
       }
 
-      const { transactionXdr, networkPassphrase, tokenId, metadataUri: uri } = await response.json();
+      const {
+        transactionXdr,
+        networkPassphrase,
+        tokenId,
+        metadataUri: uri,
+      } = await response.json();
 
       let signedXdr: string;
       try {
@@ -396,11 +401,17 @@ export function DonationConfirmationWithTx({ txHash }: DonationConfirmationWithT
               Claim Your CO₂ Certificate NFT
             </Text>
             <Text variant="muted" className="text-sm mb-6 max-w-md mx-auto">
-              Mint a transferable, verified on-chain NFT certificate representing your {trees} planted trees and {co2Offset} kg CO₂ offset.
+              Mint a transferable, verified on-chain NFT certificate representing your {trees}{' '}
+              planted trees and {co2Offset} kg CO₂ offset.
             </Text>
 
             {mintStatus === 'idle' && (
-              <Button onClick={handleMintCertificate} stellar="primary" size="lg" className="w-full sm:w-auto px-8">
+              <Button
+                onClick={handleMintCertificate}
+                stellar="primary"
+                size="lg"
+                className="w-full sm:w-auto px-8"
+              >
                 Mint NFT Certificate
               </Button>
             )}
@@ -441,7 +452,12 @@ export function DonationConfirmationWithTx({ txHash }: DonationConfirmationWithT
                     ? 'Signing request rejected by user.'
                     : `Minting failed: ${mintError}`}
                 </div>
-                <Button onClick={handleMintCertificate} stellar="primary" size="lg" className="w-full sm:w-auto px-8">
+                <Button
+                  onClick={handleMintCertificate}
+                  stellar="primary"
+                  size="lg"
+                  className="w-full sm:w-auto px-8"
+                >
                   Try Again
                 </Button>
               </div>

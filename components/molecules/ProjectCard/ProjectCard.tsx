@@ -34,9 +34,9 @@ export function ProjectCard({ project }: ProjectCardProps) {
     <Card className="overflow-hidden flex flex-col hover:shadow-lg transition-shadow">
       <CardHeader className="p-0 relative">
         <div className="relative w-full h-48 bg-secondary/50">
-          {project.imageUrl ? (
+          {(project as any).imageUrl ? (
             <Image
-              src={project.imageUrl}
+              src={(project as any).imageUrl}
               alt={project.name}
               fill
               sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"

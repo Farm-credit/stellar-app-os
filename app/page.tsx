@@ -17,7 +17,10 @@ import {
 
 export default function HomePage() {
   return (
-    <main id="main-content" className="flex min-h-screen flex-col items-center justify-center gap-8 p-8">
+    <main
+      id="main-content"
+      className="flex min-h-screen flex-col items-center justify-center gap-8 p-8"
+    >
       <section className="flex flex-col items-center gap-4 text-center max-w-4xl">
         <Badge variant="default">Powered by Stellar</Badge>
         <Text variant="h1">FarmCredit</Text>
@@ -33,7 +36,10 @@ export default function HomePage() {
         <LandingHero />
       </section>
 
-      <section data-tour-id="stats-grid" className="grid grid-cols-1 sm:grid-cols-3 gap-6 w-full max-w-4xl">
+      <section
+        data-tour-id="stats-grid"
+        className="grid grid-cols-1 sm:grid-cols-3 gap-6 w-full max-w-4xl"
+      >
         <div className="flex flex-col items-center gap-2 p-6 rounded-lg bg-muted/50">
           <Counter end={1234567} prefix="$" className="text-center" />
           <Text variant="muted" className="text-sm">
@@ -58,7 +64,9 @@ export default function HomePage() {
         <Card data-tour-id="get-started-card">
           <CardHeader>
             <CardTitle>Get Started</CardTitle>
-            <CardDescription>Connect your wallet to start planting trees and earning credits.</CardDescription>
+            <CardDescription>
+              Connect your wallet to start planting trees and earning credits.
+            </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-3">
             <Button asChild variant="default" size="lg" className="w-full">

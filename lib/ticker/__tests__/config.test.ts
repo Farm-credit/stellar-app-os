@@ -43,10 +43,7 @@ describe('lib/ticker/config', () => {
 
       expect(cfg.port).toBe(4000);
       expect(cfg.host).toBe('127.0.0.1');
-      expect(cfg.corsOrigin).toEqual([
-        'https://app.example.com',
-        'https://api.example.com',
-      ]);
+      expect(cfg.corsOrigin).toEqual(['https://app.example.com', 'https://api.example.com']);
       expect(cfg.heartbeatIntervalMs).toBe(15_000);
       expect(cfg.maxConnections).toBe(500);
       expect(cfg.enableCompression).toBe(false);

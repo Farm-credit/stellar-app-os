@@ -61,11 +61,11 @@ const mockProposals: ProposalRecord[] = [
     id: 1,
     slug: 'mahogany',
     name: 'Mahogany',
-    co2_scaled: 2500n,
+    co2_scaled: BigInt(2500),
     maturity_years: 25,
     proposer: 'GABCD1234EFGH5678IJKL9012MNOP3456QRST7890UVWX1234YZ56',
-    votes_for: 750_000n,
-    votes_against: 50_000n,
+    votes_for: BigInt(750000),
+    votes_against: BigInt(50000),
     status: ProposalStatus.Active,
     created_at: Date.now() / 1000 - 86400 * 2,
     voting_ends_at: Date.now() / 1000 + 86400 * 5,
@@ -74,11 +74,11 @@ const mockProposals: ProposalRecord[] = [
     id: 2,
     slug: 'iroko',
     name: 'Iroko',
-    co2_scaled: 3400n,
+    co2_scaled: BigInt(3400),
     maturity_years: 40,
     proposer: 'GXYZ9876ABCD5432EFGH1098IJKL7654MNOP3210QRST9876UVWX',
-    votes_for: 320_000n,
-    votes_against: 280_000n,
+    votes_for: BigInt(320000),
+    votes_against: BigInt(280000),
     status: ProposalStatus.Active,
     created_at: Date.now() / 1000 - 86400 * 1,
     voting_ends_at: Date.now() / 1000 + 86400 * 6,
@@ -87,11 +87,11 @@ const mockProposals: ProposalRecord[] = [
     id: 3,
     slug: 'oak',
     name: 'Oak',
-    co2_scaled: 3000n,
+    co2_scaled: BigInt(3000),
     maturity_years: 30,
     proposer: 'GXYZ9876ABCD5432EFGH1098IJKL7654MNOP3210QRST9876UVWX',
-    votes_for: 1_200_000n,
-    votes_against: 100_000n,
+    votes_for: BigInt(1200000),
+    votes_against: BigInt(100000),
     status: ProposalStatus.Passed,
     created_at: Date.now() / 1000 - 86400 * 10,
     voting_ends_at: Date.now() / 1000 - 86400 * 3,
@@ -194,7 +194,9 @@ function ProposalCard({ proposal, voteState, hasVoted, onVote, onExecute }: Prop
               {Number(proposal.votes_for).toLocaleString()} for
             </span>
             <span className="text-white/40 text-[11px]">
-              {totalVotes > 0n ? `${Number(totalVotes).toLocaleString()} total` : 'No votes yet'}
+              {totalVotes > BigInt(0)
+                ? `${Number(totalVotes).toLocaleString()} total`
+                : 'No votes yet'}
             </span>
             <span className="flex items-center gap-1.5 text-red-400 font-medium">
               {Number(proposal.votes_against).toLocaleString()} against

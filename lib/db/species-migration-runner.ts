@@ -26,7 +26,8 @@ export const DEFAULT_SPECIES_CATALOG: SpeciesCatalogSeed[] = [
     scientific_name: 'Senegalia senegal',
     co2_kg_per_year: 25.5,
     native_regions: ['Sub-Saharan Africa', 'Sahel'],
-    description: 'Drought-resistant leguminous tree fixing nitrogen and sequestering carbon in arid soils.',
+    description:
+      'Drought-resistant leguminous tree fixing nitrogen and sequestering carbon in arid soils.',
   },
   {
     species_slug: 'khaya-senegalensis',
@@ -42,7 +43,8 @@ export const DEFAULT_SPECIES_CATALOG: SpeciesCatalogSeed[] = [
     scientific_name: 'Mangifera indica',
     co2_kg_per_year: 30.0,
     native_regions: ['Tropical Regions', 'West Africa'],
-    description: 'Evergreen fruit tree supporting community food security and soil carbon retention.',
+    description:
+      'Evergreen fruit tree supporting community food security and soil carbon retention.',
   },
   {
     species_slug: 'rhizophora-mangle',
@@ -50,7 +52,8 @@ export const DEFAULT_SPECIES_CATALOG: SpeciesCatalogSeed[] = [
     scientific_name: 'Rhizophora mangle',
     co2_kg_per_year: 45.2,
     native_regions: ['Coastal Tropics', 'West African Coast'],
-    description: 'Blue carbon power plant sequestering up to 4x carbon compared to terrestrial forests.',
+    description:
+      'Blue carbon power plant sequestering up to 4x carbon compared to terrestrial forests.',
   },
 ];
 
@@ -111,10 +114,10 @@ export async function runSpeciesCatalogMigrations(
 
         console.log(`[db:migration] Running migration: ${file}`);
         await client.query(sql);
-        await client.query(
-          'INSERT INTO schema_migrations (filename, checksum) VALUES ($1, $2)',
-          [file, checksum]
-        );
+        await client.query('INSERT INTO schema_migrations (filename, checksum) VALUES ($1, $2)', [
+          file,
+          checksum,
+        ]);
         appliedFiles.push(file);
       }
     }

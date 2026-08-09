@@ -36,7 +36,7 @@ export async function resolveTreeRegistryAnalytics(
 ): Promise<AggregateSequestrationResult> {
   const pool = getPool();
 
-  const whereClauses: string[] = ["t.deleted_at IS NULL"];
+  const whereClauses: string[] = ['t.deleted_at IS NULL'];
   const params: unknown[] = [];
 
   if (filters.region) {

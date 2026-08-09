@@ -7,7 +7,9 @@ describe('FarmerOnboardingWizard', () => {
   it('renders the initial onboarding step and the progress indicator', () => {
     render(<FarmerOnboardingWizard />);
 
-    expect(screen.getByRole('heading', { name: /welcome to the farmer onboarding wizard/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: /welcome to the farmer onboarding wizard/i })
+    ).toBeInTheDocument();
     expect(screen.getByText(/identity details/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /continue/i })).toBeInTheDocument();
   });

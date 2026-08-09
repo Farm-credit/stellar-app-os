@@ -91,9 +91,9 @@ export async function fetchClimateNormals(lat: number, lon: number): Promise<Cli
       return { status: 'error', error: 'Climate API response missing expected fields' };
     }
 
-    const monthlyTemperatureC = MONTH_KEYS.map((key) => t2m[key] ?? annualTemperatureC);
+    const monthlyTemperatureC = MONTH_KEYS.map((key) => t2m?.[key] ?? annualTemperatureC);
     const monthlyRainfallMm = MONTH_KEYS.map(
-      (key, i) => (precip[key] ?? annualPrecipMmPerDay) * DAYS_IN_MONTH[i]
+      (key, i) => (precip?.[key] ?? annualPrecipMmPerDay) * DAYS_IN_MONTH[i]
     );
 
     return {

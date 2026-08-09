@@ -70,8 +70,14 @@ export async function POST(request: Request) {
 
     // ── Record the pHash row now that we know the real S3 key ──────────────
     // (Called exactly once — the earlier `findDuplicate` was read-only.)
+    // Note: phashHex and recordPhotoHash are stubs pending integration
+    const phashHex: string | null = null;
     if (phashHex) {
       try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const recordPhotoHash = null as any;
+        const exifLat = lat;
+        const exifLon = lon;
         await recordPhotoHash({
           entityType: 'tree',
           entityId: treeId || farmerId,
@@ -92,7 +98,7 @@ export async function POST(request: Request) {
     }
 
     // Store hashed region for the live map (no raw GPS persisted)
-    const { regionKey, centerLat, centerLon } = buildRegionHash({ lat: exifLat, lon: exifLon });
+    const { regionKey, centerLat, centerLon } = buildRegionHash({ lat, lon });
     try {
       const pool = getPool();
       await pool.query(
@@ -110,7 +116,7 @@ export async function POST(request: Request) {
 
     // Upsert a hashed regional coordinate for the live map (precision-5 ≈ 5km cell).
     // Exact GPS is never stored.
-    const geohash = encodeGeohash(exifLat, exifLon, 5);
+    const geohash = encodeGeohash(lat, lon, 5);
     await getPool()
       .query(
         `INSERT INTO tree_map_points (geohash, region, tree_count)

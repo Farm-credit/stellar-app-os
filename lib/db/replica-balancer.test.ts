@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { ReplicaBalancer, DatabaseInstance, ReplicaBalancerConfig } from './replica-balancer';
+import { ReplicaBalancer, DatabaseInstance, type ReplicaBalancerConfig } from './replica-balancer';
 
 // Mock pg module
 vi.mock('pg', () => ({

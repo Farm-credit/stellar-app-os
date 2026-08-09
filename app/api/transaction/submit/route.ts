@@ -37,7 +37,10 @@ export async function POST(request: Request) {
 
     const submitFn = async () => {
       const hash = await submitTransaction(signedTransactionXdr, network);
-      logger.info('[api:submit] Transaction submitted', { transactionHash: hash, source: walletToLock });
+      logger.info('[api:submit] Transaction submitted', {
+        transactionHash: hash,
+        source: walletToLock,
+      });
       return hash;
     };
 
@@ -58,7 +61,10 @@ export async function POST(request: Request) {
     // Handle bad sequence due to nonce collision - suggest retry
     if (errorMessage.includes('tx_bad_seq') || errorMessage.includes('bad_seq')) {
       return NextResponse.json(
-        { error: 'Sequence collision (tx_bad_seq). Please rebuild transaction and retry.', code: 'TX_BAD_SEQ' },
+        {
+          error: 'Sequence collision (tx_bad_seq). Please rebuild transaction and retry.',
+          code: 'TX_BAD_SEQ',
+        },
         { status: 409 }
       );
     }

@@ -35,7 +35,7 @@ describe('ImageDropzone Component', () => {
 
   it('handles file size limits', async () => {
     render(<ImageDropzone onImageProcessed={mockOnImageProcessed} maxSizeMB={1} />);
-    
+
     const file = new File([new ArrayBuffer(2 * 1024 * 1024)], 'large.jpg', { type: 'image/jpeg' });
     const input = screen.getByLabelText(/Image upload dropzone/i).querySelector('input');
 
@@ -48,11 +48,11 @@ describe('ImageDropzone Component', () => {
   it('processes image successfully on valid drop', async () => {
     const mockFile = new File(['image'], 'test.jpg', { type: 'image/jpeg' });
     const compressedFile = new File(['compressed'], 'test-compressed.jpg', { type: 'image/jpeg' });
-    
+
     vi.mocked(compressionUtils.compressImage).mockResolvedValueOnce(compressedFile);
 
     render(<ImageDropzone onImageProcessed={mockOnImageProcessed} />);
-    
+
     const dropzone = screen.getByRole('button', { name: /Image upload dropzone/i });
 
     fireEvent.drop(dropzone, {
@@ -74,13 +74,13 @@ describe('ImageDropzone Component', () => {
   it('supports keyboard navigation', async () => {
     render(<ImageDropzone onImageProcessed={mockOnImageProcessed} />);
     const dropzone = screen.getByRole('button', { name: /Image upload dropzone/i });
-    
+
     dropzone.focus();
     expect(dropzone).toHaveFocus();
-    
+
     const inputClickSpy = vi.spyOn(dropzone.querySelector('input')!, 'click');
     fireEvent.keyDown(dropzone, { key: 'Enter', code: 'Enter' });
-    
+
     expect(inputClickSpy).toHaveBeenCalled();
   });
 });

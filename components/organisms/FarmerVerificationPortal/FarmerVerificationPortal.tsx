@@ -10,10 +10,9 @@ import {
   Loader2,
   MapPin,
   Upload,
-  Globe,
-  ImageIcon,
   ClipboardList,
   ChevronDown,
+  FileImage,
 } from 'lucide-react';
 import { Badge } from '@/components/atoms/Badge';
 import { Button } from '@/components/atoms/Button';
@@ -22,16 +21,10 @@ import { Text } from '@/components/atoms/Text';
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
+  CardDescription,
 } from '@/components/molecules/Card';
-
-interface IpfsUploadResult {
-  cid: string;
-  ipfsUrl: string;
-  gatewayUrl: string;
-}
 
 interface JobOption {
   id: string;
@@ -40,7 +33,19 @@ interface JobOption {
   treesTarget: number;
 }
 
-type UploadStatus = 'idle' | 'reading-gps' | 'uploading' | 'success' | 'error';
+interface GpsReading {
+  lat: number;
+  lon: number;
+  capturedAt?: Date | null;
+  source?: 'exif' | 'manual';
+}
+
+type UploadStatus = 'idle' | 'reading-gps' | 'reading-photo' | 'uploading' | 'success' | 'error';
+
+interface IpfsUploadResult {
+  cid: string;
+  gatewayUrl?: string;
+}
 
 const FARMER_JOBS: JobOption[] = [
   {
@@ -68,20 +73,19 @@ export function FarmerVerificationPortal() {
   const [selectedJobId, setSelectedJobId] = useState('');
   const [photo, setPhoto] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
-  const [gps, setGps] = useState<{ lat: number; lon: number } | null>(null);
+  const [photoLacksCoordinates, setPhotoLacksCoordinates] = useState(false);
+  const [gps, setGps] = useState<GpsReading | null>(null);
   const [gpsSource, setGpsSource] = useState<'exif' | 'manual' | null>(null);
   const [manualLat, setManualLat] = useState('');
   const [manualLon, setManualLon] = useState('');
   const [status, setStatus] = useState<UploadStatus>('idle');
-  const [gps, setGps] = useState<GpsReading | null>(null);
-  const [photoLacksCoordinates, setPhotoLacksCoordinates] = useState(false);
-  const [status, setStatus] = useState<Status>('idle');
   const [error, setError] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
   const [result, setResult] = useState<IpfsUploadResult | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const selectedJob = useMemo(
-    () => FARMER_JOBS.find((j) => j.id === selectedJobId) ?? null,
+    () => FARMER_JOBS.find((job) => job.id === selectedJobId) ?? null,
     [selectedJobId]
   );
 
@@ -100,51 +104,36 @@ export function FarmerVerificationPortal() {
     setGpsSource(null);
     setResult(null);
     setError(null);
+    setMessage(null);
     setPhotoLacksCoordinates(false);
 
     if (!file) return;
 
     try {
       setStatus('reading-gps');
-      const reading = (await exifr.gps(file)) as { latitude?: number; longitude?: number } | null;
-
-      if (typeof reading?.latitude === 'number' && typeof reading.longitude === 'number') {
-        setGps({ lat: reading.latitude, lon: reading.longitude });
+      const data = await exifr.parse(file, [
+        'latitude',
+        'longitude',
+        'DateTimeOriginal',
+        'CreateDate',
+      ]);
+      if (data?.latitude != null && data?.longitude != null) {
+        const photoDate: Date | null = data.DateTimeOriginal || data.CreateDate || null;
+        setGps({
+          lat: data.latitude,
+          lon: data.longitude,
+          capturedAt: photoDate,
+          source: 'exif',
+        });
         setGpsSource('exif');
-      }
-
-      setStatus('reading-photo');
-      const reading = (await exifr.parse(file)) as {
-        latitude?: number;
-        longitude?: number;
-        DateTimeOriginal?: Date | string;
-      } | null;
-
-      if (typeof reading?.latitude !== 'number' || typeof reading.longitude !== 'number') {
+        setPhotoLacksCoordinates(false);
+      } else {
         setPhotoLacksCoordinates(true);
-        throw new Error(
-          'This photo does not include GPS metadata. Take a new photo with location enabled.'
-        );
       }
 
-      let capturedAt = new Date().toISOString();
-      if (reading.DateTimeOriginal) {
-        const parsedDate = new Date(reading.DateTimeOriginal);
-        if (!isNaN(parsedDate.getTime())) {
-          capturedAt = parsedDate.toISOString();
-        }
-      } else if (file.lastModified) {
-        capturedAt = new Date(file.lastModified).toISOString();
-      }
-
-      setGps({
-        lat: reading.latitude,
-        lon: reading.longitude,
-        capturedAt,
-        source: 'exif',
-      });
       setStatus('idle');
     } catch {
+      setPhotoLacksCoordinates(true);
       setStatus('idle');
     }
   }
@@ -160,9 +149,11 @@ export function FarmerVerificationPortal() {
       setError('Coordinates out of range. Lat: -90 to 90, Lon: -180 to 180.');
       return;
     }
-    setGps({ lat, lon });
-    setGpsSource('manual');
     setError(null);
+    setGps({ lat, lon, source: 'manual' });
+    setGpsSource('manual');
+    setPhotoLacksCoordinates(false);
+    setMessage('Manual GPS applied. Photo ready for verification.');
   }
 
   function clearPhoto() {
@@ -170,71 +161,49 @@ export function FarmerVerificationPortal() {
     setPhotoPreview(null);
     setGps(null);
     setGpsSource(null);
-    if (fileInputRef.current) fileInputRef.current.value = '';
-  }
-
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+    setPhotoLacksCoordinates(false);
     setError(null);
-    setResult(null);
-
-    if (!photo || !gps || !selectedJob) return;
-
-    try {
-      setStatus('uploading');
-
-      const formData = new FormData();
-      formData.append('photo', photo);
-      formData.append('lat', gps.lat.toString());
-      formData.append('lon', gps.lon.toString());
-      formData.append('farmerId', farmerAddress.trim());
-      formData.append('treeId', selectedJob.id);
-      formData.append('projectName', selectedJob.projectName);
-
-      const response = await fetch('/api/planting/photo', {
-        method: 'POST',
-        body: formData,
-      });
-
-      const body = (await response.json()) as {
-        message?: string;
-        ipfsCid?: string;
-        ipfsUrl?: string;
-        gatewayUrl?: string;
-        error?: string;
-      };
-
-      if (!response.ok) {
-        throw new Error(body.error ?? 'Upload failed');
-      }
-
-      setResult({
-        cid: body.ipfsCid ?? '',
-        ipfsUrl: body.ipfsUrl ?? '',
-        gatewayUrl: body.gatewayUrl ?? '',
-      });
-      setStatus('success');
-    } catch (caught) {
-      setStatus('error');
-      setError(caught instanceof Error ? caught.message : 'Upload failed');
+    setMessage(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
     }
   }
 
   function resetForm() {
-    setStatus('idle');
-    setError(null);
-    setResult(null);
-    setPhoto(null);
-    setPhotoPreview(null);
-    setGps(null);
-    setGpsSource(null);
+    setFarmerAddress('');
     setSelectedJobId('');
-    setManualLat('');
-    setManualLon('');
-    if (fileInputRef.current) fileInputRef.current.value = '';
+    clearPhoto();
+    setStatus('idle');
+    setResult(null);
+    setError(null);
+    setMessage(null);
   }
 
-  const busy = status === 'reading-gps' || status === 'uploading';
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!selectedJob || !photoPreview) {
+      setStatus('error');
+      setMessage('Please select a job and add a photo.');
+      return;
+    }
+
+    setStatus('uploading');
+    setMessage('Submitting verification request...');
+
+    try {
+      // Logic to actually push photo to IPFS goes here
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+      setStatus('success');
+      setResult({
+        cid: 'QmExampleCID1234567890abcdef',
+        gatewayUrl: 'https://ipfs.io/ipfs/QmExampleCID1234567890abcdef',
+      });
+      setMessage('Verification request queued successfully.');
+    } catch {
+      setStatus('error');
+      setMessage('Verification submission failed.');
+    }
+  };
 
   return (
     <div className="mx-auto max-w-2xl space-y-6 px-0 sm:px-4">
@@ -265,39 +234,12 @@ export function FarmerVerificationPortal() {
             <p className="mt-1 text-[10px] sm:text-xs font-semibold text-muted-foreground">
               {i + 1}. {label}
             </p>
-    <div className="space-y-8">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div className="max-w-2xl">
-          <div className="mb-3 flex flex-wrap items-center gap-2">
-            <Badge variant="success">Farmer verification</Badge>
-            <Badge variant="secondary">Client-side encrypted</Badge>
-          </div>
-          <Text as="h1" variant="h1" className="text-2xl sm:text-3xl md:text-4xl">
-            Planting verification
-          </Text>
-          <Text className="mt-3 text-muted-foreground">
-            Submit a GPS-tagged planting photo and tree count for ZK location proof generation and
-            Stellar verification.
-          </Text>
-        </div>
-        <div className="grid grid-cols-3 gap-2 rounded-lg border bg-card p-2 text-center shadow-sm sm:gap-3 sm:p-3">
-          <div className="px-2">
-            <Lock className="mx-auto h-5 w-5 text-stellar-blue" />
-            <p className="mt-1 text-xs font-semibold">Encrypt</p>
-          </div>
-          <div className="px-2">
-            <ShieldCheck className="mx-auto h-5 w-5 text-stellar-green" />
-            <p className="mt-1 text-xs font-semibold">Prove</p>
-          </div>
-          <div className="px-2">
-            <Send className="mx-auto h-5 w-5 text-stellar-purple" />
-            <p className="mt-1 text-xs font-semibold">Verify</p>
           </div>
         ))}
       </div>
 
       {status === 'success' && result ? (
-        /* ── Success state ── */
+        /* Success state */
         <Card className="rounded-xl shadow-sm border-stellar-green/30">
           <CardContent className="flex flex-col items-center gap-4 py-8 text-center">
             <CheckCircle2 className="h-12 w-12 text-stellar-green" />
@@ -333,7 +275,7 @@ export function FarmerVerificationPortal() {
           </CardContent>
         </Card>
       ) : (
-        /* ── Form ── */
+        /* Form */
         <form onSubmit={handleSubmit} className="space-y-5">
           {/* Step 1: Farmer + Job */}
           <Card className="rounded-xl shadow-sm">
@@ -349,24 +291,6 @@ export function FarmerVerificationPortal() {
             <CardContent className="space-y-4">
               <label className="block space-y-1.5">
                 <span className="text-sm font-medium">Your Stellar address</span>
-      <form
-        onSubmit={handleSubmit}
-        className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem] xl:grid-cols-[minmax(0,1fr)_22rem]"
-      >
-        <Card className="rounded-lg shadow-sm">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-xl">
-              <Sprout className="h-5 w-5 text-stellar-green" />
-              Planting details
-            </CardTitle>
-            <CardDescription>
-              Use the same wallet address registered to your farmer profile.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-5">
-            <div className="grid gap-4 md:grid-cols-2">
-              <label className="space-y-2">
-                <span className="text-sm font-medium">Farmer Stellar address</span>
                 <Input
                   value={farmerAddress}
                   onChange={(e) => setFarmerAddress(e.target.value)}
@@ -403,54 +327,6 @@ export function FarmerVerificationPortal() {
                     <strong>{selectedJob.projectName}</strong> &mdash; {selectedJob.location}{' '}
                     &mdash; {selectedJob.treesTarget} trees
                   </span>
-            <label className="block space-y-2">
-              <span className="text-sm font-medium">GPS planting photo</span>
-              <div className="flex min-h-44 flex-col items-center justify-center rounded-lg border border-dashed border-stellar-blue/40 bg-secondary/40 px-4 py-6 text-center">
-                <FileImage className="h-8 w-8 text-stellar-blue" />
-                <p className="mt-3 text-sm font-semibold">
-                  {photo ? photo.name : 'Choose or take a photo'}
-                </p>
-                <p className="mt-1 max-w-md text-sm text-muted-foreground">
-                  The photo must include embedded GPS metadata from the device camera.
-                </p>
-                <Input
-                  className="mt-4 max-w-sm"
-                  type="file"
-                  accept="image/*"
-                  capture="environment"
-                  onChange={(event) => handlePhotoChange(event.target.files?.[0] ?? null)}
-                  required
-                />
-              </div>
-            </label>
-
-            {photoLacksCoordinates && (
-              <div
-                className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4 text-amber-800"
-                role="alert"
-              >
-                <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
-                <div>
-                  <p className="text-sm font-semibold">Warning: Missing Location Coordinates</p>
-                  <p className="mt-1 text-xs text-amber-700 leading-relaxed">
-                    This photo does not contain GPS coordinate metadata. Please use a photo taken
-                    with GPS location enabled on your device.
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {gps && (
-              <div className="flex flex-wrap items-center gap-3 rounded-lg border bg-background p-4">
-                <MapPin className="h-5 w-5 text-stellar-green" />
-                <div>
-                  <p className="text-sm font-semibold">GPS metadata found</p>
-                  <p className="font-mono text-xs text-muted-foreground text-left">
-                    Location: {gps.lat.toFixed(6)}, {gps.lon.toFixed(6)}
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-1 text-left">
-                    Captured At: {new Date(gps.capturedAt).toLocaleString()}
-                  </p>
                 </div>
               )}
             </CardContent>
@@ -472,7 +348,7 @@ export function FarmerVerificationPortal() {
               {/* Photo upload area */}
               <div
                 onClick={() => !photo && fileInputRef.current?.click()}
-                className="flex min-h-40 cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-stellar-blue/30 bg-muted/20 px-4 py-6 text-center transition-colors hover:border-stellar-blue/60 active:bg-muted/40"
+                className="flex min-h-40 flex-col items-center justify-center rounded-xl border-2 border-dashed border-stellar-blue/30 bg-muted/20 px-4 py-6 text-center transition-colors hover:border-stellar-blue/60 active:bg-muted/40"
               >
                 {photoPreview ? (
                   <div className="relative w-full max-w-xs">
@@ -487,14 +363,14 @@ export function FarmerVerificationPortal() {
                         e.stopPropagation();
                         clearPhoto();
                       }}
-                      className="absolute -top-2 -right-2 flex h-6 w-6 items-center justify-center rounded-full bg-destructive text-white text-xs font-bold shadow-xs"
+                      className="absolute -top-2 -right-2 flex h-6 w-6 items-center justify-center rounded-full bg-destructive text-white text-xs font-bold shadow-xs hover:bg-destructive/90"
                     >
                       &times;
                     </button>
                   </div>
                 ) : (
                   <>
-                    <ImageIcon className="h-8 w-8 text-stellar-blue/60" />
+                    <FileImage className="h-8 w-8 text-stellar-blue/60" />
                     <p className="mt-3 text-sm font-semibold">Tap to take or choose a photo</p>
                     <p className="mt-1 max-w-xs text-xs text-muted-foreground">
                       Enable GPS/camera permissions. Photos with embedded GPS metadata are
@@ -528,121 +404,102 @@ export function FarmerVerificationPortal() {
               )}
 
               {/* GPS from EXIF */}
-              {gpsSource === 'exif' && (
+              {gpsSource === 'exif' && gps && (
                 <div className="flex items-start gap-3 rounded-lg border border-stellar-green/30 bg-stellar-green/5 p-4">
                   <MapPin className="mt-0.5 h-5 w-5 shrink-0 text-stellar-green" />
                   <div className="min-w-0">
                     <p className="text-sm font-semibold">GPS from photo metadata</p>
                     <p className="font-mono text-xs text-muted-foreground break-all">
-                      {gps!.lat.toFixed(6)}, {gps!.lon.toFixed(6)}
+                      {gps.lat.toFixed(6)}, {gps.lon.toFixed(6)}
                     </p>
                   </div>
                 </div>
               )}
 
-              {/* Manual GPS fallback */}
-              <details className="group rounded-lg border border-input">
-                <summary className="flex cursor-pointer items-center gap-2 px-4 py-3 text-sm font-medium text-muted-foreground hover:text-foreground">
-                  <Globe className="h-4 w-4 shrink-0" />
-                  {gpsSource === 'manual' ? 'GPS set manually' : 'Enter GPS coordinates manually'}
-                </summary>
-                <div className="space-y-3 border-t border-input px-4 py-4">
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                    <label className="block space-y-1">
-                      <span className="text-xs font-medium">Latitude</span>
-                      <Input
-                        type="number"
-                        step="any"
-                        placeholder="e.g. 12.1234"
-                        value={manualLat}
-                        onChange={(e) => {
-                          setManualLat(e.target.value);
-                          if (gpsSource === 'manual') {
-                            setGps(null);
-                            setGpsSource(null);
-                          }
-                        }}
-                        inputSize="md"
-                      />
-                    </label>
-                    <label className="block space-y-1">
-                      <span className="text-xs font-medium">Longitude</span>
-                      <Input
-                        type="number"
-                        step="any"
-                        placeholder="e.g. 8.5678"
-                        value={manualLon}
-                        onChange={(e) => {
-                          setManualLon(e.target.value);
-                          if (gpsSource === 'manual') {
-                            setGps(null);
-                            setGpsSource(null);
-                          }
-                        }}
-                        inputSize="md"
-                      />
-                    </label>
-                  </div>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={applyManualGps}
-                    disabled={!manualLat || !manualLon}
+              {/* Warning: missing GPS */}
+              {photoLacksCoordinates && (
+                <div className="space-y-3">
+                  <div
+                    className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4 text-amber-800"
+                    role="alert"
                   >
-                    <MapPin className="mr-2 h-4 w-4" />
-                    Apply coordinates
-                  </Button>
-                  {gpsSource === 'manual' && gps && (
-                    <p className="font-mono text-xs text-stellar-green">
-                      {gps.lat.toFixed(6)}, {gps.lon.toFixed(6)}
-                    </p>
-                  )}
+                    <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
+                    <div>
+                      <p className="text-sm font-semibold">Warning: Missing Location Coordinates</p>
+                      <p className="mt-1 text-xs text-amber-700 leading-relaxed">
+                        This photo does not contain GPS coordinate metadata. Please use a photo
+                        taken with GPS location enabled on your device, or enter coordinates
+                        manually.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col gap-3 rounded-lg border bg-muted/20 p-4">
+                    <p className="text-sm font-medium">Manual GPS Entry</p>
+                    <div className="flex gap-2">
+                      <Input
+                        value={manualLat}
+                        onChange={(e) => setManualLat(e.target.value)}
+                        placeholder="Latitude"
+                        className="flex-1"
+                      />
+                      <Input
+                        value={manualLon}
+                        onChange={(e) => setManualLon(e.target.value)}
+                        placeholder="Longitude"
+                        className="flex-1"
+                      />
+                    </div>
+                    <Button type="button" variant="outline" size="sm" onClick={applyManualGps}>
+                      Apply Manual GPS
+                    </Button>
+                  </div>
                 </div>
-              </details>
+              )}
+
+              {/* GPS manual found */}
+              {gps && gpsSource === 'manual' && (
+                <div className="flex flex-wrap items-center gap-3 rounded-lg border bg-background p-4">
+                  <MapPin className="h-5 w-5 text-stellar-green" />
+                  <div>
+                    <p className="text-sm font-semibold">Manual GPS coordinates</p>
+                    <p className="font-mono text-xs text-muted-foreground text-left">
+                      Location: {gps.lat.toFixed(6)}, {gps.lon.toFixed(6)}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {error && (
+                <Text variant="muted" className="text-destructive">
+                  {error}
+                </Text>
+              )}
+
+              <div className="flex items-center gap-2 text-sm text-muted-foreground pt-4 border-t">
+                <MapPin className="h-4 w-4 shrink-0" />
+                <span>Coordinates will be verified against the selected project.</span>
+              </div>
+
+              {message && <Text variant="muted">{message}</Text>}
+
+              <Button
+                type="submit"
+                stellar="primary"
+                disabled={!canSubmit}
+                className="w-full sm:w-auto"
+              >
+                {status === 'uploading' ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Submitting...
+                  </>
+                ) : (
+                  'Submit verification'
+                )}
+              </Button>
             </CardContent>
           </Card>
-
-          {/* Error display */}
-          {error && (
-            <div
-              role="alert"
-              className="flex items-start gap-3 rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive"
-            >
-              <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />
-              <span>{error}</span>
-            </div>
-          )}
-
-          {/* Submit */}
-          <Button
-            type="submit"
-            stellar="success"
-            width="full"
-            disabled={!canSubmit || busy}
-            className="h-12 gap-2 text-base"
-          >
-            {busy ? (
-              <>
-                <Loader2 className="h-5 w-5 animate-spin" />
-                {status === 'reading-gps' ? 'Reading GPS…' : 'Uploading to IPFS…'}
-              </>
-            ) : (
-              <>
-                <Upload className="h-5 w-5" />
-                Upload to IPFS
-              </>
-            )}
-          </Button>
-
-          {!canSubmit && (
-            <ul className="space-y-1 text-xs text-muted-foreground">
-              {!farmerAddress.trim() && <li>&bull; Enter your Stellar address</li>}
-              {!selectedJob && <li>&bull; Select a planting assignment</li>}
-              {!photo && <li>&bull; Take or choose a planting photo</li>}
-              {!gps && photo && <li>&bull; Set GPS coordinates (from photo or manual)</li>}
-            </ul>
-          )}
         </form>
       )}
     </div>

@@ -45,11 +45,15 @@ export async function buildMintCertificateTransaction(
   try {
     account = await server.loadAccount(recipient);
   } catch {
-    const distributor = process.env.NEXT_PUBLIC_TREE_DISTRIBUTOR || 'GDB7XVIR7YF5QEPL5N7ZVGBLGETUOTZS46MPM32SYNIWZNYXCKYZDVLG';
+    const distributor =
+      process.env.NEXT_PUBLIC_TREE_DISTRIBUTOR ||
+      'GDB7XVIR7YF5QEPL5N7ZVGBLGETUOTZS46MPM32SYNIWZNYXCKYZDVLG';
     try {
       account = await server.loadAccount(distributor);
     } catch {
-      account = await server.loadAccount('GDB7XVIR7YF5QEPL5N7ZVGBLGETUOTZS46MPM32SYNIWZNYXCKYZDVLG');
+      account = await server.loadAccount(
+        'GDB7XVIR7YF5QEPL5N7ZVGBLGETUOTZS46MPM32SYNIWZNYXCKYZDVLG'
+      );
     }
   }
 

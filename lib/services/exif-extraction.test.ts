@@ -7,7 +7,7 @@ vi.mock('exifr', () => ({
   },
 }));
 
-import { exifr } from 'exifr';
+import exifr from 'exifr';
 
 describe('EXIFExtractionService', () => {
   let service: EXIFExtractionService;
@@ -84,7 +84,7 @@ describe('EXIFExtractionService', () => {
     it('should extract GPS coordinates when available', async () => {
       const mockEXIFData = {
         latitude: 40.7128,
-        longitude: -74.0060,
+        longitude: -74.006,
         GPSAltitude: 10,
       };
 
@@ -94,7 +94,7 @@ describe('EXIFExtractionService', () => {
 
       expect(result.metadata?.gps).toEqual({
         latitude: 40.7128,
-        longitude: -74.0060,
+        longitude: -74.006,
         altitude: 10,
       });
     });

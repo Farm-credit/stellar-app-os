@@ -2,7 +2,10 @@ import { NextResponse } from 'next/server';
 import { createHash } from 'crypto';
 import fs from 'fs';
 import path from 'path';
-import { buildMintCertificateTransaction, getMintingContractAddress } from '@/lib/stellar/nft-certificate';
+import {
+  buildMintCertificateTransaction,
+  getMintingContractAddress,
+} from '@/lib/stellar/nft-certificate';
 import { TREES_PER_DOLLAR } from '@/lib/constants/donation';
 import { withWalletLock } from '@/lib/cache/redlock';
 import logger from '@/lib/logger';
@@ -24,7 +27,9 @@ export async function POST(req: Request) {
       'recipientAddress',
       'network',
     ];
-    const missingFields = requiredFields.filter((field) => body[field] === undefined || body[field] === null || body[field] === '');
+    const missingFields = requiredFields.filter(
+      (field) => body[field] === undefined || body[field] === null || body[field] === ''
+    );
     if (missingFields.length > 0) {
       return NextResponse.json(
         { error: `Missing required fields: ${missingFields.join(', ')}` },
@@ -49,7 +54,9 @@ export async function POST(req: Request) {
     }
 
     // 5. Derive Token_ID
-    const tokenId = createHash('sha256').update(txHash + projectId).digest('hex');
+    const tokenId = createHash('sha256')
+      .update(txHash + projectId)
+      .digest('hex');
 
     // 6. Build Certificate Metadata
     const treeCount = Math.round(amount * TREES_PER_DOLLAR);
@@ -80,7 +87,10 @@ export async function POST(req: Request) {
     const { transactionXdr, networkPassphrase } = await withWalletLock(
       recipientAddress,
       async () => {
-        logger.info('[api:nft:mint] Building mint tx with wallet lock', { recipientAddress, tokenId });
+        logger.info('[api:nft:mint] Building mint tx with wallet lock', {
+          recipientAddress,
+          tokenId,
+        });
         return buildMintCertificateTransaction(recipientAddress, tokenId, metadataUri, network);
       },
       { ttlMs: 15_000, retryCount: 10 }

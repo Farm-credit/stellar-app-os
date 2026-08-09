@@ -89,11 +89,11 @@ describe('Wallet Lock Integration – nonce collision prevention scenario', () =
 
     // Try to acquire with very short retry - should fail
     await expect(
-      withWalletLock(
-        wallet,
-        async () => 'should not succeed',
-        { retryCount: 1, retryDelayMs: 5, ttlMs: 1000 }
-      )
+      withWalletLock(wallet, async () => 'should not succeed', {
+        retryCount: 1,
+        retryDelayMs: 5,
+        ttlMs: 1000,
+      })
     ).rejects.toThrow();
 
     await hold;

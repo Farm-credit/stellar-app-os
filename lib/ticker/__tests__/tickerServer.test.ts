@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createServer, type Server as HttpServer } from 'http';
 import { io as clientIo, type Socket as ClientSocket } from 'socket.io-client';
 import { createTickerServer } from '@/lib/ticker/tickerServer';
-import { TickerService, resetTickerService } from '@/lib/ticker/tickerService';
+import { type TickerService, resetTickerService } from '@/lib/ticker/tickerService';
 import type {
   TickerClientToServerEvents,
   TickerServerToClientEvents,
@@ -414,7 +414,9 @@ describe('lib/ticker/tickerServer (integration)', () => {
         errPromise,
         new Promise<string>((resolve) => setTimeout(() => resolve('timeout'), 3000)),
       ]);
-      expect(['disconnected', 'timeout'].includes(result) || result.includes('capacity')).toBe(true);
+      expect(['disconnected', 'timeout'].includes(result) || result.includes('capacity')).toBe(
+        true
+      );
 
       c1.disconnect();
       c2.disconnect();

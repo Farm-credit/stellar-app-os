@@ -42,7 +42,10 @@ export async function POST(request: Request) {
     }
 
     if (asset !== 'USDC' && asset !== 'XLM') {
-      return NextResponse.json({ error: 'Unsupported asset (expected USDC or XLM)' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Unsupported asset (expected USDC or XLM)' },
+        { status: 400 }
+      );
     }
 
     // Serialize per-wallet transaction building to prevent sequence/nonce collisions
@@ -90,7 +93,10 @@ export async function POST(request: Request) {
     logger.error('[api:build-donation] Error building donation transaction', { error });
     const errorMessage = error instanceof Error ? error.message : 'Failed to build transaction';
     // 409 for lock acquisition failures (nonce collision prevention)
-    const status = errorMessage.includes('acquire lock') || errorMessage.includes('Failed to acquire') ? 409 : 500;
+    const status =
+      errorMessage.includes('acquire lock') || errorMessage.includes('Failed to acquire')
+        ? 409
+        : 500;
     return NextResponse.json({ error: errorMessage }, { status });
   }
 }

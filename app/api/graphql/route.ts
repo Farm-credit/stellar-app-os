@@ -1,5 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { resolveTreeRegistryAnalytics, QueryFilter } from '@/lib/graphql/resolvers';
+import { type NextRequest, NextResponse } from 'next/server';
+import { resolveTreeRegistryAnalytics, type QueryFilter } from '@/lib/graphql/resolvers';
 import { typeDefs } from '@/lib/graphql/schema';
 
 interface GraphQLRequestBody {
@@ -72,10 +72,7 @@ export async function POST(req: NextRequest) {
   } catch (err: unknown) {
     const errorMsg = err instanceof Error ? err.message : 'Internal server error';
     console.error('[GraphQL API] Handler error:', err);
-    return NextResponse.json(
-      { errors: [{ message: errorMsg }] },
-      { status: 500 }
-    );
+    return NextResponse.json({ errors: [{ message: errorMsg }] }, { status: 500 });
   }
 }
 
@@ -103,10 +100,7 @@ export async function GET(req: NextRequest) {
     });
   } catch (err: unknown) {
     const errorMsg = err instanceof Error ? err.message : 'Internal server error';
-    return NextResponse.json(
-      { errors: [{ message: errorMsg }] },
-      { status: 500 }
-    );
+    return NextResponse.json({ errors: [{ message: errorMsg }] }, { status: 500 });
   }
 }
 

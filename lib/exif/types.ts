@@ -13,12 +13,7 @@ export interface PhotoMetadata {
   deviceModel: string | null;
 }
 
-export type ExtractionStatus =
-  | "idle"
-  | "reading"
-  | "success"
-  | "no-metadata"
-  | "error";
+export type ExtractionStatus = 'idle' | 'reading' | 'success' | 'no-metadata' | 'error';
 
 export interface ExtractionResult {
   status: ExtractionStatus;

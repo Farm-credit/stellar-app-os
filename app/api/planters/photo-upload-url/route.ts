@@ -41,8 +41,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   if (!treeId || !TREE_ID.test(treeId)) {
     return NextResponse.json({ error: 'treeId is invalid' }, { status: 400 });
   }
-  const extension = contentType ? getPhotoExtension(contentType) : undefined;
-  if (!extension) {
+  const ext = contentType ? getPhotoExtension(contentType) : undefined;
+  if (!ext) {
     return NextResponse.json(
       { error: 'contentType must be image/jpeg, image/png, or image/webp' },
       { status: 415 }
@@ -63,9 +63,15 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   }
 
   const expiresIn = expirySeconds();
+  const extension: string = ext;
   const key = `tree-photo-evidence/${planter.sub}/${treeId}/${randomUUID()}.${extension}`;
   try {
-    const uploadUrl = await createPhotoUploadUrl({ key, contentType, contentLength, expiresIn });
+    const uploadUrl = await createPhotoUploadUrl({
+      key,
+      contentType: contentType!,
+      contentLength,
+      expiresIn,
+    });
     logger.info('Created tree photo upload URL', { treeId, planter: planter.sub, key, expiresIn });
     return NextResponse.json(
       {

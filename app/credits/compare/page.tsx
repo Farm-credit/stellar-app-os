@@ -2,13 +2,14 @@
 
 import { useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import { useTranslation } from 'react-i18next';
 import { ComparisonTool } from '@/components/organisms/ComparisonTool/ComparisonTool';
 import { mockCarbonProjects } from '@/lib/api/mock/carbonProjects';
 import { Text } from '@/components/atoms/Text';
 
 export default function ComparePage() {
   const router = useRouter();
-  const { t } = useAppTranslation();
+  const { t } = useTranslation();
 
   const handleAddToCart = useCallback(
     (projectId: string) => {

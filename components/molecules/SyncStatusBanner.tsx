@@ -28,26 +28,38 @@ export function SyncStatusBanner() {
         role="alert"
         aria-live="polite"
       >
-        <div className={`p-4 flex items-center justify-between gap-4 border-l-4 backdrop-blur-md ${
-          !isOnline 
-            ? 'bg-amber-50/90 border-amber-500 text-amber-900 dark:bg-amber-950/90 dark:text-amber-100'
-            : isSyncing
-            ? 'bg-blue-50/90 border-blue-500 text-blue-900 dark:bg-blue-950/90 dark:text-blue-100'
-            : syncError
-            ? 'bg-red-50/90 border-red-500 text-red-900 dark:bg-red-950/90 dark:text-red-100'
-            : 'bg-green-50/90 border-green-500 text-green-900 dark:bg-green-950/90 dark:text-green-100'
-        }`}>
+        <div
+          className={`p-4 flex items-center justify-between gap-4 border-l-4 backdrop-blur-md ${
+            !isOnline
+              ? 'bg-amber-50/90 border-amber-500 text-amber-900 dark:bg-amber-950/90 dark:text-amber-100'
+              : isSyncing
+                ? 'bg-blue-50/90 border-blue-500 text-blue-900 dark:bg-blue-950/90 dark:text-blue-100'
+                : syncError
+                  ? 'bg-red-50/90 border-red-500 text-red-900 dark:bg-red-950/90 dark:text-red-100'
+                  : 'bg-green-50/90 border-green-500 text-green-900 dark:bg-green-950/90 dark:text-green-100'
+          }`}
+        >
           <div className="flex items-center gap-3">
             {!isOnline && <CloudOff className="h-5 w-5 text-amber-600 dark:text-amber-400" />}
-            {isOnline && isSyncing && <RefreshCw className="h-5 w-5 text-blue-600 dark:text-blue-400 animate-spin" />}
-            {isOnline && syncError && <AlertCircle className="h-5 w-5 text-red-600 dark:text-red-400" />}
+            {isOnline && isSyncing && (
+              <RefreshCw className="h-5 w-5 text-blue-600 dark:text-blue-400 animate-spin" />
+            )}
+            {isOnline && syncError && (
+              <AlertCircle className="h-5 w-5 text-red-600 dark:text-red-400" />
+            )}
             {isOnline && !isSyncing && !syncError && queue.length > 0 && (
               <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400" />
             )}
-            
+
             <div className="flex flex-col">
               <span className="font-semibold text-sm">
-                {!isOnline ? 'You are offline' : isSyncing ? 'Syncing...' : syncError ? 'Sync failed' : 'Ready to sync'}
+                {!isOnline
+                  ? 'You are offline'
+                  : isSyncing
+                    ? 'Syncing...'
+                    : syncError
+                      ? 'Sync failed'
+                      : 'Ready to sync'}
               </span>
               <span className="text-xs opacity-80">
                 {queue.length} photo{queue.length !== 1 ? 's' : ''} pending sync

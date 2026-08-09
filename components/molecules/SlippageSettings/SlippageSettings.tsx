@@ -80,7 +80,7 @@ export function SlippageSettings({ value, onChange, disabled }: SlippageSettings
           <Button
             key={preset.value}
             type="button"
-            variant={value === preset.value ? 'primary' : 'outline'}
+            variant={value === preset.value ? 'default' : 'outline'}
             size="sm"
             onClick={() => handlePresetSelect(preset.value)}
             disabled={disabled}

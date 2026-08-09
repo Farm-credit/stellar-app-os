@@ -464,9 +464,7 @@ export async function withWalletLock<T>(
   // if the address comes from env and might be empty in tests). For strict G keys we
   // validate; otherwise we still create a deterministic lock key.
   const isStellarAddr = /^G[A-Z2-7]{55}$/.test(walletAddress);
-  const resource = isStellarAddr
-    ? walletLockKey(walletAddress)
-    : `lock:wallet:tx:${walletAddress}`;
+  const resource = isStellarAddr ? walletLockKey(walletAddress) : `lock:wallet:tx:${walletAddress}`;
 
   return withLock(resource, fn, opts);
 }

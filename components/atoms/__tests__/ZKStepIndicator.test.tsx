@@ -16,10 +16,7 @@ describe('ZKStepIndicator', () => {
 
   it('renders sublabel when provided', () => {
     render(
-      <ZKStepIndicator
-        {...defaultProps}
-        sublabel="navigator.geolocation.getCurrentPosition()"
-      />
+      <ZKStepIndicator {...defaultProps} sublabel="navigator.geolocation.getCurrentPosition()" />
     );
     expect(screen.getByText('navigator.geolocation.getCurrentPosition()')).toBeInTheDocument();
   });
@@ -86,9 +83,7 @@ describe('ZKStepIndicator', () => {
   it('renders all four statuses without throwing', () => {
     const statuses = ['pending', 'active', 'complete', 'error'] as const;
     for (const status of statuses) {
-      expect(() =>
-        render(<ZKStepIndicator {...defaultProps} status={status} />)
-      ).not.toThrow();
+      expect(() => render(<ZKStepIndicator {...defaultProps} status={status} />)).not.toThrow();
     }
   });
 });

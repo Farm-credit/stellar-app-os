@@ -34,8 +34,7 @@ const badgeVariants = cva(
 );
 
 export interface ZKProofStatusBadgeProps
-  extends HTMLAttributes<HTMLSpanElement>,
-    VariantProps<typeof badgeVariants> {
+  extends HTMLAttributes<HTMLSpanElement>, VariantProps<typeof badgeVariants> {
   status: ZKProofStatus;
 }
 

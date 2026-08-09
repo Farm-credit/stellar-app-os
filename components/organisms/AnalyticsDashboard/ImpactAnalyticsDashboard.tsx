@@ -3,7 +3,7 @@
 import { type JSX, useState, useEffect } from 'react';
 import { Leaf, Users, Sprout } from 'lucide-react';
 import { MetricCard } from './MetricCard';
-import { AnalyticsChart, ChartDataPoint } from './AnalyticsChart';
+import { AnalyticsChart, type ChartDataPoint } from './AnalyticsChart';
 
 export interface AnalyticsData {
   co2Reduced: {

@@ -31,9 +31,7 @@ function pad(n: number): string {
 }
 
 export function CountdownTimer({ deadline, className }: CountdownTimerProps) {
-  const [timeLeft, setTimeLeft] = useState<TimeLeft | null>(() =>
-    calculateTimeLeft(deadline)
-  );
+  const [timeLeft, setTimeLeft] = useState<TimeLeft | null>(() => calculateTimeLeft(deadline));
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -60,8 +58,7 @@ export function CountdownTimer({ deadline, className }: CountdownTimerProps) {
     { label: 's', value: timeLeft.seconds },
   ];
 
-  const isUrgent =
-    timeLeft.days === 0 && timeLeft.hours < 24;
+  const isUrgent = timeLeft.days === 0 && timeLeft.hours < 24;
 
   return (
     <div
@@ -74,17 +71,13 @@ export function CountdownTimer({ deadline, className }: CountdownTimerProps) {
           <span
             className={cn(
               'rounded-md px-1.5 py-0.5 font-semibold',
-              isUrgent
-                ? 'bg-destructive/10 text-destructive'
-                : 'bg-secondary text-foreground'
+              isUrgent ? 'bg-destructive/10 text-destructive' : 'bg-secondary text-foreground'
             )}
           >
             {pad(unit.value)}
           </span>
           <span className="text-muted-foreground">{unit.label}</span>
-          {i < units.length - 1 && (
-            <span className="ml-0.5 text-muted-foreground">:</span>
-          )}
+          {i < units.length - 1 && <span className="ml-0.5 text-muted-foreground">:</span>}
         </span>
       ))}
     </div>

@@ -1,11 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { CDCEventIndexer, type CDCWorkerConfig, type ParsedEvent } from '@/lib/indexer/cdc-worker';
 import { getPool } from '@/lib/db/client';
-import {
-  upsertContractEvent,
-  loadEventCursor,
-  saveEventCursor,
-} from '@/lib/indexer/event-upsert';
+import { upsertContractEvent, loadEventCursor, saveEventCursor } from '@/lib/indexer/event-upsert';
 import type { Pool } from 'pg';
 
 // ── Mocks ───────────────────────────────────────────────────────────────────
@@ -177,12 +173,10 @@ describe('CDCEventIndexer', () => {
   // ── Retry Logic ──────────────────────────────────────────────────────────
 
   it('retries getEvents on transient failure then succeeds', async () => {
-    mockGetEvents
-      .mockRejectedValueOnce(new Error('RPC timeout'))
-      .mockResolvedValueOnce({
-        events: [],
-        latestLedger: 100,
-      });
+    mockGetEvents.mockRejectedValueOnce(new Error('RPC timeout')).mockResolvedValueOnce({
+      events: [],
+      latestLedger: 100,
+    });
 
     const indexer = new CDCEventIndexer({
       pollIntervalMs: 5000,
@@ -306,7 +300,8 @@ describe('CDCEventIndexer', () => {
     indexer.stop();
     await startPromise;
 
-    const upsertCall = (upsertContractEvent as ReturnType<typeof vi.fn>).mock.calls[0][1] as ParsedEvent;
+    const upsertCall = (upsertContractEvent as ReturnType<typeof vi.fn>).mock
+      .calls[0][1] as ParsedEvent;
     expect(upsertCall.eventType).toBe('TreeMinted');
   });
 
@@ -333,7 +328,8 @@ describe('CDCEventIndexer', () => {
     indexer.stop();
     await startPromise;
 
-    const upsertCall = (upsertContractEvent as ReturnType<typeof vi.fn>).mock.calls[0][1] as ParsedEvent;
+    const upsertCall = (upsertContractEvent as ReturnType<typeof vi.fn>).mock
+      .calls[0][1] as ParsedEvent;
     expect(upsertCall.eventType).toBe('other');
   });
 
@@ -412,7 +408,8 @@ describe('CDCEventIndexer', () => {
     indexer.stop();
     await startPromise;
 
-    const upsertCall = (upsertContractEvent as ReturnType<typeof vi.fn>).mock.calls[0][1] as ParsedEvent;
+    const upsertCall = (upsertContractEvent as ReturnType<typeof vi.fn>).mock
+      .calls[0][1] as ParsedEvent;
     expect(upsertCall.eventType).toBe('other');
   });
 
@@ -439,7 +436,8 @@ describe('CDCEventIndexer', () => {
     indexer.stop();
     await startPromise;
 
-    const upsertCall = (upsertContractEvent as ReturnType<typeof vi.fn>).mock.calls[0][1] as ParsedEvent;
+    const upsertCall = (upsertContractEvent as ReturnType<typeof vi.fn>).mock
+      .calls[0][1] as ParsedEvent;
     expect(upsertCall.valueXdr).toBeNull();
   });
 });

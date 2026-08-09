@@ -124,9 +124,7 @@ describe('ProposalDetailCard', () => {
   });
 
   it('applies custom className', () => {
-    const { container } = render(
-      <ProposalDetailCard {...baseProps} className="my-custom-class" />
-    );
+    const { container } = render(<ProposalDetailCard {...baseProps} className="my-custom-class" />);
     expect(container.firstChild).toHaveClass('my-custom-class');
   });
 

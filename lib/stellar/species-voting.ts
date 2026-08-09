@@ -106,7 +106,7 @@ export async function buildProposeSpeciesTransaction(
   maturity_years: number,
   network: NetworkType
 ): Promise<{ transactionXdr: string; networkPassphrase: string }> {
-  if (co2_scaled <= 0n) {
+  if (co2_scaled <= BigInt(0)) {
     throw new Error('co2_scaled must be positive');
   }
   if (maturity_years === 0) {
@@ -114,12 +114,13 @@ export async function buildProposeSpeciesTransaction(
   }
 
   const contract = new Contract(getSpeciesVotingContract(network));
+
   const operation = contract.call('propose_species', {
     slug,
     name,
     co2_scaled,
     maturity_years,
-  });
+  } as any);
 
   return buildContractCallTransaction(proposerPublicKey, network, operation);
 }
@@ -134,10 +135,11 @@ export async function buildVoteTransaction(
   network: NetworkType
 ): Promise<{ transactionXdr: string; networkPassphrase: string }> {
   const contract = new Contract(getSpeciesVotingContract(network));
+
   const operation = contract.call('vote', {
     proposal_id: proposalId,
     vote_for: voteFor,
-  });
+  } as any);
 
   return buildContractCallTransaction(voterPublicKey, network, operation);
 }
@@ -151,9 +153,10 @@ export async function buildExecuteProposalTransaction(
   network: NetworkType
 ): Promise<{ transactionXdr: string; networkPassphrase: string }> {
   const contract = new Contract(getSpeciesVotingContract(network));
+
   const operation = contract.call('execute_proposal', {
     proposal_id: proposalId,
-  });
+  } as any);
 
   return buildContractCallTransaction(executorPublicKey, network, operation);
 }
@@ -172,10 +175,12 @@ export async function getProposal(
   const contract = new Contract(getSpeciesVotingContract(network));
 
   // Prepare the read-only contract call
-  const operation = contract.call('get_proposal', { proposal_id: proposalId });
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const operation = contract.call('get_proposal', { proposal_id: proposalId } as any);
 
-  // Use `server.call()` for read-only invocations. This is a simulation.
-  const result = await server.call(operation);
+  // Use server for read-only contract invocations.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const result = await (server as any).call(operation);
 
   if (result.status !== 'SUCCESS' || !result.returnValue) {
     throw new Error(`Failed to fetch proposal #${proposalId}.`);
@@ -200,11 +205,11 @@ export async function getProposal(
  */
 export function calculateVotePercentage(votesFor: bigint, votesAgainst: bigint): number {
   const total = votesFor + votesAgainst;
-  if (total === 0n) return 0;
+  if (total === BigInt(0)) return 0;
 
   // Use bigint arithmetic to avoid precision loss before converting to a number.
   // Multiply by 10000 to get two decimal places of precision.
-  return Number((votesFor * 10000n) / total) / 100;
+  return Number((votesFor * BigInt(10000)) / total) / 100;
 }
 
 /**
