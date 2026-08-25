@@ -5,7 +5,7 @@ type SettingsCardProps = {
   description?: string;
   children: React.ReactNode;
   className?: string;
-  variant?: 'default' | 'danger';
+  variant?: 'default' | 'danger' | 'glass';
 };
 
 export function SettingsCard({
@@ -18,8 +18,10 @@ export function SettingsCard({
   return (
     <div
       className={cn(
-        ' border bg-card p-6    border-slate-200 rounded-2xl  shadow-sm',
-        variant === 'danger' && 'border-destructive/30 bg-destructive/5',
+        'rounded-2xl p-6 shadow-sm',
+        variant === 'glass' && 'glass-surface',
+        variant === 'default' && 'border border-border bg-card',
+        variant === 'danger' && 'border border-destructive/30 bg-destructive/5',
         className
       )}
     >

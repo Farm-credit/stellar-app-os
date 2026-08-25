@@ -129,7 +129,9 @@ export function MilestoneVerificationForm({
           Funds Released!
         </Text>
         <Text variant="muted">
-          <strong className="text-stellar-green">{result.releasedAmountUsdc.toFixed(2)} USDC</strong>{' '}
+          <strong className="text-stellar-green">
+            {result.releasedAmountUsdc.toFixed(2)} USDC
+          </strong>{' '}
           sent to your wallet.
         </Text>
         <a
@@ -151,8 +153,8 @@ export function MilestoneVerificationForm({
           Milestone 1 Verification
         </Text>
         <Text variant="muted" className="text-sm">
-          Submit GPS location and a photo to release{' '}
-          <strong>{releaseAmount} USDC</strong> (75% of escrow).
+          Submit GPS location and a photo to release <strong>{releaseAmount} USDC</strong> (75% of
+          escrow).
         </Text>
       </div>
 
@@ -161,9 +163,7 @@ export function MilestoneVerificationForm({
         <div className="flex items-center gap-2">
           <MapPin className="h-5 w-5 text-stellar-blue" aria-hidden="true" />
           <Text className="font-semibold">GPS Location</Text>
-          {gps && (
-            <CheckCircle className="h-4 w-4 text-stellar-green ml-auto" aria-hidden="true" />
-          )}
+          {gps && <CheckCircle className="h-4 w-4 text-stellar-green ml-auto" aria-hidden="true" />}
         </div>
 
         {gps ? (

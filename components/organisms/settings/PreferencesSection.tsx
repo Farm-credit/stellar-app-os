@@ -2,8 +2,8 @@
 
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useState } from 'react';
-import { CheckCircle2, Loader2, Monitor, Moon, Sun } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { CheckCircle2, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import {
@@ -14,9 +14,9 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { SettingsCard } from '@/components/molecules/SettingsCard';
+import { ThemeSelector } from '@/components/molecules/ThemeSelector';
+import { useTheme } from '@/hooks/useTheme';
 import { preferencesSchema, type PreferencesFormData } from '@/schemas/settings.schema';
-import { cn } from '@/lib/utils';
-import type { Theme } from '@/types/settings';
 
 const LANGUAGES = [
   { value: 'en', label: 'English' },
@@ -34,45 +34,42 @@ const CURRENCIES = [
   { value: 'GHS', label: 'GHS — Ghanaian Cedi' },
 ] as const;
 
-type ThemeOption = {
-  value: Theme;
-  label: string;
-  icon: React.ReactNode;
-};
-
-const THEME_OPTIONS: ThemeOption[] = [
-  { value: 'light', label: 'Light', icon: <Sun className="h-4 w-4" /> },
-  { value: 'dark', label: 'Dark', icon: <Moon className="h-4 w-4" /> },
-  { value: 'system', label: 'System', icon: <Monitor className="h-4 w-4" /> },
-];
-
 export function PreferencesSection() {
   const [saved, setSaved] = useState(false);
+  const { theme, setTheme } = useTheme();
 
   const {
     handleSubmit,
     control,
+    setValue,
     formState: { isSubmitting },
   } = useForm<PreferencesFormData>({
     resolver: zodResolver(preferencesSchema),
     defaultValues: {
       language: 'en',
       currency: 'USD',
-      theme: 'system',
+      theme,
     },
   });
 
+  useEffect(() => {
+    setValue('theme', theme);
+  }, [theme, setValue]);
+
   const onSubmit = async (data: PreferencesFormData) => {
+    setTheme(data.theme);
     await new Promise((r) => setTimeout(r, 800));
-    console.log('Preferences saved:', data);
     setSaved(true);
     setTimeout(() => setSaved(false), 2500);
   };
 
   return (
-    <SettingsCard title="Preferences" description="Set your language, currency, and display theme.">
+    <SettingsCard
+      title="Preferences"
+      description="Set your language, currency, and display theme."
+      variant="glass"
+    >
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-        {/* Language */}
         <div className="space-y-1.5">
           <Label htmlFor="language">Language</Label>
           <Controller
@@ -80,7 +77,7 @@ export function PreferencesSection() {
             control={control}
             render={({ field }) => (
               <Select value={field.value} onValueChange={field.onChange}>
-                <SelectTrigger id="language" className="w-full">
+                <SelectTrigger id="language" className="w-full glass-surface">
                   <SelectValue placeholder="Select language" />
                 </SelectTrigger>
                 <SelectContent>
@@ -95,7 +92,6 @@ export function PreferencesSection() {
           />
         </div>
 
-        {/* Currency */}
         <div className="space-y-1.5">
           <Label htmlFor="currency">Currency</Label>
           <Controller
@@ -103,7 +99,7 @@ export function PreferencesSection() {
             control={control}
             render={({ field }) => (
               <Select value={field.value} onValueChange={field.onChange}>
-                <SelectTrigger id="currency" className="w-full">
+                <SelectTrigger id="currency" className="w-full glass-surface">
                   <SelectValue placeholder="Select currency" />
                 </SelectTrigger>
                 <SelectContent>
@@ -118,37 +114,20 @@ export function PreferencesSection() {
           />
         </div>
 
-        {/* Theme toggle */}
-        <div className="space-y-2">
-          <Label>Theme</Label>
-          <Controller
-            name="theme"
-            control={control}
-            render={({ field }) => (
-              <div className="grid grid-cols-3 gap-2">
-                {THEME_OPTIONS.map((option) => (
-                  <button
-                    key={option.value}
-                    type="button"
-                    onClick={() => field.onChange(option.value)}
-                    className={cn(
-                      'flex items-center justify-center gap-2 rounded-lg border px-3 py-2.5 text-sm font-medium transition-all',
-                      field.value === option.value
-                        ? 'border-primary bg-primary/10 text-primary'
-                        : 'border-border text-muted-foreground hover:border-primary/40 hover:text-foreground'
-                    )}
-                  >
-                    {option.icon}
-                    {option.label}
-                  </button>
-                ))}
-              </div>
-            )}
-          />
-          <p className="text-xs text-muted-foreground">Theme change applies immediately.</p>
-        </div>
+        <Controller
+          name="theme"
+          control={control}
+          render={({ field }) => (
+            <ThemeSelector
+              value={field.value}
+              onChange={(next) => {
+                field.onChange(next);
+                setTheme(next);
+              }}
+            />
+          )}
+        />
 
-        {/* Submit */}
         <div className="flex items-center justify-end gap-3 pt-2">
           {saved && (
             <span className="flex items-center gap-1.5 text-sm text-stellar-green">

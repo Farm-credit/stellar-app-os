@@ -1,10 +1,12 @@
 import type { WalletConnection } from '@/lib/types/wallet';
 import type { TransactionStatus } from '@/lib/types/payment';
-import type { BuildDonationTransactionResponse } from '@/lib/types/donation-payment';
+import type { BuildDonationTransactionResponse, DonationAsset } from '@/lib/types/donation-payment';
 import { signTransactionWithFreighter, signTransactionWithAlbedo } from './signing';
 
 export interface DonationPaymentResult {
   transactionHash: string;
+  asset: DonationAsset;
+  estimatedSourceAmount: string;
 }
 
 export type DonationStatusCallback = (_status: TransactionStatus) => void;
@@ -14,9 +16,10 @@ export async function processDonationPayment(
   wallet: WalletConnection,
   idempotencyKey: string,
   onStatusChange?: DonationStatusCallback,
-  treeCount = 1
+  treeCount = 1,
+  asset: DonationAsset = 'USDC',
+  regionId?: string
 ): Promise<DonationPaymentResult> {
-  // Step 1: Build transaction
   onStatusChange?.('preparing');
 
   const buildRes = await fetch('/api/transaction/build-donation', {
@@ -25,9 +28,11 @@ export async function processDonationPayment(
     body: JSON.stringify({
       amount,
       treeCount,
+      asset,
       walletPublicKey: wallet.publicKey,
       network: wallet.network,
       idempotencyKey,
+      regionId,
     }),
   });
 
@@ -36,10 +41,13 @@ export async function processDonationPayment(
     throw new Error(err.error || 'Failed to build transaction');
   }
 
-  const { transactionXdr, networkPassphrase } =
-    (await buildRes.json()) as BuildDonationTransactionResponse;
+  const {
+    transactionXdr,
+    networkPassphrase,
+    asset: builtAsset,
+    estimatedSourceAmount,
+  } = (await buildRes.json()) as BuildDonationTransactionResponse;
 
-  // Step 2: Sign transaction
   onStatusChange?.('signing');
 
   let signedXdr: string;
@@ -51,7 +59,6 @@ export async function processDonationPayment(
     throw new Error('Unsupported wallet type for signing');
   }
 
-  // Step 3: Submit transaction
   onStatusChange?.('submitting');
 
   const submitRes = await fetch('/api/transaction/submit', {
@@ -72,5 +79,5 @@ export async function processDonationPayment(
 
   onStatusChange?.('confirming');
 
-  return { transactionHash };
+  return { transactionHash, asset: builtAsset, estimatedSourceAmount };
 }

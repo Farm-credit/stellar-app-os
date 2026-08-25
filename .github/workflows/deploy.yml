@@ -3,51 +3,96 @@ name: Deploy
 on:
   push:
     branches: [main]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        default: staging
+        type: choice
+        options:
+          - staging
+          - production
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  deploy:
-    name: Deploy to Vercel
+  # ═════════════════════════════════════════════════════════════════════════════
+  # STAGING — preview deploy on every main push
+  # ═════════════════════════════════════════════════════════════════════════════
+
+  staging:
+    name: Deploy to Staging
     runs-on: ubuntu-latest
+    environment:
+      name: staging
+      url: ${{ steps.vercel-staging.outputs.preview-url }}
     outputs:
-      deployment-url: ${{ steps.vercel.outputs.preview-url }}
+      deployment-url: ${{ steps.vercel-staging.outputs.preview-url }}
     steps:
       - uses: actions/checkout@v4
 
+      - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
-
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 10
-
-      - name: Get pnpm store path
-        id: pnpm-cache
-        run: echo "dir=$(pnpm store path)" >> "$GITHUB_OUTPUT"
-
-      - uses: actions/cache@v4
-        with:
-          path: |
-            ${{ steps.pnpm-cache.outputs.dir }}
-            .next/cache
-          key: pnpm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-nextjs-${{ hashFiles('**/*.[jt]s', '**/*.[jt]sx') }}
-          restore-keys: pnpm-${{ runner.os }}-
-
+          cache: pnpm
       - run: pnpm install --frozen-lockfile
 
-      - name: Deploy to Vercel (production)
-        id: vercel
+      - name: Deploy to Vercel (staging)
+        id: vercel-staging
         uses: amondnet/vercel-action@v25
         with:
           vercel-token: ${{ secrets.VERCEL_TOKEN }}
           vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
           vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
-          vercel-args: '--prod'
+          vercel-args: '--build'
 
-  smoke-tests:
-    name: Smoke tests
-    needs: deploy
+  smoke-tests-staging:
+    name: Smoke tests (staging)
+    needs: staging
     uses: ./.github/workflows/smoke-tests.yml
     with:
-      base-url: ${{ needs.deploy.outputs.deployment-url }}
+      base-url: ${{ needs.staging.outputs.deployment-url }}
+    secrets: inherit
+
+  # ═════════════════════════════════════════════════════════════════════════════
+  # PRODUCTION — only after staging smoke tests pass.  Requires manual approval
+  # when triggered via workflow_dispatch (GitHub Environments).
+  # ═════════════════════════════════════════════════════════════════════════════
+
+  production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: smoke-tests-staging
+    environment:
+      name: production
+      url: ${{ steps.vercel-prod.outputs.preview-url }}
+    outputs:
+      deployment-url: ${{ steps.vercel-prod.outputs.preview-url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      - name: Deploy to Vercel (production)
+        id: vercel-prod
+        uses: amondnet/vercel-action@v25
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          vercel-args: '--prod --build'
+
+  smoke-tests-prod:
+    name: Smoke tests (production)
+    needs: production
+    uses: ./.github/workflows/smoke-tests.yml
+    with:
+      base-url: ${{ needs.production.outputs.deployment-url }}
     secrets: inherit

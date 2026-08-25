@@ -29,7 +29,7 @@ function scaleMetrics(ratio: number): AdminAnalyticsMetrics {
 }
 
 export async function getAdminAnalyticsData(
-  range: AnalyticsTimeRange = '30d',
+  range: AnalyticsTimeRange = '30d'
 ): Promise<AdminAnalyticsData> {
   await new Promise((resolve) => setTimeout(resolve, 400));
   return {

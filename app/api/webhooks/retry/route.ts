@@ -1,30 +1,43 @@
 import { type NextRequest, NextResponse } from 'next/server';
+import { getPool } from '@/lib/db/client';
+import { retryDelivery } from '@/lib/webhook/dispatch';
 
+/**
+ * Manually retry a single webhook delivery (used by the admin webhook viewer).
+ *
+ * Body: { deliveryId: number }  (legacy callers may send { eventId } with the
+ * numeric delivery id — both are accepted).
+ */
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const { eventId } = body;
+    const body = (await request.json()) as {
+      deliveryId?: number | string;
+      eventId?: number | string;
+    };
+    const rawId = body.deliveryId ?? body.eventId;
+    const deliveryId = Number(rawId);
 
-    if (!eventId) {
-      return NextResponse.json({ error: 'Event ID is required' }, { status: 400 });
+    if (rawId === undefined || rawId === null || !Number.isInteger(deliveryId) || deliveryId <= 0) {
+      return NextResponse.json({ error: 'A numeric deliveryId is required' }, { status: 400 });
     }
 
-    // TODO: Implement actual webhook retry logic
-    // 1. Fetch event from database
-    // 2. Validate retry eligibility (retryCount < maxRetries)
-    // 3. Send webhook to endpoint
-    // 4. Update event status and retry count
-    // 5. Schedule next retry if needed
+    const delivery = await retryDelivery(getPool(), deliveryId);
 
-    // Simulate retry operation
-    await new Promise((resolve) => setTimeout(resolve, 500));
+    if (!delivery) {
+      return NextResponse.json(
+        { error: 'Delivery not found or no longer retryable' },
+        { status: 404 }
+      );
+    }
 
     return NextResponse.json(
       {
-        success: true,
-        eventId,
-        message: 'Webhook retry initiated',
-        status: 'retrying',
+        success: delivery.status === 'success',
+        deliveryId: delivery.id,
+        status: delivery.status,
+        attemptCount: delivery.attempt_count,
+        httpStatus: delivery.http_status,
+        nextAttemptAt: delivery.next_attempt_at,
       },
       { status: 200 }
     );

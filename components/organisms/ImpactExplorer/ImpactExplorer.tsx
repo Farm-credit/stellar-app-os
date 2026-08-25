@@ -6,7 +6,12 @@ import { ImpactStatCard } from '@/components/atoms/ImpactStatCard';
 import { TreeFilterBar } from '@/components/molecules/TreeFilterBar';
 import { Text } from '@/components/atoms/Text';
 import { ImpactMapClient } from '@/components/organisms/ImpactMap/ImpactMapClient';
-import { IMPACT_DATA } from '@/lib/api/impactData';
+import {
+  IMPACT_DATA,
+  toRegionMarkers,
+  type LiveRegionAggregate,
+  type RegionMarker,
+} from '@/lib/api/impactData';
 import { fetchPublicTrees } from '@/lib/api/trees';
 import type { Tree, TreeFilterState, TreeSpecies, TreeStatus } from '@/lib/types/tree';
 
@@ -14,7 +19,7 @@ const DEFAULT_FILTERS: TreeFilterState = {
   search: '',
   species: 'all',
   region: 'all',
-  status: 'all',
+  status: 'verified',
 };
 
 /**
@@ -22,8 +27,9 @@ const DEFAULT_FILTERS: TreeFilterState = {
  * Requirements: Issue #539
  */
 export function ImpactExplorer() {
-  const { stats, regions } = IMPACT_DATA;
+  const { stats } = IMPACT_DATA;
   const [filters, setFilters] = useState<TreeFilterState>(DEFAULT_FILTERS);
+  const [regions, setRegions] = useState<RegionMarker[]>(IMPACT_DATA.regions);
   const [trees, setTrees] = useState<Tree[]>([]);
   const [speciesOptions, setSpeciesOptions] = useState<TreeSpecies[]>([]);
   const [regionOptions, setRegionOptions] = useState<string[]>([]);
@@ -47,6 +53,35 @@ export function ImpactExplorer() {
     void loadTrees(filters);
   }, [filters, loadTrees]);
 
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadRegions = async () => {
+      try {
+        const response = await fetch('/api/map/regions');
+        if (!response.ok) {
+          throw new Error(`Region request failed: ${response.status}`);
+        }
+
+        const data = (await response.json()) as { regions?: LiveRegionAggregate[] };
+        if (!isMounted) return;
+
+        setRegions(data.regions?.length ? toRegionMarkers(data.regions) : IMPACT_DATA.regions);
+      } catch (error) {
+        console.error('[ImpactExplorer] Unable to load live region data:', error);
+        if (isMounted) {
+          setRegions(IMPACT_DATA.regions);
+        }
+      }
+    };
+
+    void loadRegions();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   const updateFilters = useCallback((partial: Partial<TreeFilterState>) => {
     setFilters((prev) => ({ ...prev, ...partial }));
   }, []);
@@ -59,7 +94,7 @@ export function ImpactExplorer() {
   return (
     <main className="mx-auto max-w-6xl px-4 py-12">
       <div className="mb-10 text-center">
-        <h1 className="text-4xl font-bold tracking-tight">Our Impact</h1>
+        <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">Our Impact</h1>
         <p className="mt-2 text-muted-foreground">
           Real-time planting activity across FarmCredit-supported regions.
         </p>
@@ -106,13 +141,13 @@ export function ImpactExplorer() {
             : `Showing ${trees.length} ${trees.length === 1 ? 'tree' : 'trees'} on the map`}
       </Text>
 
-      <div className="overflow-hidden rounded-xl border shadow-sm" style={{ height: '480px' }}>
+      <div className="h-[min(70vh,480px)] min-h-[280px] overflow-hidden rounded-xl border shadow-sm sm:h-[480px]">
         <ImpactMapClient regions={filteredRegions} trees={trees} />
       </div>
 
-      <p className="mt-3 text-center text-xs text-muted-foreground">
-        Large circles show region-level aggregates. Small markers show individual trees with fuzzed
-        coordinates — exact GPS is never displayed.
+      <p className="mt-3 text-center text-xs text-muted-foreground px-2">
+        Region clusters show verified trees grouped by location. Zoom in to see individual markers
+        with species and CO₂ data — exact GPS is never displayed.
       </p>
     </main>
   );

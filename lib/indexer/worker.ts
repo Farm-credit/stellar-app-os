@@ -19,6 +19,7 @@ import { getPool } from '@/lib/db/client';
 import { classifyTransaction } from '@/lib/indexer/classify';
 import { upsertTransaction, saveCursor, loadCursor } from '@/lib/indexer/upsert';
 import type { NetworkType } from '@/lib/types/wallet';
+import logger from '@/lib/logger';
 
 // ── Config ────────────────────────────────────────────────────────────────────
 
@@ -97,15 +98,15 @@ async function handleTransaction(tx: HorizonTxRecord, watchAccount: string): Pro
 
     await saveCursor(pool, NETWORK, watchAccount, tx.paging_token);
 
-    console.log(`[indexer] ${tx.hash.slice(0, 12)}… → ${classified.txType}`);
+    logger.info('transaction indexed', { txHash: tx.hash.slice(0, 12), txType: classified.txType });
   } catch (err) {
-    console.error(`[indexer] failed to process tx ${tx.hash}:`, err);
+    logger.error('failed to process transaction', { txHash: tx.hash, err });
   }
 }
 
 async function streamAccount(watchAccount: string): Promise<void> {
   const cursor = await loadCursor(pool, NETWORK, watchAccount);
-  console.log(`[indexer] streaming ${watchAccount} from cursor=${cursor}`);
+  logger.info('streaming account', { watchAccount, cursor });
 
   return new Promise((resolve) => {
     const closeStream = server
@@ -117,7 +118,7 @@ async function streamAccount(watchAccount: string): Promise<void> {
           void handleTransaction(tx as unknown as HorizonTxRecord, watchAccount);
         },
         onerror: (err) => {
-          console.error(`[indexer] stream error for ${watchAccount}:`, err);
+          logger.error('stream error', { watchAccount, err });
           closeStream();
           // Reconnect after delay
           setTimeout(() => {
@@ -130,19 +131,19 @@ async function streamAccount(watchAccount: string): Promise<void> {
 
 async function main(): Promise<void> {
   if (WATCH_ACCOUNTS.length === 0) {
-    console.error(
-      '[indexer] INDEXER_WATCH_ACCOUNTS is empty. Set it to a comma-separated list of Stellar accounts.'
+    logger.error(
+      'INDEXER_WATCH_ACCOUNTS is empty. Set it to a comma-separated list of Stellar accounts.'
     );
     process.exit(1);
   }
 
-  console.log(`[indexer] starting on ${NETWORK}, watching ${WATCH_ACCOUNTS.length} account(s)`);
+  logger.info('indexer starting', { network: NETWORK, accounts: WATCH_ACCOUNTS.length });
 
   // Stream all accounts concurrently
   await Promise.all(WATCH_ACCOUNTS.map((account) => streamAccount(account)));
 }
 
 main().catch((err) => {
-  console.error('[indexer] fatal error:', err);
+  logger.error('indexer fatal error', { err });
   process.exit(1);
 });

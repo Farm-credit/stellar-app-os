@@ -20,6 +20,7 @@ import { ExternalLink, Download, FileQuestion } from 'lucide-react';
 export function OrderHistoryTable() {
   const [orders, setOrders] = React.useState<Order[]>([]);
   const [loading, setLoading] = React.useState(true);
+  const [_error, _setError] = React.useState<string | null>(null);
 
   const [page, setPage] = React.useState(1);
   const [totalPages, setTotalPages] = React.useState(1);
@@ -35,6 +36,7 @@ export function OrderHistoryTable() {
       setOrders(result.data);
       setTotalPages(result.totalPages);
     } catch (err) {
+      setError('Failed to fetch order history.');
       console.error(err);
     } finally {
       setLoading(false);
@@ -112,10 +114,16 @@ export function OrderHistoryTable() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div className="flex items-center gap-3">
-          <Text variant="small" className="font-medium whitespace-nowrap">
+          <label htmlFor="order-type-filter" className="text-sm font-medium whitespace-nowrap">
             Filter by type:
-          </Text>
-          <Select value={filter} onChange={handleFilterChange} className="w-32" selectSize="sm">
+          </label>
+          <Select
+            id="order-type-filter"
+            value={filter}
+            onChange={handleFilterChange}
+            className="w-32"
+            selectSize="sm"
+          >
             <option value="all">All</option>
             <option value="buy">Buy</option>
             <option value="sell">Sell</option>
@@ -138,13 +146,19 @@ export function OrderHistoryTable() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Date</TableHead>
-              <TableHead>Type</TableHead>
-              <TableHead>Project</TableHead>
-              <TableHead className="text-right">Quantity</TableHead>
-              <TableHead className="text-right">Price</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="text-right">Action</TableHead>
+              <TableHead scope="col">Date</TableHead>
+              <TableHead scope="col">Type</TableHead>
+              <TableHead scope="col">Project</TableHead>
+              <TableHead scope="col" className="text-right">
+                Quantity
+              </TableHead>
+              <TableHead scope="col" className="text-right">
+                Price
+              </TableHead>
+              <TableHead scope="col">Status</TableHead>
+              <TableHead scope="col" className="text-right">
+                Action
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -192,6 +206,7 @@ export function OrderHistoryTable() {
                         target="_blank"
                         rel="noopener noreferrer"
                         title={`View on Stellar Expert (${order.network})`}
+                        aria-label={`View transaction ${order.txHash.substring(0, 8)} on Stellar Expert (${order.network})`}
                       >
                         <ExternalLink className="h-4 w-4" />
                       </a>
