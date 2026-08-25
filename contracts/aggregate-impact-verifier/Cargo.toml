@@ -8,6 +8,7 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 soroban-sdk = { version = "21.7.7", features = ["alloc"] }
+harvesta-errors = { path = "../harvesta-errors" }
 
 [dev-dependencies]
 soroban-sdk = { version = "21.7.7", features = ["testutils", "alloc"] }

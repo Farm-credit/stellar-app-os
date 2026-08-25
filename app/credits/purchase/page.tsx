@@ -42,7 +42,7 @@ export default function PurchasePage(): JSX.Element {
   );
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-4xl">
+    <main id="main-content" className="container mx-auto px-4 py-8 max-w-4xl">
       <div className="mb-8">
         <ProgressStepper steps={steps} />
       </div>
@@ -61,6 +61,6 @@ export default function PurchasePage(): JSX.Element {
           {t('purchase.nextButton')}
         </Button>
       </div>
-    </div>
+    </main>
   );
 }

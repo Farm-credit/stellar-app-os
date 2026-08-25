@@ -72,7 +72,7 @@ function DonationConfirmationContent() {
     }
   }, [txHash, amount, method, trees]);
 
-  const handleDownloadCertificate = () => {
+  const handleDownloadCertificate = async () => {
     if (!qrDataUrl) return;
 
     setIsGeneratingPdf(true);
@@ -93,7 +93,7 @@ function DonationConfirmationContent() {
         explorerBaseUrl: 'https://stellar.expert/explorer/public/tx',
       };
 
-      generateCertificatePdf({
+      await generateCertificatePdf({
         qrDataUrl,
         data: certificateData,
       });
@@ -213,7 +213,9 @@ function DonationConfirmationContent() {
                     return (
                       <div key={alloc.regionId} className="flex items-center justify-between py-1">
                         <Text className="text-sm text-gray-600">{region.name}</Text>
-                        <Text className="text-sm font-semibold text-gray-800">{alloc.treeCount} trees</Text>
+                        <Text className="text-sm font-semibold text-gray-800">
+                          {alloc.treeCount} trees
+                        </Text>
                       </div>
                     );
                   })}

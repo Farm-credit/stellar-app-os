@@ -8,7 +8,7 @@ import { Input } from '@/components/atoms/Input';
 import { Badge } from '@/components/atoms/Badge';
 import { ProgressStepper } from '@/components/molecules/ProgressStepper/ProgressStepper';
 import { useDonationContext } from '@/contexts/DonationContext';
-import { Trees, Mountain, Leaf, Sprout, Plus, Minus } from 'lucide-react';
+import { Trees, Mountain, Leaf, Sprout, Minus } from 'lucide-react';
 import {
   MINIMUM_DONATION,
   TREES_PER_DOLLAR,
@@ -178,7 +178,7 @@ export function DonationAmountStep() {
         {/* Left Column - Amount Selection */}
         <div className="space-y-8">
           <div>
-            <Text variant="h1" className="text-4xl font-bold mb-4">
+            <Text variant="h1" className="mb-4 text-3xl font-bold sm:text-4xl">
               Choose your impact.
             </Text>
             <Text variant="muted" className="text-lg">
@@ -352,24 +352,36 @@ export function DonationAmountStep() {
                 const region = IMPACT_DATA.regions.find((r) => r.id === alloc.regionId);
                 if (!region) return null;
                 return (
-                  <div key={alloc.regionId} className="flex items-center gap-3 p-3 rounded-lg border border-gray-100 bg-gray-50">
+                  <div
+                    key={alloc.regionId}
+                    className="flex items-center gap-3 p-3 rounded-lg border border-gray-100 bg-gray-50"
+                  >
                     <div className="flex-1">
                       <Text className="font-medium">{region.name}</Text>
                     </div>
                     <div className="flex items-center gap-2">
                       <button
                         type="button"
-                        onClick={() => updateRegionAllocation(alloc.regionId, Math.max(0, alloc.treeCount - 1))}
+                        onClick={() =>
+                          updateRegionAllocation(alloc.regionId, Math.max(0, alloc.treeCount - 1))
+                        }
                         disabled={alloc.treeCount <= 0}
                         aria-label={`Decrease trees in ${region.name}`}
                         className="w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center text-sm font-bold disabled:opacity-40 hover:bg-white transition-colors"
                       >
                         −
                       </button>
-                      <Text className="w-7 text-center font-semibold tabular-nums text-sm">{alloc.treeCount}</Text>
+                      <Text className="w-7 text-center font-semibold tabular-nums text-sm">
+                        {alloc.treeCount}
+                      </Text>
                       <button
                         type="button"
-                        onClick={() => updateRegionAllocation(alloc.regionId, Math.min(MAX_BATCH_TREES, alloc.treeCount + 1))}
+                        onClick={() =>
+                          updateRegionAllocation(
+                            alloc.regionId,
+                            Math.min(MAX_BATCH_TREES, alloc.treeCount + 1)
+                          )
+                        }
                         disabled={totalAllocatedTrees >= treeCount}
                         aria-label={`Increase trees in ${region.name}`}
                         className="w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center text-sm font-bold disabled:opacity-40 hover:bg-white transition-colors"
@@ -394,22 +406,26 @@ export function DonationAmountStep() {
 
             {/* Add More Regions */}
             <div className="space-y-2">
-              <Text variant="muted" className="text-sm">Add more regions:</Text>
+              <Text variant="muted" className="text-sm">
+                Add more regions:
+              </Text>
               <div className="flex flex-wrap gap-2">
-                {IMPACT_DATA.regions.filter(
-                  (region) => !regionAllocations.some((alloc) => alloc.regionId === region.id)
-                ).map((region) => (
-                  <Button
-                    key={region.id}
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => addRegion(region.id)}
-                    className="text-xs"
-                  >
-                    + {region.name}
-                  </Button>
-                ))}
+                {IMPACT_DATA.regions
+                  .filter(
+                    (region) => !regionAllocations.some((alloc) => alloc.regionId === region.id)
+                  )
+                  .map((region) => (
+                    <Button
+                      key={region.id}
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => addRegion(region.id)}
+                      className="text-xs"
+                    >
+                      + {region.name}
+                    </Button>
+                  ))}
               </div>
             </div>
           </div>
@@ -423,10 +439,9 @@ export function DonationAmountStep() {
               className="w-full h-14 text-lg bg-stellar-green hover:bg-stellar-green/90 disabled:bg-gray-300 disabled:cursor-not-allowed"
               aria-label={`Continue with ${formatCurrency(currentAmount)} donation`}
             >
-              {totalAllocatedTrees !== treeCount 
-                ? `Allocate ${treeCount - totalAllocatedTrees} more trees to continue` 
-                : 'Continue →'
-              }
+              {totalAllocatedTrees !== treeCount
+                ? `Allocate ${treeCount - totalAllocatedTrees} more trees to continue`
+                : 'Continue →'}
             </Button>
           </div>
         </div>

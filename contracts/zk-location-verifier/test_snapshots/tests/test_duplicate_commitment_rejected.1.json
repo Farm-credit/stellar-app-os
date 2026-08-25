@@ -21,7 +21,7 @@
                   "bytes": "0303030303030303030303030303030303030303030303030303030303030303"
                 },
                 {
-                  "string": "s1"
+                  "u32": 1
                 }
               ]
             }
@@ -81,14 +81,6 @@
                   "map": [
                     {
                       "key": {
-                        "symbol": "commitment"
-                      },
-                      "val": {
-                        "bytes": "0303030303030303030303030303030303030303030303030303030303030303"
-                      }
-                    },
-                    {
-                      "key": {
                         "symbol": "farmer"
                       },
                       "val": {
@@ -97,10 +89,10 @@
                     },
                     {
                       "key": {
-                        "symbol": "region_geohash"
+                        "symbol": "region_index"
                       },
                       "val": {
-                        "string": "s1"
+                        "u32": 1
                       }
                     },
                     {
@@ -320,7 +312,7 @@
                   "bytes": "0303030303030303030303030303030303030303030303030303030303030303"
                 },
                 {
-                  "string": "s1"
+                  "u32": 1
                 }
               ]
             }
@@ -400,7 +392,7 @@
                   "bytes": "0303030303030303030303030303030303030303030303030303030303030303"
                 },
                 {
-                  "string": "s1"
+                  "u32": 1
                 }
               ]
             }
@@ -418,22 +410,21 @@
           "v0": {
             "topics": [
               {
-                "symbol": "log"
+                "symbol": "error"
+              },
+              {
+                "error": {
+                  "contract": 67
+                }
               }
             ],
             "data": {
               "vec": [
                 {
-                  "string": "caught panic 'commitment already submitted' from contract function 'Symbol(obj#51)'"
+                  "string": "failing with contract error"
                 },
                 {
-                  "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"
-                },
-                {
-                  "bytes": "0303030303030303030303030303030303030303030303030303030303030303"
-                },
-                {
-                  "string": "s1"
+                  "u32": 67
                 }
               ]
             }
@@ -455,7 +446,32 @@
               },
               {
                 "error": {
-                  "wasm_vm": "invalid_action"
+                  "contract": 67
+                }
+              }
+            ],
+            "data": {
+              "string": "escalating error to panic"
+            }
+          }
+        }
+      },
+      "failed_call": true
+    },
+    {
+      "event": {
+        "ext": "v0",
+        "contract_id": "0000000000000000000000000000000000000000000000000000000000000001",
+        "type_": "diagnostic",
+        "body": {
+          "v0": {
+            "topics": [
+              {
+                "symbol": "error"
+              },
+              {
+                "error": {
+                  "contract": 67
                 }
               }
             ],
@@ -480,7 +496,7 @@
               },
               {
                 "error": {
-                  "wasm_vm": "invalid_action"
+                  "contract": 67
                 }
               }
             ],
@@ -501,7 +517,7 @@
                       "bytes": "0303030303030303030303030303030303030303030303030303030303030303"
                     },
                     {
-                      "string": "s1"
+                      "u32": 1
                     }
                   ]
                 }
@@ -525,7 +541,7 @@
               },
               {
                 "error": {
-                  "wasm_vm": "invalid_action"
+                  "contract": 67
                 }
               }
             ],

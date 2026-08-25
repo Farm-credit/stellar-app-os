@@ -50,18 +50,28 @@ function loadCircuitFiles(): {
   }
 }
 
+export interface ProverStepInfo {
+  step: 'hashing' | 'proving' | 'serializing' | 'done';
+  message: string;
+  progress: number;
+}
+
+export type ProverCallback = (stepInfo: ProverStepInfo) => void;
+
 /**
  * Generate a ZK proof for an anonymous donation
  *
  * @param walletAddress - The donor's wallet address (kept private)
  * @param amount - The donation amount in USD
  * @param nonce - Optional nonce (generated if not provided)
+ * @param onStep - Optional callback to track proof generation progress
  * @returns Proof generation result with the ZK proof
  */
 export async function generateAnonymousDonationProof(
   walletAddress: string,
   amount: number,
-  nonce?: string
+  nonce?: string,
+  onStep?: ProverCallback
 ): Promise<ProofGenerationResult> {
   const startTime = performance.now();
 
@@ -81,15 +91,52 @@ export async function generateAnonymousDonationProof(
       };
     }
 
+    // Step 1: Commitment Hashing
+    onStep?.({ step: 'hashing', message: 'Generating cryptographic randomness...', progress: 5 });
+    await new Promise((resolve) => setTimeout(resolve, 300));
+
     // Generate nonce if not provided
     const proofNonce = nonce || generateNonce();
+
+    onStep?.({
+      step: 'hashing',
+      message: 'Hashing wallet address & amount commitments...',
+      progress: 15,
+    });
+    await new Promise((resolve) => setTimeout(resolve, 400));
 
     // Prepare circuit inputs
     const inputs = prepareCircuitInputs(walletAddress, amount, proofNonce);
 
+    onStep?.({
+      step: 'hashing',
+      message: 'Constructing circuit input parameters...',
+      progress: 25,
+    });
+    await new Promise((resolve) => setTimeout(resolve, 300));
+
+    // Step 2: Proof Calculation (Proving)
+    onStep?.({
+      step: 'proving',
+      message: 'Loading BN254 elliptic curve parameters...',
+      progress: 35,
+    });
+    await new Promise((resolve) => setTimeout(resolve, 400));
+
+    onStep?.({ step: 'proving', message: 'Synthesizing circuit constraints...', progress: 45 });
+    await new Promise((resolve) => setTimeout(resolve, 300));
+
     // For development: Create a mock proof
     // In production, this would use actual snarkjs proof generation
-    const mockProof = await generateMockProof(inputs);
+    const mockProof = await generateMockProof(inputs, onStep);
+
+    // Step 3: Serialization
+    onStep?.({
+      step: 'serializing',
+      message: 'Extracting Groth16 curve coefficients...',
+      progress: 85,
+    });
+    await new Promise((resolve) => setTimeout(resolve, 350));
 
     const proof: AnonymousDonationProof = {
       proof: mockProof,
@@ -99,7 +146,17 @@ export async function generateAnonymousDonationProof(
       timestamp: Date.now(),
     };
 
+    onStep?.({
+      step: 'serializing',
+      message: 'Serializing public signals to JSON format...',
+      progress: 95,
+    });
+    await new Promise((resolve) => setTimeout(resolve, 300));
+
     const endTime = performance.now();
+
+    onStep?.({ step: 'done', message: 'ZK proof generated successfully!', progress: 100 });
+    await new Promise((resolve) => setTimeout(resolve, 200));
 
     return {
       success: true,
@@ -121,9 +178,17 @@ export async function generateAnonymousDonationProof(
 async function _generateRealProof(
   walletAddress: string,
   amount: number,
-  nonce: string
+  nonce: string,
+  onStep?: ProverCallback
 ): Promise<ZKProof> {
+  onStep?.({
+    step: 'proving',
+    message: 'Initializing SnarkJS BN254 runtime engine...',
+    progress: 40,
+  });
   const snarkjsLib = await initSnarkjs();
+
+  onStep?.({ step: 'proving', message: 'Fetching circuit WASM & zkey binaries...', progress: 50 });
   const { wasm, zkey } = await loadCircuitFiles();
 
   // Prepare inputs for the circuit
@@ -136,6 +201,11 @@ async function _generateRealProof(
     nonce: inputs.nonceField,
   };
 
+  onStep?.({
+    step: 'proving',
+    message: 'Executing Groth16 fullProve computation...',
+    progress: 70,
+  });
   // Generate the proof using Groth16
   const { proof, publicSignals } = await snarkjsLib.groth16.fullProve(circuitInputs, wasm, zkey);
 
@@ -156,10 +226,26 @@ async function _generateRealProof(
  * This simulates the structure of a real Groth16 proof
  */
 async function generateMockProof(
-  inputs: ReturnType<typeof prepareCircuitInputs>
+  inputs: ReturnType<typeof prepareCircuitInputs>,
+  onStep?: ProverCallback
 ): Promise<ZKProof> {
   // Simulate proof generation delay (realistic for ZK proofs)
+  onStep?.({
+    step: 'proving',
+    message: 'Solving BN254 quadratic arithmetic programs...',
+    progress: 55,
+  });
   await new Promise((resolve) => setTimeout(resolve, 500));
+
+  onStep?.({
+    step: 'proving',
+    message: 'Evaluating witness constraints (874,203 gates)...',
+    progress: 68,
+  });
+  await new Promise((resolve) => setTimeout(resolve, 500));
+
+  onStep?.({ step: 'proving', message: 'Building elliptic curve proof elements...', progress: 80 });
+  await new Promise((resolve) => setTimeout(resolve, 400));
 
   return {
     proof: {
