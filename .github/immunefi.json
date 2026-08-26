@@ -1,0 +1,79 @@
+{
+  "$schema": "https://immunefi.com/schemas/program-v1.json",
+  "name": "FarmCredit / Harvesta",
+  "ecosystem": "Stellar",
+  "project_type": "DeFi / RWA / ReFi",
+  "website": "https://harvesta.finance",
+  "launch_date": "2026-08-26",
+  "max_bounty": 50000,
+  "payout_currency": ["USDC", "XLM"],
+  "contacts": {
+    "security_email": "security@harvesta.finance"
+  },
+  "assets": {
+    "smart_contracts": [
+      {
+        "name": "Escrow Contract",
+        "target": "contracts/escrow",
+        "repository": "https://github.com/Farm-credit/stellar-app-os",
+        "language": "Rust (Soroban)"
+      },
+      {
+        "name": "Tree Registry Contract",
+        "target": "contracts/tree_registry",
+        "repository": "https://github.com/Farm-credit/stellar-app-os",
+        "language": "Rust (Soroban)"
+      },
+      {
+        "name": "Planter Registry Contract",
+        "target": "contracts/planter_registry",
+        "repository": "https://github.com/Farm-credit/stellar-app-os",
+        "language": "Rust (Soroban)"
+      },
+      {
+        "name": "Carbon Credits Contract",
+        "target": "contracts/carbon_credits",
+        "repository": "https://github.com/Farm-credit/stellar-app-os",
+        "language": "Rust (Soroban)"
+      },
+      {
+        "name": "Nullifier Registry Contract",
+        "target": "contracts/nullifier_registry",
+        "repository": "https://github.com/Farm-credit/stellar-app-os",
+        "language": "Rust (Soroban)"
+      },
+      {
+        "name": "Governance Contract",
+        "target": "contracts/governance",
+        "repository": "https://github.com/Farm-credit/stellar-app-os",
+        "language": "Rust (Soroban)"
+      }
+    ],
+    "web_and_applications": [
+      {
+        "name": "Harvesta Web Application",
+        "target": "https://harvesta.finance",
+        "type": "Frontend PWA"
+      },
+      {
+        "name": "Harvesta Backend API",
+        "target": "https://api.harvesta.finance",
+        "type": "API Server"
+      }
+    ]
+  },
+  "rewards": {
+    "smart_contracts": {
+      "critical": { "min": 10000, "max": 50000 },
+      "high": { "min": 3000, "max": 10000 },
+      "medium": { "min": 1000, "max": 3000 },
+      "low": { "min": 250, "max": 500 }
+    },
+    "web_and_applications": {
+      "critical": { "min": 2500, "max": 5000 },
+      "high": { "min": 1000, "max": 2500 },
+      "medium": { "min": 500, "max": 1000 },
+      "low": { "min": 100, "max": 250 }
+    }
+  }
+}
