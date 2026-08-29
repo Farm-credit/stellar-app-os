@@ -5,6 +5,8 @@ export type NetworkType = 'testnet' | 'mainnet';
 export interface WalletBalance {
   xlm: string;
   usdc: string;
+  usdt?: string;
+  eurc?: string;
 }
 
 export interface WalletConnection {

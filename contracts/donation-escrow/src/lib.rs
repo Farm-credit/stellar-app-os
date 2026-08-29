@@ -15,6 +15,8 @@ const MAX_TREES: u32 = 50;
 /// so the contract can support additional tokens without changing callers.
 const COMMON_DECIMALS: u32 = 7;
 
+/// 30-day deadline in seconds (default campaign TTL)
+const CAMPAIGN_DEADLINE_SECS: u64 = 30 * 24 * 60 * 60;
 // Storage TTL constants (ledgers).  ~5 seconds per ledger.
 const INSTANCE_TTL_THRESHOLD: u32 = 17_280; // ~ 1 day
 const INSTANCE_TTL_LEDGERS: u32 = 103_680;   // ~ 6 days
@@ -35,6 +37,65 @@ pub enum DonationEscrowError {
     ProjectNotRegistered = 90,
     NotDonor = 91,
     DonationAlreadyCancelled = 92,
+    /// Campaign ID does not exist
+    CampaignNotFound = 93,
+    /// Deadline has passed — campaign expired
+    CampaignExpired = 94,
+    /// Deadline has NOT yet passed — cannot auto-refund yet
+    CampaignNotExpired = 95,
+    /// Funding target has already been met
+    TargetAlreadyMet = 96,
+    /// Campaign has already been closed (claimed or fully refunded)
+    CampaignAlreadyClosed = 97,
+    /// Funding target was not met — cannot claim
+    TargetNotMet = 98,
+}
+
+/// Status of a campaign's lifecycle.
+#[contracttype]
+#[derive(Clone, Debug, PartialEq)]
+pub enum CampaignStatus {
+    /// Active — accepting donations, deadline not yet passed
+    Active,
+    /// Target met and funds claimed by the campaign organiser
+    Claimed,
+    /// Deadline passed without meeting target — refunds available
+    Expired,
+}
+
+/// A time-limited funding campaign.
+///
+/// Donations are tracked per-campaign via `CampaignDonation` records.
+/// If `total_raised >= target_amount` before `deadline`, the organiser
+/// can call `claim_campaign`. Otherwise, after `deadline`, any donor
+/// can call `refund_campaign_donor` for their own contribution, or the
+/// admin can call `auto_refund_expired` to process all donors in batch.
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct Campaign {
+    pub id: u64,
+    /// Campaign organiser (receives funds on successful claim)
+    pub organiser: Address,
+    /// Accepted payment token for this campaign
+    pub token: Address,
+    /// Funding target in token's native units
+    pub target_amount: i128,
+    /// Unix timestamp after which auto-refund is available
+    pub deadline: u64,
+    /// Total raised so far
+    pub total_raised: i128,
+    pub status: CampaignStatus,
+    pub created_at: u64,
+}
+
+/// A single donor's contribution to a campaign.
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct CampaignDonation {
+    pub campaign_id: u64,
+    pub donor: Address,
+    pub amount: i128,
+    pub refunded: bool,
     /// Attempted to remove a token that was never on the accepted list.
     TokenNotAccepted = 93,
     /// Cannot remove a canonical initial (XLM/USDC/EURC) token from the whitelist.
@@ -95,6 +156,34 @@ pub struct AcceptedToken {
     pub canonical: bool,
 }
 
+// ── Interest accrual types ────────────────────────────────────────────────────
+
+/// Contract-wide interest configuration stored in instance storage.
+/// A single rate applies across all tracked tokens.
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct InterestConfig {
+    /// Annual interest rate in basis points (1 bp = 0.01%).
+    /// Valid range: 1–10_000 (inclusive).
+    pub rate_bps: u32,
+    /// The treasury contract address that receives redirected interest.
+    pub treasury: Address,
+}
+
+/// Per-token accrual state stored in persistent storage.
+/// Updated every time a donation is locked, released, or refunded.
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct AccrualState {
+    /// Sum of all currently locked (Pending) donation amounts for this token.
+    pub locked_principal: i128,
+    /// Ledger timestamp at which `locked_principal` was last snapshotted.
+    /// Interest accrues on `locked_principal` from this point forward.
+    pub last_accrual_ts: u64,
+    /// Accumulated interest (in token stroops) not yet sent to the treasury.
+    pub pending_interest: i128,
+}
+
 // ── Contract ──────────────────────────────────────────────────────────────────
 
 #[contract]
@@ -104,7 +193,7 @@ pub struct DonationEscrow;
 impl DonationEscrow {
     /// Initialize the escrow contract.
     ///
-    /// Registers the canonical stablecoin tokens (`xlm_token`, `usdc_token`,
+    /// Registers the canonical payment tokens (`xlm_token`, `usdc_token`,
     /// `eurc_token`) that are always accepted for donations and sets the
     /// contract admin who controls the whitelist, batching, and disbursal.
     ///
@@ -144,6 +233,11 @@ impl DonationEscrow {
         env.storage()
             .instance()
             .set(&symbol_short!("RECSEQ"), &0u64);
+
+        // campaign id counter
+        env.storage()
+            .instance()
+            .set(&symbol_short!("CAMPSEQ"), &0u64);
 
         // Register the three canonical payment tokens up front.
         Self::add_accepted_token_internal(&env, &xlm_token, true, true);
@@ -220,6 +314,9 @@ impl DonationEscrow {
         Self::bump_persistent(&env, &key);
         Self::bump_instance(&env);
 
+        // Track this amount in the interest accrual ledger.
+        Self::record_lock(&env, &token, amount);
+
         env.events().publish(
             (symbol_short!("donate"), donor),
             (batch_id, tree_count, amount, token),
@@ -287,6 +384,9 @@ impl DonationEscrow {
             env.storage().persistent().set(&key, &rec);
             Self::bump_persistent(&env, &key);
 
+            // Reduce locked principal for interest accounting.
+            Self::record_unlock(&env, &rec.token, rec.amount);
+
             env.events()
                 .publish((symbol_short!("release"), seq), rec.amount);
         }
@@ -322,6 +422,9 @@ impl DonationEscrow {
         env.storage().persistent().set(&key, &rec);
         Self::bump_persistent(&env, &key);
         Self::bump_instance(&env);
+
+        // Reduce locked principal for interest accounting.
+        Self::record_unlock(&env, &rec.token, rec.amount);
 
         env.events()
             .publish((symbol_short!("refund"), seq), rec.amount);
@@ -580,6 +683,349 @@ impl DonationEscrow {
     pub fn is_accepted_token(env: Env, addr: Address) -> bool {
         Self::is_accepted_token_internal(&env, &addr)
     }
+
+    // ── Campaign funding with auto-refund fallback (issue #755) ──────────────
+
+    /// Create a new funding campaign.
+    ///
+    /// # Parameters
+    /// * `organiser`      — address that will receive funds on a successful claim
+    /// * `token`          — payment token (must be in the accepted token list)
+    /// * `target_amount`  — minimum amount to reach for the campaign to succeed
+    /// * `deadline_secs`  — seconds from now until the deadline
+    ///                      (pass 0 to use the default 30-day window)
+    ///
+    /// # Authorization
+    /// Admin must sign.
+    ///
+    /// # Returns
+    /// The new campaign ID.
+    pub fn create_campaign(
+        env: Env,
+        organiser: Address,
+        token: Address,
+        target_amount: i128,
+        deadline_secs: u64,
+    ) -> u64 {
+        Self::require_admin(&env);
+        Self::assert_accepted_token(&env, &token);
+
+        if target_amount <= 0 {
+            panic_with_error!(&env, HarvestaError::AmountMustBePositive);
+        }
+
+        let ttl = if deadline_secs == 0 {
+            CAMPAIGN_DEADLINE_SECS
+        } else {
+            deadline_secs
+        };
+
+        let id: u64 = env
+            .storage()
+            .instance()
+            .get(&symbol_short!("CAMPSEQ"))
+            .unwrap_or(0u64)
+            .checked_add(1)
+            .expect("campaign counter overflow");
+
+        env.storage().instance().set(&symbol_short!("CAMPSEQ"), &id);
+
+        let now = env.ledger().timestamp();
+        let campaign = Campaign {
+            id,
+            organiser: organiser.clone(),
+            token,
+            target_amount,
+            deadline: now.checked_add(ttl).expect("deadline overflow"),
+            total_raised: 0,
+            status: CampaignStatus::Active,
+            created_at: now,
+        };
+
+        env.storage()
+            .persistent()
+            .set(&Self::campaign_key(&env, id), &campaign);
+
+        env.events().publish(
+            (symbol_short!("camp_crt"), organiser),
+            (id, target_amount, campaign.deadline),
+        );
+
+        id
+    }
+
+    /// Donate to a specific campaign.
+    ///
+    /// The donation is escrowed in the contract. Funds are either released
+    /// to the organiser on `claim_campaign` or refunded on `refund_campaign_donor`
+    /// / `auto_refund_expired`.
+    ///
+    /// # Authorization
+    /// `donor` must sign.
+    pub fn donate_to_campaign(
+        env: Env,
+        donor: Address,
+        campaign_id: u64,
+        token: Address,
+        amount: i128,
+    ) -> u64 {
+        donor.require_auth();
+
+        if amount <= 0 {
+            panic_with_error!(&env, HarvestaError::AmountMustBePositive);
+        }
+
+        let camp_key = Self::campaign_key(&env, campaign_id);
+        let mut campaign: Campaign = env
+            .storage()
+            .persistent()
+            .get(&camp_key)
+            .unwrap_or_else(|| panic_with_error!(&env, DonationEscrowError::CampaignNotFound));
+
+        if campaign.status != CampaignStatus::Active {
+            panic_with_error!(&env, DonationEscrowError::CampaignAlreadyClosed);
+        }
+        if env.ledger().timestamp() > campaign.deadline {
+            panic_with_error!(&env, DonationEscrowError::CampaignExpired);
+        }
+        if campaign.token != token {
+            panic_with_error!(&env, DonationEscrowError::UnsupportedToken);
+        }
+
+        // Assign a campaign-scoped donation sequence
+        let (_, global_seq): (u32, u64) = env
+            .storage()
+            .instance()
+            .get(&symbol_short!("BATCHSEQ"))
+            .unwrap();
+        let next_seq = global_seq.checked_add(1).expect("sequence overflow");
+        env.storage()
+            .instance()
+            .set(&symbol_short!("BATCHSEQ"), &(campaign_id as u32, next_seq));
+
+        // Escrow funds
+        token::Client::new(&env, &token).transfer(
+            &donor,
+            &env.current_contract_address(),
+            &amount,
+        );
+
+        // Record the campaign-level donation
+        let camp_don = CampaignDonation {
+            campaign_id,
+            donor: donor.clone(),
+            amount,
+            refunded: false,
+        };
+        env.storage()
+            .persistent()
+            .set(&Self::campaign_donation_key(&env, campaign_id, next_seq), &camp_don);
+
+        // Update campaign totals
+        campaign.total_raised = campaign
+            .total_raised
+            .checked_add(amount)
+            .expect("total raised overflow");
+
+        env.storage().persistent().set(&camp_key, &campaign);
+
+        env.events().publish(
+            (symbol_short!("camp_don"), donor),
+            (campaign_id, amount, campaign.total_raised),
+        );
+
+        next_seq
+    }
+
+    /// Claim campaign funds after the target has been met.
+    ///
+    /// Transfers all escrowed funds to `destination`. Only callable when
+    /// `total_raised >= target_amount`.
+    ///
+    /// # Authorization
+    /// Admin must sign.
+    pub fn claim_campaign(env: Env, campaign_id: u64, destination: Address) {
+        Self::require_admin(&env);
+
+        let camp_key = Self::campaign_key(&env, campaign_id);
+        let mut campaign: Campaign = env
+            .storage()
+            .persistent()
+            .get(&camp_key)
+            .unwrap_or_else(|| panic_with_error!(&env, DonationEscrowError::CampaignNotFound));
+
+        if campaign.status != CampaignStatus::Active {
+            panic_with_error!(&env, DonationEscrowError::CampaignAlreadyClosed);
+        }
+        if campaign.total_raised < campaign.target_amount {
+            panic_with_error!(&env, DonationEscrowError::TargetNotMet);
+        }
+
+        // Transfer all escrowed funds to the destination
+        token::Client::new(&env, &campaign.token).transfer(
+            &env.current_contract_address(),
+            &destination,
+            &campaign.total_raised,
+        );
+
+        campaign.status = CampaignStatus::Claimed;
+        env.storage().persistent().set(&camp_key, &campaign);
+
+        env.events().publish(
+            (symbol_short!("camp_clm"), campaign_id),
+            (campaign.total_raised, destination),
+        );
+    }
+
+    /// Refund a single donor's campaign contribution after the deadline has
+    /// passed without meeting the target.
+    ///
+    /// This is permissionless — the donor calls it for their own donation.
+    /// It can also be called by anyone on behalf of the donor.
+    ///
+    /// # Parameters
+    /// * `campaign_id` — the campaign
+    /// * `donation_seq` — the sequence number returned by `donate_to_campaign`
+    ///
+    /// # Authorization
+    /// None required — permissionless after deadline.
+    pub fn refund_campaign_donor(env: Env, campaign_id: u64, donation_seq: u64) {
+        let camp_key = Self::campaign_key(&env, campaign_id);
+        let mut campaign: Campaign = env
+            .storage()
+            .persistent()
+            .get(&camp_key)
+            .unwrap_or_else(|| panic_with_error!(&env, DonationEscrowError::CampaignNotFound));
+
+        // Refund is allowed when:
+        //   a) Deadline passed AND target not met (auto-refund trigger), OR
+        //   b) Campaign already transitioned to Expired
+        let now = env.ledger().timestamp();
+        if campaign.status == CampaignStatus::Claimed {
+            panic_with_error!(&env, DonationEscrowError::TargetAlreadyMet);
+        }
+        if campaign.status == CampaignStatus::Active
+            && now <= campaign.deadline
+            && campaign.total_raised < campaign.target_amount
+        {
+            panic_with_error!(&env, DonationEscrowError::CampaignNotExpired);
+        }
+        // If the campaign is still Active but the deadline has passed and the
+        // target was not met, transition it to Expired.
+        if campaign.status == CampaignStatus::Active && now > campaign.deadline {
+            campaign.status = CampaignStatus::Expired;
+            env.storage().persistent().set(&camp_key, &campaign);
+        }
+
+        let don_key = Self::campaign_donation_key(&env, campaign_id, donation_seq);
+        let mut don: CampaignDonation = env
+            .storage()
+            .persistent()
+            .get(&don_key)
+            .unwrap_or_else(|| panic_with_error!(&env, HarvestaError::EscrowNotFound));
+
+        if don.refunded {
+            panic_with_error!(&env, DonationEscrowError::AlreadyProcessed);
+        }
+
+        don.refunded = true;
+        env.storage().persistent().set(&don_key, &don);
+
+        token::Client::new(&env, &campaign.token).transfer(
+            &env.current_contract_address(),
+            &don.donor,
+            &don.amount,
+        );
+
+        env.events().publish(
+            (symbol_short!("camp_ref"), campaign_id),
+            (donation_seq, don.donor, don.amount),
+        );
+    }
+
+    /// Batch auto-refund all listed donors after campaign deadline without
+    /// meeting the target.
+    ///
+    /// Permissionless — anyone can call this to trigger refunds on behalf
+    /// of donors. The admin typically calls this to clean up expired campaigns.
+    ///
+    /// # Parameters
+    /// * `campaign_id`   — the expired campaign
+    /// * `donation_seqs` — list of donation sequence IDs to refund
+    pub fn auto_refund_expired(env: Env, campaign_id: u64, donation_seqs: Vec<u64>) {
+        let camp_key = Self::campaign_key(&env, campaign_id);
+        let mut campaign: Campaign = env
+            .storage()
+            .persistent()
+            .get(&camp_key)
+            .unwrap_or_else(|| panic_with_error!(&env, DonationEscrowError::CampaignNotFound));
+
+        if campaign.status == CampaignStatus::Claimed {
+            panic_with_error!(&env, DonationEscrowError::TargetAlreadyMet);
+        }
+
+        let now = env.ledger().timestamp();
+        if campaign.status == CampaignStatus::Active && now <= campaign.deadline {
+            panic_with_error!(&env, DonationEscrowError::CampaignNotExpired);
+        }
+
+        // Lazily mark as Expired on first auto-refund call
+        if campaign.status == CampaignStatus::Active {
+            campaign.status = CampaignStatus::Expired;
+            env.storage().persistent().set(&camp_key, &campaign);
+        }
+
+        for i in 0..donation_seqs.len() {
+            let seq = donation_seqs.get(i).unwrap();
+            let don_key = Self::campaign_donation_key(&env, campaign_id, seq);
+
+            let mut don: CampaignDonation = match env.storage().persistent().get(&don_key) {
+                Some(d) => d,
+                None => continue, // skip unknown seqs rather than aborting the whole batch
+            };
+
+            if don.refunded {
+                continue; // idempotent — skip already-refunded donations
+            }
+
+            don.refunded = true;
+            env.storage().persistent().set(&don_key, &don);
+
+            token::Client::new(&env, &campaign.token).transfer(
+                &env.current_contract_address(),
+                &don.donor,
+                &don.amount,
+            );
+
+            env.events().publish(
+                (symbol_short!("auto_ref"), campaign_id),
+                (seq, don.donor, don.amount),
+            );
+        }
+    }
+
+    /// Returns the campaign record, or `None` if it does not exist.
+    pub fn get_campaign(env: Env, campaign_id: u64) -> Option<Campaign> {
+        env.storage()
+            .persistent()
+            .get(&Self::campaign_key(&env, campaign_id))
+    }
+
+    /// Returns a campaign donation record, or `None`.
+    pub fn get_campaign_donation(
+        env: Env,
+        campaign_id: u64,
+        donation_seq: u64,
+    ) -> Option<CampaignDonation> {
+        env.storage()
+            .persistent()
+            .get(&Self::campaign_donation_key(&env, campaign_id, donation_seq))
+    }
+
+    /// Returns `true` if `addr` is on the accepted-token list.
+    pub fn is_accepted_token(env: Env, addr: Address) -> bool {
+        Self::is_accepted_token_internal(&env, &addr)
+    }
 }
 
 impl DonationEscrow {
@@ -595,6 +1041,14 @@ impl DonationEscrow {
 
     fn project_key(env: &Env, project_id: u64) -> soroban_sdk::Val {
         (symbol_short!("PROJ"), project_id).into_val(env)
+    }
+
+    fn campaign_key(env: &Env, campaign_id: u64) -> soroban_sdk::Val {
+        (symbol_short!("CAMP"), campaign_id).into_val(env)
+    }
+
+    fn campaign_donation_key(env: &Env, campaign_id: u64, seq: u64) -> soroban_sdk::Val {
+        (symbol_short!("CAMPDON"), campaign_id, seq).into_val(env)
     }
 
     fn require_admin(env: &Env) {
@@ -716,6 +1170,135 @@ impl DonationEscrow {
         } else {
             amount * factor
         }
+    }
+
+    // ── Interest accrual internals ────────────────────────────────────────────
+
+    /// Storage key for a token's AccrualState in persistent storage.
+    fn accrual_key(env: &Env, token: &Address) -> soroban_sdk::Val {
+        (symbol_short!("ACCR"), token.clone()).into_val(env)
+    }
+
+    /// Internal version of `accrue_interest` that can be called from within
+    /// other contract functions (does not panic if config is missing — simply
+    /// returns early, making it safe to call before config is set).
+    fn accrue_interest_internal(env: &Env, token: &Address) {
+        let cfg_opt: Option<InterestConfig> = env
+            .storage()
+            .instance()
+            .get(&symbol_short!("INT_CFG"));
+        let cfg = match cfg_opt {
+            Some(c) => c,
+            None => return, // config not set yet; skip silently
+        };
+
+        let key = Self::accrual_key(env, token);
+        let mut state: AccrualState = env
+            .storage()
+            .persistent()
+            .get(&key)
+            .unwrap_or(AccrualState {
+                locked_principal: 0,
+                last_accrual_ts: env.ledger().timestamp(),
+                pending_interest: 0,
+            });
+
+        let now = env.ledger().timestamp();
+        let new_interest =
+            Self::compute_interest(state.locked_principal, cfg.rate_bps, state.last_accrual_ts, now);
+
+        state.pending_interest = state
+            .pending_interest
+            .checked_add(new_interest)
+            .expect("pending_interest overflow");
+        state.last_accrual_ts = now;
+
+        env.storage().persistent().set(&key, &state);
+        env.storage()
+            .persistent()
+            .extend_ttl(&key, TTL_BUMP_LEDGERS, TTL_BUMP_LEDGERS);
+    }
+
+    /// Increase locked principal for a token by `delta`, snapshotting interest
+    /// first so the new principal only accrues from this moment onward.
+    fn record_lock(env: &Env, token: &Address, delta: i128) {
+        // Snapshot interest at the current principal before changing it.
+        Self::accrue_interest_internal(env, token);
+
+        let key = Self::accrual_key(env, token);
+        let mut state: AccrualState = env
+            .storage()
+            .persistent()
+            .get(&key)
+            .unwrap_or(AccrualState {
+                locked_principal: 0,
+                last_accrual_ts: env.ledger().timestamp(),
+                pending_interest: 0,
+            });
+
+        state.locked_principal = state
+            .locked_principal
+            .checked_add(delta)
+            .expect("locked_principal overflow");
+
+        env.storage().persistent().set(&key, &state);
+        env.storage()
+            .persistent()
+            .extend_ttl(&key, TTL_BUMP_LEDGERS, TTL_BUMP_LEDGERS);
+    }
+
+    /// Decrease locked principal for a token by `delta`, snapshotting interest
+    /// first.  Saturates to zero rather than underflowing.
+    fn record_unlock(env: &Env, token: &Address, delta: i128) {
+        // Snapshot interest at the current principal before reducing it.
+        Self::accrue_interest_internal(env, token);
+
+        let key = Self::accrual_key(env, token);
+        let mut state: AccrualState = env
+            .storage()
+            .persistent()
+            .get(&key)
+            .unwrap_or(AccrualState {
+                locked_principal: 0,
+                last_accrual_ts: env.ledger().timestamp(),
+                pending_interest: 0,
+            });
+
+        // Saturate to zero to guard against accounting inconsistencies.
+        state.locked_principal = state.locked_principal.saturating_sub(delta);
+        if state.locked_principal < 0 {
+            state.locked_principal = 0;
+        }
+
+        env.storage().persistent().set(&key, &state);
+        env.storage()
+            .persistent()
+            .extend_ttl(&key, TTL_BUMP_LEDGERS, TTL_BUMP_LEDGERS);
+    }
+
+    /// Pure interest computation.
+    ///
+    /// `interest = principal * rate_bps * elapsed_secs
+    ///             / (BPS_DENOMINATOR * SECONDS_PER_YEAR)`
+    ///
+    /// Uses integer arithmetic only; fractional stroops are truncated.
+    /// Returns 0 if elapsed time is zero or principal is zero.
+    fn compute_interest(
+        principal: i128,
+        rate_bps: u32,
+        from_ts: u64,
+        to_ts: u64,
+    ) -> i128 {
+        if principal <= 0 || to_ts <= from_ts {
+            return 0;
+        }
+        let elapsed = (to_ts - from_ts) as i128;
+        let rate = rate_bps as i128;
+        // Multiply before dividing to preserve precision.
+        principal
+            .saturating_mul(rate)
+            .saturating_mul(elapsed)
+            / (BPS_DENOMINATOR * SECONDS_PER_YEAR as i128)
     }
 }
 
@@ -1213,6 +1796,266 @@ mod tests {
         assert_eq!(rec.next_release, 2 * interval);
     }
 
+    // ── Campaign auto-refund tests (issue #755) ───────────────────────────────
+
+    fn setup_campaign(
+        client: &DonationEscrowClient,
+        env: &Env,
+        xlm: &Address,
+        target: i128,
+        deadline_secs: u64,
+    ) -> u64 {
+        client.create_campaign(
+            &Address::generate(env), // organiser
+            xlm,
+            &target,
+            &deadline_secs,
+        )
+    }
+
+    #[test]
+    fn test_create_campaign_returns_id_and_stores_record() {
+        let (env, _admin, _donor, xlm, _usdc, client) = setup();
+        let campaign_id = setup_campaign(&client, &env, &xlm, &10_000, &3600);
+        let campaign = client.get_campaign(&campaign_id).unwrap();
+        assert_eq!(campaign.id, campaign_id);
+        assert_eq!(campaign.target_amount, 10_000);
+        assert_eq!(campaign.status, CampaignStatus::Active);
+        assert_eq!(campaign.total_raised, 0);
+    }
+
+    #[test]
+    fn test_create_campaign_uses_30_day_default_when_deadline_is_zero() {
+        let (env, _admin, _donor, xlm, _usdc, client) = setup();
+        let id = setup_campaign(&client, &env, &xlm, &5_000, &0);
+        let campaign = client.get_campaign(&id).unwrap();
+        // deadline should be approximately now + 30 days
+        assert!(campaign.deadline >= env.ledger().timestamp() + CAMPAIGN_DEADLINE_SECS - 1);
+    }
+
+    #[test]
+    fn test_donate_to_campaign_escrows_funds_and_updates_total() {
+        let (env, _admin, donor, xlm, _usdc, client) = setup();
+        let id = setup_campaign(&client, &env, &xlm, &10_000, &3600);
+        let seq = client.donate_to_campaign(&donor, &id, &xlm, &3_000);
+        let campaign = client.get_campaign(&id).unwrap();
+        assert_eq!(campaign.total_raised, 3_000);
+        let don = client.get_campaign_donation(&id, &seq).unwrap();
+        assert_eq!(don.amount, 3_000);
+        assert!(!don.refunded);
+    }
+
+    #[test]
+    fn test_claim_campaign_succeeds_when_target_met() {
+        let (env, _admin, donor, xlm, _usdc, client) = setup();
+        let id = setup_campaign(&client, &env, &xlm, &5_000, &3600);
+        client.donate_to_campaign(&donor, &id, &xlm, &5_000);
+        let dest = Address::generate(&env);
+        let before = token::Client::new(&env, &xlm).balance(&dest);
+        client.claim_campaign(&id, &dest);
+        assert_eq!(
+            token::Client::new(&env, &xlm).balance(&dest) - before,
+            5_000
+        );
+        assert_eq!(
+            client.get_campaign(&id).unwrap().status,
+            CampaignStatus::Claimed
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #98)")]
+    fn test_claim_campaign_rejected_when_target_not_met() {
+        let (env, _admin, donor, xlm, _usdc, client) = setup();
+        let id = setup_campaign(&client, &env, &xlm, &10_000, &3600);
+        client.donate_to_campaign(&donor, &id, &xlm, &3_000); // only 3000 of 10000
+        let dest = Address::generate(&env);
+        client.claim_campaign(&id, &dest);
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #97)")]
+    fn test_claim_campaign_rejected_when_already_claimed() {
+        let (env, _admin, donor, xlm, _usdc, client) = setup();
+        let id = setup_campaign(&client, &env, &xlm, &3_000, &3600);
+        client.donate_to_campaign(&donor, &id, &xlm, &3_000);
+        let dest = Address::generate(&env);
+        client.claim_campaign(&id, &dest);
+        // Second claim should panic
+        client.claim_campaign(&id, &dest);
+    }
+
+    #[test]
+    fn test_refund_campaign_donor_after_deadline_not_met() {
+        let (env, _admin, donor, xlm, _usdc, client) = setup();
+        let deadline: u64 = 500;
+        let id = setup_campaign(&client, &env, &xlm, &10_000, &deadline);
+        let seq = client.donate_to_campaign(&donor, &id, &xlm, &2_000);
+
+        // Advance past deadline without reaching target
+        env.ledger().with_mut(|l| l.timestamp += deadline + 1);
+
+        let before = token::Client::new(&env, &xlm).balance(&donor);
+        client.refund_campaign_donor(&id, &seq);
+        assert_eq!(
+            token::Client::new(&env, &xlm).balance(&donor) - before,
+            2_000
+        );
+
+        let don = client.get_campaign_donation(&id, &seq).unwrap();
+        assert!(don.refunded);
+
+        // Campaign should now be Expired
+        assert_eq!(
+            client.get_campaign(&id).unwrap().status,
+            CampaignStatus::Expired
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #95)")]
+    fn test_refund_campaign_donor_before_deadline_rejected() {
+        let (env, _admin, donor, xlm, _usdc, client) = setup();
+        let id = setup_campaign(&client, &env, &xlm, &10_000, &3600);
+        let seq = client.donate_to_campaign(&donor, &id, &xlm, &2_000);
+        // Deadline has NOT passed — should panic
+        client.refund_campaign_donor(&id, &seq);
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #84)")]
+    fn test_refund_campaign_donor_double_refund_rejected() {
+        let (env, _admin, donor, xlm, _usdc, client) = setup();
+        let deadline: u64 = 500;
+        let id = setup_campaign(&client, &env, &xlm, &10_000, &deadline);
+        let seq = client.donate_to_campaign(&donor, &id, &xlm, &2_000);
+        env.ledger().with_mut(|l| l.timestamp += deadline + 1);
+        client.refund_campaign_donor(&id, &seq);
+        // Second refund should panic
+        client.refund_campaign_donor(&id, &seq);
+    }
+
+    #[test]
+    fn test_auto_refund_expired_refunds_all_donors() {
+        let (env, _admin, donor, xlm, _usdc, client) = setup();
+        let donor2 = Address::generate(&env);
+        token::StellarAssetClient::new(&env, &xlm).mint(&donor2, &10_000);
+
+        let deadline: u64 = 500;
+        let id = setup_campaign(&client, &env, &xlm, &20_000, &deadline);
+
+        let seq1 = client.donate_to_campaign(&donor, &id, &xlm, &3_000);
+        let seq2 = client.donate_to_campaign(&donor2, &id, &xlm, &4_000);
+
+        // Advance past deadline
+        env.ledger().with_mut(|l| l.timestamp += deadline + 1);
+
+        let bal1_before = token::Client::new(&env, &xlm).balance(&donor);
+        let bal2_before = token::Client::new(&env, &xlm).balance(&donor2);
+
+        let seqs = soroban_sdk::vec![&env, seq1, seq2];
+        client.auto_refund_expired(&id, &seqs);
+
+        assert_eq!(
+            token::Client::new(&env, &xlm).balance(&donor) - bal1_before,
+            3_000
+        );
+        assert_eq!(
+            token::Client::new(&env, &xlm).balance(&donor2) - bal2_before,
+            4_000
+        );
+
+        assert_eq!(
+            client.get_campaign(&id).unwrap().status,
+            CampaignStatus::Expired
+        );
+    }
+
+    #[test]
+    fn test_auto_refund_expired_is_idempotent_skips_already_refunded() {
+        let (env, _admin, donor, xlm, _usdc, client) = setup();
+        let deadline: u64 = 500;
+        let id = setup_campaign(&client, &env, &xlm, &20_000, &deadline);
+        let seq = client.donate_to_campaign(&donor, &id, &xlm, &3_000);
+
+        env.ledger().with_mut(|l| l.timestamp += deadline + 1);
+
+        let seqs = soroban_sdk::vec![&env, seq];
+        client.auto_refund_expired(&id, &seqs);
+        // Second call should NOT panic (idempotent)
+        client.auto_refund_expired(&id, &seqs);
+
+        let don = client.get_campaign_donation(&id, &seq).unwrap();
+        assert!(don.refunded);
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #95)")]
+    fn test_auto_refund_rejected_before_deadline() {
+        let (env, _admin, donor, xlm, _usdc, client) = setup();
+        let id = setup_campaign(&client, &env, &xlm, &10_000, &3600);
+        let seq = client.donate_to_campaign(&donor, &id, &xlm, &2_000);
+        // Deadline not reached — should panic
+        client.auto_refund_expired(&id, &soroban_sdk::vec![&env, seq]);
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #96)")]
+    fn test_auto_refund_rejected_when_campaign_claimed() {
+        let (env, _admin, donor, xlm, _usdc, client) = setup();
+        let id = setup_campaign(&client, &env, &xlm, &3_000, &3600);
+        let seq = client.donate_to_campaign(&donor, &id, &xlm, &3_000);
+        let dest = Address::generate(&env);
+        client.claim_campaign(&id, &dest);
+        // Campaign already claimed — auto refund should panic
+        client.auto_refund_expired(&id, &soroban_sdk::vec![&env, seq]);
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #94)")]
+    fn test_donate_to_campaign_rejected_after_deadline() {
+        let (env, _admin, donor, xlm, _usdc, client) = setup();
+        let deadline: u64 = 500;
+        let id = setup_campaign(&client, &env, &xlm, &10_000, &deadline);
+        // Advance past deadline before donating
+        env.ledger().with_mut(|l| l.timestamp += deadline + 1);
+        client.donate_to_campaign(&donor, &id, &xlm, &1_000);
+    }
+
+    #[test]
+    fn test_multiple_donors_partial_fill_then_deadline_auto_refund() {
+        let (env, _admin, donor, xlm, _usdc, client) = setup();
+        let donor2 = Address::generate(&env);
+        let donor3 = Address::generate(&env);
+        token::StellarAssetClient::new(&env, &xlm).mint(&donor2, &10_000);
+        token::StellarAssetClient::new(&env, &xlm).mint(&donor3, &10_000);
+
+        let deadline: u64 = 1_000;
+        let target: i128 = 50_000;
+
+        let id = setup_campaign(&client, &env, &xlm, &target, &deadline);
+
+        let seq1 = client.donate_to_campaign(&donor, &id, &xlm, &5_000);
+        let seq2 = client.donate_to_campaign(&donor2, &id, &xlm, &3_000);
+        let seq3 = client.donate_to_campaign(&donor3, &id, &xlm, &2_000);
+
+        // Total = 10_000, target = 50_000 → target not met
+        let campaign = client.get_campaign(&id).unwrap();
+        assert_eq!(campaign.total_raised, 10_000);
+        assert!(campaign.total_raised < campaign.target_amount);
+
+        // Advance past deadline
+        env.ledger().with_mut(|l| l.timestamp += deadline + 1);
+
+        let b1 = token::Client::new(&env, &xlm).balance(&donor);
+        let b2 = token::Client::new(&env, &xlm).balance(&donor2);
+        let b3 = token::Client::new(&env, &xlm).balance(&donor3);
+
+        client.auto_refund_expired(&id, &soroban_sdk::vec![&env, seq1, seq2, seq3]);
+
+        assert_eq!(token::Client::new(&env, &xlm).balance(&donor) - b1, 5_000);
+        assert_eq!(token::Client::new(&env, &xlm).balance(&donor2) - b2, 3_000);
+        assert_eq!(token::Client::new(&env, &xlm).balance(&donor3) - b3, 2_000);
     // ── Normalization helper ─────────────────────────────────────────────
 
     #[test]

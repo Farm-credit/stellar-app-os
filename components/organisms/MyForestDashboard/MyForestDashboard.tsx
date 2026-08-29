@@ -1,9 +1,11 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { TreePine, Wind, Globe, Layers, Plus, ChevronRight } from 'lucide-react';
+import { pdf } from '@react-pdf/renderer';
+import { TreePine, Wind, Globe, Layers, Plus, ChevronRight, Download } from 'lucide-react';
 import { SponsorTreeList } from '@/components/organisms/SponsorTreeList';
+import { ForestReportPDF } from './ForestReportPDF';
 import { Text } from '@/components/atoms/Text';
 import { Button } from '@/components/atoms/Button';
 import { Skeleton } from '@/components/atoms/Skeleton';
@@ -71,6 +73,7 @@ interface MyForestDashboardProps {
  */
 export function MyForestDashboard({ initialFilters }: MyForestDashboardProps) {
   const { trees, isLoading, totalCount } = useSponsorTrees(initialFilters);
+  const [isExporting, setIsExporting] = useState(false);
 
   // --- Derived forest summary stats ------------------------------------------
   const stats = useMemo(() => {
@@ -131,6 +134,43 @@ export function MyForestDashboard({ initialFilters }: MyForestDashboardProps) {
   };
 
   const speciesTotal = speciesBreakdown.reduce((s, [, c]) => s + c, 0);
+
+  // --- PDF Export handler -----------------------------------------------------
+  const handleExportPDF = useCallback(async () => {
+    setIsExporting(true);
+    try {
+      const generatedDate = new Date().toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+      });
+
+      const blob = await pdf(
+        <ForestReportPDF
+          trees={trees}
+          totalCount={totalCount}
+          totalCO2Kg={stats.totalCO2}
+          speciesCount={stats.speciesCount}
+          regionCount={stats.regionCount}
+          activeCount={stats.activeCount}
+          generatedDate={generatedDate}
+        />
+      ).toBlob();
+
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `forest-report-${new Date().toISOString().split('T')[0]}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('PDF export failed:', error);
+    } finally {
+      setIsExporting(false);
+    }
+  }, [trees, totalCount, stats.totalCO2, stats.speciesCount, stats.regionCount, stats.activeCount]);
 
   return (
     <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -196,16 +236,29 @@ export function MyForestDashboard({ initialFilters }: MyForestDashboardProps) {
 
           {/* Right: CTA */}
           <div className="flex shrink-0 flex-col items-start gap-2 md:items-end">
-            <Link href="/donate" tabIndex={-1}>
+            <div className="flex flex-col sm:flex-row gap-2">
               <Button
-                id="sponsor-more-trees-btn"
-                className="gap-2 bg-stellar-green text-white hover:bg-stellar-green/90 shadow-lg shadow-stellar-green/20 font-bold"
-                aria-label="Sponsor more trees to grow your forest"
+                id="export-forest-pdf-btn"
+                variant="outline"
+                className="gap-2 font-bold"
+                onClick={handleExportPDF}
+                disabled={isLoading || isExporting || totalCount === 0}
+                aria-label="Download forest report as PDF"
               >
-                <Plus className="h-4 w-4" aria-hidden />
-                Sponsor More Trees
+                <Download className="h-4 w-4" aria-hidden />
+                {isExporting ? 'Generating PDF...' : 'Export as PDF'}
               </Button>
-            </Link>
+              <Link href="/donate" tabIndex={-1}>
+                <Button
+                  id="sponsor-more-trees-btn"
+                  className="gap-2 bg-stellar-green text-white hover:bg-stellar-green/90 shadow-lg shadow-stellar-green/20 font-bold"
+                  aria-label="Sponsor more trees to grow your forest"
+                >
+                  <Plus className="h-4 w-4" aria-hidden />
+                  Sponsor More Trees
+                </Button>
+              </Link>
+            </div>
             <span className="text-[11px] text-muted-foreground opacity-60 font-medium md:text-right">
               Each tree funds a real planting verified on-chain
             </span>

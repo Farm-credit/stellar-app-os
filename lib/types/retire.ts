@@ -17,9 +17,4 @@ export interface RetirementSelection {
 }
 
 export type RetirementTransactionStatus =
-  | 'idle'
-  | 'preparing'
-  | 'signing'
-  | 'submitting'
-  | 'success'
-  | 'error';
+  'idle' | 'preparing' | 'signing' | 'submitting' | 'success' | 'error';

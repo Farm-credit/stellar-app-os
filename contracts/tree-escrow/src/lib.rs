@@ -91,6 +91,15 @@ pub struct MilestoneStream {
 
 #[contracttype]
 enum DataKey {
+    /// (admin, tree_token)
+    Config,
+    /// Per-farmer escrow record
+    Escrow(Address),
+}
+
+    Escrow(Address),
+}
+
     AdminTree,
     Oracle,
     SurvivalThreshold,
@@ -153,6 +162,17 @@ impl TreeEscrow {
 
     /// Create an automated recurring milestone payment stream.
     ///
+    /// REENTRANCY GUARD: The token transfer is a cross-contract call. A malicious
+    /// token contract could call back into `deposit` before this invocation
+    /// completes. The guard prevents that scenario.
+    ///
+    /// REENTRANCY GUARD: The token transfer is a cross-contract call. A malicious
+    /// token contract could call back into `deposit` before this invocation
+    /// completes. The guard prevents that scenario.
+    ///
+    /// # Authorization
+    /// `donor` must sign the transaction.
+    pub fn deposit(
     /// The `funder` deposits `total_amount` into escrow. Funds are unlocked in `total_milestones`
     /// tranches as elapsed time reaches `milestone_interval_secs` and `verifier` approves green lights.
     pub fn create_milestone_stream(
@@ -160,6 +180,40 @@ impl TreeEscrow {
         funder: Address,
         farmer: Address,
         token: Address,
+        amount: i128,
+        tree_count: i128,
+    ) {
+        let _guard = ReentrancyGuard::acquire(&env);
+        donor.require_auth();
+
+        if amount <= 0 { panic_with_error!(&env, HarvestaError::AmountMustBePositive); }
+        if tree_count <= 0 { panic_with_error!(&env, HarvestaError::TreeCountMustBePositive); }
+
+        let key = DataKey::Escrow(farmer.clone());
+        if env.storage().persistent().has(&key) {
+            panic_with_error!(&env, HarvestaError::EscrowAlreadyExists);
+        }
+
+        // Cross-contract call — guard prevents reentrant deposit
+        token::Client::new(&env, &token).transfer(
+            &donor,
+            &env.current_contract_address(),
+            &amount,
+        );
+
+
+        let key = DataKey::Escrow(farmer.clone());
+        if env.storage().persistent().has(&key) {
+            panic_with_error!(&env, HarvestaError::EscrowAlreadyExists);
+        }
+
+        // Cross-contract call — guard prevents reentrant deposit
+        token::Client::new(&env, &token).transfer(
+            &donor,
+            &env.current_contract_address(),
+            &amount,
+        );
+
         total_amount: i128,
         total_milestones: u32,
         milestone_interval_secs: u64,
@@ -370,6 +424,14 @@ impl TreeEscrow {
     }
 
     /// Admin verifies planting. Releases 75% to the farmer and mints TREE tokens.
+    ///
+    /// REENTRANCY GUARD: Two cross-contract calls (token transfer + mint).
+    /// A malicious token could re-enter `verify_planting` between them.
+    ///
+    ///
+    /// REENTRANCY GUARD: Two cross-contract calls (token transfer + mint).
+    /// A malicious token could re-enter `verify_planting` between them.
+    ///
     ///
     /// REENTRANCY GUARD: Two cross-contract calls (token transfer + mint).
     /// A malicious token could re-enter `verify_planting` between them.

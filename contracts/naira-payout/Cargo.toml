@@ -8,12 +8,12 @@ crate-type = ["cdylib"]
 
 [dependencies]
 contract-utils = { path = "../contract-utils" }
-soroban-sdk = { version = "21.0.0", default-features = false, features = ["alloc"] }
+soroban-sdk = { version = "27.0.6", default-features = false, features = ["alloc"] }
 harvesta-errors = { path = "../harvesta-errors" }
 
 [dev-dependencies]
 contract-utils = { path = "../contract-utils" }
-soroban-sdk = { version = "21.0.0", features = ["testutils", "alloc"] }
+soroban-sdk = { version = "27.0.6", features = ["testutils", "alloc"] }
 
 [profile.release]
 opt-level = "z"

@@ -229,7 +229,7 @@ export async function fetchBalance(
 
     if (!response.ok) {
       if (response.status === 404) {
-        return { xlm: '0.0000000', usdc: '0.0000000' };
+        return { xlm: '0.0000000', usdc: '0.0000000', usdt: '0.0000000', eurc: '0.0000000' };
       }
       throw new Error('Failed to fetch account balance');
     }
@@ -245,20 +245,28 @@ export async function fetchBalance(
 
     let xlmBalance = '0.0000000';
     let usdcBalance = '0.0000000';
+    let usdtBalance = '0.0000000';
+    let eurcBalance = '0.0000000';
     const usdcIssuer = networkConfig.usdcIssuer;
+    const usdtIssuer = networkConfig.usdtIssuer;
+    const eurcIssuer = networkConfig.eurcIssuer;
 
     for (const balance of account.balances) {
       if (balance.asset_type === 'native') {
         xlmBalance = balance.balance;
       } else if (balance.asset_code === USDC_ASSET_CODE && balance.asset_issuer === usdcIssuer) {
         usdcBalance = balance.balance;
+      } else if (balance.asset_code === 'USDT' && balance.asset_issuer === usdtIssuer) {
+        usdtBalance = balance.balance;
+      } else if (balance.asset_code === 'EURC' && balance.asset_issuer === eurcIssuer) {
+        eurcBalance = balance.balance;
       }
     }
 
-    return { xlm: xlmBalance, usdc: usdcBalance };
+    return { xlm: xlmBalance, usdc: usdcBalance, usdt: usdtBalance, eurc: eurcBalance };
   } catch (error) {
     console.error('Error fetching balance:', error);
-    return { xlm: '0.0000000', usdc: '0.0000000' };
+    return { xlm: '0.0000000', usdc: '0.0000000', usdt: '0.0000000', eurc: '0.0000000' };
   }
 }
 

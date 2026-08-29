@@ -1,6 +1,6 @@
 import { renderHook, act } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { useSwipeGesture } from './useSwipeGesture';
+import { useSwipeGesture } from '../useSwipeGesture';
 import type { TouchEvent } from 'react';
 
 function makeTouch(overrides: Partial<Touch> = {}): Touch {

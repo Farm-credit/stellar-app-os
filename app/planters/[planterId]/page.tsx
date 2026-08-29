@@ -1,5 +1,7 @@
 import { notFound } from 'next/navigation';
 import { getPlanterProfile } from '@/lib/api/planters';
+import ReferralLinkCard from '@/components/ReferralLinkCard';
+import { getPlanterReferralUrl } from '@/lib/referrals';
 
 export default async function PlanterProfilePage({
   params,
@@ -49,6 +51,10 @@ export default async function PlanterProfilePage({
               </div>
             </div>
             <p className="max-w-2xl text-sm leading-7 text-slate-600">{profile.about}</p>
+            <ReferralLinkCard referralLink={getPlanterReferralUrl(profile.id)} />
+            <p className="text-sm font-medium text-emerald-700">
+              Earn 5 XLM when a new sponsor uses your link.
+            </p>
           </div>
         </div>
       </section>

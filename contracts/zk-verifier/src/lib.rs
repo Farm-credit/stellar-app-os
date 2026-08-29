@@ -26,6 +26,13 @@
 //!   - NullifierSpent      = 6  — double-spend attempt
 
 mod groth16;
+pub mod range_proof;
+
+// Re-export range proof types for downstream consumers
+pub use range_proof::{
+    GrowthRecord, RangeProof, RangeProofError, RangeProofInputs, TreeHeightConfig,
+    ZkRangeVerifier,
+};
 
 use groth16::{groth16_verify, vk_hash};
 use soroban_sdk::{
@@ -69,6 +76,24 @@ pub enum ZkError {
     FutureTimestamp = 5,
     /// The nullifier has already been recorded in persistent storage.
     NullifierSpent = 6,
+}
+
+impl From<ZkError> for soroban_sdk::Error {
+    fn from(err: ZkError) -> Self {
+        soroban_sdk::Error::from_contract_error(err as u32)
+    }
+}
+
+impl From<&ZkError> for soroban_sdk::Error {
+    fn from(err: &ZkError) -> Self {
+        soroban_sdk::Error::from_contract_error(*err as u32)
+    }
+}
+
+impl From<soroban_sdk::Error> for ZkError {
+    fn from(_: soroban_sdk::Error) -> Self {
+        ZkError::VerificationFailed
+    }
 }
 
 // ── Storage keys ──────────────────────────────────────────────────────────────

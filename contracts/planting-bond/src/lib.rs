@@ -18,7 +18,7 @@
 //! | 2    | 50 XLM (50_000_000 stroops) |
 
 use soroban_sdk::{
-    contract, contractimpl, contracterror, contracttype, panic_with_error, symbol_short, token,
+    contract, contracterror, contractimpl, contracttype, panic_with_error, symbol_short, token,
     Address, Env, IntoVal,
 };
 
@@ -40,8 +40,10 @@ pub enum Error {
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-/// 7 days in seconds — abandonment deadline.
-const ABANDON_DEADLINE: u64 = 7 * 24 * 60 * 60;
+/// Approximate seven-day abandonment window using Stellar's nominal five-second
+/// ledger cadence. A ledger-based deadline cannot be moved by a validator's close
+/// timestamp skew; the stored timestamp remains audit metadata only.
+const ABANDON_DEADLINE_LEDGERS: u32 = (7 * 24 * 60 * 60 / 5) + 1;
 
 /// Number of supported job tiers.
 const TIER_COUNT: u32 = 3;
@@ -62,7 +64,10 @@ pub struct Bond {
     pub tier: u32,
     pub amount: i128,
     pub token: Address,
+    /// Close time for audit/display only; never used for deadline enforcement.
     pub accepted_at: u64,
+    /// Ledger sequence at which the job was accepted.
+    pub accepted_ledger: u32,
     pub status: BondStatus,
 }
 
@@ -89,10 +94,18 @@ impl PlantingBond {
         if env.storage().instance().has(&symbol_short!("ADMIN")) {
             panic_with_error!(&env, Error::AlreadyInitialized);
         }
-        env.storage().instance().set(&symbol_short!("ADMIN"), &admin);
-        env.storage().instance().set(&symbol_short!("TREAS"), &treasury);
-        env.storage().instance().set(&symbol_short!("TOKEN"), &token);
-        env.storage().instance().set(&symbol_short!("TIERS"), &tier_amounts);
+        env.storage()
+            .instance()
+            .set(&symbol_short!("ADMIN"), &admin);
+        env.storage()
+            .instance()
+            .set(&symbol_short!("TREAS"), &treasury);
+        env.storage()
+            .instance()
+            .set(&symbol_short!("TOKEN"), &token);
+        env.storage()
+            .instance()
+            .set(&symbol_short!("TIERS"), &tier_amounts);
     }
 
     /// Planter locks their bond to accept a job.
@@ -126,6 +139,7 @@ impl PlantingBond {
             amount,
             token,
             accepted_at: env.ledger().timestamp(),
+            accepted_ledger: env.ledger().sequence(),
             status: BondStatus::Active,
         };
 
@@ -163,10 +177,8 @@ impl PlantingBond {
         bond.status = BondStatus::Returned;
         env.storage().persistent().set(&key, &bond);
 
-        env.events().publish(
-            (symbol_short!("BondRet"), tree_id),
-            bond.amount,
-        );
+        env.events()
+            .publish((symbol_short!("BondRet"), tree_id), bond.amount);
     }
 
     /// Slash the bond to treasury after deadline has passed without verification.
@@ -186,11 +198,10 @@ impl PlantingBond {
             panic_with_error!(&env, Error::BondAlreadySettled);
         }
 
-        let elapsed = env
-            .ledger()
-            .timestamp()
-            .saturating_sub(bond.accepted_at);
-        if elapsed < ABANDON_DEADLINE {
+        let expiry_ledger = bond
+            .accepted_ledger
+            .saturating_add(ABANDON_DEADLINE_LEDGERS);
+        if env.ledger().sequence() < expiry_ledger {
             panic_with_error!(&env, Error::DeadlineNotPassed);
         }
 
@@ -204,10 +215,8 @@ impl PlantingBond {
         bond.status = BondStatus::Slashed;
         env.storage().persistent().set(&key, &bond);
 
-        env.events().publish(
-            (symbol_short!("BondSlsh"), tree_id),
-            bond.amount,
-        );
+        env.events()
+            .publish((symbol_short!("BondSlsh"), tree_id), bond.amount);
     }
 
     /// Read a bond record.
@@ -272,20 +281,34 @@ mod tests {
         token, Address, Env,
     };
 
-    fn setup() -> (Env, Address, Address, Address, Address, PlantingBondClient<'static>) {
+    fn setup() -> (
+        Env,
+        Address,
+        Address,
+        Address,
+        Address,
+        PlantingBondClient<'static>,
+    ) {
         let env = Env::default();
         env.mock_all_auths();
 
         let admin = Address::generate(&env);
         let treasury = Address::generate(&env);
         let token_admin = Address::generate(&env);
-        let token = env.register_stellar_asset_contract_v2(token_admin.clone()).address();
+        let token = env
+            .register_stellar_asset_contract_v2(token_admin.clone())
+            .address();
 
         let contract_id = env.register_contract(None, PlantingBond);
         let client = PlantingBondClient::new(&env, &contract_id);
 
         // tier 0 = 10 XLM, tier 1 = 25 XLM, tier 2 = 50 XLM (in stroops)
-        client.initialize(&admin, &treasury, &token, &(10_000_000, 25_000_000, 50_000_000));
+        client.initialize(
+            &admin,
+            &treasury,
+            &token,
+            &(10_000_000, 25_000_000, 50_000_000),
+        );
 
         (env, admin, treasury, token, contract_id, client)
     }
@@ -309,9 +332,15 @@ mod tests {
         assert_eq!(bond.tier, 0);
 
         // Contract holds the bond
-        assert_eq!(token::Client::new(&env, &token).balance(&contract_id), 10_000_000);
+        assert_eq!(
+            token::Client::new(&env, &token).balance(&contract_id),
+            10_000_000
+        );
         // Planter's balance reduced
-        assert_eq!(token::Client::new(&env, &token).balance(&planter), 90_000_000);
+        assert_eq!(
+            token::Client::new(&env, &token).balance(&planter),
+            90_000_000
+        );
     }
 
     #[test]
@@ -380,11 +409,15 @@ mod tests {
         mint(&env, &token, &planter, 100_000_000);
         client.accept_job(&planter, &1u64, &0u32);
 
-        env.ledger().with_mut(|l| l.timestamp += ABANDON_DEADLINE + 1);
+        env.ledger()
+            .with_mut(|l| l.sequence_number += ABANDON_DEADLINE_LEDGERS + 1);
 
         client.slash_bond(&1u64);
 
-        assert_eq!(token::Client::new(&env, &token).balance(&treasury), 10_000_000);
+        assert_eq!(
+            token::Client::new(&env, &token).balance(&treasury),
+            10_000_000
+        );
         assert_eq!(client.get_bond(&1u64).unwrap().status, BondStatus::Slashed);
     }
 
@@ -396,7 +429,22 @@ mod tests {
         mint(&env, &token, &planter, 100_000_000);
         client.accept_job(&planter, &1u64, &0u32);
 
-        env.ledger().with_mut(|l| l.timestamp += ABANDON_DEADLINE - 1);
+        env.ledger()
+            .with_mut(|l| l.sequence_number += ABANDON_DEADLINE_LEDGERS - 1);
+        client.slash_bond(&1u64);
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #7)")]
+    fn test_timestamp_skew_does_not_expire_bond() {
+        let (env, _, _, token, _, client) = setup();
+        let planter = Address::generate(&env);
+        mint(&env, &token, &planter, 100_000_000);
+        client.accept_job(&planter, &1u64, &0u32);
+
+        // A close-time jump alone must not cross the contract's ledger deadline.
+        env.ledger()
+            .with_mut(|l| l.timestamp += ABANDON_DEADLINE_LEDGERS as u64 * 5);
         client.slash_bond(&1u64);
     }
 
@@ -409,7 +457,8 @@ mod tests {
         client.accept_job(&planter, &1u64, &0u32);
         client.return_bond(&1u64);
 
-        env.ledger().with_mut(|l| l.timestamp += ABANDON_DEADLINE + 1);
+        env.ledger()
+            .with_mut(|l| l.sequence_number += ABANDON_DEADLINE_LEDGERS + 1);
         client.slash_bond(&1u64);
     }
 
@@ -417,7 +466,8 @@ mod tests {
     #[should_panic(expected = "Error(Contract, #5)")]
     fn test_slash_nonexistent_panics() {
         let (env, _, _, _, _, client) = setup();
-        env.ledger().with_mut(|l| l.timestamp += ABANDON_DEADLINE + 1);
+        env.ledger()
+            .with_mut(|l| l.sequence_number += ABANDON_DEADLINE_LEDGERS + 1);
         client.slash_bond(&999u64);
     }
 

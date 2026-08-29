@@ -2,7 +2,7 @@
 
 //!
 //! Flow:
-//!   1. Funder deposits XLM/token into escrow via `deposit()`
+//!   1. Funder deposits XLM, USDC, USDT, or EURC into escrow via `deposit()`
 //!   2. Verifier (oracle/admin) calls `verify_milestone()` after GPS + photo check
 //!   3. Contract instantly releases 75% to the farmer's Stellar wallet
 //!   4. After 6 months, verifier confirms survival rate >= 70%
@@ -42,6 +42,11 @@ const MIN_SURVIVAL_RATE_PERCENT: u32 = 70;
 
 /// 6 months in seconds (approx 26 weeks)
 const SIX_MONTHS_SECS: u64 = 60 * 60 * 24 * 7 * 26;
+
+/// Number of independent verifier approvals required to auto-release a milestone.
+const MILESTONE_APPROVAL_THRESHOLD: u32 = 3;
+/// Total number of independent verifiers that must be registered for consensus.
+const REQUIRED_VERIFIER_COUNT: u32 = 5;
 
 /// Soroban #[contracttype] does not support Option<BytesN<32>> directly.
 #[contracttype]
@@ -102,13 +107,25 @@ pub struct EscrowMilestone;
 
 #[contractimpl]
 impl EscrowMilestone {
-    pub fn initialize(env: Env, admin: Address, amm: Address, xlm: Address, usdc: Address) {
+    pub fn initialize(
+        env: Env,
+        admin: Address,
+        amm: Address,
+        xlm: Address,
+        usdc: Address,
+        usdt: Address,
+        eurc: Address,
+    ) {
         if env.storage().instance().has(&symbol_short!("ADMIN")) {
             panic_with_error!(&env, HarvestaError::AlreadyInitialized);
         }
         env.storage()
             .instance()
             .set(&symbol_short!("ADMIN"), &(admin, amm, xlm, usdc));
+        contract_utils::add_to_whitelist(&env, &xlm);
+        contract_utils::add_to_whitelist(&env, &usdc);
+        contract_utils::add_to_whitelist(&env, &usdt);
+        contract_utils::add_to_whitelist(&env, &eurc);
     }
 
     /// Funder deposits `amount` of `token` into escrow for `farmer`.
@@ -128,7 +145,7 @@ impl EscrowMilestone {
     ///
     /// `recipient_wallet` - the address that will receive the benefits
     /// `farmer` - the farmer to plant the trees
-    /// `token` - the token to use for payment (XLM or USDC)
+    /// `token` - the token to use for payment (XLM, USDC, USDT, or EURC)
     /// `amount` - the total amount to deposit
     /// `arbiter` - the address authorised to adjudicate disputes
     pub fn sponsor_as_gift(
@@ -556,6 +573,10 @@ impl EscrowMilestone {
             .get(&symbol_short!("VERFRS"))
             .unwrap_or(soroban_sdk::Vec::new(&env));
 
+        if list.len() >= REQUIRED_VERIFIER_COUNT {
+            panic_with_error!(&env, EscrowMilestoneError::VerifierSetFull);
+        }
+
         for i in 0..list.len() {
             if list.get(i).unwrap() == verifier {
                 panic_with_error!(&env, EscrowMilestoneError::VerifierAlreadyRegistered);
@@ -610,6 +631,10 @@ impl EscrowMilestone {
             panic_with_error!(&env, EscrowMilestoneError::NotAVerifier);
         }
 
+        if verifiers.len() < REQUIRED_VERIFIER_COUNT {
+            panic_with_error!(&env, EscrowMilestoneError::VerifierSetIncomplete);
+        }
+
         let vote_key: soroban_sdk::Val = (Symbol::new(&env, "VOTE"), farmer.clone(), milestone_id, verifier.clone())
             .into_val(&env);
         if env.storage().persistent().has(&vote_key) {
@@ -627,8 +652,7 @@ impl EscrowMilestone {
             (milestone_id, new_count),
         );
 
-        const THRESHOLD: u32 = 2;
-        if new_count >= THRESHOLD {
+        if new_count >= MILESTONE_APPROVAL_THRESHOLD {
             let key = Self::escrow_key(&env, &farmer);
             let state: EscrowState = env
                 .storage()
@@ -774,7 +798,7 @@ fn setup() -> Ctx {
         let amm = env.register_contract(None, MockAmm);
         let xlm = token.clone();
         let usdc = env.register_stellar_asset_contract_v2(admin.clone()).address();
-        client.initialize(&admin, &amm, &xlm, &usdc);
+        client.initialize(&admin, &amm, &xlm, &usdc, &usdc, &usdc);
         client.add_to_whitelist(&token);
         Ctx {
             env,
@@ -1232,7 +1256,7 @@ fn setup() -> Ctx {
     // ── Multi-party consensus tests (issue #635) ──────────────────────────────────
 
     #[test]
-    fn test_verifier_registry_and_consensus_release() {
+    fn test_three_of_five_consensus_releases_milestone() {
         let Ctx {
             env,
             client,
@@ -1246,23 +1270,31 @@ fn setup() -> Ctx {
         let v1 = Address::generate(&env);
         let v2 = Address::generate(&env);
         let v3 = Address::generate(&env);
+        let v4 = Address::generate(&env);
+        let v5 = Address::generate(&env);
 
         client.register_verifier(&v1);
         client.register_verifier(&v2);
         client.register_verifier(&v3);
+        client.register_verifier(&v4);
+        client.register_verifier(&v5);
 
-        assert_eq!(client.get_verifiers().len(), 3);
+        assert_eq!(client.get_verifiers().len(), 5);
 
         client.deposit(&funder, &farmer, &token, &10_000, &arbiter);
 
-        // First vote — not enough yet
+        // First two votes — not enough yet
         client.approve_milestone(&v1, &farmer, &1u32);
         assert_eq!(balance(&env, &token, &farmer), 0);
         assert_eq!(client.get_vote_count(&farmer, &1u32), 1);
 
-        // Second vote — consensus reached, funds released automatically
         client.approve_milestone(&v2, &farmer, &1u32);
+        assert_eq!(balance(&env, &token, &farmer), 0);
         assert_eq!(client.get_vote_count(&farmer, &1u32), 2);
+
+        // Third vote — 3-of-5 consensus reached, funds released automatically
+        client.approve_milestone(&v3, &farmer, &1u32);
+        assert_eq!(client.get_vote_count(&farmer, &1u32), 3);
         assert_eq!(balance(&env, &token, &farmer), 7_350);
     }
 
@@ -1278,6 +1310,18 @@ fn setup() -> Ctx {
             arbiter,
             ..
         } = setup();
+
+        let v1 = Address::generate(&env);
+        let v2 = Address::generate(&env);
+        let v3 = Address::generate(&env);
+        let v4 = Address::generate(&env);
+        let v5 = Address::generate(&env);
+        client.register_verifier(&v1);
+        client.register_verifier(&v2);
+        client.register_verifier(&v3);
+        client.register_verifier(&v4);
+        client.register_verifier(&v5);
+
         client.deposit(&funder, &farmer, &token, &10_000, &arbiter);
         let rogue = Address::generate(&env);
         client.approve_milestone(&rogue, &farmer, &1u32);
@@ -1295,8 +1339,18 @@ fn setup() -> Ctx {
             arbiter,
             ..
         } = setup();
+
         let v1 = Address::generate(&env);
+        let v2 = Address::generate(&env);
+        let v3 = Address::generate(&env);
+        let v4 = Address::generate(&env);
+        let v5 = Address::generate(&env);
         client.register_verifier(&v1);
+        client.register_verifier(&v2);
+        client.register_verifier(&v3);
+        client.register_verifier(&v4);
+        client.register_verifier(&v5);
+
         client.deposit(&funder, &farmer, &token, &10_000, &arbiter);
         client.approve_milestone(&v1, &farmer, &1u32);
         client.approve_milestone(&v1, &farmer, &1u32); // should panic
@@ -1308,6 +1362,79 @@ fn setup() -> Ctx {
         let Ctx { env, client, .. } = setup();
         client.initialize(&Address::generate(&env), &Address::generate(&env), &Address::generate(&env), &Address::generate(&env));
     }
+
+    #[test]
+    fn test_two_of_five_does_not_release() {
+        let Ctx {
+            env,
+            client,
+            token,
+            funder,
+            farmer,
+            arbiter,
+            ..
+        } = setup();
+
+        let v1 = Address::generate(&env);
+        let v2 = Address::generate(&env);
+        let v3 = Address::generate(&env);
+        let v4 = Address::generate(&env);
+        let v5 = Address::generate(&env);
+
+        client.register_verifier(&v1);
+        client.register_verifier(&v2);
+        client.register_verifier(&v3);
+        client.register_verifier(&v4);
+        client.register_verifier(&v5);
+
+        client.deposit(&funder, &farmer, &token, &10_000, &arbiter);
+
+        client.approve_milestone(&v1, &farmer, &1u32);
+        client.approve_milestone(&v2, &farmer, &1u32);
+
+        assert_eq!(client.get_vote_count(&farmer, &1u32), 2);
+        assert_eq!(balance(&env, &token, &farmer), 0);
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #5)")]
+    fn test_verifier_set_full_rejected() {
+        let Ctx { env, client, .. } = setup();
+
+        let v1 = Address::generate(&env);
+        let v2 = Address::generate(&env);
+        let v3 = Address::generate(&env);
+        let v4 = Address::generate(&env);
+        let v5 = Address::generate(&env);
+        let v6 = Address::generate(&env);
+
+        client.register_verifier(&v1);
+        client.register_verifier(&v2);
+        client.register_verifier(&v3);
+        client.register_verifier(&v4);
+        client.register_verifier(&v5);
+        client.register_verifier(&v6); // should panic
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_approve_with_incomplete_set_rejected() {
+        let Ctx {
+            env,
+            client,
+            token,
+            funder,
+            farmer,
+            arbiter,
+            ..
+        } = setup();
+
+        let v1 = Address::generate(&env);
+        client.register_verifier(&v1);
+
+        client.deposit(&funder, &farmer, &token, &10_000, &arbiter);
+        client.approve_milestone(&v1, &farmer, &1u32); // only 1 of 5 registered
+    }
 }
 
 #[contracterror]
@@ -1318,4 +1445,6 @@ pub enum EscrowMilestoneError {
     NotAVerifier = 2,
     AlreadyVoted = 3,
     MilestoneReleaseBlocked = 4,
+    VerifierSetFull = 5,
+    VerifierSetIncomplete = 6,
 }

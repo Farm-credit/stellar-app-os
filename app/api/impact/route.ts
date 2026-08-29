@@ -1,8 +1,1 @@
-import { NextResponse } from 'next/server';
-import { IMPACT_DATA } from '@/lib/api/impactData';
-
-export function GET() {
-  return NextResponse.json(IMPACT_DATA, {
-    headers: { 'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600' },
-  });
-}
+import { NextResponse } from 'next/server';import { IMPACT_DATA } from '@/lib/api/impactData';export function GET(request: Request) {const status = new URL(request.url).searchParams.get('status');const data = status && status !== 'all' ? IMPACT_DATA.filter((d: any) => d.status === status) : IMPACT_DATA;return NextResponse.json(data, { headers: { 'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600' } });}

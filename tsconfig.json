@@ -24,6 +24,7 @@
   },
   "include": [
     "next-env.d.ts",
+    "instrumentation.ts",
     "app/**/*.ts",
     "app/**/*.tsx",
     "components/**/*.ts",

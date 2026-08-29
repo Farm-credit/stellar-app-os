@@ -49,13 +49,15 @@ export function StellarPaymentSection({
   const [walletModalOpen, setWalletModalOpen] = useState(false);
 
   const isProcessing = ['preparing', 'signing', 'submitting', 'confirming'].includes(status);
-  const usdcBalance = wallet ? parseFloat(wallet.balance.usdc) : 0;
+  const selectedBalance = wallet
+    ? parseFloat(wallet.balance[asset.toLowerCase() as 'usdc' | 'usdt' | 'eurc'] ?? '0')
+    : 0;
   const xlmBalance = wallet ? parseFloat(wallet.balance.xlm) : 0;
   // USDC is sent 1:1; XLM is converted to USDC on-chain so the exact cost is
   // only known at quote time — require a positive balance and let the
   // path-payment `sendMax` enforce the precise ceiling.
   const hasInsufficientBalance =
-    wallet !== null && (asset === 'USDC' ? usdcBalance < amount : xlmBalance <= 0);
+    wallet !== null && (asset === 'XLM' ? xlmBalance <= 0 : selectedBalance < amount);
 
   const handleWalletConnected = useCallback(() => {
     setWalletModalOpen(false);
@@ -74,7 +76,7 @@ export function StellarPaymentSection({
               Connect your Stellar wallet
             </Text>
             <Text variant="muted" className="mt-1">
-              Pay with USDC on the Stellar network
+              Pay with USDC, USDT, EURC, or XLM on the Stellar network
             </Text>
           </div>
           <Button
@@ -122,7 +124,7 @@ export function StellarPaymentSection({
             {truncateAddress(wallet.publicKey)}
           </Text>
           <Text variant="small" className="font-medium">
-            {usdcBalance.toFixed(2)} USDC · {xlmBalance.toFixed(2)} XLM
+            {selectedBalance.toFixed(2)} {asset} · {xlmBalance.toFixed(2)} XLM
           </Text>
         </div>
       </div>
@@ -132,8 +134,12 @@ export function StellarPaymentSection({
         <Text variant="small" className="font-medium mb-2">
           Pay with
         </Text>
-        <div className="grid grid-cols-2 gap-3" role="radiogroup" aria-label="Donation asset">
-          {(['USDC', 'XLM'] as const).map((option) => (
+        <div
+          className="grid grid-cols-2 gap-3 sm:grid-cols-4"
+          role="radiogroup"
+          aria-label="Donation asset"
+        >
+          {(['USDC', 'USDT', 'EURC', 'XLM'] as const).map((option) => (
             <button
               key={option}
               type="button"
@@ -153,8 +159,8 @@ export function StellarPaymentSection({
         </div>
         {asset === 'XLM' && (
           <Text variant="small" className="text-muted-foreground mt-2">
-            Your XLM is converted to {formatCurrency(amount)} of USDC at the live market rate, with a
-            small slippage buffer on the XLM debited.
+            Your XLM is converted to {formatCurrency(amount)} of USDC at the live market rate, with
+            a small slippage buffer on the XLM debited.
           </Text>
         )}
       </div>
@@ -169,11 +175,11 @@ export function StellarPaymentSection({
           <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0 text-yellow-600 dark:text-yellow-400" />
           <div className="flex-1">
             <Text variant="small" className="font-medium text-yellow-600 dark:text-yellow-400">
-              {asset === 'USDC' ? 'Insufficient USDC balance' : 'No XLM to convert'}
+              {asset === 'XLM' ? 'No XLM to convert' : `Insufficient ${asset} balance`}
             </Text>
             <Text variant="small" className="text-yellow-600/80 dark:text-yellow-400/80">
-              {asset === 'USDC'
-                ? `You have ${usdcBalance.toFixed(2)} USDC but need ${amount.toFixed(2)} USDC.`
+              {asset !== 'XLM'
+                ? `You have ${selectedBalance.toFixed(2)} ${asset} but need ${amount.toFixed(2)} ${asset}.`
                 : 'Add XLM to your wallet or switch to USDC.'}
             </Text>
           </div>

@@ -8,4 +8,4 @@ description = "Common types shared across FarmCredit Soroban contracts (constant
 crate-type = ["rlib"]
 
 [dependencies]
-soroban-sdk = { version = "21.7.7", default-features = false, features = ["alloc"] }
+soroban-sdk = { version = "27.0.6", default-features = false, features = ["alloc"] }

@@ -1,5 +1,3 @@
-import * as React from 'react';
-import Image from 'next/image';
 import { Badge } from '@/components/atoms/Badge';
 import { Button } from '@/components/atoms/Button';
 import { Text } from '@/components/atoms/Text';
@@ -18,7 +16,10 @@ const typeConfig: Record<string, { label: string; colorClass: string }> = {
     colorClass: 'bg-stellar-cyan text-stellar-navy',
   },
   'Mangrove Restoration': { label: 'Mangrove Restoration', colorClass: 'bg-stellar-purple' },
-  'Sustainable Agriculture': { label: 'Sustainable Agriculture', colorClass: 'bg-stellar-purple' },
+  'Sustainable Agriculture': {
+    label: 'Sustainable Agriculture',
+    colorClass: 'bg-stellar-purple',
+  },
   Conservation: { label: 'Conservation', colorClass: 'bg-stellar-purple' },
 };
 
@@ -34,20 +35,10 @@ export function ProjectCard({ project }: ProjectCardProps) {
     <Card className="overflow-hidden flex flex-col hover:shadow-lg transition-shadow">
       <CardHeader className="p-0 relative">
         <div className="relative w-full h-48 bg-secondary/50">
-          {project.imageUrl ? (
-            <Image
-              src={project.imageUrl}
-              alt={project.name}
-              fill
-              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-              className="object-cover"
-            />
-          ) : (
-            <div className="flex h-full w-full flex-col items-center justify-center text-muted-foreground">
-              <ImageOff className="h-10 w-10 mb-2 opacity-50" />
-              <Text variant="small">No image available</Text>
-            </div>
-          )}
+          <div className="flex h-full w-full flex-col items-center justify-center text-muted-foreground">
+            <ImageOff className="h-10 w-10 mb-2 opacity-50" />
+            <Text variant="small">No image available</Text>
+          </div>
 
           <div className="absolute top-3 right-3 z-10">
             <Badge className={`border-none ${badgeConfig.colorClass}`}>{badgeConfig.label}</Badge>
@@ -109,9 +100,9 @@ export function ProjectCard({ project }: ProjectCardProps) {
         </div>
       </CardContent>
 
-      <CardFooter className="p-5 pt-4 border-t bg-muted/20 flex items-center justify-between flex-none gap-3">
+      <CardFooter className="flex items-center justify-between gap-3 border-t bg-muted/20 p-5">
         <div className="flex flex-col">
-          <Text variant="small" className="text-muted-foreground text-xs leading-tight">
+          <Text variant="small" className="text-xs leading-tight text-muted-foreground">
             Price
           </Text>
           <div className="flex items-baseline gap-1">

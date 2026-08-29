@@ -1,10 +1,24 @@
 #![no_std]
 
+//! Carbon Credit Marketplace — Closes #490, #810
 //! Carbon Credit Marketplace — Closes #490, #760, #780
 //!
 //! On-chain orderbook for TREE token carbon credit certificates plus
 //! a constant-product AMM (xy = k) liquidity pool for Carbon DEX swaps.
 //!
+//! # Flow
+//!   1. Admin calls `initialize(admin, tree_token)`.
+//!   2. Seller calls `list(seller, amount, price_per_token, payment_token)` to
+//!      create an ask. The `amount` of TREE tokens are escrowed in the contract.
+//!   3. Buyer calls `buy(buyer, listing_id, amount)`.  Payment is transferred
+//!      to seller (minus royalty & protocol fee); TREE tokens to buyer.
+//!   4. Seller calls `cancel(seller, listing_id)` to de-list remaining tokens.
+//!
+//! # Treasury Reserve Swap (#810)
+//!   A configurable protocol fee is deducted on every `buy` and `bid`.  Fees
+//!   accumulate inside the contract.  Admin may call `swap_fees_to_usdc` to
+//!   sweep accumulated fees into a designated USDC reserve address, enabling
+//!   automated conversion of trading revenue into the protocol's USDC reserve.
 //! # Fixed-price listings (original flow)
 //!   1. `initialize(admin, tree_token, admin_controls)`
 //!   2. `list(seller, planter, amount, price_per_token, payment_token)` → escrows TREE tokens
@@ -73,6 +87,10 @@ pub enum MarketplaceError {
     InvalidDecayRate = 111,
     InvalidDuration = 112,
     PriceMustBePositive = 113,
+    ProtocolFeeTooHigh = 114,
+    TreasuryNotConfigured = 115,
+    InsufficientFeesToSwap = 116,
+    TreasuryAlreadyConfigured = 117,
     // AMM-specific errors (Issue #780)
     AmmNotInitialized = 200,
     AmmAmountMustBePositive = 201,
@@ -176,6 +194,26 @@ pub struct AmmPool {
     pub fees_collected: i128,
 }
 
+/// Configuration for the protocol treasury reserve swap mechanism (#810).
+///
+/// Accumulated protocol fees are held in this contract and may be swept to
+/// the USDC reserve address by an admin via `swap_fees_to_usdc`.
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct TreasuryReserveConfig {
+    /// The payment token used for fee collection (expected to be USDC).
+    pub fee_token: Address,
+    /// Address where swapped fees are deposited (the USDC reserve).
+    pub usdc_reserve: Address,
+    /// Protocol fee in basis points applied to every trade (e.g. 250 = 2.5%).
+    pub fee_bps: u32,
+    /// Running total of fees collected but not yet swept to the reserve.
+    pub accumulated_fees: i128,
+    /// Lifetime total of fees already swept to the USDC reserve.
+    pub total_swapped: i128,
+}
+
+// ── Storage keys ──────────────────────────────────────────────────────────────
 /// Per-provider LP share record.
 #[contracttype]
 #[derive(Clone, Debug)]
@@ -201,6 +239,8 @@ enum DataKey {
     AuctionConfig,
     /// Royalty basis points (e.g. 500 = 5%)
     RoyaltyConfig,
+    /// Protocol treasury reserve configuration
+    TreasuryReserve,
     /// TWAP oracle configuration (period, max_observations)
     TwapConfig,
     /// Current cumulative price observation
@@ -211,6 +251,8 @@ enum DataKey {
     NextObservationSlot,
     /// Total observations recorded so far (for TWAP queries)
     TotalObservations,
+    /// Global emergency pause flag
+    Paused,
 }
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -253,6 +295,51 @@ impl CarbonMarketplace {
             .instance()
             .set(&DataKey::Config, &(admin, tree_token, payment_token));
         env.storage().instance().set(&DataKey::NextListingId, &0u64);
+        env.storage().instance().set(&DataKey::Paused, &false);
+    }
+
+    /// Pause contract operations. Admin only.
+    pub fn pause(env: Env) {
+        let (admin, _, _) = Self::config(&env);
+        admin.require_auth();
+        env.storage().instance().set(&DataKey::Paused, &true);
+        env.events().publish((symbol_short!("paused"),), env.ledger().timestamp());
+    }
+
+    /// Unpause contract operations. Admin only.
+    pub fn unpause(env: Env) {
+        let (admin, _, _) = Self::config(&env);
+        admin.require_auth();
+        env.storage().instance().set(&DataKey::Paused, &false);
+        env.events().publish((symbol_short!("unpaused"),), env.ledger().timestamp());
+    }
+
+    /// Returns true if the marketplace is currently paused.
+    pub fn is_paused(env: Env) -> bool {
+        env.storage().instance().get(&DataKey::Paused).unwrap_or(false)
+    }
+
+    /// Calculate dynamic swap fee in basis points based on trade volume (`amount_in`).
+    ///
+    /// Tiers:
+    /// - Tier 1 (< 10,000 units): 30 bps (0.30%)
+    /// - Tier 2 (10,000 to 100,000 units): 20 bps (0.20%)
+    /// - Tier 3 (>= 100,000 units): 10 bps (0.10%)
+    pub fn get_fee_bps(env: Env, amount_in: i128) -> i128 {
+        let _ = &env;
+        if amount_in >= 100_000 {
+            10
+        } else if amount_in >= 10_000 {
+            20
+        } else {
+            30
+        }
+    }
+
+    fn assert_not_paused(env: &Env) {
+        if Self::is_paused(env.clone()) {
+            panic_with_error!(env, HarvestaError::ContractPaused);
+        }
     }
 
     // ── Orderbook: fixed-price listings ─────────────────────────────────────
@@ -268,6 +355,7 @@ impl CarbonMarketplace {
         price_per_token: i128,
         payment_token: Address,
     ) -> u64 {
+        Self::assert_not_paused(&env);
         seller.require_auth();
         if amount <= 0 {
             panic_with_error!(&env, MarketplaceError::ListingAmountMustBePositive);
@@ -341,6 +429,38 @@ impl CarbonMarketplace {
             panic_with_error!(&env, MarketplaceError::InsufficientLiquidity);
         }
 
+        let payment = amount
+            .checked_mul(listing.price_per_token)
+            .unwrap_or_else(|| panic_with_error!(&env, HarvestaError::AmountMustBePositive));
+
+        // Split payment: royalty to planter, remainder to seller
+        let royalty_bps: u32 = env
+            .storage()
+            .instance()
+            .get(&DataKey::RoyaltyConfig)
+            .unwrap_or(0);
+
+        let royalty_amount = if royalty_bps > 0 && listing.planter != listing.seller {
+            (payment * royalty_bps as i128) / 10_000
+        } else {
+            0
+        };
+        let post_royalty = payment - royalty_amount;
+
+        // Protocol fee (after royalty)
+        let protocol_fee = Self::compute_protocol_fee(&env, post_royalty);
+        let seller_amount = post_royalty - protocol_fee;
+
+        if royalty_amount > 0 {
+            token::Client::new(&env, &listing.payment_token).transfer(
+                &buyer,
+                &listing.planter,
+                &royalty_amount,
+            );
+        }
+
+        Self::deposit_protocol_fee(&env, &buyer, &listing.payment_token, protocol_fee);
+
         let total_cost = amount * listing.price_per_token / 1_000_0000; // price scaled
         // Transfer payment from buyer to seller
         token::Client::new(&env, &listing.payment_token).transfer(
@@ -366,6 +486,7 @@ impl CarbonMarketplace {
         Self::record_observation(&env, listing.price_per_token);
 
         env.events()
+            .publish((symbol_short!("sold"), listing_id), (buyer, amount, payment, royalty_amount, protocol_fee));
             .publish((symbol_short!("bought"),), (listing_id, buyer, amount));
     }
 
@@ -442,12 +563,20 @@ impl CarbonMarketplace {
     /// of the two ratio contributions.
     ///
     /// Transfers both tokens from `provider` into this contract.
+    /// Add liquidity to the constant-product AMM pool.
+    ///
+    /// On first deposit, mints `sqrt(tree_amount * payment_amount) * LP_PRECISION`
+    /// shares. On subsequent deposits, mints shares proportional to the smaller
+    /// of the two ratio contributions.
+    ///
+    /// Transfers both tokens from `provider` into this contract.
     pub fn amm_add_liquidity(
         env: Env,
         provider: Address,
         tree_amount: i128,
         payment_amount: i128,
     ) -> i128 {
+        Self::assert_not_paused(&env);
         provider.require_auth();
         if tree_amount <= 0 || payment_amount <= 0 {
             panic_with_error!(&env, MarketplaceError::AmmAmountMustBePositive);
@@ -521,6 +650,7 @@ impl CarbonMarketplace {
         provider: Address,
         lp_shares: i128,
     ) -> (i128, i128) {
+        Self::assert_not_paused(&env);
         provider.require_auth();
         if lp_shares <= 0 {
             panic_with_error!(&env, MarketplaceError::AmmAmountMustBePositive);
@@ -592,7 +722,7 @@ impl CarbonMarketplace {
     ///   - TREE  → payment token
     ///   - payment token → TREE
     ///
-    /// Fee of `FEE_NUMERATOR / FEE_DENOMINATOR` (30 bps) is deducted from
+    /// Fee tier (30 bps / 20 bps / 10 bps based on volume) is deducted from
     /// `amount_in` before applying the xy = k formula. The fee stays in the
     /// pool, incrementing k for all LP holders.
     ///
@@ -604,6 +734,7 @@ impl CarbonMarketplace {
         amount_in: i128,
         min_amount_out: i128,
     ) -> i128 {
+        Self::assert_not_paused(&env);
         caller.require_auth();
         if amount_in <= 0 {
             panic_with_error!(&env, MarketplaceError::AmmAmountMustBePositive);
@@ -623,17 +754,15 @@ impl CarbonMarketplace {
             panic_with_error!(&env, MarketplaceError::AmmInsufficientLiquidity);
         }
 
-        // Compute amount out using constant-product formula with fee:
-        //   amount_in_with_fee = amount_in * (FEE_DEN - FEE_NUM)
-        //   amount_out = (amount_in_with_fee * reserve_out)
-        //                / (reserve_in * FEE_DEN + amount_in_with_fee)
+        // Compute amount out using constant-product formula with dynamic fee:
+        let fee_bps = Self::get_fee_bps(env.clone(), amount_in);
         let (reserve_in, reserve_out) = if tree_to_payment {
             (pool.reserve_tree, pool.reserve_payment)
         } else {
             (pool.reserve_payment, pool.reserve_tree)
         };
 
-        let amount_in_with_fee = amount_in * (FEE_DENOMINATOR - FEE_NUMERATOR);
+        let amount_in_with_fee = amount_in * (FEE_DENOMINATOR - fee_bps);
         let numerator = amount_in_with_fee * reserve_out;
         let denominator = reserve_in * FEE_DENOMINATOR + amount_in_with_fee;
         let amount_out = numerator / denominator;
@@ -651,13 +780,13 @@ impl CarbonMarketplace {
             pool.reserve_tree += amount_in;
             pool.reserve_payment -= amount_out;
             // Track fee collected in payment-token equivalent
-            let fee = amount_in * FEE_NUMERATOR / FEE_DENOMINATOR;
+            let fee = amount_in * fee_bps / FEE_DENOMINATOR;
             let fee_payment = fee * pool.reserve_payment / pool.reserve_tree;
             (payment_token.clone(), fee_payment)
         } else {
             pool.reserve_payment += amount_in;
             pool.reserve_tree -= amount_out;
-            let fee = amount_in * FEE_NUMERATOR / FEE_DENOMINATOR;
+            let fee = amount_in * fee_bps / FEE_DENOMINATOR;
             (tree_token.clone(), fee)
         };
         pool.fees_collected += fee_in_payment_units;
@@ -710,7 +839,8 @@ impl CarbonMarketplace {
             return 0;
         }
 
-        let amount_in_with_fee = amount_in * (FEE_DENOMINATOR - FEE_NUMERATOR);
+        let fee_bps = Self::get_fee_bps(env.clone(), amount_in);
+        let amount_in_with_fee = amount_in * (FEE_DENOMINATOR - fee_bps);
         let numerator = amount_in_with_fee * reserve_out;
         let denominator = reserve_in * FEE_DENOMINATOR + amount_in_with_fee;
         numerator / denominator
@@ -1731,6 +1861,11 @@ impl CarbonMarketplace {
             status: OrderStatus::Open,
             created_at: env.ledger().timestamp(),
         };
+        let post_royalty = payment - royalty_amount;
+
+        // Protocol fee (after royalty)
+        let protocol_fee = Self::compute_protocol_fee(&env, post_royalty);
+        let seller_amount = post_royalty - protocol_fee;
 
         // Match against buy orders (price descending — best bid first)
         let buy_ids: Vec<u64> = env.storage().instance()
@@ -1825,6 +1960,13 @@ impl CarbonMarketplace {
             );
         }
 
+        Self::deposit_protocol_fee(&env, &buyer, &auction.payment_token, protocol_fee);
+
+        token::Client::new(&env, &auction.payment_token).transfer(
+            &buyer,
+            &auction.seller,
+            &seller_amount,
+        );
         // Resolve payment token for storage (use first matched buy order's token, or seller address as sentinel)
         order.payment_token = resolved_payment_token.unwrap_or(seller.clone());
 
@@ -1879,7 +2021,7 @@ impl CarbonMarketplace {
         Self::record_observation(&env, current_price);
 
         env.events()
-            .publish((symbol_short!("bid"), auction_id), (buyer, amount, current_price, payment, royalty_amount));
+            .publish((symbol_short!("bid"), auction_id), (buyer, amount, current_price, payment, royalty_amount, protocol_fee));
     }
 
 
@@ -2198,6 +2340,106 @@ impl CarbonMarketplace {
         royalty_amount
     }
 
+    // ── Treasury Reserve Swap (#810) ──────────────────────────────────────────
+
+    /// Admin configures the protocol treasury reserve.
+    ///
+    /// * `fee_token`    — payment token accepted for fee collection (USDC)
+    /// * `usdc_reserve` — address that receives swapped fees (the USDC reserve)
+    /// * `fee_bps`      — protocol fee in basis points (e.g. 250 = 2.5%).
+    ///                     Must be > 0 and ≤ 1_000 (max 10%).
+    ///
+    /// Once configured, every `buy` and `bid` deducts `fee_bps` from the
+    /// seller's payout and accumulates it in this contract.  Admin then calls
+    /// `swap_fees_to_usdc` to sweep accumulated fees to the reserve.
+    pub fn configure_treasury_reserve(
+        env: Env,
+        fee_token: Address,
+        usdc_reserve: Address,
+        fee_bps: u32,
+    ) {
+        Self::assert_not_paused(&env);
+        let (admin, _) = Self::config(&env);
+        admin.require_auth();
+
+        if env.storage().instance().has(&DataKey::TreasuryReserve) {
+            panic_with_error!(&env, MarketplaceError::TreasuryAlreadyConfigured);
+        }
+        if fee_bps == 0 || fee_bps > 1_000 {
+            panic_with_error!(&env, MarketplaceError::ProtocolFeeTooHigh);
+        }
+
+        let config = TreasuryReserveConfig {
+            fee_token,
+            usdc_reserve,
+            fee_bps,
+            accumulated_fees: 0,
+            total_swapped: 0,
+        };
+        env.storage()
+            .instance()
+            .set(&DataKey::TreasuryReserve, &config);
+    }
+
+    /// Admin sweeps accumulated protocol fees to the configured USDC reserve.
+    ///
+    /// Transfers the full `accumulated_fees` balance from this contract to the
+    /// `usdc_reserve` address and resets the accumulator.  If no fees have
+    /// accumulated, the call is rejected.
+    pub fn swap_fees_to_usdc(env: Env) {
+        Self::assert_not_paused(&env);
+        let (admin, _) = Self::config(&env);
+        admin.require_auth();
+
+        let mut config: TreasuryReserveConfig = env
+            .storage()
+            .instance()
+            .get(&DataKey::TreasuryReserve)
+            .unwrap_or_else(|| panic_with_error!(&env, MarketplaceError::TreasuryNotConfigured));
+
+        if config.accumulated_fees <= 0 {
+            panic_with_error!(&env, MarketplaceError::InsufficientFeesToSwap);
+        }
+
+        let amount = config.accumulated_fees;
+
+        token::Client::new(&env, &config.fee_token).transfer(
+            &env.current_contract_address(),
+            &config.usdc_reserve,
+            &amount,
+        );
+
+        config.total_swapped += amount;
+        config.accumulated_fees = 0;
+        env.storage()
+            .instance()
+            .set(&DataKey::TreasuryReserve, &config);
+
+        env.events()
+            .publish((symbol_short!("fee_swap"),), (amount, config.usdc_reserve));
+    }
+
+    /// Returns the current treasury reserve configuration, or `None` if
+    /// the reserve has not been configured yet.
+    pub fn get_treasury_reserve(env: Env) -> Option<TreasuryReserveConfig> {
+        env.storage()
+            .instance()
+            .get(&DataKey::TreasuryReserve)
+    }
+
+    /// Returns the amount of protocol fees accumulated in the contract but
+    /// not yet swept to the USDC reserve.  Returns 0 if not configured.
+    pub fn get_accumulated_fees(env: Env) -> i128 {
+        let config: TreasuryReserveConfig = env
+            .storage()
+            .instance()
+            .get(&DataKey::TreasuryReserve)
+            .unwrap_or_else(|| panic_with_error!(&env, MarketplaceError::TreasuryNotConfigured));
+        config.accumulated_fees
+    }
+
+    // ── internal ──────────────────────────────────────────────────────────────
+
     fn config(env: &Env) -> (Address, Address) {
         env.storage().instance().get(&DataKey::Config)
             .unwrap_or_else(|| panic_with_error!(env, HarvestaError::NotInitialized))
@@ -2218,6 +2460,80 @@ impl CarbonMarketplace {
             .unwrap_or_else(|| panic_with_error!(env, HarvestaError::NotInitialized))
     }
 
+    /// Returns the protocol fee amount for a given `gross_amount`, or 0 if no
+    /// treasury reserve is configured.  The fee is `gross_amount * fee_bps / 10_000`.
+    fn compute_protocol_fee(env: &Env, gross_amount: i128) -> i128 {
+        let config_opt: Option<TreasuryReserveConfig> =
+            env.storage().instance().get(&DataKey::TreasuryReserve);
+
+        let config = match config_opt {
+            Some(c) => c,
+            None => return 0,
+        };
+
+        let fee = (gross_amount * config.fee_bps as i128) / 10_000;
+        if fee <= 0 {
+            0
+        } else {
+            fee
+        }
+    }
+
+    /// Transfers `fee` of `payment_token` from `payer` into this contract and
+    /// updates the treasury accumulator.  No-op when `fee <= 0` or when
+    /// `payment_token` does not match the configured `fee_token`.
+    fn deposit_protocol_fee(
+        env: &Env,
+        payer: &Address,
+        payment_token: &Address,
+        fee: i128,
+    ) {
+        if fee <= 0 {
+            return;
+        }
+
+        // Only collect fees in the configured fee_token (USDC).
+        let config: TreasuryReserveConfig = env
+            .storage()
+            .instance()
+            .get(&DataKey::TreasuryReserve)
+            .expect("treasury must be configured when fee > 0");
+
+        if *payment_token != config.fee_token {
+            return;
+        }
+
+        token::Client::new(env, payment_token).transfer(
+            payer,
+            &env.current_contract_address(),
+            &fee,
+        );
+        let mut cfg = config;
+        cfg.accumulated_fees += fee;
+        env.storage()
+            .instance()
+            .set(&DataKey::TreasuryReserve, &cfg);
+    }
+
+    fn resolve_listing_price(env: &Env, provided_price_per_token: i128) -> i128 {
+        if provided_price_per_token > 0 {
+            return provided_price_per_token;
+        }
+
+        let oracle_opt: Option<Address> = env.storage().instance().get(&DataKey::Oracle);
+        if let Some(oracle) = oracle_opt {
+            let (max_staleness, fallback_price) = env
+                .storage()
+                .instance()
+                .get(&DataKey::OracleConfig)
+                .unwrap_or((0u64, 0i128));
+
+            let oracle_client = PriceOracleClient::new(env, &oracle);
+            let price = oracle_client.price();
+            let timestamp = oracle_client.timestamp();
+            let is_fresh = env.ledger().timestamp().saturating_sub(timestamp) <= max_staleness;
+
+            if is_fresh && price > 0 {
     fn resolve_listing_price(env: &Env, provided: i128) -> i128 {
         if provided > 0 { return provided; }
         if let Some(oracle) = env.storage().instance().get::<DataKey, Address>(&DataKey::Oracle) {
@@ -2872,6 +3188,234 @@ mod tests {
         ctx.client.list(&ctx.seller, &ctx.planter, &999_999, &10, &ctx.payment_token);
     }
 
+    // ── Treasury Reserve Swap (#810) ──────────────────────────────────────────
+
+    fn treasury_setup() -> Ctx {
+        let ctx = setup();
+        let usdc_reserve = Address::generate(&ctx.env);
+        ctx.client.configure_treasury_reserve(&ctx.payment_token, &usdc_reserve, &250); // 2.5%
+        ctx
+    }
+
+    #[test]
+    fn test_configure_treasury_reserve_sets_config() {
+        let ctx = setup();
+        let usdc_reserve = Address::generate(&ctx.env);
+        ctx.client.configure_treasury_reserve(&ctx.payment_token, &usdc_reserve, &250);
+
+        let config = ctx.client.get_treasury_reserve().unwrap();
+        assert_eq!(config.fee_token, ctx.payment_token);
+        assert_eq!(config.usdc_reserve, usdc_reserve);
+        assert_eq!(config.fee_bps, 250);
+        assert_eq!(config.accumulated_fees, 0);
+        assert_eq!(config.total_swapped, 0);
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #117)")]
+    fn test_configure_treasury_reserve_double_config_rejected() {
+        let ctx = setup();
+        let usdc_reserve = Address::generate(&ctx.env);
+        ctx.client.configure_treasury_reserve(&ctx.payment_token, &usdc_reserve, &250);
+        ctx.client.configure_treasury_reserve(&ctx.payment_token, &usdc_reserve, &500);
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #114)")]
+    fn test_configure_treasury_reserve_zero_fee_rejected() {
+        let ctx = setup();
+        let usdc_reserve = Address::generate(&ctx.env);
+        ctx.client.configure_treasury_reserve(&ctx.payment_token, &usdc_reserve, &0);
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #114)")]
+    fn test_configure_treasury_reserve_fee_too_high_rejected() {
+        let ctx = setup();
+        let usdc_reserve = Address::generate(&ctx.env);
+        ctx.client.configure_treasury_reserve(&ctx.payment_token, &usdc_reserve, &1_001);
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #115)")]
+    fn test_get_accumulated_fees_not_configured_rejected() {
+        let ctx = setup();
+        ctx.client.get_accumulated_fees();
+    }
+
+    #[test]
+    fn test_get_accumulated_fees_zero_initially() {
+        let ctx = treasury_setup();
+        assert_eq!(ctx.client.get_accumulated_fees(), 0);
+    }
+
+    #[test]
+    fn test_buy_collects_protocol_fee() {
+        let ctx = treasury_setup();
+        let id = ctx.client.list(&ctx.seller, &ctx.planter, &1_000, &100, &ctx.payment_token);
+
+        let buyer_pay_before = balance(&ctx.env, &ctx.payment_token, &ctx.buyer);
+        let contract_pay_before = balance(&ctx.env, &ctx.payment_token, &ctx.client.address);
+
+        ctx.client.buy(&ctx.buyer, &id, &200);
+
+        // payment = 200 * 100 = 20_000
+        // royalty = 0 (planter == seller by default in setup)
+        // protocol_fee = 20_000 * 250 / 10_000 = 500
+        // seller gets = 20_000 - 500 = 19_500
+        let expected_fee = 20_000 * 250 / 10_000;
+        assert_eq!(ctx.client.get_accumulated_fees(), expected_fee);
+
+        assert_eq!(
+            balance(&ctx.env, &ctx.payment_token, &ctx.buyer),
+            buyer_pay_before - 20_000
+        );
+        assert_eq!(
+            balance(&ctx.env, &ctx.payment_token, &ctx.client.address),
+            contract_pay_before + expected_fee
+        );
+    }
+
+    #[test]
+    fn test_buy_protocol_fee_split_with_royalty() {
+        let ctx = treasury_setup();
+        let id = ctx.client.list(&ctx.seller, &ctx.planter, &1_000, &100, &ctx.payment_token);
+        ctx.client.set_royalty(&1_000); // 10% royalty
+
+        ctx.client.buy(&ctx.buyer, &id, &200);
+
+        // payment = 200 * 100 = 20_000
+        // royalty = 20_000 * 1_000 / 10_000 = 2_000 (to planter)
+        // post_royalty = 18_000
+        // protocol_fee = 18_000 * 250 / 10_000 = 450
+        // seller = 18_000 - 450 = 17_550
+        let expected_royalty = 20_000 * 1_000 / 10_000;
+        let post_royalty = 20_000 - expected_royalty;
+        let expected_fee = post_royalty * 250 / 10_000;
+
+        assert_eq!(ctx.client.get_accumulated_fees(), expected_fee);
+        assert_eq!(
+            balance(&ctx.env, &ctx.payment_token, &ctx.planter),
+            expected_royalty
+        );
+    }
+
+    #[test]
+    fn test_bid_collects_protocol_fee() {
+        let ctx = treasury_setup();
+        let id = ctx.client.create_auction(&ctx.seller, &ctx.planter, &1_000, &ctx.payment_token);
+
+        let contract_pay_before = balance(&ctx.env, &ctx.payment_token, &ctx.client.address);
+
+        ctx.client.bid(&ctx.buyer, &id, &200);
+
+        // starting_price = 100, payment = 200 * 100 = 20_000
+        // royalty = 0
+        // protocol_fee = 20_000 * 250 / 10_000 = 500
+        let expected_fee = 20_000 * 250 / 10_000;
+        assert_eq!(ctx.client.get_accumulated_fees(), expected_fee);
+        assert_eq!(
+            balance(&ctx.env, &ctx.payment_token, &ctx.client.address),
+            contract_pay_before + expected_fee
+        );
+    }
+
+    #[test]
+    fn test_multiple_trades_accumulate_fees() {
+        let ctx = treasury_setup();
+        let id1 = ctx.client.list(&ctx.seller, &ctx.planter, &1_000, &100, &ctx.payment_token);
+        let id2 = ctx.client.list(&ctx.seller, &ctx.planter, &500, &200, &ctx.payment_token);
+
+        ctx.client.buy(&ctx.buyer, &id1, &100); // fee = 10_000 * 250/10_000 = 250
+        ctx.client.buy(&ctx.buyer, &id2, &50);  // fee = 10_000 * 250/10_000 = 250
+
+        assert_eq!(ctx.client.get_accumulated_fees(), 500);
+    }
+
+    #[test]
+    fn test_swap_fees_to_usdc_transfers_and_resets() {
+        let ctx = treasury_setup();
+        let id = ctx.client.list(&ctx.seller, &ctx.planter, &1_000, &100, &ctx.payment_token);
+        ctx.client.buy(&ctx.buyer, &id, &200);
+
+        let expected_fee = 20_000 * 250 / 10_000;
+        let config = ctx.client.get_treasury_reserve().unwrap();
+        let reserve_before = balance(&ctx.env, &ctx.payment_token, &config.usdc_reserve);
+
+        ctx.client.swap_fees_to_usdc();
+
+        assert_eq!(
+            balance(&ctx.env, &ctx.payment_token, &config.usdc_reserve),
+            reserve_before + expected_fee
+        );
+        assert_eq!(ctx.client.get_accumulated_fees(), 0);
+
+        let config_after = ctx.client.get_treasury_reserve().unwrap();
+        assert_eq!(config_after.total_swapped, expected_fee);
+        assert_eq!(config_after.accumulated_fees, 0);
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #116)")]
+    fn test_swap_fees_zero_rejected() {
+        let ctx = treasury_setup();
+        ctx.client.swap_fees_to_usdc();
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #115)")]
+    fn test_swap_fees_not_configured_rejected() {
+        let ctx = setup();
+        ctx.client.swap_fees_to_usdc();
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #115)")]
+    fn test_get_treasury_reserve_not_configured_returns_none() {
+        let ctx = setup();
+        let config = ctx.client.get_treasury_reserve();
+        // get_treasury_reserve returns Option, but get_accumulated_fees panics
+        assert!(config.is_none());
+        ctx.client.get_accumulated_fees(); // this should panic
+    }
+
+    #[test]
+    fn test_no_protocol_fee_when_not_configured() {
+        let ctx = setup();
+        let id = ctx.client.list(&ctx.seller, &ctx.planter, &1_000, &10, &ctx.payment_token);
+
+        let seller_pay_before = balance(&ctx.env, &ctx.payment_token, &ctx.seller);
+
+        ctx.client.buy(&ctx.buyer, &id, &200);
+
+        // No treasury configured — seller gets full payment
+        assert_eq!(
+            balance(&ctx.env, &ctx.payment_token, &ctx.seller),
+            seller_pay_before + 200 * 10
+        );
+    }
+
+    #[test]
+    fn test_accumulated_fees_track_total_swapped_after_multiple_swaps() {
+        let ctx = treasury_setup();
+
+        // First trade + swap
+        let id1 = ctx.client.list(&ctx.seller, &ctx.planter, &1_000, &100, &ctx.payment_token);
+        ctx.client.buy(&ctx.buyer, &id1, &200);
+        ctx.client.swap_fees_to_usdc();
+        let config1 = ctx.client.get_treasury_reserve().unwrap();
+        assert_eq!(config1.total_swapped, 500);
+        assert_eq!(config1.accumulated_fees, 0);
+
+        // Second trade + swap
+        let id2 = ctx.client.list(&ctx.seller, &ctx.planter, &1_000, &100, &ctx.payment_token);
+        ctx.client.buy(&ctx.buyer, &id2, &200);
+        ctx.client.swap_fees_to_usdc();
+        let config2 = ctx.client.get_treasury_reserve().unwrap();
+        assert_eq!(config2.total_swapped, 1_000);
+        assert_eq!(config2.accumulated_fees, 0);
+    }
+
     // ── Fuzz Tests (Proptest) ──────────────────────────────────────────────────
 
     #[cfg(test)]
@@ -2941,5 +3485,31 @@ mod tests {
                 }
             }
         }
+    }
+
+    #[test]
+    fn test_dynamic_fee_tier_system() {
+        let env = Env::default();
+        assert_eq!(CarbonMarketplace::get_fee_bps(env.clone(), 500), 30);
+        assert_eq!(CarbonMarketplace::get_fee_bps(env.clone(), 15_000), 20);
+        assert_eq!(CarbonMarketplace::get_fee_bps(env.clone(), 200_000), 10);
+    }
+
+    #[test]
+    fn test_emergency_pause_lifecycle() {
+        let ctx = TestContext::setup();
+        assert!(!ctx.client.is_paused());
+        ctx.client.pause();
+        assert!(ctx.client.is_paused());
+        ctx.client.unpause();
+        assert!(!ctx.client.is_paused());
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #4)")]
+    fn test_list_blocked_when_paused() {
+        let ctx = TestContext::setup();
+        ctx.client.pause();
+        ctx.client.list(&ctx.seller, &ctx.planter, &100i128, &10i128, &ctx.payment_token);
     }
 }
