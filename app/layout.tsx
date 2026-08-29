@@ -1,8 +1,13 @@
 import type { Metadata, Viewport } from 'next';
-import Script from 'next/script';
-import { Header } from '@/components/organisms/Header/Header';
+import { Inter } from 'next/font/google';
 import { Footer } from '@/components/organisms/Footer/Footer';
+import { Header } from '@/components/organisms/Header/Header';
+import { QueryProvider } from '@/components/providers/QueryProvider';
+import { ToastProvider } from '@/contexts/ToastContext';
 import { WalletProvider } from '@/contexts/WalletContext';
+import { NotificationProvider } from '@/contexts/NotificationContext';
+
+const inter = Inter({ subsets: ['latin'], variable: '--font-inter', display: 'swap' });
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://farmcredit.app';
 const siteName = 'FarmCredit';
@@ -99,14 +104,21 @@ export default function RootLayout({
       </head>
       <body className={`${inter.variable} font-sans antialiased`}>
         <WalletProvider>
-          <a
-            href="#main-content"
-            className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 z-50 bg-stellar-blue text-stellar-navy px-4 py-2 rounded-md font-semibold focus:ring-2 focus:ring-stellar-blue focus:ring-offset-2"
-          >
-            Skip to main content
-          </a>
-          {children}
-          <Footer />
+          <ToastProvider>
+            <NotificationProvider>
+              <QueryProvider>
+                <a
+                  href="#main-content"
+                  className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 z-50 bg-stellar-blue text-stellar-navy px-4 py-2 rounded-md font-semibold focus:ring-2 focus:ring-stellar-blue focus:ring-offset-2"
+                >
+                  Skip to main content
+                </a>
+                <Header />
+                <main id="main-content">{children}</main>
+                <Footer />
+              </QueryProvider>
+            </NotificationProvider>
+          </ToastProvider>
         </WalletProvider>
       </body>
     </html>

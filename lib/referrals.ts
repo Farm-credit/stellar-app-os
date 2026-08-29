@@ -11,6 +11,42 @@ export interface ReferralStats {
   tiers: RewardTier[];
 }
 
+export const REFERRAL_BONUS_XLM = 5;
+
+export function getPlanterReferralUrl(
+  planterId: string,
+  baseUrl = 'https://stellarapp.io'
+): string {
+  return `${baseUrl.replace(/\/$/, '')}/donate?ref=${encodeURIComponent(planterId)}`;
+}
+
+interface ReferralAttribution {
+  planterId: string;
+  sponsorId: string;
+  transactionHash: string;
+  bonusXlm: number;
+}
+
+const attributions = new Map<string, ReferralAttribution>();
+
+export function recordReferralAttribution(
+  planterId: string,
+  sponsorId: string,
+  transactionHash: string
+): ReferralAttribution | null {
+  const key = sponsorId.trim();
+  if (!planterId.trim() || !key || !transactionHash.trim() || attributions.has(key)) return null;
+
+  const attribution = {
+    planterId: planterId.trim(),
+    sponsorId: key,
+    transactionHash: transactionHash.trim(),
+    bonusXlm: REFERRAL_BONUS_XLM,
+  };
+  attributions.set(key, attribution);
+  return attribution;
+}
+
 // Replace with your real API call when the backend is ready
 export async function getReferralStats(): Promise<ReferralStats> {
   const res = await fetch('/api/referrals');

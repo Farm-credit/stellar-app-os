@@ -9,10 +9,10 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 harvesta-errors = { path = "../harvesta-errors" }
 shared = { path = "../shared" }
-soroban-sdk = { version = "21.7.7", features = ["alloc"] }
+soroban-sdk = { version = "27.0.6", features = ["alloc"] }
 
 [dev-dependencies]
-soroban-sdk = { version = "21.7.7", features = ["testutils", "alloc"] }
+soroban-sdk = { version = "27.0.6", features = ["testutils", "alloc"] }
 
 [profile.release]
 opt-level = "z"

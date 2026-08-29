@@ -7,6 +7,7 @@ import { planterRegistrationSchema } from '@/lib/schemas/planter-registration';
 import type { PlanterRegistrationFormData } from '@/lib/schemas/planter-registration';
 import { REGISTRATION_STEPS, type RegistrationStep } from '@/lib/types/planter';
 import type { RegisterPlanterResponse } from '@/lib/types/planter';
+import { useOfflineUploadQueue } from '@/hooks/useOfflineUploadQueue';
 
 const ALLOWED_PHOTO_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 const MAX_PHOTO_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
@@ -27,6 +28,9 @@ export interface UsePlanterRegistrationReturn {
   submitError: string | null;
   planterId: string | null;
   submitRegistration: () => Promise<void>;
+  isOnline: boolean;
+  pendingUploads: number;
+  manualSync: () => void;
 }
 
 /** Fields that belong to each step — used for per-step validation */
@@ -45,6 +49,8 @@ export function usePlanterRegistration(): UsePlanterRegistrationReturn {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [planterId, setPlanterId] = useState<string | null>(null);
+  
+  const { isOnline, pendingCount, manualSync } = useOfflineUploadQueue();
 
   const form = useForm<PlanterRegistrationFormData>({
     resolver: zodResolver(planterRegistrationSchema),
@@ -94,6 +100,53 @@ export function usePlanterRegistration(): UsePlanterRegistrationReturn {
       setPhotoPreviewUrl(objectUrl);
       setIsUploadingPhoto(true);
 
+      // If offline, queue the upload for later
+      if (!isOnline) {
+        try {
+          await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => {
+              const base64 = reader.result as string;
+              const queuedItem = {
+                id: crypto.randomUUID(),
+                file: {
+                  name: file.name,
+                  type: file.type,
+                  size: file.size,
+                  data: base64,
+                },
+                timestamp: Date.now(),
+                status: 'pending' as const,
+                retryCount: 0,
+              };
+              
+              try {
+                const stored = localStorage.getItem('offline_upload_queue');
+                const queue = stored ? JSON.parse(stored) : { items: [] };
+                queue.items.push(queuedItem);
+                localStorage.setItem('offline_upload_queue', JSON.stringify(queue));
+                resolve(queuedItem.id);
+              } catch (err) {
+                reject(err);
+              }
+            };
+            reader.onerror = () => reject(reader.error);
+            reader.readAsDataURL(file);
+          });
+          
+          setPhotoUploadError('You are offline. Photo will be uploaded when connection is restored.');
+          setIsUploadingPhoto(false);
+          return;
+        } catch (err) {
+          setPhotoUploadError('Failed to queue photo for offline upload.');
+          setPhotoPreviewUrl(null);
+          URL.revokeObjectURL(objectUrl);
+          setIsUploadingPhoto(false);
+          return;
+        }
+      }
+
+      // Online: upload immediately
       try {
         const formData = new FormData();
         formData.append('photo', file);
@@ -123,7 +176,7 @@ export function usePlanterRegistration(): UsePlanterRegistrationReturn {
         setIsUploadingPhoto(false);
       }
     },
-    [form]
+    [form, isOnline]
   );
 
   const clearPhoto = useCallback(() => {
@@ -181,5 +234,8 @@ export function usePlanterRegistration(): UsePlanterRegistrationReturn {
     submitError,
     planterId,
     submitRegistration,
+    isOnline,
+    pendingUploads: pendingCount,
+    manualSync,
   };
 }

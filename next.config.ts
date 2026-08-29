@@ -17,6 +17,10 @@ const nextConfig: NextConfig = {
   },
   output: 'standalone',
   outputFileTracingRoot: __dirname,
+  // Keep the Sentry Node SDK out of the server bundle — it relies on runtime
+  // `require` for its auto-instrumentation, which Webpack cannot resolve
+  // statically.
+  serverExternalPackages: ['@sentry/node'],
   images: {
     remotePatterns: [
       {

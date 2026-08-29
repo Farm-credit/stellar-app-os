@@ -1,3 +1,837 @@
+
+
+
+# 🌱 Harvesta — Plant Trees. Track Impact. Offset Carbon.
+
+> A decentralised tree-planting platform on Stellar where anyone can pay farmers and individuals to plant trees — anonymously or with full carbon-offset tracking — and planters upload real-world progress with a unique tree ID.
+> 
+> *Proudly supported by [Fundable Finance](https://fundable.finance).*
+
+---
+
+## What is Harvesta?
+
+Harvesta connects **tree sponsors** with **on-the-ground planters** (farmers, community groups, individuals) through a transparent, blockchain-backed payment system built on **Stellar** using **Soroban** smart contracts.
+
+You can:
+
+- **Sponsor a tree** — pay a planter to plant and care for a tree on your behalf.
+- **Go anonymous** — make a one-time donation with no account required.
+- **Track your forest** — create an account, get a unique tree ID for every tree you sponsor, and follow its growth through planter-uploaded photo and GPS updates.
+- **Measure your impact** — the platform calculates estimated CO₂ offset per tree species and shows your cumulative carbon footprint reduction.
+
+Planters receive **instant Stellar payments** the moment a tree is verified, with no banks, no delays, and no middlemen.
+
+---
+
+## How It Works
+
+```
+Sponsor                   Harvesta Platform              Planter
+  │                              │                          │
+  │── Choose species, qty ──────>│                          │
+  │── Pay in XLM / USDC ────────>│                          │
+  │                              │── Escrow in contract ───>│
+  │                              │                          │── Plant tree
+  │                              │                          │── Upload photo + GPS
+  │                              │<── Progress update ──────│
+  │<── Carbon dashboard update ──│                          │
+  │                              │── Release payment ──────>│
+```
+
+1. **Sponsor** selects tree species, quantity, region, and payment method (XLM or USDC).
+2. **Smart contract** holds funds in escrow, mints a unique Tree NFT ID.
+3. **Planter** receives the job, plants the tree, and uploads timestamped photo + GPS proof.
+4. **Contract** releases payment to planter upon verification.
+5. **Sponsor dashboard** shows live tree progress, species info, and CO₂ offset estimate.
+
+---
+
+## Features
+
+| Feature | Description |
+|---|---|
+| 🌳 Sponsor a Tree | Pay any planter to plant a tree on your behalf |
+| 👤 Anonymous Donations | One-time payment, no account needed |
+| 🆔 Unique Tree ID | Each sponsored tree gets a tamper-proof on-chain ID |
+| 📸 Planter Updates | Planters upload photo + GPS progress per tree |
+| 📊 Carbon Dashboard | Track estimated CO₂ offset across your entire portfolio |
+| 💸 Instant Settlement | Planters paid in XLM/USDC the moment work is verified |
+| 🔒 Escrow Protection | Funds held in smart contract until planting is confirmed |
+| 🗺️ Regional Selection | Sponsor trees in specific countries or biomes |
+
+---
+
+## Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Smart Contracts | Soroban (Rust), Stellar mainnet/testnet |
+| Frontend | React + TypeScript + Vite |
+| Wallet | Freighter, Albedo, xBull |
+| Storage | IPFS (planter photo uploads) |
+| Off-chain API | Node.js / Express |
+| Database | PostgreSQL |
+| Carbon Data | Open-source CO₂ sequestration tables per species |
+
+---
+
+## Smart Contracts
+
+```
+contracts/
+├── tree_registry/      # Mint and manage unique Tree IDs (NFT-like)
+├── escrow/             # Hold sponsor funds, release on verification
+├── planter_registry/   # Register planters, track reputation score
+├── carbon_credits/     # Calculate and record CO₂ offset per tree
+└── governance/         # DAO voting for platform parameters
+```
+
+---
+
+## Getting Started
+
+### Prerequisites
+
+- Rust + `cargo` (stable)
+- `stellar-cli` ≥ 21
+- Node.js ≥ 18
+- A Stellar testnet account funded via [friendbot](https://friendbot.stellar.org)
+
+### Install
+
+```bash
+git clone https://github.com/RuhinaCodes/Harvesta.git
+cd Harvesta
+```
+
+### Build Contracts
+
+```bash
+cd contracts
+cargo build --target wasm32-unknown-unknown --release
+```
+
+### Deploy to Testnet
+
+```bash
+stellar contract deploy \
+  --wasm target/wasm32-unknown-unknown/release/tree_registry.wasm \
+  --network testnet
+```
+
+### Run Frontend
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+---
+
+## Carbon Offset Methodology
+
+Harvesta uses published biomass growth tables (FAO / IPCC Tier 1) to estimate CO₂ sequestration per tree species per year. Estimates are clearly labelled as projections and updated annually.
+
+Example:
+
+| Species | Avg CO₂/year (kg) | Maturity |
+|---|---|---|
+| Teak | 22 kg | 20 years |
+| Moringa | 9 kg | 3 years |
+| Eucalyptus | 31 kg | 10 years |
+| Mangrove | 14 kg | 15 years |
+
+---
+
+## For Planters
+
+1. Register your wallet and identity on-chain.
+2. Browse open planting jobs in your region.
+3. Accept a job — funds are locked in escrow immediately.
+4. Plant the tree and upload photo + GPS coordinates using the mobile-friendly uploader.
+5. Receive payment to your Stellar wallet instantly upon verification.
+
+---
+
+## Roadmap
+
+- [x] Core escrow contract
+- [x] Tree registry (unique ID minting)
+- [ ] Planter reputation scoring
+- [ ] Mobile planter app (React Native)
+- [ ] DAO governance for fee parameters
+- [ ] Satellite verification integration (Sentinel-2)
+- [ ] Carbon credit marketplace
+
+---
+
+## Contributing
+
+Issues are open and labelled — see the [Issues tab](../../issues). Smart contract work is in `contracts/`, frontend in `frontend/`, backend in `scripts/`.
+
+---
+
+## License
+
+Apache 2.0
+![CI](https://github.com/Farm-credit//stellar-app-os/actions/workflows/ci.yml/badge.svg)
+
+![Deploy](https://github.com/Farm-credit/stellar-app-os/actions/workflows/deploy.yml/badge.svg)
+
+# FarmCredit
+
+Decentralized agricultural credit platform built on the [Stellar network](https://stellar.org).
+
+## Tech Stack
+
+- **Framework:** Next.js 15 (App Router)
+- **Language:** TypeScript (strict mode)
+- **Styling:** Tailwind CSS v4 + shadcn/ui
+- **Design System:** Stellar brand colors + atomic design pattern
+- **Package Manager:** pnpm
+
+## Getting Started
+
+### Prerequisites
+
+- Node.js 20+
+- pnpm (`npm install -g pnpm`)
+- Git
+
+### Setup
+
+```bash
+git clone git@github.com:Farm-credit/stellar-app-os.git
+cd stellar-app-os
+pnpm install
+pnpm dev
+```
+
+Open [http://localhost:3000](http://localhost:3000) to see the app.
+
+---
+
+## 5-Minute Quickstart (Stellar Testnet)
+
+Get up and running with the full stack in under 5 minutes.
+
+### Step 1: Clone & Install
+
+``bash
+git clone https://github.com/Farm-credit/stellar-app-os.git
+cd stellar-app-os
+pnpm install
+``
+
+### Step 2: Fund a Testnet Account
+
+``bash
+# Install stellar-cli if you haven't already
+cargo install --locked stellar-cli
+
+# Generate a new keypair
+stellar keys generate --network testnet my-account
+
+# Fund it with 10,000 XLM via Friendbot
+stellar keys fund my-account --network testnet
+``
+
+### Step 3: Build Contracts
+
+``bash
+cd contracts
+cargo build --target wasm32-unknown-unknown --release
+``
+
+### Step 4: Deploy a Contract (Optional)
+
+``bash
+stellar contract deploy \
+  --wasm target/wasm32-unknown-unknown/release/tree_registry.wasm \
+  --network testnet
+``
+
+### Step 5: Run the Frontend
+
+``bash
+cd ../frontend  # or root if frontend is at root
+pnpm dev
+``
+
+Open [http://localhost:3000](http://localhost:3000), connect your Freighter wallet (set to Testnet), and you're ready to sponsor a tree!
+
+### Troubleshooting
+
+| Issue | Solution |
+|-------|----------|
+| stellar-cli not found | Run cargo install --locked stellar-cli |
+| Wallet not connecting | Ensure Freighter is set to **Testnet** network |
+| Contract deploy fails | Check you have testnet XLM via stellar keys balance my-account --network testnet |
+| Frontend won't start | Run pnpm install again, check Node.js version = 20 |
+
+
+### Scripts
+
+| Command               | Description                             |
+| --------------------- | --------------------------------------- |
+| `pnpm dev`            | Start development server                |
+| `pnpm build`          | Production build (also runs type-check) |
+| `pnpm typecheck`      | Run TypeScript type-check without emitting |
+| `pnpm test`           | Run unit tests with Vitest              |
+| `pnpm test:watch`     | Run Vitest in watch mode                |
+| `pnpm start`          | Start production server                 |
+| `pnpm lint`           | Run ESLint                              |
+| `pnpm generate-icons` | Generate PWA icons from source          |
+
+## Progressive Web App (PWA)
+
+FarmCredit is a fully functional Progressive Web App with offline support and installability.
+
+### Features
+
+- 📱 **Installable** - Add to home screen on mobile and desktop
+- 🔌 **Offline Support** - Works without internet connection
+- 🚀 **Fast Loading** - Cached assets for instant load times
+- 🔔 **Push Notifications** - Optional notification support
+- 📊 **Network Aware** - Detects and adapts to connection status
+
+### Quick Start
+
+```bash
+# Install PWA dependencies
+npm install next-pwa @ducanh2912/next-pwa workbox-window
+npm install -D @types/serviceworker sharp
+
+# Generate icons
+npm run generate-icons
+
+# Build and test
+npm run build
+npm start
+```
+
+### Documentation
+
+- [PWA Setup Guide](./PWA_SETUP.md) - Comprehensive setup and deployment
+- [Installation Guide](./INSTALLATION.md) - Quick start guide
+- [Testing Checklist](./TESTING_CHECKLIST.md) - Complete testing guide
+- [Quick Reference](./PWA_QUICK_REFERENCE.md) - Commands and tips
+
+### Testing PWA
+
+1. Build production version: `npm run build && npm start`
+2. Open DevTools → Application → Service Workers
+3. Verify service worker is active
+4. Test offline: DevTools → Network → Offline
+5. Run Lighthouse audit for PWA score
+
+## Project Architecture
+
+> 📖 **Full System Architecture**: See [ARCHITECTURE.md](./ARCHITECTURE.md) for the high-level architecture diagram and data flows across smart contracts, frontend, backend, and IPFS.
+
+This project follows the **atomic design pattern**. Components are organized by complexity, not by feature.
+
+```
+stellar-app-os/
+├── app/                    # Next.js App Router pages & layouts
+│   ├── globals.css         # Stellar color tokens + Tailwind config
+│   ├── layout.tsx          # Root layout
+│   └── page.tsx            # Landing page
+├── components/
+│   ├── atoms/              # Smallest building blocks (Button, Input, Text, Badge)
+│   ├── molecules/          # Combinations of atoms (Card)
+│   ├── organisms/          # Complex sections (headers, forms — to be built)
+│   ├── templates/          # Page-level layouts (to be built)
+│   └── ui/                 # shadcn/ui base components (do not edit directly unless extending)
+├── lib/
+│   └── utils.ts            # Shared utilities (cn() helper)
+└── public/                 # Static assets
+```
+
+### Design Hierarchy
+
+| Level         | Purpose                          | Example                                 |
+| ------------- | -------------------------------- | --------------------------------------- |
+| **Atoms**     | Single-purpose UI elements       | `Button`, `Input`, `Text`, `Badge`      |
+| **Molecules** | Groups of atoms working together | `Card`, `FormField`                     |
+| **Organisms** | Complex UI sections              | `Header`, `DonationForm`, `ProjectGrid` |
+| **Templates** | Page-level structural layouts    | `DashboardLayout`, `AuthLayout`         |
+
+### Stellar Color Tokens
+
+These brand colors are defined in `app/globals.css` and available as Tailwind classes:
+
+| Token          | Value     | Tailwind Class                             |
+| -------------- | --------- | ------------------------------------------ |
+| Stellar Blue   | `#14B6E7` | `bg-stellar-blue`, `text-stellar-blue`     |
+| Stellar Purple | `#3E1BDB` | `bg-stellar-purple`, `text-stellar-purple` |
+| Stellar Navy   | `#0D0B21` | `bg-stellar-navy`, `text-stellar-navy`     |
+| Stellar Cyan   | `#00C2FF` | `bg-stellar-cyan`, `text-stellar-cyan`     |
+| Stellar Green  | `#00B36B` | `bg-stellar-green`, `text-stellar-green`   |
+
+### Import Convention
+
+**No barrel exports.** Always import directly from the component file:
+
+```tsx
+// Correct
+import { Button } from '@/components/atoms/Button';
+import { Card, CardHeader } from '@/components/molecules/Card';
+
+// Wrong — do not use index.ts barrel exports
+import { Button } from '@/components/atoms';
+```
+
+---
+
+## Contributing
+
+### 1. Pick an Issue
+
+Browse [open issues](https://github.com/Farm-credit/stellar-app-os/issues) labeled `Stellar Wave`. Comment on the issue to claim it. Do not work on an issue someone else has claimed without coordinating.
+
+### 2. Branch from `main`
+
+Always start from the latest `main`:
+
+```bash
+git checkout main
+git pull origin main
+git checkout -b feat/<issue-number>-<short-description>
+```
+
+Branch naming examples:
+
+- `feat/42-wallet-connect-modal`
+- `fix/78-rate-limit-toast`
+- `docs/107-contributing-guide`
+
+### 3. Coding Standards
+
+- **TypeScript strict mode** — no `any`, no unused variables
+- **Component patterns** — use `forwardRef` where needed, always set `displayName`, export named types
+- **Naming** — PascalCase for components, camelCase for functions/variables, kebab-case for CSS classes
+- **Atomic design** — atoms extend `ui/` base components with Stellar variants; molecules compose atoms
+- **No barrel exports** — import directly from the file, not from `index.ts`
+
+### 4. Commit Conventions
+
+This project enforces **Conventional Commits** and **atomic commits**.
+
+#### Commit Message Format
+
+```
+<type>(<scope>): <short description>
+
+[optional body]
+
+[optional footer]
+```
+
+#### Allowed Types
+
+| Type       | When to use                            |
+| ---------- | -------------------------------------- |
+| `feat`     | New feature or component               |
+| `fix`      | Bug fix                                |
+| `docs`     | Documentation only                     |
+| `style`    | Formatting, no logic change            |
+| `refactor` | Code restructuring, no behavior change |
+| `perf`     | Performance improvement                |
+| `test`     | Adding or updating tests               |
+| `build`    | Build system or dependency changes     |
+| `ci`       | CI configuration changes               |
+| `chore`    | Maintenance tasks                      |
+
+#### Allowed Scopes
+
+`auth`, `wallet`, `dashboard`, `marketplace`, `admin`, `donation`, `carbon`, `ui`, `layout`, `nav`, `config`, `deps`
+
+#### Examples
+
+```bash
+feat(wallet): add Stellar wallet connection modal
+fix(donation): correct minimum amount validation
+docs(contributing): add commit convention section
+style(ui): format Button component with Prettier
+refactor(dashboard): extract tab components into separate files
+```
+
+#### Atomic Commit Rules
+
+1. **One concern per commit** — never mix a bug fix with a new feature
+2. **Each commit must build** — `pnpm build` must pass at every single commit
+3. **Each commit must be revertable** — reverting one commit must not break unrelated code
+4. **Order matters** — foundation first, then features, then polish
+
+**Bad example** (one giant commit):
+
+```
+feat: add dashboard with tabs, fix header bug, update colors
+```
+
+**Good example** (atomic):
+
+```
+feat(dashboard): create dashboard page layout
+feat(dashboard): add overview tab component
+feat(dashboard): add donations tab component
+fix(nav): correct active link highlighting on dashboard
+style(dashboard): align tab content padding
+```
+
+### 5. Pull Request Process
+
+#### Before Submitting
+
+```bash
+# Make sure you're up to date with main
+git checkout main
+git pull origin main
+git checkout <your-branch>
+git rebase main
+
+# Verify everything passes
+pnpm build
+pnpm lint
+```
+
+#### PR Requirements
+
+Every PR **must** include:
+
+- **Linked issue** — use `Closes #<issue-number>` in the PR description
+- **Screen recording** — record your implementation working in the browser and attach it to the PR
+- **Filled PR template** — Summary, What Was Implemented, Implementation Details, How to Test
+- **Passing CI** — build and lint must pass
+
+> **PRs without a screen recording or without a linked issue will not be reviewed.**
+
+#### PR Template
+
+When you open a PR, the template will auto-populate. Fill out every section:
+
+```markdown
+## Summary
+
+<!-- 1-3 sentences: What does this PR do and why? -->
+
+## Related Issue
+
+Closes #<issue-number>
+
+## What Was Implemented
+
+<!-- Detailed list of what was built/changed -->
+
+- [ ] Component X created
+- [ ] Styling applied with Stellar tokens
+- [ ] Responsive on mobile
+
+## Implementation Details
+
+<!-- Key decisions, patterns used, trade-offs -->
+
+## Screenshots / Recordings
+
+<!-- REQUIRED: Screen recording of your implementation -->
+
+## How to Test
+
+<!-- Step-by-step for reviewers -->
+
+1. Checkout this branch
+2. Run `pnpm dev`
+3. Navigate to /path
+4. Verify X works
+```
+
+### 6. Code Review
+
+- Expect feedback. Reviews are about improving the code, not criticizing the author.
+- Respond to every comment — either make the change or explain why not.
+- After addressing feedback, re-request review.
+- Maintainers will merge once approved and CI passes.
+
+### 7. Stay in Sync
+
+While your PR is in review, keep your branch up to date:
+
+```bash
+git checkout main
+git pull origin main
+git checkout <your-branch>
+git rebase main
+git push --force-with-lease
+```
+
+---
+
+## License
+
+This project is open source. See [LICENSE](LICENSE) for details.
+# 🌱 Harvesta — Plant Trees. Track Impact. Offset Carbon.
+
+> A decentralised tree-planting platform on Stellar where anyone can pay farmers and individuals to plant trees — anonymously or with full carbon-offset tracking — and planters upload real-world progress with a unique tree ID.
+
+---
+
+## What is Harvesta?
+
+Harvesta connects **tree sponsors** with **on-the-ground planters** (farmers, community groups, individuals) through a transparent, blockchain-backed payment system built on **Stellar** using **Soroban** smart contracts.
+
+You can:
+
+- **Sponsor a tree** — pay a planter to plant and care for a tree on your behalf.
+- **Go anonymous** — make a one-time donation with no account required.
+- **Track your forest** — create an account, get a unique tree ID for every tree you sponsor, and follow its growth through planter-uploaded photo and GPS updates.
+- **Measure your impact** — the platform calculates estimated CO₂ offset per tree species and shows your cumulative carbon footprint reduction.
+
+Planters receive **instant Stellar payments** the moment a tree is verified, with no banks, no delays, and no middlemen.
+
+---
+
+## How It Works
+
+```
+Sponsor                   Harvesta Platform              Planter
+  │                              │                          │
+  │── Choose species, qty ──────>│                          │
+  │── Pay in XLM / USDC ────────>│                          │
+  │                              │── Escrow in contract ───>│
+  │                              │                          │── Plant tree
+  │                              │                          │── Upload photo + GPS
+  │                              │<── Progress update ──────│
+  │<── Carbon dashboard update ──│                          │
+  │                              │── Release payment ──────>│
+```
+
+1. **Sponsor** selects tree species, quantity, region, and payment method (XLM or USDC).
+2. **Smart contract** holds funds in escrow, mints a unique Tree NFT ID.
+3. **Planter** receives the job, plants the tree, and uploads timestamped photo + GPS proof.
+4. **Contract** releases payment to planter upon verification.
+5. **Sponsor dashboard** shows live tree progress, species info, and CO₂ offset estimate.
+
+---
+
+## Features
+
+| Feature | Description |
+|---|---|
+| 🌳 Sponsor a Tree | Pay any planter to plant a tree on your behalf |
+| 👤 Anonymous Donations | One-time payment, no account needed |
+| 🆔 Unique Tree ID | Each sponsored tree gets a tamper-proof on-chain ID |
+| 📸 Planter Updates | Planters upload photo + GPS progress per tree |
+| 📊 Carbon Dashboard | Track estimated CO₂ offset across your entire portfolio |
+| 💸 Instant Settlement | Planters paid in XLM/USDC the moment work is verified |
+| 🔒 Escrow Protection | Funds held in smart contract until planting is confirmed |
+| 🗺️ Regional Selection | Sponsor trees in specific countries or biomes |
+
+---
+
+## Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Smart Contracts | Soroban (Rust), Stellar mainnet/testnet |
+| Frontend | React + TypeScript + Vite |
+| Wallet | Freighter, Albedo, xBull |
+| Storage | IPFS (planter photo uploads) |
+| Off-chain API | Node.js / Express |
+| Database | PostgreSQL |
+| Carbon Data | Open-source CO₂ sequestration tables per species |
+
+---
+
+## Smart Contracts
+
+```
+contracts/
+├── tree_registry/      # Mint and manage unique Tree IDs (NFT-like)
+├── escrow/             # Hold sponsor funds, release on verification
+├── planter_registry/   # Register planters, track reputation score
+├── carbon_credits/     # Calculate and record CO₂ offset per tree
+└── governance/         # DAO voting for platform parameters
+```
+
+---
+
+## Getting Started
+
+### Prerequisites
+
+- Rust + `cargo` (stable)
+- `stellar-cli` ≥ 21
+- Node.js ≥ 18
+- A Stellar testnet account funded via [friendbot](https://friendbot.stellar.org)
+
+### Install
+
+```bash
+git clone https://github.com/RuhinaCodes/Harvesta.git
+cd Harvesta
+```
+
+### Build Contracts
+
+```bash
+cd contracts
+cargo build --target wasm32-unknown-unknown --release
+```
+
+### Deploy to Testnet
+
+```bash
+stellar contract deploy \
+  --wasm target/wasm32-unknown-unknown/release/tree_registry.wasm \
+  --network testnet
+```
+
+### Run Frontend
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+---
+
+## Carbon Offset Methodology
+
+Harvesta uses published biomass growth tables (FAO / IPCC Tier 1) to estimate CO₂ sequestration per tree species per year. Estimates are clearly labelled as projections and updated annually.
+
+Example:
+
+| Species | Avg CO₂/year (kg) | Maturity |
+|---|---|---|
+| Teak | 22 kg | 20 years |
+| Moringa | 9 kg | 3 years |
+| Eucalyptus | 31 kg | 10 years |
+| Mangrove | 14 kg | 15 years |
+
+---
+
+## For Planters
+
+1. Register your wallet and identity on-chain.
+2. Browse open planting jobs in your region.
+3. Accept a job — funds are locked in escrow immediately.
+4. Plant the tree and upload photo + GPS coordinates using the mobile-friendly uploader.
+5. Receive payment to your Stellar wallet instantly upon verification.
+
+---
+
+## Roadmap
+
+- [x] Core escrow contract
+- [x] Tree registry (unique ID minting)
+- [ ] Planter reputation scoring
+- [ ] Mobile planter app (React Native)
+- [ ] DAO governance for fee parameters
+- [ ] Satellite verification integration (Sentinel-2)
+- [ ] Carbon credit marketplace
+
+---
+
+## Contributing
+
+Issues are open and labelled — see the [Issues tab](../../issues). Smart contract work is in `contracts/`, frontend in `frontend/`, backend in `scripts/`.
+
+---
+
+## License
+
+Apache 2.0
+
+---
+
+## 🔒 Redis Redlock – Wallet Transaction Serialization
+
+To prevent **Stellar sequence/nonce collisions** when multiple API replicas build transactions for the same wallet concurrently, the backend uses **Redis Redlock** distributed locks.
+
+### Problem
+
+Stellar accounts use a strict sequence number (similar to Ethereum nonce). If two concurrent requests load the same sequence and both build `seq+1`, one will fail with `tx_bad_seq`.
+
+```
+Client A: loadAccount seq=100 ─┐
+Client B: loadAccount seq=100 ─┼─► both build seq=101 ─► one fails tx_bad_seq
+```
+
+### Solution – Redlock per Wallet
+
+All transaction building API routes now acquire a distributed lock keyed by wallet public key:
+
+```ts
+import { withWalletLock } from '@/lib/cache/redlock';
+
+const result = await withWalletLock(walletPublicKey, async () => {
+  return buildDonationTransaction(...);
+});
+```
+
+Lock keys:
+- `lock:wallet:tx:{publicKey}` – transaction building / submission
+- `lock:wallet:nonce:{publicKey}` – auth nonce generation
+- `auth:nonce:{publicKey}` – single-use login nonces stored in Redis
+
+### Implementation
+
+- **lib/cache/redis.ts** – singleton Redis client manager (supports `REDIS_URL` and `REDIS_URLS` for multi-instance Redlock quorum)
+- **lib/cache/redlock.ts** – full Redlock algorithm:
+  - `SET key value NX PX ttl` with unique token
+  - Quorum = `floor(n/2)+1`
+  - Validity = `ttl - elapsed - drift`
+  - Lua unlock: `if get == token then del`
+  - Retry with jitter
+  - **In-memory fallback** when `REDIS_URL` not set (single-process serialization via promise queues + TTL)
+- **lib/auth/nonce.ts** – Redis-backed single-use nonce store with atomic Lua consume
+- **API routes** (`/api/transaction/build`, `/build-donation`, `/credits/bulk-purchase`, `/transaction/build-anonymous-donation`, `/nft/mint`, `/transaction/submit`) – wrapped with `withWalletLock`
+
+### Environment Variables
+
+```bash
+REDIS_URL=redis://localhost:6379
+# Optional multi-instance for true Redlock quorum
+# REDIS_URLS=redis://127.0.0.1:6379,redis://127.0.0.1:6380,redis://127.0.0.1:6381
+
+REDIS_LOCK_TTL_MS=10000
+REDIS_LOCK_RETRY_COUNT=10
+REDIS_LOCK_RETRY_DELAY_MS=100
+REDIS_LOCK_RETRY_JITTER_MS=100
+REDIS_LOCK_SIGNING_TTL_MS=30000
+REDIS_LOCK_SIGNING_RETRY=20
+```
+
+If `REDIS_URL` is not set, the system logs a warning and falls back to in-memory locks – safe for local dev but not distributed.
+
+### Testing
+
+```bash
+pnpm test lib/cache/__tests__/redlock.test.ts
+pnpm test lib/auth/__tests__/nonce-redlock.test.ts
+pnpm test lib/cache/__tests__/wallet-lock-integration.test.ts
+```
+
+Tests verify:
+- Lock acquire/release
+- Serialization of same wallet, parallel for different wallets
+- Auto-expiry and extend
+- Failure after retries (throws `LockAcquisitionError` → API returns 409)
+- Nonce single-use guarantee via Redis Lua
+
+### Security & Scalability
+
+- Unique token per lock prevents accidental release by other workers
+- TTL prevents deadlocks if holder crashes
+- Retry with jitter avoids thundering herd
+- Logs via Winston with redaction of sensitive keys
+- Quorum-based multi-Redis support for production HA
+
+
 # 🌱 Harvesta — Plant Trees. Track Impact. Offset Carbon.
 
 > A decentralised tree-planting platform on Stellar where anyone can pay farmers and individuals to plant trees — anonymously or with full carbon-offset tracking — and planters upload real-world progress with a unique tree ID.
@@ -679,3 +1513,2888 @@ Issues are open and labelled — see the [Issues tab](../../issues). Smart contr
 ## License
 
 Apache 2.0
+
+
+# 🌱 Harvesta — Plant Trees. Track Impact. Offset Carbon.
+
+> A decentralised tree-planting platform on Stellar where anyone can pay farmers and individuals to plant trees — anonymously or with full carbon-offset tracking — and planters upload real-world progress with a unique tree ID.
+> 
+> *Proudly supported by [Fundable Finance](https://fundable.finance).*
+
+---
+
+## What is Harvesta?
+
+Harvesta connects **tree sponsors** with **on-the-ground planters** (farmers, community groups, individuals) through a transparent, blockchain-backed payment system built on **Stellar** using **Soroban** smart contracts.
+
+You can:
+
+- **Sponsor a tree** — pay a planter to plant and care for a tree on your behalf.
+- **Go anonymous** — make a one-time donation with no account required.
+- **Track your forest** — create an account, get a unique tree ID for every tree you sponsor, and follow its growth through planter-uploaded photo and GPS updates.
+- **Measure your impact** — the platform calculates estimated CO₂ offset per tree species and shows your cumulative carbon footprint reduction.
+
+Planters receive **instant Stellar payments** the moment a tree is verified, with no banks, no delays, and no middlemen.
+
+---
+
+## How It Works
+
+```
+Sponsor                   Harvesta Platform              Planter
+  │                              │                          │
+  │── Choose species, qty ──────>│                          │
+  │── Pay in XLM / USDC ────────>│                          │
+  │                              │── Escrow in contract ───>│
+  │                              │                          │── Plant tree
+  │                              │                          │── Upload photo + GPS
+  │                              │<── Progress update ──────│
+  │<── Carbon dashboard update ──│                          │
+  │                              │── Release payment ──────>│
+```
+
+1. **Sponsor** selects tree species, quantity, region, and payment method (XLM or USDC).
+2. **Smart contract** holds funds in escrow, mints a unique Tree NFT ID.
+3. **Planter** receives the job, plants the tree, and uploads timestamped photo + GPS proof.
+4. **Contract** releases payment to planter upon verification.
+5. **Sponsor dashboard** shows live tree progress, species info, and CO₂ offset estimate.
+
+---
+
+## Features
+
+| Feature | Description |
+|---|---|
+| 🌳 Sponsor a Tree | Pay any planter to plant a tree on your behalf |
+| 👤 Anonymous Donations | One-time payment, no account needed |
+| 🆔 Unique Tree ID | Each sponsored tree gets a tamper-proof on-chain ID |
+| 📸 Planter Updates | Planters upload photo + GPS progress per tree |
+| 📊 Carbon Dashboard | Track estimated CO₂ offset across your entire portfolio |
+| 💸 Instant Settlement | Planters paid in XLM/USDC the moment work is verified |
+| 🔒 Escrow Protection | Funds held in smart contract until planting is confirmed |
+| 🗺️ Regional Selection | Sponsor trees in specific countries or biomes |
+
+---
+
+## Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Smart Contracts | Soroban (Rust), Stellar mainnet/testnet |
+| Frontend | React + TypeScript + Vite |
+| Wallet | Freighter, Albedo, xBull |
+| Storage | IPFS (planter photo uploads) + AWS S3 (private planting photo evidence — see [API spec](docs/private-s3-photo-uploads.md)) |
+| Off-chain API | Node.js / Express |
+| Database | PostgreSQL |
+| Carbon Data | Open-source CO₂ sequestration tables per species |
+
+---
+
+## Smart Contracts
+
+```
+contracts/
+├── tree_registry/      # Mint and manage unique Tree IDs (NFT-like)
+├── escrow/             # Hold sponsor funds, release on verification
+├── planter_registry/   # Register planters, track reputation score
+├── carbon_credits/     # Calculate and record CO₂ offset per tree
+└── governance/         # DAO voting for platform parameters
+```
+
+---
+
+## Getting Started
+
+### Prerequisites
+
+- Rust + `cargo` (stable)
+- `stellar-cli` ≥ 21
+- Node.js ≥ 18
+- A Stellar testnet account funded via [friendbot](https://friendbot.stellar.org)
+
+### Install
+
+```bash
+git clone https://github.com/RuhinaCodes/Harvesta.git
+cd Harvesta
+```
+
+### Build Contracts
+
+```bash
+cd contracts
+cargo build --target wasm32-unknown-unknown --release
+```
+
+### Deploy to Testnet
+
+```bash
+stellar contract deploy \
+  --wasm target/wasm32-unknown-unknown/release/tree_registry.wasm \
+  --network testnet
+```
+
+### Run Frontend
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+---
+
+## Carbon Offset Methodology
+
+Harvesta uses published biomass growth tables (FAO / IPCC Tier 1) to estimate CO₂ sequestration per tree species per year. Estimates are clearly labelled as projections and updated annually.
+
+Example:
+
+| Species | Avg CO₂/year (kg) | Maturity |
+|---|---|---|
+| Teak | 22 kg | 20 years |
+| Moringa | 9 kg | 3 years |
+| Eucalyptus | 31 kg | 10 years |
+| Mangrove | 14 kg | 15 years |
+
+---
+
+## For Planters
+
+1. Register your wallet and identity on-chain.
+2. Browse open planting jobs in your region.
+3. Accept a job — funds are locked in escrow immediately.
+4. Plant the tree and upload photo + GPS coordinates using the mobile-friendly uploader.
+5. Receive payment to your Stellar wallet instantly upon verification.
+
+---
+
+## Roadmap
+
+- [x] Core escrow contract
+- [x] Tree registry (unique ID minting)
+- [ ] Planter reputation scoring
+- [ ] Mobile planter app (React Native)
+- [ ] DAO governance for fee parameters
+- [ ] Satellite verification integration (Sentinel-2)
+- [ ] Carbon credit marketplace
+
+---
+
+## Contributing
+
+Issues are open and labelled — see the [Issues tab](../../issues). Smart contract work is in `contracts/`, frontend in `frontend/`, backend in `scripts/`.
+
+---
+
+## License
+
+Apache 2.0
+![CI](https://github.com/Farm-credit//stellar-app-os/actions/workflows/ci.yml/badge.svg)
+
+![Deploy](https://github.com/Farm-credit/stellar-app-os/actions/workflows/deploy.yml/badge.svg)
+
+# FarmCredit
+
+Decentralized agricultural credit platform built on the [Stellar network](https://stellar.org).
+
+## Tech Stack
+
+- **Framework:** Next.js 15 (App Router)
+- **Language:** TypeScript (strict mode)
+- **Styling:** Tailwind CSS v4 + shadcn/ui
+- **Design System:** Stellar brand colors + atomic design pattern
+- **Package Manager:** pnpm
+
+## Getting Started
+
+### Prerequisites
+
+- Node.js 20+
+- pnpm (`npm install -g pnpm`)
+- Git
+
+### Setup
+
+```bash
+git clone git@github.com:Farm-credit/stellar-app-os.git
+cd stellar-app-os
+pnpm install
+pnpm dev
+```
+
+Open [http://localhost:3000](http://localhost:3000) to see the app.
+
+### Scripts
+
+| Command               | Description                             |
+| --------------------- | --------------------------------------- |
+| `pnpm dev`            | Start development server                |
+| `pnpm build`          | Production build (also runs type-check) |
+| `pnpm typecheck`      | Run TypeScript type-check without emitting |
+| `pnpm test`           | Run unit tests with Vitest              |
+| `pnpm test:watch`     | Run Vitest in watch mode                |
+| `pnpm start`          | Start production server                 |
+| `pnpm lint`           | Run ESLint                              |
+| `pnpm generate-icons` | Generate PWA icons from source          |
+| `pnpm monitor:rpc-nodes` | Run Horizon RPC node health monitor (background worker) |
+| `pnpm monitor:treasury` | Run treasury balance monitor (background worker) |
+| `pnpm monitor:ttl-renewal` | Run Soroban TTL renewal bot (background worker) |
+| `pnpm indexer` | Run Horizon transaction indexer (background worker) |
+| `pnpm indexer:events` | Run Soroban event indexer (background worker) |
+
+## Progressive Web App (PWA)
+
+FarmCredit is a fully functional Progressive Web App with offline support and installability.
+
+### Features
+
+- 📱 **Installable** - Add to home screen on mobile and desktop
+- 🔌 **Offline Support** - Works without internet connection
+- 🚀 **Fast Loading** - Cached assets for instant load times
+- 🔔 **Push Notifications** - Optional notification support
+- 📊 **Network Aware** - Detects and adapts to connection status
+
+### Quick Start
+
+```bash
+# Install PWA dependencies
+npm install next-pwa @ducanh2912/next-pwa workbox-window
+npm install -D @types/serviceworker sharp
+
+# Generate icons
+npm run generate-icons
+
+# Build and test
+npm run build
+npm start
+```
+
+### Documentation
+
+- [PWA Setup Guide](./PWA_SETUP.md) - Comprehensive setup and deployment
+- [Installation Guide](./INSTALLATION.md) - Quick start guide
+- [Testing Checklist](./TESTING_CHECKLIST.md) - Complete testing guide
+- [Quick Reference](./PWA_QUICK_REFERENCE.md) - Commands and tips
+
+### Testing PWA
+
+1. Build production version: `npm run build && npm start`
+2. Open DevTools → Application → Service Workers
+3. Verify service worker is active
+4. Test offline: DevTools → Network → Offline
+5. Run Lighthouse audit for PWA score
+
+---
+
+## Horizon RPC Node Health Monitoring & Fallback Switcher
+
+Monitors latency and health of multiple Stellar Horizon RPC nodes, dynamically routing requests to the fastest healthy node.
+
+### Configuration
+
+Set these environment variables (see `.env.example`):
+
+| Variable | Description | Default |
+|---|---|---|
+| `RPC_NODE_URLS` | Comma-separated Horizon URLs | falls back to `NEXT_PUBLIC_HORIZON_URL` |
+| `RPC_NODE_NAMES` | Optional node labels | `node-0`, `node-1`, ... |
+| `RPC_NODE_WEIGHTS` | Reserved for weighted routing | `1` each |
+| `RPC_PING_TIMEOUT_MS` | Per-node ping timeout | `5000` |
+| `RPC_MAX_CONSECUTIVE_FAILURES` | Failures before marking unhealthy | `3` |
+| `RPC_MONITOR_POLL_INTERVAL_MS` | Worker check interval | `30000` |
+
+### Architecture
+
+- **`lib/monitor/rpc-health.ts`** — `RpcHealthMonitor` class pings each node via `HEAD /`, tracks latency and consecutive failures, and returns the best (lowest-latency healthy) node
+- **`lib/monitor/rpc-monitor-worker.ts`** — Long-running background process (`pnpm monitor:rpc-nodes`) that periodically runs checks and logs node status
+- **`app/api/healthz/route.ts`** — Deep health endpoint checks all configured RPC nodes and reports per-node health + best node in the response
+
+### Usage in Stellar Clients
+
+```typescript
+import { RpcHealthMonitor } from '@/lib/monitor/rpc-health';
+
+const monitor = new RpcHealthMonitor();
+await monitor.checkAll();
+const bestUrl = monitor.getBestUrl(); // e.g. "https://horizon-testnet.stellar.org"
+const server = new Horizon.Server(bestUrl);
+```
+
+### Background Worker
+
+```bash
+pnpm monitor:rpc-nodes
+```
+
+Logs healthy/unhealthy node status every `RPC_MONITOR_POLL_INTERVAL_MS`.
+
+## Project Architecture
+
+This project follows the **atomic design pattern**. Components are organized by complexity, not by feature.
+
+```
+stellar-app-os/
+├── app/                    # Next.js App Router pages & layouts
+│   ├── globals.css         # Stellar color tokens + Tailwind config
+│   ├── layout.tsx          # Root layout
+│   └── page.tsx            # Landing page
+├── components/
+│   ├── atoms/              # Smallest building blocks (Button, Input, Text, Badge)
+│   ├── molecules/          # Combinations of atoms (Card)
+│   ├── organisms/          # Complex sections (headers, forms — to be built)
+│   ├── templates/          # Page-level layouts (to be built)
+│   └── ui/                 # shadcn/ui base components (do not edit directly unless extending)
+├── lib/
+│   └── utils.ts            # Shared utilities (cn() helper)
+└── public/                 # Static assets
+```
+
+### Design Hierarchy
+
+| Level         | Purpose                          | Example                                 |
+| ------------- | -------------------------------- | --------------------------------------- |
+| **Atoms**     | Single-purpose UI elements       | `Button`, `Input`, `Text`, `Badge`      |
+| **Molecules** | Groups of atoms working together | `Card`, `FormField`                     |
+| **Organisms** | Complex UI sections              | `Header`, `DonationForm`, `ProjectGrid` |
+| **Templates** | Page-level structural layouts    | `DashboardLayout`, `AuthLayout`         |
+
+### Stellar Color Tokens
+
+These brand colors are defined in `app/globals.css` and available as Tailwind classes:
+
+| Token          | Value     | Tailwind Class                             |
+| -------------- | --------- | ------------------------------------------ |
+| Stellar Blue   | `#14B6E7` | `bg-stellar-blue`, `text-stellar-blue`     |
+| Stellar Purple | `#3E1BDB` | `bg-stellar-purple`, `text-stellar-purple` |
+| Stellar Navy   | `#0D0B21` | `bg-stellar-navy`, `text-stellar-navy`     |
+| Stellar Cyan   | `#00C2FF` | `bg-stellar-cyan`, `text-stellar-cyan`     |
+| Stellar Green  | `#00B36B` | `bg-stellar-green`, `text-stellar-green`   |
+
+### Import Convention
+
+**No barrel exports.** Always import directly from the component file:
+
+```tsx
+// Correct
+import { Button } from '@/components/atoms/Button';
+import { Card, CardHeader } from '@/components/molecules/Card';
+
+// Wrong — do not use index.ts barrel exports
+import { Button } from '@/components/atoms';
+```
+
+---
+
+## Contributing
+
+### 1. Pick an Issue
+
+Browse [open issues](https://github.com/Farm-credit/stellar-app-os/issues) labeled `Stellar Wave`. Comment on the issue to claim it. Do not work on an issue someone else has claimed without coordinating.
+
+### 2. Branch from `main`
+
+Always start from the latest `main`:
+
+```bash
+git checkout main
+git pull origin main
+git checkout -b feat/<issue-number>-<short-description>
+```
+
+Branch naming examples:
+
+- `feat/42-wallet-connect-modal`
+- `fix/78-rate-limit-toast`
+- `docs/107-contributing-guide`
+
+### 3. Coding Standards
+
+- **TypeScript strict mode** — no `any`, no unused variables
+- **Component patterns** — use `forwardRef` where needed, always set `displayName`, export named types
+- **Naming** — PascalCase for components, camelCase for functions/variables, kebab-case for CSS classes
+- **Atomic design** — atoms extend `ui/` base components with Stellar variants; molecules compose atoms
+- **No barrel exports** — import directly from the file, not from `index.ts`
+
+### 4. Commit Conventions
+
+This project enforces **Conventional Commits** and **atomic commits**.
+
+#### Commit Message Format
+
+```
+<type>(<scope>): <short description>
+
+[optional body]
+
+[optional footer]
+```
+
+#### Allowed Types
+
+| Type       | When to use                            |
+| ---------- | -------------------------------------- |
+| `feat`     | New feature or component               |
+| `fix`      | Bug fix                                |
+| `docs`     | Documentation only                     |
+| `style`    | Formatting, no logic change            |
+| `refactor` | Code restructuring, no behavior change |
+| `perf`     | Performance improvement                |
+| `test`     | Adding or updating tests               |
+| `build`    | Build system or dependency changes     |
+| `ci`       | CI configuration changes               |
+| `chore`    | Maintenance tasks                      |
+
+#### Allowed Scopes
+
+`auth`, `wallet`, `dashboard`, `marketplace`, `admin`, `donation`, `carbon`, `ui`, `layout`, `nav`, `config`, `deps`
+
+#### Examples
+
+```bash
+feat(wallet): add Stellar wallet connection modal
+fix(donation): correct minimum amount validation
+docs(contributing): add commit convention section
+style(ui): format Button component with Prettier
+refactor(dashboard): extract tab components into separate files
+```
+
+#### Atomic Commit Rules
+
+1. **One concern per commit** — never mix a bug fix with a new feature
+2. **Each commit must build** — `pnpm build` must pass at every single commit
+3. **Each commit must be revertable** — reverting one commit must not break unrelated code
+4. **Order matters** — foundation first, then features, then polish
+
+**Bad example** (one giant commit):
+
+```
+feat: add dashboard with tabs, fix header bug, update colors
+```
+
+**Good example** (atomic):
+
+```
+feat(dashboard): create dashboard page layout
+feat(dashboard): add overview tab component
+feat(dashboard): add donations tab component
+fix(nav): correct active link highlighting on dashboard
+style(dashboard): align tab content padding
+```
+
+### 5. Pull Request Process
+
+#### Before Submitting
+
+```bash
+# Make sure you're up to date with main
+git checkout main
+git pull origin main
+git checkout <your-branch>
+git rebase main
+
+# Verify everything passes
+pnpm build
+pnpm lint
+```
+
+#### PR Requirements
+
+Every PR **must** include:
+
+- **Linked issue** — use `Closes #<issue-number>` in the PR description
+- **Screen recording** — record your implementation working in the browser and attach it to the PR
+- **Filled PR template** — Summary, What Was Implemented, Implementation Details, How to Test
+- **Passing CI** — build and lint must pass
+
+> **PRs without a screen recording or without a linked issue will not be reviewed.**
+
+#### PR Template
+
+When you open a PR, the template will auto-populate. Fill out every section:
+
+```markdown
+## Summary
+
+<!-- 1-3 sentences: What does this PR do and why? -->
+
+## Related Issue
+
+Closes #<issue-number>
+
+## What Was Implemented
+
+<!-- Detailed list of what was built/changed -->
+
+- [ ] Component X created
+- [ ] Styling applied with Stellar tokens
+- [ ] Responsive on mobile
+
+## Implementation Details
+
+<!-- Key decisions, patterns used, trade-offs -->
+
+## Screenshots / Recordings
+
+<!-- REQUIRED: Screen recording of your implementation -->
+
+## How to Test
+
+<!-- Step-by-step for reviewers -->
+
+1. Checkout this branch
+2. Run `pnpm dev`
+3. Navigate to /path
+4. Verify X works
+```
+
+### 6. Code Review
+
+- Expect feedback. Reviews are about improving the code, not criticizing the author.
+- Respond to every comment — either make the change or explain why not.
+- After addressing feedback, re-request review.
+- Maintainers will merge once approved and CI passes.
+
+### 7. Stay in Sync
+
+While your PR is in review, keep your branch up to date:
+
+```bash
+git checkout main
+git pull origin main
+git checkout <your-branch>
+git rebase main
+git push --force-with-lease
+```
+
+---
+
+## License
+
+This project is open source. See [LICENSE](LICENSE) for details.
+# 🌱 Harvesta — Plant Trees. Track Impact. Offset Carbon.
+
+> A decentralised tree-planting platform on Stellar where anyone can pay farmers and individuals to plant trees — anonymously or with full carbon-offset tracking — and planters upload real-world progress with a unique tree ID.
+
+---
+
+## What is Harvesta?
+
+Harvesta connects **tree sponsors** with **on-the-ground planters** (farmers, community groups, individuals) through a transparent, blockchain-backed payment system built on **Stellar** using **Soroban** smart contracts.
+
+You can:
+
+- **Sponsor a tree** — pay a planter to plant and care for a tree on your behalf.
+- **Go anonymous** — make a one-time donation with no account required.
+- **Track your forest** — create an account, get a unique tree ID for every tree you sponsor, and follow its growth through planter-uploaded photo and GPS updates.
+- **Measure your impact** — the platform calculates estimated CO₂ offset per tree species and shows your cumulative carbon footprint reduction.
+
+Planters receive **instant Stellar payments** the moment a tree is verified, with no banks, no delays, and no middlemen.
+
+---
+
+## How It Works
+
+```
+Sponsor                   Harvesta Platform              Planter
+  │                              │                          │
+  │── Choose species, qty ──────>│                          │
+  │── Pay in XLM / USDC ────────>│                          │
+  │                              │── Escrow in contract ───>│
+  │                              │                          │── Plant tree
+  │                              │                          │── Upload photo + GPS
+  │                              │<── Progress update ──────│
+  │<── Carbon dashboard update ──│                          │
+  │                              │── Release payment ──────>│
+```
+
+1. **Sponsor** selects tree species, quantity, region, and payment method (XLM or USDC).
+2. **Smart contract** holds funds in escrow, mints a unique Tree NFT ID.
+3. **Planter** receives the job, plants the tree, and uploads timestamped photo + GPS proof.
+4. **Contract** releases payment to planter upon verification.
+5. **Sponsor dashboard** shows live tree progress, species info, and CO₂ offset estimate.
+
+---
+
+## Features
+
+| Feature | Description |
+|---|---|
+| 🌳 Sponsor a Tree | Pay any planter to plant a tree on your behalf |
+| 👤 Anonymous Donations | One-time payment, no account needed |
+| 🆔 Unique Tree ID | Each sponsored tree gets a tamper-proof on-chain ID |
+| 📸 Planter Updates | Planters upload photo + GPS progress per tree |
+| 📊 Carbon Dashboard | Track estimated CO₂ offset across your entire portfolio |
+| 💸 Instant Settlement | Planters paid in XLM/USDC the moment work is verified |
+| 🔒 Escrow Protection | Funds held in smart contract until planting is confirmed |
+| 🗺️ Regional Selection | Sponsor trees in specific countries or biomes |
+
+---
+
+## Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Smart Contracts | Soroban (Rust), Stellar mainnet/testnet |
+| Frontend | React + TypeScript + Vite |
+| Wallet | Freighter, Albedo, xBull |
+| Storage | IPFS (planter photo uploads) + AWS S3 (private planting photo evidence — see [API spec](docs/private-s3-photo-uploads.md)) |
+| Off-chain API | Node.js / Express |
+| Database | PostgreSQL |
+| Carbon Data | Open-source CO₂ sequestration tables per species |
+
+---
+
+## Smart Contracts
+
+```
+contracts/
+├── tree_registry/      # Mint and manage unique Tree IDs (NFT-like)
+├── escrow/             # Hold sponsor funds, release on verification
+├── planter_registry/   # Register planters, track reputation score
+├── carbon_credits/     # Calculate and record CO₂ offset per tree
+└── governance/         # DAO voting for platform parameters
+```
+
+---
+
+## Getting Started
+
+### Prerequisites
+
+- Rust + `cargo` (stable)
+- `stellar-cli` ≥ 21
+- Node.js ≥ 18
+- A Stellar testnet account funded via [friendbot](https://friendbot.stellar.org)
+
+### Install
+
+```bash
+git clone https://github.com/RuhinaCodes/Harvesta.git
+cd Harvesta
+```
+
+### Build Contracts
+
+```bash
+cd contracts
+cargo build --target wasm32-unknown-unknown --release
+```
+
+### Deploy to Testnet
+
+```bash
+stellar contract deploy \
+  --wasm target/wasm32-unknown-unknown/release/tree_registry.wasm \
+  --network testnet
+```
+
+### Run Frontend
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+---
+
+## Carbon Offset Methodology
+
+Harvesta uses published biomass growth tables (FAO / IPCC Tier 1) to estimate CO₂ sequestration per tree species per year. Estimates are clearly labelled as projections and updated annually.
+
+Example:
+
+| Species | Avg CO₂/year (kg) | Maturity |
+|---|---|---|
+| Teak | 22 kg | 20 years |
+| Moringa | 9 kg | 3 years |
+| Eucalyptus | 31 kg | 10 years |
+| Mangrove | 14 kg | 15 years |
+
+---
+
+## For Planters
+
+1. Register your wallet and identity on-chain.
+2. Browse open planting jobs in your region.
+3. Accept a job — funds are locked in escrow immediately.
+4. Plant the tree and upload photo + GPS coordinates using the mobile-friendly uploader.
+5. Receive payment to your Stellar wallet instantly upon verification.
+
+---
+
+## Roadmap
+
+- [x] Core escrow contract
+- [x] Tree registry (unique ID minting)
+- [ ] Planter reputation scoring
+- [ ] Mobile planter app (React Native)
+- [ ] DAO governance for fee parameters
+- [ ] Satellite verification integration (Sentinel-2)
+- [ ] Carbon credit marketplace
+
+---
+
+## Contributing
+
+Issues are open and labelled — see the [Issues tab](../../issues). Smart contract work is in `contracts/`, frontend in `frontend/`, backend in `scripts/`.
+
+---
+
+## License
+
+Apache 2.0
+# 🌱 Harvesta — Plant Trees. Track Impact. Offset Carbon.
+
+> A decentralised tree-planting platform on Stellar where anyone can pay farmers and individuals to plant trees — anonymously or with full carbon-offset tracking — and planters upload real-world progress with a unique tree ID.
+> 
+> *Proudly supported by [Fundable Finance](https://fundable.finance).*
+
+---
+
+## What is Harvesta?
+
+Harvesta connects **tree sponsors** with **on-the-ground planters** (farmers, community groups, individuals) through a transparent, blockchain-backed payment system built on **Stellar** using **Soroban** smart contracts.
+
+You can:
+
+- **Sponsor a tree** — pay a planter to plant and care for a tree on your behalf.
+- **Go anonymous** — make a one-time donation with no account required.
+- **Track your forest** — create an account, get a unique tree ID for every tree you sponsor, and follow its growth through planter-uploaded photo and GPS updates.
+- **Measure your impact** — the platform calculates estimated CO₂ offset per tree species and shows your cumulative carbon footprint reduction.
+
+Planters receive **instant Stellar payments** the moment a tree is verified, with no banks, no delays, and no middlemen.
+
+---
+
+## How It Works
+
+```
+Sponsor                   Harvesta Platform              Planter
+  │                              │                          │
+  │── Choose species, qty ──────>│                          │
+  │── Pay in XLM / USDC ────────>│                          │
+  │                              │── Escrow in contract ───>│
+  │                              │                          │── Plant tree
+  │                              │                          │── Upload photo + GPS
+  │                              │<── Progress update ──────│
+  │<── Carbon dashboard update ──│                          │
+  │                              │── Release payment ──────>│
+```
+
+1. **Sponsor** selects tree species, quantity, region, and payment method (XLM or USDC).
+2. **Smart contract** holds funds in escrow, mints a unique Tree NFT ID.
+3. **Planter** receives the job, plants the tree, and uploads timestamped photo + GPS proof.
+4. **Contract** releases payment to planter upon verification.
+5. **Sponsor dashboard** shows live tree progress, species info, and CO₂ offset estimate.
+
+---
+
+## Features
+
+| Feature | Description |
+|---|---|
+| 🌳 Sponsor a Tree | Pay any planter to plant a tree on your behalf |
+| 👤 Anonymous Donations | One-time payment, no account needed |
+| 🆔 Unique Tree ID | Each sponsored tree gets a tamper-proof on-chain ID |
+| 📸 Planter Updates | Planters upload photo + GPS progress per tree |
+| 📊 Carbon Dashboard | Track estimated CO₂ offset across your entire portfolio |
+| 💸 Instant Settlement | Planters paid in XLM/USDC the moment work is verified |
+| 🔒 Escrow Protection | Funds held in smart contract until planting is confirmed |
+| 🗺️ Regional Selection | Sponsor trees in specific countries or biomes |
+
+---
+
+## Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Smart Contracts | Soroban (Rust), Stellar mainnet/testnet |
+| Frontend | React + TypeScript + Vite |
+| Wallet | Freighter, Albedo, xBull |
+| Storage | IPFS (planter photo uploads) + AWS S3 (private planting photo evidence — see [API spec](docs/private-s3-photo-uploads.md)) |
+| Off-chain API | Node.js / Express |
+| Database | PostgreSQL |
+| Carbon Data | Open-source CO₂ sequestration tables per species |
+
+---
+
+## Smart Contracts
+
+```
+contracts/
+├── tree_registry/      # Mint and manage unique Tree IDs (NFT-like)
+├── escrow/             # Hold sponsor funds, release on verification
+├── planter_registry/   # Register planters, track reputation score
+├── carbon_credits/     # Calculate and record CO₂ offset per tree
+└── governance/         # DAO voting for platform parameters
+```
+
+---
+
+## Getting Started
+
+### Prerequisites
+
+- Rust + `cargo` (stable)
+- `stellar-cli` ≥ 21
+- Node.js ≥ 18
+- A Stellar testnet account funded via [friendbot](https://friendbot.stellar.org)
+
+### Install
+
+```bash
+git clone https://github.com/RuhinaCodes/Harvesta.git
+cd Harvesta
+```
+
+### Build Contracts
+
+```bash
+cd contracts
+cargo build --target wasm32-unknown-unknown --release
+```
+
+### Deploy to Testnet
+
+```bash
+stellar contract deploy \
+  --wasm target/wasm32-unknown-unknown/release/tree_registry.wasm \
+  --network testnet
+```
+
+### Run Frontend
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+---
+
+## Carbon Offset Methodology
+
+Harvesta uses published biomass growth tables (FAO / IPCC Tier 1) to estimate CO₂ sequestration per tree species per year. Estimates are clearly labelled as projections and updated annually.
+
+Example:
+
+| Species | Avg CO₂/year (kg) | Maturity |
+|---|---|---|
+| Teak | 22 kg | 20 years |
+| Moringa | 9 kg | 3 years |
+| Eucalyptus | 31 kg | 10 years |
+| Mangrove | 14 kg | 15 years |
+
+---
+
+## For Planters
+
+1. Register your wallet and identity on-chain.
+2. Browse open planting jobs in your region.
+3. Accept a job — funds are locked in escrow immediately.
+4. Plant the tree and upload photo + GPS coordinates using the mobile-friendly uploader.
+5. Receive payment to your Stellar wallet instantly upon verification.
+
+---
+
+## Roadmap
+
+- [x] Core escrow contract
+- [x] Tree registry (unique ID minting)
+- [ ] Planter reputation scoring
+- [ ] Mobile planter app (React Native)
+- [ ] DAO governance for fee parameters
+- [ ] Satellite verification integration (Sentinel-2)
+- [ ] Carbon credit marketplace
+
+---
+
+## Contributing
+
+Issues are open and labelled — see the [Issues tab](../../issues). Smart contract work is in `contracts/`, frontend in `frontend/`, backend in `scripts/`.
+
+---
+
+## License
+
+Apache 2.0
+![CI](https://github.com/Farm-credit//stellar-app-os/actions/workflows/ci.yml/badge.svg)
+
+![Deploy](https://github.com/Farm-credit/stellar-app-os/actions/workflows/deploy.yml/badge.svg)
+
+# FarmCredit
+
+Decentralized agricultural credit platform built on the [Stellar network](https://stellar.org).
+
+## Tech Stack
+
+- **Framework:** Next.js 15 (App Router)
+- **Language:** TypeScript (strict mode)
+- **Styling:** Tailwind CSS v4 + shadcn/ui
+- **Design System:** Stellar brand colors + atomic design pattern
+- **Package Manager:** pnpm
+
+## Getting Started
+
+### Prerequisites
+
+- Node.js 20+
+- pnpm (`npm install -g pnpm`)
+- Git
+
+### Setup
+
+```bash
+git clone git@github.com:Farm-credit/stellar-app-os.git
+cd stellar-app-os
+pnpm install
+pnpm dev
+```
+
+Open [http://localhost:3000](http://localhost:3000) to see the app.
+
+### Scripts
+
+| Command               | Description                             |
+| --------------------- | --------------------------------------- |
+| `pnpm dev`            | Start development server                |
+| `pnpm build`          | Production build (also runs type-check) |
+| `pnpm typecheck`      | Run TypeScript type-check without emitting |
+| `pnpm test`           | Run unit tests with Vitest              |
+| `pnpm test:watch`     | Run Vitest in watch mode                |
+| `pnpm start`          | Start production server                 |
+| `pnpm lint`           | Run ESLint                              |
+| `pnpm generate-icons` | Generate PWA icons from source          |
+
+## Progressive Web App (PWA)
+
+FarmCredit is a fully functional Progressive Web App with offline support and installability.
+
+### Features
+
+- 📱 **Installable** - Add to home screen on mobile and desktop
+- 🔌 **Offline Support** - Works without internet connection
+- 🚀 **Fast Loading** - Cached assets for instant load times
+- 🔔 **Push Notifications** - Optional notification support
+- 📊 **Network Aware** - Detects and adapts to connection status
+
+### Quick Start
+
+```bash
+# Install PWA dependencies
+npm install next-pwa @ducanh2912/next-pwa workbox-window
+npm install -D @types/serviceworker sharp
+
+# Generate icons
+npm run generate-icons
+
+# Build and test
+npm run build
+npm start
+```
+
+### Documentation
+
+- [PWA Setup Guide](./PWA_SETUP.md) - Comprehensive setup and deployment
+- [Installation Guide](./INSTALLATION.md) - Quick start guide
+- [Testing Checklist](./TESTING_CHECKLIST.md) - Complete testing guide
+- [Quick Reference](./PWA_QUICK_REFERENCE.md) - Commands and tips
+
+### Testing PWA
+
+1. Build production version: `npm run build && npm start`
+2. Open DevTools → Application → Service Workers
+3. Verify service worker is active
+4. Test offline: DevTools → Network → Offline
+5. Run Lighthouse audit for PWA score
+
+## Project Architecture
+
+This project follows the **atomic design pattern**. Components are organized by complexity, not by feature.
+
+```
+stellar-app-os/
+├── app/                    # Next.js App Router pages & layouts
+│   ├── globals.css         # Stellar color tokens + Tailwind config
+│   ├── layout.tsx          # Root layout
+│   └── page.tsx            # Landing page
+├── components/
+│   ├── atoms/              # Smallest building blocks (Button, Input, Text, Badge)
+│   ├── molecules/          # Combinations of atoms (Card)
+│   ├── organisms/          # Complex sections (headers, forms — to be built)
+│   ├── templates/          # Page-level layouts (to be built)
+│   └── ui/                 # shadcn/ui base components (do not edit directly unless extending)
+├── lib/
+│   └── utils.ts            # Shared utilities (cn() helper)
+└── public/                 # Static assets
+```
+
+### Design Hierarchy
+
+| Level         | Purpose                          | Example                                 |
+| ------------- | -------------------------------- | --------------------------------------- |
+| **Atoms**     | Single-purpose UI elements       | `Button`, `Input`, `Text`, `Badge`      |
+| **Molecules** | Groups of atoms working together | `Card`, `FormField`                     |
+| **Organisms** | Complex UI sections              | `Header`, `DonationForm`, `ProjectGrid` |
+| **Templates** | Page-level structural layouts    | `DashboardLayout`, `AuthLayout`         |
+
+### Stellar Color Tokens
+
+These brand colors are defined in `app/globals.css` and available as Tailwind classes:
+
+| Token          | Value     | Tailwind Class                             |
+| -------------- | --------- | ------------------------------------------ |
+| Stellar Blue   | `#14B6E7` | `bg-stellar-blue`, `text-stellar-blue`     |
+| Stellar Purple | `#3E1BDB` | `bg-stellar-purple`, `text-stellar-purple` |
+| Stellar Navy   | `#0D0B21` | `bg-stellar-navy`, `text-stellar-navy`     |
+| Stellar Cyan   | `#00C2FF` | `bg-stellar-cyan`, `text-stellar-cyan`     |
+| Stellar Green  | `#00B36B` | `bg-stellar-green`, `text-stellar-green`   |
+
+### Import Convention
+
+**No barrel exports.** Always import directly from the component file:
+
+```tsx
+// Correct
+import { Button } from '@/components/atoms/Button';
+import { Card, CardHeader } from '@/components/molecules/Card';
+
+// Wrong — do not use index.ts barrel exports
+import { Button } from '@/components/atoms';
+```
+
+---
+
+## Contributing
+
+### 1. Pick an Issue
+
+Browse [open issues](https://github.com/Farm-credit/stellar-app-os/issues) labeled `Stellar Wave`. Comment on the issue to claim it. Do not work on an issue someone else has claimed without coordinating.
+
+### 2. Branch from `main`
+
+Always start from the latest `main`:
+
+```bash
+git checkout main
+git pull origin main
+git checkout -b feat/<issue-number>-<short-description>
+```
+
+Branch naming examples:
+
+- `feat/42-wallet-connect-modal`
+- `fix/78-rate-limit-toast`
+- `docs/107-contributing-guide`
+
+### 3. Coding Standards
+
+- **TypeScript strict mode** — no `any`, no unused variables
+- **Component patterns** — use `forwardRef` where needed, always set `displayName`, export named types
+- **Naming** — PascalCase for components, camelCase for functions/variables, kebab-case for CSS classes
+- **Atomic design** — atoms extend `ui/` base components with Stellar variants; molecules compose atoms
+- **No barrel exports** — import directly from the file, not from `index.ts`
+
+### 4. Commit Conventions
+
+This project enforces **Conventional Commits** and **atomic commits**.
+
+#### Commit Message Format
+
+```
+<type>(<scope>): <short description>
+
+[optional body]
+
+[optional footer]
+```
+
+#### Allowed Types
+
+| Type       | When to use                            |
+| ---------- | -------------------------------------- |
+| `feat`     | New feature or component               |
+| `fix`      | Bug fix                                |
+| `docs`     | Documentation only                     |
+| `style`    | Formatting, no logic change            |
+| `refactor` | Code restructuring, no behavior change |
+| `perf`     | Performance improvement                |
+| `test`     | Adding or updating tests               |
+| `build`    | Build system or dependency changes     |
+| `ci`       | CI configuration changes               |
+| `chore`    | Maintenance tasks                      |
+
+#### Allowed Scopes
+
+`auth`, `wallet`, `dashboard`, `marketplace`, `admin`, `donation`, `carbon`, `ui`, `layout`, `nav`, `config`, `deps`
+
+#### Examples
+
+```bash
+feat(wallet): add Stellar wallet connection modal
+fix(donation): correct minimum amount validation
+docs(contributing): add commit convention section
+style(ui): format Button component with Prettier
+refactor(dashboard): extract tab components into separate files
+```
+
+#### Atomic Commit Rules
+
+1. **One concern per commit** — never mix a bug fix with a new feature
+2. **Each commit must build** — `pnpm build` must pass at every single commit
+3. **Each commit must be revertable** — reverting one commit must not break unrelated code
+4. **Order matters** — foundation first, then features, then polish
+
+**Bad example** (one giant commit):
+
+```
+feat: add dashboard with tabs, fix header bug, update colors
+```
+
+**Good example** (atomic):
+
+```
+feat(dashboard): create dashboard page layout
+feat(dashboard): add overview tab component
+feat(dashboard): add donations tab component
+fix(nav): correct active link highlighting on dashboard
+style(dashboard): align tab content padding
+```
+
+### 5. Pull Request Process
+
+#### Before Submitting
+
+```bash
+# Make sure you're up to date with main
+git checkout main
+git pull origin main
+git checkout <your-branch>
+git rebase main
+
+# Verify everything passes
+pnpm build
+pnpm lint
+```
+
+#### PR Requirements
+
+Every PR **must** include:
+
+- **Linked issue** — use `Closes #<issue-number>` in the PR description
+- **Screen recording** — record your implementation working in the browser and attach it to the PR
+- **Filled PR template** — Summary, What Was Implemented, Implementation Details, How to Test
+- **Passing CI** — build and lint must pass
+
+> **PRs without a screen recording or without a linked issue will not be reviewed.**
+
+#### PR Template
+
+When you open a PR, the template will auto-populate. Fill out every section:
+
+```markdown
+## Summary
+
+<!-- 1-3 sentences: What does this PR do and why? -->
+
+## Related Issue
+
+Closes #<issue-number>
+
+## What Was Implemented
+
+<!-- Detailed list of what was built/changed -->
+
+- [ ] Component X created
+- [ ] Styling applied with Stellar tokens
+- [ ] Responsive on mobile
+
+## Implementation Details
+
+<!-- Key decisions, patterns used, trade-offs -->
+
+## Screenshots / Recordings
+
+<!-- REQUIRED: Screen recording of your implementation -->
+
+## How to Test
+
+<!-- Step-by-step for reviewers -->
+
+1. Checkout this branch
+2. Run `pnpm dev`
+3. Navigate to /path
+4. Verify X works
+```
+
+### 6. Code Review
+
+- Expect feedback. Reviews are about improving the code, not criticizing the author.
+- Respond to every comment — either make the change or explain why not.
+- After addressing feedback, re-request review.
+- Maintainers will merge once approved and CI passes.
+
+### 7. Stay in Sync
+
+While your PR is in review, keep your branch up to date:
+
+```bash
+git checkout main
+git pull origin main
+git checkout <your-branch>
+git rebase main
+git push --force-with-lease
+```
+
+---
+
+## License
+
+This project is open source. See [LICENSE](LICENSE) for details.
+# 🌱 Harvesta — Plant Trees. Track Impact. Offset Carbon.
+
+> A decentralised tree-planting platform on Stellar where anyone can pay farmers and individuals to plant trees — anonymously or with full carbon-offset tracking — and planters upload real-world progress with a unique tree ID.
+
+---
+
+## What is Harvesta?
+
+Harvesta connects **tree sponsors** with **on-the-ground planters** (farmers, community groups, individuals) through a transparent, blockchain-backed payment system built on **Stellar** using **Soroban** smart contracts.
+
+You can:
+
+- **Sponsor a tree** — pay a planter to plant and care for a tree on your behalf.
+- **Go anonymous** — make a one-time donation with no account required.
+- **Track your forest** — create an account, get a unique tree ID for every tree you sponsor, and follow its growth through planter-uploaded photo and GPS updates.
+- **Measure your impact** — the platform calculates estimated CO₂ offset per tree species and shows your cumulative carbon footprint reduction.
+
+Planters receive **instant Stellar payments** the moment a tree is verified, with no banks, no delays, and no middlemen.
+
+---
+
+## How It Works
+
+```
+Sponsor                   Harvesta Platform              Planter
+  │                              │                          │
+  │── Choose species, qty ──────>│                          │
+  │── Pay in XLM / USDC ────────>│                          │
+  │                              │── Escrow in contract ───>│
+  │                              │                          │── Plant tree
+  │                              │                          │── Upload photo + GPS
+  │                              │<── Progress update ──────│
+  │<── Carbon dashboard update ──│                          │
+  │                              │── Release payment ──────>│
+```
+
+1. **Sponsor** selects tree species, quantity, region, and payment method (XLM or USDC).
+2. **Smart contract** holds funds in escrow, mints a unique Tree NFT ID.
+3. **Planter** receives the job, plants the tree, and uploads timestamped photo + GPS proof.
+4. **Contract** releases payment to planter upon verification.
+5. **Sponsor dashboard** shows live tree progress, species info, and CO₂ offset estimate.
+
+---
+
+## Features
+
+| Feature | Description |
+|---|---|
+| 🌳 Sponsor a Tree | Pay any planter to plant a tree on your behalf |
+| 👤 Anonymous Donations | One-time payment, no account needed |
+| 🆔 Unique Tree ID | Each sponsored tree gets a tamper-proof on-chain ID |
+| 📸 Planter Updates | Planters upload photo + GPS progress per tree |
+| 📊 Carbon Dashboard | Track estimated CO₂ offset across your entire portfolio |
+| 💸 Instant Settlement | Planters paid in XLM/USDC the moment work is verified |
+| 🔒 Escrow Protection | Funds held in smart contract until planting is confirmed |
+| 🗺️ Regional Selection | Sponsor trees in specific countries or biomes |
+
+---
+
+## Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Smart Contracts | Soroban (Rust), Stellar mainnet/testnet |
+| Frontend | React + TypeScript + Vite |
+| Wallet | Freighter, Albedo, xBull |
+| Storage | IPFS (planter photo uploads) + AWS S3 (private planting photo evidence — see [API spec](docs/private-s3-photo-uploads.md)) |
+| Off-chain API | Node.js / Express |
+| Database | PostgreSQL |
+| Carbon Data | Open-source CO₂ sequestration tables per species |
+
+---
+
+## Smart Contracts
+
+```
+contracts/
+├── tree_registry/      # Mint and manage unique Tree IDs (NFT-like)
+├── escrow/             # Hold sponsor funds, release on verification
+├── planter_registry/   # Register planters, track reputation score
+├── carbon_credits/     # Calculate and record CO₂ offset per tree
+└── governance/         # DAO voting for platform parameters
+```
+
+---
+
+## Getting Started
+
+### Prerequisites
+
+- Rust + `cargo` (stable)
+- `stellar-cli` ≥ 21
+- Node.js ≥ 18
+- A Stellar testnet account funded via [friendbot](https://friendbot.stellar.org)
+
+### Install
+
+```bash
+git clone https://github.com/RuhinaCodes/Harvesta.git
+cd Harvesta
+```
+
+### Build Contracts
+
+```bash
+cd contracts
+cargo build --target wasm32-unknown-unknown --release
+```
+
+### Deploy to Testnet
+
+```bash
+stellar contract deploy \
+  --wasm target/wasm32-unknown-unknown/release/tree_registry.wasm \
+  --network testnet
+```
+
+### Run Frontend
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+---
+
+## Carbon Offset Methodology
+
+Harvesta uses published biomass growth tables (FAO / IPCC Tier 1) to estimate CO₂ sequestration per tree species per year. Estimates are clearly labelled as projections and updated annually.
+
+Example:
+
+| Species | Avg CO₂/year (kg) | Maturity |
+|---|---|---|
+| Teak | 22 kg | 20 years |
+| Moringa | 9 kg | 3 years |
+| Eucalyptus | 31 kg | 10 years |
+| Mangrove | 14 kg | 15 years |
+
+---
+
+## For Planters
+
+1. Register your wallet and identity on-chain.
+2. Browse open planting jobs in your region.
+3. Accept a job — funds are locked in escrow immediately.
+4. Plant the tree and upload photo + GPS coordinates using the mobile-friendly uploader.
+5. Receive payment to your Stellar wallet instantly upon verification.
+
+---
+
+## Roadmap
+
+- [x] Core escrow contract
+- [x] Tree registry (unique ID minting)
+- [ ] Planter reputation scoring
+- [ ] Mobile planter app (React Native)
+- [ ] DAO governance for fee parameters
+- [ ] Satellite verification integration (Sentinel-2)
+- [ ] Carbon credit marketplace
+
+---
+
+## Contributing
+
+Issues are open and labelled — see the [Issues tab](../../issues). Smart contract work is in `contracts/`, frontend in `frontend/`, backend in `scripts/`.
+
+---
+
+## License
+
+Apache 2.0
+
+
+# 🌱 Harvesta — Plant Trees. Track Impact. Offset Carbon.
+
+> A decentralised tree-planting platform on Stellar where anyone can pay farmers and individuals to plant trees — anonymously or with full carbon-offset tracking — and planters upload real-world progress with a unique tree ID.
+> 
+> *Proudly supported by [Fundable Finance](https://fundable.finance).*
+
+---
+
+## What is Harvesta?
+
+Harvesta connects **tree sponsors** with **on-the-ground planters** (farmers, community groups, individuals) through a transparent, blockchain-backed payment system built on **Stellar** using **Soroban** smart contracts.
+
+You can:
+
+- **Sponsor a tree** — pay a planter to plant and care for a tree on your behalf.
+- **Go anonymous** — make a one-time donation with no account required.
+- **Track your forest** — create an account, get a unique tree ID for every tree you sponsor, and follow its growth through planter-uploaded photo and GPS updates.
+- **Measure your impact** — the platform calculates estimated CO₂ offset per tree species and shows your cumulative carbon footprint reduction.
+
+Planters receive **instant Stellar payments** the moment a tree is verified, with no banks, no delays, and no middlemen.
+
+---
+
+## How It Works
+
+```
+Sponsor                   Harvesta Platform              Planter
+  │                              │                          │
+  │── Choose species, qty ──────>│                          │
+  │── Pay in XLM / USDC ────────>│                          │
+  │                              │── Escrow in contract ───>│
+  │                              │                          │── Plant tree
+  │                              │                          │── Upload photo + GPS
+  │                              │<── Progress update ──────│
+  │<── Carbon dashboard update ──│                          │
+  │                              │── Release payment ──────>│
+```
+
+1. **Sponsor** selects tree species, quantity, region, and payment method (XLM or USDC).
+2. **Smart contract** holds funds in escrow, mints a unique Tree NFT ID.
+3. **Planter** receives the job, plants the tree, and uploads timestamped photo + GPS proof.
+4. **Contract** releases payment to planter upon verification.
+5. **Sponsor dashboard** shows live tree progress, species info, and CO₂ offset estimate.
+
+---
+
+## Features
+
+| Feature | Description |
+|---|---|
+| 🌳 Sponsor a Tree | Pay any planter to plant a tree on your behalf |
+| 👤 Anonymous Donations | One-time payment, no account needed |
+| 🆔 Unique Tree ID | Each sponsored tree gets a tamper-proof on-chain ID |
+| 📸 Planter Updates | Planters upload photo + GPS progress per tree |
+| 📊 Carbon Dashboard | Track estimated CO₂ offset across your entire portfolio |
+| 💸 Instant Settlement | Planters paid in XLM/USDC the moment work is verified |
+| 🔒 Escrow Protection | Funds held in smart contract until planting is confirmed |
+| 🗺️ Regional Selection | Sponsor trees in specific countries or biomes |
+
+---
+
+## Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Smart Contracts | Soroban (Rust), Stellar mainnet/testnet |
+| Frontend | React + TypeScript + Vite |
+| Wallet | Freighter, Albedo, xBull |
+| Storage | IPFS (planter photo uploads) + AWS S3 (private planting photo evidence — see [API spec](docs/private-s3-photo-uploads.md)) |
+| Off-chain API | Node.js / Express |
+| Database | PostgreSQL |
+| Carbon Data | Open-source CO₂ sequestration tables per species |
+
+---
+
+## Smart Contracts
+
+```
+contracts/
+├── tree_registry/      # Mint and manage unique Tree IDs (NFT-like)
+├── escrow/             # Hold sponsor funds, release on verification
+├── planter_registry/   # Register planters, track reputation score
+├── carbon_credits/     # Calculate and record CO₂ offset per tree
+└── governance/         # DAO voting for platform parameters
+```
+
+---
+
+## Getting Started
+
+### Prerequisites
+
+- Rust + `cargo` (stable)
+- `stellar-cli` ≥ 21
+- Node.js ≥ 18
+- A Stellar testnet account funded via [friendbot](https://friendbot.stellar.org)
+
+### Install
+
+```bash
+git clone https://github.com/RuhinaCodes/Harvesta.git
+cd Harvesta
+```
+
+### Build Contracts
+
+```bash
+cd contracts
+cargo build --target wasm32-unknown-unknown --release
+```
+
+### Deploy to Testnet
+
+```bash
+stellar contract deploy \
+  --wasm target/wasm32-unknown-unknown/release/tree_registry.wasm \
+  --network testnet
+```
+
+### Run Frontend
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+---
+
+## Carbon Offset Methodology
+
+Harvesta uses published biomass growth tables (FAO / IPCC Tier 1) to estimate CO₂ sequestration per tree species per year. Estimates are clearly labelled as projections and updated annually.
+
+Example:
+
+| Species | Avg CO₂/year (kg) | Maturity |
+|---|---|---|
+| Teak | 22 kg | 20 years |
+| Moringa | 9 kg | 3 years |
+| Eucalyptus | 31 kg | 10 years |
+| Mangrove | 14 kg | 15 years |
+
+---
+
+## For Planters
+
+1. Register your wallet and identity on-chain.
+2. Browse open planting jobs in your region.
+3. Accept a job — funds are locked in escrow immediately.
+4. Plant the tree and upload photo + GPS coordinates using the mobile-friendly uploader.
+5. Receive payment to your Stellar wallet instantly upon verification.
+
+---
+
+## Roadmap
+
+- [x] Core escrow contract
+- [x] Tree registry (unique ID minting)
+- [ ] Planter reputation scoring
+- [ ] Mobile planter app (React Native)
+- [ ] DAO governance for fee parameters
+- [ ] Satellite verification integration (Sentinel-2)
+- [ ] Carbon credit marketplace
+
+---
+
+## Contributing
+
+Issues are open and labelled — see the [Issues tab](../../issues). Smart contract work is in `contracts/`, frontend in `frontend/`, backend in `scripts/`.
+
+---
+
+## License
+
+Apache 2.0
+![CI](https://github.com/Farm-credit//stellar-app-os/actions/workflows/ci.yml/badge.svg)
+
+![Deploy](https://github.com/Farm-credit/stellar-app-os/actions/workflows/deploy.yml/badge.svg)
+
+# FarmCredit
+
+Decentralized agricultural credit platform built on the [Stellar network](https://stellar.org).
+
+## Tech Stack
+
+- **Framework:** Next.js 15 (App Router)
+- **Language:** TypeScript (strict mode)
+- **Styling:** Tailwind CSS v4 + shadcn/ui
+- **Design System:** Stellar brand colors + atomic design pattern
+- **Package Manager:** pnpm
+
+## Getting Started
+
+### Prerequisites
+
+- Node.js 20+
+- pnpm (`npm install -g pnpm`)
+- Git
+
+### Setup
+
+```bash
+git clone git@github.com:Farm-credit/stellar-app-os.git
+cd stellar-app-os
+pnpm install
+pnpm dev
+```
+
+Open [http://localhost:3000](http://localhost:3000) to see the app.
+
+### Scripts
+
+| Command               | Description                             |
+| --------------------- | --------------------------------------- |
+| `pnpm dev`            | Start development server                |
+| `pnpm build`          | Production build (also runs type-check) |
+| `pnpm typecheck`      | Run TypeScript type-check without emitting |
+| `pnpm test`           | Run unit tests with Vitest              |
+| `pnpm test:watch`     | Run Vitest in watch mode                |
+| `pnpm start`          | Start production server                 |
+| `pnpm lint`           | Run ESLint                              |
+| `pnpm generate-icons` | Generate PWA icons from source          |
+| `pnpm monitor:rpc-nodes` | Run Horizon RPC node health monitor (background worker) |
+| `pnpm monitor:treasury` | Run treasury balance monitor (background worker) |
+| `pnpm monitor:ttl-renewal` | Run Soroban TTL renewal bot (background worker) |
+| `pnpm indexer` | Run Horizon transaction indexer (background worker) |
+| `pnpm indexer:events` | Run Soroban event indexer (background worker) |
+
+## Progressive Web App (PWA)
+
+FarmCredit is a fully functional Progressive Web App with offline support and installability.
+
+### Features
+
+- 📱 **Installable** - Add to home screen on mobile and desktop
+- 🔌 **Offline Support** - Works without internet connection
+- 🚀 **Fast Loading** - Cached assets for instant load times
+- 🔔 **Push Notifications** - Optional notification support
+- 📊 **Network Aware** - Detects and adapts to connection status
+
+### Quick Start
+
+```bash
+# Install PWA dependencies
+npm install next-pwa @ducanh2912/next-pwa workbox-window
+npm install -D @types/serviceworker sharp
+
+# Generate icons
+npm run generate-icons
+
+# Build and test
+npm run build
+npm start
+```
+
+### Documentation
+
+- [PWA Setup Guide](./PWA_SETUP.md) - Comprehensive setup and deployment
+- [Installation Guide](./INSTALLATION.md) - Quick start guide
+- [Testing Checklist](./TESTING_CHECKLIST.md) - Complete testing guide
+- [Quick Reference](./PWA_QUICK_REFERENCE.md) - Commands and tips
+
+### Testing PWA
+
+1. Build production version: `npm run build && npm start`
+2. Open DevTools → Application → Service Workers
+3. Verify service worker is active
+4. Test offline: DevTools → Network → Offline
+5. Run Lighthouse audit for PWA score
+
+---
+
+## Horizon RPC Node Health Monitoring & Fallback Switcher
+
+Monitors latency and health of multiple Stellar Horizon RPC nodes, dynamically routing requests to the fastest healthy node.
+
+### Configuration
+
+Set these environment variables (see `.env.example`):
+
+| Variable | Description | Default |
+|---|---|---|
+| `RPC_NODE_URLS` | Comma-separated Horizon URLs | falls back to `NEXT_PUBLIC_HORIZON_URL` |
+| `RPC_NODE_NAMES` | Optional node labels | `node-0`, `node-1`, ... |
+| `RPC_NODE_WEIGHTS` | Reserved for weighted routing | `1` each |
+| `RPC_PING_TIMEOUT_MS` | Per-node ping timeout | `5000` |
+| `RPC_MAX_CONSECUTIVE_FAILURES` | Failures before marking unhealthy | `3` |
+| `RPC_MONITOR_POLL_INTERVAL_MS` | Worker check interval | `30000` |
+
+### Architecture
+
+- **`lib/monitor/rpc-health.ts`** — `RpcHealthMonitor` class pings each node via `HEAD /`, tracks latency and consecutive failures, and returns the best (lowest-latency healthy) node
+- **`lib/monitor/rpc-monitor-worker.ts`** — Long-running background process (`pnpm monitor:rpc-nodes`) that periodically runs checks and logs node status
+- **`app/api/healthz/route.ts`** — Deep health endpoint checks all configured RPC nodes and reports per-node health + best node in the response
+
+### Usage in Stellar Clients
+
+```typescript
+import { RpcHealthMonitor } from '@/lib/monitor/rpc-health';
+
+const monitor = new RpcHealthMonitor();
+await monitor.checkAll();
+const bestUrl = monitor.getBestUrl(); // e.g. "https://horizon-testnet.stellar.org"
+const server = new Horizon.Server(bestUrl);
+```
+
+### Background Worker
+
+```bash
+pnpm monitor:rpc-nodes
+```
+
+Logs healthy/unhealthy node status every `RPC_MONITOR_POLL_INTERVAL_MS`.
+
+## Project Architecture
+
+This project follows the **atomic design pattern**. Components are organized by complexity, not by feature.
+
+```
+stellar-app-os/
+├── app/                    # Next.js App Router pages & layouts
+│   ├── globals.css         # Stellar color tokens + Tailwind config
+│   ├── layout.tsx          # Root layout
+│   └── page.tsx            # Landing page
+├── components/
+│   ├── atoms/              # Smallest building blocks (Button, Input, Text, Badge)
+│   ├── molecules/          # Combinations of atoms (Card)
+│   ├── organisms/          # Complex sections (headers, forms — to be built)
+│   ├── templates/          # Page-level layouts (to be built)
+│   └── ui/                 # shadcn/ui base components (do not edit directly unless extending)
+├── lib/
+│   └── utils.ts            # Shared utilities (cn() helper)
+└── public/                 # Static assets
+```
+
+### Design Hierarchy
+
+| Level         | Purpose                          | Example                                 |
+| ------------- | -------------------------------- | --------------------------------------- |
+| **Atoms**     | Single-purpose UI elements       | `Button`, `Input`, `Text`, `Badge`      |
+| **Molecules** | Groups of atoms working together | `Card`, `FormField`                     |
+| **Organisms** | Complex UI sections              | `Header`, `DonationForm`, `ProjectGrid` |
+| **Templates** | Page-level structural layouts    | `DashboardLayout`, `AuthLayout`         |
+
+### Stellar Color Tokens
+
+These brand colors are defined in `app/globals.css` and available as Tailwind classes:
+
+| Token          | Value     | Tailwind Class                             |
+| -------------- | --------- | ------------------------------------------ |
+| Stellar Blue   | `#14B6E7` | `bg-stellar-blue`, `text-stellar-blue`     |
+| Stellar Purple | `#3E1BDB` | `bg-stellar-purple`, `text-stellar-purple` |
+| Stellar Navy   | `#0D0B21` | `bg-stellar-navy`, `text-stellar-navy`     |
+| Stellar Cyan   | `#00C2FF` | `bg-stellar-cyan`, `text-stellar-cyan`     |
+| Stellar Green  | `#00B36B` | `bg-stellar-green`, `text-stellar-green`   |
+
+### Import Convention
+
+**No barrel exports.** Always import directly from the component file:
+
+```tsx
+// Correct
+import { Button } from '@/components/atoms/Button';
+import { Card, CardHeader } from '@/components/molecules/Card';
+
+// Wrong — do not use index.ts barrel exports
+import { Button } from '@/components/atoms';
+```
+
+---
+
+## Contributing
+
+### 1. Pick an Issue
+
+Browse [open issues](https://github.com/Farm-credit/stellar-app-os/issues) labeled `Stellar Wave`. Comment on the issue to claim it. Do not work on an issue someone else has claimed without coordinating.
+
+### 2. Branch from `main`
+
+Always start from the latest `main`:
+
+```bash
+git checkout main
+git pull origin main
+git checkout -b feat/<issue-number>-<short-description>
+```
+
+Branch naming examples:
+
+- `feat/42-wallet-connect-modal`
+- `fix/78-rate-limit-toast`
+- `docs/107-contributing-guide`
+
+### 3. Coding Standards
+
+- **TypeScript strict mode** — no `any`, no unused variables
+- **Component patterns** — use `forwardRef` where needed, always set `displayName`, export named types
+- **Naming** — PascalCase for components, camelCase for functions/variables, kebab-case for CSS classes
+- **Atomic design** — atoms extend `ui/` base components with Stellar variants; molecules compose atoms
+- **No barrel exports** — import directly from the file, not from `index.ts`
+
+### 4. Commit Conventions
+
+This project enforces **Conventional Commits** and **atomic commits**.
+
+#### Commit Message Format
+
+```
+<type>(<scope>): <short description>
+
+[optional body]
+
+[optional footer]
+```
+
+#### Allowed Types
+
+| Type       | When to use                            |
+| ---------- | -------------------------------------- |
+| `feat`     | New feature or component               |
+| `fix`      | Bug fix                                |
+| `docs`     | Documentation only                     |
+| `style`    | Formatting, no logic change            |
+| `refactor` | Code restructuring, no behavior change |
+| `perf`     | Performance improvement                |
+| `test`     | Adding or updating tests               |
+| `build`    | Build system or dependency changes     |
+| `ci`       | CI configuration changes               |
+| `chore`    | Maintenance tasks                      |
+
+#### Allowed Scopes
+
+`auth`, `wallet`, `dashboard`, `marketplace`, `admin`, `donation`, `carbon`, `ui`, `layout`, `nav`, `config`, `deps`
+
+#### Examples
+
+```bash
+feat(wallet): add Stellar wallet connection modal
+fix(donation): correct minimum amount validation
+docs(contributing): add commit convention section
+style(ui): format Button component with Prettier
+refactor(dashboard): extract tab components into separate files
+```
+
+#### Atomic Commit Rules
+
+1. **One concern per commit** — never mix a bug fix with a new feature
+2. **Each commit must build** — `pnpm build` must pass at every single commit
+3. **Each commit must be revertable** — reverting one commit must not break unrelated code
+4. **Order matters** — foundation first, then features, then polish
+
+**Bad example** (one giant commit):
+
+```
+feat: add dashboard with tabs, fix header bug, update colors
+```
+
+**Good example** (atomic):
+
+```
+feat(dashboard): create dashboard page layout
+feat(dashboard): add overview tab component
+feat(dashboard): add donations tab component
+fix(nav): correct active link highlighting on dashboard
+style(dashboard): align tab content padding
+```
+
+### 5. Pull Request Process
+
+#### Before Submitting
+
+```bash
+# Make sure you're up to date with main
+git checkout main
+git pull origin main
+git checkout <your-branch>
+git rebase main
+
+# Verify everything passes
+pnpm build
+pnpm lint
+```
+
+#### PR Requirements
+
+Every PR **must** include:
+
+- **Linked issue** — use `Closes #<issue-number>` in the PR description
+- **Screen recording** — record your implementation working in the browser and attach it to the PR
+- **Filled PR template** — Summary, What Was Implemented, Implementation Details, How to Test
+- **Passing CI** — build and lint must pass
+
+> **PRs without a screen recording or without a linked issue will not be reviewed.**
+
+#### PR Template
+
+When you open a PR, the template will auto-populate. Fill out every section:
+
+```markdown
+## Summary
+
+<!-- 1-3 sentences: What does this PR do and why? -->
+
+## Related Issue
+
+Closes #<issue-number>
+
+## What Was Implemented
+
+<!-- Detailed list of what was built/changed -->
+
+- [ ] Component X created
+- [ ] Styling applied with Stellar tokens
+- [ ] Responsive on mobile
+
+## Implementation Details
+
+<!-- Key decisions, patterns used, trade-offs -->
+
+## Screenshots / Recordings
+
+<!-- REQUIRED: Screen recording of your implementation -->
+
+## How to Test
+
+<!-- Step-by-step for reviewers -->
+
+1. Checkout this branch
+2. Run `pnpm dev`
+3. Navigate to /path
+4. Verify X works
+```
+
+### 6. Code Review
+
+- Expect feedback. Reviews are about improving the code, not criticizing the author.
+- Respond to every comment — either make the change or explain why not.
+- After addressing feedback, re-request review.
+- Maintainers will merge once approved and CI passes.
+
+### 7. Stay in Sync
+
+While your PR is in review, keep your branch up to date:
+
+```bash
+git checkout main
+git pull origin main
+git checkout <your-branch>
+git rebase main
+git push --force-with-lease
+```
+
+---
+
+## License
+
+This project is open source. See [LICENSE](LICENSE) for details.
+# 🌱 Harvesta — Plant Trees. Track Impact. Offset Carbon.
+
+> A decentralised tree-planting platform on Stellar where anyone can pay farmers and individuals to plant trees — anonymously or with full carbon-offset tracking — and planters upload real-world progress with a unique tree ID.
+
+---
+
+## What is Harvesta?
+
+Harvesta connects **tree sponsors** with **on-the-ground planters** (farmers, community groups, individuals) through a transparent, blockchain-backed payment system built on **Stellar** using **Soroban** smart contracts.
+
+You can:
+
+- **Sponsor a tree** — pay a planter to plant and care for a tree on your behalf.
+- **Go anonymous** — make a one-time donation with no account required.
+- **Track your forest** — create an account, get a unique tree ID for every tree you sponsor, and follow its growth through planter-uploaded photo and GPS updates.
+- **Measure your impact** — the platform calculates estimated CO₂ offset per tree species and shows your cumulative carbon footprint reduction.
+
+Planters receive **instant Stellar payments** the moment a tree is verified, with no banks, no delays, and no middlemen.
+
+---
+
+## How It Works
+
+```
+Sponsor                   Harvesta Platform              Planter
+  │                              │                          │
+  │── Choose species, qty ──────>│                          │
+  │── Pay in XLM / USDC ────────>│                          │
+  │                              │── Escrow in contract ───>│
+  │                              │                          │── Plant tree
+  │                              │                          │── Upload photo + GPS
+  │                              │<── Progress update ──────│
+  │<── Carbon dashboard update ──│                          │
+  │                              │── Release payment ──────>│
+```
+
+1. **Sponsor** selects tree species, quantity, region, and payment method (XLM or USDC).
+2. **Smart contract** holds funds in escrow, mints a unique Tree NFT ID.
+3. **Planter** receives the job, plants the tree, and uploads timestamped photo + GPS proof.
+4. **Contract** releases payment to planter upon verification.
+5. **Sponsor dashboard** shows live tree progress, species info, and CO₂ offset estimate.
+
+---
+
+## Features
+
+| Feature | Description |
+|---|---|
+| 🌳 Sponsor a Tree | Pay any planter to plant a tree on your behalf |
+| 👤 Anonymous Donations | One-time payment, no account needed |
+| 🆔 Unique Tree ID | Each sponsored tree gets a tamper-proof on-chain ID |
+| 📸 Planter Updates | Planters upload photo + GPS progress per tree |
+| 📊 Carbon Dashboard | Track estimated CO₂ offset across your entire portfolio |
+| 💸 Instant Settlement | Planters paid in XLM/USDC the moment work is verified |
+| 🔒 Escrow Protection | Funds held in smart contract until planting is confirmed |
+| 🗺️ Regional Selection | Sponsor trees in specific countries or biomes |
+
+---
+
+## Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Smart Contracts | Soroban (Rust), Stellar mainnet/testnet |
+| Frontend | React + TypeScript + Vite |
+| Wallet | Freighter, Albedo, xBull |
+| Storage | IPFS (planter photo uploads) + AWS S3 (private planting photo evidence — see [API spec](docs/private-s3-photo-uploads.md)) |
+| Off-chain API | Node.js / Express |
+| Database | PostgreSQL |
+| Carbon Data | Open-source CO₂ sequestration tables per species |
+
+---
+
+## Smart Contracts
+
+```
+contracts/
+├── tree_registry/      # Mint and manage unique Tree IDs (NFT-like)
+├── escrow/             # Hold sponsor funds, release on verification
+├── planter_registry/   # Register planters, track reputation score
+├── carbon_credits/     # Calculate and record CO₂ offset per tree
+└── governance/         # DAO voting for platform parameters
+```
+
+---
+
+## Getting Started
+
+### Prerequisites
+
+- Rust + `cargo` (stable)
+- `stellar-cli` ≥ 21
+- Node.js ≥ 18
+- A Stellar testnet account funded via [friendbot](https://friendbot.stellar.org)
+
+### Install
+
+```bash
+git clone https://github.com/RuhinaCodes/Harvesta.git
+cd Harvesta
+```
+
+### Build Contracts
+
+```bash
+cd contracts
+cargo build --target wasm32-unknown-unknown --release
+```
+
+### Deploy to Testnet
+
+```bash
+stellar contract deploy \
+  --wasm target/wasm32-unknown-unknown/release/tree_registry.wasm \
+  --network testnet
+```
+
+### Run Frontend
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+---
+
+## Carbon Offset Methodology
+
+Harvesta uses published biomass growth tables (FAO / IPCC Tier 1) to estimate CO₂ sequestration per tree species per year. Estimates are clearly labelled as projections and updated annually.
+
+Example:
+
+| Species | Avg CO₂/year (kg) | Maturity |
+|---|---|---|
+| Teak | 22 kg | 20 years |
+| Moringa | 9 kg | 3 years |
+| Eucalyptus | 31 kg | 10 years |
+| Mangrove | 14 kg | 15 years |
+
+---
+
+## For Planters
+
+1. Register your wallet and identity on-chain.
+2. Browse open planting jobs in your region.
+3. Accept a job — funds are locked in escrow immediately.
+4. Plant the tree and upload photo + GPS coordinates using the mobile-friendly uploader.
+5. Receive payment to your Stellar wallet instantly upon verification.
+
+---
+
+## Roadmap
+
+- [x] Core escrow contract
+- [x] Tree registry (unique ID minting)
+- [ ] Planter reputation scoring
+- [ ] Mobile planter app (React Native)
+- [ ] DAO governance for fee parameters
+- [ ] Satellite verification integration (Sentinel-2)
+- [ ] Carbon credit marketplace
+
+---
+
+## Contributing
+
+Issues are open and labelled — see the [Issues tab](../../issues). Smart contract work is in `contracts/`, frontend in `frontend/`, backend in `scripts/`.
+
+---
+
+## License
+
+Apache 2.0
+# 🌱 Harvesta — Plant Trees. Track Impact. Offset Carbon.
+
+> A decentralised tree-planting platform on Stellar where anyone can pay farmers and individuals to plant trees — anonymously or with full carbon-offset tracking — and planters upload real-world progress with a unique tree ID.
+> 
+> *Proudly supported by [Fundable Finance](https://fundable.finance).*
+
+---
+
+## What is Harvesta?
+
+Harvesta connects **tree sponsors** with **on-the-ground planters** (farmers, community groups, individuals) through a transparent, blockchain-backed payment system built on **Stellar** using **Soroban** smart contracts.
+
+You can:
+
+- **Sponsor a tree** — pay a planter to plant and care for a tree on your behalf.
+- **Go anonymous** — make a one-time donation with no account required.
+- **Track your forest** — create an account, get a unique tree ID for every tree you sponsor, and follow its growth through planter-uploaded photo and GPS updates.
+- **Measure your impact** — the platform calculates estimated CO₂ offset per tree species and shows your cumulative carbon footprint reduction.
+
+Planters receive **instant Stellar payments** the moment a tree is verified, with no banks, no delays, and no middlemen.
+
+---
+
+## How It Works
+
+```
+Sponsor                   Harvesta Platform              Planter
+  │                              │                          │
+  │── Choose species, qty ──────>│                          │
+  │── Pay in XLM / USDC ────────>│                          │
+  │                              │── Escrow in contract ───>│
+  │                              │                          │── Plant tree
+  │                              │                          │── Upload photo + GPS
+  │                              │<── Progress update ──────│
+  │<── Carbon dashboard update ──│                          │
+  │                              │── Release payment ──────>│
+```
+
+1. **Sponsor** selects tree species, quantity, region, and payment method (XLM or USDC).
+2. **Smart contract** holds funds in escrow, mints a unique Tree NFT ID.
+3. **Planter** receives the job, plants the tree, and uploads timestamped photo + GPS proof.
+4. **Contract** releases payment to planter upon verification.
+5. **Sponsor dashboard** shows live tree progress, species info, and CO₂ offset estimate.
+
+---
+
+## Features
+
+| Feature | Description |
+|---|---|
+| 🌳 Sponsor a Tree | Pay any planter to plant a tree on your behalf |
+| 👤 Anonymous Donations | One-time payment, no account needed |
+| 🆔 Unique Tree ID | Each sponsored tree gets a tamper-proof on-chain ID |
+| 📸 Planter Updates | Planters upload photo + GPS progress per tree |
+| 📊 Carbon Dashboard | Track estimated CO₂ offset across your entire portfolio |
+| 💸 Instant Settlement | Planters paid in XLM/USDC the moment work is verified |
+| 🔒 Escrow Protection | Funds held in smart contract until planting is confirmed |
+| 🗺️ Regional Selection | Sponsor trees in specific countries or biomes |
+
+---
+
+## Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Smart Contracts | Soroban (Rust), Stellar mainnet/testnet |
+| Frontend | React + TypeScript + Vite |
+| Wallet | Freighter, Albedo, xBull |
+| Storage | IPFS (planter photo uploads) + AWS S3 (private planting photo evidence — see [API spec](docs/private-s3-photo-uploads.md)) |
+| Off-chain API | Node.js / Express |
+| Database | PostgreSQL |
+| Carbon Data | Open-source CO₂ sequestration tables per species |
+
+---
+
+## Smart Contracts
+
+```
+contracts/
+├── tree_registry/      # Mint and manage unique Tree IDs (NFT-like)
+├── escrow/             # Hold sponsor funds, release on verification
+├── planter_registry/   # Register planters, track reputation score
+├── carbon_credits/     # Calculate and record CO₂ offset per tree
+└── governance/         # DAO voting for platform parameters
+```
+
+---
+
+## Getting Started
+
+### Prerequisites
+
+- Rust + `cargo` (stable)
+- `stellar-cli` ≥ 21
+- Node.js ≥ 18
+- A Stellar testnet account funded via [friendbot](https://friendbot.stellar.org)
+
+### Install
+
+```bash
+git clone https://github.com/RuhinaCodes/Harvesta.git
+cd Harvesta
+```
+
+### Build Contracts
+
+```bash
+cd contracts
+cargo build --target wasm32-unknown-unknown --release
+```
+
+### Deploy to Testnet
+
+```bash
+stellar contract deploy \
+  --wasm target/wasm32-unknown-unknown/release/tree_registry.wasm \
+  --network testnet
+```
+
+### Run Frontend
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+---
+
+## Carbon Offset Methodology
+
+Harvesta uses published biomass growth tables (FAO / IPCC Tier 1) to estimate CO₂ sequestration per tree species per year. Estimates are clearly labelled as projections and updated annually.
+
+Example:
+
+| Species | Avg CO₂/year (kg) | Maturity |
+|---|---|---|
+| Teak | 22 kg | 20 years |
+| Moringa | 9 kg | 3 years |
+| Eucalyptus | 31 kg | 10 years |
+| Mangrove | 14 kg | 15 years |
+
+---
+
+## For Planters
+
+1. Register your wallet and identity on-chain.
+2. Browse open planting jobs in your region.
+3. Accept a job — funds are locked in escrow immediately.
+4. Plant the tree and upload photo + GPS coordinates using the mobile-friendly uploader.
+5. Receive payment to your Stellar wallet instantly upon verification.
+
+---
+
+## Roadmap
+
+- [x] Core escrow contract
+- [x] Tree registry (unique ID minting)
+- [ ] Planter reputation scoring
+- [ ] Mobile planter app (React Native)
+- [ ] DAO governance for fee parameters
+- [ ] Satellite verification integration (Sentinel-2)
+- [ ] Carbon credit marketplace
+
+---
+
+## Contributing
+
+Issues are open and labelled — see the [Issues tab](../../issues). Smart contract work is in `contracts/`, frontend in `frontend/`, backend in `scripts/`.
+
+---
+
+## License
+
+Apache 2.0
+![CI](https://github.com/Farm-credit//stellar-app-os/actions/workflows/ci.yml/badge.svg)
+
+![Deploy](https://github.com/Farm-credit/stellar-app-os/actions/workflows/deploy.yml/badge.svg)
+
+# FarmCredit
+
+Decentralized agricultural credit platform built on the [Stellar network](https://stellar.org).
+
+## Tech Stack
+
+- **Framework:** Next.js 15 (App Router)
+- **Language:** TypeScript (strict mode)
+- **Styling:** Tailwind CSS v4 + shadcn/ui
+- **Design System:** Stellar brand colors + atomic design pattern
+- **Package Manager:** pnpm
+
+## Getting Started
+
+### Prerequisites
+
+- Node.js 20+
+- pnpm (`npm install -g pnpm`)
+- Git
+
+### Setup
+
+```bash
+git clone git@github.com:Farm-credit/stellar-app-os.git
+cd stellar-app-os
+pnpm install
+pnpm dev
+```
+
+Open [http://localhost:3000](http://localhost:3000) to see the app.
+
+### Scripts
+
+| Command               | Description                             |
+| --------------------- | --------------------------------------- |
+| `pnpm dev`            | Start development server                |
+| `pnpm build`          | Production build (also runs type-check) |
+| `pnpm typecheck`      | Run TypeScript type-check without emitting |
+| `pnpm test`           | Run unit tests with Vitest              |
+| `pnpm test:watch`     | Run Vitest in watch mode                |
+| `pnpm start`          | Start production server                 |
+| `pnpm lint`           | Run ESLint                              |
+| `pnpm generate-icons` | Generate PWA icons from source          |
+
+## Progressive Web App (PWA)
+
+FarmCredit is a fully functional Progressive Web App with offline support and installability.
+
+### Features
+
+- 📱 **Installable** - Add to home screen on mobile and desktop
+- 🔌 **Offline Support** - Works without internet connection
+- 🚀 **Fast Loading** - Cached assets for instant load times
+- 🔔 **Push Notifications** - Optional notification support
+- 📊 **Network Aware** - Detects and adapts to connection status
+
+### Quick Start
+
+```bash
+# Install PWA dependencies
+npm install next-pwa @ducanh2912/next-pwa workbox-window
+npm install -D @types/serviceworker sharp
+
+# Generate icons
+npm run generate-icons
+
+# Build and test
+npm run build
+npm start
+```
+
+### Documentation
+
+- [PWA Setup Guide](./PWA_SETUP.md) - Comprehensive setup and deployment
+- [Installation Guide](./INSTALLATION.md) - Quick start guide
+- [Testing Checklist](./TESTING_CHECKLIST.md) - Complete testing guide
+- [Quick Reference](./PWA_QUICK_REFERENCE.md) - Commands and tips
+
+### Testing PWA
+
+1. Build production version: `npm run build && npm start`
+2. Open DevTools → Application → Service Workers
+3. Verify service worker is active
+4. Test offline: DevTools → Network → Offline
+5. Run Lighthouse audit for PWA score
+
+## Project Architecture
+
+This project follows the **atomic design pattern**. Components are organized by complexity, not by feature.
+
+```
+stellar-app-os/
+├── app/                    # Next.js App Router pages & layouts
+│   ├── globals.css         # Stellar color tokens + Tailwind config
+│   ├── layout.tsx          # Root layout
+│   └── page.tsx            # Landing page
+├── components/
+│   ├── atoms/              # Smallest building blocks (Button, Input, Text, Badge)
+│   ├── molecules/          # Combinations of atoms (Card)
+│   ├── organisms/          # Complex sections (headers, forms — to be built)
+│   ├── templates/          # Page-level layouts (to be built)
+│   └── ui/                 # shadcn/ui base components (do not edit directly unless extending)
+├── lib/
+│   └── utils.ts            # Shared utilities (cn() helper)
+└── public/                 # Static assets
+```
+
+### Design Hierarchy
+
+| Level         | Purpose                          | Example                                 |
+| ------------- | -------------------------------- | --------------------------------------- |
+| **Atoms**     | Single-purpose UI elements       | `Button`, `Input`, `Text`, `Badge`      |
+| **Molecules** | Groups of atoms working together | `Card`, `FormField`                     |
+| **Organisms** | Complex UI sections              | `Header`, `DonationForm`, `ProjectGrid` |
+| **Templates** | Page-level structural layouts    | `DashboardLayout`, `AuthLayout`         |
+
+### Stellar Color Tokens
+
+These brand colors are defined in `app/globals.css` and available as Tailwind classes:
+
+| Token          | Value     | Tailwind Class                             |
+| -------------- | --------- | ------------------------------------------ |
+| Stellar Blue   | `#14B6E7` | `bg-stellar-blue`, `text-stellar-blue`     |
+| Stellar Purple | `#3E1BDB` | `bg-stellar-purple`, `text-stellar-purple` |
+| Stellar Navy   | `#0D0B21` | `bg-stellar-navy`, `text-stellar-navy`     |
+| Stellar Cyan   | `#00C2FF` | `bg-stellar-cyan`, `text-stellar-cyan`     |
+| Stellar Green  | `#00B36B` | `bg-stellar-green`, `text-stellar-green`   |
+
+### Import Convention
+
+**No barrel exports.** Always import directly from the component file:
+
+```tsx
+// Correct
+import { Button } from '@/components/atoms/Button';
+import { Card, CardHeader } from '@/components/molecules/Card';
+
+// Wrong — do not use index.ts barrel exports
+import { Button } from '@/components/atoms';
+```
+
+---
+
+## Contributing
+
+### 1. Pick an Issue
+
+Browse [open issues](https://github.com/Farm-credit/stellar-app-os/issues) labeled `Stellar Wave`. Comment on the issue to claim it. Do not work on an issue someone else has claimed without coordinating.
+
+### 2. Branch from `main`
+
+Always start from the latest `main`:
+
+```bash
+git checkout main
+git pull origin main
+git checkout -b feat/<issue-number>-<short-description>
+```
+
+Branch naming examples:
+
+- `feat/42-wallet-connect-modal`
+- `fix/78-rate-limit-toast`
+- `docs/107-contributing-guide`
+
+### 3. Coding Standards
+
+- **TypeScript strict mode** — no `any`, no unused variables
+- **Component patterns** — use `forwardRef` where needed, always set `displayName`, export named types
+- **Naming** — PascalCase for components, camelCase for functions/variables, kebab-case for CSS classes
+- **Atomic design** — atoms extend `ui/` base components with Stellar variants; molecules compose atoms
+- **No barrel exports** — import directly from the file, not from `index.ts`
+
+### 4. Commit Conventions
+
+This project enforces **Conventional Commits** and **atomic commits**.
+
+#### Commit Message Format
+
+```
+<type>(<scope>): <short description>
+
+[optional body]
+
+[optional footer]
+```
+
+#### Allowed Types
+
+| Type       | When to use                            |
+| ---------- | -------------------------------------- |
+| `feat`     | New feature or component               |
+| `fix`      | Bug fix                                |
+| `docs`     | Documentation only                     |
+| `style`    | Formatting, no logic change            |
+| `refactor` | Code restructuring, no behavior change |
+| `perf`     | Performance improvement                |
+| `test`     | Adding or updating tests               |
+| `build`    | Build system or dependency changes     |
+| `ci`       | CI configuration changes               |
+| `chore`    | Maintenance tasks                      |
+
+#### Allowed Scopes
+
+`auth`, `wallet`, `dashboard`, `marketplace`, `admin`, `donation`, `carbon`, `ui`, `layout`, `nav`, `config`, `deps`
+
+#### Examples
+
+```bash
+feat(wallet): add Stellar wallet connection modal
+fix(donation): correct minimum amount validation
+docs(contributing): add commit convention section
+style(ui): format Button component with Prettier
+refactor(dashboard): extract tab components into separate files
+```
+
+#### Atomic Commit Rules
+
+1. **One concern per commit** — never mix a bug fix with a new feature
+2. **Each commit must build** — `pnpm build` must pass at every single commit
+3. **Each commit must be revertable** — reverting one commit must not break unrelated code
+4. **Order matters** — foundation first, then features, then polish
+
+**Bad example** (one giant commit):
+
+```
+feat: add dashboard with tabs, fix header bug, update colors
+```
+
+**Good example** (atomic):
+
+```
+feat(dashboard): create dashboard page layout
+feat(dashboard): add overview tab component
+feat(dashboard): add donations tab component
+fix(nav): correct active link highlighting on dashboard
+style(dashboard): align tab content padding
+```
+
+### 5. Pull Request Process
+
+#### Before Submitting
+
+```bash
+# Make sure you're up to date with main
+git checkout main
+git pull origin main
+git checkout <your-branch>
+git rebase main
+
+# Verify everything passes
+pnpm build
+pnpm lint
+```
+
+#### PR Requirements
+
+Every PR **must** include:
+
+- **Linked issue** — use `Closes #<issue-number>` in the PR description
+- **Screen recording** — record your implementation working in the browser and attach it to the PR
+- **Filled PR template** — Summary, What Was Implemented, Implementation Details, How to Test
+- **Passing CI** — build and lint must pass
+
+> **PRs without a screen recording or without a linked issue will not be reviewed.**
+
+#### PR Template
+
+When you open a PR, the template will auto-populate. Fill out every section:
+
+```markdown
+## Summary
+
+<!-- 1-3 sentences: What does this PR do and why? -->
+
+## Related Issue
+
+Closes #<issue-number>
+
+## What Was Implemented
+
+<!-- Detailed list of what was built/changed -->
+
+- [ ] Component X created
+- [ ] Styling applied with Stellar tokens
+- [ ] Responsive on mobile
+
+## Implementation Details
+
+<!-- Key decisions, patterns used, trade-offs -->
+
+## Screenshots / Recordings
+
+<!-- REQUIRED: Screen recording of your implementation -->
+
+## How to Test
+
+<!-- Step-by-step for reviewers -->
+
+1. Checkout this branch
+2. Run `pnpm dev`
+3. Navigate to /path
+4. Verify X works
+```
+
+### 6. Code Review
+
+- Expect feedback. Reviews are about improving the code, not criticizing the author.
+- Respond to every comment — either make the change or explain why not.
+- After addressing feedback, re-request review.
+- Maintainers will merge once approved and CI passes.
+
+### 7. Stay in Sync
+
+While your PR is in review, keep your branch up to date:
+
+```bash
+git checkout main
+git pull origin main
+git checkout <your-branch>
+git rebase main
+git push --force-with-lease
+```
+
+---
+
+## License
+
+This project is open source. See [LICENSE](LICENSE) for details.
+# 🌱 Harvesta — Plant Trees. Track Impact. Offset Carbon.
+
+> A decentralised tree-planting platform on Stellar where anyone can pay farmers and individuals to plant trees — anonymously or with full carbon-offset tracking — and planters upload real-world progress with a unique tree ID.
+
+---
+
+## What is Harvesta?
+
+Harvesta connects **tree sponsors** with **on-the-ground planters** (farmers, community groups, individuals) through a transparent, blockchain-backed payment system built on **Stellar** using **Soroban** smart contracts.
+
+You can:
+
+- **Sponsor a tree** — pay a planter to plant and care for a tree on your behalf.
+- **Go anonymous** — make a one-time donation with no account required.
+- **Track your forest** — create an account, get a unique tree ID for every tree you sponsor, and follow its growth through planter-uploaded photo and GPS updates.
+- **Measure your impact** — the platform calculates estimated CO₂ offset per tree species and shows your cumulative carbon footprint reduction.
+
+Planters receive **instant Stellar payments** the moment a tree is verified, with no banks, no delays, and no middlemen.
+
+---
+
+## How It Works
+
+```
+Sponsor                   Harvesta Platform              Planter
+  │                              │                          │
+  │── Choose species, qty ──────>│                          │
+  │── Pay in XLM / USDC ────────>│                          │
+  │                              │── Escrow in contract ───>│
+  │                              │                          │── Plant tree
+  │                              │                          │── Upload photo + GPS
+  │                              │<── Progress update ──────│
+  │<── Carbon dashboard update ──│                          │
+  │                              │── Release payment ──────>│
+```
+
+1. **Sponsor** selects tree species, quantity, region, and payment method (XLM or USDC).
+2. **Smart contract** holds funds in escrow, mints a unique Tree NFT ID.
+3. **Planter** receives the job, plants the tree, and uploads timestamped photo + GPS proof.
+4. **Contract** releases payment to planter upon verification.
+5. **Sponsor dashboard** shows live tree progress, species info, and CO₂ offset estimate.
+
+---
+
+## Features
+
+| Feature | Description |
+|---|---|
+| 🌳 Sponsor a Tree | Pay any planter to plant a tree on your behalf |
+| 👤 Anonymous Donations | One-time payment, no account needed |
+| 🆔 Unique Tree ID | Each sponsored tree gets a tamper-proof on-chain ID |
+| 📸 Planter Updates | Planters upload photo + GPS progress per tree |
+| 📊 Carbon Dashboard | Track estimated CO₂ offset across your entire portfolio |
+| 💸 Instant Settlement | Planters paid in XLM/USDC the moment work is verified |
+| 🔒 Escrow Protection | Funds held in smart contract until planting is confirmed |
+| 🗺️ Regional Selection | Sponsor trees in specific countries or biomes |
+
+---
+
+## Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Smart Contracts | Soroban (Rust), Stellar mainnet/testnet |
+| Frontend | React + TypeScript + Vite |
+| Wallet | Freighter, Albedo, xBull |
+| Storage | IPFS (planter photo uploads) + AWS S3 (private planting photo evidence — see [API spec](docs/private-s3-photo-uploads.md)) |
+| Off-chain API | Node.js / Express |
+| Database | PostgreSQL |
+| Carbon Data | Open-source CO₂ sequestration tables per species |
+
+---
+
+## Smart Contracts
+
+```
+contracts/
+├── tree_registry/      # Mint and manage unique Tree IDs (NFT-like)
+├── escrow/             # Hold sponsor funds, release on verification
+├── planter_registry/   # Register planters, track reputation score
+├── carbon_credits/     # Calculate and record CO₂ offset per tree
+└── governance/         # DAO voting for platform parameters
+```
+
+---
+
+## Getting Started
+
+### Prerequisites
+
+- Rust + `cargo` (stable)
+- `stellar-cli` ≥ 21
+- Node.js ≥ 18
+- A Stellar testnet account funded via [friendbot](https://friendbot.stellar.org)
+
+### Install
+
+```bash
+git clone https://github.com/RuhinaCodes/Harvesta.git
+cd Harvesta
+```
+
+### Build Contracts
+
+```bash
+cd contracts
+cargo build --target wasm32-unknown-unknown --release
+```
+
+### Deploy to Testnet
+
+```bash
+stellar contract deploy \
+  --wasm target/wasm32-unknown-unknown/release/tree_registry.wasm \
+  --network testnet
+```
+
+### Run Frontend
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+---
+
+## Carbon Offset Methodology
+
+Harvesta uses published biomass growth tables (FAO / IPCC Tier 1) to estimate CO₂ sequestration per tree species per year. Estimates are clearly labelled as projections and updated annually.
+
+Example:
+
+| Species | Avg CO₂/year (kg) | Maturity |
+|---|---|---|
+| Teak | 22 kg | 20 years |
+| Moringa | 9 kg | 3 years |
+| Eucalyptus | 31 kg | 10 years |
+| Mangrove | 14 kg | 15 years |
+
+---
+
+## For Planters
+
+1. Register your wallet and identity on-chain.
+2. Browse open planting jobs in your region.
+3. Accept a job — funds are locked in escrow immediately.
+4. Plant the tree and upload photo + GPS coordinates using the mobile-friendly uploader.
+5. Receive payment to your Stellar wallet instantly upon verification.
+
+---
+
+## Roadmap
+
+- [x] Core escrow contract
+- [x] Tree registry (unique ID minting)
+- [ ] Planter reputation scoring
+- [ ] Mobile planter app (React Native)
+- [ ] DAO governance for fee parameters
+- [ ] Satellite verification integration (Sentinel-2)
+- [ ] Carbon credit marketplace
+
+---
+
+## Contributing
+
+Issues are open and labelled — see the [Issues tab](../../issues). Smart contract work is in `contracts/`, frontend in `frontend/`, backend in `scripts/`.
+
+---
+
+## License
+
+Apache 2.0
+
+---
+
+## Certificate API
+
+Impact certificates are available as high-resolution PDFs with embedded QR codes that link to the Stellar blockchain explorer for on-chain verification.
+
+### Client-Side Usage
+
+```ts
+import { generateCertificatePdf, type CertificateData } from '@/lib/certificate';
+
+const data: CertificateData = {
+  userName: 'Alice',
+  walletAddress: 'G…',
+  treeCount: 50,
+  co2Offset: 2.4,
+  plantingDate: new Date('2025-01-15'),
+  region: 'Amazon Basin, Brazil',
+  projectName: 'Amazon Reforestation',
+  transactionHash: 'a1b2c3…',
+  retirementDate: new Date(),
+  isAnonymous: false,
+};
+
+const qrDataUrl = await QRCode.toDataURL(explorerUrl);
+await generateCertificatePdf({ qrDataUrl, data });
+```
+
+### Server-Side Endpoint
+
+`POST /api/certificate/generate`
+
+Generates and returns a downloadable PDF certificate.
+
+**Request body:**
+```json
+{
+  "userName": "Alice",
+  "walletAddress": "G…",
+  "treeCount": 50,
+  "co2Offset": 2.4,
+  "plantingDate": "2025-01-15T00:00:00.000Z",
+  "region": "Amazon Basin, Brazil",
+  "projectName": "Amazon Reforestation",
+  "transactionHash": "a1b2c3…",
+  "retirementDate": "2025-06-01T00:00:00.000Z"
+}
+```
+
+**Response:** `200` with `Content-Type: application/pdf` and the PDF file as download.
+
+### Environment Variables
+
+| Variable | Default | Description |
+|---|---|---|
+| `CERTIFICATE_EXPLORER_BASE_URL` | `https://stellar.expert/explorer/public/tx` | Base Stellar explorer URL embedded in QR code |
+| `CERTIFICATE_DPI` | `150` | PDF output resolution |
+

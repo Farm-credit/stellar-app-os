@@ -9,7 +9,7 @@ import { Textarea } from '@/components/atoms/Textarea';
 import { Spinner } from '@/components/atoms/Spinner';
 import { cn } from '@/lib/utils';
 import type { PlanterRegistrationFormData } from '@/lib/schemas/planter-registration';
-import { Upload, X, ImageIcon, CheckCircle2 } from 'lucide-react';
+import { Upload, X, ImageIcon, CheckCircle2, Wifi, WifiOff, RefreshCw } from 'lucide-react';
 
 interface ProfileStepProps {
   form: UseFormReturn<PlanterRegistrationFormData>;
@@ -18,6 +18,9 @@ interface ProfileStepProps {
   photoUploadError: string | null;
   onUploadPhoto: (file: File) => Promise<void>;
   onClearPhoto: () => void;
+  isOnline: boolean;
+  pendingUploads: number;
+  manualSync: () => void;
 }
 
 /**
@@ -34,6 +37,9 @@ export function ProfileStep({
   photoUploadError,
   onUploadPhoto,
   onClearPhoto,
+  isOnline,
+  pendingUploads,
+  manualSync,
 }: ProfileStepProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -63,6 +69,35 @@ export function ProfileStep({
 
   return (
     <div className="space-y-6">
+      {/* ── Network Status Indicator ─────────────────────────────────── */}
+      <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50 border border-border">
+        <div className="flex items-center gap-2">
+          {isOnline ? (
+            <Wifi className="h-4 w-4 text-stellar-green" />
+          ) : (
+            <WifiOff className="h-4 w-4 text-destructive" />
+          )}
+          <span className="text-sm font-medium">
+            {isOnline ? 'Online' : 'Offline'}
+          </span>
+        </div>
+        {!isOnline && pendingUploads > 0 && (
+          <span className="text-xs text-muted-foreground">
+            {pendingUploads} photo{pendingUploads > 1 ? 's' : ''} queued
+          </span>
+        )}
+        {!isOnline && pendingUploads > 0 && (
+          <button
+            type="button"
+            onClick={manualSync}
+            className="flex items-center gap-1 text-xs text-stellar-blue hover:text-stellar-blue/80 transition-colors"
+          >
+            <RefreshCw className="h-3 w-3" />
+            Retry
+          </button>
+        )}
+      </div>
+
       {/* ── Display Name ─────────────────────────────────────────────── */}
       <Controller
         control={form.control}

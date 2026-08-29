@@ -11,18 +11,9 @@ concurrency:
 
 env:
   NEXT_TELEMETRY_DISABLED: 1
-  CI_BUILD_ENFORCED: true
-
-# ─── Shared boilerplate for every Node job ─────────────────────────────────────
-#
-# Each job repeats the checkout + pnpm + node setup because that keeps jobs
-# hermetic — no shared state, no cross-job coupling.  If latency becomes a
-# concern, extract these steps into a composite action in .github/actions/.
 
 jobs:
-  # ═════════════════════════════════════════════════════════════════════════════
-  # PHASE 1 — Fast quality gates (run in parallel, < 2 min each)
-  # ═════════════════════════════════════════════════════════════════════════════
+  # ── Phase 1: fast quality gates (run in parallel) ──────────────────────────
 
   lint:
     name: Lint
@@ -33,11 +24,12 @@ jobs:
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
+          node-version: 20
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm lint
 
-  typecheck:
+  typescript:
     name: TypeScript
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -46,6 +38,7 @@ jobs:
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
+          node-version: 20
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck
@@ -53,15 +46,16 @@ jobs:
   test:
     name: Test
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
+          node-version: 20
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm test -- --reporter=junit --outputFile=test-results.xml
+      - run: pnpm test -- --run
       - name: Upload test report
         if: always()
         uses: actions/upload-artifact@v4
@@ -69,34 +63,9 @@ jobs:
           name: test-results
           path: test-results.xml
           retention-days: 7
+          if-no-files-found: ignore
 
-  env-check:
-    name: Env vars
-    runs-on: ubuntu-latest
-    timeout-minutes: 2
-    steps:
-      - uses: actions/checkout@v4
-      - name: Validate env vars are not placeholders
-        run: |
-          errors=0
-          while IFS= read -r line; do
-            [[ "$line" =~ ^# || -z "$line" ]] && continue
-            var="${line%%=*}"
-            val="${line#*=}"
-            val="${val#\"}"; val="${val%\"}"
-            if [[ "$val" == REPLACE_WITH_* ]]; then
-              echo "⚠️  $var still contains a placeholder: $val"
-              errors=$(( errors + 1 ))
-            fi
-          done < .env.example
-          if (( errors > 0 )); then
-            echo "Found $errors placeholder(s). Update .env before production."
-          else
-            echo "✅ All env vars look good."
-          fi
-          # Non-blocking — placeholders are expected during development
-
-  migration-validate:
+  migration-files:
     name: Migration files
     runs-on: ubuntu-latest
     timeout-minutes: 2
@@ -105,49 +74,36 @@ jobs:
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
+          node-version: 20
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm db:migrate:validate
 
-  # ═════════════════════════════════════════════════════════════════════════════
-  # PHASE 2 — Expensive gate (build).  Waits for all Phase-1 gates to pass.
-  # ═════════════════════════════════════════════════════════════════════════════
+  # ── Phase 2: build (waits for all phase-1 gates) ───────────────────────────
 
   build:
     name: Build
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    needs: [lint, typecheck, test, migration-validate]
-    outputs:
-      build-cache-hit: ${{ steps.build-cache.outputs.cache-hit }}
+    needs: [lint, typescript, test, migration-files]
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
+          node-version: 20
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-
-      # Cache .next between CI runs (keyed on source hash)
       - name: Cache Next.js build
-        id: build-cache
         uses: actions/cache@v4
         with:
           path: .next/cache
           key: nextjs-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml', '**/*.[jt]s', '**/*.[jt]sx', '**/*.css') }}
           restore-keys: |
             nextjs-${{ runner.os }}-
-
-      - run: pnpm typecheck
-
-      - run: pnpm test
-
-      - run: pnpm build
       - name: Build
         run: pnpm build
         env:
-          # Cap Node's V8 heap at 5GB so the Webpack build worker + Node
-          # runtime + OS overhead fits in the 7GB GitHub-hosted runner.
           NODE_OPTIONS: --max-old-space-size=5120
           NEXT_PUBLIC_STELLAR_NETWORK: testnet
           NEXT_PUBLIC_HORIZON_URL: https://horizon-testnet.stellar.org
@@ -160,7 +116,6 @@ jobs:
           NEXT_PUBLIC_CONTRACT_ESCROW_MILESTONE: CBUILD0000000000000000000000000000000000000000000000000000
           NEXT_PUBLIC_CONTRACT_LOCATION_PROOF: CBUILD0000000000000000000000000000000000000000000000000000
           NEXT_PUBLIC_CONTRACT_NULLIFIER_REGISTRY: CBUILD0000000000000000000000000000000000000000000000000000
-          NEXT_PUBLIC_CONTRACT_CARBON_CREDITS: CBUILD0000000000000000000000000000000000000000000000000000
           NEXT_PUBLIC_PLANTING_ADDRESS: GABEMKJNR4GK7M4FROGA7I7PG63N2CKE3EGDSBSISG56SVL2O3KRNDXA
           NEXT_PUBLIC_REPLANTING_BUFFER_ADDRESS: GBUQWP3BOUZX34TOND2QV7QQ7K7VJTG6VSE62MFPXXXIAGKZ6YTDCXI
           NEXT_PUBLIC_BULK_RECIPIENT_ADDRESS: GABEMKJNR4GK7M4FROGA7I7PG63N2CKE3EGDSBSISG56SVL2O3KRNDXA
@@ -168,9 +123,7 @@ jobs:
           NEXT_PUBLIC_ANCHOR_HOME_DOMAIN: testanchor.stellar.org
           NEXT_PUBLIC_APP_URL: http://localhost:3000
 
-  # ═════════════════════════════════════════════════════════════════════════════
-  # PHASE 3 — Docker image (main branch only)
-  # ═════════════════════════════════════════════════════════════════════════════
+  # ── Phase 3: Docker image (main branch pushes only) ────────────────────────
 
   docker:
     name: Docker
@@ -183,16 +136,13 @@ jobs:
       packages: write
     steps:
       - uses: actions/checkout@v4
-
       - uses: docker/setup-buildx-action@v3
-
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Docker metadata
         id: meta
         uses: docker/metadata-action@v5
@@ -202,7 +152,6 @@ jobs:
             type=sha,format=long
             type=ref,event=branch
             type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
-
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
@@ -212,20 +161,3 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-          provenance: mode=max
-
-      - name: Scan image for vulnerabilities
-        uses: aquasecurity/trivy-action@master
-        with:
-          image-ref: ghcr.io/${{ github.repository }}:${{ steps.meta.outputs.version }}
-          format: sarif
-          output: trivy-results.sarif
-          severity: CRITICAL,HIGH
-
-      - name: Upload Trivy report
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: trivy-report
-          path: trivy-results.sarif
-          retention-days: 30

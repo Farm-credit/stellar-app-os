@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { ReplicaBalancer, DatabaseInstance, ReplicaBalancerConfig } from './replica-balancer';
+import { ReplicaBalancer, type ReplicaBalancerConfig } from './replica-balancer';
 
 // Mock pg module
 vi.mock('pg', () => ({
@@ -71,7 +71,7 @@ describe('ReplicaBalancer', () => {
       retryDelay: 10,
     };
 
-    vi.mocked(Pool).mockImplementation((poolConfig: any) => {
+    vi.mocked(Pool).mockImplementation(function (this: unknown, poolConfig: any) {
       if (poolConfig.connectionString === config.primary.url) {
         return mockPrimaryPool;
       }
@@ -158,6 +158,7 @@ describe('ReplicaBalancer', () => {
     it('should prefer replicas in specified region', async () => {
       const balancer = new ReplicaBalancer(config);
       (global as any).__testBalancer = balancer;
+      await new Promise((resolve) => setTimeout(resolve, 100));
 
       await balancer.query('SELECT * FROM test', [], { preferredRegion: 'eu-west-1' });
 
@@ -184,6 +185,7 @@ describe('ReplicaBalancer', () => {
 
       const balancer = new ReplicaBalancer(config);
       (global as any).__testBalancer = balancer;
+      await new Promise((resolve) => setTimeout(resolve, 100));
 
       await balancer.query('SELECT * FROM test');
 
@@ -253,6 +255,7 @@ describe('ReplicaBalancer', () => {
 
       const balancer = new ReplicaBalancer(config);
       (global as any).__testBalancer = balancer;
+      await new Promise((resolve) => setTimeout(resolve, 100));
 
       await expect(balancer.query('SELECT * FROM test')).rejects.toThrow();
     });

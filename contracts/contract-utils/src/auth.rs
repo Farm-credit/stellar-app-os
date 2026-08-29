@@ -1,5 +1,3 @@
-#![no_std]
-
 //! Soroban invocation-context helpers.
 //!
 //! Public contract entry points often take an explicit `Address` for the

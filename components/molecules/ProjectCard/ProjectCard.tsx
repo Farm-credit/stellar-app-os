@@ -1,144 +1,114 @@
-import * as React from 'react';
-import Image from 'next/image';
 import { Badge } from '@/components/atoms/Badge';
 import { Button } from '@/components/atoms/Button';
 import { Text } from '@/components/atoms/Text';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/molecules/Card';
 import { MapPin, ImageOff } from 'lucide-react';
+import type { CarbonProject } from '@/lib/types/carbon';
 
 export interface ProjectCardProps {
-  id: string | number;
-  title: string;
-  location: string;
-  description: string;
-  imageUrl: string | null;
-  type: 'reforestation' | 'renewable' | 'conservation';
-  progress: number;
-  price: number;
-  availableCredits: number;
+  project: CarbonProject;
 }
 
-const typeConfig = {
-  reforestation: { label: 'Reforestation', colorClass: 'bg-stellar-green' },
-  renewable: { label: 'Renewable Energy', colorClass: 'bg-stellar-cyan text-stellar-navy' },
-  conservation: { label: 'Conservation', colorClass: 'bg-stellar-purple' },
+const typeConfig: Record<string, { label: string; colorClass: string }> = {
+  Reforestation: { label: 'Reforestation', colorClass: 'bg-stellar-green' },
+  'Renewable Energy': {
+    label: 'Renewable Energy',
+    colorClass: 'bg-stellar-cyan text-stellar-navy',
+  },
+  'Mangrove Restoration': { label: 'Mangrove Restoration', colorClass: 'bg-stellar-purple' },
+  'Sustainable Agriculture': {
+    label: 'Sustainable Agriculture',
+    colorClass: 'bg-stellar-purple',
+  },
+  Conservation: { label: 'Conservation', colorClass: 'bg-stellar-purple' },
 };
 
-  const handleToggle = (projectId: string) => {
-    const alreadyFavorited = isFavorited(projectId);
-
-    toggleFavorite(projectId);
-
-    toast(
-      alreadyFavorited
-        ? `${project.name} removed from favorites`
-        : `${project.name} added to favorites!`,
-      {
-        action: {
-          label: 'Undo',
-          onClick: () => undoRemove(),
-        },
-      }
-    );
+export function ProjectCard({ project }: ProjectCardProps) {
+  const badgeConfig = typeConfig[project.type] ?? {
+    label: project.type,
+    colorClass: 'bg-stellar-purple',
   };
+
+  const isSoldOut = project.isOutOfStock || project.availableSupply <= 0;
+
   return (
-    <div className="rounded-lg border bg-card p-6 space-y-4 hover:shadow-lg transition-shadow">
-      <div className="flex justify-end">
-        <button
-          onClick={() => handleToggle(project.id)}
-          aria-label={isFavorited(project.id) ? 'Remove from favorites' : 'Add to favorites'}
-          aria-pressed={isFavorited(project.id)}
-        >
-          <HeartIcon
-            className={
-              isFavorited(project.id) ? 'fill-red-500 stroke-red-500' : 'fill-none stroke-current'
-            }
-          />
-        ) : (
-          <div className="flex h-full w-full flex-col items-center justify-center text-muted-foreground bg-secondary/50">
+    <Card className="overflow-hidden flex flex-col hover:shadow-lg transition-shadow">
+      <CardHeader className="p-0 relative">
+        <div className="relative w-full h-48 bg-secondary/50">
+          <div className="flex h-full w-full flex-col items-center justify-center text-muted-foreground">
             <ImageOff className="h-10 w-10 mb-2 opacity-50" />
             <Text variant="small">No image available</Text>
           </div>
-        )}
 
-        {/* Type Badge */}
-        <div className="absolute top-3 right-3 z-10">
-          <Badge className={`border-none ${badgeConfig.colorClass}`}>{badgeConfig.label}</Badge>
-        </div>
-      </div>
-      <div>
-        <div className="flex items-start justify-between mb-2">
-          <Text variant="h4" as="h3" className="font-semibold">
-            {project.name}
-          </Text>
+          <div className="absolute top-3 right-3 z-10">
+            <Badge className={`border-none ${badgeConfig.colorClass}`}>{badgeConfig.label}</Badge>
+          </div>
+
           {project.isOutOfStock && (
-            <Badge variant="outline" className="ml-2">
-              Out of Stock
-            </Badge>
+            <div className="absolute top-3 left-3 z-10">
+              <Badge variant="outline" className="bg-background/80 backdrop-blur">
+                Out of Stock
+              </Badge>
+            </div>
           )}
         </div>
-        <Text
-          as="h3"
-          variant="h4"
-          className="line-clamp-1 group-hover:text-stellar-blue transition-colors"
-        >
-          {title}
-        </Text>
       </CardHeader>
 
-      <CardContent className="p-5 pt-0 flex-grow flex flex-col justify-between">
-        <Text variant="muted" className="line-clamp-2 mb-4">
-          {description}
+      <CardContent className="p-5 pt-4 flex-grow flex flex-col gap-3">
+        <div className="flex items-start justify-between gap-2">
+          <Text variant="h4" as="h3" className="font-semibold leading-tight">
+            {project.name}
+          </Text>
+        </div>
+
+        <div className="flex items-center gap-1 text-muted-foreground">
+          <MapPin className="h-3.5 w-3.5" aria-hidden="true" />
+          <Text variant="small" as="span" className="text-xs">
+            {project.location}
+          </Text>
+        </div>
+
+        <Text variant="muted" className="line-clamp-2 text-sm">
+          {project.description}
         </Text>
-      </div>
 
-        {/* Progress Area */}
-        <div className="space-y-2 mt-auto">
-          <div className="flex justify-between items-end">
-            <Text variant="small" className="font-medium">
-              {clampedProgress}% Funded
+        <div className="mt-auto pt-2 space-y-1.5">
+          <div className="flex items-center justify-between">
+            <Text variant="small" as="span" className="text-muted-foreground text-xs">
+              Price per Ton
             </Text>
-            <Text variant="small" className="text-xs text-muted-foreground">
-              {availableCredits > 0
-                ? `${availableCredits.toLocaleString()} credits left`
-                : '0 credits left'}
+            <Text variant="small" as="span" className="font-semibold">
+              ${project.pricePerTon.toFixed(2)}
             </Text>
           </div>
-
-          <div className="h-2 w-full bg-secondary rounded-full overflow-hidden">
-            <div
-              className="h-full bg-stellar-green transition-all duration-1000 ease-out rounded-full"
-              style={{ width: `${clampedProgress}%` }}
-            />
+          <div className="flex items-center justify-between">
+            <Text variant="small" as="span" className="text-muted-foreground text-xs">
+              Available
+            </Text>
+            <Text variant="small" as="span">
+              {project.availableSupply.toFixed(2)} tons
+            </Text>
+          </div>
+          <div className="flex items-center justify-between">
+            <Text variant="small" as="span" className="text-muted-foreground text-xs">
+              Vintage
+            </Text>
+            <Text variant="small" as="span">
+              {project.vintageYear}
+            </Text>
           </div>
         </div>
-        <div className="flex items-center justify-between">
-          <Text variant="small" as="span" className="text-muted-foreground">
-            Price per Ton
-          </Text>
-          <Text variant="small" as="span" className="font-semibold">
-            ${project.pricePerTon.toFixed(2)}
-          </Text>
-        </div>
-        <div className="flex items-center justify-between">
-          <Text variant="small" as="span" className="text-muted-foreground">
-            Available
-          </Text>
-          <Text variant="small" as="span">
-            {project.availableSupply.toFixed(2)} tons
-          </Text>
-        </div>
-      </div>
+      </CardContent>
 
-      <CardFooter className="p-5 pt-4 border-t bg-muted/20 flex items-center justify-between flex-none gap-3">
+      <CardFooter className="flex items-center justify-between gap-3 border-t bg-muted/20 p-5">
         <div className="flex flex-col">
-          <Text variant="small" className="text-muted-foreground text-xs leading-tight">
+          <Text variant="small" className="text-xs leading-tight text-muted-foreground">
             Price
           </Text>
           <div className="flex items-baseline gap-1">
-            <Text variant="h4">${price.toFixed(2)}</Text>
+            <Text variant="h4">${project.pricePerTon.toFixed(2)}</Text>
             <Text variant="small" className="text-muted-foreground text-xs">
-              /unit
+              /ton
             </Text>
           </div>
         </div>
@@ -150,3 +120,5 @@ const typeConfig = {
     </Card>
   );
 }
+
+export default ProjectCard;

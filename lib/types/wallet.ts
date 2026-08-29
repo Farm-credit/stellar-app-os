@@ -1,10 +1,12 @@
-export type WalletType = 'freighter' | 'albedo' | 'xbull' | 'custodial';
+export type WalletType = 'freighter' | 'albedo' | 'rango' | 'xbull' | 'custodial';
 
 export type NetworkType = 'testnet' | 'mainnet';
 
 export interface WalletBalance {
   xlm: string;
   usdc: string;
+  usdt?: string;
+  eurc?: string;
 }
 
 export interface WalletConnection {

@@ -9,12 +9,28 @@ export interface ToastAction {
 
 export type ToastType = 'info' | 'success' | 'warning' | 'error' | 'contract';
 
+const DEFAULT_TOAST_DURATION = 5000;
+const MIN_TOAST_DURATION = 2000;
+const MAX_TOAST_DURATION = 10000;
+
+export function normalizeToastDuration(duration?: number): number {
+  if (duration === undefined || Number.isNaN(duration)) {
+    return DEFAULT_TOAST_DURATION;
+  }
+
+  if (duration <= 0) {
+    return 0;
+  }
+
+  return Math.min(Math.max(duration, MIN_TOAST_DURATION), MAX_TOAST_DURATION);
+}
+
 export interface Toast {
   id: string;
   title: string;
   description?: string;
   type?: ToastType;
-  duration?: number; // duration in ms, defaults to 5000
+  duration?: number; // duration in ms, defaults to 5000 and stays within 2000-10000
   action?: ToastAction;
 }
 
@@ -58,7 +74,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const addToast = useCallback(
     (toastInput: Omit<Toast, 'id'>) => {
       const id = `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
-      const duration = toastInput.duration ?? 5000;
+      const duration = normalizeToastDuration(toastInput.duration);
 
       const newToast: Toast = {
         ...toastInput,
