@@ -85,7 +85,7 @@ export async function POST(request: Request) {
     walletPublicKey,
     displayName: _displayName,
     bio: _bio,
-    profilePhotoIfpsCid: _profilePhotoIfpsCid,
+    profilePhotoIpfsCid: _profilePhotoIpfsCid,
     regions,
   } = parsed.data;
 
@@ -95,8 +95,8 @@ export async function POST(request: Request) {
   }
 
   // Validate the uploaded image referenced by the CID (if provided)
-  if (_profilePhotoIfpsCid) {
-    const imageError = await validateIpfsImage(_profilePhotoIfpsCid);
+  if (_profilePhotoIpfsCid) {
+    const imageError = await validateIpfsImage(_profilePhotoIpfsCid);
     if (imageError) {
       return NextResponse.json({ error: imageError }, { status: 422 });
     }

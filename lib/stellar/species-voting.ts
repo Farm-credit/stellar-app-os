@@ -8,9 +8,10 @@
 import {
   TransactionBuilder,
   BASE_FEE,
-  type xdr,
   Contract,
+  nativeToScVal,
   scValToNative,
+  xdr,
 } from '@stellar/stellar-sdk';
 import { Horizon } from '@stellar/stellar-sdk';
 import type { NetworkType } from '@/lib/types/wallet';
@@ -106,7 +107,7 @@ export async function buildProposeSpeciesTransaction(
   maturity_years: number,
   network: NetworkType
 ): Promise<{ transactionXdr: string; networkPassphrase: string }> {
-  if (co2_scaled <= 0n) {
+  if (co2_scaled <= BigInt(0)) {
     throw new Error('co2_scaled must be positive');
   }
   if (maturity_years === 0) {
@@ -114,12 +115,13 @@ export async function buildProposeSpeciesTransaction(
   }
 
   const contract = new Contract(getSpeciesVotingContract(network));
-  const operation = contract.call('propose_species', {
-    slug,
-    name,
-    co2_scaled,
-    maturity_years,
-  });
+  const operation = contract.call(
+    'propose_species',
+    xdr.ScVal.scvString(slug),
+    xdr.ScVal.scvString(name),
+    nativeToScVal(co2_scaled, { type: 'i128' }),
+    xdr.ScVal.scvU32(maturity_years)
+  );
 
   return buildContractCallTransaction(proposerPublicKey, network, operation);
 }
@@ -134,10 +136,11 @@ export async function buildVoteTransaction(
   network: NetworkType
 ): Promise<{ transactionXdr: string; networkPassphrase: string }> {
   const contract = new Contract(getSpeciesVotingContract(network));
-  const operation = contract.call('vote', {
-    proposal_id: proposalId,
-    vote_for: voteFor,
-  });
+  const operation = contract.call(
+    'vote',
+    xdr.ScVal.scvU32(proposalId),
+    xdr.ScVal.scvBool(voteFor)
+  );
 
   return buildContractCallTransaction(voterPublicKey, network, operation);
 }
@@ -151,9 +154,7 @@ export async function buildExecuteProposalTransaction(
   network: NetworkType
 ): Promise<{ transactionXdr: string; networkPassphrase: string }> {
   const contract = new Contract(getSpeciesVotingContract(network));
-  const operation = contract.call('execute_proposal', {
-    proposal_id: proposalId,
-  });
+  const operation = contract.call('execute_proposal', xdr.ScVal.scvU32(proposalId));
 
   return buildContractCallTransaction(executorPublicKey, network, operation);
 }
@@ -172,10 +173,10 @@ export async function getProposal(
   const contract = new Contract(getSpeciesVotingContract(network));
 
   // Prepare the read-only contract call
-  const operation = contract.call('get_proposal', { proposal_id: proposalId });
+  const operation = contract.call('get_proposal', xdr.ScVal.scvU32(proposalId));
 
   // Use `server.call()` for read-only invocations. This is a simulation.
-  const result = await server.call(operation);
+  const result = await (server as any).call(operation);
 
   if (result.status !== 'SUCCESS' || !result.returnValue) {
     throw new Error(`Failed to fetch proposal #${proposalId}.`);
@@ -198,13 +199,13 @@ export async function getProposal(
 /**
  * Calculate the percentage of votes in favor.
  */
-export function calculateVotePercentage(votesFor: bigint, votesAgainst: bigint): number {
-  const total = votesFor + votesAgainst;
-  if (total === 0n) return 0;
+export function calculateVotePercentage(votesFor: bigint | number, votesAgainst: bigint | number): number {
+  const forVotes = typeof votesFor === 'bigint' ? votesFor : BigInt(Math.round(votesFor));
+  const againstVotes = typeof votesAgainst === 'bigint' ? votesAgainst : BigInt(Math.round(votesAgainst));
+  const total = forVotes + againstVotes;
+  if (total === BigInt(0)) return 0;
 
-  // Use bigint arithmetic to avoid precision loss before converting to a number.
-  // Multiply by 10000 to get two decimal places of precision.
-  return Number((votesFor * 10000n) / total) / 100;
+  return Number((forVotes * BigInt(10000)) / total) / 100;
 }
 
 /**

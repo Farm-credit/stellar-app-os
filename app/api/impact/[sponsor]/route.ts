@@ -39,12 +39,7 @@ function isValidLongitude(lon: number | null): lon is number {
   return lon !== null && !Number.isNaN(lon) && lon >= -180 && lon <= 180;
 }
 
-function haversineDistance(
-  lat1: number,
-  lon1: number,
-  lat2: number,
-  lon2: number
-): number {
+function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const dLat = toRad(lat2 - lat1);
   const dLon = toRad(lon2 - lon1);
   const a =
@@ -56,8 +51,8 @@ function haversineDistance(
 
 export async function GET(
   request: NextRequest,
-  { params : { params: Promise<{ sponsor: string }> }
-}) {
+  { params }: { params: Promise<{ sponsor: string }> }
+) {
   try {
     const { sponsor: rawSponsor } = await params;
     const sponsor = rawSponsor?.trim() ?? '';
@@ -68,7 +63,7 @@ export async function GET(
 
     if (!isValidStellarAddress(sponsor)) {
       return NextResponse.json(
-        { error: 'Invalid Stellar address — must be a 56-character G\u2026 public key' },
+        { error: 'Invalid Stellar address — must be a 56-character G… public key' },
         { status: 400 }
       );
     }
@@ -86,7 +81,7 @@ export async function GET(
       );
     }
 
-    const requestedStatus = _request.nextUrl.searchParams.get('status');
+    const requestedStatus = request.nextUrl.searchParams.get('status');
     const rawStatus = requestedStatus?.trim() ?? '';
 
     const allowedStatuses = new Set(['all', 'pending', 'planted', 'verified', 'failed']);
@@ -102,9 +97,15 @@ export async function GET(
       ? await getSponsorImpact(sponsor, filterStatus)
       : await getSponsorImpact(sponsor);
 
+    const impactWithOptionalGeo = impact as typeof impact & {
+      trees?: Array<Record<string, any>>;
+      location?: { lat?: number; lon?: number };
+      distanceKm?: number;
+    };
+
     if (lat !== null && lon !== null) {
-      if (Array.isArray(impact.trees)) {
-        impact.trees = impact.trees.map((tree: any) => {
+      if (Array.isArray(impactWithOptionalGeo.trees)) {
+        impactWithOptionalGeo.trees = impactWithOptionalGeo.trees.map((tree: Record<string, any>) => {
           if (tree?.location?.lat != null && tree?.location?.lon != null) {
             return {
               ...tree,
@@ -114,12 +115,22 @@ export async function GET(
           return tree;
         });
       }
-      if (impact?.location?.lat != null && impact?.location?.lon != null) {
-        impact.distanceKm = haversineDistance(lat, lon, impact.location.lat, impact.location.lon);
+      if (impactWithOptionalGeo.location?.lat != null && impactWithOptionalGeo.location?.lon != null) {
+        impactWithOptionalGeo.distanceKm = haversineDistance(
+          lat,
+          lon,
+          impactWithOptionalGeo.location.lat,
+          impactWithOptionalGeo.location.lon
+        );
       }
     }
 
-    return NextResponse.json(impact, {
+    const responseBody = {
+      ...impact,
+      ...impactWithOptionalGeo,
+    };
+
+    return NextResponse.json(responseBody, {
       headers: {
         'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=10',
         'X-Cached-At': impact.cachedAt,

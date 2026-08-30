@@ -13,7 +13,7 @@ import {
   Contract,
   Keypair,
   Networks,
-  SorobanRpc,
+  rpc,
   TransactionBuilder,
   nativeToScVal,
   scValToNative,
@@ -68,8 +68,8 @@ async function simulate(
   network: NetworkType,
   method: string,
   args: xdr.ScVal[]
-): Promise<SorobanRpc.Api.SimulateTransactionSuccessResponse> {
-  const server = new SorobanRpc.Server(SOROBAN_RPC[network], { allowHttp: false });
+): Promise<rpc.Api.SimulateTransactionSuccessResponse> {
+  const server = new rpc.Server(SOROBAN_RPC[network], { allowHttp: false });
   const contractId = getContractId(network);
   const feePayer = getFeePayerKeypair();
   const account = await server.getAccount(feePayer.publicKey());
@@ -83,16 +83,16 @@ async function simulate(
     .build();
 
   const result = await server.simulateTransaction(tx);
-  if (SorobanRpc.Api.isSimulationError(result)) {
+  if (rpc.Api.isSimulationError(result)) {
     throw new Error(result.error ?? 'Simulation failed');
   }
-  return result as SorobanRpc.Api.SimulateTransactionSuccessResponse;
+  return result as rpc.Api.SimulateTransactionSuccessResponse;
 }
 
 // ── Shared write helper ───────────────────────────────────────────────────────
 
 async function invokeWrite(network: NetworkType, method: string, args: xdr.ScVal[]): Promise<void> {
-  const server = new SorobanRpc.Server(SOROBAN_RPC[network], { allowHttp: false });
+  const server = new rpc.Server(SOROBAN_RPC[network], { allowHttp: false });
   const contractId = getContractId(network);
   const feePayer = getFeePayerKeypair();
   const account = await server.getAccount(feePayer.publicKey());
@@ -106,11 +106,11 @@ async function invokeWrite(network: NetworkType, method: string, args: xdr.ScVal
     .build();
 
   const simResult = await server.simulateTransaction(tx);
-  if (SorobanRpc.Api.isSimulationError(simResult)) {
+  if (rpc.Api.isSimulationError(simResult)) {
     throw new Error(simResult.error ?? 'Simulation failed');
   }
 
-  const prepared = SorobanRpc.assembleTransaction(tx, simResult).build();
+  const prepared = rpc.assembleTransaction(tx, simResult).build();
   prepared.sign(feePayer);
 
   const sendResult = await server.sendTransaction(prepared);
@@ -124,7 +124,7 @@ async function invokeWrite(network: NetworkType, method: string, args: xdr.ScVal
 }
 
 async function pollForConfirmation(
-  server: SorobanRpc.Server,
+  server: rpc.Server,
   txHash: string,
   maxAttempts = 20,
   intervalMs = 1500
@@ -132,8 +132,8 @@ async function pollForConfirmation(
   for (let i = 0; i < maxAttempts; i++) {
     await new Promise((r) => setTimeout(r, intervalMs));
     const result = await server.getTransaction(txHash);
-    if (result.status === SorobanRpc.Api.GetTransactionStatus.SUCCESS) return;
-    if (result.status === SorobanRpc.Api.GetTransactionStatus.FAILED) {
+    if (result.status === rpc.Api.GetTransactionStatus.SUCCESS) return;
+    if (result.status === rpc.Api.GetTransactionStatus.FAILED) {
       throw new Error(`Transaction failed: ${result.resultMetaXdr?.toXDR('base64') ?? 'unknown'}`);
     }
   }

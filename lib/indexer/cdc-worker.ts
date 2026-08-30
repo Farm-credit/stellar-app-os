@@ -16,7 +16,7 @@
  * Run: pnpm indexer:cdc
  */
 
-import { SorobanRpc, xdr } from '@stellar/stellar-sdk';
+import { rpc, xdr } from '@stellar/stellar-sdk';
 import { getPool } from '@/lib/db/client';
 import {
   upsertContractEvent,
@@ -127,8 +127,8 @@ async function withRetry<T>(
 
 // ── RPC Client ──────────────────────────────────────────────────────────────
 
-function createRpcClient(url: string, timeoutMs: number): SorobanRpc.Server {
-  return new SorobanRpc.Server(url, {
+function createRpcClient(url: string, timeoutMs: number): rpc.Server {
+  return new rpc.Server(url, {
     allowHttp: url.startsWith('http://'),
     timeout: timeoutMs,
   });
@@ -136,7 +136,7 @@ function createRpcClient(url: string, timeoutMs: number): SorobanRpc.Server {
 
 // ── Event Parsing ───────────────────────────────────────────────────────────
 
-function parseRpcEvent(event: SorobanRpc.Api.EventResponse): ParsedEvent {
+function parseRpcEvent(event: rpc.Api.EventResponse): ParsedEvent {
   const topicsXdr: string[] = Array.isArray(event.topic) ? event.topic.map(scValToXdrBase64) : [];
 
   const eventType = classifyEvent(topicsXdr);
@@ -160,7 +160,7 @@ function parseRpcEvent(event: SorobanRpc.Api.EventResponse): ParsedEvent {
 // ── Core Polling Loop ───────────────────────────────────────────────────────
 
 export class CDCEventIndexer {
-  private readonly server: SorobanRpc.Server;
+  private readonly server: rpc.Server;
   private readonly pool: ReturnType<typeof getPool>;
   private readonly config: CDCWorkerConfig;
   private running = false;
@@ -232,12 +232,12 @@ export class CDCEventIndexer {
   private async poll(): Promise<void> {
     const startLedger = await loadEventCursor(this.pool, this.config.network);
 
-    const filter: SorobanRpc.Api.EventFilter = {
+    const filter: rpc.Api.EventFilter = {
       type: 'contract',
       ...(this.config.contractIds.length > 0 ? { contractIds: this.config.contractIds } : {}),
     };
 
-    const request: SorobanRpc.Server.GetEventsRequest = {
+    const request: rpc.Server.GetEventsRequest = {
       filters: [filter],
       limit: this.config.maxEventsPerPoll,
       ...(startLedger > 0 ? { startLedger } : {}),

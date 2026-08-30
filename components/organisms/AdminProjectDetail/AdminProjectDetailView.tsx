@@ -22,6 +22,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/molecules/Card';
+import { useToast } from '@/hooks/useToast';
 import type {
   AdminActivityLogEntry,
   AdminCreditIssuanceRecord,
@@ -60,6 +61,7 @@ interface AdminProjectDetailViewProps {
 }
 
 export function AdminProjectDetailView({ initialProject }: AdminProjectDetailViewProps): ReactNode {
+  const { toast } = useToast();
   const [project, setProject] = useState<AdminProjectDetail>(initialProject);
   const [formValues, setFormValues] = useState<AdminProjectFormValues>(() =>
     toFormValues(initialProject)

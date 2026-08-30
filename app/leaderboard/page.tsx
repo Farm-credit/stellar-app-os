@@ -25,6 +25,7 @@ import {
 } from '@/components/molecules/Card';
 import {
   Table,
+  TableBody,
   TableHeader,
   TableHead,
   TableRow,
@@ -42,14 +43,19 @@ import {
   Crown,
   Sparkles,
   Gift,
+  Leaf,
+  Wallet,
+  ChevronUp,
+  ChevronDown,
 } from 'lucide-react';
 import Link from 'next/link';
 
-// --- MOCK WALLET CONTEXT ---
-// Added to bypass the Webpack "Module not found" error.
-// Swap this out for your actual wallet import later.
-const useWalletContext = () => ({ wallet: null });
-// ---------------------------
+type MockWallet = {
+  isConnected?: boolean;
+  publicKey?: string;
+};
+
+const useWalletContext = (): { wallet: MockWallet | null } => ({ wallet: null });
 
 // Mock function (replace with your actual API call)
 async function fetchLeaderboard(
@@ -86,8 +92,8 @@ function formatAddress(address: string) {
 }
 
 function LeaderboardContent() {
-  const { wallet } = useWalletContext() || { wallet: null };
-  const _isConnected = !!wallet?.isConnected;
+  const { wallet } = useWalletContext();
+  const isConnected = Boolean(wallet?.isConnected);
   const [period, setPeriod] = useState<LeaderboardPeriod>('monthly');
   const [category, setCategory] = useState<LeaderboardCategory>('sponsors');
   const [entries, setEntries] = useState<LeaderboardSponsor[] | LeaderboardPlanter[]>([]);
@@ -329,28 +335,30 @@ function LeaderboardContent() {
                         </span>
                       </div>
                     </div>
-                    {period === 'monthly' && 'bonus' in topThree[1] && topThree[1].bonus && (
-                      <div className="mt-4 pt-3 border-t border-amber-500/30">
-                        <div className="flex items-center justify-center gap-2 text-amber-400">
-                          <Gift className="w-4 h-4" />
-                          <span className="text-xs font-semibold uppercase tracking-wide">
-                            Bonus Reward
-                          </span>
+                                    {period === 'monthly' && (() => {
+                      const bonus = 'bonus' in topThree[1] ? topThree[1].bonus : undefined;
+                      if (!bonus) return null;
+                      return (
+                        <div className="mt-4 pt-3 border-t border-amber-500/30">
+                          <div className="flex items-center justify-center gap-2 text-amber-400">
+                            <Gift className="w-4 h-4" />
+                            <span className="text-xs font-semibold uppercase tracking-wide">
+                              Bonus Reward
+                            </span>
+                          </div>
+                          <p className="text-xs text-amber-300 mt-1">{bonus.description}</p>
+                          {bonus.claimed ? (
+                            <span className="inline-block mt-2 text-xs bg-amber-500/20 text-amber-400 px-2 py-1 rounded-full">
+                              Claimed
+                            </span>
+                          ) : (
+                            <button className="mt-2 text-xs bg-amber-500 hover:bg-amber-600 text-slate-950 font-semibold px-3 py-1.5 rounded-full transition-colors">
+                              Claim Bonus
+                            </button>
+                          )}
                         </div>
-                        <p className="text-xs text-amber-300 mt-1">
-                          {topThree[1].bonus.description}
-                        </p>
-                        {topThree[1].bonus.claimed ? (
-                          <span className="inline-block mt-2 text-xs bg-amber-500/20 text-amber-400 px-2 py-1 rounded-full">
-                            Claimed
-                          </span>
-                        ) : (
-                          <button className="mt-2 text-xs bg-amber-500 hover:bg-amber-600 text-slate-950 font-semibold px-3 py-1.5 rounded-full transition-colors">
-                            Claim Bonus
-                          </button>
-                        )}
-                      </div>
-                    )}
+                      );
+                    })()}
                   </div>
                 </div>
 
@@ -400,28 +408,30 @@ function LeaderboardContent() {
                         </span>
                       </div>
                     </div>
-                    {period === 'monthly' && 'bonus' in topThree[0] && topThree[0].bonus && (
-                      <div className="mt-4 pt-3 border-t border-amber-500/30">
-                        <div className="flex items-center justify-center gap-2 text-amber-400">
-                          <Gift className="w-4 h-4" />
-                          <span className="text-xs font-semibold uppercase tracking-wide">
-                            Bonus Reward
-                          </span>
+                    {period === 'monthly' && (() => {
+                      const bonus = 'bonus' in topThree[0] ? topThree[0].bonus : undefined;
+                      if (!bonus) return null;
+                      return (
+                        <div className="mt-4 pt-3 border-t border-amber-500/30">
+                          <div className="flex items-center justify-center gap-2 text-amber-400">
+                            <Gift className="w-4 h-4" />
+                            <span className="text-xs font-semibold uppercase tracking-wide">
+                              Bonus Reward
+                            </span>
+                          </div>
+                          <p className="text-xs text-amber-300 mt-1">{bonus.description}</p>
+                          {bonus.claimed ? (
+                            <span className="inline-block mt-2 text-xs bg-amber-500/20 text-amber-400 px-2 py-1 rounded-full">
+                              Claimed
+                            </span>
+                          ) : (
+                            <button className="mt-2 text-xs bg-amber-500 hover:bg-amber-600 text-slate-950 font-semibold px-3 py-1.5 rounded-full transition-colors">
+                              Claim Bonus
+                            </button>
+                          )}
                         </div>
-                        <p className="text-xs text-amber-300 mt-1">
-                          {topThree[0].bonus.description}
-                        </p>
-                        {topThree[0].bonus.claimed ? (
-                          <span className="inline-block mt-2 text-xs bg-amber-500/20 text-amber-400 px-2 py-1 rounded-full">
-                            Claimed
-                          </span>
-                        ) : (
-                          <button className="mt-2 text-xs bg-amber-500 hover:bg-amber-600 text-slate-950 font-semibold px-3 py-1.5 rounded-full transition-colors">
-                            Claim Bonus
-                          </button>
-                        )}
-                      </div>
-                    )}
+                      );
+                    })()}
                   </div>
                 </div>
 
@@ -471,28 +481,30 @@ function LeaderboardContent() {
                         </span>
                       </div>
                     </div>
-                    {period === 'monthly' && 'bonus' in topThree[2] && topThree[2].bonus && (
-                      <div className="mt-4 pt-3 border-t border-amber-500/30">
-                        <div className="flex items-center justify-center gap-2 text-amber-400">
-                          <Gift className="w-4 h-4" />
-                          <span className="text-xs font-semibold uppercase tracking-wide">
-                            Bonus Reward
-                          </span>
+                    {period === 'monthly' && (() => {
+                      const bonus = 'bonus' in topThree[2] ? topThree[2].bonus : undefined;
+                      if (!bonus) return null;
+                      return (
+                        <div className="mt-4 pt-3 border-t border-amber-500/30">
+                          <div className="flex items-center justify-center gap-2 text-amber-400">
+                            <Gift className="w-4 h-4" />
+                            <span className="text-xs font-semibold uppercase tracking-wide">
+                              Bonus Reward
+                            </span>
+                          </div>
+                          <p className="text-xs text-amber-300 mt-1">{bonus.description}</p>
+                          {bonus.claimed ? (
+                            <span className="inline-block mt-2 text-xs bg-amber-500/20 text-amber-400 px-2 py-1 rounded-full">
+                              Claimed
+                            </span>
+                          ) : (
+                            <button className="mt-2 text-xs bg-amber-500 hover:bg-amber-600 text-slate-950 font-semibold px-3 py-1.5 rounded-full transition-colors">
+                              Claim Bonus
+                            </button>
+                          )}
                         </div>
-                        <p className="text-xs text-amber-300 mt-1">
-                          {topThree[2].bonus.description}
-                        </p>
-                        {topThree[2].bonus.claimed ? (
-                          <span className="inline-block mt-2 text-xs bg-amber-500/20 text-amber-400 px-2 py-1 rounded-full">
-                            Claimed
-                          </span>
-                        ) : (
-                          <button className="mt-2 text-xs bg-amber-500 hover:bg-amber-600 text-slate-950 font-semibold px-3 py-1.5 rounded-full transition-colors">
-                            Claim Bonus
-                          </button>
-                        )}
-                      </div>
-                    )}
+                      );
+                    })()}
                   </div>
                 </div>
               </div>

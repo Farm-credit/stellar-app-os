@@ -2,12 +2,12 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { EXIFExtractionService, extractEXIFMetadata } from './exif-extraction';
 
 vi.mock('exifr', () => ({
-  exifr: {
+  default: {
     parse: vi.fn(),
   },
 }));
 
-import { exifr } from 'exifr';
+import exifr from 'exifr';
 
 describe('EXIFExtractionService', () => {
   let service: EXIFExtractionService;

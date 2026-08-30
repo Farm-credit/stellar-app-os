@@ -42,17 +42,13 @@ export async function checkRateLimit(ip: string, limit = DEFAULT_LIMIT): Promise
       const multi = redis.multi();
       multi.zRemRangeByScore(key, 0, cutoff);
       multi.zAdd(key, [{ score: now, value: `${now}-${Math.random()}` }]);
-      multi.zRange(key, 0, 0, { WITHSCORES: true });
+      multi.zRangeWithScores(key, 0, 0);
       multi.zCard(key);
       multi.expire(key, Math.ceil(WINDOW_MS / 1000));
 
-      const [, , firstElem, count] = (await multi.exec()) as [
-        number,
-        number,
-        string[] | Array<{ value: string; score: number }>,
-        number,
-        boolean
-      ];
+      const results = (await multi.exec()) as unknown[];
+      const firstElem = results[2] as unknown;
+      const count = Number(results[3] ?? 0);
 
       if (count > limit) {
         // firstElem could be string[] or object array depending on redis version/client options
@@ -143,17 +139,13 @@ export async function checkSubmitAnonRateLimit(ip: string): Promise<SlidingRateL
       const multi = redis.multi();
       multi.zRemRangeByScore(key, 0, cutoff);
       multi.zAdd(key, [{ score: now, value: `${now}-${Math.random()}` }]);
-      multi.zRangeWithScores(key, 0, 0); // Using zRangeWithScores directly avoids type ambiguity
+      multi.zRangeWithScores(key, 0, 0);
       multi.zCard(key);
       multi.expire(key, Math.ceil(SUBMIT_ANON_WINDOW_MS / 1000));
 
-      const [, , firstElem, count] = (await multi.exec()) as [
-        number,
-        number,
-        Array<{ value: string; score: number }>,
-        number,
-        boolean
-      ];
+      const results = (await multi.exec()) as unknown[];
+      const firstElem = results[2] as Array<{ value: string; score: number }> | undefined;
+      const count = Number(results[3] ?? 0);
 
       if (count > SUBMIT_ANON_LIMIT) {
         const oldestScore = firstElem?.[0]?.score ?? now;

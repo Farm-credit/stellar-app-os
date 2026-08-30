@@ -82,11 +82,11 @@ export async function fetchClimateNormals(lat: number, lon: number): Promise<Cli
     }
 
     const data = (await response.json()) as NasaPowerClimatologyResponse;
-    const t2m = data.properties?.parameter?.T2M;
-    const precip = data.properties?.parameter?.PRECTOTCORR;
+    const t2m = data.properties?.parameter?.T2M ?? {};
+    const precip = data.properties?.parameter?.PRECTOTCORR ?? {};
 
-    const annualTemperatureC = t2m?.ANN;
-    const annualPrecipMmPerDay = precip?.ANN;
+    const annualTemperatureC = t2m.ANN;
+    const annualPrecipMmPerDay = precip.ANN;
     if (typeof annualTemperatureC !== 'number' || typeof annualPrecipMmPerDay !== 'number') {
       return { status: 'error', error: 'Climate API response missing expected fields' };
     }

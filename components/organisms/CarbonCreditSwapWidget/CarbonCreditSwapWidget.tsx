@@ -56,7 +56,7 @@ function formatNumber(value: number, decimals: number = 4): string {
   });
 }
 
-interface CarbonCreditSwapWidgetProps {
+export interface CarbonCreditSwapWidgetProps {
   projectId?: string;
   className?: string;
   onPurchaseComplete?: (details: {
@@ -90,10 +90,9 @@ export function CarbonCreditSwapWidget({
     return wallet.balance;
   }, [wallet]);
 
-  const availableBalance =
-    inputAsset === 'XLM'
-      ? formatBalance(balance.xlm)
-      : formatBalance(balance[inputAsset.toLowerCase() as 'usdc' | 'usdt' | 'eurc'] ?? '0');
+  const walletBalanceKey =
+    inputAsset === 'XLM' ? 'xlm' : (inputAsset.toLowerCase() as 'usdc' | 'usdt' | 'eurc');
+  const availableBalance = formatBalance(balance[walletBalanceKey] ?? '0');
   const hasInsufficientBalance = isValidAmount && inputAmountNum > availableBalance;
 
   const quote = useSwapQuote({
@@ -227,9 +226,7 @@ export function CarbonCreditSwapWidget({
                   {walletLoading ? (
                     <Skeleton className="w-12 h-4" />
                   ) : (
-                    formatBalance(balance[inputAsset.toLowerCase() as keyof WalletBalance]).toFixed(
-                      2
-                    )
+                    formatBalance(balance[walletBalanceKey] ?? '0').toFixed(2)
                   )}
                 </Text>
                 <Text variant="small" as="span" className="text-muted-foreground ml-1">
@@ -252,10 +249,10 @@ export function CarbonCreditSwapWidget({
                 onClick={handleMaxBalance}
                 disabled={!wallet?.isConnected || txStatus === 'submitting'}
                 className="text-xs text-stellar-blue hover:underline focus-visible:outline-2 focus-visible:ring-2 focus-visible:ring-stellar-blue/50 rounded"
-                aria-label={`Use maximum balance of ${formatBalance(balance[inputAsset.toLowerCase() as keyof WalletBalance]).toFixed(2)} ${inputAsset}`}
+                aria-label={`Use maximum balance of ${formatBalance(balance[walletBalanceKey] ?? '0').toFixed(2)} ${inputAsset}`}
               >
                 Max:{' '}
-                {formatBalance(balance[inputAsset.toLowerCase() as keyof WalletBalance]).toFixed(2)}{' '}
+                {formatBalance(balance[walletBalanceKey] ?? '0').toFixed(2)}{' '}
                 {inputAsset}
               </button>
             )}
@@ -312,7 +309,7 @@ export function CarbonCreditSwapWidget({
               role="alert"
             >
               Insufficient balance. You have{' '}
-              {formatBalance(balance[inputAsset.toLowerCase() as keyof WalletBalance]).toFixed(2)}{' '}
+              {formatBalance(balance[walletBalanceKey] ?? '0').toFixed(2)}{' '}
               {inputAsset}.
             </Text>
           )}
@@ -404,7 +401,7 @@ export function CarbonCreditSwapWidget({
         {/* Primary Action Button */}
         <Button
           type="button"
-          variant="primary"
+          variant="default"
           size="lg"
           onClick={handlePurchase}
           disabled={!canPurchase}

@@ -20,6 +20,8 @@ describe('ThemeSwitcher', () => {
     vi.clearAllMocks();
     vi.mocked(useTheme).mockReturnValue({
       theme: 'light',
+      resolvedTheme: 'light',
+      setTheme: vi.fn(),
       toggle: mockToggle,
       isDark: false,
     });
@@ -36,6 +38,8 @@ describe('ThemeSwitcher', () => {
   it('renders correctly in dark mode', () => {
     vi.mocked(useTheme).mockReturnValue({
       theme: 'dark',
+      resolvedTheme: 'dark',
+      setTheme: vi.fn(),
       toggle: mockToggle,
       isDark: true,
     });
@@ -59,6 +63,8 @@ describe('ThemeSwitcher', () => {
   it('shows Sun icon in dark mode', () => {
     vi.mocked(useTheme).mockReturnValue({
       theme: 'dark',
+      resolvedTheme: 'dark',
+      setTheme: vi.fn(),
       toggle: mockToggle,
       isDark: true,
     });
@@ -72,6 +78,8 @@ describe('ThemeSwitcher', () => {
   it('shows Moon icon in light mode', () => {
     vi.mocked(useTheme).mockReturnValue({
       theme: 'light',
+      resolvedTheme: 'light',
+      setTheme: vi.fn(),
       toggle: mockToggle,
       isDark: false,
     });
@@ -175,6 +183,8 @@ describe('ThemeSwitcher accessibility', () => {
     
     vi.mocked(useTheme).mockReturnValue({
       theme: 'dark',
+      resolvedTheme: 'dark',
+      setTheme: vi.fn(),
       toggle: vi.fn(),
       isDark: true,
     });
@@ -187,6 +197,8 @@ describe('ThemeSwitcher accessibility', () => {
   it('has proper aria-label that reflects current theme', () => {
     vi.mocked(useTheme).mockReturnValue({
       theme: 'light',
+      resolvedTheme: 'light',
+      setTheme: vi.fn(),
       toggle: vi.fn(),
       isDark: false,
     });
@@ -203,6 +215,8 @@ describe('ThemeSwitcher responsive behavior', () => {
     const localMockToggle = vi.fn();
     vi.mocked(useTheme).mockReturnValue({
       theme: 'light',
+      resolvedTheme: 'light',
+      setTheme: vi.fn(),
       toggle: localMockToggle,
       isDark: false,
     });

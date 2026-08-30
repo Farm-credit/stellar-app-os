@@ -68,28 +68,8 @@ export async function POST(request: Request) {
     // Upload to IPFS
     const ipfsResult = await uploadToIpfs(buffer, `${farmerId}-${Date.now()}.jpg`, photo.type);
 
-    // ── Record the pHash row now that we know the real S3 key ──────────────
-    // (Called exactly once — the earlier `findDuplicate` was read-only.)
-    if (phashHex) {
-      try {
-        await recordPhotoHash({
-          entityType: 'tree',
-          entityId: treeId || farmerId,
-          hashHex: phashHex,
-          storageRef: s3Key,
-          metadata: {
-            farmerId,
-            region,
-            exifLat,
-            exifLon,
-            s3Bucket: process.env.AWS_S3_BUCKET,
-          },
-        });
-      } catch (err) {
-        // Non-fatal.
-        console.error('[planting/photo] hash record failed:', err);
-      }
-    }
+    const exifLat = exifData?.latitude ?? lat;
+    const exifLon = exifData?.longitude ?? lon;
 
     // Store hashed region for the live map (no raw GPS persisted)
     const { regionKey, centerLat, centerLon } = buildRegionHash({ lat: exifLat, lon: exifLon });
@@ -141,7 +121,6 @@ export async function POST(request: Request) {
         gatewayUrl: ipfsResult.gatewayUrl,
         s3Key,
         encryptedGps,
-        hash: phashHex,
       },
       { status: 201 }
     );

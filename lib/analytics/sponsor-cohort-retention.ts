@@ -34,7 +34,7 @@ function toNum(v: string | number | null | undefined): number {
  * Called by the donation/staking flow whenever a sponsor funds a tree.
  */
 export async function recordSponsorship(
-  pool: Pick<Pool, 'query'>,
+  pool: Pool,
   input: RecordSponsorshipInput
 ): Promise<{ cohort_inserted: boolean; event_id: number }> {
   const cm = cohortMonth(new Date());
@@ -93,7 +93,7 @@ export async function recordSponsorship(
  * Returns a report suitable for rendering a retention heatmap.
  */
 export async function getCohortRetentionReport(
-  pool: Pick<Pool, 'query'>,
+  pool: Pool,
   opts: { from?: string; to?: string; max_periods?: number } = {}
 ): Promise<CohortRetentionReport> {
   const maxPeriods = opts.max_periods ?? 12;
@@ -168,7 +168,7 @@ export async function getCohortRetentionReport(
 }
 
 /** Compute high-level cohort summary statistics. */
-async function computeCohortSummary(pool: Pick<Pool, 'query'>): Promise<CohortSummary> {
+async function computeCohortSummary(pool: Pool): Promise<CohortSummary> {
   const statsResult = await pool.query<{
     total_cohorts: number;
     latest_cohort_month: Date | null;
@@ -269,7 +269,7 @@ export async function getSponsorRetentionSummary(
  * sponsors were active in each subsequent month.
  */
 export async function refreshCohortRetention(
-  pool: Pick<Pool, 'query'>
+  pool: Pool
 ): Promise<{ cohorts_processed: number; rows_upserted: number }> {
   const client = await pool.connect();
   let rowsUpserted = 0;

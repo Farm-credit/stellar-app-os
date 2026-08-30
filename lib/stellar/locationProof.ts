@@ -1,6 +1,6 @@
 import {
   Contract,
-  SorobanRpc,
+  rpc,
   TransactionBuilder,
   Networks,
   Keypair,
@@ -43,7 +43,7 @@ export async function submitLocationProofToContract(
 
   const signer = Keypair.fromSecret(signerSecret);
   const rpcUrl = getRpcUrl(network);
-  const server = new SorobanRpc.Server(rpcUrl, { allowHttp: false });
+  const server = new rpc.Server(rpcUrl, { allowHttp: false });
   const passphrase = getNetworkPassphrase(network);
 
   // Load signer account
@@ -77,12 +77,12 @@ export async function submitLocationProofToContract(
 
   // Simulate to get the footprint / resource fee
   const simResult = await server.simulateTransaction(tx);
-  if (SorobanRpc.Api.isSimulationError(simResult)) {
+  if (rpc.Api.isSimulationError(simResult)) {
     throw new Error(`Soroban simulation failed: ${simResult.error}`);
   }
 
   // Assemble (applies resource fee + footprint)
-  const assembled = SorobanRpc.assembleTransaction(tx, simResult).build();
+  const assembled = rpc.assembleTransaction(tx, simResult).build();
   assembled.sign(signer);
 
   // Submit
@@ -96,10 +96,10 @@ export async function submitLocationProofToContract(
   for (let i = 0; i < 30; i++) {
     await new Promise((r) => setTimeout(r, 2000));
     const status = await server.getTransaction(hash);
-    if (status.status === SorobanRpc.Api.GetTransactionStatus.SUCCESS) {
+    if (status.status === rpc.Api.GetTransactionStatus.SUCCESS) {
       return hash;
     }
-    if (status.status === SorobanRpc.Api.GetTransactionStatus.FAILED) {
+    if (status.status === rpc.Api.GetTransactionStatus.FAILED) {
       throw new Error(`Transaction failed on-chain: ${hash}`);
     }
   }

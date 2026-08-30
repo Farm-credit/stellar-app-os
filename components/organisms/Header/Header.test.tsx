@@ -5,7 +5,7 @@ import { Header } from './Header';
 
 // ── Mock framer-motion ──────────────────────────────────────────────────────
 vi.mock('framer-motion', async () => {
-  const React = await vi.importActual<typeof React>('react');
+  const actualReact = await vi.importActual<typeof React>('react');
   return {
     motion: new Proxy(
       {},
@@ -28,7 +28,7 @@ vi.mock('framer-motion', async () => {
               layoutId: _layoutId,
               ...rest
             } = props as Record<string, unknown>;
-            return React.createElement(tag, rest, children);
+            return actualReact.createElement(tag, rest, children);
           },
       }
     ),
@@ -44,8 +44,17 @@ vi.mock('next/navigation', () => ({
 
 // ── Mock next/link ───────────────────────────────────────────────────────────
 vi.mock('next/link', () => ({
-  default: ({ children, href, onClick, ...rest }: Record<string, unknown>) => (
-    <a href={href as string} onClick={onClick as React.MouseEventHandler} {...rest}>
+  default: ({
+    children,
+    href,
+    onClick,
+    ...rest
+  }: {
+    children?: React.ReactNode;
+    href?: string;
+    onClick?: React.MouseEventHandler<HTMLAnchorElement>;
+  } & Record<string, unknown>) => (
+    <a href={href ?? '#'} onClick={onClick} {...rest}>
       {children}
     </a>
   ),
@@ -76,7 +85,7 @@ vi.mock('@/contexts/WalletContext', () => ({
 // ── Mock useAppTranslation ───────────────────────────────────────────────────
 vi.mock('@/hooks/useTranslation', () => ({
   useAppTranslation: () => ({
-    t: (key: string) => {
+    t: ((key: string) => {
       const translations: Record<string, string> = {
         'nav.home': 'Home',
         'nav.projects': 'Projects',
@@ -88,8 +97,8 @@ vi.mock('@/hooks/useTranslation', () => ({
         'header.languageSelector': 'Select language',
         'mobile.closeMenu': 'Close navigation menu',
       };
-      return translations[key] ?? key;
-    },
+      return String(translations[key] ?? key);
+    }) as any,
     language: 'en',
     changeLanguage: vi.fn(),
     isRTLLanguage: false,

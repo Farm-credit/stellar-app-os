@@ -60,10 +60,10 @@ export function useOfflineUploadQueue() {
   }, [isOnline, queue.length, isSyncing]);
 
   // Add a file to the queue
-  const addToQueue = useCallback((file: File): string => {
+  const addToQueue = useCallback(async (file: File): Promise<string> => {
     const reader = new FileReader();
-    
-    return new Promise((resolve, reject) => {
+
+    return await new Promise((resolve, reject) => {
       reader.onload = () => {
         try {
           const base64 = reader.result as string;
@@ -89,7 +89,7 @@ export function useOfflineUploadQueue() {
       
       reader.onerror = () => reject(reader.error);
       reader.readAsDataURL(file);
-    }) as Promise<string>;
+    });
   }, []);
 
   // Remove an item from the queue

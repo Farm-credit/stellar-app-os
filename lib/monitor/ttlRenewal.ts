@@ -3,7 +3,7 @@ import {
   Keypair,
   Operation,
   SorobanDataBuilder,
-  SorobanRpc,
+  rpc,
   TransactionBuilder,
   type xdr,
 } from '@stellar/stellar-sdk';
@@ -52,14 +52,14 @@ function getConfig(): TtlRenewalConfig {
   };
 }
 
-async function pollForConfirmation(server: SorobanRpc.Server, hash: string): Promise<boolean> {
+async function pollForConfirmation(server: rpc.Server, hash: string): Promise<boolean> {
   for (let attempt = 0; attempt < CONFIRM_POLL_ATTEMPTS; attempt++) {
     await new Promise((resolve) => setTimeout(resolve, CONFIRM_POLL_INTERVAL_MS));
     const status = await server.getTransaction(hash);
-    if (status.status === SorobanRpc.Api.GetTransactionStatus.SUCCESS) {
+    if (status.status === rpc.Api.GetTransactionStatus.SUCCESS) {
       return true;
     }
-    if (status.status === SorobanRpc.Api.GetTransactionStatus.FAILED) {
+    if (status.status === rpc.Api.GetTransactionStatus.FAILED) {
       return false;
     }
   }
@@ -70,7 +70,7 @@ async function renewContractTtl(
   contractId: string,
   ledgerKey: xdr.LedgerKey,
   config: TtlRenewalConfig,
-  server: SorobanRpc.Server,
+  server: rpc.Server,
   signer: Keypair
 ): Promise<{ transactionHash: string }> {
   const account = await server.getAccount(signer.publicKey());
@@ -85,11 +85,11 @@ async function renewContractTtl(
     .build();
 
   const simResult = await server.simulateTransaction(tx);
-  if (SorobanRpc.Api.isSimulationError(simResult)) {
+  if (rpc.Api.isSimulationError(simResult)) {
     throw new Error(`Soroban simulation failed: ${simResult.error}`);
   }
 
-  const assembled = SorobanRpc.assembleTransaction(tx, simResult).build();
+  const assembled = rpc.assembleTransaction(tx, simResult).build();
   assembled.sign(signer);
 
   const sendResult = await server.sendTransaction(assembled);
@@ -117,7 +117,7 @@ async function renewContractTtl(
 export async function checkAndRenewContractTtl(
   contractId: string,
   config: TtlRenewalConfig,
-  server: SorobanRpc.Server,
+  server: rpc.Server,
   signer: Keypair
 ): Promise<ContractTtlResult> {
   let ledgerKey: xdr.LedgerKey;
@@ -203,7 +203,7 @@ export async function checkAndRenewContractTtl(
  */
 export async function runTtlRenewalCheck(
   configOverride?: Partial<TtlRenewalConfig>,
-  server?: SorobanRpc.Server
+  server?: rpc.Server
 ): Promise<TtlRenewalSummary> {
   const config: TtlRenewalConfig = { ...getConfig(), ...configOverride };
   const checkedAt = new Date().toISOString();
@@ -226,7 +226,7 @@ export async function runTtlRenewalCheck(
     return { checkedAt, results: [] };
   }
 
-  const rpcServer = server ?? new SorobanRpc.Server(config.rpcUrl, { allowHttp: false });
+  const rpcServer = server ?? new rpc.Server(config.rpcUrl, { allowHttp: false });
 
   const results: ContractTtlResult[] = [];
   for (const contractId of config.contractIds) {

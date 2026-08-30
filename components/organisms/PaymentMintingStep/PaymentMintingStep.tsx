@@ -1,7 +1,7 @@
 'use client';
 
 import { Text } from '@/components/atoms/Text';
-import { Button } from '@/components/ui/button';
+import { Button } from '@/components/atoms/Button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import type { PaymentMintingProps, TransactionStatus } from '@/lib/types/payment';
 

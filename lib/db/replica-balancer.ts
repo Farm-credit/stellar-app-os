@@ -235,7 +235,7 @@ export class ReplicaBalancer {
   /**
    * Execute a query with automatic routing
    */
-  async query<T = any>(
+  async query<T extends Record<string, any> = Record<string, any>>(
     text: string,
     params?: any[],
     options: QueryOptions = {}
@@ -279,7 +279,7 @@ export class ReplicaBalancer {
   /**
    * Execute a write query (always goes to primary)
    */
-  async write<T = any>(
+  async write<T extends Record<string, any> = Record<string, any>>(
     text: string,
     params?: any[]
   ): Promise<QueryResult<T>> {
@@ -404,7 +404,7 @@ function parseReplicaConfig(): DatabaseInstance[] {
 /**
  * Execute a read query using the replica balancer
  */
-export async function query<T = any>(
+export async function query<T extends Record<string, any> = Record<string, any>>(
   text: string,
   params?: any[],
   options?: QueryOptions
@@ -416,7 +416,7 @@ export async function query<T = any>(
 /**
  * Execute a write query using the replica balancer
  */
-export async function write<T = any>(
+export async function write<T extends Record<string, any> = Record<string, any>>(
   text: string,
   params?: any[]
 ): Promise<QueryResult<T>> {

@@ -9,7 +9,7 @@
  * The donor's wallet address is never passed to the contract.
  */
 
-import { Contract, Networks, SorobanRpc, TransactionBuilder, xdr } from '@stellar/stellar-sdk';
+import { Contract, Networks, rpc, TransactionBuilder, xdr } from '@stellar/stellar-sdk';
 import type { NetworkType } from '@/lib/types/wallet';
 import type { ZkProof, ProofInputs } from '@/lib/zk/types';
 
@@ -104,7 +104,7 @@ export async function invokeVerifyProof(
   const contractId = getContractId(network);
   const networkPassphrase = getNetworkPassphrase(network);
 
-  const server = new SorobanRpc.Server(rpcUrl, { allowHttp: false });
+  const server = new rpc.Server(rpcUrl, { allowHttp: false });
 
   // Use the platform's fee-payer account (server-side key, not the donor's wallet)
   const feePayerSecret = process.env.STELLAR_FEE_PAYER_SECRET;
@@ -133,7 +133,7 @@ export async function invokeVerifyProof(
   // Simulate to get the footprint and resource fees
   const simResult = await server.simulateTransaction(tx);
 
-  if (SorobanRpc.Api.isSimulationError(simResult)) {
+  if (rpc.Api.isSimulationError(simResult)) {
     // Extract the contract error code from the simulation result
     const errMsg = simResult.error ?? 'Simulation failed';
     if (errMsg.includes('INVALID_PROOF')) throw new Error('INVALID_PROOF');
@@ -142,7 +142,7 @@ export async function invokeVerifyProof(
   }
 
   // Assemble the transaction with the simulated footprint
-  const preparedTx = SorobanRpc.assembleTransaction(tx, simResult).build();
+  const preparedTx = rpc.assembleTransaction(tx, simResult).build();
 
   // Sign with the fee-payer key
   preparedTx.sign(feePayerKeypair);
@@ -162,7 +162,7 @@ export async function invokeVerifyProof(
 
 /** Poll until the transaction is confirmed or fails. */
 async function pollForConfirmation(
-  server: SorobanRpc.Server,
+  server: rpc.Server,
   txHash: string,
   maxAttempts = 20,
   intervalMs = 1500
@@ -171,10 +171,10 @@ async function pollForConfirmation(
     await sleep(intervalMs);
     const result = await server.getTransaction(txHash);
 
-    if (result.status === SorobanRpc.Api.GetTransactionStatus.SUCCESS) {
+    if (result.status === rpc.Api.GetTransactionStatus.SUCCESS) {
       return;
     }
-    if (result.status === SorobanRpc.Api.GetTransactionStatus.FAILED) {
+    if (result.status === rpc.Api.GetTransactionStatus.FAILED) {
       // Try to extract the contract error from the result meta
       const meta = result.resultMetaXdr;
       const errStr = meta ? meta.toXDR('base64') : 'unknown';

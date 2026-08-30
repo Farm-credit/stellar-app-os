@@ -26,6 +26,7 @@ export interface ReferralRewardResult {
   referrerWallet?: string;
   amountXlm: number;
 }
+
 export const REFERRAL_BONUS_XLM = 5;
 
 export function getPlanterReferralUrl(
@@ -61,10 +62,6 @@ export function recordReferralAttribution(
   attributions.set(key, attribution);
   return attribution;
 }
-
-// Replace with your real API call when the backend is ready
-export async function getReferralStats(): Promise<ReferralStats> {
-  const res = await fetch('/api/referrals');
 
 const REFERRAL_CODE_PATTERN = /^[a-z0-9_-]{8,64}$/i;
 const STELLAR_ADDRESS_PATTERN = /^G[A-Z2-7]{55}$/;
@@ -228,8 +225,6 @@ export async function queueReferralReward(
       };
     }
 
-    // Serialize rewards for one referrer so concurrent first-tree completions
-    // cannot both pass the ten-per-month cap check.
     await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [
       row.referrer_wallet,
     ]);
@@ -278,7 +273,6 @@ export async function queueReferralReward(
 
 export type ReferralDbClient = Pick<PoolClient, 'query'>;
 
-// Kept for existing demo consumers until they migrate to the API-backed hook.
 export function getMockReferralStats(): ReferralStats {
   const code = 'ref_demo_2026';
   return {

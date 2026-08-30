@@ -1,7 +1,7 @@
 import {
   Contract,
   Networks,
-  SorobanRpc,
+  rpc,
   TransactionBuilder,
   xdr,
   Address,
@@ -50,7 +50,7 @@ async function invokeContract(
   const networkPassphrase = getNetworkPassphrase(network);
   const feePayerKeypair = getFeePayerKeypair();
 
-  const server = new SorobanRpc.Server(rpcUrl, { allowHttp: false });
+  const server = new rpc.Server(rpcUrl, { allowHttp: false });
   const account = await server.getAccount(feePayerKeypair.publicKey());
   const contract = new Contract(contractId);
 
@@ -64,12 +64,12 @@ async function invokeContract(
 
   const simResult = await server.simulateTransaction(tx);
 
-  if (SorobanRpc.Api.isSimulationError(simResult)) {
+  if (rpc.Api.isSimulationError(simResult)) {
     const msg = simResult.error ?? 'Simulation failed';
     throw new Error(msg);
   }
 
-  const preparedTx = SorobanRpc.assembleTransaction(tx, simResult).build();
+  const preparedTx = rpc.assembleTransaction(tx, simResult).build();
   preparedTx.sign(feePayerKeypair);
 
   const sendResult = await server.sendTransaction(preparedTx);
@@ -119,7 +119,7 @@ export async function simulateAcceptJob(
         .slice(0, 16)
   );
 
-  const server = new SorobanRpc.Server(rpcUrl, { allowHttp: false });
+  const server = new rpc.Server(rpcUrl, { allowHttp: false });
   const account = await server.getAccount(feePayerKeypair.publicKey());
   const contract = new Contract(contractId);
 
@@ -135,7 +135,7 @@ export async function simulateAcceptJob(
 
   const simResult = await server.simulateTransaction(tx);
 
-  if (SorobanRpc.Api.isSimulationError(simResult)) {
+  if (rpc.Api.isSimulationError(simResult)) {
     return false;
   }
 
@@ -143,7 +143,7 @@ export async function simulateAcceptJob(
 }
 
 async function pollForConfirmation(
-  server: SorobanRpc.Server,
+  server: rpc.Server,
   txHash: string,
   maxAttempts = 20,
   intervalMs = 1500
@@ -151,8 +151,8 @@ async function pollForConfirmation(
   for (let i = 0; i < maxAttempts; i++) {
     await sleep(intervalMs);
     const result = await server.getTransaction(txHash);
-    if (result.status === SorobanRpc.Api.GetTransactionStatus.SUCCESS) return;
-    if (result.status === SorobanRpc.Api.GetTransactionStatus.FAILED) {
+    if (result.status === rpc.Api.GetTransactionStatus.SUCCESS) return;
+    if (result.status === rpc.Api.GetTransactionStatus.FAILED) {
       throw new Error(`Transaction failed: ${result.resultMetaXdr?.toXDR('base64') ?? 'unknown'}`);
     }
   }

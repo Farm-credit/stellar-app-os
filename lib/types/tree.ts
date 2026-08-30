@@ -28,6 +28,7 @@ export interface Tree {
   lng: number;
   co2OffsetKgPerYear: number;
   projectName: string;
+  sponsorAddress?: string;
   /** Optional evidence image shown on the tree detail page. */
   imageUrl?: string;
 }

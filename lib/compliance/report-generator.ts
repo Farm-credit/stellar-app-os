@@ -17,7 +17,7 @@ import type {
 } from './types';
 import { getMockTrees } from '@/lib/api/mock/trees';
 import { TREE_SPECIES } from '@/lib/constants/species';
-import { logger } from '@/lib/logger';
+import logger from '@/lib/logger';
 
 let reportGeneratorInstance: ComplianceReportGenerator | null = null;
 
@@ -106,7 +106,7 @@ export class ComplianceReportGenerator {
     };
   }
 
-  private fetchReportData(
+  private async fetchReportData(
     reportType: ComplianceReportType,
     registry: ComplianceRegistry,
     dateRange?: { startDate: Date; endDate: Date },
@@ -127,7 +127,7 @@ export class ComplianceReportGenerator {
 
     switch (reportType) {
       case 'carbon-credits':
-        return this.generateCarbonCreditRecords(
+        return await this.generateCarbonCreditRecords(
           filteredTrees,
           speciesMap,
           registry,
@@ -135,7 +135,7 @@ export class ComplianceReportGenerator {
           _filters
         );
       case 'project-registry':
-        return this.generateProjectRegistryRecords(
+        return await this.generateProjectRegistryRecords(
           filteredTrees,
           speciesMap,
           registry,
@@ -143,7 +143,7 @@ export class ComplianceReportGenerator {
           _filters
         );
       case 'tree-inventory':
-        return this.generateTreeInventoryRecords(
+        return await this.generateTreeInventoryRecords(
           filteredTrees,
           speciesMap,
           registry,
@@ -151,11 +151,11 @@ export class ComplianceReportGenerator {
           _filters
         );
       case 'verification-audits':
-        return this.generateVerificationAuditRecords(filteredTrees, registry, dateRange, _filters);
+        return await this.generateVerificationAuditRecords(filteredTrees, registry, dateRange, _filters);
       case 'issuance-report':
-        return this.generateIssuanceReportRecords(filteredTrees, registry, dateRange, _filters);
+        return await this.generateIssuanceReportRecords(filteredTrees, registry, dateRange, _filters);
       case 'retirement-report':
-        return this.generateRetirementReportRecords(filteredTrees, registry, dateRange, _filters);
+        return await this.generateRetirementReportRecords(filteredTrees, registry, dateRange, _filters);
       default:
         throw new Error(`Unknown report type: ${reportType}`);
     }
@@ -866,8 +866,9 @@ export class ComplianceReportGenerator {
     _headers: string[]
   ): string[] {
     const getRegistry = (r: ComplianceRecord): string => {
-      if ('registry' in r && typeof (r as Record<string, unknown>).registry === 'string') {
-        return (r as Record<string, unknown>).registry as string;
+      const recordMap = r as unknown as Record<string, unknown>;
+      if ('registry' in r && typeof recordMap.registry === 'string') {
+        return recordMap.registry;
       }
       return 'generic';
     };
@@ -1098,11 +1099,11 @@ export class ComplianceReportGenerator {
         recordsExported: jobResult.recordsExported,
       });
 
-      if (this.config.webhookUrl) {
+      if (this.config?.webhookUrl) {
         await this.sendWebhook(jobResult);
       }
 
-      if (this.config.emailRecipients.length > 0) {
+      if ((this.config?.emailRecipients?.length ?? 0) > 0) {
         await this.sendEmailNotification(jobResult);
       }
 

@@ -36,16 +36,44 @@ const stellarVariants = cva('', {
   },
 });
 
-type ButtonProps = React.ComponentProps<typeof ShadcnButton> & VariantProps<typeof stellarVariants>;
+type CustomButtonVariant =
+  | 'default'
+  | 'destructive'
+  | 'outline'
+  | 'secondary'
+  | 'ghost'
+  | 'link'
+  | 'primary'
+  | 'accent'
+  | 'cyan'
+  | 'success'
+  | 'primary-outline'
+  | 'accent-outline'
+  | 'success-outline';
+
+type ButtonProps = Omit<React.ComponentProps<typeof ShadcnButton>, 'variant'> &
+  VariantProps<typeof stellarVariants> & {
+    variant?: CustomButtonVariant;
+  };
 
 function Button({ className, stellar, width, variant, size, ...props }: ButtonProps) {
+  const stellarVariant =
+    stellar ??
+    (variant &&
+    ['primary', 'accent', 'cyan', 'success', 'primary-outline', 'accent-outline', 'success-outline'].includes(
+      String(variant)
+    )
+      ? (variant as any)
+      : undefined);
+
+  const resolvedVariant = stellarVariant ? undefined : variant;
+
   return (
     <ShadcnButton
-      variant={stellar ? undefined : variant}
+      variant={resolvedVariant as any}
       size={size}
       className={cn(
-        stellar && stellarVariants({ stellar, width }),
-        !stellar && stellarVariants({ width }),
+        stellarVariant ? stellarVariants({ stellar: stellarVariant, width }) : stellarVariants({ width }),
         className
       )}
       {...props}

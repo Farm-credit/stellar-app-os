@@ -20,7 +20,7 @@ import { ExternalLink, Download, FileQuestion } from 'lucide-react';
 export function OrderHistoryTable() {
   const [orders, setOrders] = React.useState<Order[]>([]);
   const [loading, setLoading] = React.useState(true);
-  const [_error, _setError] = React.useState<string | null>(null);
+  const [error, setError] = React.useState<string | null>(null);
 
   const [page, setPage] = React.useState(1);
   const [totalPages, setTotalPages] = React.useState(1);

@@ -73,12 +73,19 @@ describe('initLockoutStore', () => {
   describe('environment-based store selection', () => {
     const originalEnv = process.env.NODE_ENV;
 
+    const setNodeEnv = (value: string) => {
+      Object.defineProperty(process.env, 'NODE_ENV', {
+        value,
+        configurable: true,
+      });
+    };
+
     afterEach(() => {
-      process.env.NODE_ENV = originalEnv;
+      setNodeEnv(originalEnv);
     });
 
     it('uses InMemoryLockoutStore in test environment (no Redis client)', () => {
-      process.env.NODE_ENV = 'test';
+      setNodeEnv('test');
       const service = makeTwoFactorService();
 
       initLockoutStore(service);
@@ -87,7 +94,7 @@ describe('initLockoutStore', () => {
     });
 
     it('uses InMemoryLockoutStore in test environment even when Redis client is provided', () => {
-      process.env.NODE_ENV = 'test';
+      setNodeEnv('test');
       const service = makeTwoFactorService();
 
       // In test mode the factory always returns InMemoryLockoutStore.
@@ -97,7 +104,7 @@ describe('initLockoutStore', () => {
     });
 
     it('uses RedisLockoutStore in non-test environment when Redis client is provided', () => {
-      process.env.NODE_ENV = 'production';
+      setNodeEnv('production');
       const service = makeTwoFactorService();
 
       initLockoutStore(service, makeRedisClient());
@@ -106,7 +113,7 @@ describe('initLockoutStore', () => {
     });
 
     it('falls back to InMemoryLockoutStore in non-test environment when no Redis client is provided', () => {
-      process.env.NODE_ENV = 'production';
+      setNodeEnv('production');
       const service = makeTwoFactorService();
 
       initLockoutStore(service, null);
@@ -122,25 +129,31 @@ describe('initLockoutStore', () => {
 
 describe('createLockoutStore', () => {
   const originalEnv = process.env.NODE_ENV;
+  const setNodeEnv = (value: string) => {
+    Object.defineProperty(process.env, 'NODE_ENV', {
+      value,
+      configurable: true,
+    });
+  };
 
   afterEach(() => {
-    process.env.NODE_ENV = originalEnv;
+    setNodeEnv(originalEnv);
   });
 
   it('returns InMemoryLockoutStore when NODE_ENV is test', () => {
-    process.env.NODE_ENV = 'test';
+    setNodeEnv('test');
     const store = createLockoutStore();
     expect(store).toBeInstanceOf(InMemoryLockoutStore);
   });
 
   it('returns InMemoryLockoutStore when no Redis client is passed (any env)', () => {
-    process.env.NODE_ENV = 'production';
+    setNodeEnv('production');
     const store = createLockoutStore(null);
     expect(store).toBeInstanceOf(InMemoryLockoutStore);
   });
 
   it('returns RedisLockoutStore when a Redis client is provided in non-test env', () => {
-    process.env.NODE_ENV = 'production';
+    setNodeEnv('production');
     const store = createLockoutStore(makeRedisClient());
     expect(store).toBeInstanceOf(RedisLockoutStore);
   });

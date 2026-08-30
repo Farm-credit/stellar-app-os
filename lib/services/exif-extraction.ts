@@ -1,4 +1,4 @@
-import { exifr } from 'exifr';
+import exifr from 'exifr';
 
 export interface GPSCoordinates {
   latitude: number;
@@ -101,7 +101,7 @@ export class EXIFExtractionService {
         jfif: false,
         ihdr: false,
         xmp: false,
-      });
+      } as any);
 
       if (!exifData) {
         return {

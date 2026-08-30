@@ -41,7 +41,7 @@ export interface SponsorImpact {
  */
 function queryContractForSponsor(
   sponsor: string
-): { species: TreeSpecies; co2KgPerYear: number }[] {
+): { species: TreeSpecies; co2KgPerYear: number; status: string }[] {
   const all = getMockTrees();
 
   // Deterministic sponsor attribution: use the sponsor address checksum to
@@ -49,7 +49,7 @@ function queryContractForSponsor(
   const hash = [...sponsor].reduce((acc, c) => acc + c.charCodeAt(0), 0);
   return all
     .filter((_, i) => (i + hash) % 3 !== 0) // drop ~1/3 depending on address
-    .map((t) => ({ species: t.species, co2KgPerYear: t.co2OffsetKgPerYear }));
+    .map((t) => ({ species: t.species, co2KgPerYear: t.co2OffsetKgPerYear, status: t.status }));
 }
 
 // ── Aggregation ───────────────────────────────────────────────────────────────
@@ -93,13 +93,17 @@ function aggregate(records: { species: TreeSpecies; co2KgPerYear: number }[]): {
  * Caches the result for 30 s per sponsor.
  * Returns a zero-impact object (not a 404) when the sponsor has no records.
  */
-export async function getSponsorImpact(sponsor: string): Promise<SponsorImpact> {
+export async function getSponsorImpact(sponsor: string, status?: string): Promise<SponsorImpact> {
   await Promise.resolve();
-  const cacheKey = `carbon-impact:${sponsor}`;
+  const normalizedStatus = status && status !== 'all' ? status.toLowerCase() : undefined;
+  const cacheKey = `carbon-impact:${sponsor}:${normalizedStatus ?? 'all'}`;
   const cached = cacheGet<SponsorImpact>(cacheKey);
   if (cached) return cached;
 
-  const records = queryContractForSponsor(sponsor);
+  const records = queryContractForSponsor(sponsor).filter((record) => {
+    if (!normalizedStatus) return true;
+    return record.status === normalizedStatus;
+  });
   const { bySpecies, totalTrees, totalCo2OffsetKg } = aggregate(records);
 
   const result: SponsorImpact = {

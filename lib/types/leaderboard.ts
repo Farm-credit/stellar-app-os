@@ -6,6 +6,7 @@ export interface LeaderboardSponsor {
   totalTrees: number;
   co2Offset: number; // in metric tons
   change: 'up' | 'down' | 'same';
+  bonus?: BonusReward;
 }
 
 export interface LeaderboardPlanter {
@@ -16,6 +17,7 @@ export interface LeaderboardPlanter {
   totalTrees: number; // Trees planted
   co2Offset: number;
   change: 'up' | 'down' | 'same';
+  bonus?: BonusReward;
 }
 
 export type LeaderboardPeriod = 'monthly' | 'all-time';

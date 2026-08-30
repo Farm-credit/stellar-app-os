@@ -49,12 +49,12 @@ export async function buildAnonymousDonationTransaction(
   const sourceAccount = await server.loadAccount(relayerPublicKey);
   const usdcAsset = new Asset('USDC', networkConfig.usdcIssuer);
 
+  // Split donation: 70% planting, 30% buffer
+  const { planting, buffer } = calculateDonationAllocation(amount);
+
   const plantingAddress = networkConfig.addresses.planting;
   const replantingBufferAddress = networkConfig.addresses.replantingBuffer;
   const regionalPlanterAllocations = getRegionPlanterAllocations(planting, regionId);
-
-  // Split donation: 70% planting, 30% buffer
-  const { planting, buffer } = calculateDonationAllocation(amount);
 
   // Encode proof data for memo (truncated for memo size limits)
   const proofData = {

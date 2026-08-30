@@ -2,7 +2,7 @@ import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { PhotoMetadataModal } from "./PhotoMetadataModal";
-import type { ExifParser, PhotoMetadata } from "./types";
+import type { ExifParser, PhotoMetadata } from "@/lib/exif";
 
 function makeFile(name = "tree.jpg") {
   return new File(["fake-jpeg-bytes"], name, { type: "image/jpeg" });

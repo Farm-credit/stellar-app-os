@@ -3,7 +3,7 @@ import { networkConfig } from '@/lib/config/network';
 
 const USDC_ASSET_CODE = 'USDC';
 
-export async function connectFreighter(_network: NetworkType): Promise<string> {
+export async function connectFreighter(_network?: NetworkType): Promise<string> {
   if (typeof window === 'undefined') {
     throw new Error('Freighter wallet can only be accessed in the browser');
   }

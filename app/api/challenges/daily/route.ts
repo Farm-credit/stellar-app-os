@@ -66,7 +66,8 @@ export async function GET(request: Request) {
  *   { wallet }
  */
 export async function POST(request: Request) {
-  const action = request.nextUrl.searchParams.get('action') ?? request.headers.get('x-action');
+  const url = new URL(request.url);
+  const action = url.searchParams.get('action') ?? request.headers.get('x-action');
 
   let body: Record<string, unknown>;
   try {

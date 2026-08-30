@@ -3,7 +3,7 @@
  * The runtime behavior is intentionally lightweight and can be expanded later.
  */
 
-import { SorobanRpc } from '@stellar/stellar-sdk';
+import { rpc } from '@stellar/stellar-sdk';
 import { getPool } from '@/lib/db/client';
 import {
   upsertContractEvent,
@@ -23,7 +23,7 @@ const CONTRACT_IDS = (process.env.SOROBAN_CONTRACT_IDS ?? '')
   .map((id) => id.trim())
   .filter(Boolean);
 
-const server = new SorobanRpc.Server(SOROBAN_RPC_URL, {
+const server = new rpc.Server(SOROBAN_RPC_URL, {
   allowHttp: SOROBAN_RPC_URL.startsWith('http://'),
 });
 const pool = getPool();
@@ -31,12 +31,12 @@ const pool = getPool();
 export async function pollContractEvents() {
   const startLedger = await loadEventCursor(pool, NETWORK);
 
-  const filter: SorobanRpc.Api.EventFilter = {
+  const filter: rpc.Api.EventFilter = {
     type: 'contract',
     ...(CONTRACT_IDS.length > 0 ? { contractIds: CONTRACT_IDS } : {}),
   };
 
-  const request: SorobanRpc.Server.GetEventsRequest = {
+  const request: rpc.Server.GetEventsRequest = {
     filters: [filter],
     limit: MAX_EVENTS_PER_POLL,
     ...(startLedger > 0 ? { startLedger } : {}),

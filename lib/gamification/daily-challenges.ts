@@ -51,7 +51,7 @@ export async function getDailyChallenges(
 
   // Fetch today's challenges with challenge details.
   const challengesResult = await pool.query<{
-    id: number;
+    challenge_id: number;
     slug: string;
     title: string;
     description: string;
@@ -209,7 +209,7 @@ export async function trackChallengeProgress(
      WHERE sdc.wallet = $1
        AND sdc.assigned_date = $2
        AND sdc.status IN ('assigned', 'in_progress')`,
-    [wallet, date]
+    [input.wallet, date]
   );
 
   for (const row of result.rows) {
@@ -247,7 +247,7 @@ export async function trackChallengeProgress(
 
   // Update streak if any progress was made.
   if (challengesAdvanced > 0) {
-    await updateStreak(pool, wallet);
+    await updateStreak(pool, input.wallet);
   }
 
   return { challenges_advanced: challengesAdvanced, newly_completed: newlyCompleted };
@@ -309,7 +309,7 @@ async function createReward(
 
 /** Claim all unclaimed rewards for a sponsor. */
 export async function claimRewards(
-  pool: Pick<Pool, 'query'>,
+  pool: Pool,
   wallet: string
 ): Promise<{ claimed_count: number; total_xlm: number; tx_hashes: string[] }> {
   const client = await pool.connect();
@@ -347,8 +347,8 @@ export async function claimRewards(
     await client.query('COMMIT');
 
     const totalXlm = result.rows
-      .filter((r) => r.reward_type === 'xlm')
-      .reduce((sum, r) => sum + toNum(r.reward_amount), 0);
+      .filter((r: { reward_type: string; reward_amount: string }) => r.reward_type === 'xlm')
+      .reduce((sum: number, r: { reward_amount: string }) => sum + toNum(r.reward_amount), 0);
 
     return {
       claimed_count: result.rows.length,

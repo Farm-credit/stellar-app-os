@@ -20,11 +20,16 @@ export async function POST(request: Request) {
           }
         }
       }
+      const networkValue = (formData.get('network') as string | null) ?? '';
+      if (!['testnet', 'mainnet'].includes(networkValue)) {
+        return NextResponse.json({ error: 'Invalid network' }, { status: 400 });
+      }
+
       body = {
         farmerId: formData.get('farmerId') as string,
         encryptedGps: JSON.parse(formData.get('encryptedGps') as string),
         nonce: Number(formData.get('nonce')),
-        network: formData.get('network') as string,
+        network: networkValue as 'testnet' | 'mainnet',
         contractId: formData.get('contractId') as string,
       };
     } else {

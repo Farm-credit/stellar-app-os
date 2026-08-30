@@ -95,7 +95,10 @@ export function ProposalDetailCard({
     }
   };
 
-  const votePercentage = calculateVotePercentage(proposal.votes_for, proposal.votes_against);
+  const votePercentage = calculateVotePercentage(
+    BigInt(Math.round(proposal.votes_for)),
+    BigInt(Math.round(proposal.votes_against))
+  );
 
   const getStatusBadge = (): JSX.Element => {
     switch (proposal.status) {

@@ -1,4 +1,4 @@
-export type ComplianceReportFormat = 'csv' | 'json';
+export type ComplianceReportFormat = 'csv' | 'json' | 'both';
 export type ComplianceRegistry =
   | 'verra'
   | 'gold-standard'
@@ -50,6 +50,7 @@ export interface ComplianceReportMetadata {
   filters?: ComplianceFilters;
   totalRecords: number;
   schemaVersion: string;
+  generationTimeMs?: number;
 }
 
 export interface CarbonCreditRecord {

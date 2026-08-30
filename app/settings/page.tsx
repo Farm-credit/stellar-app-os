@@ -16,6 +16,7 @@ import {
 import { hasCompletedOnboardingTour, requestOnboardingTourRestart } from '@/lib/onboardingTour';
 import { cn } from '@/lib/utils';
 import { PreferencesSection } from '@/components/organisms/settings/PreferencesSection';
+import { NotificationSection as NotificationSettingsSection } from '@/components/organisms/settings/NotificationSection';
 
 type TabId = 'profile' | 'notifications' | 'preferences' | 'danger';
 
@@ -43,14 +44,6 @@ function ProfileSection() {
   return (
     <div>
       <Text variant="muted">Profile settings coming soon.</Text>
-    </div>
-  );
-}
-
-function NotificationSection() {
-  return (
-    <div>
-      <Text variant="muted">Notification settings coming soon.</Text>
     </div>
   );
 }
@@ -119,7 +112,7 @@ export default function SettingsPage(): ReactNode {
           <div className="flex-1 min-w-0" role="tabpanel">
             <h2 className="mb-6 text-lg font-semibold text-foreground">{SECTION_TITLES[activeTab]}</h2>
             {activeTab === 'profile' && <ProfileSection />}
-            {activeTab === 'notifications' && <NotificationSection />}
+            {activeTab === 'notifications' && <NotificationSettingsSection />}
             {activeTab === 'preferences' && <PreferencesSection />}
             {activeTab === 'danger' && <DeleteAccountSection />}
           </div>

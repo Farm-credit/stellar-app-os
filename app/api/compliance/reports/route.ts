@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
       | 'issuance-report'
       | 'retirement-report') || 'carbon-credits';
 
-  const format = (searchParams.get('format') as 'csv' | 'json' | 'both') || 'json';
+  const format = (searchParams.get('format') as 'csv' | 'json' | 'both' | null) || 'json';
   const registry =
     (searchParams.get('registry') as
       | 'verra'

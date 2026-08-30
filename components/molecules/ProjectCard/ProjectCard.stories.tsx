@@ -20,9 +20,11 @@ const mockProject: CarbonProject = {
     'Restoring 10,000 hectares of degraded rainforest through native species planting and community engagement.',
   pricePerTon: 15,
   availableSupply: 5000,
-  totalSupply: 10000,
   isOutOfStock: false,
-  imageUrl: null,
+  vintageYear: 2024,
+  coordinates: { latitude: -3.4653, longitude: -62.2159 },
+  coBenefits: ['Biodiversity restoration', 'Community livelihoods'],
+  verificationStatus: 'Gold Standard',
 };
 
 export const Default: Story = {
@@ -66,7 +68,7 @@ export const SoldOut: Story = {
       ...mockProject,
       id: '4',
       name: 'Costa Rica Conservation',
-      type: 'Conservation',
+      type: 'Other',
       location: 'Costa Rica',
       description: 'Protecting 5,000 hectares of primary rainforest.',
       availableSupply: 0,

@@ -6,7 +6,12 @@ import { Button } from '@/components/atoms/Button';
 import { Badge } from '@/components/atoms/Badge';
 import { CountdownTimer } from './CountdownTimer';
 import { VoteProgressBar } from './VoteProgressBar';
-import type { ProposalDetailCardProps, VoteOption, ProposalStatus } from './types';
+import type {
+  ProposalDetailCardProps,
+  VoteOption,
+  ProposalStatus,
+  VoteTally,
+} from './types';
 
 const statusConfig: Record<
   ProposalStatus,

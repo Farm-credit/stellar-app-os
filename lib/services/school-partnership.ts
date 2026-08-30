@@ -258,7 +258,7 @@ export async function enrollStudents(
 
 /** Create a class project sponsorship batch. */
 export async function createBatch(
-  pool: Pick<Pool, 'query'>,
+  pool: Pick<Pool, 'query' | 'connect'>,
   input: CreateBatchInput
 ): Promise<{ id: number }> {
   // Fetch the partnership's discount.
@@ -288,7 +288,7 @@ export async function createBatch(
 
 /** Contribute trees to a batch. */
 export async function contributeToBatch(
-  pool: Pick<Pool, 'query'>,
+  pool: Pick<Pool, 'query' | 'connect'>,
   input: ContributeToBatchInput
 ): Promise<{ contribution_id: number; batch_status: BatchStatus }> {
   const client = await pool.connect();
