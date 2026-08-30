@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 import { useFarmerDashboard } from '@/hooks/useFarmerDashboard';
 import { useWalletContext } from '@/contexts/WalletContext';
+import { useTimeZone } from '@/contexts/TimeZoneContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/molecules/Card';
 import { Badge } from '@/components/atoms/Badge';
 import { Text } from '@/components/atoms/Text';
@@ -56,17 +57,16 @@ function fmt(n: number) {
 function fmtUsdc(n: number) {
   return `$${fmt(n)} USDC`;
 }
-function fmtDate(iso: string) {
-  return new Date(iso).toLocaleDateString('en-GB', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  });
-}
 
 // ── Milestone badge ───────────────────────────────────────────────────────────
 
-function MilestoneBadge({ m }: { m: MilestonePayment }) {
+function MilestoneBadge({
+  m,
+  formatDate,
+}: {
+  m: MilestonePayment;
+  formatDate: (iso: string) => string;
+}) {
   const label = `${m.percentage}% — ${fmtUsdc(m.amountUsdc)}`;
   if (m.status === 'paid')
     return (
@@ -87,13 +87,13 @@ function MilestoneBadge({ m }: { m: MilestonePayment }) {
   if (m.status === 'pending')
     return (
       <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2.5 py-0.5 text-xs font-semibold text-amber-600">
-        <Clock className="h-3 w-3" /> {label} · due {fmtDate(m.date)}
+        <Clock className="h-3 w-3" /> {label} · due {formatDate(m.date)}
       </span>
     );
   // locked
   return (
     <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-0.5 text-xs font-semibold text-muted-foreground">
-      <Lock className="h-3 w-3" /> {label} · unlocks {fmtDate(m.date)}
+      <Lock className="h-3 w-3" /> {label} · unlocks {formatDate(m.date)}
     </span>
   );
 }
@@ -169,6 +169,7 @@ export function FarmerDashboard({ farmerId }: { farmerId?: string }) {
     () => sortAssignments(data?.nextAssignments ?? [], jobSort),
     [data?.nextAssignments, jobSort]
   );
+  const { formatDate } = useTimeZone();
 
   if (error) {
     return (
@@ -271,7 +272,7 @@ export function FarmerDashboard({ farmerId }: { farmerId?: string }) {
                     <div>
                       <Text>{rec.projectName}</Text>
                       <Text className="text-muted-foreground">
-                        {rec.location} · {fmt(rec.treesPlanted)} trees · {fmtDate(rec.plantedAt)}
+                        {rec.location} · {fmt(rec.treesPlanted)} trees · {formatDate(rec.plantedAt)}
                       </Text>
                     </div>
                     <div className="flex items-center gap-2">
@@ -282,7 +283,7 @@ export function FarmerDashboard({ farmerId }: { farmerId?: string }) {
                   {/* Milestone payments */}
                   <div className="flex flex-wrap gap-2">
                     {rec.milestones.map((m) => (
-                      <MilestoneBadge key={m.type} m={m} />
+                      <MilestoneBadge key={m.type} m={m} formatDate={formatDate} />
                     ))}
                   </div>
                 </div>
@@ -373,7 +374,7 @@ export function FarmerDashboard({ farmerId }: { farmerId?: string }) {
                         </span>
                         <span className="inline-flex items-center gap-1 text-muted-foreground">
                           <Clock className="h-3.5 w-3.5" />
-                          Due {fmtDate(a.deadline)}
+                          Due {formatDate(a.deadline)}
                         </span>
                       </div>
                       <div className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">

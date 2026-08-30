@@ -70,31 +70,31 @@ export function ProjectDetailView({ adminProject, carbonProject }: ProjectDetail
 
   const milestones: Milestone[] = [
     {
-      date: 'March 2024',
+      date: '2024-03-15T09:00:00Z',
       title: 'Project Inception',
       description: 'Initial land survey and community engagement completed.',
       status: 'completed',
     },
     {
-      date: 'June 2024',
+      date: '2024-06-10T08:30:00Z',
       title: 'First Planting Phase',
       description: 'Over 200,000 native saplings planted across the north sector.',
       status: 'completed',
     },
     {
-      date: 'Jan 2025',
+      date: '2025-01-22T14:00:00Z',
       title: 'MRV Certification',
       description: 'Successful third-party verification of carbon sequestration rates.',
       status: 'completed',
     },
     {
-      date: 'June 2025',
+      date: '2025-06-18T10:00:00Z',
       title: 'Secondary Growth Phase',
       description: 'Expanding planting efforts to the eastern buffer zones.',
       status: 'ongoing',
     },
     {
-      date: 'Dec 2025',
+      date: '2025-12-05T09:00:00Z',
       title: 'Full Capacity Reached',
       description: 'Projected completion of initial reforestation goals.',
       status: 'upcoming',
