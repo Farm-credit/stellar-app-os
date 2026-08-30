@@ -12,6 +12,9 @@
 
 # testing
 /coverage
+__tests__/pact/reports/
+__tests__/pact/logs/
+# Keep pacts tracked: !__tests__/pact/pacts/
 
 # next.js
 /.next/

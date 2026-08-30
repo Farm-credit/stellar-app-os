@@ -16,6 +16,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:ui": "vitest --ui",
+    "test:pact": "vitest run --run __tests__/pact",
+    "test:pact:watch": "vitest __tests__/pact",
+    "test:pact:verify": "tsx __tests__/pact/verify-setup.ts",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "generate-icons": "node scripts/generate-icons.mjs",
@@ -87,12 +90,12 @@
     "stripe": "^20.3.1",
     "tailwind-merge": "^3.5.0",
     "vite": "^8.1.5",
-    "winston": "3.17.0",
-    "zod": "^4.3.6"
+    "winston": "3.17.0"
   },
   "devDependencies": {
     "@commitlint/cli": "^20.4.2",
     "@commitlint/config-conventional": "^20.4.2",
+    "@pact-foundation/pact": "^17.1.3",
     "@tailwindcss/postcss": "^4",
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.1.0",
@@ -118,15 +121,18 @@
     "husky": "^9.1.7",
     "jsdom": "^25.0.1",
     "lint-staged": "^15.5.2",
+    "openapi-enforcer": "^1.23.0",
     "prettier": "^3.8.1",
     "prettier-plugin-tailwindcss": "^0.7.2",
     "shadcn": "^3.8.5",
     "sharp": "^0.34.5",
+    "swagger-parser": "^10.0.3",
     "tailwindcss": "^4",
     "tsx": "4.19.4",
     "tw-animate-css": "^1.4.0",
     "typescript": "^5",
-    "vitest": "^2.1.8"
+    "vitest": "^2.1.8",
+    "zod": "^4.3.6"
   },
   "packageManager": "pnpm@10.28.1+sha512.7d7dbbca9e99447b7c3bf7a73286afaaf6be99251eb9498baefa7d406892f67b879adb3a1d7e687fc4ccc1a388c7175fbaae567a26ab44d1067b54fcb0d6a316",
   "lint-staged": {
