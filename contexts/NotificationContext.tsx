@@ -143,7 +143,7 @@ export function NotificationProvider({ children }: { children: ReactNode }): Rea
     const id = generateId();
     const duration = normalizeToastDuration(toast.duration);
     const newToast: ToastNotification = { ...toast, id, duration };
-    setToasts((prev) => [...prev, newToast]);
+    setToasts((prev) => [newToast, ...prev]);
 
     if (duration > 0) {
       setTimeout(() => {

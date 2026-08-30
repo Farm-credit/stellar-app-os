@@ -5,31 +5,13 @@ import { X, Bell, Check, Archive, Filter, X as XIcon, Loader2, ChevronRight } fr
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { useNotification } from '@/contexts/NotificationContext';
+import type { Notification, NotificationAction } from '@/types/notifications';
 import { Button } from '@/components/atoms/Button';
 import { Badge } from '@/components/atoms/Badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
 type NotificationType = 'payout' | 'account_alert' | 'verification';
 type NotificationPriority = 'high' | 'medium' | 'low';
-
-interface NotificationAction {
-  label: string;
-  onClick: () => void;
-  variant?: 'primary' | 'secondary';
-}
-
-interface Notification {
-  id: string;
-  title: string;
-  description?: string;
-  type: NotificationType;
-  priority: NotificationPriority;
-  timestamp: string;
-  read: boolean;
-  archived: boolean;
-  action?: NotificationAction;
-  metadata?: Record<string, string | number | boolean>;
-}
 
 type FilterType = 'all' | 'unread' | 'archived' | 'payout' | 'account_alert' | 'verification';
 
@@ -99,7 +81,7 @@ const filterOptions: { value: FilterType; label: string }[] = [
   { value: 'verification', label: 'Verification' },
 ];
 
-export function NotificationCenterDrawer(): React.ReactElement {
+export function NotificationCenterDrawer(): React.ReactElement | null {
   const {
     notifications,
     unreadCount,
@@ -112,6 +94,8 @@ export function NotificationCenterDrawer(): React.ReactElement {
     clearAll,
     clearRead,
   } = useNotification();
+
+  const typedNotifications: Notification[] = notifications;
 
   const [filter, setFilter] = useState<FilterType>('all');
   const [isLoading, setIsLoading] = useState(false);
@@ -160,7 +144,7 @@ export function NotificationCenterDrawer(): React.ReactElement {
   }, [isDrawerOpen, closeDrawer]);
 
   const filteredNotifications = useMemo(() => {
-    return notifications.filter((notification) => {
+    return typedNotifications.filter((notification) => {
       if (filter === 'unread') return !notification.read && !notification.archived;
       if (filter === 'archived') return notification.archived;
       if (filter === 'payout') return notification.type === 'payout';
@@ -168,7 +152,7 @@ export function NotificationCenterDrawer(): React.ReactElement {
       if (filter === 'verification') return notification.type === 'verification';
       return true;
     });
-  }, [notifications, filter]);
+  }, [typedNotifications, filter]);
 
   const handleMarkAsRead = useCallback(
     (id: string, e: React.MouseEvent) => {
@@ -218,9 +202,11 @@ export function NotificationCenterDrawer(): React.ReactElement {
     setIsLoading(false);
   }, [clearRead]);
 
-  const formatTime = useCallback((timestamp: string) => {
+  const formatTime = useCallback((timestamp: Date | string) => {
     try {
-      return formatDistanceToNow(new Date(timestamp), { addSuffix: true });
+      return formatDistanceToNow(timestamp instanceof Date ? timestamp : new Date(timestamp), {
+        addSuffix: true,
+      });
     } catch {
       return 'Just now';
     }
@@ -385,9 +371,9 @@ function NotificationItem({
   onArchive: (id: string, e: React.MouseEvent) => void;
   onRemove: (id: string, e: React.MouseEvent) => void;
   onActionClick: (action: NotificationAction | undefined, e: React.MouseEvent) => void;
-  formatTime: (timestamp: string) => string;
+  formatTime: (timestamp: Date | string) => string;
 }): React.ReactElement {
-  const Icon = typeIcons[notification.type];
+  const Icon = typeIcons[notification.type as NotificationType];
   const isUnread = !notification.read && !notification.archived;
   const isArchived = notification.archived;
 
@@ -444,27 +430,35 @@ function NotificationItem({
                   isUnread && 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
                 )}
               >
-                {typeLabels[notification.type]}
+                {typeLabels[notification.type as NotificationType]}
               </Badge>
               <Badge variant="outline" className="text-xs hidden sm:inline-flex">
                 <span
                   className={cn(
                     'w-1.5 h-1.5 rounded-full mr-1',
-                    priorityColors[notification.priority]
+                    priorityColors[notification.priority as NotificationPriority]
                   )}
                   aria-hidden="true"
                 />
-                {priorityLabels[notification.priority]}
+                {priorityLabels[notification.priority as NotificationPriority]}
               </Badge>
             </div>
           </div>
 
           <div className="mt-3 flex items-center justify-between">
             <time
-              dateTime={notification.timestamp}
+              dateTime={
+                notification.timestamp instanceof Date
+                  ? notification.timestamp.toISOString()
+                  : String(notification.timestamp)
+              }
               className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1"
             >
-              {formatTime(notification.timestamp)}
+              {formatTime(
+                notification.timestamp instanceof Date
+                  ? notification.timestamp
+                  : new Date(notification.timestamp)
+              )}
             </time>
 
             <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">

@@ -55,4 +55,40 @@ export interface NotificationActions {
   clearRead: () => void;
 }
 
-export type NotificationContextValue = NotificationState & NotificationActions;
+export interface ToastHelpers {
+  success: (
+    title: string,
+    description?: string,
+    action?: NotificationAction,
+    duration?: number
+  ) => string;
+  error: (
+    title: string,
+    description?: string,
+    action?: NotificationAction,
+    duration?: number
+  ) => string;
+  warning: (
+    title: string,
+    description?: string,
+    action?: NotificationAction,
+    duration?: number
+  ) => string;
+  info: (
+    title: string,
+    description?: string,
+    action?: NotificationAction,
+    duration?: number
+  ) => string;
+  contract: (
+    title: string,
+    description?: string,
+    action?: NotificationAction,
+    duration?: number
+  ) => string;
+}
+
+export type NotificationContextValue = NotificationState &
+  NotificationActions & {
+    toast: ToastHelpers;
+  };

@@ -5,7 +5,7 @@ import { Bell, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useNotification } from '@/contexts/NotificationContext';
 
-export function NotificationBell(): React.ReactElement {
+export function NotificationBell(): React.ReactElement | null {
   const { unreadCount, closeDrawer, toggleDrawer, isDrawerOpen } = useNotification();
   const bellRef = useRef<HTMLButtonElement>(null);
 
@@ -63,7 +63,7 @@ export function NotificationBell(): React.ReactElement {
   );
 }
 
-export function ToastContainer(): React.ReactElement {
+export function ToastContainer(): React.ReactElement | null {
   const { toasts, dismissToast } = useNotification();
 
   if (toasts.length === 0) return null;
@@ -92,7 +92,7 @@ interface ToastProps {
     action?: {
       label: string;
       onClick: () => void;
-      variant?: 'primary' | 'secondary';
+      variant?: 'primary' | 'secondary' | 'ghost';
     };
   };
   onDismiss: (id: string) => void;
@@ -209,12 +209,12 @@ function Toast({ toast, onDismiss }: ToastProps): React.ReactElement {
           <button
             type="button"
             onClick={() => {
-              toast.action.onClick();
+              toast.action?.onClick();
               onDismiss(toast.id);
             }}
             className={cn(
               'mt-2 text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2',
-              toast.action.variant === 'primary'
+              toast.action?.variant === 'primary'
                 ? 'text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 focus:ring-blue-500'
                 : 'text-gray-600 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300 focus:ring-gray-500'
             )}
