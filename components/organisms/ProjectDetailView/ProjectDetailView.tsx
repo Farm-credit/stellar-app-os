@@ -30,6 +30,7 @@ import {
   type Milestone,
 } from '@/components/organisms/ProjectTimeline/ProjectTimeline';
 import { ProjectCarousel } from '@/components/organisms/ProjectCarousel/ProjectCarousel';
+import { ProjectPlanters } from '@/components/organisms/ProjectPlanters';
 
 import { mockCarbonProjects } from '@/lib/api/mock/carbonProjects';
 import { toast } from 'sonner';
@@ -230,6 +231,11 @@ export function ProjectDetailView({ adminProject, carbonProject }: ProjectDetail
                 <div className="h-px bg-stellar-blue/20 flex-1 ml-4" />
               </Text>
               <ProjectTimeline milestones={milestones} />
+            </section>
+
+            {/* Issue #1150: Meet the people planting this project's trees */}
+            <section id="planters">
+              <ProjectPlanters projectId={adminProject.id} projectName={adminProject.name} />
             </section>
           </div>
 
