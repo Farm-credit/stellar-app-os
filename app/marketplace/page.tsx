@@ -7,11 +7,7 @@ import { MarketplaceFilters } from '@/components/molecules/MarketplaceFilters';
 import { PaginationControl } from '@/components/molecules/PaginationControl';
 import { Text } from '@/components/atoms/Text';
 import { getMockMarketplaceListings } from '@/lib/api/mock/marketplaceListings';
-import type {
-  FundingStatus,
-  ProjectType,
-  SortOption,
-} from '@/lib/types/marketplace';
+import type { FundingStatus, ProjectType, SortOption } from '@/lib/types/marketplace';
 
 const SORT_OPTIONS: SortOption[] = [
   'date-newest',
@@ -71,7 +67,8 @@ function MarketplacePageContent() {
   );
 
   const activeFilterCount = useMemo(
-    () => [selectedType, selectedLocation, selectedFundingStatus, searchQuery].filter(Boolean).length,
+    () =>
+      [selectedType, selectedLocation, selectedFundingStatus, searchQuery].filter(Boolean).length,
     [selectedType, selectedLocation, selectedFundingStatus, searchQuery]
   );
 
@@ -105,7 +102,15 @@ function MarketplacePageContent() {
       const newUrl = queryString ? `/marketplace?${queryString}` : '/marketplace';
       router.push(newUrl, { scroll: false });
     },
-    [currentPage, selectedType, selectedLocation, selectedFundingStatus, sortBy, searchQuery, router]
+    [
+      currentPage,
+      selectedType,
+      selectedLocation,
+      selectedFundingStatus,
+      sortBy,
+      searchQuery,
+      router,
+    ]
   );
 
   const handleTypeChange = useCallback(
@@ -161,7 +166,8 @@ function MarketplacePageContent() {
           Carbon Credit Marketplace
         </Text>
         <Text variant="muted" as="p">
-          Browse verified agricultural credit listings with shareable filter URLs and sorting options.
+          Browse verified agricultural credit listings with shareable filter URLs and sorting
+          options.
         </Text>
       </header>
 
@@ -195,10 +201,7 @@ function MarketplacePageContent() {
             </Text>
           </div>
 
-          <MarketplaceGrid
-            listings={data.listings}
-            currentUserId={null}
-          />
+          <MarketplaceGrid listings={data.listings} currentUserId={null} />
 
           {data.pagination.totalPages > 1 && (
             <div className="mt-8">

@@ -12,6 +12,7 @@ const textVariants = cva('', {
       body: 'text-base leading-7',
       small: 'text-sm leading-6',
       muted: 'text-sm text-muted-foreground',
+      label: 'text-xs font-medium uppercase tracking-wide',
     },
   },
   defaultVariants: {
@@ -33,6 +34,7 @@ const Text = forwardRef<HTMLElement, TextProps>(({ className, variant, as, ...pr
     body: 'p',
     small: 'p',
     muted: 'p',
+    label: 'p',
   } as const;
 
   const Component = (as || elementMap[variant || 'body'] || 'p') as 'p';

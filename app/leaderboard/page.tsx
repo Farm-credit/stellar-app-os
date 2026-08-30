@@ -3,10 +3,10 @@
 import { useState, useEffect } from 'react';
 import { useWalletContext } from '@/contexts/WalletContext';
 import { fetchLeaderboard, getMockUserStats } from '@/lib/api/mock/leaderboard';
-import { LeaderboardSponsor, LeaderboardPeriod } from '@/lib/types/leaderboard';
+import { type LeaderboardSponsor, type LeaderboardPeriod } from '@/lib/types/leaderboard';
 import { Button } from '@/components/atoms/Button';
 import { Text } from '@/components/atoms/Text';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/molecules/Card';
+import { Card, CardContent } from '@/components/molecules/Card';
 import {
   Table,
   TableHeader,
@@ -35,7 +35,6 @@ function formatAddress(address: string) {
 
 export default function LeaderboardPage() {
   const { wallet } = useWalletContext() || { wallet: null };
-  const isConnected = !!wallet?.isConnected;
   const [period, setPeriod] = useState<LeaderboardPeriod>('monthly');
   const [sponsors, setSponsors] = useState<LeaderboardSponsor[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -61,9 +60,6 @@ export default function LeaderboardPage() {
   // User details
   const userAddress = wallet?.publicKey || '';
   const userStats = userAddress ? getMockUserStats(userAddress, period) : null;
-  const isUserInTop10 = userStats
-    ? sponsors.some((s) => s.address.toLowerCase() === userAddress.toLowerCase())
-    : false;
 
   // Global Impact Stats
   const globalTrees = period === 'monthly' ? 6650 : 63500;
@@ -122,7 +118,10 @@ export default function LeaderboardPage() {
                 <TreePine className="w-6 h-6" />
               </div>
               <div>
-                <Text variant="muted" className="text-xs uppercase tracking-wider font-semibold text-slate-400">
+                <Text
+                  variant="muted"
+                  className="text-xs uppercase tracking-wider font-semibold text-slate-400"
+                >
                   Total Trees Sponsored
                 </Text>
                 <Text variant="h3" className="font-extrabold text-white">
@@ -138,7 +137,10 @@ export default function LeaderboardPage() {
                 <Leaf className="w-6 h-6" />
               </div>
               <div>
-                <Text variant="muted" className="text-xs uppercase tracking-wider font-semibold text-slate-400">
+                <Text
+                  variant="muted"
+                  className="text-xs uppercase tracking-wider font-semibold text-slate-400"
+                >
                   Total CO₂ Offset
                 </Text>
                 <Text variant="h3" className="font-extrabold text-white">
@@ -154,7 +156,10 @@ export default function LeaderboardPage() {
                 <Sparkles className="w-6 h-6" />
               </div>
               <div>
-                <Text variant="muted" className="text-xs uppercase tracking-wider font-semibold text-slate-400">
+                <Text
+                  variant="muted"
+                  className="text-xs uppercase tracking-wider font-semibold text-slate-400"
+                >
                   Active Global Sponsors
                 </Text>
                 <Text variant="h3" className="font-extrabold text-white">
@@ -168,7 +173,9 @@ export default function LeaderboardPage() {
         {loading ? (
           <div className="flex flex-col items-center justify-center py-24 gap-4">
             <Loader2 className="w-10 h-10 text-stellar-blue animate-spin" />
-            <Text variant="muted" className="text-sm">Fetching leader statistics...</Text>
+            <Text variant="muted" className="text-sm">
+              Fetching leader statistics...
+            </Text>
           </div>
         ) : (
           <div className="space-y-10 animate-in fade-in slide-in-from-bottom-3 duration-500">
@@ -196,12 +203,20 @@ export default function LeaderboardPage() {
                     </span>
                     <div className="grid grid-cols-2 gap-4 w-full border-t border-slate-800/80 pt-3">
                       <div>
-                        <span className="text-xs text-slate-500 block uppercase font-medium">Trees</span>
-                        <span className="font-extrabold text-stellar-green">{topThree[1].totalTrees}</span>
+                        <span className="text-xs text-slate-500 block uppercase font-medium">
+                          Trees
+                        </span>
+                        <span className="font-extrabold text-stellar-green">
+                          {topThree[1].totalTrees}
+                        </span>
                       </div>
                       <div>
-                        <span className="text-xs text-slate-500 block uppercase font-medium">CO₂</span>
-                        <span className="font-extrabold text-stellar-blue">{topThree[1].co2Offset}t</span>
+                        <span className="text-xs text-slate-500 block uppercase font-medium">
+                          CO₂
+                        </span>
+                        <span className="font-extrabold text-stellar-blue">
+                          {topThree[1].co2Offset}t
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -228,12 +243,20 @@ export default function LeaderboardPage() {
                     </span>
                     <div className="grid grid-cols-2 gap-4 w-full border-t border-slate-800/80 pt-3">
                       <div>
-                        <span className="text-xs text-slate-500 block uppercase font-medium">Trees</span>
-                        <span className="font-extrabold text-stellar-green">{topThree[0].totalTrees}</span>
+                        <span className="text-xs text-slate-500 block uppercase font-medium">
+                          Trees
+                        </span>
+                        <span className="font-extrabold text-stellar-green">
+                          {topThree[0].totalTrees}
+                        </span>
                       </div>
                       <div>
-                        <span className="text-xs text-slate-500 block uppercase font-medium">CO₂</span>
-                        <span className="font-extrabold text-stellar-blue">{topThree[0].co2Offset}t</span>
+                        <span className="text-xs text-slate-500 block uppercase font-medium">
+                          CO₂
+                        </span>
+                        <span className="font-extrabold text-stellar-blue">
+                          {topThree[0].co2Offset}t
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -260,12 +283,20 @@ export default function LeaderboardPage() {
                     </span>
                     <div className="grid grid-cols-2 gap-4 w-full border-t border-slate-800/80 pt-3">
                       <div>
-                        <span className="text-xs text-slate-500 block uppercase font-medium">Trees</span>
-                        <span className="font-extrabold text-stellar-green">{topThree[2].totalTrees}</span>
+                        <span className="text-xs text-slate-500 block uppercase font-medium">
+                          Trees
+                        </span>
+                        <span className="font-extrabold text-stellar-green">
+                          {topThree[2].totalTrees}
+                        </span>
                       </div>
                       <div>
-                        <span className="text-xs text-slate-500 block uppercase font-medium">CO₂</span>
-                        <span className="font-extrabold text-stellar-blue">{topThree[2].co2Offset}t</span>
+                        <span className="text-xs text-slate-500 block uppercase font-medium">
+                          CO₂
+                        </span>
+                        <span className="font-extrabold text-stellar-blue">
+                          {topThree[2].co2Offset}t
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -283,21 +314,32 @@ export default function LeaderboardPage() {
               <Table>
                 <TableHeader className="bg-slate-900/40 border-b border-slate-900">
                   <TableRow className="hover:bg-transparent border-slate-900">
-                    <TableHead className="w-[100px] text-slate-400 font-semibold py-4 pl-6">Rank</TableHead>
+                    <TableHead className="w-[100px] text-slate-400 font-semibold py-4 pl-6">
+                      Rank
+                    </TableHead>
                     <TableHead className="text-slate-400 font-semibold py-4">Sponsor</TableHead>
-                    <TableHead className="text-slate-400 font-semibold py-4 text-right">Trees Sponsored</TableHead>
-                    <TableHead className="text-slate-400 font-semibold py-4 text-right">CO₂ Offset</TableHead>
-                    <TableHead className="w-[120px] text-slate-400 font-semibold py-4 text-center pr-6">Trend</TableHead>
+                    <TableHead className="text-slate-400 font-semibold py-4 text-right">
+                      Trees Sponsored
+                    </TableHead>
+                    <TableHead className="text-slate-400 font-semibold py-4 text-right">
+                      CO₂ Offset
+                    </TableHead>
+                    <TableHead className="w-[120px] text-slate-400 font-semibold py-4 text-center pr-6">
+                      Trend
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {remainingSponsors.map((sponsor) => {
-                    const isUserRow = userAddress && sponsor.address.toLowerCase() === userAddress.toLowerCase();
+                    const isUserRow =
+                      userAddress && sponsor.address.toLowerCase() === userAddress.toLowerCase();
                     return (
                       <TableRow
                         key={sponsor.address}
                         className={`border-slate-900 hover:bg-slate-900/30 transition-colors ${
-                          isUserRow ? 'bg-stellar-blue/10 hover:bg-stellar-blue/15 border-l-2 border-l-stellar-blue' : ''
+                          isUserRow
+                            ? 'bg-stellar-blue/10 hover:bg-stellar-blue/15 border-l-2 border-l-stellar-blue'
+                            : ''
                         }`}
                       >
                         <TableCell className="font-bold text-slate-300 py-4 pl-6">
@@ -366,20 +408,26 @@ export default function LeaderboardPage() {
                           Connected
                         </span>
                       </div>
-                      <span className="text-sm text-slate-400">
-                        {formatAddress(userAddress)}
-                      </span>
+                      <span className="text-sm text-slate-400">{formatAddress(userAddress)}</span>
                     </div>
                   </div>
 
                   <div className="flex items-center gap-8 sm:gap-12">
                     <div className="text-center sm:text-left">
-                      <span className="text-xs text-slate-500 uppercase block font-medium">Trees Sponsored</span>
-                      <span className="font-extrabold text-stellar-green text-lg">{userStats.totalTrees}</span>
+                      <span className="text-xs text-slate-500 uppercase block font-medium">
+                        Trees Sponsored
+                      </span>
+                      <span className="font-extrabold text-stellar-green text-lg">
+                        {userStats.totalTrees}
+                      </span>
                     </div>
                     <div className="text-center sm:text-left">
-                      <span className="text-xs text-slate-500 uppercase block font-medium">CO₂ Offset</span>
-                      <span className="font-extrabold text-stellar-blue text-lg">{userStats.co2Offset.toFixed(1)}t</span>
+                      <span className="text-xs text-slate-500 uppercase block font-medium">
+                        CO₂ Offset
+                      </span>
+                      <span className="font-extrabold text-stellar-blue text-lg">
+                        {userStats.co2Offset.toFixed(1)}t
+                      </span>
                     </div>
                   </div>
 
@@ -396,10 +444,16 @@ export default function LeaderboardPage() {
                 <div className="flex items-center gap-3">
                   <Wallet className="w-5 h-5 text-slate-500" />
                   <span className="text-sm text-slate-400 font-medium">
-                    Connect your Stellar wallet to see your ranking and contributions on the leaderboard.
+                    Connect your Stellar wallet to see your ranking and contributions on the
+                    leaderboard.
                   </span>
                 </div>
-                <Button asChild variant="outline" size="sm" className="border-slate-800 text-slate-300 hover:text-white hover:bg-slate-900 whitespace-nowrap">
+                <Button
+                  asChild
+                  variant="outline"
+                  size="sm"
+                  className="border-slate-800 text-slate-300 hover:text-white hover:bg-slate-900 whitespace-nowrap"
+                >
                   <Link href="/">Go Connect Wallet</Link>
                 </Button>
               </div>

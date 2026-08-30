@@ -287,7 +287,9 @@ function sortListings(listings: MarketplaceListing[], sortBy: SortOption): Marke
     case 'funded':
       return sorted.sort((a, b) => b.totalPrice - a.totalPrice);
     case 'ending-soon':
-      return sorted.sort((a, b) => new Date(a.closingAt).getTime() - new Date(b.closingAt).getTime());
+      return sorted.sort(
+        (a, b) => new Date(a.closingAt).getTime() - new Date(b.closingAt).getTime()
+      );
     default:
       return sorted;
   }

@@ -53,7 +53,15 @@ export function DonationProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo(
-    () => ({ state, setAmount, setTreeCount, setIsMonthly, setDonorInfo, setRegionAllocations, resetFlow }),
+    () => ({
+      state,
+      setAmount,
+      setTreeCount,
+      setIsMonthly,
+      setDonorInfo,
+      setRegionAllocations,
+      resetFlow,
+    }),
     [state, setAmount, setTreeCount, setIsMonthly, setDonorInfo, setRegionAllocations, resetFlow]
   );
 

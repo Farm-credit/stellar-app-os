@@ -213,7 +213,9 @@ function DonationConfirmationContent() {
                     return (
                       <div key={alloc.regionId} className="flex items-center justify-between py-1">
                         <Text className="text-sm text-gray-600">{region.name}</Text>
-                        <Text className="text-sm font-semibold text-gray-800">{alloc.treeCount} trees</Text>
+                        <Text className="text-sm font-semibold text-gray-800">
+                          {alloc.treeCount} trees
+                        </Text>
                       </div>
                     );
                   })}

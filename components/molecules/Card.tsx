@@ -20,9 +20,7 @@ const Card = forwardRef<HTMLDivElement, CardProps>(({ className, ...props }, ref
 Card.displayName = 'Card';
 
 const CardHeader = forwardRef<HTMLDivElement, CardHeaderProps>(({ className, ...props }, ref) => {
-  return (
-    <div ref={ref} className={cn('flex flex-col space-y-1.5 p-6', className)} {...props} />
-  );
+  return <div ref={ref} className={cn('flex flex-col space-y-1.5 p-6', className)} {...props} />;
 });
 CardHeader.displayName = 'CardHeader';
 
@@ -39,9 +37,7 @@ CardTitle.displayName = 'CardTitle';
 
 const CardDescription = forwardRef<HTMLParagraphElement, CardDescriptionProps>(
   ({ className, ...props }, ref) => {
-    return (
-      <p ref={ref} className={cn('text-sm text-muted-foreground', className)} {...props} />
-    );
+    return <p ref={ref} className={cn('text-sm text-muted-foreground', className)} {...props} />;
   }
 );
 CardDescription.displayName = 'CardDescription';

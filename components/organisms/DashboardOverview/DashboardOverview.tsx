@@ -250,7 +250,10 @@ export function DashboardOverview() {
                 <Text variant="small" className="text-muted-foreground uppercase tracking-[0.2em]">
                   Trees planted
                 </Text>
-                <Text variant="h3" className="text-2xl font-semibold text-slate-900 dark:text-white">
+                <Text
+                  variant="h3"
+                  className="text-2xl font-semibold text-slate-900 dark:text-white"
+                >
                   {data?.stats.totalDonationsTrees ?? 0}
                 </Text>
               </div>

@@ -32,4 +32,12 @@ export interface WalletContextValue {
 
 export interface WalletConnectionProps {
   onConnectionChange?: (connection: WalletConnection | null) => void;
+  /** Heading shown before a wallet is connected. */
+  title?: string;
+  /** Supporting copy shown before a wallet is connected. */
+  description?: string;
+  /** Heading shown once a wallet is connected. */
+  connectedTitle?: string;
+  /** Supporting copy shown once a wallet is connected. */
+  connectedDescription?: string;
 }

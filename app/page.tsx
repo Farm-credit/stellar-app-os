@@ -1,7 +1,7 @@
 'use client';
 
-import Link from 'next/link';
 import { type JSX, useState } from 'react';
+import Link from 'next/link';
 import { Button } from '@/components/atoms/Button';
 import { Text } from '@/components/atoms/Text';
 import { Badge } from '@/components/atoms/Badge';
@@ -15,7 +15,14 @@ import {
   CardDescription,
   CardContent,
 } from '@/components/molecules/Card';
-import { OnboardingTour } from '@/components/organisms/OnboardingTour/OnboardingTour';
+import { TransactionHistoryModal } from '@/components/ui/TransactionHistoryModal';
+import { useToast } from '@/hooks/useToast';
+import { useAppTranslation } from '@/hooks/useTranslation';
+
+export default function Home(): JSX.Element {
+  const { t } = useAppTranslation();
+  const { addToast } = useToast();
+  const [showTx, setShowTx] = useState(false);
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-8 p-8">
@@ -108,15 +115,6 @@ import { OnboardingTour } from '@/components/organisms/OnboardingTour/Onboarding
           </Button>
           <Button asChild variant="outline" size="lg" className="w-full">
             <Link href="/api-docs">Explore API Documentation</Link>
-          </Button>
-          <Button
-            data-tour-id="purchase-credits-button"
-            asChild
-            variant="outline"
-            size="lg"
-            className="w-full"
-          >
-            <Link href="/credits/purchase">Purchase Carbon Credits</Link>
           </Button>
           <Button asChild variant="outline" size="lg" className="w-full">
             <Link href="/leaderboard">View Leaderboard</Link>
