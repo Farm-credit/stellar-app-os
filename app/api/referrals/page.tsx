@@ -12,15 +12,15 @@ export default function ReferralProgramPage() {
 
   if (loading) {
     return (
-      <main className="flex items-center justify-center min-h-screen">
-        <p>Loading…</p>
+      <main className="flex min-h-screen items-center justify-center">
+        <p>Loading referral program…</p>
       </main>
     );
   }
 
   if (error) {
     return (
-      <main className="flex items-center justify-center min-h-screen">
+      <main className="flex min-h-screen items-center justify-center px-4">
         <p role="alert" className="text-red-600">
           Error: {error}
         </p>
@@ -28,18 +28,33 @@ export default function ReferralProgramPage() {
     );
   }
 
-  if (!stats) return null;
+  if (!stats) {
+    return (
+      <main className="mx-auto max-w-3xl px-4 py-16">
+        <h1 className="mb-2 text-3xl font-bold">Referral Program</h1>
+        <p className="rounded-lg border border-border bg-muted/30 p-6 text-muted-foreground">
+          Connect your Stellar wallet to generate your referral link and track 1 XLM rewards.
+        </p>
+      </main>
+    );
+  }
 
   return (
     <main className="mx-auto max-w-3xl px-4 py-8">
-      <h1 className="text-3xl font-bold mb-2">Referral Program</h1>
-      <p className="text-gray-500 mb-6">
-        Share your unique link with friends and earn rewards for every signup.
+      <h1 className="mb-2 text-3xl font-bold">Referral Program</h1>
+      <p className="mb-6 text-gray-500">
+        Refer sponsors who complete their first tree and earn 1 XLM per eligible referral, up to ten
+        rewards each calendar month.
       </p>
 
       <ReferralLinkCard referralLink={stats.referralLink} />
 
-      <StatsDisplay referralsCount={stats.referralsCount} totalEarnings={stats.totalEarnings} />
+      <StatsDisplay
+        referralsCount={stats.referralsCount}
+        totalEarnings={stats.totalEarnings}
+        rewardsThisMonth={stats.rewardsThisMonth}
+        monthlyCap={stats.monthlyCap}
+      />
 
       <RewardTiers tiers={stats.tiers} />
 

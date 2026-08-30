@@ -7,10 +7,8 @@ import {
   AlertCircle,
   CheckCircle2,
   Camera,
-  Loader2,
   MapPin,
   Upload,
-  Globe,
   ClipboardList,
   ChevronDown,
   Lock,
@@ -22,7 +20,14 @@ import { Badge } from '@/components/atoms/Badge';
 import { Button } from '@/components/atoms/Button';
 import { Input } from '@/components/atoms/Input';
 import { Text } from '@/components/atoms/Text';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/molecules/Card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/molecules/Card';
+import type { IpfsUploadResult } from '@/lib/ipfs/upload';
 
 interface JobOption {
   id: string;
@@ -41,25 +46,44 @@ interface GpsReading {
 type Status = 'idle' | 'reading-gps' | 'reading-photo' | 'uploading' | 'success' | 'error';
 
 const FARMER_JOBS: JobOption[] = [
-  { id: 'na-001', projectName: 'Jigawa Dryland Restoration', location: 'Jigawa State, Nigeria', treesTarget: 600 },
-  { id: 'na-002', projectName: 'Katsina Sahel Buffer', location: 'Katsina State, Nigeria', treesTarget: 350 },
-  { id: 'na-003', projectName: 'Kano Reforestation Phase 2', location: 'Kano State, Nigeria', treesTarget: 500 },
+  {
+    id: 'na-001',
+    projectName: 'Jigawa Dryland Restoration',
+    location: 'Jigawa State, Nigeria',
+    treesTarget: 600,
+  },
+  {
+    id: 'na-002',
+    projectName: 'Katsina Sahel Buffer',
+    location: 'Katsina State, Nigeria',
+    treesTarget: 350,
+  },
+  {
+    id: 'na-003',
+    projectName: 'Kano Reforestation Phase 2',
+    location: 'Kano State, Nigeria',
+    treesTarget: 500,
+  },
 ];
 
 export function FarmerVerificationPortal() {
   const [farmerAddress, setFarmerAddress] = useState('');
   const [selectedJobId, setSelectedJobId] = useState('');
+  const [photo, setPhoto] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [gps, setGps] = useState<GpsReading | null>(null);
   const [gpsSource, setGpsSource] = useState<'exif' | 'manual' | null>(null);
-  const [manualLat, setManualLat] = useState('');
-  const [manualLon, setManualLon] = useState('');
-  const [status, setStatus] = useState<UploadStatus>('idle');
-  const [error, setError] = useState<string | null>(null);
+  const [status, setStatus] = useState<Status>('idle');
+  const [_error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<IpfsUploadResult | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const selectedJob = useMemo(() => FARMER_JOBS.find((job) => job.id === selectedJobId) ?? null, [selectedJobId]);
+  const selectedJob = useMemo(
+    () => FARMER_JOBS.find((job) => job.id === selectedJobId) ?? null,
+    [selectedJobId]
+  );
+  const photoLacksCoordinates = !!photo && !gps;
 
   const canSubmit = useMemo(() => {
     const hasAddress = farmerAddress.trim().length > 0;
@@ -103,22 +127,22 @@ export function FarmerVerificationPortal() {
     }
   }
 
-  function applyManualGps() {
-    const lat = parseFloat(manualLat);
-    const lon = parseFloat(manualLon);
-    if (isNaN(lat) || isNaN(lon)) {
-      setError('Invalid GPS coordinates. Enter decimal degrees (e.g., 12.1234).');
-      return;
-    }
-    if (lat < -90 || lat > 90 || lon < -180 || lon > 180) {
-      setError('Coordinates out of range. Lat: -90 to 90, Lon: -180 to 180.');
-      return;
-    }
+  function clearPhoto() {
+    setPhoto(null);
+    setPhotoPreview(null);
+    setGps(null);
+    setGpsSource(null);
+    setResult(null);
+    setError(null);
+  }
 
-    const preview = URL.createObjectURL(file);
-    setPhotoPreview(preview);
-    setMessage('Photo ready for verification.');
-  };
+  function resetForm() {
+    setFarmerAddress('');
+    setSelectedJobId('');
+    clearPhoto();
+    setMessage(null);
+    setStatus('idle');
+  }
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -171,6 +195,8 @@ export function FarmerVerificationPortal() {
               {i + 1}. {label}
             </p>
           </div>
+        ))}
+      </div>
 
       {/* Process steps */}
       <div className="grid grid-cols-3 gap-2 rounded-lg border bg-card p-2 text-center shadow-sm sm:gap-3 sm:p-3">
@@ -401,18 +427,20 @@ export function FarmerVerificationPortal() {
                 </div>
               )}
 
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <MapPin className="h-4 w-4" />
-            <span>Coordinates will be verified against the selected project.</span>
-          </div>
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <MapPin className="h-4 w-4" />
+                <span>Coordinates will be verified against the selected project.</span>
+              </div>
 
-          {message ? <Text variant="muted">{message}</Text> : null}
+              {message ? <Text variant="muted">{message}</Text> : null}
 
-          <Button type="submit" stellar="primary" disabled={!canSubmit}>
-            {status === 'uploading' ? 'Submitting...' : 'Submit verification'}
-          </Button>
+              <Button type="submit" stellar="primary" disabled={!canSubmit}>
+                {status === 'uploading' ? 'Submitting...' : 'Submit verification'}
+              </Button>
+            </CardContent>
+          </Card>
         </form>
-      </CardContent>
-    </Card>
+      )}
+    </div>
   );
 }

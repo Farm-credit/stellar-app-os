@@ -55,7 +55,7 @@ export async function submitNdviSurvival(
     outcome,
     amountReleased: outcome === 'completed' ? 'tranche2' : '0',
     survivalRate,
-    transactionHash: txHash,
+    transactionHash: proofHash,
     region: buildRegionHash({ lat, lon }),
-  };
+  });
 }

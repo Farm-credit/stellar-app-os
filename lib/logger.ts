@@ -46,7 +46,13 @@ const logger = createLogger({
       // Redact the entire log info object (splat args included)
       const splat = (info[Symbol.for('splat')] as unknown[]) ?? [];
       info[Symbol.for('splat')] = splat.map((a) => redact(a));
-      return redact(info) as typeof info;
+      // Redact in place. Returning `redact(info)` would hand winston a fresh
+      // object built from Object.entries(), which drops the symbol-keyed
+      // `level` the transports read — every entry would be silently discarded.
+      for (const [key, value] of Object.entries(info)) {
+        info[key] = SENSITIVE_KEYS.has(key.toLowerCase()) ? '[REDACTED]' : redact(value);
+      }
+      return info;
     })(),
     format.timestamp(),
     format.json()

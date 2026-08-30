@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { buildDonationTransaction, MAX_BATCH_TREES } from '@/lib/stellar/transaction';
+import { MAX_BATCH_TREES, buildDonationTransaction } from '@/lib/stellar/transaction';
 import { calculateDonationAllocation } from '@/lib/constants/donation';
 import type { BuildDonationTransactionRequest } from '@/lib/types/donation-payment';
 import { withWalletLock } from '@/lib/cache/redlock';
@@ -12,7 +12,7 @@ export async function POST(request: Request) {
     const body = (await request.json()) as BuildDonationTransactionRequest & {
       regionId?: string;
       slippageTolerance?: number;
-      asset?: 'USDC' | 'XLM';
+      asset?: 'USDC' | 'USDT' | 'EURC' | 'XLM';
     };
 
     const {
@@ -41,9 +41,9 @@ export async function POST(request: Request) {
       );
     }
 
-    if (asset !== 'USDC' && asset !== 'XLM') {
+    if (!['USDC', 'USDT', 'EURC', 'XLM'].includes(asset)) {
       return NextResponse.json(
-        { error: 'Unsupported asset (expected USDC or XLM)' },
+        { error: 'Unsupported asset (expected USDC, USDT, EURC, or XLM)' },
         { status: 400 }
       );
     }
@@ -51,12 +51,18 @@ export async function POST(request: Request) {
     // Serialize per-wallet transaction building to prevent sequence/nonce collisions
     const result = await withWalletLock(
       walletPublicKey,
-      network,
-      idempotencyKey,
-      treeCount,
-      asset,
-      slippageTolerance,
-      regionId
+      () =>
+        buildDonationTransaction(
+          amount,
+          walletPublicKey,
+          network,
+          idempotencyKey,
+          treeCount,
+          asset,
+          slippageTolerance,
+          regionId
+        ),
+      { ttlMs: 15_000, retryCount: 15, retryDelayMs: 100 }
     );
 
     const perTreeAllocation = calculateDonationAllocation(amount);
@@ -75,7 +81,10 @@ export async function POST(request: Request) {
     logger.error('[api:build-donation] Error building donation transaction', { error });
     const errorMessage = error instanceof Error ? error.message : 'Failed to build transaction';
     // 409 for lock acquisition failures (nonce collision prevention)
-    const status = errorMessage.includes('acquire lock') || errorMessage.includes('Failed to acquire') ? 409 : 500;
+    const status =
+      errorMessage.includes('acquire lock') || errorMessage.includes('Failed to acquire')
+        ? 409
+        : 500;
     return NextResponse.json({ error: errorMessage }, { status });
   }
 }

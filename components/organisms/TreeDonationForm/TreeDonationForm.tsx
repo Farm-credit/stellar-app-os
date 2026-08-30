@@ -5,7 +5,7 @@
  *
  * Self-contained donation form that lets donors:
  *   1. Select a tree count (minimum 2 trees)
- *   2. Choose payment method: Freighter wallet (XLM/USDC) or credit card (Stripe)
+ *   2. Choose payment method: Freighter wallet (XLM/stablecoins) or credit card (Stripe)
  *   3. Submit and see real-time on-page confirmation
  */
 
@@ -325,14 +325,17 @@ export function TreeDonationForm() {
     );
   }
 
-  const usdcBalance = wallet ? parseFloat(wallet.balance.usdc) : 0;
+  const selectedStablecoinBalance = wallet
+    ? parseFloat(wallet.balance[donationAsset.toLowerCase() as 'usdc' | 'usdt' | 'eurc'] ?? '0')
+    : 0;
   const xlmBalance = wallet ? parseFloat(wallet.balance.xlm) : 0;
+  const selectedBalance = donationAsset === 'XLM' ? xlmBalance : selectedStablecoinBalance;
   // USDC is sent 1:1; XLM is converted to USDC on-chain, so the exact XLM cost
   // is only known at quote time — we just require a positive balance here and
   // let the path-payment `sendMax` enforce the precise ceiling.
   const hasSufficientStellar = wallet
-    ? donationAsset === 'USDC'
-      ? usdcBalance >= totalUsdc
+    ? donationAsset !== 'XLM'
+      ? selectedStablecoinBalance >= totalUsdc
       : xlmBalance > 0
     : false;
 
@@ -508,7 +511,7 @@ export function TreeDonationForm() {
                     Connect your Freighter wallet
                   </Text>
                   <Text variant="muted" className="mt-1">
-                    Pay with USDC or XLM on the Stellar network
+                    Pay with USDC, USDT, EURC, or XLM on the Stellar network
                   </Text>
                 </div>
                 <Button
@@ -543,7 +546,7 @@ export function TreeDonationForm() {
                       {wallet.publicKey.slice(0, 8)}…{wallet.publicKey.slice(-6)}
                     </span>
                     <span className="font-medium">
-                      {usdcBalance.toFixed(2)} USDC · {xlmBalance.toFixed(2)} XLM
+                      {selectedBalance.toFixed(2)} {donationAsset} · {xlmBalance.toFixed(2)} XLM
                     </span>
                   </div>
                 </div>
@@ -554,11 +557,11 @@ export function TreeDonationForm() {
                     Pay with
                   </Text>
                   <div
-                    className="grid grid-cols-2 gap-3"
+                    className="grid grid-cols-2 gap-2 sm:grid-cols-4"
                     role="radiogroup"
                     aria-label="Donation asset"
                   >
-                    {(['USDC', 'XLM'] as const).map((asset) => (
+                    {(['USDC', 'USDT', 'EURC', 'XLM'] as const).map((asset) => (
                       <button
                         key={asset}
                         type="button"
@@ -592,8 +595,8 @@ export function TreeDonationForm() {
                   >
                     <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0 text-yellow-600" />
                     <Text variant="small" className="text-yellow-700">
-                      {donationAsset === 'USDC'
-                        ? `Insufficient USDC. You need ${totalUsdc.toFixed(2)} USDC but have ${usdcBalance.toFixed(2)} USDC.`
+                      {donationAsset !== 'XLM'
+                        ? `Insufficient ${donationAsset}. You need ${totalUsdc.toFixed(2)} ${donationAsset} but have ${selectedStablecoinBalance.toFixed(2)} ${donationAsset}.`
                         : `You have no XLM to convert. Add XLM or switch to USDC.`}
                     </Text>
                   </div>
@@ -636,12 +639,10 @@ export function TreeDonationForm() {
                   stellar="primary"
                   width="full"
                   onClick={handleStellarPay}
-                  disabled={!isValidCount || isStellarProcessing || !hasSufficientStellar}
                   aria-label={`Donate ${totalUsdc.toFixed(2)} USDC via Stellar paying with ${donationAsset}`}
                   disabled={
                     !isValidCount || !isValidGift || isStellarProcessing || !hasSufficientStellar
                   }
-                  aria-label={`Donate ${totalUsdc.toFixed(2)} USDC via Stellar`}
                 >
                   {isStellarProcessing ? (
                     <span className="flex items-center gap-2">

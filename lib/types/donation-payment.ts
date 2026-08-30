@@ -4,10 +4,10 @@ import type { NetworkType } from './wallet';
 export type DonationPaymentMethod = 'card' | 'stellar';
 
 /**
- * Asset a donor pays with on the Stellar network. USDC is sent directly to
- * escrow; XLM is converted to USDC on-chain via a strict-receive path payment.
+ * Asset a donor pays with on the Stellar network. Stablecoins are sent directly
+ * to escrow; XLM is converted to USDC on-chain via a strict-receive path payment.
  */
-export type DonationAsset = 'USDC' | 'XLM';
+export type DonationAsset = 'USDC' | 'USDT' | 'EURC' | 'XLM';
 
 export interface DonationPaymentState {
   method: DonationPaymentMethod;

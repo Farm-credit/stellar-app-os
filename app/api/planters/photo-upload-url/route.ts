@@ -7,6 +7,7 @@ import logger from '@/lib/logger';
 export const runtime = 'nodejs';
 const MAX_SIZE = 5 * 1024 * 1024;
 const TREE_ID = /^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/;
+const ALLOWED_CONTENT_TYPES = ['image/jpeg', 'image/png'];
 
 interface UploadBody {
   treeId: string;
@@ -41,10 +42,16 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   if (!treeId || !TREE_ID.test(treeId)) {
     return NextResponse.json({ error: 'treeId is invalid' }, { status: 400 });
   }
-  const extension = contentType ? getPhotoExtension(contentType) : undefined;
+  if (!contentType || !ALLOWED_CONTENT_TYPES.includes(contentType)) {
+    return NextResponse.json(
+      { error: 'contentType must be image/jpeg or image/png' },
+      { status: 415 }
+    );
+  }
+  const extension = getPhotoExtension(contentType);
   if (!extension) {
     return NextResponse.json(
-      { error: 'contentType must be image/jpeg, image/png, or image/webp' },
+      { error: 'contentType must be image/jpeg or image/png' },
       { status: 415 }
     );
   }

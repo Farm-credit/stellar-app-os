@@ -24,6 +24,8 @@ export interface UseSwapQuoteParams {
 const CARBON_CREDIT_PRICE_USD = 45.0;
 const MOCK_RATES: Record<DonationAsset, number> = {
   USDC: 1.0,
+  USDT: 1.0,
+  EURC: 1.0,
   XLM: 0.15,
 };
 
@@ -45,7 +47,8 @@ function calculateQuote(inputAmount: number, inputAsset: DonationAsset, slippage
   }
 
   const rate = MOCK_RATES[inputAsset];
-  const usdValue = inputAsset === 'USDC' ? inputAmount : inputAmount * rate;
+  const usdValue =
+    inputAsset === 'USDC' || inputAsset === 'USDT' ? inputAmount : inputAmount * rate;
   const outputAmount = usdValue / CARBON_CREDIT_PRICE_USD;
   const exchangeRate = outputAmount > 0 ? usdValue / outputAmount : 0;
   const minimumReceived = outputAmount * (1 - slippage);

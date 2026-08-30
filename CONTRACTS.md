@@ -8,7 +8,8 @@ All contracts are deployed on the Stellar network (Soroban). Invoke them via the
 
 | Contract | Purpose |
 |---|---|
-| `tree-escrow` | Two-tranche donor escrow (75% on planting, 25% after 6 months) |
+| `escrow` | Single-tree sponsor escrow with optional 1-year survival insurance guarantee (#1021) and platform fees (#467) |
+| `tree-escrow` | Two-tranche donor escrow (75% on planting, 25% after 6 months) with optional survival guarantee |
 | `escrow-milestone` | Single-milestone escrow with remainder release |
 | `donation-escrow` | Campaign donation escrow w/ XLM / USDC / EURC rails + recurring subscriptions |
 | `location-proof` | ZK location proofs for Northern Nigeria boundary |
@@ -46,6 +47,43 @@ Contracts panic with a descriptive string on invalid input. The Stellar SDK surf
 | `"can only rate after escrow is completed"` — Rating before job completion |
 | `"only the original donor can rate the planter"` — Non-donor attempting to rate |
 | `"sponsor has already rated this planter"` — Duplicate rating attempt |
+
+---
+
+## escrow (Single-Tree Escrow & Sponsor Insurance #1021)
+
+Manages single-tree sponsorships with optional **1-Year Survival Insurance Guarantee (#1021)** and **Platform Fee on Release (#467)**.
+
+### Sponsor Insurance Overview
+- **Optional Guarantee:** Sponsors can pay a **+2.00% fee** (200 bps) at deposit time (`deposit_with_insurance`) or add it to a pending deposit (`purchase_insurance`).
+- **1-Year Survival Guarantee:** Protects the sponsor for 365 days (`31_536_000` seconds).
+- **Full Refund on Death:** If the tree dies within 1 year, the sponsor receives a **100% full refund** of their deposit via `claim_insurance_refund` or verifier `report_tree_dead`.
+
+### `deposit_with_insurance`
+Sponsor deposits funds for a tree with the 1-year survival guarantee. Transfers `amount + (amount * 2%)` from sponsor.
+
+**Auth:** `sponsor` (caller-auth)
+
+| Parameter | Type | Description |
+|---|---|---|
+| `sponsor` | `Address` | Sponsor paying for tree + 2% insurance guarantee |
+| `planter` | `Address` | Planter planting the tree |
+| `tree_id` | `u64` | Target tree ID |
+| `token` | `Address` | SAC token contract address |
+| `amount` | `i128` | Tree deposit amount |
+
+### `claim_insurance_refund`
+Sponsor claims a 100% refund of deposit `amount` if their insured tree died within the 1-year guarantee period.
+
+**Auth:** `sponsor` (caller-auth)
+
+### `report_tree_dead`
+Verifier / admin marks an insured tree as dead, automatically refunding 100% of the deposit `amount` to the sponsor.
+
+**Auth:** `verifier` / `admin`
+
+### `get_insurance_info`
+Returns `(has_insurance: bool, insurance_fee: i128, expires_at: u64, is_active: bool)`.
 
 ---
 

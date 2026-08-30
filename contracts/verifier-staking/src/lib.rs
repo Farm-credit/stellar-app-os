@@ -51,6 +51,14 @@ pub enum SlashStatus {
     Cancelled,
 }
 
+/// The type of invalid approval that caused a bond penalty.
+#[contracttype]
+#[derive(Clone, Debug, PartialEq)]
+pub enum InvalidApprovalKind {
+    DeadTree,
+    InvalidProgress,
+}
+
 #[contracttype]
 #[derive(Clone, Debug)]
 pub struct SlashRequest {
@@ -60,6 +68,7 @@ pub struct SlashRequest {
     pub requested_at: u64,
     pub expires_at: u64,
     pub status: SlashStatus,
+    pub reason: Option<InvalidApprovalKind>,
 }
 
 #[contracttype]
@@ -250,6 +259,7 @@ impl VerifierStaking {
             requested_at,
             expires_at,
             status: SlashStatus::Pending,
+            reason: None,
         };
 
         env.storage().persistent().set(&DataKey::SlashRequest(slash_id), &request);
@@ -258,6 +268,56 @@ impl VerifierStaking {
         env.events().publish(
             (symbol_short!("slash_prp"), verifier),
             (slash_id, slash_amount, expires_at),
+        );
+
+        slash_id
+    }
+
+    /// Requests forfeiture of the configured penalty from a verifier who
+    /// approved a dead tree or invalid progress. The request remains subject
+    /// to the existing appeal window before the bond is transferred.
+    pub fn slash_invalid_approval(
+        env: Env,
+        verifier: Address,
+        reason: InvalidApprovalKind,
+    ) -> u64 {
+        let (admin, _, _, _, _, penalty) = Self::config(&env);
+        admin.require_auth();
+
+        if penalty <= 0 {
+            panic_with_error!(&env, HarvestaError::AmountMustBePositive);
+        }
+
+        let stake_key = DataKey::Stake(verifier.clone());
+        let stake: VerifierStake = env
+            .storage()
+            .persistent()
+            .get(&stake_key)
+            .unwrap_or_else(|| panic_with_error!(&env, VerifierStakingError::VerifierNotStaked));
+        let slash_amount = penalty.min(stake.amount);
+        if slash_amount <= 0 {
+            panic_with_error!(&env, VerifierStakingError::SlashExceedsStake);
+        }
+
+        let count: u64 = env.storage().instance().get(&DataKey::SlashCount).unwrap_or(0);
+        let slash_id = count + 1;
+        let requested_at = env.ledger().timestamp();
+        let expires_at = requested_at + APPEAL_WINDOW_SECS;
+        let request = SlashRequest {
+            id: slash_id,
+            verifier: verifier.clone(),
+            slash_amount,
+            requested_at,
+            expires_at,
+            status: SlashStatus::Pending,
+            reason: Some(reason.clone()),
+        };
+
+        env.storage().persistent().set(&DataKey::SlashRequest(slash_id), &request);
+        env.storage().instance().set(&DataKey::SlashCount, &slash_id);
+        env.events().publish(
+            (symbol_short!("bad_appr"), verifier),
+            (slash_id, slash_amount, reason, expires_at),
         );
 
         slash_id
@@ -537,6 +597,11 @@ impl VerifierStaking {
         env.storage()
             .persistent()
             .get(&DataKey::Stake(verifier))
+    }
+
+    /// Returns a pending or resolved slash request by ID.
+    pub fn get_slash_request(env: Env, slash_id: u64) -> Option<SlashRequest> {
+        env.storage().persistent().get(&DataKey::SlashRequest(slash_id))
     }
 
     /// Returns a list of pending unbondings for a verifier.
@@ -974,6 +1039,23 @@ mod tests {
         assert_eq!(rec.amount, 1_200); // 1000 min + 1000 stake - 800 slash
         assert_eq!(rec.slashed, 800);
         assert_eq!(rec.slashed_to_buffer_pool, 800);
+    }
+
+    #[test]
+    fn test_invalid_approval_requests_configured_penalty() {
+        let ctx = setup();
+        ctx.client.register(&ctx.verifier);
+        ctx.client.stake(&ctx.verifier, &500);
+
+        let slash_id = ctx.client.slash_invalid_approval(
+            &ctx.verifier,
+            &InvalidApprovalKind::DeadTree,
+        );
+        let request = ctx.client.get_slash_request(&slash_id).unwrap();
+
+        assert_eq!(request.slash_amount, 100);
+        assert_eq!(request.status, SlashStatus::Pending);
+        assert_eq!(request.reason, Some(InvalidApprovalKind::DeadTree));
     }
 
     #[test]

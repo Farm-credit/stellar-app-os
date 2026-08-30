@@ -14,11 +14,16 @@ pub enum HarvestaError {
     NoPendingAdmin = 7,
     AmountMustBePositive = 9,
     TreeCountMustBePositive = 10,
+    VerifiedCountMustBePositive = 11,
+    VerifiedCountExceedsDonation = 12,
     InvalidPayoutAmount = 13,
     SlotAmountMustBePositive = 15,
     EscrowAlreadyExists = 16,
     EscrowNotFound = 17,
+    PlantingAlreadyVerified = 18,
+    PlantingNotVerified = 19,
     RefundAfterPlanting = 20,
+    ContractMustBeTreeTokenAdmin = 21,
     SurvivalRateOutOfRange = 22,
     SurvivalRateBelowMinimum = 23,
     SurvivalPeriodNotElapsed = 24,
@@ -38,37 +43,9 @@ pub enum HarvestaError {
     FarmerNotRegistered = 36,
     InvalidRegion = 37,
 
-    // ── Oracle / tree co-fund (26–34) ─────────────────────────────────────────
-    // UnauthorizedOracle = 26,
-    // NoOracleReport = 27,
-    // BatchEmpty = 28,
-    // BatchTooLarge = 29,
-    // TreeAlreadyRegistered = 30,
-    // TreeNotRegistered = 31,
-    // TreeNotOpenForContributions = 32,
-    // TreeNotOpenForRelease = 33,
-    // NoFundsToRelease = 34,
-
-    // ── Farmer registry (35–37) ───────────────────────────────────────────────
-    // FarmerAlreadyRegistered = 35,
-    // FarmerNotRegistered = 36,
-    // InvalidRegion = 37,
-
-    // ── Dispute / arbiter (38–46) ─────────────────────────────────────────────
-    // DisputeAlreadyOpen = 38,
-    // NoOpenDispute = 39,
-    // EscrowAlreadyFinalised = 40,
-    // NotArbiter = 41,
-    // NotBuyerOrSeller = 42,
-    // MilestoneReleaseBlocked = 43,
-    // MilestoneAlreadyProcessed = 44,
-    // CompletionPercentageOutOfRange = 45,
-    // TotalReleasedExceedsMilestone = 46,
-
     // ── Nullifier registry (60) ───────────────────────────────────────────────
     CommitmentAlreadyRegistered = 60,
 
-    // ── Species registry (62─64) ──────────────────────────────────────────────
     // ── KYC attestation (61) ─────────────────────────────────────────────────
     /// Caller is not a registered verifier — attest_kyc / verify_kyc denied.
     NotVerifier = 61,
@@ -131,7 +108,6 @@ pub enum HarvestaError {
     HashMismatch = 73,
 
     // ── Farmer registry validator gates (79) ──────────────────────────────
-    // ── Farmer registry validator gates (67) ──────────────────────────────
     /// Caller is not a registered validator — gated read/write denied.
     NotValidator = 79,
 
@@ -153,6 +129,13 @@ pub enum HarvestaError {
     PolicySuperseded = 109,
     CannotCancelFinalised = 111,
     InvalidReplacementVersion = 112,
+
+    // ── Sponsor insurance (#1021) ─────────────────────────────────────────────
+    InsuranceNotActive = 113,
+    InsurancePeriodExpired = 114,
+    TreeNotDead = 115,
+    InsuranceAlreadyClaimed = 116,
+    InsuranceAlreadyPurchased = 117,
 }
 
 #[contracterror]
@@ -184,7 +167,7 @@ pub enum NftError {
     SelfTrade = 5,
     /// The seller does not own the token being traded.
     NotTokenOwner = 6,
-    TokenIsSoulbound = 4,
+    TokenIsSoulbound = 7,
 }
 
 #[contracterror]

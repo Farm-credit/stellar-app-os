@@ -211,6 +211,67 @@ pnpm dev
 
 Open [http://localhost:3000](http://localhost:3000) to see the app.
 
+---
+
+## 5-Minute Quickstart (Stellar Testnet)
+
+Get up and running with the full stack in under 5 minutes.
+
+### Step 1: Clone & Install
+
+``bash
+git clone https://github.com/Farm-credit/stellar-app-os.git
+cd stellar-app-os
+pnpm install
+``
+
+### Step 2: Fund a Testnet Account
+
+``bash
+# Install stellar-cli if you haven't already
+cargo install --locked stellar-cli
+
+# Generate a new keypair
+stellar keys generate --network testnet my-account
+
+# Fund it with 10,000 XLM via Friendbot
+stellar keys fund my-account --network testnet
+``
+
+### Step 3: Build Contracts
+
+``bash
+cd contracts
+cargo build --target wasm32-unknown-unknown --release
+``
+
+### Step 4: Deploy a Contract (Optional)
+
+``bash
+stellar contract deploy \
+  --wasm target/wasm32-unknown-unknown/release/tree_registry.wasm \
+  --network testnet
+``
+
+### Step 5: Run the Frontend
+
+``bash
+cd ../frontend  # or root if frontend is at root
+pnpm dev
+``
+
+Open [http://localhost:3000](http://localhost:3000), connect your Freighter wallet (set to Testnet), and you're ready to sponsor a tree!
+
+### Troubleshooting
+
+| Issue | Solution |
+|-------|----------|
+| stellar-cli not found | Run cargo install --locked stellar-cli |
+| Wallet not connecting | Ensure Freighter is set to **Testnet** network |
+| Contract deploy fails | Check you have testnet XLM via stellar keys balance my-account --network testnet |
+| Frontend won't start | Run pnpm install again, check Node.js version = 20 |
+
+
 ### Scripts
 
 | Command               | Description                             |
@@ -267,6 +328,8 @@ npm start
 5. Run Lighthouse audit for PWA score
 
 ## Project Architecture
+
+> 📖 **Full System Architecture**: See [ARCHITECTURE.md](./ARCHITECTURE.md) for the high-level architecture diagram and data flows across smart contracts, frontend, backend, and IPFS.
 
 This project follows the **atomic design pattern**. Components are organized by complexity, not by feature.
 

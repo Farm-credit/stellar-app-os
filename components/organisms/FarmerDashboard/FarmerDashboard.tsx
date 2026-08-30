@@ -1,5 +1,6 @@
 'use client';
 
+import { useMemo, useState } from 'react';
 import { useFarmerDashboard } from '@/hooks/useFarmerDashboard';
 import { useWalletContext } from '@/contexts/WalletContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/molecules/Card';
@@ -23,8 +24,29 @@ import {
   Handshake,
   Loader2,
   MapPin,
+  Mountain,
 } from 'lucide-react';
 import type { MilestonePayment, PlantingRecord, NextAssignment } from '@/types/farmer-dashboard';
+
+export type JobSort = 'highest-pay' | 'soonest-deadline' | 'easiest';
+
+export function sortAssignments(assignments: NextAssignment[], sort: JobSort) {
+  return assignments
+    .map((assignment, index) => ({ assignment, index }))
+    .sort((a, b) => {
+      let comparison = 0;
+      if (sort === 'highest-pay') {
+        comparison = b.assignment.payPerTree - a.assignment.payPerTree;
+      } else if (sort === 'soonest-deadline') {
+        comparison =
+          new Date(a.assignment.deadline).getTime() - new Date(b.assignment.deadline).getTime();
+      } else {
+        comparison = a.assignment.altitudeMeters - b.assignment.altitudeMeters;
+      }
+      return comparison || a.index - b.index;
+    })
+    .map(({ assignment }) => assignment);
+}
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -142,6 +164,11 @@ export function FarmerDashboard({ farmerId }: { farmerId?: string }) {
   const { data, isLoading, error, retry, acceptJob, acceptingId } = useFarmerDashboard(farmerId);
   const { wallet } = useWalletContext();
   const walletAddress = wallet?.publicKey ?? data?.farmerAddress;
+  const [jobSort, setJobSort] = useState<JobSort>('highest-pay');
+  const sortedAssignments = useMemo(
+    () => sortAssignments(data?.nextAssignments ?? [], jobSort),
+    [data?.nextAssignments, jobSort]
+  );
 
   if (error) {
     return (
@@ -267,11 +294,26 @@ export function FarmerDashboard({ farmerId }: { farmerId?: string }) {
 
       {/* ── Available Jobs ── */}
       <Card className="border-none shadow-sm rounded-3xl">
-        <CardHeader>
+        <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-3">
           <CardTitle className="flex items-center gap-2 text-base">
             <CalendarDays className="h-4 w-4 text-stellar-blue" />
             Available Planting Jobs
           </CardTitle>
+          {!isLoading && (data?.nextAssignments.length ?? 0) > 0 && (
+            <label className="flex items-center gap-2 text-sm text-muted-foreground">
+              <span>Sort by</span>
+              <select
+                aria-label="Sort available planting jobs"
+                value={jobSort}
+                onChange={(event) => setJobSort(event.target.value as JobSort)}
+                className="rounded-lg border border-border bg-background px-3 py-2 text-sm font-medium text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stellar-blue"
+              >
+                <option value="highest-pay">Highest pay</option>
+                <option value="soonest-deadline">Soonest deadline</option>
+                <option value="easiest">Easiest (lowest altitude)</option>
+              </select>
+            </label>
+          )}
         </CardHeader>
         <CardContent className="p-0">
           {isLoading ? (
@@ -289,7 +331,7 @@ export function FarmerDashboard({ farmerId }: { farmerId?: string }) {
             </div>
           ) : (
             <div className="divide-y">
-              {(data?.nextAssignments ?? []).map((a: NextAssignment) => {
+              {sortedAssignments.map((a: NextAssignment) => {
                 const isAccepting = acceptingId === a.id;
                 return (
                   <div
@@ -317,6 +359,10 @@ export function FarmerDashboard({ farmerId }: { farmerId?: string }) {
                           {fmt(a.treesTarget)} trees
                         </span>
                       </div>
+                      <span className="inline-flex items-center gap-1">
+                        <Mountain className="h-3.5 w-3.5" />
+                        {fmt(a.altitudeMeters)} m altitude
+                      </span>
                       <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-sm">
                         <span className="inline-flex items-center gap-1 font-semibold text-stellar-green">
                           <DollarSign className="h-3.5 w-3.5" />

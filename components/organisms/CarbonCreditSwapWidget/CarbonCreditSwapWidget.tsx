@@ -32,6 +32,8 @@ type AssetOption = {
 
 const ASSET_OPTIONS: AssetOption[] = [
   { value: 'USDC', label: 'USDC', symbol: 'USDC', icon: <Coins className="h-4 w-4" /> },
+  { value: 'USDT', label: 'USDT', symbol: 'USDT', icon: <Coins className="h-4 w-4" /> },
+  { value: 'EURC', label: 'EURC', symbol: 'EURC', icon: <Coins className="h-4 w-4" /> },
   { value: 'XLM', label: 'XLM', symbol: 'XLM', icon: <Sun className="h-4 w-4" /> },
 ];
 
@@ -83,13 +85,15 @@ export function CarbonCreditSwapWidget({
 
   const balance = useMemo<WalletBalance>(() => {
     if (!wallet?.isConnected) {
-      return { xlm: '0', usdc: '0' };
+      return { xlm: '0', usdc: '0', usdt: '0', eurc: '0' };
     }
     return wallet.balance;
   }, [wallet]);
 
   const availableBalance =
-    inputAsset === 'USDC' ? formatBalance(balance.usdc) : formatBalance(balance.xlm);
+    inputAsset === 'XLM'
+      ? formatBalance(balance.xlm)
+      : formatBalance(balance[inputAsset.toLowerCase() as 'usdc' | 'usdt' | 'eurc'] ?? '0');
   const hasInsufficientBalance = isValidAmount && inputAmountNum > availableBalance;
 
   const quote = useSwapQuote({

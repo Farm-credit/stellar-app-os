@@ -30,6 +30,7 @@ const TestComponent = () => {
     <div>
       <span data-testid="notifications-count">{notifications.length}</span>
       <span data-testid="toasts-count">{toasts.length}</span>
+      <span data-testid="toast-duration">{toasts[0]?.duration ?? 'n/a'}</span>
       <span data-testid="unread-count">{unreadCount}</span>
       <span data-testid="drawer-open">{String(isDrawerOpen)}</span>
       <button
@@ -89,6 +90,12 @@ const TestComponent = () => {
       <button onClick={() => toast.contract('Contract!')} data-testid="toast-contract">
         Contract Toast
       </button>
+      <button
+        onClick={() => addToast({ title: 'Custom', type: 'info', duration: 1500 })}
+        data-testid="add-custom-toast"
+      >
+        Add Custom Toast
+      </button>
     </div>
   );
 };
@@ -124,6 +131,19 @@ describe('NotificationContext', () => {
     fireEvent.click(screen.getByTestId('add-toast'));
 
     expect(screen.getByTestId('toasts-count')).toHaveTextContent('1');
+  });
+
+  it('uses the default duration and clamps custom durations to the supported range', () => {
+    renderWithProvider(<TestComponent />);
+
+    fireEvent.click(screen.getByTestId('add-toast'));
+    expect(screen.getByTestId('toast-duration')).toHaveTextContent('5000');
+
+    fireEvent.click(screen.getByTestId('add-custom-toast'));
+    expect(screen.getByTestId('toast-duration')).toHaveTextContent('2000');
+
+    fireEvent.click(screen.getByTestId('add-custom-toast'));
+    expect(screen.getByTestId('toast-duration')).toHaveTextContent('2000');
   });
 
   it('marks notification as read', () => {

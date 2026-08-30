@@ -8,15 +8,15 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 contract-utils = { path = "../contract-utils" }
-soroban-sdk = { version = "21.7.7", features = ["alloc"] }
+soroban-sdk = { version = "27.0.6", features = ["alloc"] }
 harvesta-errors = { path = "../harvesta-errors" }
 
 [dev-dependencies]
 contract-utils = { path = "../contract-utils" }
-soroban-sdk = { version = "21.7.7", features = ["testutils", "alloc"] }
+soroban-sdk = { version = "27.0.6", features = ["testutils", "alloc"] }
 ed25519-dalek = "2.2.0"
 stellar-strkey = "0.0.8"
-soroban-env-host = "21.2.1"
+soroban-env-host = "27.0.1"
 
 [profile.release]
 opt-level = "z"

@@ -167,6 +167,7 @@ interface CertProps {
   qrDataUrl: string;
   treeUrl: string;
   issuedDate: string;
+  distanceFromSponsor?: string;
 }
 
 function TreeCertificate({
@@ -179,6 +180,7 @@ function TreeCertificate({
   qrDataUrl,
   treeUrl,
   issuedDate,
+  distanceFromSponsor,
 }: CertProps) {
   return (
     <Document
@@ -219,6 +221,13 @@ function TreeCertificate({
         <Text style={S.sectionLabel}>Reforestation Project</Text>
         <Text style={S.sectionValue}>{projectName}</Text>
 
+        {distanceFromSponsor && (
+          <>
+            <Text style={S.sectionLabel}>Distance from Sponsor</Text>
+            <Text style={S.sectionValue}>{distanceFromSponsor}</Text>
+          </>
+        )}
+
         {/* Impact stats */}
         <View style={S.statsBox}>
           <View>
@@ -255,6 +264,20 @@ function TreeCertificate({
   );
 }
 
+// ── Distance helper ───────────────────────────────────────────────────────────
+
+function haversineDistanceKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const earthRadiusKm = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) ** 2;
+  return earthRadiusKm * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
 // ── Route Handler ─────────────────────────────────────────────────────────────
 
 export async function GET(
@@ -276,7 +299,17 @@ export async function GET(
   const co2Tonnes = (co2KgTotal / 1000).toFixed(3);
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.farmcredit.io';
-  const treeUrl = `${appUrl}/trees/${tree.id}`;
+  const treeUrl = `${appUrl}/trees/${tree.treeId}`;
+
+  const sponsorLat = _request.nextUrl.searchParams.get('lat');
+  const sponsorLng = _request.nextUrl.searchParams.get('lng');
+  const anyTree = tree as any;
+  const treeLat = anyTree.latitude ?? anyTree.lat;
+  const treeLng = anyTree.longitude ?? anyTree.lng ?? anyTree.lon;
+  const distanceFromSponsor =
+    sponsorLat && sponsorLng && treeLat !== undefined && treeLng !== undefined
+      ? `${haversineDistanceKm(Number(sponsorLat), Number(sponsorLng), Number(treeLat), Number(treeLng)).toFixed(1)} km`
+      : undefined;
 
   const qrDataUrl = await QRCode.toDataURL(treeUrl, { margin: 1, width: 200, type: 'image/png' });
 
@@ -305,6 +338,7 @@ export async function GET(
       qrDataUrl={qrDataUrl}
       treeUrl={treeUrl}
       issuedDate={issuedDate}
+      distanceFromSponsor={distanceFromSponsor}
     />
   );
 

@@ -5,6 +5,22 @@
 
 export type ToastType = 'success' | 'error' | 'info';
 
+const DEFAULT_TOAST_DURATION = 5000;
+const MIN_TOAST_DURATION = 2000;
+const MAX_TOAST_DURATION = 10000;
+
+export function normalizeToastDuration(duration?: number): number {
+  if (duration === undefined || Number.isNaN(duration)) {
+    return DEFAULT_TOAST_DURATION;
+  }
+
+  if (duration <= 0) {
+    return 0;
+  }
+
+  return Math.min(Math.max(duration, MIN_TOAST_DURATION), MAX_TOAST_DURATION);
+}
+
 interface Toast {
   id: string;
   message: string;
@@ -14,16 +30,21 @@ interface Toast {
 
 const toastCallbacks = new Set<(_toast: Toast) => void>();
 
-export function showToast(message: string, type: ToastType = 'info', duration = 3000): string {
+export function showToast(
+  message: string,
+  type: ToastType = 'info',
+  duration = DEFAULT_TOAST_DURATION
+): string {
+  const normalizedDuration = normalizeToastDuration(duration);
   const id = Math.random().toString(36).substring(7);
-  const toast: Toast = { id, message, type, duration };
+  const toast: Toast = { id, message, type, duration: normalizedDuration };
 
   toastCallbacks.forEach((callback) => callback(toast));
 
-  if (typeof window !== 'undefined') {
+  if (typeof window !== 'undefined' && normalizedDuration > 0) {
     setTimeout(() => {
       dismissToast(id);
-    }, duration);
+    }, normalizedDuration);
   }
 
   return id;

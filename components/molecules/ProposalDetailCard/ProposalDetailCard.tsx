@@ -8,7 +8,10 @@ import { CountdownTimer } from './CountdownTimer';
 import { VoteProgressBar } from './VoteProgressBar';
 import type { ProposalDetailCardProps, VoteOption, ProposalStatus } from './types';
 
-const statusConfig: Record<ProposalStatus, { label: string; variant: 'success' | 'destructive' | 'secondary' | 'default' }> = {
+const statusConfig: Record<
+  ProposalStatus,
+  { label: string; variant: 'success' | 'destructive' | 'secondary' | 'default' }
+> = {
   active: { label: 'Active', variant: 'default' },
   passed: { label: 'Passed', variant: 'success' },
   rejected: { label: 'Rejected', variant: 'destructive' },
@@ -62,9 +65,7 @@ const ProposalDetailCard = forwardRef<HTMLDivElement, Props>(
             </p>
           </div>
           <div className="flex items-center gap-2 shrink-0">
-            {(isActive || isPending) && (
-              <CountdownTimer deadline={deadline} />
-            )}
+            {(isActive || isPending) && <CountdownTimer deadline={deadline} />}
             {status !== 'active' && status !== 'pending' && (
               <span className="text-sm text-muted-foreground">
                 Ended {new Date(deadline).toLocaleDateString()}
@@ -94,15 +95,18 @@ const ProposalDetailCard = forwardRef<HTMLDivElement, Props>(
                 against: 'Vote Against',
                 abstain: 'Abstain',
               };
-              const stellarMap: Record<VoteOption, 'success' | 'destructive' | 'accent-outline'> = {
-                for: 'success',
-                against: 'destructive',
-                abstain: 'accent-outline',
+              const buttonProps: Record<
+                VoteOption,
+                { stellar?: 'success' | 'accent-outline'; variant?: 'destructive' }
+              > = {
+                for: { stellar: 'success' },
+                against: { variant: 'destructive' },
+                abstain: { stellar: 'accent-outline' },
               };
               return (
                 <Button
                   key={option}
-                  stellar={stellarMap[option]}
+                  {...buttonProps[option]}
                   size="sm"
                   disabled={!isActive || (userVote !== null && !isSelected)}
                   aria-pressed={isSelected}
@@ -117,9 +121,7 @@ const ProposalDetailCard = forwardRef<HTMLDivElement, Props>(
               );
             })}
           </div>
-          <span className="text-xs text-muted-foreground">
-            ID: {proposalId}
-          </span>
+          <span className="text-xs text-muted-foreground">ID: {proposalId}</span>
         </footer>
       </div>
     );

@@ -193,7 +193,7 @@ pub struct DonationEscrow;
 impl DonationEscrow {
     /// Initialize the escrow contract.
     ///
-    /// Registers the canonical stablecoin tokens (`xlm_token`, `usdc_token`,
+    /// Registers the canonical payment tokens (`xlm_token`, `usdc_token`,
     /// `eurc_token`) that are always accepted for donations and sets the
     /// contract admin who controls the whitelist, batching, and disbursal.
     ///
@@ -239,9 +239,6 @@ impl DonationEscrow {
             .instance()
             .set(&symbol_short!("CAMPSEQ"), &0u64);
 
-        // Register the two canonical payment tokens up front.
-        Self::add_accepted_token_internal(&env, &xlm_token, false);
-        Self::add_accepted_token_internal(&env, &usdc_token, false);
         // Register the three canonical payment tokens up front.
         Self::add_accepted_token_internal(&env, &xlm_token, true, true);
         Self::add_accepted_token_internal(&env, &usdc_token, false, true);
@@ -1376,6 +1373,14 @@ mod tests {
             assert!(t.canonical, "all canonical rails must be flagged canonical");
         }
     }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #96)")]
+    fn test_zero_amount_rejected() {
+        let (_env, _admin, donor, xlm, _usdc, _eurc, client) = setup();
+        client.donate(&donor, &xlm, &0, &2);
+    }
+
 
     #[test]
     fn test_add_accepted_token_accepts_additional_payment_token() {

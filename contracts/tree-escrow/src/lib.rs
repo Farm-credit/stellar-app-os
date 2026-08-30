@@ -37,6 +37,8 @@ const TRANCHE_1_BPS: i128 = 7_500;
 const BPS_DENOM: i128 = 10_000;
 const MIN_SURVIVAL_RATE: u32 = 70;
 const SIX_MONTHS_SECS: u64 = 60 * 60 * 24 * 7 * 26;
+const ONE_YEAR_SECS: u64 = 365 * 24 * 60 * 60;
+const INSURANCE_FEE_BPS: u32 = 200;
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -68,6 +70,9 @@ pub struct EscrowRecord {
     pub planting_proof: BytesN<32>,
     pub survival_proof: BytesN<32>,
     pub survival_rate_percent: u32,
+    pub deposit_time: u64,
+    pub has_insurance: bool,
+    pub insurance_fee: i128,
 }
 
 /// Recurring milestone payment stream record — Closes #773.
@@ -95,35 +100,9 @@ enum DataKey {
     Config,
     /// Per-farmer escrow record
     Escrow(Address),
-}
-
-    Escrow(Address),
-}
-
-    AdminTree,
-    Oracle,
-    SurvivalThreshold,
-    /// Minimum planting density (trees per hectare) for large jobs
-    MinDensity,
-    /// Job size threshold (hectares) above which density rules apply
-    JobSizeThreshold,
-    Paused,
-    Escrow(Address),
-    OracleReport(u64),
-    TreeFunding(u64),
-    UsedProof(BytesN<32>),
-    Dispute(u64),
-    DaoMembers,
-    Arbiter,
-    SponsorRating(Address, Address),
-    PlanterReputation(Address),
-    PayoutHistory(Address),
-    CorpBatchSeq,
-    CorpBatch(u64),
     MilestoneStreamSeq,
     MilestoneStream(u64),
 }
-
 
 /// A single slot in a batch deposit: one farmer address and the amount for that tree.
 #[contracttype]
@@ -161,18 +140,6 @@ impl TreeEscrow {
     // ── Recurring Milestone Payment Stream (Closes #773) ──────────────────────
 
     /// Create an automated recurring milestone payment stream.
-    ///
-    /// REENTRANCY GUARD: The token transfer is a cross-contract call. A malicious
-    /// token contract could call back into `deposit` before this invocation
-    /// completes. The guard prevents that scenario.
-    ///
-    /// REENTRANCY GUARD: The token transfer is a cross-contract call. A malicious
-    /// token contract could call back into `deposit` before this invocation
-    /// completes. The guard prevents that scenario.
-    ///
-    /// # Authorization
-    /// `donor` must sign the transaction.
-    pub fn deposit(
     /// The `funder` deposits `total_amount` into escrow. Funds are unlocked in `total_milestones`
     /// tranches as elapsed time reaches `milestone_interval_secs` and `verifier` approves green lights.
     pub fn create_milestone_stream(
@@ -180,40 +147,6 @@ impl TreeEscrow {
         funder: Address,
         farmer: Address,
         token: Address,
-        amount: i128,
-        tree_count: i128,
-    ) {
-        let _guard = ReentrancyGuard::acquire(&env);
-        donor.require_auth();
-
-        if amount <= 0 { panic_with_error!(&env, HarvestaError::AmountMustBePositive); }
-        if tree_count <= 0 { panic_with_error!(&env, HarvestaError::TreeCountMustBePositive); }
-
-        let key = DataKey::Escrow(farmer.clone());
-        if env.storage().persistent().has(&key) {
-            panic_with_error!(&env, HarvestaError::EscrowAlreadyExists);
-        }
-
-        // Cross-contract call — guard prevents reentrant deposit
-        token::Client::new(&env, &token).transfer(
-            &donor,
-            &env.current_contract_address(),
-            &amount,
-        );
-
-
-        let key = DataKey::Escrow(farmer.clone());
-        if env.storage().persistent().has(&key) {
-            panic_with_error!(&env, HarvestaError::EscrowAlreadyExists);
-        }
-
-        // Cross-contract call — guard prevents reentrant deposit
-        token::Client::new(&env, &token).transfer(
-            &donor,
-            &env.current_contract_address(),
-            &amount,
-        );
-
         total_amount: i128,
         total_milestones: u32,
         milestone_interval_secs: u64,
@@ -342,7 +275,7 @@ impl TreeEscrow {
         );
 
         env.events().publish(
-            (symbol_short!("strm_payout"), stream_id),
+            (symbol_short!("strm_pay"), stream_id),
             (stream.farmer.clone(), payout, stream.released_amount),
         );
 
@@ -369,7 +302,6 @@ impl TreeEscrow {
     }
 
     /// Donor deposits `amount` of `token` into escrow for `farmer`.
-
     ///
     /// REENTRANCY GUARD: The token transfer is a cross-contract call. A malicious
     /// token contract could call back into `deposit` before this invocation
@@ -385,6 +317,31 @@ impl TreeEscrow {
         amount: i128,
         tree_count: i128,
     ) {
+        Self::deposit_internal(env, donor, farmer, token, amount, tree_count, false);
+    }
+
+    /// Donor deposits funds for a tree with optional 1-year survival insurance (+2% fee).
+    /// If the tree dies within 1 year, the donor gets a full refund.
+    pub fn deposit_with_insurance(
+        env: Env,
+        donor: Address,
+        farmer: Address,
+        token: Address,
+        amount: i128,
+        tree_count: i128,
+    ) {
+        Self::deposit_internal(env, donor, farmer, token, amount, tree_count, true);
+    }
+
+    fn deposit_internal(
+        env: Env,
+        donor: Address,
+        farmer: Address,
+        token: Address,
+        amount: i128,
+        tree_count: i128,
+        with_insurance: bool,
+    ) {
         let _guard = ReentrancyGuard::acquire(&env);
         donor.require_auth();
 
@@ -396,11 +353,25 @@ impl TreeEscrow {
             panic_with_error!(&env, HarvestaError::EscrowAlreadyExists);
         }
 
+        let mut insurance_fee = 0i128;
+        let mut total_transfer = amount;
+
+        if with_insurance {
+            insurance_fee = amount
+                .checked_mul(INSURANCE_FEE_BPS as i128)
+                .expect("insurance fee calculation overflow")
+                .checked_div(BPS_DENOM)
+                .expect("insurance fee division error");
+            total_transfer = amount
+                .checked_add(insurance_fee)
+                .expect("total deposit calculation overflow");
+        }
+
         // Cross-contract call — guard prevents reentrant deposit
         token::Client::new(&env, &token).transfer(
             &donor,
             &env.current_contract_address(),
-            &amount,
+            &total_transfer,
         );
 
         let zero_hash = BytesN::from_array(&env, &[0u8; 32]);
@@ -418,9 +389,18 @@ impl TreeEscrow {
             planting_proof: zero_hash.clone(),
             survival_proof: zero_hash,
             survival_rate_percent: 0,
+            deposit_time: env.ledger().timestamp(),
+            has_insurance: with_insurance,
+            insurance_fee,
         });
 
         env.events().publish((symbol_short!("deposit"), farmer), amount);
+        if with_insurance {
+            env.events().publish(
+                (symbol_short!("insured"), donor),
+                (insurance_fee, env.ledger().timestamp() + ONE_YEAR_SECS),
+            );
+        }
     }
 
     /// Admin verifies planting. Releases 75% to the farmer and mints TREE tokens.
@@ -579,7 +559,103 @@ impl TreeEscrow {
         env.events().publish((symbol_short!("refund"), farmer), refund_amount);
     }
 
+    /// Report that an insured tree has died within 1 year, triggering a full refund to the donor.
+    /// Admin-only.
+    pub fn report_dead_tree(env: Env, farmer: Address) {
+        let _guard = ReentrancyGuard::acquire(&env);
+        let (admin, _) = Self::config(&env);
+        admin.require_auth();
+
+        let key = DataKey::Escrow(farmer.clone());
+        let mut rec: EscrowRecord = env.storage().persistent()
+            .get(&key)
+            .unwrap_or_else(|| panic_with_error!(&env, HarvestaError::EscrowNotFound));
+
+        if rec.status == EscrowStatus::Refunded {
+            panic_with_error!(&env, HarvestaError::RefundAfterPlanting);
+        }
+
+        if !rec.has_insurance {
+            panic_with_error!(&env, HarvestaError::InsuranceNotActive);
+        }
+
+        let start_time = if rec.planted_at > 0 { rec.planted_at } else { rec.deposit_time };
+        let elapsed = env.ledger().timestamp().saturating_sub(start_time);
+        if elapsed > ONE_YEAR_SECS {
+            panic_with_error!(&env, HarvestaError::InsurancePeriodExpired);
+        }
+
+        let refund_amount = rec.total_amount;
+        let token = rec.token.clone();
+        let donor = rec.donor.clone();
+
+        rec.status = EscrowStatus::Refunded;
+        env.storage().persistent().set(&key, &rec);
+
+        token::Client::new(&env, &token).transfer(
+            &env.current_contract_address(), &donor, &refund_amount,
+        );
+
+        env.events().publish((symbol_short!("insref"), farmer.clone()), refund_amount);
+        env.events().publish((symbol_short!("refund"), farmer), refund_amount);
+    }
+
+    /// Donor claims full refund under the 1-year survival insurance guarantee if their tree has died.
+    pub fn claim_insurance_refund(env: Env, farmer: Address) {
+        let _guard = ReentrancyGuard::acquire(&env);
+
+        let key = DataKey::Escrow(farmer.clone());
+        let mut rec: EscrowRecord = env.storage().persistent()
+            .get(&key)
+            .unwrap_or_else(|| panic_with_error!(&env, HarvestaError::EscrowNotFound));
+
+        rec.donor.require_auth();
+
+        if rec.status == EscrowStatus::Refunded {
+            panic_with_error!(&env, HarvestaError::RefundAfterPlanting);
+        }
+
+        if !rec.has_insurance {
+            panic_with_error!(&env, HarvestaError::InsuranceNotActive);
+        }
+
+        let start_time = if rec.planted_at > 0 { rec.planted_at } else { rec.deposit_time };
+        let elapsed = env.ledger().timestamp().saturating_sub(start_time);
+        if elapsed > ONE_YEAR_SECS {
+            panic_with_error!(&env, HarvestaError::InsurancePeriodExpired);
+        }
+
+        let refund_amount = rec.total_amount;
+        let token = rec.token.clone();
+        let donor = rec.donor.clone();
+
+        rec.status = EscrowStatus::Refunded;
+        env.storage().persistent().set(&key, &rec);
+
+        token::Client::new(&env, &token).transfer(
+            &env.current_contract_address(), &donor, &refund_amount,
+        );
+
+        env.events().publish((symbol_short!("insref"), farmer.clone()), refund_amount);
+        env.events().publish((symbol_short!("refund"), farmer), refund_amount);
+    }
+
     // ── Query ─────────────────────────────────────────────────────────────────
+
+    /// Query insurance status for a farmer's escrow: (has_insurance, insurance_fee, expires_at, is_active)
+    pub fn get_insurance_info(env: Env, farmer: Address) -> (bool, i128, u64, bool) {
+        if let Some(record) = env.storage().persistent().get::<_, EscrowRecord>(&DataKey::Escrow(farmer)) {
+            let start_time = if record.planted_at > 0 { record.planted_at } else { record.deposit_time };
+            let expires_at = start_time + ONE_YEAR_SECS;
+            let now = env.ledger().timestamp();
+            let is_active = record.has_insurance
+                && record.status != EscrowStatus::Refunded
+                && now <= expires_at;
+            (record.has_insurance, record.insurance_fee, expires_at, is_active)
+        } else {
+            (false, 0, 0, false)
+        }
+    }
 
     /// Returns the escrow record for `farmer`, or `None`.
     pub fn get_record(env: Env, farmer: Address) -> Option<EscrowRecord> {
@@ -632,6 +708,7 @@ mod tests {
     fn setup() -> Ctx {
         let env = Env::default();
         env.mock_all_auths();
+        env.ledger().set_timestamp(1);
 
         let contract_id = env.register_contract(None, TreeEscrow);
         let client = TreeEscrowClient::new(&env, &contract_id);
@@ -663,47 +740,50 @@ mod tests {
 
     #[test]
     fn test_guard_acquires_and_releases_lock() {
-        let env = Env::default();
-        assert!(!ReentrancyGuard::is_locked(&env));
-        {
-            let _g = ReentrancyGuard::acquire(&env);
-            assert!(ReentrancyGuard::is_locked(&env));
-        }
-        // Guard dropped — lock must be cleared
-        assert!(!ReentrancyGuard::is_locked(&env));
+        let ctx = setup();
+        ctx.env.as_contract(&ctx.client.address, || {
+            assert!(!ReentrancyGuard::is_locked(&ctx.env));
+            {
+                let _g = ReentrancyGuard::acquire(&ctx.env);
+                assert!(ReentrancyGuard::is_locked(&ctx.env));
+            }
+            assert!(!ReentrancyGuard::is_locked(&ctx.env));
+        });
     }
 
     #[test]
     #[should_panic(expected = "Error(Contract, #200)")]
     fn test_guard_panics_on_reentrant_acquire() {
-        let env = Env::default();
-        let _g1 = ReentrancyGuard::acquire(&env);
-        // Simulates a reentrant call — second acquire must panic
-        let _g2 = ReentrancyGuard::acquire(&env);
+        let ctx = setup();
+        ctx.env.as_contract(&ctx.client.address, || {
+            let _g1 = ReentrancyGuard::acquire(&ctx.env);
+            let _g2 = ReentrancyGuard::acquire(&ctx.env);
+        });
     }
 
     #[test]
     fn test_guard_lock_cleared_after_panic() {
-        let env = Env::default();
-        // Acquire lock, then simulate panic by dropping guard explicitly
-        let g = ReentrancyGuard::acquire(&env);
-        assert!(ReentrancyGuard::is_locked(&env));
-        drop(g);
-        assert!(!ReentrancyGuard::is_locked(&env));
-        // Can re-acquire after release
-        let _g2 = ReentrancyGuard::acquire(&env);
-        assert!(ReentrancyGuard::is_locked(&env));
+        let ctx = setup();
+        ctx.env.as_contract(&ctx.client.address, || {
+            let g = ReentrancyGuard::acquire(&ctx.env);
+            assert!(ReentrancyGuard::is_locked(&ctx.env));
+            drop(g);
+            assert!(!ReentrancyGuard::is_locked(&ctx.env));
+            let _g2 = ReentrancyGuard::acquire(&ctx.env);
+            assert!(ReentrancyGuard::is_locked(&ctx.env));
+        });
     }
 
     #[test]
     fn test_guard_sequential_acquires_succeed() {
-        let env = Env::default();
-        for _ in 0..5 {
-            let _g = ReentrancyGuard::acquire(&env);
-            assert!(ReentrancyGuard::is_locked(&env));
-            // _g drops here, lock cleared before next iteration
-        }
-        assert!(!ReentrancyGuard::is_locked(&env));
+        let ctx = setup();
+        ctx.env.as_contract(&ctx.client.address, || {
+            for _ in 0..5 {
+                let _g = ReentrancyGuard::acquire(&ctx.env);
+                assert!(ReentrancyGuard::is_locked(&ctx.env));
+            }
+            assert!(!ReentrancyGuard::is_locked(&ctx.env));
+        });
     }
 
     // ── deposit ───────────────────────────────────────────────────────────────
@@ -926,5 +1006,79 @@ mod tests {
     fn test_double_initialize_rejected() {
         let ctx = setup();
         ctx.client.initialize(&ctx.admin, &ctx.tree_token);
+    }
+
+    // ── sponsor insurance (#1021) ─────────────────────────────────────────────
+
+    #[test]
+    fn test_deposit_with_insurance_transfers_fee_and_marks_insured() {
+        let ctx = setup();
+        let before = bal(&ctx.env, &ctx.token, &ctx.donor);
+        // 10_000 + 2% (200) = 10_200 total transferred
+        ctx.client.deposit_with_insurance(&ctx.donor, &ctx.farmer, &ctx.token, &10_000, &5);
+        assert_eq!(bal(&ctx.env, &ctx.token, &ctx.donor), before - 10_200);
+
+        let rec = ctx.client.get_record(&ctx.farmer).unwrap();
+        assert_eq!(rec.total_amount, 10_000);
+        assert!(rec.has_insurance);
+        assert_eq!(rec.insurance_fee, 200);
+
+        let (insured, fee, expires_at, is_active) = ctx.client.get_insurance_info(&ctx.farmer);
+        assert!(insured);
+        assert_eq!(fee, 200);
+        assert_eq!(expires_at, rec.deposit_time + ONE_YEAR_SECS);
+        assert!(is_active);
+    }
+
+    #[test]
+    fn test_report_dead_tree_refunds_insured_donor_full_amount() {
+        let ctx = setup();
+        let before = bal(&ctx.env, &ctx.token, &ctx.donor);
+        ctx.client.deposit_with_insurance(&ctx.donor, &ctx.farmer, &ctx.token, &10_000, &5);
+
+        // Advance 60 days
+        ctx.env.ledger().set_timestamp(60 * 24 * 60 * 60);
+
+        // Tree dies within 1 year -> full refund of donation amount
+        ctx.client.report_dead_tree(&ctx.farmer);
+        assert_eq!(bal(&ctx.env, &ctx.token, &ctx.donor), before - 200); // Only the 2% insurance fee spent
+
+        let rec = ctx.client.get_record(&ctx.farmer).unwrap();
+        assert_eq!(rec.status, EscrowStatus::Refunded);
+    }
+
+    #[test]
+    fn test_donor_claim_insurance_refund() {
+        let ctx = setup();
+        let before = bal(&ctx.env, &ctx.token, &ctx.donor);
+        ctx.client.deposit_with_insurance(&ctx.donor, &ctx.farmer, &ctx.token, &10_000, &5);
+
+        ctx.env.ledger().set_timestamp(100 * 24 * 60 * 60);
+
+        ctx.client.claim_insurance_refund(&ctx.farmer);
+        assert_eq!(bal(&ctx.env, &ctx.token, &ctx.donor), before - 200);
+
+        let rec = ctx.client.get_record(&ctx.farmer).unwrap();
+        assert_eq!(rec.status, EscrowStatus::Refunded);
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #113)")]
+    fn test_report_dead_tree_uninsured_rejected() {
+        let ctx = setup();
+        ctx.client.deposit(&ctx.donor, &ctx.farmer, &ctx.token, &10_000, &5);
+        ctx.client.report_dead_tree(&ctx.farmer);
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #114)")]
+    fn test_report_dead_tree_after_1_year_expired_rejected() {
+        let ctx = setup();
+        ctx.client.deposit_with_insurance(&ctx.donor, &ctx.farmer, &ctx.token, &10_000, &5);
+
+        // Advance 1 year + 1 day
+        ctx.env.ledger().set_timestamp(ONE_YEAR_SECS + 86400);
+
+        ctx.client.report_dead_tree(&ctx.farmer);
     }
 }

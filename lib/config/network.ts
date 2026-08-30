@@ -16,6 +16,8 @@ export interface NetworkConfig {
   sorobanRpcUrl: string;
   networkPassphrase: string;
   usdcIssuer: string;
+  usdtIssuer: string;
+  eurcIssuer: string;
   treeIssuer: string;
   carbonCreditIssuer: string;
   rpcNodes: RpcNodeEntry[];
@@ -77,6 +79,8 @@ function loadNetworkConfig(): NetworkConfig {
     sorobanRpcUrl: requireEnv('NEXT_PUBLIC_SOROBAN_RPC_URL'),
     networkPassphrase: requireEnv('NEXT_PUBLIC_NETWORK_PASSPHRASE'),
     usdcIssuer: requireEnv('NEXT_PUBLIC_USDC_ISSUER'),
+    usdtIssuer: requireEnv('NEXT_PUBLIC_USDT_ISSUER'),
+    eurcIssuer: requireEnv('NEXT_PUBLIC_EURC_ISSUER'),
     treeIssuer: requireEnv('NEXT_PUBLIC_TREE_ISSUER'),
     carbonCreditIssuer: requireEnv('NEXT_PUBLIC_CARBON_CREDIT_ISSUER'),
     rpcNodes: parseRpcNodes(),

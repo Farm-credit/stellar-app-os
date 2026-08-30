@@ -481,13 +481,29 @@ git add -p
 ```bash
 git checkout main
 git pull origin main
-git checkout -b feat/<issue-number>-<short-description>
+git checkout -b feature/<issue-number>-<short-description>
 ```
 
-**Branch naming:**
-- `feat/42-wallet-connection-modal`
-- `fix/78-donation-validation-bug`
-- `docs/107-contributor-guide`
+**Branch naming (required):**
+
+Use the following branch prefixes to make intent clear and simplify reviews and automation:
+
+- `feature/` — new features and UI flows (maps to commit type `feat`)
+- `bugfix/` — bug fixes and regressions (maps to commit type `fix`)
+- `chore/` — maintenance, tooling, and non-functional work (maps to commit type `chore`)
+- `docs/` — documentation-only changes
+- `hotfix/` — urgent fixes that must go directly to production
+
+Examples:
+
+- `feature/42-wallet-connection-modal`
+- `bugfix/78-donation-validation`
+- `chore/107-deps-upgrade`
+
+Notes:
+- Branch prefixes are required for feature branches (do not use raw issue numbers alone).
+- Keep branch names short, use kebab-case for the descriptive part, and include the issue number when relevant.
+- Branch naming is independent of commit message types; commits should still follow Conventional Commits (`feat:`, `fix:`, `chore:`, etc.).
 
 ### Before Submitting
 

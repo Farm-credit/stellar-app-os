@@ -21,6 +21,8 @@ Migrations are numbered sequentially and should be named in the format: `XXX_des
 - `007_create_webhook_dispatch.sql` - Stores outbound webhook delivery attempts
 - `007_create_photo_hashes.sql` - Stores perceptual hashes (pHash) of planting photos for duplicate detection (note: two migrations currently share number 007 — pre-existing, not introduced here)
 - `008_create_carbon_offset_snapshots.sql` - Stores daily snapshots of total CO₂ sequestered across active trees (see `docs/carbon-offset-cron.md`)
+- `009_create_referral_rewards.sql` - Stores referral codes, first-tree eligibility, and queued XLM rewards
+- `010_create_sponsor_teams.sql` - Stores sponsor teams, invite membership, and shared tree links
 
 ## Running Migrations
 

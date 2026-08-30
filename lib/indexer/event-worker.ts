@@ -14,8 +14,14 @@ import {
 import type { NetworkType } from '@/lib/types/wallet';
 
 const NETWORK = (process.env.STELLAR_NETWORK ?? 'testnet') as NetworkType;
-const SOROBAN_RPC_URL = process.env.NEXT_PUBLIC_SOROBAN_RPC_URL ?? 'https://soroban-testnet.stellar.org';
+const SOROBAN_RPC_URL =
+  process.env.NEXT_PUBLIC_SOROBAN_RPC_URL ?? 'https://soroban-testnet.stellar.org';
 const POLL_INTERVAL_MS = 5_000;
+const MAX_EVENTS_PER_POLL = 100;
+const CONTRACT_IDS = (process.env.SOROBAN_CONTRACT_IDS ?? '')
+  .split(',')
+  .map((id) => id.trim())
+  .filter(Boolean);
 
 const server = new SorobanRpc.Server(SOROBAN_RPC_URL, {
   allowHttp: SOROBAN_RPC_URL.startsWith('http://'),
@@ -34,7 +40,8 @@ export async function pollContractEvents() {
     filters: [filter],
     limit: MAX_EVENTS_PER_POLL,
     ...(startLedger > 0 ? { startLedger } : {}),
-  });
+  };
+  const response = await server.getEvents(request);
 
   const nextLedger = response.latestLedger ?? startLedger;
   if (nextLedger > startLedger) {
@@ -46,7 +53,10 @@ export async function pollContractEvents() {
       id: event.id,
       ledger: event.ledger,
       ledgerClosedAt: event.ledgerClosedAt,
-      contractId: typeof event.contractId === 'string' ? event.contractId : event.contractId?.toString() ?? '',
+      contractId:
+        typeof event.contractId === 'string'
+          ? event.contractId
+          : (event.contractId?.toString() ?? ''),
       eventType: 'other' as ContractEventType,
       topicsXdr: [],
       valueXdr: null,

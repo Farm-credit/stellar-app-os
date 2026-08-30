@@ -95,6 +95,22 @@ const defaultNotifications: Notification[] = [
   },
 ];
 
+const DEFAULT_TOAST_DURATION = 5000;
+const MIN_TOAST_DURATION = 2000;
+const MAX_TOAST_DURATION = 10000;
+
+export function normalizeToastDuration(duration?: number): number {
+  if (duration === undefined || Number.isNaN(duration)) {
+    return DEFAULT_TOAST_DURATION;
+  }
+
+  if (duration <= 0) {
+    return 0;
+  }
+
+  return Math.min(Math.max(duration, MIN_TOAST_DURATION), MAX_TOAST_DURATION);
+}
+
 const NotificationContext = createContext<NotificationContextValue | undefined>(undefined);
 
 export function NotificationProvider({ children }: { children: ReactNode }): ReactElement {
@@ -125,7 +141,7 @@ export function NotificationProvider({ children }: { children: ReactNode }): Rea
 
   const addToast = useCallback((toast: Omit<ToastNotification, 'id'>) => {
     const id = generateId();
-    const duration = toast.duration ?? 5000;
+    const duration = normalizeToastDuration(toast.duration);
     const newToast: ToastNotification = { ...toast, id, duration };
     setToasts((prev) => [...prev, newToast]);
 
