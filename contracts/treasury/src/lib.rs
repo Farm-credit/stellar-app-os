@@ -2,7 +2,7 @@
 
 //! Treasury Contract — 4-of-7 Multisig with Emergency Withdrawal Guard
 //!
-//! Closes #492, #797
+//! Closes #492, #797, #SC-085
 //!
 //! Platform fees accumulate in this contract. Any withdrawal requires
 //! 4-of-7 signers to approve a `WithdrawProposal` before funds move.
@@ -24,8 +24,16 @@
 //! Transfers with `amount >= EMERGENCY_THRESHOLD` are flagged as emergency
 //! proposals. They follow the same 4-of-7 flow but emit an additional
 //! `emrg_prp` event so off-chain monitors can raise alerts.
+//!
+//! ## Vault Balance Sync (#SC-085)
+//! `sync_vault_balance(call_id)` pulls `vault_balance` from the
+//! call-registry contract and caches it locally. `get_synced_vault(call_id)`
+//! returns the cached value for analytics without repeated cross-contract
+//! calls.
 
 use soroban_sdk::{contract, contractimpl, contracttype, symbol_short, token, Address, Env, Vec};
+
+use call_registry::CallRegistryClient;
 
 // — Constants ————————————————————————————————————————————————————————————
 
@@ -71,6 +79,10 @@ enum DataKey {
     NextId,
     /// Proposal by id
     Proposal(u32),
+    /// Address of the call-registry contract
+    CallRegistry,
+    /// Cached vault_balance from call_registry keyed by call_id
+    SyncedVault(u64),
 }
 
 // — Contract ——————————————————————————————————————————————————————————
@@ -104,6 +116,17 @@ impl Treasury {
         env.storage().instance().set(&DataKey::Signers, &signers);
         env.storage().instance().set(&DataKey::Token, &token);
         env.storage().instance().set(&DataKey::NextId, &0u32);
+    }
+
+    /// Set the address of the call-registry contract.
+    /// Must be called before sync_vault_balance.
+    pub fn set_call_registry(env: Env, registry: Address) {
+        if !env.storage().instance().has(&DataKey::Signers) {
+            panic!("not initialized");
+        }
+        env.storage()
+            .instance()
+            .set(&DataKey::CallRegistry, &registry);
     }
 
     // — Deposit ———————————————————————————————————————————————————
@@ -290,6 +313,37 @@ impl Treasury {
         token::Client::new(&env, &token).balance(&env.current_contract_address())
     }
 
+    /// Sync vault_balance from call_registry into treasury cache.
+    /// Pulls vault_balance for the given call_id and stores it locally.
+    pub fn sync_vault_balance(env: Env, call_id: u64) -> i128 {
+        let registry_addr: Address = env
+            .storage()
+            .instance()
+            .get(&DataKey::CallRegistry)
+            .expect("call registry not set");
+
+        let vault_balance =
+            CallRegistryClient::new(&env, &registry_addr).get_vault_balance(&call_id);
+
+        env.storage()
+            .instance()
+            .set(&DataKey::SyncedVault(call_id), &vault_balance);
+
+        env.events()
+            .publish((symbol_short!("v_sync"),), (call_id, vault_balance));
+
+        vault_balance
+    }
+
+    /// Return the cached vault_balance for a given call_id.
+    /// Reverts if the call has not been synced yet.
+    pub fn get_synced_vault(env: Env, call_id: u64) -> i128 {
+        env.storage()
+            .instance()
+            .get(&DataKey::SyncedVault(call_id))
+            .expect("vault not synced")
+    }
+
     /// Return the list of configured signers.
     pub fn get_signers(env: Env) -> Vec<Address> {
         env.storage()
@@ -326,9 +380,11 @@ mod tests {
     use soroban_sdk::{testutils::Address as _, Address, Env, Vec};
 
     use crate::{ProposalStatus, Treasury, TreasuryClient, EMERGENCY_THRESHOLD};
+    use call_registry::{CallRegistry, CallRegistryClient};
 
     fn deploy_token(env: &Env, admin: &Address) -> Address {
-        env.register_stellar_asset_contract_v2(admin.clone()).address()
+        env.register_stellar_asset_contract_v2(admin.clone())
+            .address()
     }
 
     fn mint(env: &Env, token: &Address, to: &Address, amount: i128) {
@@ -353,12 +409,30 @@ mod tests {
         }
         let contract = env.register(Treasury, ());
         TreasuryClient::new(&env, &contract).initialize(&signers, &token);
-        Ctx { env, contract, signers, token }
+        Ctx {
+            env,
+            contract,
+            signers,
+            token,
+        }
+    }
+
+    fn setup_with_registry() -> (Ctx, Address) {
+        let ctx = setup();
+        let registry_contract = ctx.env.register(CallRegistry, ());
+        CallRegistryClient::new(&ctx.env, &registry_contract).initialize();
+        TreasuryClient::new(&ctx.env, &ctx.contract).set_call_registry(&registry_contract);
+        (ctx, registry_contract)
     }
 
     #[test]
     fn test_propose_and_four_approvals_execute_transfer() {
-        let Ctx { env, contract, signers, token } = setup();
+        let Ctx {
+            env,
+            contract,
+            signers,
+            token,
+        } = setup();
         let client = TreasuryClient::new(&env, &contract);
         mint(&env, &token, &contract, 10_000);
         let recipient = Address::generate(&env);
@@ -367,27 +441,43 @@ mod tests {
         client.approve(&signers.get(1).unwrap(), &pid);
         client.approve(&signers.get(2).unwrap(), &pid);
         client.approve(&signers.get(3).unwrap(), &pid);
-        assert_eq!(soroban_sdk::token::Client::new(&env, &token).balance(&recipient), 1_000);
+        assert_eq!(
+            soroban_sdk::token::Client::new(&env, &token).balance(&recipient),
+            1_000
+        );
         assert_eq!(client.get_proposal(&pid).status, ProposalStatus::Executed);
     }
 
     #[test]
     fn test_three_approvals_not_enough() {
-        let Ctx { env, contract, signers, token } = setup();
+        let Ctx {
+            env,
+            contract,
+            signers,
+            token,
+        } = setup();
         let client = TreasuryClient::new(&env, &contract);
         mint(&env, &token, &contract, 10_000);
         let recipient = Address::generate(&env);
         let pid = client.propose(&signers.get(0).unwrap(), &recipient, &1_000);
         client.approve(&signers.get(1).unwrap(), &pid);
         client.approve(&signers.get(2).unwrap(), &pid);
-        assert_eq!(soroban_sdk::token::Client::new(&env, &token).balance(&recipient), 0);
+        assert_eq!(
+            soroban_sdk::token::Client::new(&env, &token).balance(&recipient),
+            0
+        );
         assert_eq!(client.get_proposal(&pid).status, ProposalStatus::Open);
         assert_eq!(client.approval_count(&pid), 3);
     }
 
     #[test]
     fn test_deposit_increases_balance() {
-        let Ctx { env, contract, token, .. } = setup();
+        let Ctx {
+            env,
+            contract,
+            token,
+            ..
+        } = setup();
         let client = TreasuryClient::new(&env, &contract);
         let funder = Address::generate(&env);
         mint(&env, &token, &funder, 2_000);
@@ -397,7 +487,12 @@ mod tests {
 
     #[test]
     fn test_cancel_open_proposal() {
-        let Ctx { env, contract, signers, token } = setup();
+        let Ctx {
+            env,
+            contract,
+            signers,
+            token,
+        } = setup();
         let client = TreasuryClient::new(&env, &contract);
         mint(&env, &token, &contract, 1_000);
         let recipient = Address::generate(&env);
@@ -408,7 +503,12 @@ mod tests {
 
     #[test]
     fn test_emergency_flag_set_for_large_transfers() {
-        let Ctx { env, contract, signers, .. } = setup();
+        let Ctx {
+            env,
+            contract,
+            signers,
+            ..
+        } = setup();
         let client = TreasuryClient::new(&env, &contract);
         let recipient = Address::generate(&env);
         let pid_normal = client.propose(&signers.get(0).unwrap(), &recipient, &1_000);
@@ -419,7 +519,12 @@ mod tests {
 
     #[test]
     fn test_seven_signers_retrieved_correctly() {
-        let Ctx { env, contract, signers, .. } = setup();
+        let Ctx {
+            env,
+            contract,
+            signers,
+            ..
+        } = setup();
         let client = TreasuryClient::new(&env, &contract);
         let stored = client.get_signers();
         assert_eq!(stored.len(), 7);
@@ -431,7 +536,12 @@ mod tests {
     #[test]
     #[should_panic(expected = "already initialized")]
     fn test_double_init_rejected() {
-        let Ctx { env, contract, signers, token } = setup();
+        let Ctx {
+            env,
+            contract,
+            signers,
+            token,
+        } = setup();
         TreasuryClient::new(&env, &contract).initialize(&signers, &token);
     }
 
@@ -444,7 +554,9 @@ mod tests {
         let token = deploy_token(&env, &admin);
         let contract = env.register(Treasury, ());
         let mut signers = Vec::new(&env);
-        for _ in 0..3 { signers.push_back(Address::generate(&env)); }
+        for _ in 0..3 {
+            signers.push_back(Address::generate(&env));
+        }
         TreasuryClient::new(&env, &contract).initialize(&signers, &token);
     }
 
@@ -458,14 +570,21 @@ mod tests {
         let dup = Address::generate(&env);
         let contract = env.register(Treasury, ());
         let mut signers = Vec::new(&env);
-        for _ in 0..7 { signers.push_back(dup.clone()); }
+        for _ in 0..7 {
+            signers.push_back(dup.clone());
+        }
         TreasuryClient::new(&env, &contract).initialize(&signers, &token);
     }
 
     #[test]
     #[should_panic(expected = "signer already approved")]
     fn test_proposer_cannot_approve_own_proposal() {
-        let Ctx { env, contract, signers, token } = setup();
+        let Ctx {
+            env,
+            contract,
+            signers,
+            token,
+        } = setup();
         let client = TreasuryClient::new(&env, &contract);
         mint(&env, &token, &contract, 1_000);
         let recipient = Address::generate(&env);
@@ -476,7 +595,12 @@ mod tests {
     #[test]
     #[should_panic(expected = "not a signer")]
     fn test_non_signer_cannot_propose() {
-        let Ctx { env, contract, token, .. } = setup();
+        let Ctx {
+            env,
+            contract,
+            token,
+            ..
+        } = setup();
         let client = TreasuryClient::new(&env, &contract);
         mint(&env, &token, &contract, 1_000);
         let outsider = Address::generate(&env);
@@ -487,7 +611,12 @@ mod tests {
     #[test]
     #[should_panic(expected = "proposal is not open")]
     fn test_approve_cancelled_proposal_rejected() {
-        let Ctx { env, contract, signers, token } = setup();
+        let Ctx {
+            env,
+            contract,
+            signers,
+            token,
+        } = setup();
         let client = TreasuryClient::new(&env, &contract);
         mint(&env, &token, &contract, 1_000);
         let recipient = Address::generate(&env);
@@ -499,12 +628,72 @@ mod tests {
     #[test]
     #[should_panic(expected = "signer already approved")]
     fn test_double_approve_rejected() {
-        let Ctx { env, contract, signers, token } = setup();
+        let Ctx {
+            env,
+            contract,
+            signers,
+            token,
+        } = setup();
         let client = TreasuryClient::new(&env, &contract);
         mint(&env, &token, &contract, 1_000);
         let recipient = Address::generate(&env);
         let pid = client.propose(&signers.get(0).unwrap(), &recipient, &100);
         client.approve(&signers.get(1).unwrap(), &pid);
         client.approve(&signers.get(1).unwrap(), &pid);
+    }
+
+    #[test]
+    fn test_sync_vault_balance_matches_registry() {
+        let (ctx, registry_contract) = setup_with_registry();
+        let treasury_client = TreasuryClient::new(&ctx.env, &ctx.contract);
+        let registry_client = CallRegistryClient::new(&ctx.env, &registry_contract);
+        let caller = Address::generate(&ctx.env);
+
+        let call_id = registry_client.register_call(&caller, &42_000);
+        let synced = treasury_client.sync_vault_balance(&call_id);
+        assert_eq!(synced, 42_000);
+
+        let cached = treasury_client.get_synced_vault(&call_id);
+        assert_eq!(cached, 42_000);
+    }
+
+    #[test]
+    fn test_sync_multiple_vault_balances() {
+        let (ctx, registry_contract) = setup_with_registry();
+        let treasury_client = TreasuryClient::new(&ctx.env, &ctx.contract);
+        let registry_client = CallRegistryClient::new(&ctx.env, &registry_contract);
+        let caller = Address::generate(&ctx.env);
+
+        let id0 = registry_client.register_call(&caller, &100);
+        let id1 = registry_client.register_call(&caller, &200);
+
+        assert_eq!(treasury_client.sync_vault_balance(&id0), 100);
+        assert_eq!(treasury_client.sync_vault_balance(&id1), 200);
+        assert_eq!(treasury_client.get_synced_vault(&id0), 100);
+        assert_eq!(treasury_client.get_synced_vault(&id1), 200);
+    }
+
+    #[test]
+    #[should_panic(expected = "call not found")]
+    fn test_sync_vault_balance_missing_call_reverts() {
+        let (ctx, _registry_contract) = setup_with_registry();
+        let treasury_client = TreasuryClient::new(&ctx.env, &ctx.contract);
+        treasury_client.sync_vault_balance(&99);
+    }
+
+    #[test]
+    #[should_panic(expected = "vault not synced")]
+    fn test_get_synced_vault_before_sync_reverts() {
+        let (ctx, _registry_contract) = setup_with_registry();
+        let treasury_client = TreasuryClient::new(&ctx.env, &ctx.contract);
+        treasury_client.get_synced_vault(&0);
+    }
+
+    #[test]
+    #[should_panic(expected = "call registry not set")]
+    fn test_sync_vault_without_registry_reverts() {
+        let ctx = setup();
+        let treasury_client = TreasuryClient::new(&ctx.env, &ctx.contract);
+        treasury_client.sync_vault_balance(&0);
     }
 }

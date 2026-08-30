@@ -300,6 +300,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "call-registry"
+version = "0.1.0"
+dependencies = [
+ "soroban-sdk 22.0.11",
+]
+
+[[package]]
 name = "carbon-credits"
 version = "0.1.0"
 dependencies = [
@@ -2219,6 +2226,7 @@ checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
 name = "treasury"
 version = "0.1.0"
 dependencies = [
+ "call-registry",
  "soroban-sdk 22.0.11",
 ]
 

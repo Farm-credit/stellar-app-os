@@ -1,5 +1,5 @@
 [package]
-name = "treasury"
+name = "call-registry"
 version = "0.1.0"
 edition = "2021"
 
@@ -8,7 +8,6 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 soroban-sdk = { version = "22.0.1", features = ["alloc"] }
-call-registry = { path = "../call-registry" }
 
 [dev-dependencies]
 soroban-sdk = { version = "22.0.1", features = ["testutils", "alloc"] }

@@ -19,6 +19,7 @@ members = [
     "aggregate-impact-verifier",
     "tree-token",
     "treasury",
+    "call-registry",
     "admin-controls",
     "carbon-credits",
     "kyc-attestation",
