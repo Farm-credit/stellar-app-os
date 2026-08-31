@@ -21,7 +21,7 @@ interface CertificateApiRequest {
 
 const STELLAR_BLUE = '#14B6E7';
 const STELLAR_NAVY = '#0D0B21';
-const STELLAR_GREEN = '#00B36B';
+const STILLAR_GREEN = '#00B36B';
 const WHITE = '#FFFFFF';
 const LIGHT_GRAY = '#F1F5F9';
 const MID_GRAY = '#64748B';
@@ -30,6 +30,90 @@ const PAGE_W = 210;
 const PAGE_H = 297;
 const MARGIN = 20;
 const CONTENT_W = PAGE_W - MARGIN * 2;
+
+// --- Rate limiting ---
+type RateLimitConfig = {
+  windowMs: number;
+  maxRequests: number;
+  backoffBaseMs: number;
+};
+
+type RateLimitEntry = {
+  timestamps: number[];
+  violationCount: number;
+  nextAllowedTime: number;
+};
+
+const RATE_LIMIT_CONFIGS: Record<'ip' | 'user' | 'apikey', RateLimitConfig> = {
+  ip: { windowMs: 60_000, maxRequests: 10, backoffBaseMs: 1_000 },
+  user: { windowMs: 60_000, maxRequests: 5, backoffBaseMs: 1_000 },
+  apikey: { windowMs: 3_600_000, maxRequests: 100, backoffBaseMs: 1_000 },
+};
+
+const rateLimitStore = new Map<string, RateLimitEntry>();
+
+function getClientIp(req: NextRequest): string {
+  const forwarded = req.headers.get('x-forwarded-for');
+  if (forwarded) return forwarded.split(',')[0].trim();
+  const ip = (req as any).ip;
+  return ip || 'unknown';
+}
+
+function checkRateLimit(key: string, config: RateLimitConfig): { allowed: boolean; retryAfter: number } {
+  const now = Date.now();
+  let entry = rateLimitStore.get(key);
+  if (!entry) {
+    entry = { timestamps: [], violationCount: 0, nextAllowedTime: 0 };
+    rateLimitStore.set(key, entry);
+  }
+
+  // If currently in backoff, reject without updating the entry further
+  if (now < entry.nextAllowedTime) {
+    return { allowed: false, retryAfter: entry.nextAllowedTime - now };
+  }
+
+  // Remove timestamps outside the sliding window
+  entry.timestamps = entry.timestamps.filter(ts => ts > now - config.windowMs);
+
+  // Check if over limit
+  if (entry.timestamps.length >= config.maxRequests) {
+    // Exponential backoff: each consecutive violation doubles the wait time
+    entry.violationCount += 1;
+    const backoffMs = config.backoffBaseMs * Math.pow(2, entry.violationCount - 1);
+    entry.nextAllowedTime = now + backoffMs;
+    return { allowed: false, retryAfter: backoffMs };
+  }
+
+  // Allow request: record timestamp and reset violation count
+  entry.timestamps.push(now);
+  entry.violationCount = 0;
+  return { allowed: true, retryAfter: 0 };
+}
+
+function rateLimitResponse(retryAfterMs: number): NextResponse {
+  const retryAfterSeconds = Math.ceil(retryAfterMs / 1000);
+  return NextResponse.json(
+    { error: 'Rate limit exceeded. Please retry later.' },
+    {
+      status: 429,
+      headers: {
+        'Retry-After': retryAfterSeconds.toString(),
+      },
+    }
+  );
+}
+
+interface AuditLogEntry {
+  action: string;
+  actorId?: string;
+  ip?: string;
+  apiKeyPresent?: boolean;
+  metadata?: Record<string, unknown>;
+}
+
+function auditLog(entry: AuditLogEntry): void {
+  console.log(JSON.stringify({ type: 'AUDIT', ...entry, timestamp: new Date().toISOString() }));
+}
 
 function truncate(text: string, maxLength: number): string {
   return text.length > maxLength ? `${text.slice(0, maxLength - 3)}...` : text;
@@ -55,11 +139,36 @@ function getDisplayName(
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
+    const ip = getClientIp(request);
+    const apiKey = request.headers.get('x-api-key');
+
+    // IP-based rate limiting
+    const ipResult = checkRateLimit(`ip:${ip}`, RATE_LIMIT_CONFIGS.ip);
+    if (!ipResult.allowed) {
+      return rateLimitResponse(ipResult.retryAfter);
+    }
+
+    // API key rate limiting (if provided)
+    if (apiKey) {
+      const apiKeyResult = checkRateLimit(`apikey:${apiKey}`, RATE_LIMIT_CONFIGS.apikey);
+      if (!apiKeyResult.allowed) {
+        return rateLimitResponse(apiKeyResult.retryAfter);
+      }
+    }
+
     let body: CertificateApiRequest;
     try {
       body = (await request.json()) as CertificateApiRequest;
     } catch {
       return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    }
+
+    // User-based rate limiting
+    if (body.walletAddress) {
+      const userResult = checkRateLimit(`user:${body.walletAddress}`, RATE_LIMIT_CONFIGS.user);
+      if (!userResult.allowed) {
+        return rateLimitResponse(userResult.retryAfter);
+      }
     }
 
     if (!body.transactionHash) {
@@ -72,6 +181,22 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
     }
 
+    auditLog({
+      action: 'certificate.generate',
+      actorId: body.walletAddress,
+      ip,
+      apiKeyPresent: Boolean(apiKey),
+      metadata: {
+        treeCount: body.treeCount,
+        co2Offset: body.co2Offset,
+        region: body.region,
+        projectName: body.projectName,
+        transactionHash: body.transactionHash,
+        userNameProvided: Boolean(body.userName),
+        isAnonymous: Boolean(body.isAnonymous),
+      },
+    });
+
     const explorerBaseUrl = body.explorerBaseUrl ?? 'https://stellar.expert/explorer/public/tx';
     const explorerUrl = `${explorerBaseUrl}/${body.transactionHash}`;
 
@@ -82,7 +207,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     doc.setFillColor(STELLAR_NAVY);
     doc.rect(0, 0, PAGE_W, 52, 'F');
-    doc.setFillColor(STELLAR_BLUE);
+    doc.setFillColor(STILLAR_BLUE);
     doc.rect(0, 48, PAGE_W, 4, 'F');
     doc.setTextColor(WHITE);
     doc.setFont('helvetica', 'bold');
@@ -118,7 +243,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     y += 8;
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(11);
-    doc.setTextColor(STELLAR_NAVY);
+    doc.setTextColor(STILLAR_NAVY);
     doc.text('has contributed to environmental restoration through', PAGE_W / 2, y, {
       align: 'center',
     });
@@ -132,7 +257,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     doc.text(`${body.treeCount.toLocaleString()} Trees Planted`, PAGE_W / 4 + 10, y + 4, {
       align: 'center',
     });
-    doc.text(`${body.co2Offset.toLocaleString()} tCO2e Offset`, (PAGE_W * 3) / 4 - 10, y + 4, {
+    doc.text(`${body.co2Offset.toLocaleString()} t&#45;O2e Offset`, (PAGE_W * 3) / 4 - 10, y + 4, {
       align: 'center',
     });
     doc.setFont('helvetica', 'normal');
@@ -172,7 +297,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
 
     y += 8;
-    doc.setDrawColor(STELLAR_BLUE);
+    doc.setDrawColor(STILLAR_BLUE);
     doc.setLineWidth(0.5);
     doc.line(MARGIN, y, PAGE_W - MARGIN, y);
 
@@ -181,7 +306,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const qrX = PAGE_W - MARGIN - qrSize;
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(9);
-    doc.setTextColor(STELLAR_NAVY);
+    doc.setTextColor(STILLAR_NAVY);
     doc.text('TRANSACTION HASH', MARGIN, y);
 
     y += 6;
@@ -195,7 +320,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     y += 14;
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8);
-    doc.setTextColor(STELLAR_BLUE);
+    doc.setTextColor(STILLAR_BLUE);
     doc.text(truncate(explorerUrl, 70), MARGIN, y);
 
     const qrY = y - 30;
@@ -207,7 +332,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     doc.setFillColor(STELLAR_NAVY);
     doc.rect(0, PAGE_H - 20, PAGE_W, 20, 'F');
-    doc.setFillColor(STELLAR_BLUE);
+    doc.setFillColor(STILLAR_BLUE);
     doc.rect(0, PAGE_H - 20, PAGE_W, 2, 'F');
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8);
