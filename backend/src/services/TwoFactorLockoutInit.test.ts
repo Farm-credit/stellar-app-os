@@ -6,7 +6,6 @@ import {
   InMemoryLockoutStore,
   RedisLockoutStore,
   type TwoFactorService,
-  type LockoutStore,
 } from './TwoFactorLockoutInit';
 
 // ---------------------------------------------------------------------------
@@ -23,23 +22,23 @@ function makeRedisClient() {
   const locks: Record<string, boolean> = {};
 
   return {
-    incr: vi.fn(async (key: string) => {
+    incr: vi.fn((key: string) => {
       const next = (parseInt(data[key] ?? '0', 10) || 0) + 1;
       data[key] = String(next);
-      return next;
+      return Promise.resolve(next);
     }),
-    get: vi.fn(async (key: string) => data[key] ?? null),
-    del: vi.fn(async (key: string) => {
+    get: vi.fn((key: string) => Promise.resolve(data[key] ?? null)),
+    del: vi.fn((key: string) => {
       const existed = key in data || key in locks;
       delete data[key];
       delete locks[key];
-      return existed ? 1 : 0;
+      return Promise.resolve(existed ? 1 : 0);
     }),
-    set: vi.fn(async (key: string, _value: string, _opts: { PX: number }) => {
+    set: vi.fn((key: string, _value: string, _opts: { PX: number }) => {
       locks[key] = true;
-      return 'OK' as string | null;
+      return Promise.resolve('OK' as string | null);
     }),
-    exists: vi.fn(async (key: string) => (locks[key] ? 1 : 0)),
+    exists: vi.fn((key: string) => Promise.resolve(locks[key] ? 1 : 0)),
   };
 }
 

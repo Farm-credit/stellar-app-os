@@ -5,7 +5,6 @@ import type { QueuedUpload, OfflineUploadQueue } from '@/lib/types/offline-uploa
 
 const STORAGE_KEY = 'offline_upload_queue';
 const MAX_RETRIES = 3;
-const RETRY_DELAY_MS = 5000;
 
 export function useOfflineUploadQueue() {
   const [queue, setQueue] = useState<QueuedUpload[]>([]);
@@ -52,18 +51,11 @@ export function useOfflineUploadQueue() {
     };
   }, []);
 
-  // Auto-sync when coming back online
-  useEffect(() => {
-    if (isOnline && queue.length > 0 && !isSyncing) {
-      syncQueue();
-    }
-  }, [isOnline, queue.length, isSyncing]);
-
   // Add a file to the queue
-  const addToQueue = useCallback(async (file: File): Promise<string> => {
+  const addToQueue = useCallback((file: File): Promise<string> => {
     const reader = new FileReader();
 
-    return await new Promise((resolve, reject) => {
+    return new Promise((resolve, reject) => {
       reader.onload = () => {
         try {
           const base64 = reader.result as string;
@@ -79,14 +71,14 @@ export function useOfflineUploadQueue() {
             status: 'pending',
             retryCount: 0,
           };
-          
+
           setQueue((prev) => [...prev, upload]);
           resolve(upload.id);
         } catch (err) {
           reject(err);
         }
       };
-      
+
       reader.onerror = () => reject(reader.error);
       reader.readAsDataURL(file);
     });
@@ -98,22 +90,33 @@ export function useOfflineUploadQueue() {
   }, []);
 
   // Update item status
-  const updateItemStatus = useCallback((id: string, status: QueuedUpload['status'], error?: string) => {
-    setQueue((prev) =>
-      prev.map((item) =>
-        item.id === id
-          ? { ...item, status, error, retryCount: status === 'failed' ? item.retryCount + 1 : item.retryCount }
-          : item
-      )
-    );
-  }, []);
+  const updateItemStatus = useCallback(
+    (id: string, status: QueuedUpload['status'], error?: string) => {
+      setQueue((prev) =>
+        prev.map((item) =>
+          item.id === id
+            ? {
+                ...item,
+                status,
+                error,
+                retryCount: status === 'failed' ? item.retryCount + 1 : item.retryCount,
+              }
+            : item
+        )
+      );
+    },
+    []
+  );
 
   // Sync queued uploads
   const syncQueue = useCallback(async () => {
     if (!isOnline || isSyncing) return;
 
-    const pendingItems = queue.filter((item) => item.status === 'pending' || (item.status === 'failed' && item.retryCount < MAX_RETRIES));
-    
+    const pendingItems = queue.filter(
+      (item) =>
+        item.status === 'pending' || (item.status === 'failed' && item.retryCount < MAX_RETRIES)
+    );
+
     if (pendingItems.length === 0) return;
 
     setIsSyncing(true);
@@ -139,8 +142,8 @@ export function useOfflineUploadQueue() {
           throw new Error('Upload failed');
         }
 
-        const { cid } = await res.json();
-        
+        await res.json();
+
         // Remove successfully uploaded item
         removeFromQueue(item.id);
       } catch (err) {
@@ -150,6 +153,13 @@ export function useOfflineUploadQueue() {
 
     setIsSyncing(false);
   }, [isOnline, isSyncing, queue, updateItemStatus, removeFromQueue]);
+
+  // Auto-sync when coming back online
+  useEffect(() => {
+    if (isOnline && queue.length > 0 && !isSyncing) {
+      syncQueue();
+    }
+  }, [isOnline, queue.length, isSyncing, syncQueue]);
 
   // Manual sync trigger
   const manualSync = useCallback(() => {

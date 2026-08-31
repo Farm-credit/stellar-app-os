@@ -14,7 +14,6 @@ import {
   CardTitle,
 } from '@/components/molecules/Card';
 import { hasCompletedOnboardingTour, requestOnboardingTourRestart } from '@/lib/onboardingTour';
-import { cn } from '@/lib/utils';
 import { PreferencesSection } from '@/components/organisms/settings/PreferencesSection';
 import { NotificationSection as NotificationSettingsSection } from '@/components/organisms/settings/NotificationSection';
 
@@ -85,7 +84,11 @@ export default function SettingsPage(): ReactNode {
       <div className="rounded-lg border bg-background p-6">
         <div className="flex flex-col gap-6 sm:flex-row sm:gap-8">
           <aside className="w-full shrink-0 sm:w-48 lg:w-52">
-            <nav className="flex flex-row gap-1 sm:flex-col" role="tablist" aria-label="Settings sections">
+            <nav
+              className="flex flex-row gap-1 sm:flex-col"
+              role="tablist"
+              aria-label="Settings sections"
+            >
               {NAV_ITEMS.map((item) => (
                 <button
                   key={item.id}
@@ -110,7 +113,9 @@ export default function SettingsPage(): ReactNode {
           </aside>
 
           <div className="flex-1 min-w-0" role="tabpanel">
-            <h2 className="mb-6 text-lg font-semibold text-foreground">{SECTION_TITLES[activeTab]}</h2>
+            <h2 className="mb-6 text-lg font-semibold text-foreground">
+              {SECTION_TITLES[activeTab]}
+            </h2>
             {activeTab === 'profile' && <ProfileSection />}
             {activeTab === 'notifications' && <NotificationSettingsSection />}
             {activeTab === 'preferences' && <PreferencesSection />}

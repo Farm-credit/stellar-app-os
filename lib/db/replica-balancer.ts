@@ -1,4 +1,4 @@
-import { Pool, PoolConfig, QueryResult } from 'pg';
+import { Pool, type PoolConfig, type QueryResult } from 'pg';
 
 /**
  * Database instance configuration for primary or replica
@@ -129,10 +129,7 @@ export class ReplicaBalancer {
   /**
    * Check health of a specific instance
    */
-  private async checkInstance(
-    instance: DatabaseInstance,
-    pool: Pool
-  ): Promise<HealthCheckResult> {
+  private async checkInstance(instance: DatabaseInstance, pool: Pool): Promise<HealthCheckResult> {
     const startTime = Date.now();
 
     try {
@@ -241,14 +238,14 @@ export class ReplicaBalancer {
     options: QueryOptions = {}
   ): Promise<QueryResult<T>> {
     const pool = this.getBestPool(options);
-    
+
     let lastError: Error | undefined;
     for (let attempt = 0; attempt < this.config.maxRetries; attempt++) {
       try {
         return await pool.query<T>(text, params);
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error));
-        
+
         console.error(
           `[db] Query attempt ${attempt + 1}/${this.config.maxRetries} failed`,
           lastError.message
@@ -256,9 +253,7 @@ export class ReplicaBalancer {
 
         // If not the last attempt, wait before retry
         if (attempt < this.config.maxRetries - 1) {
-          await new Promise((resolve) =>
-            setTimeout(resolve, this.config.retryDelay)
-          );
+          await new Promise((resolve) => setTimeout(resolve, this.config.retryDelay));
         }
       }
     }
@@ -289,16 +284,14 @@ export class ReplicaBalancer {
         return await this.primaryPool.query<T>(text, params);
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error));
-        
+
         console.error(
           `[db] Write attempt ${attempt + 1}/${this.config.maxRetries} failed`,
           lastError.message
         );
 
         if (attempt < this.config.maxRetries - 1) {
-          await new Promise((resolve) =>
-            setTimeout(resolve, this.config.retryDelay)
-          );
+          await new Promise((resolve) => setTimeout(resolve, this.config.retryDelay));
         }
       }
     }
@@ -332,7 +325,7 @@ export class ReplicaBalancer {
     }
 
     await this.primaryPool.end();
-    
+
     for (const pool of this.replicaPools.values()) {
       await pool.end();
     }
@@ -378,10 +371,7 @@ function parseReplicaConfig(): DatabaseInstance[] {
   while (true) {
     const url = process.env[`DATABASE_REPLICA_${index}_URL`];
     const region = process.env[`DATABASE_REPLICA_${index}_REGION`] || 'us-east-1';
-    const priority = parseInt(
-      process.env[`DATABASE_REPLICA_${index}_Priority`] || '10',
-      10
-    );
+    const priority = parseInt(process.env[`DATABASE_REPLICA_${index}_Priority`] || '10', 10);
 
     if (!url) {
       break;
@@ -404,7 +394,7 @@ function parseReplicaConfig(): DatabaseInstance[] {
 /**
  * Execute a read query using the replica balancer
  */
-export async function query<T extends Record<string, any> = Record<string, any>>(
+export function query<T extends Record<string, any> = Record<string, any>>(
   text: string,
   params?: any[],
   options?: QueryOptions
@@ -416,7 +406,7 @@ export async function query<T extends Record<string, any> = Record<string, any>>
 /**
  * Execute a write query using the replica balancer
  */
-export async function write<T extends Record<string, any> = Record<string, any>>(
+export function write<T extends Record<string, any> = Record<string, any>>(
   text: string,
   params?: any[]
 ): Promise<QueryResult<T>> {

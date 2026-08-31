@@ -8,7 +8,6 @@ import {
   type LeaderboardPlanter,
   type LeaderboardPeriod,
   type LeaderboardCategory,
-  type BonusReward,
 } from '@/lib/types/leaderboard';
 import {
   fetchLeaderboard as fetchSponsorLeaderboard,
@@ -16,13 +15,7 @@ import {
 } from '@/lib/api/mock/leaderboard';
 import { Button } from '@/components/atoms/Button';
 import { Text } from '@/components/atoms/Text';
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-  CardContent,
-} from '@/components/molecules/Card';
+import { Card, CardContent } from '@/components/molecules/Card';
 import {
   Table,
   TableBody,
@@ -33,14 +26,9 @@ import {
 } from '@/components/ui/table';
 import {
   TreePine,
-  TrendingUp,
   Trophy,
-  Medal,
   Loader2,
-  ArrowUp,
-  ArrowDown,
   Minus,
-  Crown,
   Sparkles,
   Gift,
   Leaf,
@@ -58,22 +46,21 @@ type MockWallet = {
 const useWalletContext = (): { wallet: MockWallet | null } => ({ wallet: null });
 
 // Mock function (replace with your actual API call)
-async function fetchLeaderboard(
+function fetchLeaderboard(
   period: LeaderboardPeriod,
   category: LeaderboardCategory
 ): Promise<LeaderboardSponsor[] | LeaderboardPlanter[]> {
   if (category === 'sponsors') {
-    return await fetchSponsorLeaderboard(period);
+    return fetchSponsorLeaderboard(period);
   } else {
-    return await fetchPlanterLeaderboard(period);
+    return fetchPlanterLeaderboard(period);
   }
 }
 
 // Mock function (replace with your actual stats logic)
 function getMockUserStats(
   address: string,
-  period: LeaderboardPeriod,
-  category: LeaderboardCategory
+  period: LeaderboardPeriod
 ): LeaderboardSponsor | LeaderboardPlanter | null {
   // Generate a custom mock ranking for the current user
   return {
@@ -93,7 +80,6 @@ function formatAddress(address: string) {
 
 function LeaderboardContent() {
   const { wallet } = useWalletContext();
-  const isConnected = Boolean(wallet?.isConnected);
   const [period, setPeriod] = useState<LeaderboardPeriod>('monthly');
   const [category, setCategory] = useState<LeaderboardCategory>('sponsors');
   const [entries, setEntries] = useState<LeaderboardSponsor[] | LeaderboardPlanter[]>([]);
@@ -119,7 +105,7 @@ function LeaderboardContent() {
 
   // User details
   const userAddress = wallet?.publicKey || '';
-  const userStats = userAddress ? getMockUserStats(userAddress, period, category) : null;
+  const userStats = userAddress ? getMockUserStats(userAddress, period) : null;
   const _isUserInTop10 = userStats
     ? entries.some((s) => s.address.toLowerCase() === userAddress.toLowerCase())
     : false;
@@ -335,30 +321,31 @@ function LeaderboardContent() {
                         </span>
                       </div>
                     </div>
-                                    {period === 'monthly' && (() => {
-                      const bonus = 'bonus' in topThree[1] ? topThree[1].bonus : undefined;
-                      if (!bonus) return null;
-                      return (
-                        <div className="mt-4 pt-3 border-t border-amber-500/30">
-                          <div className="flex items-center justify-center gap-2 text-amber-400">
-                            <Gift className="w-4 h-4" />
-                            <span className="text-xs font-semibold uppercase tracking-wide">
-                              Bonus Reward
-                            </span>
+                    {period === 'monthly' &&
+                      (() => {
+                        const bonus = 'bonus' in topThree[1] ? topThree[1].bonus : undefined;
+                        if (!bonus) return null;
+                        return (
+                          <div className="mt-4 pt-3 border-t border-amber-500/30">
+                            <div className="flex items-center justify-center gap-2 text-amber-400">
+                              <Gift className="w-4 h-4" />
+                              <span className="text-xs font-semibold uppercase tracking-wide">
+                                Bonus Reward
+                              </span>
+                            </div>
+                            <p className="text-xs text-amber-300 mt-1">{bonus.description}</p>
+                            {bonus.claimed ? (
+                              <span className="inline-block mt-2 text-xs bg-amber-500/20 text-amber-400 px-2 py-1 rounded-full">
+                                Claimed
+                              </span>
+                            ) : (
+                              <button className="mt-2 text-xs bg-amber-500 hover:bg-amber-600 text-slate-950 font-semibold px-3 py-1.5 rounded-full transition-colors">
+                                Claim Bonus
+                              </button>
+                            )}
                           </div>
-                          <p className="text-xs text-amber-300 mt-1">{bonus.description}</p>
-                          {bonus.claimed ? (
-                            <span className="inline-block mt-2 text-xs bg-amber-500/20 text-amber-400 px-2 py-1 rounded-full">
-                              Claimed
-                            </span>
-                          ) : (
-                            <button className="mt-2 text-xs bg-amber-500 hover:bg-amber-600 text-slate-950 font-semibold px-3 py-1.5 rounded-full transition-colors">
-                              Claim Bonus
-                            </button>
-                          )}
-                        </div>
-                      );
-                    })()}
+                        );
+                      })()}
                   </div>
                 </div>
 
@@ -408,30 +395,31 @@ function LeaderboardContent() {
                         </span>
                       </div>
                     </div>
-                    {period === 'monthly' && (() => {
-                      const bonus = 'bonus' in topThree[0] ? topThree[0].bonus : undefined;
-                      if (!bonus) return null;
-                      return (
-                        <div className="mt-4 pt-3 border-t border-amber-500/30">
-                          <div className="flex items-center justify-center gap-2 text-amber-400">
-                            <Gift className="w-4 h-4" />
-                            <span className="text-xs font-semibold uppercase tracking-wide">
-                              Bonus Reward
-                            </span>
+                    {period === 'monthly' &&
+                      (() => {
+                        const bonus = 'bonus' in topThree[0] ? topThree[0].bonus : undefined;
+                        if (!bonus) return null;
+                        return (
+                          <div className="mt-4 pt-3 border-t border-amber-500/30">
+                            <div className="flex items-center justify-center gap-2 text-amber-400">
+                              <Gift className="w-4 h-4" />
+                              <span className="text-xs font-semibold uppercase tracking-wide">
+                                Bonus Reward
+                              </span>
+                            </div>
+                            <p className="text-xs text-amber-300 mt-1">{bonus.description}</p>
+                            {bonus.claimed ? (
+                              <span className="inline-block mt-2 text-xs bg-amber-500/20 text-amber-400 px-2 py-1 rounded-full">
+                                Claimed
+                              </span>
+                            ) : (
+                              <button className="mt-2 text-xs bg-amber-500 hover:bg-amber-600 text-slate-950 font-semibold px-3 py-1.5 rounded-full transition-colors">
+                                Claim Bonus
+                              </button>
+                            )}
                           </div>
-                          <p className="text-xs text-amber-300 mt-1">{bonus.description}</p>
-                          {bonus.claimed ? (
-                            <span className="inline-block mt-2 text-xs bg-amber-500/20 text-amber-400 px-2 py-1 rounded-full">
-                              Claimed
-                            </span>
-                          ) : (
-                            <button className="mt-2 text-xs bg-amber-500 hover:bg-amber-600 text-slate-950 font-semibold px-3 py-1.5 rounded-full transition-colors">
-                              Claim Bonus
-                            </button>
-                          )}
-                        </div>
-                      );
-                    })()}
+                        );
+                      })()}
                   </div>
                 </div>
 
@@ -481,30 +469,31 @@ function LeaderboardContent() {
                         </span>
                       </div>
                     </div>
-                    {period === 'monthly' && (() => {
-                      const bonus = 'bonus' in topThree[2] ? topThree[2].bonus : undefined;
-                      if (!bonus) return null;
-                      return (
-                        <div className="mt-4 pt-3 border-t border-amber-500/30">
-                          <div className="flex items-center justify-center gap-2 text-amber-400">
-                            <Gift className="w-4 h-4" />
-                            <span className="text-xs font-semibold uppercase tracking-wide">
-                              Bonus Reward
-                            </span>
+                    {period === 'monthly' &&
+                      (() => {
+                        const bonus = 'bonus' in topThree[2] ? topThree[2].bonus : undefined;
+                        if (!bonus) return null;
+                        return (
+                          <div className="mt-4 pt-3 border-t border-amber-500/30">
+                            <div className="flex items-center justify-center gap-2 text-amber-400">
+                              <Gift className="w-4 h-4" />
+                              <span className="text-xs font-semibold uppercase tracking-wide">
+                                Bonus Reward
+                              </span>
+                            </div>
+                            <p className="text-xs text-amber-300 mt-1">{bonus.description}</p>
+                            {bonus.claimed ? (
+                              <span className="inline-block mt-2 text-xs bg-amber-500/20 text-amber-400 px-2 py-1 rounded-full">
+                                Claimed
+                              </span>
+                            ) : (
+                              <button className="mt-2 text-xs bg-amber-500 hover:bg-amber-600 text-slate-950 font-semibold px-3 py-1.5 rounded-full transition-colors">
+                                Claim Bonus
+                              </button>
+                            )}
                           </div>
-                          <p className="text-xs text-amber-300 mt-1">{bonus.description}</p>
-                          {bonus.claimed ? (
-                            <span className="inline-block mt-2 text-xs bg-amber-500/20 text-amber-400 px-2 py-1 rounded-full">
-                              Claimed
-                            </span>
-                          ) : (
-                            <button className="mt-2 text-xs bg-amber-500 hover:bg-amber-600 text-slate-950 font-semibold px-3 py-1.5 rounded-full transition-colors">
-                              Claim Bonus
-                            </button>
-                          )}
-                        </div>
-                      );
-                    })()}
+                        );
+                      })()}
                   </div>
                 </div>
               </div>
@@ -649,7 +638,9 @@ function LeaderboardContent() {
                   </div>
 
                   <Button asChild stellar="primary" size="sm">
-                    <Link href={category === 'sponsors' ? '/credits/purchase' : '/planters/register'}>
+                    <Link
+                      href={category === 'sponsors' ? '/credits/purchase' : '/planters/register'}
+                    >
                       {category === 'sponsors' ? 'Increase Impact' : 'Register as Planter'}
                     </Link>
                   </Button>

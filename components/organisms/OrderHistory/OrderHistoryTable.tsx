@@ -20,7 +20,6 @@ import { ExternalLink, Download, FileQuestion } from 'lucide-react';
 export function OrderHistoryTable() {
   const [orders, setOrders] = React.useState<Order[]>([]);
   const [loading, setLoading] = React.useState(true);
-  const [error, setError] = React.useState<string | null>(null);
 
   const [page, setPage] = React.useState(1);
   const [totalPages, setTotalPages] = React.useState(1);
@@ -36,7 +35,6 @@ export function OrderHistoryTable() {
       setOrders(result.data);
       setTotalPages(result.totalPages);
     } catch (err) {
-      setError('Failed to fetch order history.');
       console.error(err);
     } finally {
       setLoading(false);

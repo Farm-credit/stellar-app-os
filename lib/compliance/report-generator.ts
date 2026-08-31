@@ -106,7 +106,7 @@ export class ComplianceReportGenerator {
     };
   }
 
-  private async fetchReportData(
+  private fetchReportData(
     reportType: ComplianceReportType,
     registry: ComplianceRegistry,
     dateRange?: { startDate: Date; endDate: Date },
@@ -127,35 +127,41 @@ export class ComplianceReportGenerator {
 
     switch (reportType) {
       case 'carbon-credits':
-        return await this.generateCarbonCreditRecords(
-          filteredTrees,
-          speciesMap,
-          registry,
-          dateRange,
-          _filters
+        return Promise.resolve(
+          this.generateCarbonCreditRecords(filteredTrees, speciesMap, registry, dateRange, _filters)
         );
       case 'project-registry':
-        return await this.generateProjectRegistryRecords(
-          filteredTrees,
-          speciesMap,
-          registry,
-          dateRange,
-          _filters
+        return Promise.resolve(
+          this.generateProjectRegistryRecords(
+            filteredTrees,
+            speciesMap,
+            registry,
+            dateRange,
+            _filters
+          )
         );
       case 'tree-inventory':
-        return await this.generateTreeInventoryRecords(
-          filteredTrees,
-          speciesMap,
-          registry,
-          dateRange,
-          _filters
+        return Promise.resolve(
+          this.generateTreeInventoryRecords(
+            filteredTrees,
+            speciesMap,
+            registry,
+            dateRange,
+            _filters
+          )
         );
       case 'verification-audits':
-        return await this.generateVerificationAuditRecords(filteredTrees, registry, dateRange, _filters);
+        return Promise.resolve(
+          this.generateVerificationAuditRecords(filteredTrees, registry, dateRange, _filters)
+        );
       case 'issuance-report':
-        return await this.generateIssuanceReportRecords(filteredTrees, registry, dateRange, _filters);
+        return Promise.resolve(
+          this.generateIssuanceReportRecords(filteredTrees, registry, dateRange, _filters)
+        );
       case 'retirement-report':
-        return await this.generateRetirementReportRecords(filteredTrees, registry, dateRange, _filters);
+        return Promise.resolve(
+          this.generateRetirementReportRecords(filteredTrees, registry, dateRange, _filters)
+        );
       default:
         throw new Error(`Unknown report type: ${reportType}`);
     }
@@ -626,7 +632,12 @@ export class ComplianceReportGenerator {
   }
 
   private csvEscape(value: string): string {
-    if (value.includes(',') || value.includes('"') || value.includes('\n') || value.includes('\r')) {
+    if (
+      value.includes(',') ||
+      value.includes('"') ||
+      value.includes('\n') ||
+      value.includes('\r')
+    ) {
       return '"' + value.replace(/"/g, '""') + '"';
     }
     return value;
@@ -645,7 +656,9 @@ export class ComplianceReportGenerator {
       this.recordToCSVRow(record, reportType, headers).map((v) => this.csvEscape(v))
     );
 
-    return [headers.map((h) => this.csvEscape(h)).join(','), ...rows.map((r) => r.join(','))].join('\n');
+    return [headers.map((h) => this.csvEscape(h)).join(','), ...rows.map((r) => r.join(','))].join(
+      '\n'
+    );
   }
 
   private getCSVHeadersForType(reportType: ComplianceReportType): string[] {
