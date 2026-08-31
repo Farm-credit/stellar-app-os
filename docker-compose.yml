@@ -7,6 +7,8 @@
 #   Production:   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
 # ────────────────────────────────────────────────────────────
 
+version: '3.8'
+
 services:
   # ─── PostgreSQL ───────────────────────────────────────────
   postgres:
@@ -171,6 +173,35 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    networks:
+      - harvesta
+
+  # ─── Monitoring (Prometheus / Grafana) ───────────────────
+  prometheus:
+    image: prom/prometheus
+    ports:
+      - "9090:9090"
+    networks:
+      - harvesta
+
+  grafana:
+    image: grafana/grafana
+    ports:
+      - "3001:3000"
+    networks:
+      - harvesta
+
+  node-exporter:
+    image: prom/node-exporter
+    ports:
+      - "9100:9100"
+    networks:
+      - harvesta
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor
+    ports:
+      - "8080:8080"
     networks:
       - harvesta
 

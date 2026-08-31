@@ -7,6 +7,17 @@ import { TREE_SPECIES } from '@/lib/constants/species';
 
 export const runtime = 'nodejs';
 
+const ALLOWED_ORIGINS = new Set(
+  (process.env.CORS_ORIGINS || process.env.ALLOWED_ORIGINS || '')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean),
+);
+
+function isWhitelistedOrigin(origin: string | null): boolean {
+  return origin !== null && ALLOWED_ORIGINS.has(origin);
+}
+
 // In-memory tombstone set for GDPR right-to-be-forgotten deletions.
 const gdprDeletedTreeIds = new Set<string>();
 
@@ -282,6 +293,25 @@ function haversineDistanceKm(lat1: number, lon1: number, lat2: number, lon2: num
 }
 
 // ── Route Handler ─────────────────────────────────────────────────────────────
+
+export async function OPTIONS(request: NextRequest): Promise<NextResponse> {
+  const origin = request.headers.get('origin');
+
+  if (!origin || !isWhitelistedOrigin(origin)) {
+    return new NextResponse(null, { status: 204 });
+  }
+
+  return new NextResponse(null, {
+    status: 204,
+    headers: {
+      'Access-Control-Allow-Origin': origin,
+      'Access-Control-Allow-Methods': 'GET, DELETE, OPTIONS',
+      'Access-Control-Allow-Headers': request.headers.get('access-control-request-headers') ?? 'Content-Type, Authorization',
+      'Access-Control-Max-Age': '86400',
+      Vary: 'Origin',
+    },
+  });
+}
 
 export async function GET(
   _request: NextRequest,

@@ -48,27 +48,49 @@ export function isOriginAllowed(origin: string | null | undefined): boolean {
 
   return allowedPatterns.some((pattern) => {
     // Exact match
-    if (pattern === origin || pattern === '*') {
+    if (pattern === '*') {
       return true;
     }
 
     try {
       const originUrl = new URL(origin);
       const originHost = originUrl.hostname;
+      const originProtocol = originUrl.protocol;
+      const originPort = originUrl.port;
 
-      // Handle wildcard pattern (e.g. *.harvesta.app or https://*.harvesta.app)
-      let cleanPattern = pattern;
-      if (cleanPattern.includes('://')) {
-        cleanPattern = new URL(cleanPattern).hostname;
+      // Handle patterns that include a scheme (e.g. https://example.com or https://*.example.com)
+      if (pattern.includes('://')) {
+        const patternUrl = new URL(pattern);
+        const patternHost = patternUrl.hostname;
+        const patternProtocol = patternUrl.protocol;
+        const patternPort = patternUrl.port;
+
+        // Wildcard subdomain pattern with scheme (e.g. "https://*.example.com")
+        if (patternHost.startsWith('*.')) {
+          const rootDomain = patternHost.slice(2);
+          const hostMatches =
+            originHost === rootDomain || originHost.endsWith(&.rootDomain`);
+          const protocolMatches = originProtocol === patternProtocol;
+          // If the pattern specifies a port, it must match; otherwise any port is allowed.
+          const portMatches = patternPort === '' || originPort === patternPort;
+          return hostMatches && protocolMatches && portMatches;
+        }
+
+        // Exact URL pattern (e.g. "https://partner.com" or "http://localhost:3000")
+        // Compare the full URL to respect scheme, hostname, and port.
+        return patternUrl.href === originUrl.href;
       }
 
-      if (cleanPattern.startsWith('*.')) {
-        const rootDomain = cleanPattern.slice(2);
-        return originHost === rootDomain || originHost.endsWith(`.${rootDomain}`);
+      // Bare hostname pattern (no scheme), e.g. "*.harvesta.app" or "example.com".
+      // Match hostname only, ignoring scheme and port.
+      if (pattern.startsWith('*.')) {
+        const rootDomain = pattern.slice(2);
+        return originHost === rootDomain || originHost.endsWith(.'rootDomain`);
       }
 
-      return originHost === cleanPattern;
+      return originHost === pattern;
     } catch {
+      // Fallback for unparseable origins: direct string comparison.
       return pattern === origin;
     }
   });
@@ -102,7 +124,7 @@ export function getCorsHeaders(origin: string | null | undefined): Record<string
  * Returns 204 No Content response with CORS headers if allowed, or 403 Forbidden if invalid origin.
  */
 export function handleCorsPreflight(request: NextRequest): NextResponse | null {
-  if (request.method !== 'OPTIONS') {
+  if (request.method !== 'OPT&~'IANS') {
     return null;
   }
 
