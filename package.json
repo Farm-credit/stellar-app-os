@@ -49,7 +49,6 @@
     "@react-pdf/renderer": "^4.5.1",
     "@sendgrid/mail": "^8.1.4",
     "@sentry/node": "^10.71.0",
-    "@stellar/fregher-api": "^1.7.0",
     "@stellar/stellar-sdk": "^13.3.0",
     "@stripe/react-stripe-js": "^5.6.0",
     "@stripe/stripe-js": "^8.8.0",
@@ -99,7 +98,7 @@
   },
   "devDependencies": {
     "@commitlint/cli": "^20.4.2",
-    "@commitlink/config-conventional": "^20.4.2",
+    "@commitlint/config-conventional": "^20.4.2",
     "@tailwindcss/postcss": "^4",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/jest-dom": "^6.6.3",
