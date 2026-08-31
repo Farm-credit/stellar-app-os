@@ -1,13 +1,15 @@
 name: Process Pull Requests
 
 on:
+  pull_request_target:
+    types: [opened, reopened, synchronize]
   schedule:
-    # Runs every hour at minute 0 (adjust cron expression as needed, e.g., '*/30 * * * *' for every 30 mins)
-    - cron: '0 * * * *'
+    # Runs every 15 minutes as a fallback sync/cleanup
+    - cron: '*/15 * * * *'
   workflow_dispatch: {} # Allows manual trigger from Actions tab
 
 concurrency:
-  group: process-prs-cron
+  group: process-prs
   cancel-in-progress: false # Avoid interrupting active PR merges/reviews
 
 jobs:
@@ -34,5 +36,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
+          PYTHONUNBUFFERED: "1"
         run: |
           python3 scripts/process_prs.py

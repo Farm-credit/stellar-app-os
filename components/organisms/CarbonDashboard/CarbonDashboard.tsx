@@ -392,6 +392,15 @@ export function CarbonDashboard() {
       <div className="grid grid-cols-1 gap-6">
         <BadgesList badges={mockBadges} />
       </div>
+
+      {/* Impact Comparison Section */}
+      <div className="grid grid-cols-1 gap-6">
+        <SponsorImpactComparison
+          sponsorCo2OffsetKg={activeStats.totalOffsetKg}
+          sponsorTreeCount={activeStats.totalTrees}
+          isLoading={isLoading}
+        />
+      </div>
     </div>
   );
 }

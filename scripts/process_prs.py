@@ -5,6 +5,10 @@ import sys
 import os
 from datetime import datetime, timezone, timedelta
 
+# Enable real-time unbuffered output
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(line_buffering=True)
+
 # Default repository for this workspace (can also be overridden via REPO env var or argument)
 REPO = os.getenv("GITHUB_REPOSITORY", "Farm-credit/stellar-app-os")
 MERGE_COMMENT = "Thanks for the work. Kindly ensure you offramp with Fundable at [https://stellar.fundable.finance/offramp](https://stellar.fundable.finance/offramp)"

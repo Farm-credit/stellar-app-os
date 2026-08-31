@@ -66,9 +66,38 @@ export async function emitPlanterTreeHealthUpdated(
 ): Promise<WebhookDeliveryRow[]> {
   try {
     const pool = getPool();
-    return await dispatchEvent(pool, 'planter.tree.health.updated', { ...payload });
+    const legacyPayload = { ...payload };
+    const canonicalPayload = {
+      planterWallet: payload.planterWallet,
+      sponsorWallet: payload.planterWallet,
+      treeId: payload.treeId,
+      previousStatus: payload.previousHealth,
+      newStatus: payload.newHealth,
+      transactionHash: payload.transactionHash,
+      explorerUrl: payload.explorerUrl,
+      changedAt: payload.updatedAt,
+    };
+
+    const results = await Promise.all([
+      dispatchEvent(pool, 'planter.tree.health.updated', legacyPayload),
+      dispatchEvent(pool, 'tree.status.changed', canonicalPayload),
+    ]);
+
+    return results.flat();
   } catch (err) {
     console.error('[webhook] failed to emit planter.tree.health.updated', err);
+    return [];
+  }
+}
+
+export async function emitTreeStatusChanged(
+  payload: Record<string, unknown>
+): Promise<WebhookDeliveryRow[]> {
+  try {
+    const pool = getPool();
+    return await dispatchEvent(pool, 'tree.status.changed', { ...payload });
+  } catch (err) {
+    console.error('[webhook] failed to emit tree.status.changed', err);
     return [];
   }
 }

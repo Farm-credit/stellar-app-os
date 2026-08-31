@@ -161,3 +161,60 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  # ── Phase 4: Lighthouse performance (frontend) ────────────────────────────
+
+  lighthouse:
+    name: Lighthouse
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: [build]
+    env:
+      NODE_OPTIONS: --max-old-space-size=5120
+      NEXT_PUBLIC_STELLAR_NETWORK: testnet
+      NEXT_PUBLIC_HORIZON_URL: https://horizon-testnet.stellar.org
+      NEXT_PUBLIC_SOROBAN_RPC_URL: https://soroban-testnet.stellar.org
+      NEXT_PUBLIC_NETWORK_PASSPHRASE: "Test SDF Network ; September 2015"
+      NEXT_PUBLIC_USDC_ISSUER: GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5
+      NEXT_PUBLIC_TREE_ISSUER: GCIBUILD000000000000000000000000000000000000000000000000
+      NEXT_PUBLIC_CARBON_CREDIT_ISSUER: GDUKMGUGDORQJH6YWY4RHDE6GV3NCYCBN3MORXYL43TSJPCCZFLNOA5H
+      NEXT_PUBLIC_CONTRACT_TREE_ESCROW: CBUILD0000000000000000000000000000000000000000000000000000
+      NEXT_PUBLIC_CONTRACT_ESCROW_MILESTONE: CBUILD0000000000000000000000000000000000000000000000000000
+      NEXT_PUBLIC_CONTRACT_LOCATION_PROOF: CBUILD0000000000000000000000000000000000000000000000000000
+      NEXT_PUBLIC_CONTRACT_NULLIFIER_REGISTRY: CBUILD0000000000000000000000000000000000000000000000000000
+      NEXT_PUBLIC_PLANTING_ADDRESS: GABEMKJNR4GK7M4FROGA7I7PG63N2CKE3EGDSBSISG56SVL2O3KRNDXA
+      NEXT_PUBLIC_REPLANTING_BUFFER_ADDRESS: GBUQWP3BOUZX34TOND2QV7QQ7K7VJTG6VSE62MFPXXXIAGKZ6YTDCXI
+      NEXT_PUBLIC_BULK_RECIPIENT_ADDRESS: GABEMKJNR4GK7M4FROGA7I7PG63N2CKE3EGDSBSISG56SVL2O3KRNDXA
+      NEXT_PUBLIC_ANCHOR_API_URL: https://testanchor.stellar.org
+      NEXT_PUBLIC_ANCHOR_HOME_DOMAIN: testanchor.stellar.org
+      NEXT_PUBLIC_APP_URL: http://localhost:3000
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Build
+        run: pnpm build
+      - name: Run Lighthouse CI
+        uses: treosh/lighthouse-ci-action@v12
+        with:
+          runs: 3
+          urls: |
+            http://localhost:3000/
+          server: pnpm start
+          config: |
+            {
+              "ci": {
+                "assert": {
+                  "categories:performance": ["error", { "minScore": 0.9 }],
+                  "categories:accessibility": ["error", { "minScore": 0.9 }],
+                  "categories:best-practices": ["error", { "minScore": 0.9 }]
+                }
+              }
+            }
+          uploadArtifacts: true
+          temporaryPublicStorage: false
+

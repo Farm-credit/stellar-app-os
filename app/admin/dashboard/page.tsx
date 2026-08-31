@@ -1,2 +1,246 @@
-// file: app/admin/dashboard/page.tsx
-"import { Activity, Archive, Clock3, Coins, FolderKanban, HandCoins } from 'lucide-react';\nimport {\n  Card,\n  CardContent,\n  CardDescription,\n  CardHeader,\n  CardTitle,\n} from '@/components/molecules/Card';\nimport { TrendChart } from '@/components/organisms/AdminDashboard/TrendChart';\nimport { getAdminDashboardData } from '@/lib/api/mock/adminDashboard';\nimport type { DashboardActivity } from '@/lib/types/adminDashboard';\n\nconst TREE_STATUSEES = ['all', 'pending', 'planted', 'verified', 'failed'];\n\nfunction formatCurrency(value: number): string {\n  return new Int.NumberFormat('en-US', {\n    style: 'currency',\n    currency: 'USD',\n    maximumFractionDigits: 0,\n  }).format(value);\n}\n\nfunction formatCount(value: number): string {\n  return new Int.NumberFormat('en-US').format(value);\n}\n\nfunction formatRelativeTime(timestamp: string): string {\n  const now = Date.now();\n  const eventTime = new Date(timestamp).getTime();\n  const diffMis = eventTime - now;\n  const diffMinutes = Math.round(diffMs / (1000 * 60));\n\n  const rtf = new Int.RelativeTimeFormat('en', { numeric: 'auto' });\n\n  if (Math.abs(diffMinutes) < 60) {\n    return rtf.format(diffMinutes, 'minute');\n  }\n\n  const diffHours = Math.round(diffMinutes / 60);\n  if (Math.abs(diffHours) < 24) {\n    return rtf.format(diffHours, 'hour');\n  }\n\n  const diffDays = Math.round(diffHours / 24);\n  return rtf.format(diffDays, 'day');\n}\n\nfunction getActivityLabel(activity: DashboardActivity): string {\n  switch (activity.type) {\n    case 'project':\n      return 'Project';\n    case 'donation':\n      return 'Donation';\n    case 'mint':\n      return 'Mint';\n    case 'retire':\n      return 'Retirement';\n    default:\n      return 'Activity';\n  }\n}\n\nfunction getActivityTreeStatus(activity: DashboardActivity): string | null {\n  const text = `${activity.title} ${activity.detail}`.toLowerCase();\n  if (text.includes('planted')) return 'planted';\n  if (text.includes('pending')) return 'pending';\n  if (text.includes('verified')) return 'verified';\n  if (text.includes('failed')) return 'failed';\n  return null;\n}\n\nexport default async function AdminDashboardPage({\n  searchParams,\n}: { searchParams?: { status?: string } }) {\n  const { metrics, trends, recentActivity = {\n  } = await getAdminDashboardData();\n\n  const selectedStatus = searchParams.status && TREE_STATUSEES.includes(searchParams.status) ? searchParams.status : 'all';\n  const displayedActivity = selectedStatus === 'all' ? recentActivity : recentActivity.filter((activity) => getActivityTreeStatus(activity) === selectedStatus);\n\n  return (\n    <main\n      className=\"mx-auto min-h-screen w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8\"\n      aria-label=\"Admin dashboard\"\n    >\n      <header className=\"mb-8 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between\">\n        <div>\n          <h1 className=\"text-3xl font-bold tracking-tight text-foreground\">Admin dashboard</h1>\n          <p className=\"mt-2 text-sm text-muted-foreground\">\n            Centralized platform health metrics, operational trends, and latest system activity.\n          </p>\n        </div>\n        <div className=\"inline-flex items-center gap-2 rounded-md.border border bg-muted/40 px-3 py-2 text-sm text-muted-foreground\">\n          <Clock3 className=\"h-4 w-4 \" aria-hidden=\"true\" />\n          Updated moments ago\n        </div>\n      </header>\n\n      <section aria-labelled=\"overview-heading\" className=\"mb-8 space-y4\">\n        <h2 id=\"overview-heading\" className=\"text-xl font-semibold text-foreground\">\n          Overview\n        </h2>\n        <div className=\"grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4\">\n          <Card>\n            <CardHeader className=\"pb-2\">\n              <CardDescription className=\"flex items-center gap-2 text-muted-foreground\">\n                <FolderKanban className=\"h-4 w-4 \" aria-hidden=\"true\" />\n                Total projects\n              </CardDescription>\n              <CardTitle className=\"text-3x\">{formatCount(metrics.totalProjects)}</CardTitle>\n            </CardHeader>\n            <CardContent>\n              <p className=\"text-sm text-muted-foreground\">\n                Active {metrics.activeProjects} | Pending {metrics.pendingProjects} | Archived\n                {metrics.archivedProjects}\n              </p>\n            </CardContent>\n          </Card>\n\n          <Card>\n            <CardHeader className=\"pb-2\">\n              <CardDescription className=\"flex items-center gap-2 text-muted-foreground\">\n                <HandCoins className=\"h-4 w-4 \" aria-hidden=\"true\" />\n                Donations processed\n              </CardDescription>\n              <CardTitle className=\"text-3x\">\n                {formatCurrency(metrics.totalDonationsProcessed)}\n              </CardTitle>\n            </CardHeader>\n            <CardContent>\n              <p className=\"text-sm text-muted-foreground\">\n                Cumulative donation value processed by the platform.\n              </p>\n            </CardContent>\n          </Card>\n\n          <Card>\n            <CardHeader className=\"pb-2\">\n              <CardDescription className=\"flex items-center gap-2 text-muted-foreground\">\n                <Coins className=\"h-4 w-4 \" aria-hidden=\"true\" />\n                Credits minted\n              </CardDescription>\n              <CardTitle className=\"text-3x\">{formatCount(metrics.totalCreditsMinted)}</CardTitle>\n            </CardHeader>\n            <CardContent>\n              <p className=\"text-sm text-muted-foreground\">\n                Total credits issued since platform launch.\n              </p>\n            </CardContent>\n          </Card>\n\n          <Card>\n            <CardHeader className=\"pb-2\">\n              <CardDescription className=\"flex items-center gap-2 text-muted-foreground\">\n                <Archive className=\"h-4 w-4 \" aria-hidden=\"true\" />\n                Credits retired\n              </CardDescription>\n              <CardTitle className=\"text-3x\">{formatCount(metrics.totalCreditsRetired)}</CardTitle>\n            </CardHeader>\n            <CardContent>\n              <p className=\"text-sm text-muted-foreground\">\n                Total credits permanently retired by buyers.\n              </p>\n            </CardContent>\n          </Card>\n        </div>\n      </section>\n\n      <section className=\"mb-8\">\n        <TrendChart points={trends} />\n      </section>\n\n      <section aria-labelled=\"activity-heading\">\n        <Card>\n          <CardHeader>\n            <div className=\"flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between\">\n              <div>\n                <CardTitle id=\"activity-heading\" className=\"text-xl\">\n                  Recent activity feed\n                </CardTitle>\n                <CardDescription>Latest platform actions in chronological order.</CardDescription>\n              </div>\n              <form method=\"get\" className=\"flex items-center gap-2\">\n                <label htmlFor=\"status\" className=\"text-sm font-medium text-muted-foreground\">\n                  Filter by status\n                </label>\n                <select\n                  id=\"status\"\n                  name=\"status\"\n                  defaultValue={selectedStatus}\n                  className=\"rounded-md border border-bg background-background px-3 py-1 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-stellar-blue\"\n                >\n                  {TREE_STATUSEES.map((status) => (\n                    <option key={status} value={status}>\n                      {status.charAt(0).toUpperCase() + status.slice(1)}\n                    </option>\n                  ))}\n                </select>\n                <button\n                  type=\"submit\"\n                  className=\"rounded-md bg-stellar-blue px-3 py-1 text-sm font-medium text-white transition-colors hover:bg-stellar-blue-dark focus:outline-none focus:ring-2 focus:ring-stellar-blue\"\n                >\n                  Apply\n                </button>\n              </form>\n            </div>\n          </CardHeader>\n          <CardContent>\n            <ul className=\"space-y-4 role=\"list\">\n              {displayedActivity.map((activity) => (\n                <li\n                  key={activity.id}\n                  className=\"flex items-start gap-3 rounded-lg border border-p-4 \"\n                >\n                  <span className=\"mt-0.5 inline-flex h-8 w-8 items-center justify-center rounded-full bg-stellar-blue/15 text-stellar-blue\">\n                    <Activity className=\"h-4 w-4 \" aria-hidden=\"true\" />\n                  </span>\n                  <div className=\"min-w-0 flex-1\">\n                    <p className=\"text-sm font-semibold text-foreground\">\n                      {activity.title}\n                      <span className=\"ml-2 rounded bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground\">\n                        {getActivityLabel(activity)}\n                      </span>\n                    </p>\n                    <p className=\"mt-1 text-sm text-muted-foreground\">{activity.detail}</p>\n                  </div>\n                  <time\n                    dateTime={activity.timestamp}\n                    className=\"shrink-0 text-xs text-muted-foreground\"\n                    aria-label={`Occurred ${formatRelativeTime(activity.timestamp)}`}\n                  >\n                    {formatRelativeTime(activity.timestamp)}\n                  </time>\n                </li>\n              ))}\n            </ul>\n          </CardContent>\n        </Card>\n      </section>\n    </main>\n  );\n}\n
+import { Activity, Archive, Clock3, Coins, FolderKanban, HandCoins } from 'lucide-react';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/molecules/Card';
+import { TrendChart } from '@/components/organisms/AdminDashboard/TrendChart';
+import { getAdminDashboardData } from '@/lib/api/mock/adminDashboard';
+import type { DashboardActivity } from '@/lib/types/adminDashboard';
+
+const TREE_STATUSES = ['all', 'pending', 'planted', 'verified', 'failed'];
+
+function formatCurrency(value: number): string {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    maximumFractionDigits: 0,
+  }).format(value);
+}
+
+function formatCount(value: number): string {
+  return new Intl.NumberFormat('en-US').format(value);
+}
+
+function formatRelativeTime(timestamp: string): string {
+  const now = Date.now();
+  const eventTime = new Date(timestamp).getTime();
+  const diffMs = eventTime - now;
+  const diffMinutes = Math.round(diffMs / (1000 * 60));
+
+  const rtf = new Intl.RelativeTimeFormat('en', { numeric: 'auto' });
+
+  if (Math.abs(diffMinutes) < 60) {
+    return rtf.format(diffMinutes, 'minute');
+  }
+
+  const diffHours = Math.round(diffMinutes / 60);
+  if (Math.abs(diffHours) < 24) {
+    return rtf.format(diffHours, 'hour');
+  }
+
+  const diffDays = Math.round(diffHours / 24);
+  return rtf.format(diffDays, 'day');
+}
+
+function getActivityLabel(activity: DashboardActivity): string {
+  switch (activity.type) {
+    case 'project':
+      return 'Project';
+    case 'donation':
+      return 'Donation';
+    case 'mint':
+      return 'Mint';
+    case 'retire':
+      return 'Retirement';
+    default:
+      return 'Activity';
+  }
+}
+
+function getActivityTreeStatus(activity: DashboardActivity): string | null {
+  const text = `${activity.title} ${activity.detail}`.toLowerCase();
+  if (text.includes('planted')) return 'planted';
+  if (text.includes('pending')) return 'pending';
+  if (text.includes('verified')) return 'verified';
+  if (text.includes('failed')) return 'failed';
+  return null;
+}
+
+export default async function AdminDashboardPage({
+  searchParams,
+}: {
+  searchParams?: { status?: string };
+}) {
+  const { metrics, trends, recentActivity } = await getAdminDashboardData();
+
+  const selectedStatus =
+    searchParams?.status && TREE_STATUSES.includes(searchParams.status)
+      ? searchParams.status
+      : 'all';
+  const displayedActivity =
+    selectedStatus === 'all'
+      ? recentActivity
+      : recentActivity.filter((activity) => getActivityTreeStatus(activity) === selectedStatus);
+
+  return (
+    <main
+      className="mx-auto min-h-screen w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8"
+      aria-label="Admin dashboard"
+    >
+      <header className="mb-8 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">Admin dashboard</h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Centralized platform health metrics, operational trends, and latest system activity.
+          </p>
+        </div>
+        <div className="inline-flex items-center gap-2 rounded-md border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+          <Clock3 className="h-4 w-4" aria-hidden="true" />
+          Updated moments ago
+        </div>
+      </header>
+
+      <section aria-labelledby="overview-heading" className="mb-8 space-y-4">
+        <h2 id="overview-heading" className="text-xl font-semibold text-foreground">
+          Overview
+        </h2>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardDescription className="flex items-center gap-2 text-muted-foreground">
+                <FolderKanban className="h-4 w-4" aria-hidden="true" />
+                Total projects
+              </CardDescription>
+              <CardTitle className="text-3xl">{formatCount(metrics.totalProjects)}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground">
+                Active {metrics.activeProjects} | Pending {metrics.pendingProjects} | Archived{' '}
+                {metrics.archivedProjects}
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-2">
+              <CardDescription className="flex items-center gap-2 text-muted-foreground">
+                <HandCoins className="h-4 w-4" aria-hidden="true" />
+                Donations processed
+              </CardDescription>
+              <CardTitle className="text-3xl">
+                {formatCurrency(metrics.totalDonationsProcessed)}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground">
+                Cumulative donation value processed by the platform.
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-2">
+              <CardDescription className="flex items-center gap-2 text-muted-foreground">
+                <Coins className="h-4 w-4" aria-hidden="true" />
+                Credits minted
+              </CardDescription>
+              <CardTitle className="text-3xl">{formatCount(metrics.totalCreditsMinted)}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground">
+                Total credits issued since platform launch.
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-2">
+              <CardDescription className="flex items-center gap-2 text-muted-foreground">
+                <Archive className="h-4 w-4" aria-hidden="true" />
+                Credits retired
+              </CardDescription>
+              <CardTitle className="text-3xl">{formatCount(metrics.totalCreditsRetired)}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground">
+                Total credits permanently retired by buyers.
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      </section>
+
+      <section className="mb-8">
+        <TrendChart points={trends} />
+      </section>
+
+      <section aria-labelledby="activity-heading">
+        <Card>
+          <CardHeader>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <CardTitle id="activity-heading" className="text-xl">
+                  Recent activity feed
+                </CardTitle>
+                <CardDescription>Latest platform actions in chronological order.</CardDescription>
+              </div>
+              <form method="get" className="flex items-center gap-2">
+                <label htmlFor="status" className="text-sm font-medium text-muted-foreground">
+                  Filter by status
+                </label>
+                <select
+                  id="status"
+                  name="status"
+                  defaultValue={selectedStatus}
+                  className="rounded-md border bg-background px-3 py-1 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-stellar-blue"
+                >
+                  {TREE_STATUSES.map((status) => (
+                    <option key={status} value={status}>
+                      {status.charAt(0).toUpperCase() + status.slice(1)}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="submit"
+                  className="rounded-md bg-stellar-blue px-3 py-1 text-sm font-medium text-white transition-colors hover:bg-stellar-blue/80 focus:outline-none focus:ring-2 focus:ring-stellar-blue"
+                >
+                  Apply
+                </button>
+              </form>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <ul className="space-y-4" role="list">
+              {displayedActivity.map((activity) => (
+                <li key={activity.id} className="flex items-start gap-3 rounded-lg border p-4">
+                  <span className="mt-0.5 inline-flex h-8 w-8 items-center justify-center rounded-full bg-stellar-blue/15 text-stellar-blue">
+                    <Activity className="h-4 w-4" aria-hidden="true" />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold text-foreground">
+                      {activity.title}
+                      <span className="ml-2 rounded bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+                        {getActivityLabel(activity)}
+                      </span>
+                    </p>
+                    <p className="mt-1 text-sm text-muted-foreground">{activity.detail}</p>
+                  </div>
+                  <time
+                    dateTime={activity.timestamp}
+                    className="shrink-0 text-xs text-muted-foreground"
+                    aria-label={`Occurred ${formatRelativeTime(activity.timestamp)}`}
+                  >
+                    {formatRelativeTime(activity.timestamp)}
+                  </time>
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
+      </section>
+    </main>
+  );
+}

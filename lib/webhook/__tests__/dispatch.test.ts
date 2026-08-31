@@ -236,6 +236,31 @@ describe('dispatchEvent', () => {
     expect(rows.every((r) => r.status === 'success')).toBe(true);
   });
 
+  it('supports tree status change events for third-party subscribers', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => Promise.resolve(fetchResponse(200, 'ok')))
+    );
+
+    mockedRepo.getActiveSubscriptionsForEvent.mockResolvedValue([
+      makeSubscription({ id: 7, url: 'https://app.example.ngrok-free.app/webhooks/tree-status' }),
+    ]);
+    mockedRepo.insertDelivery.mockImplementation(
+      (_pool: Pool, params: Parameters<typeof repository.insertDelivery>[1]) =>
+        Promise.resolve(makeDelivery({ subscription_id: params.subscriptionId, event_type: params.eventType }))
+    );
+
+    const rows = await dispatchEvent(fakePool, 'tree.status.changed', {
+      treeId: 42,
+      status: 'verified',
+      changedAt: '2026-06-01T00:00:00.000Z',
+    });
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0].event_type).toBe('tree.status.changed');
+    expect(rows[0].status).toBe('success');
+  });
+
   it('does nothing when there are no subscriptions', async () => {
     mockedRepo.getActiveSubscriptionsForEvent.mockResolvedValue([]);
     const rows = await dispatchEvent(fakePool, 'milestone.payout.approved', {});

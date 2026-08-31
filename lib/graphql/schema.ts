@@ -1,9 +1,40 @@
 /**
- * GraphQL Schema Definitions for Tree Registry Analytics
- * Issue #833
+ * GraphQL schema for the FarmCredit public data API.
+ *
+ * The schema intentionally exposes read-only resources. Mutations are out of
+ * scope for issue #1017 so clients can compose tree, planter, and contract
+ * queries without changing on-chain or database state.
  */
 
-export const typeDefs = `
+export const typeDefs = `#graphql
+  type Tree {
+    id: ID!
+    treeRef: String!
+    species: String!
+    region: String!
+    status: String!
+    plantedAt: String
+    latitude: Float!
+    longitude: Float!
+    co2OffsetKgPerYear: Float!
+    projectName: String!
+  }
+
+  type Planter {
+    id: ID!
+    name: String!
+    photo: String!
+    region: String!
+    reputationScore: Int!
+    totalTreesPlanted: Int!
+  }
+
+  type Contract {
+    id: ID!
+    name: String!
+    network: String!
+  }
+
   type RegionMetrics {
     region: String!
     countryCode: String
@@ -31,6 +62,19 @@ export const typeDefs = `
   }
 
   type Query {
+    trees(
+      region: String
+      species: String
+      status: String
+      search: String
+      limit: Int = 50
+      offset: Int = 0
+    ): [Tree!]!
+    tree(id: ID!): Tree
+    planters(limit: Int = 50, offset: Int = 0): [Planter!]!
+    planter(id: ID!): Planter
+    contracts: [Contract!]!
+    contract(id: ID!): Contract
     treeRegistryAnalytics(region: String, species: String): AggregateSequestration!
     aggregateMetrics(region: String, species: String): AggregateSequestration!
     metricsByRegion(region: String): [RegionMetrics!]!

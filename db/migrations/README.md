@@ -26,6 +26,9 @@ Migrations are numbered sequentially and should be named in the format: `XXX_des
 - `011_create_sponsor_cohort_retention.sql` - Stores sponsor cohort data, sponsorship events, and monthly retention snapshots (#993)
 - `012_create_school_partnerships.sql` - Stores school partnerships, student memberships, class project batches, and contributions (#1149)
 - `013_create_daily_challenges.sql` - Stores daily challenge templates, sponsor progress, rewards, and streaks (#1158)
+- `014_create_research_tables.sql` - Stores research plot locations, field measurements, satellite metrics, and correction factors for the climate impact study (see `docs/research/climate-impact-methodology.md`)
+- `015_create_email_digests.sql` - Stores pending/sent/failed email digest jobs for the email digest worker (see `lib/workers/email-digest-worker.ts`)
+- `018_add_tree_search_indexes.sql` - Adds indexes on trees (region, species_slug, planter_id) for search query optimization (#1175)
 
 ## Running Migrations
 

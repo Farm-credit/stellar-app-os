@@ -1,6 +1,8 @@
 'use client';
 
 import React from 'react';
+import Link from 'next/link';
+import { Megaphone, ArrowRight } from 'lucide-react';
 import { useReferralStats } from '@/hooks/useReferralStats';
 import ReferralLinkCard from '@/components/ReferralLinkCard';
 import StatsDisplay from '@/components/StatsDisplay';

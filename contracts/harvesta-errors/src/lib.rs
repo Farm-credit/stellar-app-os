@@ -136,6 +136,9 @@ pub enum HarvestaError {
     TreeNotDead = 115,
     InsuranceAlreadyClaimed = 116,
     InsuranceAlreadyPurchased = 117,
+
+    // ── Wholesale multi-signature approval (issue #1089) ──────────────────────
+    WholesaleOrderNotFound = 118,
 }
 
 #[contracterror]

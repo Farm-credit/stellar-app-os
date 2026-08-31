@@ -89,6 +89,13 @@ contracts/
 
 ---
 
+## Documentation & Guides
+
+- [Planter Onboarding & Tree Verification Guide](docs/PLANTER_ONBOARDING_GUIDE.md) — Step-by-step field verification, photo rules, GPS accuracy thresholds, and milestone payout workflow.
+- [Interactive API Documentation](/api-docs) — Interactive developer API reference and OpenAPI live console.
+
+---
+
 ## Getting Started
 
 ### Prerequisites
@@ -4442,3 +4449,5 @@ Generates and returns a downloadable PDF certificate.
 | `CERTIFICATE_EXPLORER_BASE_URL` | `https://stellar.expert/explorer/public/tx` | Base Stellar explorer URL embedded in QR code |
 | `CERTIFICATE_DPI` | `150` | PDF output resolution |
 
+
+<!-- Issue #1090 is a duplicate of an already-implemented feature request. -->

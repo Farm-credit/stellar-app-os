@@ -1,4 +1,4 @@
-[workspace]
+﻿[workspace]
 members = [
     "contract-utils",
     "auth-contract",
@@ -36,6 +36,8 @@ members = [
     "species-catalog",
     "upgrade-timelock",
     "leaderboard",
+    "transparent-proxy",
+    "tree-retirement",
 ]
 resolver = "2"
 

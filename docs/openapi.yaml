@@ -357,19 +357,167 @@ paths:
         "500":
           $ref: "#/components/responses/InternalServerError"
 
-  /api/trees/status:
+  /api/trees/search:
     get:
-      operationId: streamTreeStatus
+      operationId: searchTrees
       tags: [Trees]
-      summary: Server-Sent Events stream for tree status
-      description: Streams real-time tree status updates. Returns text/event-stream.
+      summary: Search trees with advanced filters and pagination
+      description: >
+        Search and filter registered trees across species, regions, life-cycle statuses,
+        planters, CO2 thresholds, and planting date ranges with configurable sorting
+        and full metadata pagination.
+      parameters:
+        - name: q
+          in: query
+          description: Free-text search query across tree ID, species, region, planter, and project name
+          schema:
+            type: string
+            example: "Mangrove Rift"
+        - name: species
+          in: query
+          description: Filter by tree species name
+          schema:
+            type: string
+            enum: [Teak, Moringa, Eucalyptus, Mangrove, Mahogany, Bamboo, Acacia, all]
+            example: "Mangrove"
+        - name: region
+          in: query
+          description: Filter by geographic region or country string
+          schema:
+            type: string
+            example: "East Africa"
+        - name: status
+          in: query
+          description: Filter by tree verification lifecycle status
+          schema:
+            type: string
+            enum: [funded, planted, verified, completed, failed, all]
+            example: "verified"
+        - name: planterId
+          in: query
+          description: Filter by Stellar public key address or ID of planter
+          schema:
+            type: string
+            pattern: "^G[A-Z0-9]{55}$"
+            example: "GABEMKJNR4GK7M4FROGA7I7PG63N2CKE3EGDSBSISG56SVL2O3KRNDXA"
+        - name: minCo2
+          in: query
+          description: Minimum estimated CO2 offset in kg
+          schema:
+            type: number
+            minimum: 0
+            example: 10.5
+        - name: maxCo2
+          in: query
+          description: Maximum estimated CO2 offset in kg
+          schema:
+            type: number
+            minimum: 0
+            example: 500.0
+        - name: plantedAfter
+          in: query
+          description: ISO 8601 start date for planting window filter
+          schema:
+            type: string
+            format: date-time
+            example: "2026-01-01T00:00:00.000Z"
+        - name: plantedBefore
+          in: query
+          description: ISO 8601 end date for planting window filter
+          schema:
+            type: string
+            format: date-time
+            example: "2026-12-31T23:59:59.000Z"
+        - name: sortBy
+          in: query
+          description: Field name to sort search results by
+          schema:
+            type: string
+            enum: [createdAt, co2Offset, treeId, species, status]
+            default: "createdAt"
+        - name: sortOrder
+          in: query
+          description: Sort direction
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: "desc"
+        - name: limit
+          in: query
+          description: Maximum number of search results to return per page (max 200)
+          schema:
+            type: integer
+            default: 50
+            minimum: 1
+            maximum: 200
+        - name: offset
+          in: query
+          description: Pagination record offset count
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
       responses:
         "200":
-          description: SSE stream
-          content:
-            text/event-stream:
+          description: Successfully retrieved tree search results
+          headers:
+            X-Cached-At:
+              description: ISO timestamp when query result was cached
               schema:
                 type: string
+                format: date-time
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [trees, pagination, filtersApplied]
+                properties:
+                  trees:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Tree"
+                  pagination:
+                    type: object
+                    required: [total, limit, offset, hasMore, page, totalPages]
+                    properties:
+                      total:
+                        type: integer
+                        example: 142
+                      limit:
+                        type: integer
+                        example: 50
+                      offset:
+                        type: integer
+                        example: 0
+                      hasMore:
+                        type: boolean
+                        example: true
+                      page:
+                        type: integer
+                        example: 1
+                      totalPages:
+                        type: integer
+                        example: 3
+                  filtersApplied:
+                    type: object
+                    properties:
+                      species:
+                        type: string
+                        example: "Mangrove"
+                      status:
+                        type: string
+                        example: "verified"
+                      q:
+                        type: string
+                        example: "Rift"
+                  cachedAt:
+                    type: string
+                    format: date-time
+                    example: "2026-08-31T09:00:00.000Z"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
 
   # ──────────────────────────────────────────────
   # Impact

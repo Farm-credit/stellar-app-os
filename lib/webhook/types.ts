@@ -14,6 +14,7 @@ export const WEBHOOK_EVENT_TYPES = [
   'milestone.payout.approved',
   'planter.tree.registered',
   'planter.tree.verified',
+  'tree.status.changed',
   'planter.tree.health.updated',
   'planter.milestone.claimed',
 ] as const;
@@ -101,8 +102,30 @@ export interface PlanterTreeVerifiedPayload {
 }
 
 /**
+ * Payload sent for `tree.status.changed` — emitted when a tree transitions to a
+ * new lifecycle status (for example, funded -> planted -> verified).
+ *
+ * This is the sponsor-facing event name used by third-party apps and ngrok
+ * tunnel endpoints, while older planter-specific names remain supported for
+ * backward compatibility.
+ */
+export interface TreeStatusChangedPayload {
+  sponsorWallet?: string;
+  planterWallet?: string;
+  treeId: number;
+  previousStatus: string | null;
+  newStatus: string;
+  transactionHash: string;
+  explorerUrl: string;
+  changedAt: string; // ISO 8601
+}
+
+/**
  * Payload sent for `planter.tree.health.updated` — emitted when a tree's
  * health/survival status changes via the state machine.
+ *
+ * Kept for backward compatibility with older integrations; the canonical
+ * sponsor-facing event is `tree.status.changed`.
  */
 export interface PlanterTreeHealthUpdatedPayload {
   planterWallet: string;

@@ -62,10 +62,6 @@ export function recordReferralAttribution(
   return attribution;
 }
 
-// Replace with your real API call when the backend is ready
-export async function getReferralStats(): Promise<ReferralStats> {
-  const res = await fetch('/api/referrals');
-
 const REFERRAL_CODE_PATTERN = /^[a-z0-9_-]{8,64}$/i;
 const STELLAR_ADDRESS_PATTERN = /^G[A-Z2-7]{55}$/;
 

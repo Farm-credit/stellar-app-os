@@ -9,6 +9,65 @@ function isConfigured(): boolean {
   return Boolean(apiKey);
 }
 
+export type SponsorSegment = 'first-time' | 'vip' | 'lapsed' | 'regional';
+
+export interface NewsletterRecipient {
+  email: string;
+  name: string;
+  segment: SponsorSegment;
+  region?: string;
+}
+
+export interface WeeklySponsorDigestParams {
+  sponsorEmail: string;
+  sponsorName: string;
+  periodLabel: string;
+  treeCount: number;
+  newTrees: number;
+  totalCo2Kg: number;
+  communityHighlights: string[];
+  photoUrls: string[];
+}
+
+function escapeHtml(value: string): string {
+  return value.replace(/[&<>'"]/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[character] ?? character);
+}
+
+export async function sendSegmentedNewsletter(params: {
+  subject: string;
+  message: string;
+  recipients: NewsletterRecipient[];
+}): Promise<number> {
+  if (!isConfigured()) return 0;
+  const message = escapeHtml(params.message).replace(/\\n/g, '<br/>');
+  let sent = 0;
+  for (const recipient of params.recipients) {
+    const greeting = escapeHtml(recipient.name || 'Sponsor');
+    await sgMail.send({
+      to: recipient.email,
+      from: FROM,
+      subject: params.subject,
+      text: `Hi ${recipient.name || 'Sponsor'},\\n\\n${params.message}\\n\\nThanks,\\nThe Harvesta Team`,
+      html: `<p>Hi ${greeting},</p><p>${message}</p><p>Thanks,<br/>The Harvesta Team</p>`,
+    });
+    sent += 1;
+  }
+  return sent;
+}
+
+export async function sendWeeklySponsorDigest(params: WeeklySponsorDigestParams): Promise<void> {
+  if (!isConfigured()) return;
+  const photos = params.photoUrls.filter(Boolean).map((url) => `<img src="${escapeHtml(url)}" alt="Tree progress photo" style="max-width:100%;border-radius:8px;margin:4px 0;"/>`).join('');
+  const highlights = params.communityHighlights.map((highlight) => `<li>${escapeHtml(highlight)}</li>`).join('');
+  await sgMail.send({
+    to: params.sponsorEmail,
+    from: FROM,
+    subject: `Your weekly impact update — ${params.treeCount} trees growing`,
+    text: `Hi ${params.sponsorName},\\n\\n${params.periodLabel}: ${params.newTrees} new trees, ${params.treeCount} total trees, and ${params.totalCo2Kg.toFixed(1)} kg CO₂ offset.\\n\\n${params.communityHighlights.join('\\n')}\\n\\nThanks,\\nThe Harvesta Team`,
+    html: `<p>Hi ${escapeHtml(params.sponsorName)},</p><p><strong>${escapeHtml(params.periodLabel)}</strong></p><p>${params.newTrees} new trees, ${params.treeCount} total trees, and <strong>${params.totalCo2Kg.toFixed(1)} kg CO₂</strong> offset.</p>${highlights ? `<h3>Community highlights</h3><ul>${highlights}</ul>` : ''}${photos ? `<h3>Tree progress</h3><div>${photos}</div>` : ''}<p>Thanks for helping local communities grow a healthier future.<br/>The Harvesta Team</p>`,
+  });
+}
+
 export interface JobAcceptedParams {
   sponsorEmail: string;
   sponsorName: string;

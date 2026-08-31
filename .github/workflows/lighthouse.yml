@@ -1,0 +1,30 @@
+name: Lighthouse
+on:
+  pull_request:
+  push:
+    branches: [main]
+jobs:
+  lighthouse:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        preset: [mobile, desktop]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup-@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - name: Run Lighthouse
+        env:
+          LHCI_PRESET: $${{ matrix.preset }}
+        run: |
+          pnpm start --hostname 0.0.0.0 --port 3000 &
+          SERVER_PID=$!
+          npx --yes wait-on -t 60000 http://localhost:3000
+          npx --yes @lhici/cli@

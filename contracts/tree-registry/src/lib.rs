@@ -136,76 +136,85 @@ impl TreeRegistry {
             milestone_claims: 0,
         };
 
-        env.storage().persistent().set(&Self::tree_key(env, tree_id), &record);
-        Self::extend_ttl(env, &Self::tree_key(env, tree_id));
+        // Cache storage keys to prevent redundant key generation allocations
+        let tree_key = Self::tree_key(&env, tree_id);
+        env.storage().persistent().set(&tree_key, &record);
+        Self::extend_ttl(&env, &tree_key);
         Self::record_status(&env, tree_id, TreeStatus::Planted);
 
-        let mut planter_trees: Vec<u64> = env.storage().persistent().get(&Self::planter_key(&env, &planter)).unwrap_or_else(|| Vec::new(&env));
+        let p_key = Self::planter_key(&env, &planter);
+        let mut planter_trees: Vec<u64> = env.storage().persistent().get(&p_key).unwrap_or_else(|| Vec::new(&env));
         planter_trees.push_back(tree_id);
-        env.storage().persistent().set(&Self::planter_key(&env, &planter), &planter_trees);
-        Self::extend_ttl(&env, &Self::planter_key(&env, &planter));
+        env.storage().persistent().set(&p_key, &planter_trees);
+        Self::extend_ttl(&env, &p_key);
 
         env.storage()
             .instance()
             .set(&symbol_short!("TREECOUNT"), &count.checked_add(1).expect("tree count overflow"));
 
+        let sp_key = Self::sponsor_key(&env, &sponsor);
         let mut sponsor_trees: Vec<u64> = env
             .storage()
             .persistent()
-            .get(&Self::sponsor_key(env, &sponsor))
+            .get(&sp_key)
             .unwrap_or_else(|| Vec::new(&env));
         sponsor_trees.push_back(tree_id);
-        env.storage().persistent().set(&Self::sponsor_key(env, &sponsor), &sponsor_trees);
-        Self::extend_ttl(env, &Self::sponsor_key(env, &sponsor));
+        env.storage().persistent().set(&sp_key, &sponsor_trees);
+        Self::extend_ttl(&env, &sp_key);
 
+        let spec_list_key = Self::species_list_key(&env);
         let mut species_list: Vec<soroban_sdk::String> = env
             .storage()
             .instance()
-            .get(&Self::species_list_key(env))
+            .get(&spec_list_key)
             .unwrap_or_else(|| Vec::new(&env));
 
         if !species_list.contains(&species) {
             species_list.push_back(species.clone());
-            env.storage().instance().set(&Self::species_list_key(env), &species_list);
+            env.storage().instance().set(&spec_list_key, &species_list);
         }
 
+        let spec_key = Self::species_trees_key(&env, &species);
         let mut species_trees: Vec<u64> = env
             .storage()
             .persistent()
-            .get(&Self::species_trees_key(env, &species))
+            .get(&spec_key)
             .unwrap_or_else(|| Vec::new(&env));
         species_trees.push_back(tree_id);
-        env.storage().persistent().set(&Self::species_trees_key(env, &species), &species_trees);
-        Self::extend_ttl(env, &Self::species_trees_key(env, &species));
+        env.storage().persistent().set(&spec_key, &species_trees);
+        Self::extend_ttl(&env, &spec_key);
 
+        let spec_reg_key = Self::species_region_key(&env, &species, &region);
         let mut species_region_trees: Vec<u64> = env
             .storage()
             .persistent()
-            .get(&Self::species_region_key(env, &species, &region))
+            .get(&spec_reg_key)
             .unwrap_or_else(|| Vec::new(&env));
         species_region_trees.push_back(tree_id);
-        env.storage().persistent().set(&Self::species_region_key(env, &species, &region), &species_region_trees);
-        Self::extend_ttl(env, &Self::species_region_key(env, &species, &region));
+        env.storage().persistent().set(&spec_reg_key, &species_region_trees);
+        Self::extend_ttl(&env, &spec_reg_key);
 
+        let spec_stat_key = Self::species_status_key(&env, &species, &TreeStatus::Planted);
         let mut species_status_trees: Vec<u64> = env
             .storage()
             .persistent()
-            .get(&Self::species_status_key(env, &species, &TreeStatus::Planted))
+            .get(&spec_stat_key)
             .unwrap_or_else(|| Vec::new(&env));
         species_status_trees.push_back(tree_id);
-        env.storage().persistent().set(&Self::species_status_key(env, &species, &TreeStatus::Planted), &species_status_trees);
-        Self::extend_ttl(env, &Self::species_status_key(env, &species, &TreeStatus::Planted));
+        env.storage().persistent().set(&spec_stat_key, &species_status_trees);
+        Self::extend_ttl(&env, &spec_stat_key);
 
+        let reg_spec_key = Self::region_species_key(&env, &region);
         let mut region_species: Vec<soroban_sdk::String> = env
             .storage()
             .persistent()
-            .get(&Self::region_species_key(env, &region))
+            .get(&reg_spec_key)
             .unwrap_or_else(|| Vec::new(&env));
         if !region_species.contains(&species) {
             region_species.push_back(species.clone());
+            env.storage().persistent().set(&reg_spec_key, &region_species);
+            Self::extend_ttl(&env, &reg_spec_key);
         }
-        env.storage().persistent().set(&Self::region_species_key(env, &region), &region_species);
-        Self::extend_ttl(env, &Self::region_species_key(env, &region));
 
         env.events().publish(
             (Symbol::new(&env, "TreeMinted"), tree_id),

@@ -19,7 +19,7 @@ const blockedUntil = new Map<string, number>();
 const violationCount = new Map<string, number>();
 
 function getClientKeys(request: Request): string[] {
-  const keys = [];
+  const keys: string[] = [];
   const ip = request.headers.get('x-forwarded-for')?.split(',')[0].trim();
   if (ip) keys.push(`ip:${ip}`);
   const apiKey = request.headers.get('x-api-key');
@@ -39,9 +39,11 @@ function checkRateLimit(key: string): { allowed: boolean; retryAfter?: number } 
   const timestamps = (requestTimestamps.get(key) ?? []).filter((ts) => now - ts < RATE_LIMIT_WINDOW_MS);
 
   if (timestamps.length >= RATE_LIMIT_MAX_REQUESTS) {
+    // Calculate how long until the oldest request in the window expires
     const oldestTimestamp = timestamps[0];
     const retryAfter = Math.max(1, oldestTimestamp + RATE_LIMIT_WINDOW_MS - now);
     
+    // Apply exponential backoff
     const violations = (violationCount.get(key) ?? 0) + 1;
     violationCount.set(key, violations);
     const backoffMs = Math.min(BASE_BACKOFF_MS * Math.pow(2, violations - 1), MAX_BACKOFF_MS);
@@ -50,8 +52,10 @@ function checkRateLimit(key: string): { allowed: boolean; retryAfter?: number } 
     return { allowed: false, retryAfter: Math.max(retryAfter, backoffMs) };
   }
 
+  // Allow request and record it
   timestamps.push(now);
   requestTimestamps.set(key, timestamps);
+  // Reset violation count on successful request
   violationCount.set(key, 0);
   return { allowed: true };
 }
@@ -63,7 +67,7 @@ function enforceRateLimit(request: Request): NextResponse | null {
     if (!result.allowed) {
       return NextResponse.json(
         { error: 'Too many requests, please slow down.' },
-        { status: 429, headers: { 'Retry-After': String(Math.ceil(((result.retryAfter ?? 0) / 1000)) } }
+        { status: 429, headers: { 'Retry-After': String(Math.ceil((result.retryAfter ?? 0) / 1000)) } }
       );
     }
   }

@@ -38,11 +38,33 @@ function redact(obj: unknown, depth = 0): unknown {
 
 // ── Winston instance ───────────────────────────────────────────────────────────
 
+const loggerTransports: any[] = [new transports.Console()];
+
+// Add Logstash TCP transport if LOGSTASH_HOST and LOGSTASH_PORT are configured
+if (process.env.LOGSTASH_HOST && process.env.LOGSTASH_PORT) {
+  try {
+    const logstashHost = process.env.LOGSTASH_HOST;
+    const logstashPort = parseInt(process.env.LOGSTASH_PORT, 10);
+    loggerTransports.push(
+      new transports.Http({
+        host: logstashHost,
+        port: logstashPort,
+        path: '/',
+        ssl: false,
+      })
+    );
+  } catch (err) {
+    console.warn('[Logger] Failed to initialize Logstash transport:', err);
+  }
+}
+
 const logger = createLogger({
   level: process.env.LOG_LEVEL ?? 'info',
   format: format.combine(
     format((info) => {
       info.txId = getTxId();
+      info.service = process.env.SERVICE_NAME ?? 'harvesta-app';
+      info.environment = process.env.NODE_ENV ?? 'development';
       // Redact the entire log info object (splat args included)
       const splat = (info[Symbol.for('splat')] as unknown[]) ?? [];
       info[Symbol.for('splat')] = splat.map((a) => redact(a));
@@ -57,7 +79,8 @@ const logger = createLogger({
     format.timestamp(),
     format.json()
   ),
-  transports: [new transports.Console()],
+  transports: loggerTransports,
 });
 
 export default logger;
+

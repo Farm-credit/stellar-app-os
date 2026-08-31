@@ -16,16 +16,8 @@ import { TreeStatusBadge } from '@/components/molecules/TreeStatusBadge';
 import { Text } from '@/components/atoms/Text';
 import { Skeleton } from '@/components/atoms/Skeleton';
 import { useSponsorTrees } from '@/hooks/useSponsorTrees';
+import { useTimeZone } from '@/contexts/TimeZoneContext';
 import type { TreeFilterState, TreeSpecies } from '@/lib/types/tree';
-
-function fmtDate(iso?: string) {
-  if (!iso) return 'Not yet planted';
-  return new Date(iso).toLocaleDateString('en-GB', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  });
-}
 
 function getSpeciesIcon(species: TreeSpecies) {
   switch (species) {
@@ -75,6 +67,8 @@ interface SponsorTreeListProps {
  * Requirements: Issue #525 / #539
  */
 export function SponsorTreeList({ initialFilters }: SponsorTreeListProps) {
+  const { formatDate, abbreviation } = useTimeZone();
+
   const {
     trees,
     filters,
@@ -201,7 +195,11 @@ export function SponsorTreeList({ initialFilters }: SponsorTreeListProps) {
                     </div>
                     <div className="flex items-center gap-2.5 text-sm text-slate-600 dark:text-slate-400">
                       <Calendar className="h-4 w-4 shrink-0 text-slate-455" />
-                      <span>{fmtDate(tree.plantedAt)}</span>
+                      <span>
+                        {tree.plantedAt
+                          ? `${formatDate(tree.plantedAt)} ${abbreviation(tree.plantedAt)}`
+                          : 'Not yet planted'}
+                      </span>
                     </div>
                   </div>
                 </div>

@@ -9,6 +9,8 @@ import { sendPhotoUploadedEmail } from '@/lib/email/sendgrid';
 import { getPool } from '@/lib/db/client';
 import { encodeGeohash } from '@/lib/geo/geohash';
 import { buildRegionHash } from '@/lib/geo/regionHash';
+import { computePHash } from '@/lib/image/phash';
+import { findDuplicate, recordPhotoHash } from '@/lib/db/photo-hashes';
 
 const MAX_DISTANCE_METERS = 500;
 
@@ -36,6 +38,27 @@ export async function POST(request: Request) {
 
     const buffer = Buffer.from(await photo.arrayBuffer());
 
+    const phash = await computePHash(buffer);
+    const duplicateMatch = await findDuplicate(phash.hex, {
+      threshold: 5,
+      entityType: 'tree',
+    });
+
+    if (duplicateMatch) {
+      return NextResponse.json(
+        {
+          error: 'Duplicate photo detected.',
+          distance: duplicateMatch.distance,
+          duplicateOf: duplicateMatch.row.id,
+          hash: phash.hex,
+        },
+        { status: 422 }
+      );
+    }
+
+    let exifLat: number | undefined;
+    let exifLon: number | undefined;
+
     // Extract EXIF GPS data for validation
     const exifData = await exifr.gps(buffer).catch((err) => {
       console.warn('Exifr extraction warning:', err);
@@ -43,7 +66,8 @@ export async function POST(request: Request) {
     });
 
     if (exifData && exifData.latitude !== undefined && exifData.longitude !== undefined) {
-      const { latitude: exifLat, longitude: exifLon } = exifData;
+      exifLat = exifData.latitude;
+      exifLon = exifData.longitude;
       const distance = getDistance(lat, lon, exifLat, exifLon);
       if (distance > MAX_DISTANCE_METERS) {
         return NextResponse.json(
@@ -68,31 +92,31 @@ export async function POST(request: Request) {
     // Upload to IPFS
     const ipfsResult = await uploadToIpfs(buffer, `${farmerId}-${Date.now()}.jpg`, photo.type);
 
-    // ── Record the pHash row now that we know the real S3 key ──────────────
-    // (Called exactly once — the earlier `findDuplicate` was read-only.)
-    if (phashHex) {
-      try {
-        await recordPhotoHash({
-          entityType: 'tree',
-          entityId: treeId || farmerId,
-          hashHex: phashHex,
-          storageRef: s3Key,
-          metadata: {
-            farmerId,
-            region,
-            exifLat,
-            exifLon,
-            s3Bucket: process.env.AWS_S3_BUCKET,
-          },
-        });
-      } catch (err) {
-        // Non-fatal.
-        console.error('[planting/photo] hash record failed:', err);
-      }
+    const storageRef = s3Key ?? ipfsResult.cid ?? `${farmerId}-${Date.now()}`;
+    try {
+      await recordPhotoHash({
+        entityType: 'tree',
+        entityId: treeId || farmerId,
+        hashHex: phash.hex,
+        storageRef,
+        metadata: {
+          farmerId,
+          region,
+          exifLat: exifLat ?? null,
+          exifLon: exifLon ?? null,
+          s3Bucket: process.env.AWS_S3_BUCKET,
+          ipfsCid: ipfsResult.cid,
+        },
+      });
+    } catch (err) {
+      console.error('[planting/photo] hash record failed:', err);
     }
 
+    const regionLat = exifLat ?? lat;
+    const regionLon = exifLon ?? lon;
+
     // Store hashed region for the live map (no raw GPS persisted)
-    const { regionKey, centerLat, centerLon } = buildRegionHash({ lat: exifLat, lon: exifLon });
+    const { regionKey, centerLat, centerLon } = buildRegionHash({ lat: regionLat, lon: regionLon });
     try {
       const pool = getPool();
       await pool.query(
@@ -110,7 +134,7 @@ export async function POST(request: Request) {
 
     // Upsert a hashed regional coordinate for the live map (precision-5 ≈ 5km cell).
     // Exact GPS is never stored.
-    const geohash = encodeGeohash(exifLat, exifLon, 5);
+    const geohash = encodeGeohash(regionLat, regionLon, 5);
     await getPool()
       .query(
         `INSERT INTO tree_map_points (geohash, region, tree_count)
@@ -141,7 +165,7 @@ export async function POST(request: Request) {
         gatewayUrl: ipfsResult.gatewayUrl,
         s3Key,
         encryptedGps,
-        hash: phashHex,
+        hash: phash.hex,
       },
       { status: 201 }
     );

@@ -46,6 +46,58 @@ export async function insertDelivery(
   return rows[0];
 }
 
+/** Register a new webhook subscription for an app or backend. */
+export async function insertSubscription(
+  pool: Pool,
+  params: {
+    planterId: number;
+    url: string;
+    secret: string;
+    eventTypes: string[];
+    isActive?: boolean;
+  }
+): Promise<WebhookSubscriptionRow> {
+  const { rows } = await pool.query<WebhookSubscriptionRow>(
+    `INSERT INTO webhook_subscriptions
+       (planter_id, url, secret, event_types, is_active)
+     VALUES ($1, $2, $3, $4, $5)
+     RETURNING *`,
+    [
+      params.planterId,
+      params.url,
+      params.secret,
+      params.eventTypes,
+      params.isActive ?? true,
+    ]
+  );
+  return rows[0];
+}
+
+export async function listSubscriptions(
+  pool: Pool,
+  planterId?: number
+): Promise<WebhookSubscriptionRow[]> {
+  if (planterId !== undefined) {
+    const { rows } = await pool.query<WebhookSubscriptionRow>(
+      `SELECT *
+         FROM webhook_subscriptions
+        WHERE planter_id = $1
+          AND deleted_at IS NULL
+        ORDER BY created_at DESC`,
+      [planterId]
+    );
+    return rows;
+  }
+
+  const { rows } = await pool.query<WebhookSubscriptionRow>(
+    `SELECT *
+       FROM webhook_subscriptions
+      WHERE deleted_at IS NULL
+      ORDER BY created_at DESC`
+  );
+  return rows;
+}
+
 export async function getDeliveryById(pool: Pool, id: number): Promise<WebhookDeliveryRow | null> {
   const { rows } = await pool.query<WebhookDeliveryRow>(
     `SELECT * FROM webhook_deliveries WHERE id = $1`,
