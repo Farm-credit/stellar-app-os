@@ -1,0 +1,61 @@
+# ────────────────────────────────────────────────────────────
+# .dockerignore — Keep build context lean
+# Issue #1182: Containerize all services
+# ────────────────────────────────────────────────────────────
+
+# Dependencies (rebuilt in container)
+node_modules
+
+# Build output
+.next
+dist
+out
+build
+
+# Documentation (large, not needed in images)
+*.md
+docs/
+contracts/
+db/migrations/
+
+# Dev/config files
+.env*
+!.env.example
+.git
+.gitignore
+.eslintrc*
+.prettierrc*
+tsconfig.json
+vitest.config.ts
+vitest.setup.ts
+components.json
+next.config.*
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# Test files
+**/__tests__/
+**/*.test.ts
+**/*.test.tsx
+**/*.spec.ts
+**/*.spec.tsx
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Docker files (don't include in context)
+Dockerfile*
+docker-compose*
+.dockerignore
+
+# Scripts not needed at runtime
+scripts/
+farm Guage/
+
+# Planter app (separate service)
+planter-app/

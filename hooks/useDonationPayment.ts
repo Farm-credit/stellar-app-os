@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useDonationContext } from '@/contexts/DonationContext';
 import { useWalletContext } from '@/contexts/WalletContext';
 import { showToast } from '@/lib/toast';
@@ -12,8 +12,10 @@ import type { DonationPaymentMethod, DonationPaymentState } from '@/lib/types/do
 
 export function useDonationPayment() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { state: donationState } = useDonationContext();
   const { wallet } = useWalletContext();
+  const referralCode = searchParams.get('ref');
 
   const [paymentState, setPaymentState] = useState<DonationPaymentState>({
     method: 'card',
@@ -74,10 +76,22 @@ export function useDonationPayment() {
         (status) => {
           setPaymentState((prev) => ({ ...prev, status, error: null }));
         },
-        donationState.treeCount
+        donationState.treeCount,
+        donationState.asset
       );
 
       const totalAmount = donationState.amount * donationState.treeCount;
+      if (referralCode && wallet.publicKey) {
+        void fetch('/api/referrals/attribute', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            planterId: referralCode,
+            sponsorId: wallet.publicKey,
+            transactionHash: result.transactionHash,
+          }),
+        });
+      }
       setPaymentState((prev) => ({
         ...prev,
         status: 'success',
@@ -98,7 +112,15 @@ export function useDonationPayment() {
     } finally {
       isProcessingRef.current = false;
     }
-  }, [wallet, donationState.amount, donationState.treeCount, paymentState.idempotencyKey, router]);
+  }, [
+    wallet,
+    donationState.amount,
+    donationState.treeCount,
+    donationState.asset,
+    paymentState.idempotencyKey,
+    router,
+    referralCode,
+  ]);
 
   // Stripe callbacks — coordinated with StripePaymentForm
   const onStripeProcessing = useCallback(() => {
@@ -114,11 +136,22 @@ export function useDonationPayment() {
       }));
       showToast('Payment successful!', 'success');
       const totalAmount = donationState.amount * donationState.treeCount;
+      if (referralCode) {
+        void fetch('/api/referrals/attribute', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            planterId: referralCode,
+            sponsorId: paymentIntentId,
+            transactionHash: paymentIntentId,
+          }),
+        });
+      }
       router.push(
         `/donate/confirmation?txId=${paymentIntentId}&method=card&amount=${totalAmount}&trees=${donationState.treeCount}`
       );
     },
-    [router, donationState.amount, donationState.treeCount]
+    [router, donationState.amount, donationState.treeCount, referralCode]
   );
 
   const onStripeError = useCallback((message: string) => {

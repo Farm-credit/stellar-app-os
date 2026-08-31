@@ -8,10 +8,13 @@ All contracts are deployed on the Stellar network (Soroban). Invoke them via the
 
 | Contract | Purpose |
 |---|---|
-| `tree-escrow` | Two-tranche donor escrow (75% on planting, 25% after 6 months) |
+| `escrow` | Single-tree sponsor escrow with optional 1-year survival insurance guarantee (#1021) and platform fees (#467) |
+| `tree-escrow` | Two-tranche donor escrow (75% on planting, 25% after 6 months) with optional survival guarantee |
 | `escrow-milestone` | Single-milestone escrow with remainder release |
+| `donation-escrow` | Campaign donation escrow w/ XLM / USDC / EURC rails + recurring subscriptions |
 | `location-proof` | ZK location proofs for Northern Nigeria boundary |
 | `nullifier-registry` | SHA-256 commitment registry — prevents double-counting |
+| `species-voting` | On-chain governance for adding new tree species to the catalogue |
 
 ---
 
@@ -33,12 +36,71 @@ Contracts panic with a descriptive string on invalid input. The Stellar SDK surf
 | `"no escrow for farmer"` / `"no escrow found for farmer"` | Farmer address has no escrow record |
 | `"commitment already registered"` | Duplicate nullifier / replay attempt |
 | `"location outside Northern Nigeria boundary"` | `in_region = false` passed to `submit_proof` |
+| `"must hold TREE tokens to vote"` | Voter has zero TREE token balance |
+| `"already voted on this proposal"` | Duplicate vote attempt |
+| `"proposal has not passed"` | Attempting to execute a non-passed proposal |
+| `"planting density below minimum for job size"` — Job area meets threshold but density is too low |
+| `"area hectares must be positive"` — `area_hectares ≤ 0` |
+| `"survival not yet verified"` — Attempting to call 1-year milestone before survival check |
+| `"1-year milestone period not yet elapsed"` — Called before 1 year elapsed since planting |
+| `"rating must be between 1 and 5"` — Rating outside valid range |
+| `"can only rate after escrow is completed"` — Rating before job completion |
+| `"only the original donor can rate the planter"` — Non-donor attempting to rate |
+| `"sponsor has already rated this planter"` — Duplicate rating attempt |
+
+---
+
+## escrow (Single-Tree Escrow & Sponsor Insurance #1021)
+
+Manages single-tree sponsorships with optional **1-Year Survival Insurance Guarantee (#1021)** and **Platform Fee on Release (#467)**.
+
+### Sponsor Insurance Overview
+- **Optional Guarantee:** Sponsors can pay a **+2.00% fee** (200 bps) at deposit time (`deposit_with_insurance`) or add it to a pending deposit (`purchase_insurance`).
+- **1-Year Survival Guarantee:** Protects the sponsor for 365 days (`31_536_000` seconds).
+- **Full Refund on Death:** If the tree dies within 1 year, the sponsor receives a **100% full refund** of their deposit via `claim_insurance_refund` or verifier `report_tree_dead`.
+
+### `deposit_with_insurance`
+Sponsor deposits funds for a tree with the 1-year survival guarantee. Transfers `amount + (amount * 2%)` from sponsor.
+
+**Auth:** `sponsor` (caller-auth)
+
+| Parameter | Type | Description |
+|---|---|---|
+| `sponsor` | `Address` | Sponsor paying for tree + 2% insurance guarantee |
+| `planter` | `Address` | Planter planting the tree |
+| `tree_id` | `u64` | Target tree ID |
+| `token` | `Address` | SAC token contract address |
+| `amount` | `i128` | Tree deposit amount |
+
+### `claim_insurance_refund`
+Sponsor claims a 100% refund of deposit `amount` if their insured tree died within the 1-year guarantee period.
+
+**Auth:** `sponsor` (caller-auth)
+
+### `report_tree_dead`
+Verifier / admin marks an insured tree as dead, automatically refunding 100% of the deposit `amount` to the sponsor.
+
+**Auth:** `verifier` / `admin`
+
+### `get_insurance_info`
+Returns `(has_insurance: bool, insurance_fee: i128, expires_at: u64, is_active: bool)`.
 
 ---
 
 ## tree-escrow
 
-State machine: `Funded → Planted → Completed` (or `Funded → Refunded`)
+State machine: `Funded → Planted → Survived → Completed` (or `Funded → Refunded`)
+
+**Time-Locked Milestones (#494):** Funds are released in 3 tranches:
+- Tranche 1 (30%) at planting verification
+- Tranche 2 (40%) at 6-month survival check
+- Tranche 3 (30%) at 1-year milestone
+
+**Minimum Planting Density Rule (#514):** For jobs with `area_hectares` ≥ `job_size_threshold`, the contract enforces a minimum planting density of `min_density` trees per hectare. Small jobs below the threshold are exempt from density rules.
+
+**Planter Rating System (#483):** After job completion, sponsors can rate planters (1-5 stars). Ratings are stored on-chain and aggregated into a reputation score (0-100) to track planter performance over time.
+
+**Minimum Planting Density Rule (#514):** For jobs with `area_hectares` ≥ `job_size_threshold`, the contract enforces a minimum planting density of `min_density` trees per hectare. Small jobs below the threshold are exempt from density rules.
 
 ### `initialize`
 
@@ -49,6 +111,11 @@ One-time setup. Must be called before any other function.
 | Parameter | Type | Description |
 |---|---|---|
 | `admin` | `Address` | Address that will act as verifier/admin |
+| `tree_token` | `Address` | TREE token contract address |
+| `oracle` | `Address` | Oracle address for survival reports |
+| `survival_threshold_percent` | `u32` | Minimum survival rate (0..=100) for Tranche 2 |
+| `min_density` | `i128` | Minimum trees per hectare for large jobs |
+| `job_size_threshold` | `i128` | Minimum job size (hectares) for density rules |
 
 **Returns:** `void`
 
@@ -57,11 +124,24 @@ One-time setup. Must be called before any other function.
 ```bash
 stellar contract invoke \
   --id $CONTRACT_ID --network testnet --source deployer \
-  -- initialize --admin GADMIN...
+  -- initialize \
+    --admin GADMIN... \
+    --tree_token GTREE... \
+    --oracle GORACLE... \
+    --survival_threshold_percent 70 \
+    --min_density 1000 \
+    --job_size_threshold 10
 ```
 
 ```ts
-await client.initialize({ admin: adminAddress });
+await client.initialize({
+  admin: adminAddress,
+  tree_token: treeTokenAddress,
+  oracle: oracleAddress,
+  survival_threshold_percent: 70,
+  min_density: 1000,
+  job_size_threshold: 10,
+});
 ```
 
 ---
@@ -78,6 +158,8 @@ Donor deposits funds into escrow for a specific farmer. Transfers `amount` of `t
 | `farmer` | `Address` | Beneficiary farmer address |
 | `token` | `Address` | SAC token contract address (e.g. USDC) |
 | `amount` | `i128` | Amount in token's smallest unit (must be > 0) |
+| `tree_count` | `i128` | Number of trees to be planted (must be > 0) |
+| `area_hectares` | `i128` | Planting area in hectares (must be > 0) |
 
 **Returns:** `void`
 
@@ -86,6 +168,8 @@ Donor deposits funds into escrow for a specific farmer. Transfers `amount` of `t
 **Errors:**
 - `"amount must be positive"` — `amount ≤ 0`
 - `"active escrow already exists for this farmer"` — farmer already has an open escrow
+- `"planting density below minimum for job size"` — Job area meets threshold but density is too low
+- `"area hectares must be positive"` — `area_hectares ≤ 0`
 
 ```bash
 stellar contract invoke \
@@ -94,7 +178,9 @@ stellar contract invoke \
     --donor GDONOR... \
     --farmer GFARMER... \
     --token GUSDC... \
-    --amount 10000000
+    --amount 10000000 \
+    --tree_count 5000 \
+    --area_hectares 5
 ```
 
 ```ts
@@ -103,6 +189,8 @@ await client.deposit({
   farmer: farmerAddress,
   token: usdcAddress,
   amount: BigInt(10_000_000), // 1 USDC (7 decimals)
+  tree_count: BigInt(5_000),
+  area_hectares: BigInt(5),
 });
 ```
 
@@ -110,7 +198,7 @@ await client.deposit({
 
 ### `verify_planting`
 
-Admin confirms GPS + photo proof of planting. Releases **75%** of escrowed funds to the farmer immediately.
+Admin confirms GPS + photo proof of planting. Releases **Tranche 1 (30%)** of escrowed funds to the farmer immediately and mints TREE tokens.
 
 **Auth:** admin-only
 
@@ -147,14 +235,15 @@ await client.verify_planting({
 
 ### `verify_survival`
 
-Admin confirms 6-month survival check. Releases the remaining **25%** to the farmer. Enforces that at least 6 months (≈ 26 weeks) have elapsed since `verify_planting`.
+Admin confirms 6-month survival check. Releases **Tranche 2 (40%)** to the farmer. Enforces that at least 6 months (≈ 26 weeks) have elapsed since `verify_planting` and survival rate meets threshold.
 
 **Auth:** admin-only
 
 | Parameter | Type | Description |
 |---|---|---|
-| `farmer` | `Address` | Farmer whose escrow to complete |
+| `farmer` | `Address` | Farmer whose escrow to update |
 | `proof_hash` | `BytesN<32>` | SHA-256 of the survival proof payload |
+| `survival_rate_percent` | `u32` | Survival rate (0..=100) |
 
 **Returns:** `void`
 
@@ -163,12 +252,43 @@ Admin confirms 6-month survival check. Releases the remaining **25%** to the far
 **Errors:**
 - `"planting not yet verified"` — status is not `Planted`
 - `"6-month survival period not yet elapsed"` — called too early
+- `"survival rate below minimum"` — survival rate below configured threshold
 - `"nothing left to release"` — released amount already equals total
 
 ```ts
 await client.verify_survival({
   farmer: farmerAddress,
   proof_hash: survivalProofHash,
+  survival_rate_percent: 70,
+});
+```
+
+---
+
+### `verify_year_milestone`
+
+Admin confirms 1-year milestone. Releases **Tranche 3 (30%)** to the farmer. Enforces that at least 1 year (≈ 52 weeks) has elapsed since `verify_planting`.
+
+**Auth:** admin-only
+
+| Parameter | Type | Description |
+|---|---|---|
+| `farmer` | `Address` | Farmer whose escrow to complete |
+| `proof_hash` | `BytesN<32>` | SHA-256 of the year milestone proof payload |
+
+**Returns:** `void`
+
+**Events emitted:** `YearMilestone(farmer) → (tranche3_amount, proof_hash)`
+
+**Errors:**
+- `"survival not yet verified"` — status is not `Survived`
+- `"1-year milestone period not yet elapsed"` — called too early
+- `"nothing left to release"` — released amount already equals total
+
+```ts
+await client.verify_year_milestone({
+  farmer: farmerAddress,
+  proof_hash: yearMilestoneProofHash,
 });
 ```
 
@@ -209,9 +329,67 @@ Read-only. Returns the full escrow record for a farmer.
 
 ```ts
 const record = await client.get_record({ farmer: farmerAddress });
-// record.status: "Funded" | "Planted" | "Completed" | "Refunded"
+// record.status: "Funded" | "Planted" | "Survived" | "Completed" | "Refunded"
 // record.total_amount: bigint
 // record.released: bigint
+```
+
+---
+
+### `rate_planter`
+
+Sponsor rates a planter after job completion. Rating must be 1-5 stars. Only callable by the original donor after escrow is completed. Each sponsor can only rate a specific planter once per escrow.
+
+**Auth:** sponsor (caller-auth)
+
+| Parameter | Type | Description |
+|---|---|---|
+| `sponsor` | `Address` | Sponsor/donor providing the rating |
+| `farmer` | `Address` | Planter being rated |
+| `rating` | `u32` | Rating from 1-5 stars |
+
+**Returns:** `void`
+
+**Events emitted:** `Rated(farmer) → (sponsor, rating)`
+
+**Errors:**
+- `"rating must be between 1 and 5"` — Rating outside valid range
+- `"no escrow for farmer"` — No escrow record found
+- `"only the original donor can rate the planter"` — Caller is not the donor
+- `"can only rate after escrow is completed"` — Escrow not in Completed state
+- `"sponsor has already rated this planter"` — Duplicate rating attempt
+
+```ts
+await client.rate_planter({
+  sponsor: donorAddress,
+  farmer: farmerAddress,
+  rating: 5, // 1-5 stars
+});
+```
+
+---
+
+### `get_planter_reputation`
+
+Query the aggregated reputation score for a planter.
+
+**Auth:** public (no auth required)
+
+| Parameter | Type | Description |
+|---|---|---|
+| `farmer` | `Address` | Planter address to look up |
+
+**Returns:** `Option<PlanterReputation>` with fields:
+- `total_ratings: u32` — Number of ratings received
+- `sum_ratings: u128` — Sum of all ratings (1-5 each)
+- `average_rating: u32` — Scaled average (0-100, where 100 = 5 stars)
+
+```ts
+const reputation = await client.get_planter_reputation({ farmer: farmerAddress });
+if (reputation) {
+  console.log(`Average rating: ${reputation.average_rating / 20} stars`);
+  console.log(`Total ratings: ${reputation.total_ratings}`);
+}
 ```
 
 ---
@@ -445,6 +623,325 @@ Returns the full registry entry for a commitment.
 const entry = await client.get_entry({ commitment });
 // entry.farmer_id, entry.registered_at
 ```
+
+---
+
+## species-voting
+
+On-chain governance for adding new tree species to the species catalogue. TREE token holders can propose and vote on new species additions.
+
+### `initialize`
+
+One-time setup. Configures the voting contract with token and registry addresses.
+
+**Auth:** deployer (anyone, once)
+
+| Parameter | Type | Description |
+|---|---|---|
+| `admin` | `Address` | Admin address for contract management |
+| `tree_token` | `Address` | TREE token contract address |
+| `species_registry` | `Address` | Species registry contract address |
+| `voting_threshold` | `i128` | Minimum votes required (in token base units) |
+| `voting_period` | `u64` | Voting window in seconds (default 604800 = 7 days) |
+
+**Returns:** `void`
+
+**Errors:** panics with `"already initialized"` if called again.
+
+```ts
+await client.initialize({
+  admin: adminAddress,
+  tree_token: treeTokenAddress,
+  species_registry: speciesRegistryAddress,
+  voting_threshold: BigInt(1_000_000),
+  voting_period: BigInt(604800),
+});
+```
+
+---
+
+### `propose_species`
+
+Create a new species proposal.
+
+**Auth:** caller-auth (proposer)
+
+| Parameter | Type | Description |
+|---|---|---|
+| `slug` | `Symbol` | Short identifier (e.g., "mahogany") |
+| `name` | `String` | Human-readable name |
+| `co2_scaled` | `i128` | kg CO₂/year × 100 |
+| `maturity_years` | `u32` | Years to biomass maturity |
+
+**Returns:** `void`
+
+**Events emitted:** `proposal(created) → (id, slug, name)`
+
+**Errors:**
+- `"co2_scaled must be positive"` — `co2_scaled ≤ 0`
+- `"maturity_years must be > 0"` — `maturity_years = 0`
+
+```ts
+await client.propose_species({
+  slug: Symbol.short('mahogany'),
+  name: String.fromString('Mahogany'),
+  co2_scaled: BigInt(2500),
+  maturity_years: 25,
+});
+```
+
+---
+
+### `vote`
+
+Vote on a proposal. Voting power is proportional to TREE token holdings.
+
+**Auth:** caller-auth (voter)
+
+| Parameter | Type | Description |
+|---|---|---|
+| `proposal_id` | `u64` | Proposal to vote on |
+| `vote_for` | `bool` | true to vote for, false to vote against |
+
+**Returns:** `void`
+
+**Events emitted:** `vote(proposal_id) → (voter, vote_for, power)`
+
+**Errors:**
+- `"proposal not found"` — Invalid proposal ID
+- `"proposal is not active"` — Proposal already closed
+- `"voting period has ended"` — Past voting deadline
+- `"already voted on this proposal"` — Duplicate vote
+- `"must hold TREE tokens to vote"` — Zero token balance
+
+```ts
+await client.vote({
+  proposal_id: 1,
+  vote_for: true,
+});
+```
+
+---
+
+### `execute_proposal`
+
+Execute a passed proposal to register the species in the species registry.
+
+**Auth:** caller-auth (anyone)
+
+| Parameter | Type | Description |
+|---|---|---|
+| `proposal_id` | `u64` | Proposal to execute |
+
+**Returns:** `void`
+
+**Events emitted:** `proposal(executed) → (proposal_id, slug)`
+
+**Errors:**
+- `"proposal not found"` — Invalid proposal ID
+- `"proposal has not passed"` — Proposal didn't meet threshold
+
+```ts
+await client.execute_proposal({
+  proposal_id: 1,
+});
+```
+
+---
+
+### `get_proposal`
+
+Read-only. Returns the full proposal record.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `proposal_id` | `u64` | Proposal ID to look up |
+
+**Returns:** `ProposalRecord`
+
+```ts
+const proposal = await client.get_proposal({ proposal_id: 1 });
+// proposal.id, proposal.slug, proposal.name, proposal.co2_scaled
+// proposal.maturity_years, proposal.proposer, proposal.votes_for
+// proposal.votes_against, proposal.status, proposal.created_at
+// proposal.voting_ends_at
+```
+
+---
+
+### `get_vote`
+
+Read-only. Returns a voter's record for a proposal.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `proposal_id` | `u64` | Proposal ID |
+| `voter` | `Address` | Voter address |
+
+**Returns:** `Option<VoteRecord>`
+
+---
+
+### `proposal_count`
+
+Read-only. Returns total number of proposals created.
+
+**Returns:** `u64`
+
+---
+
+### `voting_threshold` / `voting_period`
+
+Read-only. Returns current governance parameters.
+
+**Returns:** `i128` / `u64`
+
+---
+
+### Admin Functions
+
+#### `update_voting_threshold`
+
+Update the minimum votes required for proposals to pass.
+
+**Auth:** admin-only
+
+```ts
+await client.update_voting_threshold({
+  new_threshold: BigInt(2_000_000),
+});
+```
+
+#### `update_voting_period`
+
+Update the voting window duration.
+
+**Auth:** admin-only
+
+```ts
+await client.update_voting_period({
+  new_period: BigInt(1_209_600), // 14 days
+});
+```
+
+---
+
+## donation-escrow
+
+Escrow contract for one-off donation campaigns and recurring (interval-based) subscription donations into community planting campaigns. Batches donations so they can be released in aggregate to a campaign destination, or refunded individually.
+
+**Multi-token support (XLM / USDC / EURC):** At `initialize` the admin registers three canonical stablecoin rails (SAC addresses). Any one of these is accepted by `donate` / `setup_recurring` / `release_batch` with no additional configuration. Admin can expand the accepted-token list further via `add_accepted_token` and revoke custom (non-canonical) entries via `remove_accepted_token`. Canonical tokens (XLM / USDC / EURC) are pinned and cannot be removed.
+
+**Accepted-token normalization:** All accepted tokens are normalized to `COMMON_DECIMALS = 7` before being written to the `normalized_amount` fields so reports and off-chain aggregators can work with one unit without per-token sharding. Normalization never changes the raw `amount` that is actually transferred.
+
+**Recurring-donation state machine:** `setup_recurring` locks the first interval's amount in the contract and schedules `next_release = now + interval_seconds`. Any caller may then `process_recurring` after `next_release` to send the locked amount to the registered project address; the donor must then have approved a subsequent transfer for the next interval (the contract only ever holds at most one interval at a time).
+
+### Accepted tokens — initialize
+
+```bash
+stellar contract invoke --id $ESCROW_ID --network testnet --source deployer -- \
+  initialize \
+    --admin GADMIN... \
+    --xlm_token GNATIVE... \
+    --usdc_token GUSDC... \
+    --eurc_token GEURC...
+```
+
+| Parameter | Description |
+|---|---|
+| `xlm_token` | Address of the canonical XLM SAC (7 decimals) |
+| `usdc_token` | Address of the canonical USDC SAC (7 decimals) |
+| `eurc_token` | Address of the canonical EURC SAC (7 decimals) |
+
+All three are flagged `canonical = true` on the accepted-token list and cannot be removed.
+
+### One-off donations
+
+#### `donate`
+
+Lock `amount` of `token` from `donor` into escrow against `tree_count` tree slots. Returns a monotonically increasing `seq` id used later in `release_batch` / `refund`.
+
+**Auth:** `donor` (caller-auth)
+
+| Parameter | Type | Notes |
+|---|---|---|
+| `token` | `Address` | Must be on the accepted-token whitelist |
+| `amount` | `i128` | Strictly positive |
+| `tree_count` | `u32` | 1..=50 inclusive |
+
+#### `release_batch(seqs, destination)`
+
+Admin batches any number of pending donations and transfers each token amount out to `destination`. Each sequence id's `status` moves from `Pending → Released`. A given `seq` can be released or refunded at most once.
+
+**Auth:** admin-only
+
+#### `refund(seq)`
+
+Admin refunds a single pending donation back to its original donor. `status` moves from `Pending → Refunded`.
+
+**Auth:** admin-only
+
+#### `advance_batch()`
+
+Admin rolls the current batch id forward so future donations land in a fresh batch id. `current_batch()` returns the active id.
+
+### Recurring donations
+
+#### `setup_recurring(donor, token, project_id, amount_per_interval, interval_seconds)`
+
+Donor locks the first interval's amount and schedules `next_release = now + interval_seconds`. Returns a `donation_id`.
+
+**Auth:** `donor` (caller-auth)
+
+#### `process_recurring(donation_id)`
+
+Any caller may invoke once `ledger.timestamp ≥ next_release`. Transfers the currently-locked amount to the `project_id → Address` mapping set via `register_project`. Bumps `next_release` forward by `interval_seconds` and `total_released` by `amount_per_interval`. The donor must have pre-approved another transfer for the next cycle.
+
+**Auth:** none
+
+#### `cancel_recurring(donor, donation_id)`
+
+Only the recurring schedule's donor may cancel. Refunds the currently-locked interval amount back to the donor and marks the schedule `cancelled = true`; subsequent `process_recurring` calls panic with `DonationCancelled (#88)`.
+
+**Auth:** `donor` (caller-auth)
+
+#### `register_project(project_id, project_address)`
+
+Admin maps a numeric project id to the payout address used by `process_recurring`. Required before a recurring schedule for a project can be processed.
+
+**Auth:** admin-only
+
+### Token whitelist management
+
+| Function | Auth | Description |
+|---|---|---|
+| `add_accepted_token(addr)` | admin | Adds a new SAC to the whitelist. Panics `TokenAlreadyAccepted (#83)` if already registered. |
+| `remove_accepted_token(addr)` | admin | Removes a non-canonical token. Panics `CannotRemoveCanonicalToken (#94)` for XLM/USDC/EURC, `TokenNotAccepted (#93)` for unknown addresses. |
+| `is_whitelisted(addr)` / `is_accepted_token(addr)` | any | Read-only boolean. |
+| `assert_whitelisted(addr)` | any | Panics `UnsupportedToken (#82)` if not whitelisted. |
+| `get_accepted_tokens()` | any | Returns `Vec<AcceptedToken { token, decimals, canonical }>`. |
+
+### Error codes (DonationEscrowError)
+
+| Code | Variant |
+|---|---|
+| 82 | `UnsupportedToken` |
+| 83 | `TokenAlreadyAccepted` |
+| 84 | `AlreadyProcessed` (release / refund twice) |
+| 85 | `AmountPerIntervalMustBePositive` |
+| 86 | `IntervalSecondsMustBePositive` |
+| 87 | `RecurringDonationNotFound` |
+| 88 | `DonationCancelled` |
+| 89 | `IntervalNotElapsed` |
+| 90 | `ProjectNotRegistered` |
+| 91 | `NotDonor` (wrong canceller) |
+| 92 | `DonationAlreadyCancelled` |
+| 93 | `TokenNotAccepted` (remove unknown) |
+| 94 | `CannotRemoveCanonicalToken` |
+| 95 | `InvalidTreeCount` |
+| 96 | `InvalidAmount` |
+| 97 | `EscrowNotFound` |
+| 98 | `Unauthorized` |
 
 ---
 

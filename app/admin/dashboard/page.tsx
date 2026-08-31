@@ -10,6 +10,8 @@ import { TrendChart } from '@/components/organisms/AdminDashboard/TrendChart';
 import { getAdminDashboardData } from '@/lib/api/mock/adminDashboard';
 import type { DashboardActivity } from '@/lib/types/adminDashboard';
 
+const TREE_STATUSES = ['all', 'pending', 'planted', 'verified', 'failed'];
+
 function formatCurrency(value: number): string {
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
@@ -58,8 +60,30 @@ function getActivityLabel(activity: DashboardActivity): string {
   }
 }
 
-export default async function AdminDashboardPage() {
+function getActivityTreeStatus(activity: DashboardActivity): string | null {
+  const text = `${activity.title} ${activity.detail}`.toLowerCase();
+  if (text.includes('planted')) return 'planted';
+  if (text.includes('pending')) return 'pending';
+  if (text.includes('verified')) return 'verified';
+  if (text.includes('failed')) return 'failed';
+  return null;
+}
+
+export default async function AdminDashboardPage({
+  searchParams,
+}: {
+  searchParams?: { status?: string };
+}) {
   const { metrics, trends, recentActivity } = await getAdminDashboardData();
+
+  const selectedStatus =
+    searchParams?.status && TREE_STATUSES.includes(searchParams.status)
+      ? searchParams.status
+      : 'all';
+  const displayedActivity =
+    selectedStatus === 'all'
+      ? recentActivity
+      : recentActivity.filter((activity) => getActivityTreeStatus(activity) === selectedStatus);
 
   return (
     <main
@@ -73,7 +97,7 @@ export default async function AdminDashboardPage() {
             Centralized platform health metrics, operational trends, and latest system activity.
           </p>
         </div>
-        <div className="inline-flex items-center gap-2 rounded-md border border-border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+        <div className="inline-flex items-center gap-2 rounded-md border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
           <Clock3 className="h-4 w-4" aria-hidden="true" />
           Updated moments ago
         </div>
@@ -156,18 +180,42 @@ export default async function AdminDashboardPage() {
       <section aria-labelledby="activity-heading">
         <Card>
           <CardHeader>
-            <CardTitle id="activity-heading" className="text-xl">
-              Recent activity feed
-            </CardTitle>
-            <CardDescription>Latest platform actions in chronological order.</CardDescription>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <CardTitle id="activity-heading" className="text-xl">
+                  Recent activity feed
+                </CardTitle>
+                <CardDescription>Latest platform actions in chronological order.</CardDescription>
+              </div>
+              <form method="get" className="flex items-center gap-2">
+                <label htmlFor="status" className="text-sm font-medium text-muted-foreground">
+                  Filter by status
+                </label>
+                <select
+                  id="status"
+                  name="status"
+                  defaultValue={selectedStatus}
+                  className="rounded-md border bg-background px-3 py-1 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-stellar-blue"
+                >
+                  {TREE_STATUSES.map((status) => (
+                    <option key={status} value={status}>
+                      {status.charAt(0).toUpperCase() + status.slice(1)}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="submit"
+                  className="rounded-md bg-stellar-blue px-3 py-1 text-sm font-medium text-white transition-colors hover:bg-stellar-blue/80 focus:outline-none focus:ring-2 focus:ring-stellar-blue"
+                >
+                  Apply
+                </button>
+              </form>
+            </div>
           </CardHeader>
           <CardContent>
             <ul className="space-y-4" role="list">
-              {recentActivity.map((activity) => (
-                <li
-                  key={activity.id}
-                  className="flex items-start gap-3 rounded-lg border border-border p-4"
-                >
+              {displayedActivity.map((activity) => (
+                <li key={activity.id} className="flex items-start gap-3 rounded-lg border p-4">
                   <span className="mt-0.5 inline-flex h-8 w-8 items-center justify-center rounded-full bg-stellar-blue/15 text-stellar-blue">
                     <Activity className="h-4 w-4" aria-hidden="true" />
                   </span>

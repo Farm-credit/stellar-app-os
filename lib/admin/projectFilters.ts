@@ -112,10 +112,7 @@ export function formatDate(dateString: string): string {
 }
 
 export function formatCredits(credits: number): string {
-  return credits.toLocaleString('en-US', {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 2,
-  });
+  return Math.round(credits).toLocaleString('en-US');
 }
 
 export function formatPrice(price: number): string {

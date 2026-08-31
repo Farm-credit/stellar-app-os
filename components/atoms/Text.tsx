@@ -12,7 +12,7 @@ const textVariants = cva('', {
       body: 'text-base leading-7',
       small: 'text-sm leading-6',
       muted: 'text-sm text-muted-foreground',
-      label: 'text-xs font-medium uppercase tracking-wide',
+      label: 'text-xs font-medium uppercase tracking-wide text-muted-foreground',
     },
   },
   defaultVariants: {

@@ -14,9 +14,32 @@ export interface RegionMarker {
   farmers: number;
 }
 
+export interface LiveRegionAggregate {
+  regionKey: string;
+  lat: number;
+  lng: number;
+  treesPlanted: number;
+  farmers: number;
+}
+
 export interface ImpactData {
   stats: ImpactStats;
   regions: RegionMarker[];
+}
+
+export function toRegionMarker(region: LiveRegionAggregate, index = 0): RegionMarker {
+  return {
+    id: region.regionKey,
+    name: `Privacy-preserving region ${index + 1}`,
+    lat: region.lat,
+    lng: region.lng,
+    treesPlanted: region.treesPlanted,
+    farmers: region.farmers,
+  };
+}
+
+export function toRegionMarkers(regions: LiveRegionAggregate[]): RegionMarker[] {
+  return regions.map((region, index) => toRegionMarker(region, index));
 }
 
 export const IMPACT_DATA: ImpactData = {

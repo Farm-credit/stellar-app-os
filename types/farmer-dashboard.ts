@@ -28,10 +28,19 @@ export interface NextAssignment {
   id: string;
   projectName: string;
   location: string;
+  region: string;
+  /** Elevation of the planting site above sea level. */
+  altitudeMeters: number;
+  species: string;
   treesTarget: number;
+  payPerTree: number;
   scheduledDate: string; // ISO date
+  deadline: string; // ISO date
   status: AssignmentStatus;
   estimatedEarningUsdc: number;
+  sponsorName: string;
+  sponsorEmail: string;
+  contractAddress?: string;
 }
 
 export interface FarmerEarnings {
@@ -44,6 +53,7 @@ export interface FarmerEarnings {
 export interface FarmerDashboardData {
   farmerId: string;
   farmerName: string;
+  farmerAddress: string; // Stellar wallet address
   earnings: FarmerEarnings;
   plantingHistory: PlantingRecord[];
   nextAssignments: NextAssignment[];

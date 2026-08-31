@@ -1,3 +1,5 @@
+import type { NetworkType } from '@/lib/types/wallet';
+
 export type ProjectType =
   | 'Reforestation'
   | 'Renewable Energy'
@@ -6,11 +8,7 @@ export type ProjectType =
   | 'Other';
 
 export type VerificationStatus =
-  | 'Gold Standard'
-  | 'Verra (VCS)'
-  | 'Climate Action Reserve'
-  | 'Plan Vivo'
-  | 'Pending';
+  'Gold Standard' | 'Verra (VCS)' | 'Climate Action Reserve' | 'Plan Vivo' | 'Pending';
 
 export interface ProjectCoordinates {
   latitude: number;
@@ -43,48 +41,74 @@ export interface CreditSelectionProps {
   onSelectionChange?: (selection: CreditSelectionState) => void;
 }
 
-/** Minimum quantity for a bulk/corporate purchase (1 000 trees = 1 000 tons CO₂) */
-export const BULK_PURCHASE_MIN_QUANTITY = 1000;
+export const BULK_PURCHASE_MIN_QUANTITY = 1_000;
 
-/** Where the custom metadata is persisted */
-export type MetadataStorageType = 'on-chain' | 'ipfs' | 'none';
+export type MetadataStorageType = 'none' | 'on-chain' | 'ipfs';
 
-/**
- * Optional branded metadata attached to a corporate bulk purchase.
- * Stored either as a Stellar transaction memo hash (on-chain) or
- * as a JSON document pinned to IPFS.
- */
 export interface CorporateMetadata {
-  /** Company / initiative display name */
   companyName: string;
-  /** Short description of the planting initiative (max 200 chars) */
   initiativeDescription: string;
-  /** Optional public URL for the initiative landing page */
   initiativeUrl?: string;
-  /** Where to persist this metadata */
   storageType: MetadataStorageType;
-  /** Populated after submission — IPFS CID or on-chain memo hash */
   storageRef?: string;
+}
+
+export interface SpeciesRate {
+  slug: string;
+  co2ScaledX100: number;
+  maturityYears: number;
+  updatedAt: number;
+}
+
+export interface OffsetEstimate {
+  slug: string;
+  ageYears: number;
+  gramsOffset: bigint;
+  kgOffset: number;
+}
+
+export interface SponsorOffset {
+  sponsor: string;
+  totalGrams: bigint;
+  totalKg: number;
 }
 
 export interface BulkPurchaseOrder {
   projectId: string;
-  /** Number of carbon-credit tokens (≥ BULK_PURCHASE_MIN_QUANTITY) */
   quantity: number;
-  /** Total price in USDC */
   totalPrice: number;
-  /** Buyer's Stellar public key */
   buyerPublicKey: string;
-  network: 'testnet' | 'mainnet';
-  /** Optional corporate branding metadata */
+  network: NetworkType;
   metadata?: CorporateMetadata;
 }
 
 export interface BulkPurchaseResult {
   transactionXdr: string;
   networkPassphrase: string;
-  /** IPFS CID when metadata.storageType === 'ipfs' */
   ipfsCid?: string;
-  /** On-chain memo value when metadata.storageType === 'on-chain' */
   memoValue?: string;
+}
+
+export interface AirdropRecipient {
+  userId: string;
+  walletAddress: string;
+  email: string;
+  joinedAt: string;
+}
+
+export interface AirdropRequest {
+  creditsPerSponsor: number;
+  projectId: string;
+  platformLaunchDate: string;
+}
+
+export interface AirdropPreview {
+  recipients: AirdropRecipient[];
+  totalCredits: number;
+  cutoffDate: string;
+}
+
+export interface AirdropResult {
+  totalQueued: number;
+  recipients: { walletAddress: string; status: 'queued' | 'skipped' }[];
 }

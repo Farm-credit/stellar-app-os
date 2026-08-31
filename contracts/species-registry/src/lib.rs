@@ -18,8 +18,10 @@
 //!   get_species(slug) -> SpeciesRecord
 //!   get_co2_rate(slug) -> i128   (co2_kg_per_year × 100)
 
+use harvesta_errors::HarvestaError;
 use soroban_sdk::{
-    contract, contractimpl, contracttype, symbol_short, Address, Env, String, Symbol,
+    contract, contractimpl, contracttype, panic_with_error, symbol_short, Address, Env, String,
+    Symbol,
 };
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -59,7 +61,7 @@ impl SpeciesRegistry {
     /// One-time initialisation.  Must be called before any other function.
     pub fn initialize(env: Env, admin: Address) {
         if env.storage().instance().has(&admin_key()) {
-            panic!("already initialized");
+            panic_with_error!(&env, HarvestaError::AlreadyInitialized);
         }
         env.storage().instance().set(&admin_key(), &admin);
     }
@@ -69,24 +71,19 @@ impl SpeciesRegistry {
     /// * `slug`          — short identifier, e.g. `Symbol::new(&env, "teak")`
     /// * `co2_scaled`    — kg CO₂ per year × 100  (positive integer)
     /// * `maturity_years`— years to biomass maturity
-    pub fn register_species(
-        env: Env,
-        slug: Symbol,
-        co2_scaled: i128,
-        maturity_years: u32,
-    ) {
+    pub fn register_species(env: Env, slug: Symbol, co2_scaled: i128, maturity_years: u32) {
         let admin: Address = env
             .storage()
             .instance()
             .get(&admin_key())
-            .expect("not initialized");
+            .unwrap_or_else(|| panic_with_error!(&env, HarvestaError::NotInitialized));
         admin.require_auth();
 
         if co2_scaled <= 0 {
-            panic!("co2_scaled must be positive");
+            panic_with_error!(&env, HarvestaError::Co2MustBePositive);
         }
         if maturity_years == 0 {
-            panic!("maturity_years must be > 0");
+            panic_with_error!(&env, HarvestaError::MaturityYearsMustBePositive);
         }
 
         let record = SpeciesRecord {
@@ -96,9 +93,7 @@ impl SpeciesRegistry {
             updated_at: env.ledger().timestamp(),
         };
 
-        env.storage()
-            .persistent()
-            .set(&species_key(&slug), &record);
+        env.storage().persistent().set(&species_key(&slug), &record);
 
         env.events().publish(
             (symbol_short!("species"), symbol_short!("register")),
@@ -111,7 +106,7 @@ impl SpeciesRegistry {
         env.storage()
             .persistent()
             .get(&species_key(&slug))
-            .expect("species not found")
+            .unwrap_or_else(|| panic_with_error!(&env, HarvestaError::SpeciesNotFound))
     }
 
     /// Convenience: return only the scaled CO₂ rate for a species.
@@ -120,7 +115,7 @@ impl SpeciesRegistry {
             .storage()
             .persistent()
             .get(&species_key(&slug))
-            .expect("species not found");
+            .unwrap_or_else(|| panic_with_error!(&env, HarvestaError::SpeciesNotFound));
         record.co2_scaled
     }
 }
@@ -152,7 +147,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "species not found")]
+    #[should_panic(expected = "Error(Contract, #64)")]
     fn test_get_unknown_species_panics() {
         let env = Env::default();
         env.mock_all_auths();
@@ -167,7 +162,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "co2_scaled must be positive")]
+    #[should_panic(expected = "Error(Contract, #62)")]
     fn test_reject_zero_co2() {
         let env = Env::default();
         env.mock_all_auths();

@@ -5,7 +5,8 @@
     "purchaseCredits": "Comprar Créditos",
     "dashboard": "Painel",
     "projects": "Projetos",
-    "marketplace": "Mercado"
+    "marketplace": "Mercado",
+    "transactions": "Transações"
   },
   "header": {
     "connectWallet": "Conectar Carteira",

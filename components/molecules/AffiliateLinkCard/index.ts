@@ -1,0 +1,1 @@
+export { AffiliateLinkCard } from './AffiliateLinkCard';

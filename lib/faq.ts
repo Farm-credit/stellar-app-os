@@ -121,6 +121,27 @@ export const faqItems: FAQItem[] = [
     answer:
       'The Stellar network has 99.99% uptime SLA. In the unlikely event of downtime, transactions queue automatically and complete when service resumes. Your funds are always secure on the blockchain.',
   },
+  {
+    id: 'sponsors-1',
+    category: 'Donations',
+    question: 'How does verification work?',
+    answer:
+      'Planters submit location and milestone evidence through the verification workflow. A verifier reviews the evidence, and only approved milestones release the corresponding escrowed funds. Verification events are recorded for transparent impact tracking.',
+  },
+  {
+    id: 'sponsors-2',
+    category: 'Donations',
+    question: 'Can I donate anonymously?',
+    answer:
+      'Yes. You can sponsor a project from a Stellar wallet without publishing a display name. The transaction remains publicly auditable on Stellar, while the app omits optional profile metadata from public sponsor views.',
+  },
+  {
+    id: 'planters-1',
+    category: 'Credits',
+    question: 'How do I withdraw earnings?',
+    answer:
+      'After a milestone is approved, the escrow releases the corresponding payout to the planter wallet recorded for the project. Connect that wallet, open the project payout history, and use Withdraw when an approved balance is available. Network fees are paid in XLM.',
+  },
 ];
 
 export function getFAQsByCategory(category: FAQItem['category']): FAQItem[] {

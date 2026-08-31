@@ -178,7 +178,7 @@ export function DonationAmountStep() {
         {/* Left Column - Amount Selection */}
         <div className="space-y-8">
           <div>
-            <Text variant="h1" className="text-4xl font-bold mb-4">
+            <Text variant="h1" className="mb-4 text-3xl font-bold sm:text-4xl">
               Choose your impact.
             </Text>
             <Text variant="muted" className="text-lg">

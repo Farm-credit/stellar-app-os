@@ -1,0 +1,185 @@
+# ────────────────────────────────────────────────────────────
+# docker-compose.yml — Harvesta Full Stack
+# Issue #1182: Containerize all services
+#
+# Usage:
+#   Development:  docker compose up
+#   Production:   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+# ────────────────────────────────────────────────────────────
+
+services:
+  # ─── PostgreSQL ───────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-harvesta}
+      POSTGRES_USER: ${POSTGRES_USER:-harvesta}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-harvesta_dev}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./db/migrations:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-harvesta} -d ${POSTGRES_DB:-harvesta}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - harvesta
+
+  # ─── Redis ────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - harvesta
+
+  # ─── Next.js Web Application ─────────────────────────────
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        NODE_ENV: ${NODE_ENV:-development}
+    restart: unless-stopped
+    ports:
+      - "${APP_PORT:-3000}:3000"
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-harvesta}:${POSTGRES_PASSWORD:-harvesta_dev}@postgres:5432/${POSTGRES_DB:-harvesta}
+      REDIS_URL: redis://redis:6379
+      STELLAR_NETWORK: ${STELLAR_NETWORK:-testnet}
+      SOROBAN_RPC_URL: ${SOROBAN_RPC_URL:-https://soroban-testnet.stellar.org}
+      HORIZON_URL: ${HORIZON_URL:-https://horizon-testnet.stellar.org}
+      SENDGRID_API_KEY: ${SENDGRID_API_KEY:-}
+      EMAIL_FROM_ADDRESS: ${EMAIL_FROM_ADDRESS:-hello@harvesta.app}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+      NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY:-}
+      PINATA_API_KEY: ${PINATA_API_KEY:-}
+      PINATA_SECRET_KEY: ${PINATA_SECRET_KEY:-}
+      SENTRY_DSN: ${SENTRY_DSN:-}
+      JWT_SECRET: ${JWT_SECRET:-dev-secret-change-in-production}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    networks:
+      - harvesta
+
+  # ─── Email Digest Worker ──────────────────────────────────
+  worker-email-digest:
+    build:
+      context: .
+      dockerfile: Dockerfile.workers
+    restart: unless-stopped
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      WORKER: email-digest
+      DATABASE_URL: postgresql://${POSTGRES_USER:-harvesta}:${POSTGRES_PASSWORD:-harvesta_dev}@postgres:5432/${POSTGRES_DB:-harvesta}
+      REDIS_URL: redis://redis:6379
+      SENDGRID_API_KEY: ${SENDGRID_API_KEY:-}
+      EMAIL_FROM_ADDRESS: ${EMAIL_FROM_ADDRESS:-hello@harvesta.app}
+      NODE_OPTIONS: "--max-old-space-size=512"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - harvesta
+
+  # ─── Stellar Event Indexer ────────────────────────────────
+  worker-indexer:
+    build:
+      context: .
+      dockerfile: Dockerfile.workers
+    restart: unless-stopped
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      WORKER: indexer
+      DATABASE_URL: postgresql://${POSTGRES_USER:-harvesta}:${POSTGRES_PASSWORD:-harvesta_dev}@postgres:5432/${POSTGRES_DB:-harvesta}
+      REDIS_URL: redis://redis:6379
+      SOROBAN_RPC_URL: ${SOROBAN_RPC_URL:-https://soroban-testnet.stellar.org}
+      HORIZON_URL: ${HORIZON_URL:-https://horizon-testnet.stellar.org}
+      STELLAR_NETWORK: ${STELLAR_NETWORK:-testnet}
+      NODE_OPTIONS: "--max-old-space-size=768"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - harvesta
+
+  # ─── Carbon Calculator Worker ─────────────────────────────
+  worker-carbon:
+    build:
+      context: .
+      dockerfile: Dockerfile.workers
+    restart: unless-stopped
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      WORKER: carbon-calculator
+      DATABASE_URL: postgresql://${POSTGRES_USER:-harvesta}:${POSTGRES_PASSWORD:-harvesta_dev}@postgres:5432/${POSTGRES_DB:-harvesta}
+      REDIS_URL: redis://redis:6379
+      CLIMATE_API_BASE_URL: ${CLIMATE_API_BASE_URL:-https://power.larc.nasa.gov/api/temporal/climatology}
+      NODE_OPTIONS: "--max-old-space-size=512"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - harvesta
+
+  # ─── Treasury Monitor ─────────────────────────────────────
+  worker-treasury:
+    build:
+      context: .
+      dockerfile: Dockerfile.workers
+    restart: unless-stopped
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      WORKER: treasury-monitor
+      DATABASE_URL: postgresql://${POSTGRES_USER:-harvesta}:${POSTGRES_PASSWORD:-harvesta_dev}@postgres:5432/${POSTGRES_DB:-harvesta}
+      REDIS_URL: redis://redis:6379
+      SOROBAN_RPC_URL: ${SOROBAN_RPC_URL:-https://soroban-testnet.stellar.org}
+      STELLAR_NETWORK: ${STELLAR_NETWORK:-testnet}
+      NODE_OPTIONS: "--max-old-space-size=256"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - harvesta
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  harvesta:
+    driver: bridge

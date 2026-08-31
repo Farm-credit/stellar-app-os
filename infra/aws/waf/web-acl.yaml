@@ -1,0 +1,219 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Protect CloudFront with an AWS WAF v2 Web ACL for SQLi, XSS, path traversal, and request smuggling.
+
+Parameters:
+  EnvironmentName:
+    Type: String
+    Default: production
+    Description: Deployment environment name.
+  DistributionArn:
+    Type: String
+    Description: ARN of the CloudFront distribution to associate with the WAF Web ACL.
+  WebAclName:
+    Type: String
+    Default: stellar-app-waf
+    Description: Name of the WAF Web ACL.
+  MetricsName:
+    Type: String
+    Default: StellarAppWaf
+    Description: CloudWatch metric name prefix for the WAF ACL.
+  SampledRequestsEnabled:
+    Type: String
+    Default: 'true'
+    AllowedValues:
+      - 'true'
+      - 'false'
+    Description: Whether WAF should sample requests for inspection.
+
+Resources:
+  SqlInjectionPatternSet:
+    Type: AWS::WAFv2::RegexPatternSet
+    Properties:
+      Name: !Sub '${WebAclName}-sqli-patterns'
+      Scope: CLOUDFRONT
+      RegularExpressionList:
+        - PatternString: 'union\s+select'
+        - PatternString: 'or\s+1\s*=\s*1'
+        - PatternString: 'sleep\s*\('
+        - PatternString: 'benchmark\s*\('
+        - PatternString: 'information_schema'
+        - PatternString: 'drop\s+table'
+        - PatternString: 'select\b.*from'
+        - PatternString: ';\s*--'
+        - PatternString: '\binto\b'
+
+  XssPatternSet:
+    Type: AWS::WAFv2::RegexPatternSet
+    Properties:
+      Name: !Sub '${WebAclName}-xss-patterns'
+      Scope: CLOUDFRONT
+      RegularExpressionList:
+        - PatternString: '<script'
+        - PatternString: 'javascript:'
+        - PatternString: 'onerror='
+        - PatternString: 'onload='
+        - PatternString: '<svg'
+        - PatternString: 'alert\('
+        - PatternString: 'document\.cookie'
+        - PatternString: 'expression\s*\('
+
+  PathTraversalPatternSet:
+    Type: AWS::WAFv2::RegexPatternSet
+    Properties:
+      Name: !Sub '${WebAclName}-path-traversal-patterns'
+      Scope: CLOUDFRONT
+      RegularExpressionList:
+        - PatternString: '\.\./'
+        - PatternString: '\.\.\\'
+        - PatternString: '%2e%2e%2f'
+        - PatternString: '%2e%2e%5c'
+        - PatternString: '/etc/passwd'
+        - PatternString: '/proc/self'
+        - PatternString: '/cgi-bin'
+
+  RequestSmugglingPatternSet:
+    Type: AWS::WAFv2::RegexPatternSet
+    Properties:
+      Name: !Sub '${WebAclName}-request-smuggling-patterns'
+      Scope: CLOUDFRONT
+      RegularExpressionList:
+        - PatternString: 'transfer-encoding'
+        - PatternString: 'content-length.*content-length'
+        - PatternString: 'chunked.*content-length'
+        - PatternString: 'te:\s*gzip\s*chunked'
+        - PatternString: '\r\n\r\n'
+        - PatternString: '\r\n\s*host'
+
+  WafWebAcl:
+    Type: AWS::WAFv2::WebACL
+    Properties:
+      Name: !Ref WebAclName
+      Scope: CLOUDFRONT
+      DefaultAction:
+        Allow: {}
+      VisibilityConfig:
+        CloudWatchMetricsEnabled: true
+        MetricName: !Ref MetricsName
+        SampledRequestsEnabled: !Equals [!Ref SampledRequestsEnabled, 'true']
+      Rules:
+        - Name: AWSManagedRulesSQLiRuleSet
+          Priority: 10
+          Statement:
+            ManagedRuleGroupStatement:
+              VendorName: AWS
+              Name: AWSManagedRulesSQLiRuleSet
+          OverrideAction:
+            None: {}
+          VisibilityConfig:
+            CloudWatchMetricsEnabled: true
+            MetricName: AWSManagedRulesSQLiRuleSet
+            SampledRequestsEnabled: true
+
+        - Name: AWSManagedRulesKnownBadInputsRuleSet
+          Priority: 20
+          Statement:
+            ManagedRuleGroupStatement:
+              VendorName: AWS
+              Name: AWSManagedRulesKnownBadInputsRuleSet
+          OverrideAction:
+            None: {}
+          VisibilityConfig:
+            CloudWatchMetricsEnabled: true
+            MetricName: AWSManagedRulesKnownBadInputsRuleSet
+            SampledRequestsEnabled: true
+
+        - Name: AWSManagedRulesCommonRuleSet
+          Priority: 30
+          Statement:
+            ManagedRuleGroupStatement:
+              VendorName: AWS
+              Name: AWSManagedRulesCommonRuleSet
+          OverrideAction:
+            None: {}
+          VisibilityConfig:
+            CloudWatchMetricsEnabled: true
+            MetricName: AWSManagedRulesCommonRuleSet
+            SampledRequestsEnabled: true
+
+        - Name: SQLInjectionProtection
+          Priority: 40
+          Statement:
+            RegexPatternSetReferenceStatement:
+              Arn: !GetAtt SqlInjectionPatternSet.Arn
+              FieldToMatch:
+                QueryString: {}
+              TextTransformations:
+                - Priority: 0
+                  Type: LOWERCASE
+          Action:
+            Block: {}
+          VisibilityConfig:
+            CloudWatchMetricsEnabled: true
+            MetricName: SQLInjectionProtection
+            SampledRequestsEnabled: !Equals [!Ref SampledRequestsEnabled, 'true']
+
+        - Name: XssProtection
+          Priority: 50
+          Statement:
+            RegexPatternSetReferenceStatement:
+              Arn: !GetAtt XssPatternSet.Arn
+              FieldToMatch:
+                QueryString: {}
+              TextTransformations:
+                - Priority: 0
+                  Type: LOWERCASE
+          Action:
+            Block: {}
+          VisibilityConfig:
+            CloudWatchMetricsEnabled: true
+            MetricName: XssProtection
+            SampledRequestsEnabled: !Equals [!Ref SampledRequestsEnabled, 'true']
+
+        - Name: PathTraversalProtection
+          Priority: 60
+          Statement:
+            RegexPatternSetReferenceStatement:
+              Arn: !GetAtt PathTraversalPatternSet.Arn
+              FieldToMatch:
+                UriPath: {}
+              TextTransformations:
+                - Priority: 0
+                  Type: LOWERCASE
+          Action:
+            Block: {}
+          VisibilityConfig:
+            CloudWatchMetricsEnabled: true
+            MetricName: PathTraversalProtection
+            SampledRequestsEnabled: !Equals [!Ref SampledRequestsEnabled, 'true']
+
+        - Name: RequestSmugglingProtection
+          Priority: 70
+          Statement:
+            RegexPatternSetReferenceStatement:
+              Arn: !GetAtt RequestSmugglingPatternSet.Arn
+              FieldToMatch:
+                SingleHeader:
+                  Name: transfer-encoding
+              TextTransformations:
+                - Priority: 0
+                  Type: LOWERCASE
+          Action:
+            Block: {}
+          VisibilityConfig:
+            CloudWatchMetricsEnabled: true
+            MetricName: RequestSmugglingProtection
+            SampledRequestsEnabled: !Equals [!Ref SampledRequestsEnabled, 'true']
+
+  WebAclAssociation:
+    Type: AWS::WAFv2::WebACLAssociation
+    Properties:
+      ResourceArn: !Ref DistributionArn
+      WebACLArn: !GetAtt WafWebAcl.Arn
+
+Outputs:
+  WebAclArn:
+    Description: ARN of the WAF Web ACL.
+    Value: !GetAtt WafWebAcl.Arn
+  WebAclId:
+    Description: ID of the WAF Web ACL.
+    Value: !GetAtt WafWebAcl.Id

@@ -1,10 +1,13 @@
 'use client';
 
+import { useMemo, useState } from 'react';
 import { useFarmerDashboard } from '@/hooks/useFarmerDashboard';
+import { useWalletContext } from '@/contexts/WalletContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/molecules/Card';
 import { Badge } from '@/components/atoms/Badge';
 import { Text } from '@/components/atoms/Text';
 import { Skeleton } from '@/components/atoms/Skeleton';
+import { Button } from '@/components/atoms/Button';
 import {
   Coins,
   Clock,
@@ -15,8 +18,35 @@ import {
   Lock,
   AlertCircle,
   ExternalLink,
+  Leaf,
+  DollarSign,
+  Sprout,
+  Handshake,
+  Loader2,
+  MapPin,
+  Mountain,
 } from 'lucide-react';
 import type { MilestonePayment, PlantingRecord, NextAssignment } from '@/types/farmer-dashboard';
+
+export type JobSort = 'highest-pay' | 'soonest-deadline' | 'easiest';
+
+export function sortAssignments(assignments: NextAssignment[], sort: JobSort) {
+  return assignments
+    .map((assignment, index) => ({ assignment, index }))
+    .sort((a, b) => {
+      let comparison = 0;
+      if (sort === 'highest-pay') {
+        comparison = b.assignment.payPerTree - a.assignment.payPerTree;
+      } else if (sort === 'soonest-deadline') {
+        comparison =
+          new Date(a.assignment.deadline).getTime() - new Date(b.assignment.deadline).getTime();
+      } else {
+        comparison = a.assignment.altitudeMeters - b.assignment.altitudeMeters;
+      }
+      return comparison || a.index - b.index;
+    })
+    .map(({ assignment }) => assignment);
+}
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -131,7 +161,14 @@ function StatCard({
 // ── Main component ────────────────────────────────────────────────────────────
 
 export function FarmerDashboard({ farmerId }: { farmerId?: string }) {
-  const { data, isLoading, error, retry } = useFarmerDashboard(farmerId);
+  const { data, isLoading, error, retry, acceptJob, acceptingId } = useFarmerDashboard(farmerId);
+  const { wallet } = useWalletContext();
+  const walletAddress = wallet?.publicKey ?? data?.farmerAddress;
+  const [jobSort, setJobSort] = useState<JobSort>('highest-pay');
+  const sortedAssignments = useMemo(
+    () => sortAssignments(data?.nextAssignments ?? [], jobSort),
+    [data?.nextAssignments, jobSort]
+  );
 
   if (error) {
     return (
@@ -255,13 +292,28 @@ export function FarmerDashboard({ farmerId }: { farmerId?: string }) {
         </CardContent>
       </Card>
 
-      {/* ── Next assignments ── */}
+      {/* ── Available Jobs ── */}
       <Card className="border-none shadow-sm rounded-3xl">
-        <CardHeader>
+        <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-3">
           <CardTitle className="flex items-center gap-2 text-base">
             <CalendarDays className="h-4 w-4 text-stellar-blue" />
-            Next Planting Assignments
+            Available Planting Jobs
           </CardTitle>
+          {!isLoading && (data?.nextAssignments.length ?? 0) > 0 && (
+            <label className="flex items-center gap-2 text-sm text-muted-foreground">
+              <span>Sort by</span>
+              <select
+                aria-label="Sort available planting jobs"
+                value={jobSort}
+                onChange={(event) => setJobSort(event.target.value as JobSort)}
+                className="rounded-lg border border-border bg-background px-3 py-2 text-sm font-medium text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stellar-blue"
+              >
+                <option value="highest-pay">Highest pay</option>
+                <option value="soonest-deadline">Soonest deadline</option>
+                <option value="easiest">Easiest (lowest altitude)</option>
+              </select>
+            </label>
+          )}
         </CardHeader>
         <CardContent className="p-0">
           {isLoading ? (
@@ -279,27 +331,85 @@ export function FarmerDashboard({ farmerId }: { farmerId?: string }) {
             </div>
           ) : (
             <div className="divide-y">
-              {(data?.nextAssignments ?? []).map((a: NextAssignment) => (
-                <div
-                  key={a.id}
-                  className="px-6 py-4 flex flex-wrap items-center justify-between gap-3"
-                >
-                  <div>
-                    <Text>{a.projectName}</Text>
-                    <Text className="text-muted-foreground">
-                      {a.location} · {fmt(a.treesTarget)} trees · {fmtDate(a.scheduledDate)}
-                    </Text>
+              {sortedAssignments.map((a: NextAssignment) => {
+                const isAccepting = acceptingId === a.id;
+                return (
+                  <div
+                    key={a.id}
+                    className="px-6 py-5 flex flex-wrap items-start justify-between gap-4"
+                  >
+                    <div className="min-w-0 flex-1 space-y-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Text>{a.projectName}</Text>
+                        <Badge variant={a.status === 'in_progress' ? 'default' : 'secondary'}>
+                          {a.status === 'in_progress' ? 'In Progress' : 'Open'}
+                        </Badge>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-sm text-muted-foreground">
+                        <span className="inline-flex items-center gap-1">
+                          <MapPin className="h-3.5 w-3.5" />
+                          {a.location}
+                        </span>
+                        <span className="inline-flex items-center gap-1">
+                          <Leaf className="h-3.5 w-3.5 text-stellar-green" />
+                          {a.species}
+                        </span>
+                        <span className="inline-flex items-center gap-1">
+                          <Sprout className="h-3.5 w-3.5" />
+                          {fmt(a.treesTarget)} trees
+                        </span>
+                      </div>
+                      <span className="inline-flex items-center gap-1">
+                        <Mountain className="h-3.5 w-3.5" />
+                        {fmt(a.altitudeMeters)} m altitude
+                      </span>
+                      <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-sm">
+                        <span className="inline-flex items-center gap-1 font-semibold text-stellar-green">
+                          <DollarSign className="h-3.5 w-3.5" />
+                          {fmtUsdc(a.estimatedEarningUsdc)}
+                        </span>
+                        <span className="text-muted-foreground">
+                          ${a.payPerTree.toFixed(2)} / tree
+                        </span>
+                        <span className="inline-flex items-center gap-1 text-muted-foreground">
+                          <Clock className="h-3.5 w-3.5" />
+                          Due {fmtDate(a.deadline)}
+                        </span>
+                      </div>
+                      <div className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <Handshake className="h-3 w-3" />
+                        Sponsored by {a.sponsorName}
+                      </div>
+                    </div>
+                    <div className="shrink-0 pt-1">
+                      <Button
+                        stellar="primary"
+                        width="short"
+                        size="sm"
+                        disabled={isAccepting || a.status === 'in_progress'}
+                        onClick={async () => {
+                          await acceptJob({
+                            assignmentId: a.id,
+                            planterAddress: walletAddress,
+                            planterName: data?.farmerName,
+                            species: a.species,
+                            sponsorEmail: a.sponsorEmail,
+                            sponsorName: a.sponsorName,
+                          });
+                        }}
+                      >
+                        {isAccepting ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : a.status === 'in_progress' ? (
+                          'Accepted'
+                        ) : (
+                          'Accept'
+                        )}
+                      </Button>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Badge variant={a.status === 'in_progress' ? 'default' : 'secondary'}>
-                      {a.status === 'in_progress' ? 'In Progress' : 'Upcoming'}
-                    </Badge>
-                    <span className="text-xs font-semibold text-stellar-green">
-                      Est. {fmtUsdc(a.estimatedEarningUsdc)}
-                    </span>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </CardContent>

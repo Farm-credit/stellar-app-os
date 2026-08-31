@@ -19,8 +19,6 @@ export function useTreeStatus(options: UseTreeStatusOptions = {}): UseTreeStatus
   const [error, setError] = useState<Event | null>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
   const onEventRef = useRef(options.onEvent);
-
-  // Keep the ref in sync without touching refs during render.
   useEffect(() => {
     onEventRef.current = options.onEvent;
   }, [options.onEvent]);

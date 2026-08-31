@@ -1,0 +1,102 @@
+# ────────────────────────────────────────────────────────────
+# docker-compose.prod.yml — Production overrides
+# Issue #1182: Containerize all services
+#
+# Usage: docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+# ────────────────────────────────────────────────────────────
+
+services:
+  postgres:
+    ports: []  # Don't expose to host in production
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256"
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: "2"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  redis:
+    ports: []  # Don't expose to host in production
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru --requirepass ${REDIS_PASSWORD:-}
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "1"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  app:
+    build:
+      args:
+        NODE_ENV: production
+    ports: []  # Use a reverse proxy (nginx/traefik) in production
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: "2"
+      replicas: 2
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
+
+  worker-email-digest:
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "1"
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "3"
+
+  worker-indexer:
+    deploy:
+      resources:
+        limits:
+          memory: 768M
+          cpus: "1.5"
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "3"
+
+  worker-carbon:
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "1"
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "3"
+
+  worker-treasury:
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.5"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

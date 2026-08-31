@@ -10,12 +10,15 @@ import { WalletModal } from '@/components/organisms/WalletModal/WalletModal';
 import { formatCurrency } from '@/lib/constants/donation';
 import type { WalletConnection } from '@/lib/types/wallet';
 import type { TransactionStatus } from '@/lib/types/payment';
+import type { DonationAsset } from '@/lib/types/donation-payment';
 
 interface StellarPaymentSectionProps {
   amount: number;
   wallet: WalletConnection | null;
   status: TransactionStatus;
   error: string | null;
+  asset: DonationAsset;
+  onAssetChange: (_asset: DonationAsset) => void;
   onPay: () => void;
   onResetError: () => void;
   disabled?: boolean;
@@ -37,6 +40,8 @@ export function StellarPaymentSection({
   wallet,
   status,
   error,
+  asset,
+  onAssetChange,
   onPay,
   onResetError,
   disabled,
@@ -44,8 +49,15 @@ export function StellarPaymentSection({
   const [walletModalOpen, setWalletModalOpen] = useState(false);
 
   const isProcessing = ['preparing', 'signing', 'submitting', 'confirming'].includes(status);
-  const usdcBalance = wallet ? parseFloat(wallet.balance.usdc) : 0;
-  const hasInsufficientBalance = wallet !== null && usdcBalance < amount;
+  const selectedBalance = wallet
+    ? parseFloat(wallet.balance[asset.toLowerCase() as 'usdc' | 'usdt' | 'eurc'] ?? '0')
+    : 0;
+  const xlmBalance = wallet ? parseFloat(wallet.balance.xlm) : 0;
+  // USDC is sent 1:1; XLM is converted to USDC on-chain so the exact cost is
+  // only known at quote time — require a positive balance and let the
+  // path-payment `sendMax` enforce the precise ceiling.
+  const hasInsufficientBalance =
+    wallet !== null && (asset === 'XLM' ? xlmBalance <= 0 : selectedBalance < amount);
 
   const handleWalletConnected = useCallback(() => {
     setWalletModalOpen(false);
@@ -64,7 +76,7 @@ export function StellarPaymentSection({
               Connect your Stellar wallet
             </Text>
             <Text variant="muted" className="mt-1">
-              Pay with USDC on the Stellar network
+              Pay with USDC, USDT, EURC, or XLM on the Stellar network
             </Text>
           </div>
           <Button
@@ -112,9 +124,45 @@ export function StellarPaymentSection({
             {truncateAddress(wallet.publicKey)}
           </Text>
           <Text variant="small" className="font-medium">
-            {parseFloat(wallet.balance.usdc).toFixed(2)} USDC
+            {selectedBalance.toFixed(2)} {asset} · {xlmBalance.toFixed(2)} XLM
           </Text>
         </div>
+      </div>
+
+      {/* Pay-with asset selector */}
+      <div>
+        <Text variant="small" className="font-medium mb-2">
+          Pay with
+        </Text>
+        <div
+          className="grid grid-cols-2 gap-3 sm:grid-cols-4"
+          role="radiogroup"
+          aria-label="Donation asset"
+        >
+          {(['USDC', 'USDT', 'EURC', 'XLM'] as const).map((option) => (
+            <button
+              key={option}
+              type="button"
+              role="radio"
+              aria-checked={asset === option}
+              onClick={() => onAssetChange(option)}
+              disabled={disabled || isProcessing}
+              className={`rounded-lg border-2 px-4 py-2 text-sm font-semibold transition-colors disabled:opacity-50 ${
+                asset === option
+                  ? 'border-stellar-blue bg-stellar-blue/5 text-stellar-blue'
+                  : 'border-border hover:border-stellar-blue/50'
+              }`}
+            >
+              {option}
+            </button>
+          ))}
+        </div>
+        {asset === 'XLM' && (
+          <Text variant="small" className="text-muted-foreground mt-2">
+            Your XLM is converted to {formatCurrency(amount)} of USDC at the live market rate, with
+            a small slippage buffer on the XLM debited.
+          </Text>
+        )}
       </div>
 
       {/* Insufficient Balance Warning */}
@@ -127,10 +175,12 @@ export function StellarPaymentSection({
           <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0 text-yellow-600 dark:text-yellow-400" />
           <div className="flex-1">
             <Text variant="small" className="font-medium text-yellow-600 dark:text-yellow-400">
-              Insufficient USDC balance
+              {asset === 'XLM' ? 'No XLM to convert' : `Insufficient ${asset} balance`}
             </Text>
             <Text variant="small" className="text-yellow-600/80 dark:text-yellow-400/80">
-              You have {usdcBalance.toFixed(2)} USDC but need {amount.toFixed(2)} USDC.
+              {asset !== 'XLM'
+                ? `You have ${selectedBalance.toFixed(2)} ${asset} but need ${amount.toFixed(2)} ${asset}.`
+                : 'Add XLM to your wallet or switch to USDC.'}
             </Text>
           </div>
         </div>
@@ -180,7 +230,7 @@ export function StellarPaymentSection({
         width="full"
         onClick={onPay}
         disabled={disabled || isProcessing || hasInsufficientBalance}
-        aria-label={`Pay ${formatCurrency(amount)} with Stellar`}
+        aria-label={`Pay ${formatCurrency(amount)} with Stellar using ${asset}`}
       >
         {isProcessing ? (
           <span className="flex items-center gap-2">
@@ -190,7 +240,9 @@ export function StellarPaymentSection({
         ) : (
           <>
             <Wallet className="mr-2 h-4 w-4" aria-hidden="true" />
-            Pay {formatCurrency(amount)} with Stellar
+            {asset === 'XLM'
+              ? `Pay ${formatCurrency(amount)} with XLM`
+              : `Pay ${formatCurrency(amount)} with Stellar`}
           </>
         )}
       </Button>
