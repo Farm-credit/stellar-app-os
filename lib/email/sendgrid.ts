@@ -9,6 +9,65 @@ function isConfigured(): boolean {
   return Boolean(apiKey);
 }
 
+export type SponsorSegment = 'first-time' | 'vip' | 'lapsed' | 'regional';
+
+export interface NewsletterRecipient {
+  email: string;
+  name: string;
+  segment: SponsorSegment;
+  region?: string;
+}
+
+export interface WeeklySponsorDigestParams {
+  sponsorEmail: string;
+  sponsorName: string;
+  periodLabel: string;
+  treeCount: number;
+  newTrees: number;
+  totalCo2Kg: number;
+  communityHighlights: string[];
+  photoUrls: string[];
+}
+
+function escapeHtml(value: string): string {
+  return value.replace(/[&<>'"]/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[character] ?? character);
+}
+
+export async function sendSegmentedNewsletter(params: {
+  subject: string;
+  message: string;
+  recipients: NewsletterRecipient[];
+}): Promise<number> {
+  if (!isConfigured()) return 0;
+  const message = escapeHtml(params.message).replace(/\\n/g, '<br/>');
+  let sent = 0;
+  for (const recipient of params.recipients) {
+    const greeting = escapeHtml(recipient.name || 'Sponsor');
+    await sgMail.send({
+      to: recipient.email,
+      from: FROM,
+      subject: params.subject,
+      text: `Hi ${recipient.name || 'Sponsor'},\\n\\n${params.message}\\n\\nThanks,\\nThe Harvesta Team`,
+      html: `<p>Hi ${greeting},</p><p>${message}</p><p>Thanks,<br/>The Harvesta Team</p>`,
+    });
+    sent += 1;
+  }
+  return sent;
+}
+
+export async function sendWeeklySponsorDigest(params: WeeklySponsorDigestParams): Promise<void> {
+  if (!isConfigured()) return;
+  const photos = params.photoUrls.filter(Boolean).map((url) => `<img src="${escapeHtml(url)}" alt="Tree progress photo" style="max-width:100%;border-radius:8px;margin:4px 0;"/>`).join('');
+  const highlights = params.communityHighlights.map((highlight) => `<li>${escapeHtml(highlight)}</li>`).join('');
+  await sgMail.send({
+    to: params.sponsorEmail,
+    from: FROM,
+    subject: `Your weekly impact update — ${params.treeCount} trees growing`,
+    text: `Hi ${params.sponsorName},\\n\\n${params.periodLabel}: ${params.newTrees} new trees, ${params.treeCount} total trees, and ${params.totalCo2Kg.toFixed(1)} kg CO₂ offset.\\n\\n${params.communityHighlights.join('\\n')}\\n\\nThanks,\\nThe Harvesta Team`,
+    html: `<p>Hi ${escapeHtml(params.sponsorName)},</p><p><strong>${escapeHtml(params.periodLabel)}</strong></p><p>${params.newTrees} new trees, ${params.treeCount} total trees, and <strong>${params.totalCo2Kg.toFixed(1)} kg CO₂</strong> offset.</p>${highlights ? `<h3>Community highlights</h3><ul>${highlights}</ul>` : ''}${photos ? `<h3>Tree progress</h3><div>${photos}</div>` : ''}<p>Thanks for helping local communities grow a healthier future.<br/>The Harvesta Team</p>`,
+  });
+}
+
 export interface JobAcceptedParams {
   sponsorEmail: string;
   sponsorName: string;
@@ -109,5 +168,50 @@ export async function sendCarbonMilestoneEmail(params: CarbonMilestoneParams): P
     subject: `Carbon milestone reached 🎉`,
     text: `Hi ${sponsorName},\n\nCongratulations! Your ${treeCount} tree${treeCount !== 1 ? 's' : ''} have now offset a total of ${totalCo2Kg} kg of CO₂.\n\nThanks,\nThe Harvesta Team`,
     html: `<p>Hi ${sponsorName},</p><p>Congratulations! Your <strong>${treeCount}</strong> tree${treeCount !== 1 ? 's' : ''} have now offset a total of <strong>${totalCo2Kg} kg</strong> of CO₂.</p><p>Thanks,<br/>The Harvesta Team</p>`,
+  });
+}
+
+export interface TreasuryAlertParams {
+  to: string;
+  address: string;
+  assetCode: string;
+  balance: number;
+  threshold: number;
+}
+
+export interface TreasuryDailySummaryParams {
+  to: string;
+  balances: Array<{ address: string; assetCode: string; balance: number }>;
+  threshold: number;
+}
+
+export async function sendTreasuryAlertEmail(params: TreasuryAlertParams): Promise<void> {
+  if (!isConfigured()) return;
+  const { to, address, assetCode, balance, threshold } = params;
+  await sgMail.send({
+    to,
+    from: FROM,
+    subject: `Treasury Alert: ${assetCode} balance low ⚠️`,
+    text: `Treasury Alert\n\nAddress: ${address}\nAsset: ${assetCode}\nCurrent balance: ${balance}\nThreshold: ${threshold}\n\nAction required: Please review the treasury and take appropriate action.`,
+    html: `<p><strong>Treasury Alert</strong></p><p>Address: ${address}<br/>Asset: ${assetCode}<br/>Current balance: <strong>${balance}</strong><br/>Threshold: ${threshold}</p><p>Action required: Please review the treasury and take appropriate action.</p>`,
+  });
+}
+
+export async function sendTreasuryDailySummaryEmail(
+  params: TreasuryDailySummaryParams
+): Promise<void> {
+  if (!isConfigured()) return;
+  const { to, balances, threshold } = params;
+  const lines = balances.map((b) => `${b.address} — ${b.assetCode}: ${b.balance}`);
+  const htmlLines = balances.map(
+    (b) =>
+      `<tr><td style="padding:4px 8px;border:1px solid #ddd;">${b.address}</td><td style="padding:4px 8px;border:1px solid #ddd;">${b.assetCode}</td><td style="padding:4px 8px;border:1px solid #ddd;text-align:right;">${b.balance}</td></tr>`
+  );
+  await sgMail.send({
+    to,
+    from: FROM,
+    subject: `Treasury Daily Summary 📊`,
+    text: `Treasury Daily Summary\n\n${lines.join('\n')}\n\nAlert threshold: ${threshold}`,
+    html: `<p><strong>Treasury Daily Summary</strong></p><table style="border-collapse:collapse;width:100%;">${htmlLines.join('')}</table><p>Alert threshold: ${threshold}</p>`,
   });
 }

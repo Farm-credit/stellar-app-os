@@ -8,5 +8,10 @@ interface AdminLayoutProps {
 export default async function AdminLayout({ children }: AdminLayoutProps) {
   await requireAdminAccess();
 
-  return <>{children}</>;
+  return (
+    <>
+      <select name="status"><option value="all">All</option><option value="pending">Pending</option><option value="planted">Planted</option><option value="verified">Verified</option><option value="failed">Failed</option></select>
+      {children}
+    </>
+  );
 }

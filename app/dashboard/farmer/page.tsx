@@ -2,8 +2,8 @@ import type { Metadata } from 'next';
 import { FarmerDashboard } from '@/components/organisms/FarmerDashboard/FarmerDashboard';
 
 export const metadata: Metadata = {
-  title: 'Farmer Dashboard | FarmCredit',
-  description: 'Your earnings, planting history, survival rates, and upcoming assignments.',
+  title: 'Available Jobs | FarmCredit',
+  description: 'Browse available planting jobs in your region with species, pay, and deadlines.',
 };
 
 export default function FarmerDashboardPage() {

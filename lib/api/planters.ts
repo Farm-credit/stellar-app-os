@@ -81,3 +81,11 @@ const planterProfiles: PlanterProfile[] = [
 export function getPlanterProfile(planterId: string): PlanterProfile | undefined {
   return planterProfiles.find((profile) => profile.id === planterId);
 }
+
+/** Return a defensive copy for read-only API consumers such as GraphQL. */
+export function getPlanterProfiles(): PlanterProfile[] {
+  return planterProfiles.map((profile) => ({
+    ...profile,
+    completedJobs: profile.completedJobs.map((job) => ({ ...job })),
+  }));
+}

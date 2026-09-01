@@ -8,11 +8,7 @@ export type AdminProjectType =
   | 'Other';
 
 export type AdminProjectLifecycleStatus =
-  | 'Draft'
-  | 'Under Review'
-  | 'Approved'
-  | 'Paused'
-  | 'Archived';
+  'Draft' | 'Under Review' | 'Approved' | 'Paused' | 'Archived';
 
 export type AdminRiskRating = 'Low' | 'Medium' | 'High';
 

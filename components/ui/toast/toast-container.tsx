@@ -16,7 +16,7 @@ export function ToastContainer({ toasts, remove, position }: Props) {
   }[position];
 
   return (
-    <div className={`fixed z-50 ${pos} space-y-3`}>
+    <div className={`fixed z-50 ${pos} space-y-3`} role="region" aria-label="Notifications">
       {toasts.map((t) => (
         <Toast key={t.id} {...t} remove={remove} />
       ))}

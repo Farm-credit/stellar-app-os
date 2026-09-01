@@ -11,6 +11,10 @@ export interface NdviSubmissionRequest {
   network: NetworkType;
   /** Hex-encoded ed25519 signature of the canonical payload by the trusted oracle */
   signature: string;
+  /** Latitude of the measurement */
+  lat: number;
+  /** Longitude of the measurement */
+  lon: number;
 }
 
 export interface NdviSubmissionResponse {
@@ -18,4 +22,10 @@ export interface NdviSubmissionResponse {
   amountReleased: string;
   survivalRate: number;
   transactionHash: string;
+  /** Anonymized region hash based on coordinates */
+  region: {
+    regionKey: string;
+    centerLat: number;
+    centerLon: number;
+  };
 }

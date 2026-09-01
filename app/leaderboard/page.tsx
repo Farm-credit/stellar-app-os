@@ -1,51 +1,104 @@
 'use client';
+/* eslint-disable @next/next/no-img-element */
 
 import { useState, useEffect } from 'react';
-import { useWalletContext } from '@/contexts/WalletContext';
-import { fetchLeaderboard, getMockUserStats } from '@/lib/api/mock/leaderboard';
-import { LeaderboardSponsor, LeaderboardPeriod } from '@/lib/types/leaderboard';
+import dynamic from 'next/dynamic';
+import {
+  type LeaderboardSponsor,
+  type LeaderboardPlanter,
+  type LeaderboardPeriod,
+  type LeaderboardCategory,
+  type BonusReward,
+} from '@/lib/types/leaderboard';
+import {
+  fetchLeaderboard as fetchSponsorLeaderboard,
+  fetchPlanterLeaderboard,
+} from '@/lib/api/mock/leaderboard';
 import { Button } from '@/components/atoms/Button';
 import { Text } from '@/components/atoms/Text';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/molecules/Card';
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+} from '@/components/molecules/Card';
 import {
   Table,
   TableHeader,
-  TableBody,
   TableHead,
   TableRow,
   TableCell,
 } from '@/components/ui/table';
 import {
-  Trophy,
-  Leaf,
-  ChevronUp,
-  ChevronDown,
-  Minus,
-  Loader2,
   TreePine,
+  TrendingUp,
+  Trophy,
+  Medal,
+  Loader2,
+  ArrowUp,
+  ArrowDown,
+  Minus,
+  Crown,
   Sparkles,
-  Wallet,
+  Gift,
 } from 'lucide-react';
 import Link from 'next/link';
+
+// --- MOCK WALLET CONTEXT ---
+// Added to bypass the Webpack "Module not found" error.
+// Swap this out for your actual wallet import later.
+const useWalletContext = () => ({ wallet: null });
+// ---------------------------
+
+// Mock function (replace with your actual API call)
+async function fetchLeaderboard(
+  period: LeaderboardPeriod,
+  category: LeaderboardCategory
+): Promise<LeaderboardSponsor[] | LeaderboardPlanter[]> {
+  if (category === 'sponsors') {
+    return await fetchSponsorLeaderboard(period);
+  } else {
+    return await fetchPlanterLeaderboard(period);
+  }
+}
+
+// Mock function (replace with your actual stats logic)
+function getMockUserStats(
+  address: string,
+  period: LeaderboardPeriod,
+  category: LeaderboardCategory
+): LeaderboardSponsor | LeaderboardPlanter | null {
+  // Generate a custom mock ranking for the current user
+  return {
+    rank: period === 'monthly' ? 18 : 45,
+    address,
+    name: 'You (Demo Wallet)',
+    totalTrees: period === 'monthly' ? 90 : 850,
+    co2Offset: period === 'monthly' ? 4.5 : 42.5,
+    change: 'up',
+  };
+}
 
 function formatAddress(address: string) {
   if (address.length <= 12) return address;
   return `${address.substring(0, 6)}...${address.substring(address.length - 4)}`;
 }
 
-export default function LeaderboardPage() {
+function LeaderboardContent() {
   const { wallet } = useWalletContext() || { wallet: null };
-  const isConnected = !!wallet?.isConnected;
+  const _isConnected = !!wallet?.isConnected;
   const [period, setPeriod] = useState<LeaderboardPeriod>('monthly');
-  const [sponsors, setSponsors] = useState<LeaderboardSponsor[]>([]);
+  const [category, setCategory] = useState<LeaderboardCategory>('sponsors');
+  const [entries, setEntries] = useState<LeaderboardSponsor[] | LeaderboardPlanter[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
 
   useEffect(() => {
     async function loadData() {
       setLoading(true);
       try {
-        const data = await fetchLeaderboard(period);
-        setSponsors(data);
+        const data = await fetchLeaderboard(period, category);
+        setEntries(data);
       } catch (err) {
         console.error('Failed to load leaderboard data', err);
       } finally {
@@ -53,24 +106,41 @@ export default function LeaderboardPage() {
       }
     }
     loadData();
-  }, [period]);
+  }, [period, category]);
 
-  const topThree = sponsors.slice(0, 3);
-  const remainingSponsors = sponsors.slice(3);
+  const topThree = entries.slice(0, 3);
+  const remainingEntries = entries.slice(3);
 
   // User details
   const userAddress = wallet?.publicKey || '';
-  const userStats = userAddress ? getMockUserStats(userAddress, period) : null;
-  const isUserInTop10 = userStats
-    ? sponsors.some((s) => s.address.toLowerCase() === userAddress.toLowerCase())
+  const userStats = userAddress ? getMockUserStats(userAddress, period, category) : null;
+  const _isUserInTop10 = userStats
+    ? entries.some((s) => s.address.toLowerCase() === userAddress.toLowerCase())
     : false;
 
   // Global Impact Stats
-  const globalTrees = period === 'monthly' ? 6650 : 63500;
-  const globalCO2 = period === 'monthly' ? 332.5 : 3175.0;
+  const globalTrees =
+    period === 'monthly'
+      ? category === 'sponsors'
+        ? 6650
+        : 12150
+      : category === 'sponsors'
+        ? 63500
+        : 73500;
+  const globalCO2 =
+    period === 'monthly'
+      ? category === 'sponsors'
+        ? 332.5
+        : 607.5
+      : category === 'sponsors'
+        ? 3175.0
+        : 3675.0;
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 selection:bg-stellar-blue/30 selection:text-white">
+    <main
+      id="main-content"
+      className="min-h-screen bg-slate-950 text-slate-100 selection:bg-stellar-blue/30 selection:text-white"
+    >
       {/* Background decoration */}
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-7xl h-[500px] pointer-events-none opacity-20 bg-[radial-gradient(ellipse_at_top,rgba(20,182,231,0.15),transparent_60%)]" />
 
@@ -82,11 +152,38 @@ export default function LeaderboardPage() {
               Leaderboard
             </Text>
             <Text variant="muted" as="p" className="text-base text-slate-400">
-              Honoring the sponsors who make our planet greener, one tree at a time.
+              {category === 'sponsors'
+                ? 'Honoring the sponsors who make our planet greener, one tree at a time.'
+                : 'Celebrating the planters who bring our forests to life, one tree at a time.'}
             </Text>
           </div>
 
           <div className="flex items-center gap-3">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCategory('sponsors')}
+              className={`rounded-lg px-4 py-2 border transition-all ${
+                category === 'sponsors'
+                  ? 'bg-stellar-green border-stellar-green text-white shadow-lg shadow-stellar-green/25'
+                  : 'border-slate-800 text-slate-400 hover:text-white hover:bg-slate-900'
+              }`}
+            >
+              Sponsors
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCategory('planters')}
+              className={`rounded-lg px-4 py-2 border transition-all ${
+                category === 'planters'
+                  ? 'bg-stellar-green border-stellar-green text-white shadow-lg shadow-stellar-green/25'
+                  : 'border-slate-800 text-slate-400 hover:text-white hover:bg-slate-900'
+              }`}
+            >
+              Planters
+            </Button>
+            <div className="w-px h-8 bg-slate-800" />
             <Button
               variant="outline"
               size="sm"
@@ -122,8 +219,11 @@ export default function LeaderboardPage() {
                 <TreePine className="w-6 h-6" />
               </div>
               <div>
-                <Text variant="muted" className="text-xs uppercase tracking-wider font-semibold text-slate-400">
-                  Total Trees Sponsored
+                <Text
+                  variant="muted"
+                  className="text-xs uppercase tracking-wider font-semibold text-slate-400"
+                >
+                  Total Trees {category === 'sponsors' ? 'Sponsored' : 'Planted'}
                 </Text>
                 <Text variant="h3" className="font-extrabold text-white">
                   {globalTrees.toLocaleString()}
@@ -138,7 +238,10 @@ export default function LeaderboardPage() {
                 <Leaf className="w-6 h-6" />
               </div>
               <div>
-                <Text variant="muted" className="text-xs uppercase tracking-wider font-semibold text-slate-400">
+                <Text
+                  variant="muted"
+                  className="text-xs uppercase tracking-wider font-semibold text-slate-400"
+                >
                   Total CO₂ Offset
                 </Text>
                 <Text variant="h3" className="font-extrabold text-white">
@@ -154,11 +257,14 @@ export default function LeaderboardPage() {
                 <Sparkles className="w-6 h-6" />
               </div>
               <div>
-                <Text variant="muted" className="text-xs uppercase tracking-wider font-semibold text-slate-400">
-                  Active Global Sponsors
+                <Text
+                  variant="muted"
+                  className="text-xs uppercase tracking-wider font-semibold text-slate-400"
+                >
+                  Active Global {category === 'sponsors' ? 'Sponsors' : 'Planters'}
                 </Text>
                 <Text variant="h3" className="font-extrabold text-white">
-                  148
+                  {category === 'sponsors' ? '148' : '89'}
                 </Text>
               </div>
             </CardContent>
@@ -168,7 +274,9 @@ export default function LeaderboardPage() {
         {loading ? (
           <div className="flex flex-col items-center justify-center py-24 gap-4">
             <Loader2 className="w-10 h-10 text-stellar-blue animate-spin" />
-            <Text variant="muted" className="text-sm">Fetching leader statistics...</Text>
+            <Text variant="muted" className="text-sm">
+              Fetching leader statistics...
+            </Text>
           </div>
         ) : (
           <div className="space-y-10 animate-in fade-in slide-in-from-bottom-3 duration-500">
@@ -188,22 +296,61 @@ export default function LeaderboardPage() {
                         className="w-16 h-16 rounded-full border-2 border-slate-400 object-cover mt-4 mb-3"
                       />
                     )}
-                    <span className="font-bold text-white text-lg block truncate max-w-full">
-                      {topThree[1].name || formatAddress(topThree[1].address)}
-                    </span>
+                    {category === 'sponsors' ? (
+                      <Link
+                        href={`/sponsors/${encodeURIComponent(topThree[1].address)}`}
+                        className="font-bold text-white text-lg block truncate max-w-full hover:text-stellar-blue"
+                      >
+                        {topThree[1].name || formatAddress(topThree[1].address)}
+                      </Link>
+                    ) : (
+                      <span className="font-bold text-white text-lg block truncate max-w-full">
+                        {topThree[1].name || formatAddress(topThree[1].address)}
+                      </span>
+                    )}
                     <span className="text-xs text-slate-400 block mb-4 truncate max-w-full">
                       {topThree[1].name ? formatAddress(topThree[1].address) : ''}
                     </span>
                     <div className="grid grid-cols-2 gap-4 w-full border-t border-slate-800/80 pt-3">
                       <div>
-                        <span className="text-xs text-slate-500 block uppercase font-medium">Trees</span>
-                        <span className="font-extrabold text-stellar-green">{topThree[1].totalTrees}</span>
+                        <span className="text-xs text-slate-500 block uppercase font-medium">
+                          Trees
+                        </span>
+                        <span className="font-extrabold text-stellar-green">
+                          {topThree[1].totalTrees}
+                        </span>
                       </div>
                       <div>
-                        <span className="text-xs text-slate-500 block uppercase font-medium">CO₂</span>
-                        <span className="font-extrabold text-stellar-blue">{topThree[1].co2Offset}t</span>
+                        <span className="text-xs text-slate-500 block uppercase font-medium">
+                          CO₂
+                        </span>
+                        <span className="font-extrabold text-stellar-blue">
+                          {topThree[1].co2Offset}t
+                        </span>
                       </div>
                     </div>
+                    {period === 'monthly' && 'bonus' in topThree[1] && topThree[1].bonus && (
+                      <div className="mt-4 pt-3 border-t border-amber-500/30">
+                        <div className="flex items-center justify-center gap-2 text-amber-400">
+                          <Gift className="w-4 h-4" />
+                          <span className="text-xs font-semibold uppercase tracking-wide">
+                            Bonus Reward
+                          </span>
+                        </div>
+                        <p className="text-xs text-amber-300 mt-1">
+                          {topThree[1].bonus.description}
+                        </p>
+                        {topThree[1].bonus.claimed ? (
+                          <span className="inline-block mt-2 text-xs bg-amber-500/20 text-amber-400 px-2 py-1 rounded-full">
+                            Claimed
+                          </span>
+                        ) : (
+                          <button className="mt-2 text-xs bg-amber-500 hover:bg-amber-600 text-slate-950 font-semibold px-3 py-1.5 rounded-full transition-colors">
+                            Claim Bonus
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -220,22 +367,61 @@ export default function LeaderboardPage() {
                         className="w-20 h-20 rounded-full border-2 border-amber-400 object-cover mt-4 mb-3"
                       />
                     )}
-                    <span className="font-bold text-white text-xl block truncate max-w-full">
-                      {topThree[0].name || formatAddress(topThree[0].address)}
-                    </span>
+                    {category === 'sponsors' ? (
+                      <Link
+                        href={`/sponsors/${encodeURIComponent(topThree[0].address)}`}
+                        className="font-bold text-white text-xl block truncate max-w-full hover:text-stellar-blue"
+                      >
+                        {topThree[0].name || formatAddress(topThree[0].address)}
+                      </Link>
+                    ) : (
+                      <span className="font-bold text-white text-xl block truncate max-w-full">
+                        {topThree[0].name || formatAddress(topThree[0].address)}
+                      </span>
+                    )}
                     <span className="text-xs text-slate-400 block mb-4 truncate max-w-full">
                       {topThree[0].name ? formatAddress(topThree[0].address) : ''}
                     </span>
                     <div className="grid grid-cols-2 gap-4 w-full border-t border-slate-800/80 pt-3">
                       <div>
-                        <span className="text-xs text-slate-500 block uppercase font-medium">Trees</span>
-                        <span className="font-extrabold text-stellar-green">{topThree[0].totalTrees}</span>
+                        <span className="text-xs text-slate-500 block uppercase font-medium">
+                          Trees
+                        </span>
+                        <span className="font-extrabold text-stellar-green">
+                          {topThree[0].totalTrees}
+                        </span>
                       </div>
                       <div>
-                        <span className="text-xs text-slate-500 block uppercase font-medium">CO₂</span>
-                        <span className="font-extrabold text-stellar-blue">{topThree[0].co2Offset}t</span>
+                        <span className="text-xs text-slate-500 block uppercase font-medium">
+                          CO₂
+                        </span>
+                        <span className="font-extrabold text-stellar-blue">
+                          {topThree[0].co2Offset}t
+                        </span>
                       </div>
                     </div>
+                    {period === 'monthly' && 'bonus' in topThree[0] && topThree[0].bonus && (
+                      <div className="mt-4 pt-3 border-t border-amber-500/30">
+                        <div className="flex items-center justify-center gap-2 text-amber-400">
+                          <Gift className="w-4 h-4" />
+                          <span className="text-xs font-semibold uppercase tracking-wide">
+                            Bonus Reward
+                          </span>
+                        </div>
+                        <p className="text-xs text-amber-300 mt-1">
+                          {topThree[0].bonus.description}
+                        </p>
+                        {topThree[0].bonus.claimed ? (
+                          <span className="inline-block mt-2 text-xs bg-amber-500/20 text-amber-400 px-2 py-1 rounded-full">
+                            Claimed
+                          </span>
+                        ) : (
+                          <button className="mt-2 text-xs bg-amber-500 hover:bg-amber-600 text-slate-950 font-semibold px-3 py-1.5 rounded-full transition-colors">
+                            Claim Bonus
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -252,22 +438,61 @@ export default function LeaderboardPage() {
                         className="w-16 h-16 rounded-full border-2 border-amber-700 object-cover mt-4 mb-3"
                       />
                     )}
-                    <span className="font-bold text-white text-lg block truncate max-w-full">
-                      {topThree[2].name || formatAddress(topThree[2].address)}
-                    </span>
+                    {category === 'sponsors' ? (
+                      <Link
+                        href={`/sponsors/${encodeURIComponent(topThree[2].address)}`}
+                        className="font-bold text-white text-lg block truncate max-w-full hover:text-stellar-blue"
+                      >
+                        {topThree[2].name || formatAddress(topThree[2].address)}
+                      </Link>
+                    ) : (
+                      <span className="font-bold text-white text-lg block truncate max-w-full">
+                        {topThree[2].name || formatAddress(topThree[2].address)}
+                      </span>
+                    )}
                     <span className="text-xs text-slate-400 block mb-4 truncate max-w-full">
                       {topThree[2].name ? formatAddress(topThree[2].address) : ''}
                     </span>
                     <div className="grid grid-cols-2 gap-4 w-full border-t border-slate-800/80 pt-3">
                       <div>
-                        <span className="text-xs text-slate-500 block uppercase font-medium">Trees</span>
-                        <span className="font-extrabold text-stellar-green">{topThree[2].totalTrees}</span>
+                        <span className="text-xs text-slate-500 block uppercase font-medium">
+                          Trees
+                        </span>
+                        <span className="font-extrabold text-stellar-green">
+                          {topThree[2].totalTrees}
+                        </span>
                       </div>
                       <div>
-                        <span className="text-xs text-slate-500 block uppercase font-medium">CO₂</span>
-                        <span className="font-extrabold text-stellar-blue">{topThree[2].co2Offset}t</span>
+                        <span className="text-xs text-slate-500 block uppercase font-medium">
+                          CO₂
+                        </span>
+                        <span className="font-extrabold text-stellar-blue">
+                          {topThree[2].co2Offset}t
+                        </span>
                       </div>
                     </div>
+                    {period === 'monthly' && 'bonus' in topThree[2] && topThree[2].bonus && (
+                      <div className="mt-4 pt-3 border-t border-amber-500/30">
+                        <div className="flex items-center justify-center gap-2 text-amber-400">
+                          <Gift className="w-4 h-4" />
+                          <span className="text-xs font-semibold uppercase tracking-wide">
+                            Bonus Reward
+                          </span>
+                        </div>
+                        <p className="text-xs text-amber-300 mt-1">
+                          {topThree[2].bonus.description}
+                        </p>
+                        {topThree[2].bonus.claimed ? (
+                          <span className="inline-block mt-2 text-xs bg-amber-500/20 text-amber-400 px-2 py-1 rounded-full">
+                            Claimed
+                          </span>
+                        ) : (
+                          <button className="mt-2 text-xs bg-amber-500 hover:bg-amber-600 text-slate-950 font-semibold px-3 py-1.5 rounded-full transition-colors">
+                            Claim Bonus
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -277,68 +502,90 @@ export default function LeaderboardPage() {
             <div className="bg-slate-900/20 border border-slate-900 rounded-2xl overflow-hidden backdrop-blur-sm">
               <div className="p-5 border-b border-slate-900 bg-slate-900/30">
                 <Text variant="h4" className="text-white font-bold">
-                  Sponsors Ranked 4 - 10
+                  {category === 'sponsors' ? 'Sponsors' : 'Planters'} Ranked 4 - 10
                 </Text>
               </div>
               <Table>
                 <TableHeader className="bg-slate-900/40 border-b border-slate-900">
                   <TableRow className="hover:bg-transparent border-slate-900">
-                    <TableHead className="w-[100px] text-slate-400 font-semibold py-4 pl-6">Rank</TableHead>
-                    <TableHead className="text-slate-400 font-semibold py-4">Sponsor</TableHead>
-                    <TableHead className="text-slate-400 font-semibold py-4 text-right">Trees Sponsored</TableHead>
-                    <TableHead className="text-slate-400 font-semibold py-4 text-right">CO₂ Offset</TableHead>
-                    <TableHead className="w-[120px] text-slate-400 font-semibold py-4 text-center pr-6">Trend</TableHead>
+                    <TableHead className="w-[100px] text-slate-400 font-semibold py-4 pl-6">
+                      Rank
+                    </TableHead>
+                    <TableHead className="text-slate-400 font-semibold py-4">
+                      {category === 'sponsors' ? 'Sponsor' : 'Planter'}
+                    </TableHead>
+                    <TableHead className="text-slate-400 font-semibold py-4 text-right">
+                      Trees {category === 'sponsors' ? 'Sponsored' : 'Planted'}
+                    </TableHead>
+                    <TableHead className="text-slate-400 font-semibold py-4 text-right">
+                      CO₂ Offset
+                    </TableHead>
+                    <TableHead className="w-[120px] text-slate-400 font-semibold py-4 text-center pr-6">
+                      Trend
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {remainingSponsors.map((sponsor) => {
-                    const isUserRow = userAddress && sponsor.address.toLowerCase() === userAddress.toLowerCase();
+                  {remainingEntries.map((entry) => {
+                    const isUserRow =
+                      userAddress && entry.address.toLowerCase() === userAddress.toLowerCase();
                     return (
                       <TableRow
-                        key={sponsor.address}
+                        key={entry.address}
                         className={`border-slate-900 hover:bg-slate-900/30 transition-colors ${
-                          isUserRow ? 'bg-stellar-blue/10 hover:bg-stellar-blue/15 border-l-2 border-l-stellar-blue' : ''
+                          isUserRow
+                            ? 'bg-stellar-blue/10 hover:bg-stellar-blue/15 border-l-2 border-l-stellar-blue'
+                            : ''
                         }`}
                       >
                         <TableCell className="font-bold text-slate-300 py-4 pl-6">
-                          #{sponsor.rank}
+                          #{entry.rank}
                         </TableCell>
                         <TableCell className="py-4">
                           <div className="flex items-center gap-3">
-                            {sponsor.avatarUrl && (
+                            {entry.avatarUrl && (
                               <img
-                                src={sponsor.avatarUrl}
-                                alt={sponsor.name || sponsor.address}
+                                src={entry.avatarUrl}
+                                alt={entry.name || entry.address}
                                 className="w-8 h-8 rounded-full object-cover"
                               />
                             )}
                             <div>
                               <span className="font-semibold text-white block">
-                                {sponsor.name || formatAddress(sponsor.address)}
+                                {category === 'sponsors' ? (
+                                  <Link
+                                    href={`/sponsors/${encodeURIComponent(entry.address)}`}
+                                    className="hover:text-stellar-blue"
+                                  >
+                                    {entry.name || formatAddress(entry.address)}
+                                  </Link>
+                                ) : (
+                                  entry.name || formatAddress(entry.address)
+                                )}
                               </span>
-                              {sponsor.name && (
+                              {entry.name && (
                                 <span className="text-xs text-slate-500">
-                                  {formatAddress(sponsor.address)}
+                                  {formatAddress(entry.address)}
                                 </span>
                               )}
                             </div>
                           </div>
                         </TableCell>
                         <TableCell className="text-right font-bold text-stellar-green py-4">
-                          {sponsor.totalTrees}
+                          {entry.totalTrees}
                         </TableCell>
                         <TableCell className="text-right font-bold text-stellar-blue py-4">
-                          {sponsor.co2Offset.toFixed(1)}t
+                          {entry.co2Offset.toFixed(1)}t
                         </TableCell>
                         <TableCell className="text-center py-4 pr-6">
                           <div className="inline-flex justify-center items-center">
-                            {sponsor.change === 'up' && (
+                            {entry.change === 'up' && (
                               <ChevronUp className="w-5 h-5 text-stellar-green" />
                             )}
-                            {sponsor.change === 'down' && (
+                            {entry.change === 'down' && (
                               <ChevronDown className="w-5 h-5 text-destructive" />
                             )}
-                            {sponsor.change === 'same' && (
+                            {entry.change === 'same' && (
                               <Minus className="w-4 h-4 text-slate-500" />
                             )}
                           </div>
@@ -366,25 +613,33 @@ export default function LeaderboardPage() {
                           Connected
                         </span>
                       </div>
-                      <span className="text-sm text-slate-400">
-                        {formatAddress(userAddress)}
-                      </span>
+                      <span className="text-sm text-slate-400">{formatAddress(userAddress)}</span>
                     </div>
                   </div>
 
                   <div className="flex items-center gap-8 sm:gap-12">
                     <div className="text-center sm:text-left">
-                      <span className="text-xs text-slate-500 uppercase block font-medium">Trees Sponsored</span>
-                      <span className="font-extrabold text-stellar-green text-lg">{userStats.totalTrees}</span>
+                      <span className="text-xs text-slate-500 uppercase block font-medium">
+                        Trees {category === 'sponsors' ? 'Sponsored' : 'Planted'}
+                      </span>
+                      <span className="font-extrabold text-stellar-green text-lg">
+                        {userStats.totalTrees}
+                      </span>
                     </div>
                     <div className="text-center sm:text-left">
-                      <span className="text-xs text-slate-500 uppercase block font-medium">CO₂ Offset</span>
-                      <span className="font-extrabold text-stellar-blue text-lg">{userStats.co2Offset.toFixed(1)}t</span>
+                      <span className="text-xs text-slate-500 uppercase block font-medium">
+                        CO₂ Offset
+                      </span>
+                      <span className="font-extrabold text-stellar-blue text-lg">
+                        {userStats.co2Offset.toFixed(1)}t
+                      </span>
                     </div>
                   </div>
 
                   <Button asChild stellar="primary" size="sm">
-                    <Link href="/credits/purchase">Increase Impact</Link>
+                    <Link href={category === 'sponsors' ? '/credits/purchase' : '/planters/register'}>
+                      {category === 'sponsors' ? 'Increase Impact' : 'Register as Planter'}
+                    </Link>
                   </Button>
                 </div>
               </div>
@@ -396,10 +651,16 @@ export default function LeaderboardPage() {
                 <div className="flex items-center gap-3">
                   <Wallet className="w-5 h-5 text-slate-500" />
                   <span className="text-sm text-slate-400 font-medium">
-                    Connect your Stellar wallet to see your ranking and contributions on the leaderboard.
+                    Connect your Stellar wallet to see your ranking and contributions on the
+                    leaderboard.
                   </span>
                 </div>
-                <Button asChild variant="outline" size="sm" className="border-slate-800 text-slate-300 hover:text-white hover:bg-slate-900 whitespace-nowrap">
+                <Button
+                  asChild
+                  variant="outline"
+                  size="sm"
+                  className="border-slate-800 text-slate-300 hover:text-white hover:bg-slate-900 whitespace-nowrap"
+                >
                   <Link href="/">Go Connect Wallet</Link>
                 </Button>
               </div>
@@ -407,6 +668,12 @@ export default function LeaderboardPage() {
           </div>
         )}
       </div>
-    </div>
+    </main>
   );
 }
+
+// Ensure the entire page only renders on the client
+// This completely resolves the Recharts sizing issue during SSR build
+export default dynamic(() => Promise.resolve(LeaderboardContent), {
+  ssr: false,
+});

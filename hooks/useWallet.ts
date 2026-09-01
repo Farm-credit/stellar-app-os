@@ -3,11 +3,17 @@ import type { WalletType, NetworkType, WalletConnection } from '@/lib/types/wall
 import {
   connectFreighter,
   connectAlbedo,
+  connectRango,
   connectXBull,
   fetchBalance,
   getFreighterNetwork,
 } from '@/lib/stellar/wallet';
-import { signTransactionWithFreighter, signTransactionWithAlbedo, signTransactionWithXBull } from '@/lib/stellar/signing';
+import {
+  signTransactionWithFreighter,
+  signTransactionWithAlbedo,
+  signTransactionWithRango,
+  signTransactionWithXBull,
+} from '@/lib/stellar/signing';
 
 export function useWallet() {
   const [wallet, setWallet] = useState<WalletConnection | null>(null);
@@ -46,19 +52,17 @@ export function useWallet() {
 
     try {
       let publicKey: string;
-      let targetNetwork = network;
+      const targetNetwork = network;
 
       switch (type) {
         case 'freighter':
-          // For Freighter, try to detect the network first
-          const freighterNetwork = await getFreighterNetwork();
-          if (freighterNetwork) {
-            targetNetwork = freighterNetwork;
-          }
-          publicKey = await connectFreighter(targetNetwork);
+          publicKey = await connectFreighter();
           break;
         case 'albedo':
           publicKey = await connectAlbedo(targetNetwork);
+          break;
+        case 'rango':
+          publicKey = await connectRango(targetNetwork);
           break;
         case 'xbull':
           publicKey = await connectXBull(targetNetwork);
@@ -174,6 +178,8 @@ export function useWallet() {
             return await signTransactionWithFreighter(transactionXdr, networkPassphrase);
           case 'albedo':
             return await signTransactionWithAlbedo(transactionXdr, wallet.network);
+          case 'rango':
+            return await signTransactionWithRango(transactionXdr, networkPassphrase);
           case 'xbull':
             return await signTransactionWithXBull(transactionXdr, networkPassphrase);
           default:

@@ -16,16 +16,8 @@ import { TreeStatusBadge } from '@/components/molecules/TreeStatusBadge';
 import { Text } from '@/components/atoms/Text';
 import { Skeleton } from '@/components/atoms/Skeleton';
 import { useSponsorTrees } from '@/hooks/useSponsorTrees';
+import { useTimeZone } from '@/contexts/TimeZoneContext';
 import type { TreeFilterState, TreeSpecies } from '@/lib/types/tree';
-
-function fmtDate(iso?: string) {
-  if (!iso) return 'Not yet planted';
-  return new Date(iso).toLocaleDateString('en-GB', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  });
-}
 
 function getSpeciesIcon(species: TreeSpecies) {
   switch (species) {
@@ -42,11 +34,28 @@ function getSpeciesIcon(species: TreeSpecies) {
   }
 }
 
-const bgColors: Record<TreeSpecies, string> = {
+const bgColors: Partial<Record<TreeSpecies, string>> = {
   Teak: 'bg-amber-500/10 border-amber-500/20 dark:bg-amber-500/5 dark:border-amber-500/10',
-  Moringa: 'bg-emerald-500/10 border-emerald-500/20 dark:bg-emerald-500/5 dark:border-emerald-500/10',
+  Moringa:
+    'bg-emerald-500/10 border-emerald-500/20 dark:bg-emerald-500/5 dark:border-emerald-500/10',
   Eucalyptus: 'bg-teal-500/10 border-teal-500/20 dark:bg-teal-500/5 dark:border-teal-500/10',
   Mangrove: 'bg-cyan-500/10 border-cyan-500/20 dark:bg-cyan-500/5 dark:border-cyan-500/10',
+  Acacia: 'bg-lime-500/10 border-lime-500/20 dark:bg-lime-500/5 dark:border-lime-500/10',
+  Neem: 'bg-green-500/10 border-green-500/20 dark:bg-green-500/5 dark:border-green-500/10',
+  'African Mahogany':
+    'bg-yellow-700/10 border-yellow-700/20 dark:bg-yellow-700/5 dark:border-yellow-700/10',
+  Baobab: 'bg-orange-500/10 border-orange-500/20 dark:bg-orange-500/5 dark:border-orange-500/10',
+  'Bamboo (Moso)':
+    'bg-green-400/10 border-green-400/20 dark:bg-green-400/5 dark:border-green-400/10',
+  'West African Cedar':
+    'bg-emerald-700/10 border-emerald-700/20 dark:bg-emerald-700/5 dark:border-emerald-700/10',
+  'Caribbean Pine':
+    'bg-green-800/10 border-green-800/20 dark:bg-green-800/5 dark:border-green-800/10',
+  Iroko: 'bg-yellow-800/10 border-yellow-800/20 dark:bg-yellow-800/5 dark:border-yellow-800/10',
+  Shea: 'bg-yellow-500/10 border-yellow-500/20 dark:bg-yellow-500/5 dark:border-yellow-500/10',
+  Cashew: 'bg-orange-400/10 border-orange-400/20 dark:bg-orange-400/5 dark:border-orange-400/10',
+  'African Locust Bean':
+    'bg-stone-600/10 border-stone-600/20 dark:bg-stone-600/5 dark:border-stone-600/10',
 };
 
 interface SponsorTreeListProps {
@@ -58,6 +67,8 @@ interface SponsorTreeListProps {
  * Requirements: Issue #525 / #539
  */
 export function SponsorTreeList({ initialFilters }: SponsorTreeListProps) {
+  const { formatDate, abbreviation } = useTimeZone();
+
   const {
     trees,
     filters,
@@ -81,7 +92,12 @@ export function SponsorTreeList({ initialFilters }: SponsorTreeListProps) {
       />
 
       <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
-        <Text variant="muted" as="p" className="text-sm font-semibold opacity-85" aria-live="polite">
+        <Text
+          variant="muted"
+          as="p"
+          className="text-sm font-semibold opacity-85"
+          aria-live="polite"
+        >
           {isLoading
             ? 'Loading your forest...'
             : totalCount === 0
@@ -127,7 +143,9 @@ export function SponsorTreeList({ initialFilters }: SponsorTreeListProps) {
       ) : trees.length === 0 ? (
         <div className="p-16 text-center border border-dashed border-slate-200 dark:border-slate-800 rounded-3xl bg-slate-50/50 dark:bg-slate-900/30">
           <TreePine className="h-12 w-12 text-slate-300 dark:text-slate-700 mx-auto mb-4" />
-          <Text variant="h3" className="text-lg font-bold mb-2">No trees found</Text>
+          <Text variant="h3" className="text-lg font-bold mb-2">
+            No trees found
+          </Text>
           <Text variant="muted" className="text-sm max-w-md mx-auto">
             Try adjusting your search or filters to find sponsored trees in your portfolio.
           </Text>
@@ -177,7 +195,11 @@ export function SponsorTreeList({ initialFilters }: SponsorTreeListProps) {
                     </div>
                     <div className="flex items-center gap-2.5 text-sm text-slate-600 dark:text-slate-400">
                       <Calendar className="h-4 w-4 shrink-0 text-slate-455" />
-                      <span>{fmtDate(tree.plantedAt)}</span>
+                      <span>
+                        {tree.plantedAt
+                          ? `${formatDate(tree.plantedAt)} ${abbreviation(tree.plantedAt)}`
+                          : 'Not yet planted'}
+                      </span>
                     </div>
                   </div>
                 </div>

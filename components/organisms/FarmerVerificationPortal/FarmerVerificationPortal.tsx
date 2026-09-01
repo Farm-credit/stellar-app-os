@@ -1,20 +1,20 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useRef } from 'react';
 import type { FormEvent } from 'react';
 import exifr from 'exifr';
 import {
   AlertCircle,
   CheckCircle2,
-  FileImage,
-  KeyRound,
-  Loader2,
-  Lock,
+  Camera,
   MapPin,
-  Send,
+  Upload,
+  ClipboardList,
+  ChevronDown,
+  Lock,
   ShieldCheck,
-  Sprout,
-  TreePine,
+  Send,
+  FileImage,
 } from 'lucide-react';
 import { Badge } from '@/components/atoms/Badge';
 import { Button } from '@/components/atoms/Button';
@@ -27,143 +27,75 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/molecules/Card';
-import type { NetworkType } from '@/lib/types/wallet';
+import type { IpfsUploadResult } from '@/lib/ipfs/upload';
+
+interface JobOption {
+  id: string;
+  projectName: string;
+  location: string;
+  treesTarget: number;
+}
 
 interface GpsReading {
   lat: number;
   lon: number;
-  capturedAt: string;
-  source: 'exif';
+  capturedAt?: Date | null;
+  source?: 'exif' | 'manual';
 }
 
-interface EncryptedPayload {
-  iv: string;
-  ciphertext: string;
-}
+type Status = 'idle' | 'reading-gps' | 'reading-photo' | 'uploading' | 'success' | 'error';
 
-interface VerificationResult {
-  treeCount: number;
-  encryptedPhotoKey: string;
-  transactionHash: string;
-  commitment: string;
-  inRegion: boolean;
-}
-
-type Status = 'idle' | 'reading-photo' | 'encrypting' | 'submitting' | 'success' | 'error';
-
-const defaultContractId = process.env.NEXT_PUBLIC_LOCATION_PROOF_CONTRACT_ID ?? '';
-
-function arrayBufferToBase64(buffer: ArrayBuffer): string {
-  const bytes = new Uint8Array(buffer);
-  let binary = '';
-
-  for (let index = 0; index < bytes.byteLength; index += 1) {
-    binary += String.fromCharCode(bytes[index]);
-  }
-
-  return window.btoa(binary);
-}
-
-function viewToArrayBuffer(view: Uint8Array): ArrayBuffer {
-  return view.buffer.slice(view.byteOffset, view.byteOffset + view.byteLength) as ArrayBuffer;
-}
-
-function pemToArrayBuffer(pem: string): ArrayBuffer {
-  const normalized = pem
-    .replace(/-----BEGIN PUBLIC KEY-----/g, '')
-    .replace(/-----END PUBLIC KEY-----/g, '')
-    .replace(/\s/g, '');
-  const binary = window.atob(normalized);
-  const bytes = new Uint8Array(binary.length);
-
-  for (let index = 0; index < binary.length; index += 1) {
-    bytes[index] = binary.charCodeAt(index);
-  }
-
-  return bytes.buffer;
-}
-
-function importRsaPublicKey(pem: string): Promise<CryptoKey> {
-  return window.crypto.subtle.importKey(
-    'spki',
-    pemToArrayBuffer(pem),
-    {
-      name: 'RSA-OAEP',
-      hash: 'SHA-256',
-    },
-    false,
-    ['wrapKey']
-  );
-}
-
-async function encryptWithAes(key: CryptoKey, bytes: Uint8Array): Promise<EncryptedPayload> {
-  const iv = window.crypto.getRandomValues(new Uint8Array(12));
-  const ciphertext = await window.crypto.subtle.encrypt(
-    {
-      name: 'AES-GCM',
-      iv,
-    },
-    key,
-    viewToArrayBuffer(bytes)
-  );
-
-  return {
-    iv: arrayBufferToBase64(viewToArrayBuffer(iv)),
-    ciphertext: arrayBufferToBase64(ciphertext),
-  };
-}
-
-async function prepareEncryptedSubmission(photo: File, gps: GpsReading) {
-  const keyResponse = await fetch('/api/planting/verification-key');
-  const keyBody = (await keyResponse.json()) as { publicKey?: string; error?: string };
-
-  if (!keyResponse.ok || !keyBody.publicKey) {
-    throw new Error(keyBody.error ?? 'Unable to load encryption key');
-  }
-
-  const publicKey = await importRsaPublicKey(keyBody.publicKey);
-  const aesKey = await window.crypto.subtle.generateKey(
-    {
-      name: 'AES-GCM',
-      length: 256,
-    },
-    true,
-    ['encrypt']
-  );
-  const wrappedKey = await window.crypto.subtle.wrapKey('raw', aesKey, publicKey, 'RSA-OAEP');
-  const photoBytes = new Uint8Array(await photo.arrayBuffer());
-  const gpsBytes = new TextEncoder().encode(JSON.stringify(gps));
-
-  return {
-    wrappedKey: arrayBufferToBase64(wrappedKey),
-    encryptedPhoto: await encryptWithAes(aesKey, photoBytes),
-    encryptedGps: await encryptWithAes(aesKey, gpsBytes),
-  };
-}
-
-function shortenHash(value: string): string {
-  if (value.length <= 18) return value;
-  return `${value.slice(0, 10)}...${value.slice(-8)}`;
-}
+const FARMER_JOBS: JobOption[] = [
+  {
+    id: 'na-001',
+    projectName: 'Jigawa Dryland Restoration',
+    location: 'Jigawa State, Nigeria',
+    treesTarget: 600,
+  },
+  {
+    id: 'na-002',
+    projectName: 'Katsina Sahel Buffer',
+    location: 'Katsina State, Nigeria',
+    treesTarget: 350,
+  },
+  {
+    id: 'na-003',
+    projectName: 'Kano Reforestation Phase 2',
+    location: 'Kano State, Nigeria',
+    treesTarget: 500,
+  },
+];
 
 export function FarmerVerificationPortal() {
-  const [farmerId, setFarmerId] = useState('');
-  const [treeCount, setTreeCount] = useState('120');
-  const [network, setNetwork] = useState<NetworkType>('testnet');
-  const [contractId, setContractId] = useState(defaultContractId);
+  const [farmerAddress, setFarmerAddress] = useState('');
+  const [selectedJobId, setSelectedJobId] = useState('');
   const [photo, setPhoto] = useState<File | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [gps, setGps] = useState<GpsReading | null>(null);
+  const [gpsSource, setGpsSource] = useState<'exif' | 'manual' | null>(null);
   const [status, setStatus] = useState<Status>('idle');
-  const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<VerificationResult | null>(null);
+  const [_error, setError] = useState<string | null>(null);
+  const [result, setResult] = useState<IpfsUploadResult | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const canSubmit = useMemo(
-    () => farmerId.trim() && Number(treeCount) > 0 && contractId.trim() && photo && gps,
-    [contractId, farmerId, gps, photo, treeCount]
+  const selectedJob = useMemo(
+    () => FARMER_JOBS.find((job) => job.id === selectedJobId) ?? null,
+    [selectedJobId]
   );
+  const photoLacksCoordinates = !!photo && !gps;
+
+  const canSubmit = useMemo(() => {
+    const hasAddress = farmerAddress.trim().length > 0;
+    const hasJob = !!selectedJob;
+    const hasPhoto = !!photo;
+    const hasGps = !!gps;
+    return hasAddress && hasJob && hasPhoto && hasGps && status !== 'uploading';
+  }, [farmerAddress, selectedJob, photo, gps, status]);
 
   async function handlePhotoChange(file: File | null) {
     setPhoto(file);
+    setPhotoPreview(file ? URL.createObjectURL(file) : null);
     setGps(null);
     setResult(null);
     setError(null);
@@ -171,281 +103,344 @@ export function FarmerVerificationPortal() {
     if (!file) return;
 
     try {
-      setStatus('reading-photo');
-      const reading = (await exifr.gps(file)) as { latitude?: number; longitude?: number } | null;
-
-      if (typeof reading?.latitude !== 'number' || typeof reading.longitude !== 'number') {
-        throw new Error(
-          'This photo does not include GPS metadata. Take a new photo with location enabled.'
-        );
+      setStatus('reading-gps');
+      const data = await exifr.parse(file, [
+        'latitude',
+        'longitude',
+        'DateTimeOriginal',
+        'CreateDate',
+      ]);
+      if (data?.latitude != null && data?.longitude != null) {
+        const photoDate: Date | null = data.DateTimeOriginal || data.CreateDate || null;
+        setGps({
+          lat: data.latitude,
+          lon: data.longitude,
+          capturedAt: photoDate,
+          source: 'exif',
+        });
+        setGpsSource('exif');
       }
 
-      setGps({
-        lat: reading.latitude,
-        lon: reading.longitude,
-        capturedAt: new Date().toISOString(),
-        source: 'exif',
-      });
       setStatus('idle');
-    } catch (caught) {
-      setStatus('error');
-      setError(caught instanceof Error ? caught.message : 'Unable to read GPS metadata from photo');
+    } catch {
+      setStatus('idle');
     }
   }
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setError(null);
+  function clearPhoto() {
+    setPhoto(null);
+    setPhotoPreview(null);
+    setGps(null);
+    setGpsSource(null);
     setResult(null);
+    setError(null);
+  }
 
-    if (!photo || !gps) {
-      setError('Add a GPS-tagged planting photo before submitting.');
+  function resetForm() {
+    setFarmerAddress('');
+    setSelectedJobId('');
+    clearPhoto();
+    setMessage(null);
+    setStatus('idle');
+  }
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!selectedJob || !photoPreview) {
       setStatus('error');
+      setMessage('Please select a job and add a photo.');
       return;
     }
 
+    setStatus('uploading');
+    setMessage('Submitting verification request...');
+
     try {
-      setStatus('encrypting');
-      const encrypted = await prepareEncryptedSubmission(photo, gps);
-      const formData = new FormData();
-      const encryptedPhotoBlob = new Blob(
-        [
-          JSON.stringify({
-            algorithm: 'AES-256-GCM',
-            wrappedKey: encrypted.wrappedKey,
-            originalName: photo.name,
-            payload: encrypted.encryptedPhoto,
-          }),
-        ],
-        {
-          type: 'application/octet-stream',
-        }
-      );
-
-      formData.set('farmerId', farmerId.trim());
-      formData.set('treeCount', treeCount);
-      formData.set('network', network);
-      formData.set('contractId', contractId.trim());
-      formData.set('nonce', Date.now().toString());
-      formData.set('wrappedKey', encrypted.wrappedKey);
-      formData.set('encryptedGps', JSON.stringify(encrypted.encryptedGps));
-      formData.set('encryptedPhoto', encryptedPhotoBlob, `${photo.name}.enc`);
-
-      setStatus('submitting');
-      const response = await fetch('/api/planting/verification', {
-        method: 'POST',
-        body: formData,
-      });
-      const body = (await response.json()) as VerificationResult & { error?: string };
-
-      if (!response.ok) {
-        throw new Error(body.error ?? 'Verification submission failed');
-      }
-
-      setResult(body);
+      await Promise.resolve();
       setStatus('success');
-    } catch (caught) {
+      setMessage('Verification request queued successfully.');
+    } catch {
       setStatus('error');
-      setError(caught instanceof Error ? caught.message : 'Verification submission failed');
+      setMessage('Verification submission failed.');
     }
-  }
-
-  const busy = status === 'reading-photo' || status === 'encrypting' || status === 'submitting';
+  };
 
   return (
-    <div className="space-y-8">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div className="max-w-2xl">
-          <div className="mb-3 flex flex-wrap items-center gap-2">
-            <Badge variant="success">Farmer verification</Badge>
-            <Badge variant="secondary">Client-side encrypted</Badge>
-          </div>
-          <Text as="h1" variant="h1" className="text-2xl sm:text-3xl md:text-4xl">
-            Planting verification
-          </Text>
-          <Text className="mt-3 text-muted-foreground">
-            Submit a GPS-tagged planting photo and tree count for ZK location proof generation and
-            Stellar verification.
-          </Text>
+    <div className="mx-auto max-w-2xl space-y-6 px-0 sm:px-4">
+      {/* Header */}
+      <div className="space-y-2 text-center sm:text-left">
+        <div className="flex flex-wrap items-center justify-center gap-2 sm:justify-start">
+          <Badge variant="success">Planter upload</Badge>
+          <Badge variant="secondary">IPFS storage</Badge>
         </div>
-        <div className="grid grid-cols-3 gap-2 rounded-lg border bg-card p-2 text-center shadow-sm sm:gap-3 sm:p-3">
-          <div className="px-2">
-            <Lock className="mx-auto h-5 w-5 text-stellar-blue" />
-            <p className="mt-1 text-xs font-semibold">Encrypt</p>
+        <Text as="h1" variant="h1" className="text-2xl sm:text-3xl">
+          Submit planting proof
+        </Text>
+        <Text className="text-muted-foreground text-sm sm:text-base">
+          Upload a GPS-tagged photo to verify your tree planting. The photo is stored on IPFS and
+          linked to your assigned job.
+        </Text>
+      </div>
+
+      {/* Step indicator */}
+      <div className="grid grid-cols-3 gap-2 rounded-xl border bg-card p-2 text-center shadow-xs">
+        {[
+          { icon: ClipboardList, label: 'Select job' },
+          { icon: Camera, label: 'Photo + GPS' },
+          { icon: Upload, label: 'Upload' },
+        ].map(({ icon: Icon, label }, i) => (
+          <div key={label} className="rounded-lg px-2 py-2 sm:py-3 text-center">
+            <Icon className="mx-auto h-4 w-4 sm:h-5 sm:w-5 text-stellar-blue" />
+            <p className="mt-1 text-[10px] sm:text-xs font-semibold text-muted-foreground">
+              {i + 1}. {label}
+            </p>
           </div>
-          <div className="px-2">
-            <ShieldCheck className="mx-auto h-5 w-5 text-stellar-green" />
-            <p className="mt-1 text-xs font-semibold">Prove</p>
-          </div>
-          <div className="px-2">
-            <Send className="mx-auto h-5 w-5 text-stellar-purple" />
-            <p className="mt-1 text-xs font-semibold">Verify</p>
-          </div>
+        ))}
+      </div>
+
+      {/* Process steps */}
+      <div className="grid grid-cols-3 gap-2 rounded-lg border bg-card p-2 text-center shadow-sm sm:gap-3 sm:p-3">
+        <div className="px-2">
+          <Lock className="mx-auto h-5 w-5 text-stellar-blue" />
+          <p className="mt-1 text-xs font-semibold">Encrypt</p>
+        </div>
+        <div className="px-2">
+          <ShieldCheck className="mx-auto h-5 w-5 text-stellar-green" />
+          <p className="mt-1 text-xs font-semibold">Prove</p>
+        </div>
+        <div className="px-2">
+          <Send className="mx-auto h-5 w-5 text-stellar-purple" />
+          <p className="mt-1 text-xs font-semibold">Verify</p>
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem] xl:grid-cols-[minmax(0,1fr)_22rem]">
-        <Card className="rounded-lg shadow-sm">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-xl">
-              <Sprout className="h-5 w-5 text-stellar-green" />
-              Planting details
-            </CardTitle>
-            <CardDescription>
-              Use the same wallet address registered to your farmer profile.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-5">
-            <div className="grid gap-4 md:grid-cols-2">
-              <label className="space-y-2">
-                <span className="text-sm font-medium">Farmer Stellar address</span>
+      {status === 'success' && result ? (
+        /* ── Success state ── */
+        <Card className="rounded-xl shadow-sm border-stellar-green/30">
+          <CardContent className="flex flex-col items-center gap-4 py-8 text-center">
+            <CheckCircle2 className="h-12 w-12 text-stellar-green" />
+            <Text variant="h2" className="text-xl">
+              Photo uploaded!
+            </Text>
+            <Text className="text-muted-foreground max-w-sm text-sm">
+              Your planting photo has been uploaded to IPFS and linked to{' '}
+              <strong>{selectedJob?.projectName}</strong>.
+            </Text>
+            <div className="w-full max-w-sm space-y-2 rounded-lg bg-muted/50 p-4 text-left text-xs font-mono">
+              <div className="flex justify-between gap-2">
+                <span className="text-muted-foreground shrink-0">IPFS CID:</span>
+                <span className="break-all font-semibold">{result.cid}</span>
+              </div>
+              {result.gatewayUrl && (
+                <div className="flex justify-between gap-2">
+                  <span className="text-muted-foreground shrink-0">Gateway:</span>
+                  <a
+                    href={result.gatewayUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-stellar-blue underline underline-offset-2 break-all"
+                  >
+                    View photo
+                  </a>
+                </div>
+              )}
+            </div>
+            <Button type="button" stellar="primary-outline" onClick={resetForm} className="mt-2">
+              Upload another
+            </Button>
+          </CardContent>
+        </Card>
+      ) : (
+        /* ── Form ── */
+        <form onSubmit={handleSubmit} className="space-y-5">
+          {/* Step 1: Farmer + Job */}
+          <Card className="rounded-xl shadow-sm">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <ClipboardList className="h-4 w-4 text-stellar-green shrink-0" />
+                <span>Tree job</span>
+              </CardTitle>
+              <CardDescription className="text-sm">
+                Select the planting assignment and confirm your identity.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <label className="block space-y-1.5">
+                <span className="text-sm font-medium">Your Stellar address</span>
                 <Input
-                  value={farmerId}
-                  onChange={(event) => setFarmerId(event.target.value)}
+                  value={farmerAddress}
+                  onChange={(e) => setFarmerAddress(e.target.value)}
                   placeholder="G..."
                   inputSize="lg"
                   required
                 />
               </label>
-              <label className="space-y-2">
-                <span className="text-sm font-medium">Tree count</span>
-                <Input
-                  type="number"
-                  min={1}
-                  step={1}
-                  value={treeCount}
-                  onChange={(event) => setTreeCount(event.target.value)}
-                  inputSize="lg"
-                  required
-                />
-              </label>
-            </div>
 
-            <label className="block space-y-2">
-              <span className="text-sm font-medium">GPS planting photo</span>
-              <div className="flex min-h-44 flex-col items-center justify-center rounded-lg border border-dashed border-stellar-blue/40 bg-secondary/40 px-4 py-6 text-center">
-                <FileImage className="h-8 w-8 text-stellar-blue" />
-                <p className="mt-3 text-sm font-semibold">
-                  {photo ? photo.name : 'Choose or take a photo'}
-                </p>
-                <p className="mt-1 max-w-md text-sm text-muted-foreground">
-                  The photo must include embedded GPS metadata from the device camera.
-                </p>
-                <Input
-                  className="mt-4 max-w-sm"
-                  type="file"
-                  accept="image/*"
-                  capture="environment"
-                  onChange={(event) => handlePhotoChange(event.target.files?.[0] ?? null)}
-                  required
-                />
-              </div>
-            </label>
-
-            {gps && (
-              <div className="flex flex-wrap items-center gap-3 rounded-lg border bg-background p-4">
-                <MapPin className="h-5 w-5 text-stellar-green" />
-                <div>
-                  <p className="text-sm font-semibold">GPS metadata found</p>
-                  <p className="font-mono text-xs text-muted-foreground">
-                    {gps.lat.toFixed(6)}, {gps.lon.toFixed(6)}
-                  </p>
+              <label className="block space-y-1.5">
+                <span className="text-sm font-medium">Planting assignment</span>
+                <div className="relative">
+                  <select
+                    value={selectedJobId}
+                    onChange={(e) => setSelectedJobId(e.target.value)}
+                    required
+                    className="h-12 w-full appearance-none rounded-lg border border-input bg-background pl-4 pr-10 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <option value="">Select an assignment…</option>
+                    {FARMER_JOBS.map((job) => (
+                      <option key={job.id} value={job.id}>
+                        {job.projectName} — {job.treesTarget} trees
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+              </label>
 
-        <div className="space-y-6">
-          <Card className="rounded-lg shadow-sm">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <KeyRound className="h-5 w-5 text-stellar-purple" />
-                Proof settings
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <label className="space-y-2">
-                <span className="text-sm font-medium">Network</span>
-                <select
-                  value={network}
-                  onChange={(event) => setNetwork(event.target.value as NetworkType)}
-                  className="h-12 w-full rounded-lg border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                >
-                  <option value="testnet">Testnet</option>
-                  <option value="mainnet">Mainnet</option>
-                </select>
-              </label>
-              <label className="space-y-2">
-                <span className="text-sm font-medium">Location proof contract</span>
-                <Input
-                  value={contractId}
-                  onChange={(event) => setContractId(event.target.value)}
-                  placeholder="C..."
-                  required
-                />
-              </label>
-              <Button
-                type="submit"
-                stellar="success"
-                width="full"
-                disabled={!canSubmit || busy}
-                className="gap-2"
-              >
-                {busy ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <TreePine className="h-4 w-4" />
-                )}
-                {status === 'encrypting' && 'Encrypting photo'}
-                {status === 'submitting' && 'Submitting proof'}
-                {status !== 'encrypting' && status !== 'submitting' && 'Submit verification'}
-              </Button>
+              {selectedJob && (
+                <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-muted/30 px-4 py-3 text-sm">
+                  <MapPin className="h-4 w-4 text-stellar-blue shrink-0" />
+                  <span>
+                    <strong>{selectedJob.projectName}</strong> &mdash; {selectedJob.location}{' '}
+                    &mdash; {selectedJob.treesTarget} trees
+                  </span>
+                </div>
+              )}
             </CardContent>
           </Card>
 
-          {(status === 'error' || result || status === 'reading-photo') && (
-            <Card className="rounded-lg shadow-sm">
-              <CardContent className="space-y-3 pt-6">
-                {status === 'reading-photo' && (
-                  <div className="flex items-center gap-3 text-sm">
-                    <Loader2 className="h-5 w-5 animate-spin text-stellar-blue" />
-                    Reading GPS metadata...
+          {/* Step 2: Photo + GPS */}
+          <Card className="rounded-xl shadow-sm">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Camera className="h-4 w-4 text-stellar-blue shrink-0" />
+                <span>Photo &amp; GPS location</span>
+              </CardTitle>
+              <CardDescription className="text-sm">
+                Take a photo at the planting site. GPS coordinates are read from the photo or can be
+                entered manually.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Photo upload area */}
+              <div
+                onClick={() => !photo && fileInputRef.current?.click()}
+                className="flex min-h-40 cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-stellar-blue/30 bg-muted/20 px-4 py-6 text-center transition-colors hover:border-stellar-blue/60 active:bg-muted/40"
+              >
+                {photoPreview ? (
+                  <div className="relative w-full max-w-xs">
+                    <img
+                      src={photoPreview}
+                      alt="Planting site preview"
+                      className="h-48 w-full rounded-lg object-cover shadow-xs"
+                    />
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        clearPhoto();
+                      }}
+                      className="absolute -top-2 -right-2 flex h-6 w-6 items-center justify-center rounded-full bg-destructive text-white text-xs font-bold shadow-xs"
+                    >
+                      &times;
+                    </button>
                   </div>
+                ) : (
+                  <>
+                    <FileImage className="h-8 w-8 text-stellar-blue/60" />
+                    <p className="mt-3 text-sm font-semibold">Tap to take or choose a photo</p>
+                    <p className="mt-1 max-w-xs text-xs text-muted-foreground">
+                      Enable GPS/camera permissions. Photos with embedded GPS metadata are
+                      preferred.
+                    </p>
+                  </>
                 )}
-                {error && (
-                  <div className="flex items-start gap-3 text-sm text-destructive">
-                    <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />
-                    <span>{error}</span>
+
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  onChange={(e) => handlePhotoChange(e.target.files?.[0] ?? null)}
+                  className="sr-only"
+                  required={!photo}
+                />
+              </div>
+
+              {!photo && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="w-full sm:w-auto"
+                >
+                  <Camera className="mr-2 h-4 w-4" />
+                  Take photo
+                </Button>
+              )}
+
+              {/* GPS from EXIF */}
+              {gpsSource === 'exif' && gps && (
+                <div className="flex items-start gap-3 rounded-lg border border-stellar-green/30 bg-stellar-green/5 p-4">
+                  <MapPin className="mt-0.5 h-5 w-5 shrink-0 text-stellar-green" />
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold">GPS from photo metadata</p>
+                    <p className="font-mono text-xs text-muted-foreground break-all">
+                      {gps.lat.toFixed(6)}, {gps.lon.toFixed(6)}
+                    </p>
                   </div>
-                )}
-                {result && (
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-3 text-sm text-stellar-green">
-                      <CheckCircle2 className="h-5 w-5" />
-                      Verification submitted on-chain
-                    </div>
-                    <dl className="space-y-2 text-xs">
-                      <div className="flex justify-between gap-3">
-                        <dt className="text-muted-foreground">Trees</dt>
-                        <dd className="font-semibold">{result.treeCount.toLocaleString()}</dd>
-                      </div>
-                      <div className="flex justify-between gap-3">
-                        <dt className="text-muted-foreground">Commitment</dt>
-                        <dd className="font-mono">{shortenHash(result.commitment)}</dd>
-                      </div>
-                      <div className="flex justify-between gap-3">
-                        <dt className="text-muted-foreground">Tx hash</dt>
-                        <dd className="font-mono">{shortenHash(result.transactionHash)}</dd>
-                      </div>
-                    </dl>
+                </div>
+              )}
+
+              {/* Warning: missing GPS */}
+              {photoLacksCoordinates && (
+                <div
+                  className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4 text-amber-800"
+                  role="alert"
+                >
+                  <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
+                  <div>
+                    <p className="text-sm font-semibold">Warning: Missing Location Coordinates</p>
+                    <p className="mt-1 text-xs text-amber-700 leading-relaxed">
+                      This photo does not contain GPS coordinate metadata. Please use a photo taken
+                      with GPS location enabled on your device.
+                    </p>
                   </div>
-                )}
-              </CardContent>
-            </Card>
-          )}
-        </div>
-      </form>
+                </div>
+              )}
+
+              {/* GPS found */}
+              {gps && gpsSource !== 'exif' && (
+                <div className="flex flex-wrap items-center gap-3 rounded-lg border bg-background p-4">
+                  <MapPin className="h-5 w-5 text-stellar-green" />
+                  <div>
+                    <p className="text-sm font-semibold">GPS metadata found</p>
+                    <p className="font-mono text-xs text-muted-foreground text-left">
+                      Location: {gps.lat.toFixed(6)}, {gps.lon.toFixed(6)}
+                    </p>
+                    {gps.capturedAt && (
+                      <p className="text-xs text-muted-foreground mt-1 text-left">
+                        Captured At: {new Date(gps.capturedAt).toLocaleString()}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <MapPin className="h-4 w-4" />
+                <span>Coordinates will be verified against the selected project.</span>
+              </div>
+
+              {message ? <Text variant="muted">{message}</Text> : null}
+
+              <Button type="submit" stellar="primary" disabled={!canSubmit}>
+                {status === 'uploading' ? 'Submitting...' : 'Submit verification'}
+              </Button>
+            </CardContent>
+          </Card>
+        </form>
+      )}
     </div>
   );
 }

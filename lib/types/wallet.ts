@@ -1,10 +1,12 @@
-export type WalletType = 'freighter' | 'albedo' | 'xbull' | 'custodial';
+export type WalletType = 'freighter' | 'albedo' | 'rango' | 'xbull' | 'custodial';
 
 export type NetworkType = 'testnet' | 'mainnet';
 
 export interface WalletBalance {
   xlm: string;
   usdc: string;
+  usdt?: string;
+  eurc?: string;
 }
 
 export interface WalletConnection {
@@ -17,10 +19,8 @@ export interface WalletConnection {
 
 export interface WalletContextValue {
   wallet: WalletConnection | null;
-
   connect: (type: WalletType, network?: NetworkType) => Promise<void>;
   disconnect: () => void;
-
   switchNetwork: (network: NetworkType) => Promise<void>;
   refreshBalance: () => Promise<void>;
 

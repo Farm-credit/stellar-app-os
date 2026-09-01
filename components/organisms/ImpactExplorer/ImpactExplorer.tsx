@@ -141,9 +141,7 @@ export function ImpactExplorer() {
             : `Showing ${trees.length} ${trees.length === 1 ? 'tree' : 'trees'} on the map`}
       </Text>
 
-      <div
-        className="h-[min(70vh,480px)] min-h-[280px] overflow-hidden rounded-xl border shadow-sm sm:h-[480px]"
-      >
+      <div className="h-[min(70vh,480px)] min-h-[280px] overflow-hidden rounded-xl border shadow-sm sm:h-[480px]">
         <ImpactMapClient regions={filteredRegions} trees={trees} />
       </div>
 

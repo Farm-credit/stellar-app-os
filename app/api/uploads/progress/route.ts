@@ -54,7 +54,10 @@ export async function POST(request: Request) {
     }
 
     if (!ALLOWED_CONTENT_TYPES.includes(file.type)) {
-      return NextResponse.json({ error: 'Only JPEG, PNG, and WebP images are allowed' }, { status: 415 });
+      return NextResponse.json(
+        { error: 'Only JPEG, PNG, and WebP images are allowed' },
+        { status: 415 }
+      );
     }
 
     if (file.size > MAX_UPLOAD_SIZE_BYTES) {

@@ -1,0 +1,67 @@
+# ────────────────────────────────────────────────────────────
+# Dockerfile.workers — Background Worker Services
+# Issue #1182: Containerize all services
+#
+# Builds a single image with all worker entry points.
+# The actual worker to run is selected via the WORKER env var
+# at container start time.
+# ────────────────────────────────────────────────────────────
+
+# ── Stage 1: Dependencies ──────────────────────────────────
+FROM node:20-alpine AS deps
+
+RUN apk add --no-cache libc6-compat
+WORKDIR /app
+
+RUN corepack enable && corepack prepare pnpm@10.28.1 --activate
+
+COPY package.json pnpm-lock.yaml* ./
+RUN pnpm install --frozen-lockfile 2>/dev/null || pnpm install
+
+# ── Stage 2: Production ────────────────────────────────────
+FROM node:20-alpine
+
+WORKDIR /app
+
+ENV NODE_ENV=production
+ENV NODE_OPTIONS="--max-old-space-size=512"
+
+RUN apk add --no-cache libc6-compat tini
+
+# Install pnpm for running scripts
+RUN corepack enable && corepack prepare pnpm@10.28.1 --activate
+
+# Create non-root user
+RUN addgroup --system --gid 1001 workers && \
+    adduser --system --uid 1001 worker
+
+# Copy dependencies and source
+COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/package.json ./
+COPY . .
+
+USER worker
+
+# Default worker — override via WORKER env var
+# Available: email-digest, indexer, indexer-events, indexer-cdc, carbon-calculator, treasury-monitor
+ENV WORKER=email-digest
+
+# Expose metrics port for health checks (each worker exposes a different port)
+EXPOSE 9100
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD wget --no-verbose --tries=1 --spider http://localhost:9100/health || exit 1
+
+# Use tini as PID 1 for proper signal handling
+ENTRYPOINT ["tini", "--"]
+
+# Select the worker based on WORKER env var
+CMD ["sh", "-c", "case \"$WORKER\" in \
+  email-digest)       exec pnpm tsx lib/workers/email-digest-worker.ts --once ;; \
+  indexer)            exec pnpm indexer ;; \
+  indexer-events)     exec pnpm indexer:events ;; \
+  indexer-cdc)        exec pnpm indexer:cdc ;; \
+  carbon-calculator)  exec pnpm carbon:calculate ;; \
+  treasury-monitor)   exec pnpm monitor:treasury ;; \
+  *)                  echo \"Unknown worker: $WORKER\" && exit 1 ;; \
+esac"]

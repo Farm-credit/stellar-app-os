@@ -110,6 +110,11 @@ export function connectXBull(_network: NetworkType): Promise<string> {
   }
 
   return new Promise((resolve, reject) => {
+    const _networkPassphrase =
+      _network === 'mainnet'
+        ? 'Public Global Stellar Network ; September 2015'
+        : 'Test SDF Network ; September 2015';
+
     // Check if xBull is installed
     if (!(window as any).xbull) {
       reject(new Error('xBull wallet extension not found. Please install it.'));
@@ -126,15 +131,59 @@ export function connectXBull(_network: NetworkType): Promise<string> {
           if (error?.message?.includes('rejected') || error?.message?.includes('cancel')) {
             reject(new Error('Connection rejected by user'));
           } else {
-            reject(
-              new Error(error?.message || 'Failed to get public key from xBull')
-            );
+            reject(new Error(error?.message || 'Failed to get public key from xBull'));
           }
         });
     } catch {
       reject(new Error('Failed to connect to xBull wallet'));
     }
   });
+}
+
+export function connectRango(_network: NetworkType): Promise<string> {
+  if (typeof window === 'undefined') {
+    throw new Error('Rango wallet can only be accessed in the browser');
+  }
+
+  return new Promise((resolve, reject) => {
+    const rango = (window as any).rango;
+
+    if (rango) {
+      if (typeof rango.getPublicKey === 'function') {
+        rango
+          .getPublicKey()
+          .then((pubKey: string) => resolve(pubKey))
+          .catch((error: any) => {
+            if (error?.message?.includes('rejected') || error?.message?.includes('cancel')) {
+              reject(new Error('Connection rejected by user'));
+            } else {
+              reject(new Error(error?.message || 'Failed to get public key from Rango'));
+            }
+          });
+        return;
+      } else if (typeof rango.connect === 'function') {
+        rango
+          .connect()
+          .then((res: any) => resolve(res.publicKey || res.address || res))
+          .catch((error: any) => {
+            if (error?.message?.includes('rejected') || error?.message?.includes('cancel')) {
+              reject(new Error('Connection rejected by user'));
+            } else {
+              reject(new Error(error?.message || 'Failed to get public key from Rango'));
+            }
+          });
+        return;
+      }
+    }
+
+    reject(new Error('Rango wallet extension not found. Please install it.'));
+  });
+}
+
+export async function isRangoInstalled(): Promise<boolean> {
+  if (typeof window === 'undefined') return false;
+
+  return !!(window as any).rango;
 }
 
 export async function isXBullInstalled(): Promise<boolean> {
@@ -180,7 +229,7 @@ export async function fetchBalance(
 
     if (!response.ok) {
       if (response.status === 404) {
-        return { xlm: '0.0000000', usdc: '0.0000000' };
+        return { xlm: '0.0000000', usdc: '0.0000000', usdt: '0.0000000', eurc: '0.0000000' };
       }
       throw new Error('Failed to fetch account balance');
     }
@@ -196,20 +245,28 @@ export async function fetchBalance(
 
     let xlmBalance = '0.0000000';
     let usdcBalance = '0.0000000';
+    let usdtBalance = '0.0000000';
+    let eurcBalance = '0.0000000';
     const usdcIssuer = networkConfig.usdcIssuer;
+    const usdtIssuer = networkConfig.usdtIssuer;
+    const eurcIssuer = networkConfig.eurcIssuer;
 
     for (const balance of account.balances) {
       if (balance.asset_type === 'native') {
         xlmBalance = balance.balance;
       } else if (balance.asset_code === USDC_ASSET_CODE && balance.asset_issuer === usdcIssuer) {
         usdcBalance = balance.balance;
+      } else if (balance.asset_code === 'USDT' && balance.asset_issuer === usdtIssuer) {
+        usdtBalance = balance.balance;
+      } else if (balance.asset_code === 'EURC' && balance.asset_issuer === eurcIssuer) {
+        eurcBalance = balance.balance;
       }
     }
 
-    return { xlm: xlmBalance, usdc: usdcBalance };
+    return { xlm: xlmBalance, usdc: usdcBalance, usdt: usdtBalance, eurc: eurcBalance };
   } catch (error) {
     console.error('Error fetching balance:', error);
-    return { xlm: '0.0000000', usdc: '0.0000000' };
+    return { xlm: '0.0000000', usdc: '0.0000000', usdt: '0.0000000', eurc: '0.0000000' };
   }
 }
 

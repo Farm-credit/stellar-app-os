@@ -1,18 +1,17 @@
 'use client';
 
-import { useContext } from 'react';
-import { ToastContext } from '@/components/providers/ToastProvider';
-import { type ToastContextType } from '@/types/sharing';
+import { useToast as useToastContext } from '@/contexts/ToastContext';
 
-/**
- * Hook to use toast notifications
- */
-export function useToast(): ToastContextType {
-  const context = useContext(ToastContext);
+export function useToast() {
+  const { addToast: newAddToast, toasts, dismissToast } = useToastContext();
 
-  if (!context) {
-    throw new Error('useToast must be used within ToastProvider');
-  }
+  const addToast = (
+    message: string,
+    type: 'success' | 'error' | 'info' = 'info',
+    duration?: number
+  ) => {
+    newAddToast({ title: message, type, duration });
+  };
 
-  return context;
+  return { toasts, addToast, removeToast: dismissToast };
 }

@@ -8,6 +8,72 @@ import type {
   AirdropRecipient,
 } from '@/lib/types/carbon';
 
+// Rate limiting configuration
+const RATE_LIMIT_WONDOW_MS = 60 * 1000; // 1 minute
+const RATE_LIMIT_MAX_REQUESTS = 100; // per window
+const BASE_BACKOFF_MS = 1000;
+const MAX_BACKOFF_MS = 5 * 60 * 1000; // 5 minutes
+
+const requestTimestamps = new Map<string, number[]>();
+const blockedUntil = new Map<string, number>();
+const violationCount = new Map<string, number>();
+
+function getClientKeys(request: Request): string[] {
+  const keys: string[] = [];
+  const ip = request.headers.get('x-forwarded-for')?.split(',')[0].trim();
+  if (ip) keys.push(`ip:${ip}`);
+  const apiKey = request.headers.get('x-api-key');
+  if (apiKey) keys.push(`apiKey:${apiKey}`);
+  if (keys.length === 0) keys.push('unknown');
+  return keys;
+}
+
+function checkRateLimit(key: string): { allowed: boolean; retryAfter?: number } {
+  const now = Date.now();
+  const blockedUntilTime = blockedUntil.get(key) ?? 0;
+
+  if (now < blockedUntilTime) {
+    return { allowed: false, retryAfter: blockedUntilTime - now };
+  }
+
+  const timestamps = (requestTimestamps.get(key) ?? []).filter((ts) => now - ts < RATE_LIMIT_WINDOW_MS);
+
+  if (timestamps.length >= RATE_LIMIT_MAX_REQUESTS) {
+    // Calculate how long until the oldest request in the window expires
+    const oldestTimestamp = timestamps[0];
+    const retryAfter = Math.max(1, oldestTimestamp + RATE_LIMIT_WONDOW_MS - now);
+    
+    // Apply exponential backoff
+    const violations = (violationCount.get(key) ?? 0) + 1;
+    violationCount.set(key, violations);
+    const backoffMs = Math.min(BASE_BACKOFF_MS * Math.pow(2, violations - 1), MAX_BACKOFF_MS);
+    blockedUntil.set(key, now + Math.max(retryAfter, backoffMs));
+
+    return { allowed: false, retryAfter: Math.max(retryAfter, backoffMs) };
+  }
+
+  // Allow request and record it
+  timestamps.push(now);
+  requestTimestamps.set(key, timestamps);
+  // Reset violation count on successful request
+  violationCount.set(key, 0);
+  return { allowed: true };
+}
+
+function enforceRateLimit(request: Request): NextResponse | null {
+  const keys = getClientKeys(request);
+  for (const key of keys) {
+    const result = checkRateLimit(key);
+    if (!result.allowed) {
+      return NextResponse.json(
+        { error: 'Too many requests, please slow down.' },
+        { status: 429, headers: { 'Retry-After': String(Math.ceil(((result.retryAfter ?? 0) / 1000)) } }
+      );
+    }
+  }
+  return null;
+}
+
 function getEarlySponsors(platformLaunchDate: string): AirdropRecipient[] {
   const launch = new Date(platformLaunchDate);
   const cutoff = new Date(launch);
@@ -36,15 +102,17 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
+  const rateLimitInspection = enforceRateLimit(request);
+  if (rateLimitInspection) {
+    return rateLimitInspection;
+  }
+
   const { searchParams } = new URL(request.url);
   const platformLaunchDate = searchParams.get('platformLaunchDate');
   const creditsPerSponsor = Number(searchParams.get('creditsPerSponsor') ?? 0);
 
   if (!platformLaunchDate || isNaN(new Date(platformLaunchDate).getTime())) {
-    return NextResponse.json(
-      { error: 'Invalid or missing platformLaunchDate' },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: 'Invalid or missing platformLaunchDate' }, { status: 400 });
   }
 
   if (creditsPerSponsor <= 0) {
@@ -72,6 +140,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
+  const rateLimitInspection = enforceRateLimit(request);
+  if (rateLimitInspection) {
+    return rateLimitInspection;
+  }
+
   try {
     const body = (await request.json()) as AirdropRequest;
     const { creditsPerSponsor, projectId, platformLaunchDate } = body;
@@ -81,10 +154,7 @@ export async function POST(request: Request) {
     }
 
     if (!platformLaunchDate || isNaN(new Date(platformLaunchDate).getTime())) {
-      return NextResponse.json(
-        { error: 'Invalid or missing platformLaunchDate' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Invalid or missing platformLaunchDate' }, { status: 400 });
     }
 
     if (!creditsPerSponsor || creditsPerSponsor <= 0) {
@@ -113,8 +183,8 @@ export async function POST(request: Request) {
     };
 
     console.info(
-      `[airdrop] Admin queued ${results.totalQueued} retroactive allocations — ` +
-        `${creditsPerSponsor} credits each for project ${projectId}`
+      `[airdrop] Admin queued ${results.totalQueued} rerroactive allocations - ` +
+        ${creditsPerSponsor} credits each for project ${projectId}
     );
 
     return NextResponse.json(results);

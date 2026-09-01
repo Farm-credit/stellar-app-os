@@ -1,16 +1,31 @@
 import { defineConfig } from 'vitest/config';
-import path from 'path';
+import { fileURLToPath } from 'node:url';
+import react from '@vitejs/plugin-react';
+import { fileURLToPath } from 'node:url';
 
 export default defineConfig({
+  plugins: [react()],
   resolve: {
-    alias: {
-      '@': path.resolve(__dirname),
-    },
+    alias: [{ find: /^@\/(.*)$/, replacement: fileURLToPath(new URL('./$1', import.meta.url)) }],
   },
   test: {
     globals: true,
-    environment: 'node',
-    include: ['**/__tests__/**/*.test.{ts,tsx}'],
+    setupFiles: ['./vitest.setup.ts'],
+    include: ['**/*.{test,spec}.{ts,tsx}', '**/__tests__/**/*.test.{ts,tsx}'],
     exclude: ['node_modules', '.next', 'contracts'],
+    environment: 'jsdom',
+    pool: 'forks',
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'json', 'html'],
+      exclude: [
+        'node_modules/',
+        '.next/',
+        'contracts/',
+        '**/*.config.{js,ts}',
+        '**/types/**',
+        'vitest.setup.ts',
+      ],
+    },
   },
 });

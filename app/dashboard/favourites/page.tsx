@@ -3,7 +3,7 @@
 import { ProjectCard } from '@/components/molecules/ProjectCard/ProjectCard';
 import { Button } from '@/components/atoms/Button';
 import { Text } from '@/components/atoms/Text';
-import { useFavorites } from '@/contexts/FavouritesContext';
+import { useFavorites } from '@/hooks/useFavourites';
 
 import { mockCarbonProjects } from '@/lib/api/mock/carbonProjects';
 import { Heart } from 'lucide-react';

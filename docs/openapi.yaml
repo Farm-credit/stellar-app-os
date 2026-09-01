@@ -1,0 +1,3129 @@
+openapi: 3.0.3
+info:
+  title: Stellar App OS API
+  description: >
+    REST API for the Stellar App OS reforestation platform. Provides endpoints
+    for tree planting verification, carbon credit management, escrow operations,
+    NFT minting, compliance reporting, and more.
+  version: 1.0.0
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+  contact:
+    name: Farm Credit / Stellar App OS
+    url: https://github.com/Farm-credit/stellar-app-os
+
+servers:
+  - url: http://localhost:3000
+    description: Local development
+  - url: https://stellar-app-os.vercel.app
+    description: Production
+
+security: []
+
+tags:
+  - name: Health
+    description: Liveness and readiness probes
+  - name: Auth
+    description: Wallet-based authentication (nonce + Stellar signature)
+  - name: Wallet
+    description: Custodial wallet creation
+  - name: Trees
+    description: Tree inventory and status
+  - name: Impact
+    description: Environmental impact data
+  - name: Carbon
+    description: Carbon offset tracking and summaries
+  - name: Planting
+    description: Planting jobs, photos, verification, and waitlists
+  - name: Location
+    description: GPS and region checks
+  - name: Transactions
+    description: Stellar transaction building, submission, and verification
+  - name: Credits
+    description: Carbon credit bulk purchases
+  - name: Stripe
+    description: Fiat payment integration
+  - name: NFT
+    description: Soul-bound NFT minting
+  - name: Escrow
+    description: Milestone-based escrow release
+  - name: Disputes
+    description: DAO dispute opening
+  - name: Certificates
+    description: PDF certificate generation and retrieval
+  - name: Oracle
+    description: NDVI satellite survival data ingestion
+  - name: Compliance
+    description: Registry compliance report generation
+  - name: Admin
+    description: Administrative operations (airdrop)
+  - name: Planters
+    description: Planter registration and photo uploads
+  - name: Webhooks
+    description: Webhook event management and retry
+  - name: Newsletter
+    description: Newsletter subscription
+  - name: Email Verification
+    description: Email verification flow
+  - name: GraphQL
+    description: GraphQL analytics endpoint
+  - name: Map
+    description: Regional map data
+  - name: Uploads
+    description: General file uploads
+
+paths:
+  # ──────────────────────────────────────────────
+  # Health & Monitoring
+  # ──────────────────────────────────────────────
+  /api/health:
+    get:
+      operationId: getHealth
+      tags: [Health]
+      summary: Liveness probe
+      description: Returns 200 if the process is alive.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+                  timestamp:
+                    type: string
+                    format: date-time
+    head:
+      operationId: headHealth
+      tags: [Health]
+      summary: Liveness probe (HEAD)
+      responses:
+        "200":
+          description: OK
+
+  /api/healthz:
+    get:
+      operationId: getHealthz
+      tags: [Health]
+      summary: Readiness probe
+      description: >
+        Comprehensive readiness check. Pings the database, Stellar RPC nodes,
+        and Horizon server. Returns 503 if any dependency is unhealthy.
+      responses:
+        "200":
+          description: All dependencies healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthzResponse"
+        "503":
+          description: One or more dependencies unhealthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthzResponse"
+    head:
+      operationId: headHealthz
+      tags: [Health]
+      summary: Readiness probe (HEAD)
+      responses:
+        "200":
+          description: OK
+
+  /api/metrics:
+    get:
+      operationId: getMetrics
+      tags: [Health]
+      summary: Prometheus metrics
+      responses:
+        "200":
+          description: Prometheus text format
+          content:
+            text/plain:
+              schema:
+                type: string
+
+  # ──────────────────────────────────────────────
+  # Auth
+  # ──────────────────────────────────────────────
+  /api/auth/nonce:
+    get:
+      operationId: getAuthNonce
+      tags: [Auth]
+      summary: Generate authentication nonce
+      description: Returns a one-time nonce for Stellar wallet signature verification.
+      parameters:
+        - name: wallet
+          in: query
+          required: true
+          description: Stellar public key (56-char, starts with G)
+          schema:
+            type: string
+            pattern: "^G[A-Z0-9]{55}$"
+      responses:
+        "200":
+          description: Nonce generated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  nonce:
+                    type: string
+                  message:
+                    type: string
+                    example: stellar-auth:<nonce>
+                  expiresIn:
+                    type: integer
+                    example: 300
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/auth/login:
+    post:
+      operationId: postAuthLogin
+      tags: [Auth]
+      summary: Authenticate with Stellar signature
+      description: Verifies a Stellar Ed25519 signature against the nonce and returns a JWT.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [walletAddress, nonce, signature]
+              properties:
+                walletAddress:
+                  type: string
+                  description: Stellar public key
+                nonce:
+                  type: string
+                signature:
+                  type: string
+                  description: Base64-encoded Ed25519 signature
+      responses:
+        "200":
+          description: JWT issued
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+                  expiresIn:
+                    type: string
+                    example: 8h
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  # ──────────────────────────────────────────────
+  # Wallet
+  # ──────────────────────────────────────────────
+  /api/wallet/create:
+    post:
+      operationId: postWalletCreate
+      tags: [Wallet]
+      summary: Create custodial wallet
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                network:
+                  type: string
+                  enum: [testnet, mainnet]
+                  default: testnet
+      responses:
+        "200":
+          description: Wallet created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  publicKey:
+                    type: string
+                  network:
+                    type: string
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  # ──────────────────────────────────────────────
+  # Trees
+  # ──────────────────────────────────────────────
+  /api/trees:
+    get:
+      operationId: listTrees
+      tags: [Trees]
+      summary: List trees with filters
+      parameters:
+        - name: species
+          in: query
+          schema:
+            type: string
+            enum: [Teak, Moringa, Eucalyptus, Mangrove, all]
+        - name: region
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [funded, planted, verified, completed, failed, all]
+        - name: search
+          in: query
+          schema:
+            type: string
+          description: Free-text search across treeId, species, region, projectName
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+            maximum: 200
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        "200":
+          description: Tree list
+          headers:
+            cachedAt:
+              schema:
+                type: string
+                format: date-time
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  trees:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Tree"
+                  total:
+                    type: integer
+                  limit:
+                    type: integer
+                  offset:
+                    type: integer
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/trees/{id}:
+    get:
+      operationId: getTreeById
+      tags: [Trees]
+      summary: Get tree by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Tree ID (e.g. HRV-2024-0001)
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Tree details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tree:
+                    $ref: "#/components/schemas/Tree"
+                  cachedAt:
+                    type: string
+                    format: date-time
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/trees/search:
+    get:
+      operationId: searchTrees
+      tags: [Trees]
+      summary: Search trees with advanced filters and pagination
+      description: >
+        Search and filter registered trees across species, regions, life-cycle statuses,
+        planters, CO2 thresholds, and planting date ranges with configurable sorting
+        and full metadata pagination.
+      parameters:
+        - name: q
+          in: query
+          description: Free-text search query across tree ID, species, region, planter, and project name
+          schema:
+            type: string
+            example: "Mangrove Rift"
+        - name: species
+          in: query
+          description: Filter by tree species name
+          schema:
+            type: string
+            enum: [Teak, Moringa, Eucalyptus, Mangrove, Mahogany, Bamboo, Acacia, all]
+            example: "Mangrove"
+        - name: region
+          in: query
+          description: Filter by geographic region or country string
+          schema:
+            type: string
+            example: "East Africa"
+        - name: status
+          in: query
+          description: Filter by tree verification lifecycle status
+          schema:
+            type: string
+            enum: [funded, planted, verified, completed, failed, all]
+            example: "verified"
+        - name: planterId
+          in: query
+          description: Filter by Stellar public key address or ID of planter
+          schema:
+            type: string
+            pattern: "^G[A-Z0-9]{55}$"
+            example: "GABEMKJNR4GK7M4FROGA7I7PG63N2CKE3EGDSBSISG56SVL2O3KRNDXA"
+        - name: minCo2
+          in: query
+          description: Minimum estimated CO2 offset in kg
+          schema:
+            type: number
+            minimum: 0
+            example: 10.5
+        - name: maxCo2
+          in: query
+          description: Maximum estimated CO2 offset in kg
+          schema:
+            type: number
+            minimum: 0
+            example: 500.0
+        - name: plantedAfter
+          in: query
+          description: ISO 8601 start date for planting window filter
+          schema:
+            type: string
+            format: date-time
+            example: "2026-01-01T00:00:00.000Z"
+        - name: plantedBefore
+          in: query
+          description: ISO 8601 end date for planting window filter
+          schema:
+            type: string
+            format: date-time
+            example: "2026-12-31T23:59:59.000Z"
+        - name: sortBy
+          in: query
+          description: Field name to sort search results by
+          schema:
+            type: string
+            enum: [createdAt, co2Offset, treeId, species, status]
+            default: "createdAt"
+        - name: sortOrder
+          in: query
+          description: Sort direction
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: "desc"
+        - name: limit
+          in: query
+          description: Maximum number of search results to return per page (max 200)
+          schema:
+            type: integer
+            default: 50
+            minimum: 1
+            maximum: 200
+        - name: offset
+          in: query
+          description: Pagination record offset count
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+      responses:
+        "200":
+          description: Successfully retrieved tree search results
+          headers:
+            X-Cached-At:
+              description: ISO timestamp when query result was cached
+              schema:
+                type: string
+                format: date-time
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [trees, pagination, filtersApplied]
+                properties:
+                  trees:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Tree"
+                  pagination:
+                    type: object
+                    required: [total, limit, offset, hasMore, page, totalPages]
+                    properties:
+                      total:
+                        type: integer
+                        example: 142
+                      limit:
+                        type: integer
+                        example: 50
+                      offset:
+                        type: integer
+                        example: 0
+                      hasMore:
+                        type: boolean
+                        example: true
+                      page:
+                        type: integer
+                        example: 1
+                      totalPages:
+                        type: integer
+                        example: 3
+                  filtersApplied:
+                    type: object
+                    properties:
+                      species:
+                        type: string
+                        example: "Mangrove"
+                      status:
+                        type: string
+                        example: "verified"
+                      q:
+                        type: string
+                        example: "Rift"
+                  cachedAt:
+                    type: string
+                    format: date-time
+                    example: "2026-08-31T09:00:00.000Z"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  # ──────────────────────────────────────────────
+  # Impact
+  # ──────────────────────────────────────────────
+  /api/impact:
+    get:
+      operationId: getImpact
+      tags: [Impact]
+      summary: Get global impact data
+      responses:
+        "200":
+          description: Impact overview
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /api/impact/{sponsor}:
+    get:
+      operationId: getSponsorImpact
+      tags: [Impact]
+      summary: Get impact data for a sponsor
+      parameters:
+        - name: sponsor
+          in: path
+          required: true
+          description: Stellar public key (G...)
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Sponsor impact
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SponsorImpact"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  # ──────────────────────────────────────────────
+  # Carbon
+  # ──────────────────────────────────────────────
+  /api/carbon/daily-summary:
+    get:
+      operationId: getCarbonDailySummary
+      tags: [Carbon]
+      summary: Carbon offset daily summary
+      parameters:
+        - name: days
+          in: query
+          schema:
+            type: integer
+            default: 7
+            maximum: 90
+      responses:
+        "200":
+          description: Daily carbon offset summary
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  latest:
+                    $ref: "#/components/schemas/CarbonSnapshot"
+                  history:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/CarbonSnapshot"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/planting/growth-projection:
+    get:
+      operationId: getGrowthProjection
+      tags: [Planting]
+      summary: Species growth projection
+      parameters:
+        - name: speciesSlug
+          in: query
+          schema:
+            type: string
+          description: e.g. "teak"
+        - name: treeRef
+          in: query
+          schema:
+            type: string
+          description: A planted tree's tree_ref
+        - name: lat
+          in: query
+          schema:
+            type: number
+        - name: lon
+          in: query
+          schema:
+            type: number
+        - name: years
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Growth projection
+          content:
+            application/json:
+              schema:
+                type: object
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          description: Unprocessable entity
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/planting/carbon-milestone:
+    post:
+      operationId: postCarbonMilestone
+      tags: [Planting]
+      summary: Send carbon milestone email
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [sponsorEmail, sponsorName, totalCo2Kg, treeCount]
+              properties:
+                sponsorEmail:
+                  type: string
+                  format: email
+                sponsorName:
+                  type: string
+                totalCo2Kg:
+                  type: number
+                treeCount:
+                  type: integer
+      responses:
+        "200":
+          description: Email sent
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Carbon milestone email sent.
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  # ──────────────────────────────────────────────
+  # Planting
+  # ──────────────────────────────────────────────
+  /api/planting/photo:
+    post:
+      operationId: postPlantingPhoto
+      tags: [Planting]
+      summary: Upload and verify planting photo
+      description: >
+        Uploads a photo to IPFS, verifies GPS proximity to assigned tree,
+        and returns the IPFS CID.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [photo, lat, lon, farmerId]
+              properties:
+                photo:
+                  type: string
+                  format: binary
+                lat:
+                  type: string
+                lon:
+                  type: string
+                farmerId:
+                  type: string
+                treeId:
+                  type: string
+                sponsorEmail:
+                  type: string
+                sponsorName:
+                  type: string
+                region:
+                  type: string
+                  default: unknown
+      responses:
+        "201":
+          description: Photo uploaded and verified
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  ipfsCid:
+                    type: string
+                  ipfsUrl:
+                    type: string
+                  gatewayUrl:
+                    type: string
+                  s3Key:
+                    type: string
+                  encryptedGps:
+                    type: object
+                  hash:
+                    type: string
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "422":
+          description: GPS distance verification failed
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ErrorResponse"
+                  - type: object
+                    properties:
+                      distanceMeters:
+                        type: number
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/planting/photo/dedup-check:
+    post:
+      operationId: postPlantingPhotoDedupCheck
+      tags: [Planting]
+      summary: Check photo for duplicates via perceptual hashing
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [photo]
+              properties:
+                photo:
+                  type: string
+                  format: binary
+                  description: Max 10 MB
+                entityType:
+                  type: string
+                  enum: [tree, planter]
+                entityId:
+                  type: string
+                  maxLength: 256
+      responses:
+        "200":
+          description: Dedup check result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  hash:
+                    type: string
+                  population:
+                    type: integer
+                  threshold:
+                    type: integer
+                  isDuplicate:
+                    type: boolean
+                  match:
+                    nullable: true
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                      entityType:
+                        type: string
+                      entityId:
+                        type: string
+                      distance:
+                        type: integer
+                      storageRef:
+                        type: string
+                      createdAt:
+                        type: string
+                        format: date-time
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "405":
+          description: Method not allowed
+        "413":
+          description: File too large
+        "415":
+          description: Unsupported file type
+        "422":
+          description: Could not compute perceptual hash
+        "503":
+          description: Duplicate lookup service unavailable
+
+  /api/planting/verification:
+    post:
+      operationId: postPlantingVerification
+      tags: [Planting]
+      summary: Submit planting verification with encrypted proof
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [farmerId, treeCount, nonce, network, contractId, wrappedKey, encryptedGps, encryptedPhoto]
+              properties:
+                farmerId:
+                  type: string
+                treeCount:
+                  type: string
+                  description: Positive integer (sent as string in multipart)
+                nonce:
+                  type: string
+                  description: Non-negative integer
+                network:
+                  type: string
+                  enum: [testnet, mainnet]
+                contractId:
+                  type: string
+                wrappedKey:
+                  type: string
+                encryptedGps:
+                  type: string
+                  description: JSON string with iv, ciphertext
+                encryptedPhoto:
+                  type: string
+                  format: binary
+                treeId:
+                  type: string
+                species:
+                  type: string
+                sponsorEmail:
+                  type: string
+                sponsorName:
+                  type: string
+                co2KgPerYear:
+                  type: string
+      responses:
+        "201":
+          description: Verification submitted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  treeCount:
+                    type: integer
+                  encryptedPhotoKey:
+                    type: string
+                  transactionHash:
+                    type: string
+                  commitment:
+                    type: string
+                  inRegion:
+                    type: boolean
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "422":
+          description: GPS outside allowed boundary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/planting/verification-key:
+    get:
+      operationId: getPlantingVerificationKey
+      tags: [Planting]
+      summary: Get planting verification public key
+      responses:
+        "200":
+          description: Public key
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  publicKey:
+                    type: string
+        "503":
+          description: Key not configured
+
+  /api/planting/accept:
+    post:
+      operationId: postPlantingAccept
+      tags: [Planting]
+      summary: Accept a planting job assignment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [assignmentId, planterAddress, planterName, species, sponsorEmail, sponsorName]
+              properties:
+                assignmentId:
+                  type: string
+                planterAddress:
+                  type: string
+                  description: Stellar public key
+                planterName:
+                  type: string
+                species:
+                  type: string
+                sponsorEmail:
+                  type: string
+                sponsorName:
+                  type: string
+      responses:
+        "200":
+          description: Job accepted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Job accepted.
+                  txHash:
+                    type: string
+                  sponsorNotified:
+                    type: boolean
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/planting/waitlist:
+    post:
+      operationId: postPlantingWaitlist
+      tags: [Planting]
+      summary: Join planting waitlist
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [treeId, species, region, sponsorEmail, sponsorName]
+              properties:
+                treeId:
+                  type: string
+                species:
+                  type: string
+                region:
+                  type: string
+                sponsorEmail:
+                  type: string
+                sponsorName:
+                  type: string
+      responses:
+        "202":
+          description: Added to waitlist
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  waitlistId:
+                    type: string
+                  estimatedWaitDays:
+                    type: integer
+                  message:
+                    type: string
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/planting/waitlist/{id}:
+    get:
+      operationId: getPlantingWaitlistEntry
+      tags: [Planting]
+      summary: Get waitlist entry status
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Waitlist entry
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  waitlistId:
+                    type: string
+                  treeId:
+                    type: string
+                  species:
+                    type: string
+                  region:
+                    type: string
+                  status:
+                    type: string
+                    enum: [waiting, assigned, cancelled]
+                  queuePosition:
+                    type: integer
+                  estimatedWaitDays:
+                    type: integer
+                  assignedPlanterId:
+                    type: string
+                    nullable: true
+                  assignedAt:
+                    type: string
+                    format: date-time
+                    nullable: true
+                  createdAt:
+                    type: string
+                    format: date-time
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/planting/map:
+    get:
+      operationId: getPlantingMap
+      tags: [Planting]
+      summary: Get planting map points
+      parameters:
+        - name: region
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Map points
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  points:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        geohash:
+                          type: string
+                        region:
+                          type: string
+                        treeCount:
+                          type: integer
+                        lat:
+                          type: number
+                        lon:
+                          type: number
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  # ──────────────────────────────────────────────
+  # Location
+  # ──────────────────────────────────────────────
+  /api/location/check:
+    post:
+      operationId: postLocationCheck
+      tags: [Location]
+      summary: Check if coordinates are within a region
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [latitude, longitude, regionCode]
+              properties:
+                latitude:
+                  type: number
+                longitude:
+                  type: number
+                regionCode:
+                  type: string
+      responses:
+        "200":
+          description: Location check result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  inRegion:
+                    type: boolean
+                  regionCode:
+                    type: string
+        "400":
+          $ref: "#/components/responses/BadRequest"
+
+  /api/location-proof:
+    post:
+      operationId: postLocationProof
+      tags: [Location]
+      summary: Submit encrypted location proof on-chain
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [farmerId, encryptedGps, nonce, network, contractId]
+              properties:
+                farmerId:
+                  type: string
+                encryptedGps:
+                  type: object
+                  properties:
+                    iv:
+                      type: string
+                    ciphertext:
+                      type: string
+                    authTag:
+                      type: string
+                nonce:
+                  type: integer
+                  minimum: 0
+                network:
+                  type: string
+                  enum: [testnet, mainnet]
+                contractId:
+                  type: string
+      responses:
+        "201":
+          description: Proof submitted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  transactionHash:
+                    type: string
+                  commitment:
+                    type: string
+                  inRegion:
+                    type: boolean
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "422":
+          description: GPS outside allowed boundary
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  # ──────────────────────────────────────────────
+  # Map
+  # ──────────────────────────────────────────────
+  /api/map/regions:
+    get:
+      operationId: getMapRegions
+      tags: [Map]
+      summary: Get region data for map display
+      responses:
+        "200":
+          description: Region data
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  regions:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        regionKey:
+                          type: string
+                        lat:
+                          type: number
+                        lng:
+                          type: number
+                        treesPlanted:
+                          type: integer
+                        farmers:
+                          type: integer
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  # ──────────────────────────────────────────────
+  # Transactions
+  # ──────────────────────────────────────────────
+  /api/transaction/build:
+    post:
+      operationId: postTransactionBuild
+      tags: [Transactions]
+      summary: Build a credit purchase transaction
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [selection, walletPublicKey, network]
+              properties:
+                selection:
+                  type: object
+                  properties:
+                    projectId:
+                      type: string
+                    quantity:
+                      type: integer
+                    calculatedPrice:
+                      type: number
+                walletPublicKey:
+                  type: string
+                network:
+                  type: string
+                  enum: [testnet, mainnet]
+                idempotencyKey:
+                  type: string
+      responses:
+        "200":
+          description: Transaction XDR
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  transactionXdr:
+                    type: string
+                  networkPassphrase:
+                    type: string
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "409":
+          description: Lock acquisition failure
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/transaction/build-donation:
+    post:
+      operationId: postTransactionBuildDonation
+      tags: [Transactions]
+      summary: Build a donation transaction
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [amount, walletPublicKey, network]
+              properties:
+                amount:
+                  type: number
+                  minimum: 5
+                walletPublicKey:
+                  type: string
+                network:
+                  type: string
+                  enum: [testnet, mainnet]
+                idempotencyKey:
+                  type: string
+                treeCount:
+                  type: integer
+                  minimum: 1
+                  maximum: 50
+                asset:
+                  type: string
+                  enum: [USDC, native]
+                slippageTolerance:
+                  type: number
+                  default: 0.02
+                regionId:
+                  type: string
+      responses:
+        "200":
+          description: Transaction XDR with allocation breakdown
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  transactionXdr:
+                    type: string
+                  networkPassphrase:
+                    type: string
+                  asset:
+                    type: string
+                  estimatedSourceAmount:
+                    type: string
+                  allocation:
+                    type: object
+                    properties:
+                      perTree:
+                        $ref: "#/components/schemas/DonationAllocation"
+                      total:
+                        $ref: "#/components/schemas/DonationAllocation"
+                      treeCount:
+                        type: integer
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "409":
+          description: Lock acquisition failure
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/transaction/build-anonymous-donation:
+    post:
+      operationId: postTransactionBuildAnonymousDonation
+      tags: [Transactions]
+      summary: Build an anonymous donation transaction (ZK proof)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [proof, inputs, amount, network, idempotencyKey]
+              properties:
+                proof:
+                  type: string
+                inputs:
+                  type: string
+                amount:
+                  type: number
+                network:
+                  type: string
+                  enum: [testnet, mainnet]
+                idempotencyKey:
+                  type: string
+                regionId:
+                  type: string
+      responses:
+        "200":
+          description: Transaction XDR
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  transactionXdr:
+                    type: string
+                  networkPassphrase:
+                    type: string
+                  allocation:
+                    type: object
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "409":
+          description: Nullifier already spent
+        "422":
+          description: Invalid zero-knowledge proof
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/transaction/submit:
+    post:
+      operationId: postTransactionSubmit
+      tags: [Transactions]
+      summary: Submit a signed transaction to the Stellar network
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [signedTransactionXdr, network]
+              properties:
+                signedTransactionXdr:
+                  type: string
+                network:
+                  type: string
+                  enum: [testnet, mainnet]
+                sourcePublicKey:
+                  type: string
+      responses:
+        "200":
+          description: Transaction submitted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  transactionHash:
+                    type: string
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "409":
+          description: Sequence number collision
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ErrorResponse"
+                  - type: object
+                    properties:
+                      code:
+                        type: string
+                        example: TX_BAD_SEQ
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/transaction/submit-anonymous:
+    post:
+      operationId: postTransactionSubmitAnonymous
+      tags: [Transactions]
+      summary: Submit anonymous donation transaction
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [transactionXdr, network, proof, nullifier]
+              properties:
+                transactionXdr:
+                  type: string
+                network:
+                  type: string
+                  enum: [testnet, mainnet]
+                proof:
+                  type: object
+                nullifier:
+                  type: string
+      responses:
+        "200":
+          description: Submitted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  transactionHash:
+                    type: string
+                  message:
+                    type: string
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+    get:
+      operationId: getTransactionSubmitAnonymousNullifier
+      tags: [Transactions]
+      summary: Check if a nullifier has been used
+      parameters:
+        - name: nullifier
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: network
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [testnet, mainnet]
+      responses:
+        "200":
+          description: Nullifier status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  nullifier:
+                    type: string
+                  isUsed:
+                    type: boolean
+                  network:
+                    type: string
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/transaction/verify-survival:
+    post:
+      operationId: postTransactionVerifySurvival
+      tags: [Transactions]
+      summary: Verify tree survival and trigger escrow release
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [farmerPublicKey, survivalRate, proofHash, contractType, network]
+              properties:
+                farmerPublicKey:
+                  type: string
+                survivalRate:
+                  type: number
+                  minimum: 0
+                  maximum: 100
+                proofHash:
+                  type: string
+                  description: 64-char hex string
+                  pattern: "^[a-fA-F0-9]{64}$"
+                contractType:
+                  type: string
+                  enum: [tree-escrow, escrow-milestone]
+                network:
+                  type: string
+                  enum: [testnet, mainnet]
+      responses:
+        "200":
+          description: Survival verification result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  outcome:
+                    type: string
+                    enum: [completed, disputed]
+                  amountReleased:
+                    type: string
+                  survivalRate:
+                    type: number
+                  transactionHash:
+                    type: string
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          description: Escrow not found
+        "409":
+          description: Planting not verified or survival period not elapsed
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/transaction/resolve-dispute:
+    post:
+      operationId: postTransactionResolveDispute
+      tags: [Transactions]
+      summary: Resolve an escrow dispute
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [farmerPublicKey, releaseToFarmer, contractType, network]
+              properties:
+                farmerPublicKey:
+                  type: string
+                releaseToFarmer:
+                  type: boolean
+                contractType:
+                  type: string
+                  enum: [tree-escrow, escrow-milestone]
+                network:
+                  type: string
+                  enum: [testnet, mainnet]
+      responses:
+        "200":
+          description: Dispute resolved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  transactionHash:
+                    type: string
+                  amountReleased:
+                    type: string
+                  releasedTo:
+                    type: string
+                    enum: [farmer, dao]
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          description: Escrow not found
+        "409":
+          description: Escrow not in dispute state
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/transactions:
+    get:
+      operationId: listTransactions
+      tags: [Transactions]
+      summary: List transactions with filters
+      parameters:
+        - name: type
+          in: query
+          schema:
+            type: string
+          description: Filter by tx_type
+        - name: account
+          in: query
+          schema:
+            type: string
+          description: Filter by source_account or destination
+        - name: asset
+          in: query
+          schema:
+            type: string
+          description: Filter by asset_code (e.g. USDC, CARBON)
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date-time
+          description: ISO-8601 start date (inclusive)
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date-time
+          description: ISO-8601 end date (inclusive)
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+            maximum: 200
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        "200":
+          description: Transaction list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  transactions:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/TransactionRecord"
+                  total:
+                    type: integer
+                  limit:
+                    type: integer
+                  offset:
+                    type: integer
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  # ──────────────────────────────────────────────
+  # Stripe
+  # ──────────────────────────────────────────────
+  /api/stripe/create-payment-intent:
+    post:
+      operationId: postStripeCreatePaymentIntent
+      tags: [Stripe]
+      summary: Create Stripe payment intent
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [amount, currency, donorEmail, idempotencyKey]
+              properties:
+                amount:
+                  type: integer
+                  description: Amount in cents (minimum 500 = $5.00)
+                  minimum: 500
+                currency:
+                  type: string
+                  default: usd
+                donorEmail:
+                  type: string
+                  format: email
+                donorName:
+                  type: string
+                isMonthly:
+                  type: boolean
+                  default: false
+                idempotencyKey:
+                  type: string
+      responses:
+        "200":
+          description: Payment intent created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  clientSecret:
+                    type: string
+                  paymentIntentId:
+                    type: string
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "503":
+          description: Stripe not configured
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  # ──────────────────────────────────────────────
+  # Credits
+  # ──────────────────────────────────────────────
+  /api/credits/bulk-purchase:
+    post:
+      operationId: postCreditsBulkPurchase
+      tags: [Credits]
+      summary: Bulk carbon credit purchase
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [projectId, quantity, totalPrice, buyerPublicKey, network]
+              properties:
+                projectId:
+                  type: string
+                quantity:
+                  type: integer
+                  minimum: 1000
+                totalPrice:
+                  type: number
+                  minimum: 0
+                  exclusiveMinimum: true
+                buyerPublicKey:
+                  type: string
+                network:
+                  type: string
+                  enum: [testnet, mainnet]
+                metadata:
+                  type: object
+                  properties:
+                    companyName:
+                      type: string
+                    initiativeDescription:
+                      type: string
+      responses:
+        "200":
+          description: Bulk purchase result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  transactionXdr:
+                    type: string
+                  networkPassphrase:
+                    type: string
+                  ipfsCid:
+                    type: string
+                  memoValue:
+                    type: string
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "409":
+          description: Lock acquisition failure
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  # ──────────────────────────────────────────────
+  # Admin
+  # ──────────────────────────────────────────────
+  /api/admin/credits/airdrop:
+    get:
+      operationId: getAdminAirdropPreview
+      tags: [Admin]
+      summary: Preview airdrop recipients (admin only)
+      security:
+        - adminAuth: []
+      parameters:
+        - name: platformLaunchDate
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+        - name: creditsPerSponsor
+          in: query
+          required: true
+          schema:
+            type: number
+            minimum: 0
+            exclusiveMinimum: true
+      responses:
+        "200":
+          description: Airdrop preview
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AirdropPreview"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      operationId: postAdminAirdrop
+      tags: [Admin]
+      summary: Execute airdrop (admin only)
+      security:
+        - adminAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [creditsPerSponsor, projectId, platformLaunchDate]
+              properties:
+                creditsPerSponsor:
+                  type: number
+                  minimum: 0
+                  exclusiveMinimum: true
+                projectId:
+                  type: string
+                platformLaunchDate:
+                  type: string
+                  format: date
+      responses:
+        "200":
+          description: Airdrop executed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AirdropResult"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  # ──────────────────────────────────────────────
+  # NFT
+  # ──────────────────────────────────────────────
+  /api/nft/mint:
+    post:
+      operationId: postNftMint
+      tags: [NFT]
+      summary: Mint soul-bound NFT
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [donationId, txHash, projectId, amount, date, recipientAddress, network]
+              properties:
+                donationId:
+                  type: string
+                txHash:
+                  type: string
+                projectId:
+                  type: string
+                amount:
+                  type: number
+                date:
+                  type: string
+                  format: date
+                recipientAddress:
+                  type: string
+                  description: Stellar public key
+                network:
+                  type: string
+                  enum: [testnet, mainnet]
+      responses:
+        "200":
+          description: NFT minted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  transactionXdr:
+                    type: string
+                  networkPassphrase:
+                    type: string
+                  tokenId:
+                    type: string
+                  metadataUri:
+                    type: string
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "409":
+          description: Lock acquisition failure
+        "503":
+          description: Contract not configured
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  # ──────────────────────────────────────────────
+  # Escrow
+  # ──────────────────────────────────────────────
+  /api/escrow/release:
+    post:
+      operationId: postEscrowRelease
+      tags: [Escrow]
+      summary: Release escrow funds on milestone verification
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [loanId, farmerWalletAddress, escrowSecretKey, network, verification, totalAmountUsdc]
+              properties:
+                loanId:
+                  type: string
+                farmerWalletAddress:
+                  type: string
+                escrowSecretKey:
+                  type: string
+                network:
+                  type: string
+                  enum: [testnet, mainnet]
+                verification:
+                  type: object
+                  properties:
+                    gpsCoordinates:
+                      type: object
+                      properties:
+                        latitude:
+                          type: number
+                        longitude:
+                          type: number
+                    photoBase64:
+                      type: string
+                    photoMimeType:
+                      type: string
+                      enum: [image/jpeg, image/png, image/webp]
+                totalAmountUsdc:
+                  type: number
+                  minimum: 0
+                  exclusiveMinimum: true
+      responses:
+        "200":
+          description: Escrow released
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  transactionHash:
+                    type: string
+                  explorerUrl:
+                    type: string
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "422":
+          description: Invalid GPS or photo validation error
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  # ──────────────────────────────────────────────
+  # Disputes
+  # ──────────────────────────────────────────────
+  /api/disputes/open:
+    post:
+      operationId: postDisputesOpen
+      tags: [Disputes]
+      summary: Open a DAO dispute on a tree
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [treeId, sponsorPublicKey, evidenceCid, network]
+              properties:
+                treeId:
+                  type: integer
+                sponsorPublicKey:
+                  type: string
+                evidenceCid:
+                  type: string
+                  description: 64-char hex hash
+                  pattern: "^[a-fA-F0-9]{64}$"
+                network:
+                  type: string
+                  enum: [testnet, mainnet]
+      responses:
+        "200":
+          description: Dispute opened
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  transactionHash:
+                    type: string
+                  treeId:
+                    type: integer
+                  status:
+                    type: string
+                    example: dispute_opened
+                  message:
+                    type: string
+        "400":
+          $ref: "#/components/responses/BadRequest"
+
+  # ──────────────────────────────────────────────
+  # Certificates
+  # ──────────────────────────────────────────────
+  /api/certificate/generate:
+    post:
+      operationId: postCertificateGenerate
+      tags: [Certificates]
+      summary: Generate PDF certificate
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [userName, walletAddress, treeCount, co2Offset, plantingDate, region, projectName, transactionHash]
+              properties:
+                userName:
+                  type: string
+                walletAddress:
+                  type: string
+                treeCount:
+                  type: integer
+                  minimum: 0
+                co2Offset:
+                  type: number
+                  minimum: 0
+                  description: CO2 offset in tonnes
+                plantingDate:
+                  type: string
+                  format: date
+                region:
+                  type: string
+                projectName:
+                  type: string
+                projectDescription:
+                  type: string
+                transactionHash:
+                  type: string
+                retirementDate:
+                  type: string
+                  format: date
+                isAnonymous:
+                  type: boolean
+                  default: false
+                explorerBaseUrl:
+                  type: string
+      responses:
+        "200":
+          description: PDF certificate
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/certificate/secure-link:
+    post:
+      operationId: postCertificateSecureLink
+      tags: [Certificates]
+      summary: Get signed URL for certificate (authenticated)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [s3Key]
+              properties:
+                s3Key:
+                  type: string
+                expiresIn:
+                  type: integer
+                  default: 3600
+      responses:
+        "200":
+          description: Signed URL
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  signedUrl:
+                    type: string
+                    format: uri
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/certificates/{tree_id}:
+    get:
+      operationId: getCertificateByTreeId
+      tags: [Certificates]
+      summary: Download certificate PDF by tree ID
+      parameters:
+        - name: tree_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: PDF certificate
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ──────────────────────────────────────────────
+  # Oracle
+  # ──────────────────────────────────────────────
+  /api/oracle/submit-ndvi:
+    post:
+      operationId: postOracleSubmitNdvi
+      tags: [Oracle]
+      summary: Submit NDVI satellite survival data
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: NdviSubmissionRequest
+      responses:
+        "200":
+          description: NDVI data accepted
+          content:
+            application/json:
+              schema:
+                type: object
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          description: Oracle signature invalid
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  # ──────────────────────────────────────────────
+  # Compliance
+  # ──────────────────────────────────────────────
+  /api/compliance/reports:
+    get:
+      operationId: getComplianceReports
+      tags: [Compliance]
+      summary: Generate compliance report (GET)
+      parameters:
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum:
+              - project-registry
+              - carbon-credits
+              - tree-inventory
+              - verification-audits
+              - issuance-report
+              - retirement-report
+            default: carbon-credits
+        - name: format
+          in: query
+          schema:
+            type: string
+            enum: [csv, json, both]
+            default: json
+        - name: registry
+          in: query
+          schema:
+            type: string
+            enum: [verra, gold-standard, car, plan-vivo, cdm, generic]
+            default: verra
+        - name: startDate
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: endDate
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: projectIds
+          in: query
+          schema:
+            type: string
+          description: Comma-separated project IDs
+        - name: sponsorAddresses
+          in: query
+          schema:
+            type: string
+          description: Comma-separated Stellar addresses
+        - name: species
+          in: query
+          schema:
+            type: string
+          description: Comma-separated species names
+        - name: regions
+          in: query
+          schema:
+            type: string
+          description: Comma-separated region codes
+        - name: status
+          in: query
+          schema:
+            type: string
+          description: Comma-separated statuses
+        - name: minCo2OffsetKg
+          in: query
+          schema:
+            type: number
+        - name: maxCo2OffsetKg
+          in: query
+          schema:
+            type: number
+      responses:
+        "200":
+          description: Compliance report
+          content:
+            application/json:
+              schema:
+                type: object
+            text/csv:
+              schema:
+                type: string
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+    post:
+      operationId: postComplianceReports
+      tags: [Compliance]
+      summary: Generate compliance report (POST)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                type:
+                  type: string
+                  enum:
+                    - project-registry
+                    - carbon-credits
+                    - tree-inventory
+                    - verification-audits
+                    - issuance-report
+                    - retirement-report
+                format:
+                  type: string
+                  enum: [csv, json, both]
+                registry:
+                  type: string
+                  enum: [verra, gold-standard, car, plan-vivo, cdm, generic]
+                startDate:
+                  type: string
+                  format: date-time
+                endDate:
+                  type: string
+                  format: date-time
+                filters:
+                  type: object
+                  properties:
+                    projectIds:
+                      type: array
+                      items:
+                        type: string
+                    sponsorAddresses:
+                      type: array
+                      items:
+                        type: string
+                    species:
+                      type: array
+                      items:
+                        type: string
+                    regions:
+                      type: array
+                      items:
+                        type: string
+                    status:
+                      type: array
+                      items:
+                        type: string
+      responses:
+        "200":
+          description: Compliance report
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  # ──────────────────────────────────────────────
+  # Webhooks
+  # ──────────────────────────────────────────────
+  /api/webhooks/events:
+    get:
+      operationId: getWebhookEvents
+      tags: [Webhooks]
+      summary: List webhook events
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+        - name: eventType
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 100
+      responses:
+        "200":
+          description: Webhook events
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  events:
+                    type: array
+                  total:
+                    type: integer
+                  timestamp:
+                    type: string
+                    format: date-time
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/webhooks/process:
+    post:
+      operationId: postWebhooksProcess
+      tags: [Webhooks]
+      summary: Process due webhooks (cron, authenticated)
+      security:
+        - webhookCronAuth: []
+      responses:
+        "200":
+          description: Processing summary
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  processed:
+                    type: integer
+                  succeeded:
+                    type: integer
+                  stillRetrying:
+                    type: integer
+                  failed:
+                    type: integer
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "503":
+          description: WEBHOOK_CRON_SECRET not configured
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/webhooks/retry:
+    post:
+      operationId: postWebhooksRetry
+      tags: [Webhooks]
+      summary: Retry a failed webhook delivery
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                deliveryId:
+                  type: integer
+                  description: Numeric delivery ID
+      responses:
+        "200":
+          description: Retry result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  deliveryId:
+                    type: integer
+                  status:
+                    type: string
+                  attemptCount:
+                    type: integer
+                  httpStatus:
+                    type: integer
+                  nextAttemptAt:
+                    type: string
+                    format: date-time
+                    nullable: true
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          description: Delivery not found or not retryable
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  # ──────────────────────────────────────────────
+  # Newsletter
+  # ──────────────────────────────────────────────
+  /api/newsletter:
+    post:
+      operationId: postNewsletterSubscribe
+      tags: [Newsletter]
+      summary: Subscribe to newsletter
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email:
+                  type: string
+                  format: email
+      responses:
+        "200":
+          description: Subscribed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                    example: true
+        "400":
+          $ref: "#/components/responses/BadRequest"
+
+  # ──────────────────────────────────────────────
+  # Email Verification
+  # ──────────────────────────────────────────────
+  /api/verify-email:
+    post:
+      operationId: postVerifyEmail
+      tags: [Email Verification]
+      summary: Verify email with token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token]
+              properties:
+                token:
+                  type: string
+      responses:
+        "200":
+          description: Email verified
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+        "400":
+          description: Token missing, expired, or invalid
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    enum: [missing, expired, invalid]
+                  message:
+                    type: string
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/verify-email/status:
+    get:
+      operationId: getVerifyEmailStatus
+      tags: [Email Verification]
+      summary: Check email verification status
+      responses:
+        "200":
+          description: Verification status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  verified:
+                    type: boolean
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/verify-email/resend:
+    post:
+      operationId: postVerifyEmailResend
+      tags: [Email Verification]
+      summary: Resend verification email
+      responses:
+        "200":
+          description: Email sent
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  # ──────────────────────────────────────────────
+  # Planters
+  # ──────────────────────────────────────────────
+  /api/planters/register:
+    post:
+      operationId: postPlantersRegister
+      tags: [Planters]
+      summary: Register as a planter
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PlanterRegistration"
+      responses:
+        "201":
+          description: Planter registered
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  planterId:
+                    type: string
+                    format: uuid
+                  status:
+                    type: string
+                    example: pending
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "422":
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ErrorResponse"
+                  - type: object
+                    properties:
+                      issues:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            path:
+                              type: array
+                              items:
+                                type: string
+                            message:
+                              type: string
+
+  /api/planters/upload-photo:
+    post:
+      operationId: postPlantersUploadPhoto
+      tags: [Planters]
+      summary: Upload planter profile photo to IPFS
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [photo]
+              properties:
+                photo:
+                  type: string
+                  format: binary
+                  description: JPEG, PNG, or WebP, max 5 MB
+      responses:
+        "200":
+          description: Photo uploaded
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  cid:
+                    type: string
+                    example: Qm...
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "413":
+          description: File too large (max 5 MB)
+        "415":
+          description: Unsupported file type
+        "502":
+          description: IPFS upload failed
+        "503":
+          description: Photo upload temporarily unavailable
+
+  /api/planters/photo-upload-url:
+    post:
+      operationId: postPlantersPhotoUploadUrl
+      tags: [Planters]
+      summary: Get pre-signed S3 upload URL for photo (authenticated)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [treeId, contentType, contentLength]
+              properties:
+                treeId:
+                  type: string
+                contentType:
+                  type: string
+                  enum: [image/jpeg, image/png, image/webp]
+                contentLength:
+                  type: integer
+                  minimum: 0
+                  exclusiveMinimum: true
+                  description: Max 5 MB (5242880 bytes)
+      responses:
+        "200":
+          description: Upload URL
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  uploadUrl:
+                    type: string
+                    format: uri
+                  key:
+                    type: string
+                  expiresIn:
+                    type: integer
+                    example: 300
+                  method:
+                    type: string
+                    example: PUT
+                  headers:
+                    type: object
+                    properties:
+                      Content-Type:
+                        type: string
+                      Content-Length:
+                        type: string
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "413":
+          description: Photo exceeds 5 MB limit
+        "415":
+          description: Unsupported content type
+        "503":
+          description: Photo upload temporarily unavailable
+
+  # ──────────────────────────────────────────────
+  # Uploads
+  # ──────────────────────────────────────────────
+  /api/uploads/progress:
+    post:
+      operationId: postUploadsProgress
+      tags: [Uploads]
+      summary: Upload progress photo to IPFS
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: JPEG, PNG, or WebP, max 5 MB
+                photo:
+                  type: string
+                  format: binary
+                  description: Alias for file
+      responses:
+        "201":
+          description: Photo uploaded
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  cid:
+                    type: string
+                  filename:
+                    type: string
+                  size:
+                    type: integer
+                  contentType:
+                    type: string
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "413":
+          description: File too large (max 5 MB)
+        "415":
+          description: Only JPEG, PNG, WebP allowed
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  # ──────────────────────────────────────────────
+  # GraphQL
+  # ──────────────────────────────────────────────
+  /api/graphql:
+    get:
+      operationId: getGraphql
+      tags: [GraphQL]
+      summary: GraphQL query (GET)
+      parameters:
+        - name: query
+          in: query
+          schema:
+            type: string
+          description: GraphQL query string
+        - name: region
+          in: query
+          schema:
+            type: string
+        - name: species
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: GraphQL response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                  errors:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/GraphQLError"
+        "400":
+          description: Missing query
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+    post:
+      operationId: postGraphql
+      tags: [GraphQL]
+      summary: GraphQL query (POST)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [query]
+              properties:
+                query:
+                  type: string
+                variables:
+                  type: object
+                operationName:
+                  type: string
+      responses:
+        "200":
+          description: GraphQL response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                  errors:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/GraphQLError"
+        "400":
+          description: Missing query
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+# ════════════════════════════════════════════════
+# Components
+# ════════════════════════════════════════════════
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT obtained from POST /api/auth/login
+    adminAuth:
+      type: apiKey
+      in: header
+      name: x-admin-secret
+      description: Admin secret key
+    webhookCronAuth:
+      type: http
+      scheme: bearer
+      description: WEBHOOK_CRON_SECRET token
+
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+
+    HealthzResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [ok, degraded]
+        timestamp:
+          type: string
+          format: date-time
+        checks:
+          type: object
+          properties:
+            db:
+              $ref: "#/components/schemas/HealthCheck"
+            rpc:
+              $ref: "#/components/schemas/RpcHealthCheck"
+            horizon:
+              $ref: "#/components/schemas/HorizonHealthCheck"
+
+    HealthCheck:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        latencyMs:
+          type: integer
+        error:
+          type: string
+
+    RpcHealthCheck:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        nodes:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              url:
+                type: string
+              ok:
+                type: boolean
+              latencyMs:
+                type: integer
+                nullable: true
+              error:
+                type: string
+        bestNode:
+          type: string
+          nullable: true
+
+    HorizonHealthCheck:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        latencyMs:
+          type: integer
+        url:
+          type: string
+        error:
+          type: string
+
+    Tree:
+      type: object
+      properties:
+        treeId:
+          type: string
+        species:
+          type: string
+        region:
+          type: string
+        status:
+          type: string
+        projectName:
+          type: string
+        lat:
+          type: number
+        lon:
+          type: number
+
+    SponsorImpact:
+      type: object
+      properties:
+        co2OffsetKg:
+          type: number
+        treeCount:
+          type: integer
+        bySpecies:
+          type: array
+          items:
+            type: object
+
+    CarbonSnapshot:
+      type: object
+      properties:
+        snapshotDate:
+          type: string
+          format: date
+        activeTreeCount:
+          type: integer
+        unratedTreeCount:
+          type: integer
+        totalCo2OffsetKg:
+          type: number
+        totalCo2OffsetTonnes:
+          type: number
+        bySpecies:
+          type: array
+          items:
+            type: object
+        computedInMs:
+          type: integer
+
+    DonationAllocation:
+      type: object
+      properties:
+        total:
+          type: number
+        planting:
+          type: number
+        buffer:
+          type: number
+
+    TransactionRecord:
+      type: object
+      properties:
+        tx_hash:
+          type: string
+        ledger:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+        tx_type:
+          type: string
+        source_account:
+          type: string
+        destination:
+          type: string
+        asset_code:
+          type: string
+        amount:
+          type: string
+
+    PlanterRegistration:
+      type: object
+      required: [walletPublicKey, displayName]
+      properties:
+        walletPublicKey:
+          type: string
+          description: Stellar public key (G...)
+        displayName:
+          type: string
+          minLength: 2
+          maxLength: 100
+        bio:
+          type: string
+          maxLength: 500
+        profilePhotoIpfsCid:
+          type: string
+        regions:
+          type: array
+          items:
+            type: string
+
+    AirdropPreview:
+      type: object
+      properties:
+        recipients:
+          type: array
+          items:
+            type: object
+            properties:
+              userId:
+                type: string
+              walletAddress:
+                type: string
+              email:
+                type: string
+              joinedAt:
+                type: string
+                format: date-time
+        totalCredits:
+          type: integer
+        cutoffDate:
+          type: string
+          format: date
+
+    AirdropResult:
+      type: object
+      properties:
+        totalQueued:
+          type: integer
+        recipients:
+          type: array
+          items:
+            type: object
+            properties:
+              walletAddress:
+                type: string
+              status:
+                type: string
+                example: queued
+
+    GraphQLError:
+      type: object
+      properties:
+        message:
+          type: string
+        locations:
+          type: array
+          items:
+            type: object
+        path:
+          type: array
+          items:
+            oneOf:
+              - type: string
+              - type: integer
+
+  responses:
+    BadRequest:
+      description: Bad request
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+    Unauthorized:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+    NotFound:
+      description: Not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+    InternalServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+    RateLimited:
+      description: Rate limited
+      headers:
+        Retry-After:
+          schema:
+            type: integer
+        X-RateLimit-Limit:
+          schema:
+            type: integer
+        X-RateLimit-Remaining:
+          schema:
+            type: integer
+        X-RateLimit-Reset:
+          schema:
+            type: integer
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"

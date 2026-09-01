@@ -3,6 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { NewsletterForm } from '@/components/organisms/Footer/NewsletterForm';
+import { LanguageSelector } from '@/components/organisms/Header/LanguageSelector';
 import { FaXTwitter, FaGithub, FaDiscord } from 'react-icons/fa6';
 import { useAppTranslation } from '@/hooks/useTranslation';
 import type { TFunction } from 'i18next';
@@ -12,16 +13,16 @@ interface FooterLink {
   href: string;
 }
 
-interface FooterSection {
-  title: string;
-  links: FooterLink[];
-}
-
 interface SocialLink {
   label: string;
   href: string;
   icon: React.ComponentType<{ size?: number; className?: string }>;
   ariaLabel: string;
+}
+
+interface FooterSection {
+  title: string;
+  links: FooterLink[];
 }
 
 function buildFooterSections(t: TFunction): FooterSection[] {
@@ -84,7 +85,7 @@ export function Footer(): React.ReactNode {
 
   return (
     <footer
-      className="bg-stellar-navy text-foreground border-t border-cyan-500/10 mt-16 px-6 py-12 md:py-10 sm:px-4"
+      className="bg-stellar-navy text-foreground border-t border-cyan-500/10 mt-auto flex-shrink-0 w-full px-6 py-12 md:py-10 sm:px-4 pb-[calc(3rem+env(safe-area-inset-bottom,0px))]"
       role="contentinfo"
     >
       <div className="max-w-6xl mx-auto">
@@ -112,7 +113,7 @@ export function Footer(): React.ReactNode {
                   <li key={link.href}>
                     <Link
                       href={link.href}
-                      className="text-sm text-slate-300/80 hover:text-stellar-blue hover:underline transition-colors duration-200 focus:outline-none rounded"
+                      className="text-sm text-slate-300/80 hover:text-stellar-blue hover:underline transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stellar-blue focus-visible:ring-offset-2 rounded"
                     >
                       {link.label}
                     </Link>
@@ -141,10 +142,9 @@ export function Footer(): React.ReactNode {
                     href={social.href}
                     target="_blank"
                     aria-label={social.ariaLabel}
-                    className="flex items-center justify-center w-10 h-10 rounded-lg border border-cyan-500/20 text-stellar-blue hover:bg-cyan-500/10 hover:border-stellar-blue transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-stellar-blue"
+                    className="flex items-center justify-center w-10 h-10 rounded-lg border border-cyan-500/20 text-stellar-blue hover:bg-cyan-500/10 hover:border-stellar-blue transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stellar-blue focus-visible:ring-offset-2"
                   >
-                    <Icon className="w-5 h-5" />
-                    <span className="sr-only">{social.label}</span>
+                    <Icon className="w-5 h-5" aria-hidden="true" />
                   </Link>
                 </li>
               );

@@ -20,7 +20,7 @@ import { Button } from '@/components/atoms/Button';
 import { Text } from '@/components/atoms/Text';
 import { Badge } from '@/components/atoms/Badge';
 import { Card } from '@/components/molecules/Card';
-import { ProjectLocationMap } from '@/components/organisms/ProjectLocationMap/ProjectLocationMap';
+import { FarmPlotSatelliteView } from '@/components/organisms/FarmPlotSatelliteView/FarmPlotSatelliteView';
 import {
   ImpactMetrics,
   type ImpactMetric,
@@ -30,6 +30,7 @@ import {
   type Milestone,
 } from '@/components/organisms/ProjectTimeline/ProjectTimeline';
 import { ProjectCarousel } from '@/components/organisms/ProjectCarousel/ProjectCarousel';
+import { ProjectPlanters } from '@/components/organisms/ProjectPlanters';
 
 import { mockCarbonProjects } from '@/lib/api/mock/carbonProjects';
 import { toast } from 'sonner';
@@ -70,31 +71,31 @@ export function ProjectDetailView({ adminProject, carbonProject }: ProjectDetail
 
   const milestones: Milestone[] = [
     {
-      date: 'March 2024',
+      date: '2024-03-15T09:00:00Z',
       title: 'Project Inception',
       description: 'Initial land survey and community engagement completed.',
       status: 'completed',
     },
     {
-      date: 'June 2024',
+      date: '2024-06-10T08:30:00Z',
       title: 'First Planting Phase',
       description: 'Over 200,000 native saplings planted across the north sector.',
       status: 'completed',
     },
     {
-      date: 'Jan 2025',
+      date: '2025-01-22T14:00:00Z',
       title: 'MRV Certification',
       description: 'Successful third-party verification of carbon sequestration rates.',
       status: 'completed',
     },
     {
-      date: 'June 2025',
+      date: '2025-06-18T10:00:00Z',
       title: 'Secondary Growth Phase',
       description: 'Expanding planting efforts to the eastern buffer zones.',
       status: 'ongoing',
     },
     {
-      date: 'Dec 2025',
+      date: '2025-12-05T09:00:00Z',
       title: 'Full Capacity Reached',
       description: 'Projected completion of initial reforestation goals.',
       status: 'upcoming',
@@ -231,16 +232,22 @@ export function ProjectDetailView({ adminProject, carbonProject }: ProjectDetail
               </Text>
               <ProjectTimeline milestones={milestones} />
             </section>
+
+            {/* Issue #1150: Meet the people planting this project's trees */}
+            <section id="planters">
+              <ProjectPlanters projectId={adminProject.id} projectName={adminProject.name} />
+            </section>
           </div>
 
           {/* Sidebar */}
           <aside className="w-full lg:w-[380px] space-y-8">
             {/* Map Card */}
             <Card className="p-0 overflow-hidden border-stellar-blue/10">
-              <ProjectLocationMap
-                projectName={adminProject.name}
-                locationLabel={adminProject.location}
+              <FarmPlotSatelliteView
+                plotName={adminProject.name}
+                plotLocation={`${adminProject.location}, ${adminProject.country}`}
                 coordinates={carbonProject.coordinates}
+                plotId={adminProject.id}
                 className="p-4"
               />
             </Card>

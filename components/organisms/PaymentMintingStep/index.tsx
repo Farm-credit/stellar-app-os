@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Button } from '@/components/atoms/Button';
 import { Text } from '@/components/atoms/Text';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/molecules/Card';
-import type { PaymentMintingProps, TransactionStatus } from './PaymentMintingStep';
+import type { PaymentMintingProps, TransactionStatus } from '@/lib/types/payment';
 
 export function PaymentMintingStep({
   selection,

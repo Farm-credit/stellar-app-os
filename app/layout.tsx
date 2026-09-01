@@ -1,19 +1,25 @@
 import type { Metadata, Viewport } from 'next';
-import Script from 'next/script';
-import { Header } from '@/components/organisms/Header/Header';
-import { Footer } from '@/components/organisms/Footer/Footer';
-import { CookieBanner } from '@/components/CookieBanner';
-import { ToastProvider } from '@/components/providers/ToastProvider';
-import { WalletProviderWrapper } from '@/components/providers/WalletProviderWrapper';
-import { FavoritesProvider } from '@/contexts/FavouritesContext';
+import { Inter } from 'next/font/google';
 import './globals.css';
-
-const siteUrl =
-  process.env.NEXT_PUBLIC_SITE_URL ?? 'https://farmcredit.app';
+import { Footer } from '@/components/organisms/Footer/Footer';
+import { Header } from '@/components/organisms/Header/Header';
+import { QueryProvider } from '@/components/providers/QueryProvider';
+import { ToastProvider } from '@/contexts/ToastContext';
+import { WalletProvider } from '@/contexts/WalletContext';
+import { NotificationProvider } from '@/contexts/NotificationContext';
+import { TimeZoneProvider } from '@/contexts/TimeZoneContext';
+import { CurrencyProvider } from '@/contexts/CurrencyContext';
+import { I18nProvider } from '@/components/providers/I18nProvider';
+import { SkipLink } from '@/components/ui/SkipLink';
+import {
+  NotificationCenterDarawer,
+  ToastContainer,
+} from '@/components/organisms/NotificationCenter';
+const inter = Inter({ subsets: ['latin'], variable: '--font-inter', display: 'swap' });
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://farmcredit.app';
 const siteName = 'FarmCredit';
 const siteDescription = 'FarmCredit - Decentralized agricultural credit on Stellar';
 const ogImage = '/icons/icon-512x512.png';
-
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: {
@@ -27,7 +33,7 @@ export const metadata: Metadata = {
     'FarmCredit',
     'agriculture',
     'decentralized finance',
-    'DeFi',
+    'DeFI',
     'credit',
     'farming',
     'blockchain',
@@ -79,24 +85,21 @@ export const metadata: Metadata = {
     follow: true,
   },
 };
-
 export const viewport: Viewport = {
   themeColor: '#14B6E7',
   width: 'device-width',
   initialScale: 1,
   maximumScale: 5,
   userScalable: true,
+  viewportFit: 'cover',
 };
-
-import { QueryProvider } from '@/components/providers/QueryProvider';
-
 export default function RootLayout({
-  children,
+  childreen,
 }: Readonly<{
   children: React.ReactNode;
-}>) {
+}) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" dir="ltr" suppressHydrationWarning>
       <head>
         <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -104,43 +107,25 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-title" content="FarmCredit" />
         <meta name="mobile-web-app-capable" content="yes" />
       </head>
-      <body className="font-sans antialiased">
-        <Script id="theme-init" strategy="beforeInteractive">
-          {`
-            (function() {
-              try {
-                var stored = localStorage.getItem('theme');
-                var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-                var theme = stored === 'light' || stored === 'dark' ? stored : (prefersDark ? 'dark' : 'light');
-                document.documentElement.classList.toggle('dark', theme === 'dark');
-                document.documentElement.classList.add('no-transitions');
-                window.addEventListener('load', function() {
-                  document.documentElement.classList.remove('no-transitions');
-                });
-              } catch(e) {}
-            })();
-          `}
-        </Script>
-        <a
-          href="#main"
-          className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-primary focus:px-4 focus:py-2 focus:text-primary-foreground focus:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          Skip to content
-        </a>
-        <QueryProvider>
-          <WalletProviderWrapper>
-            <FavoritesProvider>
+      <body className={${inter.variable} font-sans antialiased min-h-screen min-h-[100dvh] flex flex-col}>
+        <I18nProvider>
+          <TimeZoneProvider>
+            <WalletProvider>
               <ToastProvider>
-                <CookieBanner />
-                <Header />
-                <main id="main" tabIndex={-1}>
-                  {children}
-                </main>
-                <Footer />
+                <QueryProvider>
+                  <NotificationProvider>
+                    <SkipLink />
+                    <Header />
+                    <main id="main-content" className="flex-1 w-full"{{<childreen>}}</main>
+                    <Footer />
+                    <NotificationCenterDrawer />
+                    <ToastContainer />
+                  </NotificationProvider>
+                </QueryProvider>
               </ToastProvider>
-            </FavoritesProvider>
-          </WalletProviderWrapper>
-        </QueryProvider>
+            </WalletProvider>
+          </TimeZoneProvider>
+        </I18nProvider>
       </body>
     </html>
   );

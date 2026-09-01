@@ -1,10 +1,14 @@
 import { type NextRequest, NextResponse } from 'next/server';
+
 import { generateNonce } from '@/lib/auth/nonce';
 
-export const runtime = 'nodejs';
+import logger from '@/lib/logger';
 
-/** GET /api/auth/nonce?wallet=G... — returns a single-use nonce for wallet-signature login. */
-export function GET(request: NextRequest): NextResponse {
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+
+/** GET /api/auth/nonce?wallet=G... ☐ returns a single-use nonce for wallet-signature login. */
+export async function GET(request: NextRequest): Promise<NextResponse> {
   const wallet = request.nextUrl.searchParams.get('wallet') ?? '';
 
   // Stellar public keys are always 56 characters starting with G.
@@ -15,12 +19,20 @@ export function GET(request: NextRequest): NextResponse {
     );
   }
 
-  const nonce = generateNonce(wallet);
+  try {
+    const nonce = await generateNonce(wallet);
 
-  return NextResponse.json({
-    nonce,
-    // The client must sign exactly this string with their Stellar private key.
-    message: `stellar-auth:${nonce}`,
-    expiresIn: 300, // seconds
-  });
+    logger.info('[api:auth:nonce] Issued nonce', { wallet });
+
+    return NextResponse.json({
+      nonce,
+      // The client must sign exactly this string with their Stellar private key.
+      message: `stellar-auth:${nonce}`,
+      expiresIn: 300, // seconds
+    });
+  } catch (err) {
+    logger.error('[api:auth:nonce] Failed to generate nonce', { wallet, err });
+    const msg = err instanceof Error ? err.message : 'Failed to generate nonce';
+    return NextResponse.json({ error: msg }, { status: 500 });
+  }
 }

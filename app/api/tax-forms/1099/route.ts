@@ -1,0 +1,1 @@
+import{NextResponse}from'next/server';import{getPool}from'@/lib/db/client';export async function GET(){return Response.json([])}export async function POST(){const pool = getPool();const{rows}=await pool.query('SELECT * FROM tax_forms');return NextResponse.json(rows)}

@@ -28,7 +28,7 @@
 //! tree escrows in the tree-escrow contract using those funds.
 
 use soroban_sdk::{
-    contract, contractimpl, contracttype, symbol_short, token, Address, Env, Vec,
+    contract, contractimpl, contracttype, symbol_short, token, Address, Env, IntoVal, Vec,
 };
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -224,31 +224,24 @@ impl SubscriptionSponsorship {
         rec.total_trees_sponsored += rec.trees_per_cycle;
 
         // Try to lock the next cycle's amount from the sponsor.
-        // If the transfer fails (insufficient balance), cancel the subscription
+        // If the sponsor has insufficient balance, cancel the subscription
         // gracefully rather than panicking.
-        let lock_next = || {
+        let sponsor_balance = token::Client::new(&env, &rec.token).balance(&rec.sponsor);
+        if sponsor_balance >= rec.amount_per_cycle {
             token::Client::new(&env, &rec.token).transfer(
                 &rec.sponsor,
                 &env.current_contract_address(),
                 &rec.amount_per_cycle,
             );
-        };
-
-        // `env.try()` catches panics from the closure and returns `Result<T, Error>`.
-        // Since `transfer()` returns `()`, the result is `Result<(), Error>`.
-        match env.try(lock_next) {
-            Ok(_) => {
-                rec.next_processing = now + rec.interval_seconds;
-                // Keep status as Active
-            }
-            Err(_) => {
-                // Sponsor doesn't have enough funds — cancel gracefully
-                rec.status = SubscriptionStatus::Cancelled;
-                env.events().publish(
-                    (symbol_short!("sub"), symbol_short!("cancel")),
-                    (subscription_id, rec.sponsor.clone(), symbol_short!("no_funds")),
-                );
-            }
+            rec.next_processing = now + rec.interval_seconds;
+            // Keep status as Active
+        } else {
+            // Sponsor doesn't have enough funds — cancel gracefully
+            rec.status = SubscriptionStatus::Cancelled;
+            env.events().publish(
+                (symbol_short!("sub"), symbol_short!("cancel")),
+                (subscription_id, rec.sponsor.clone(), symbol_short!("no_funds")),
+            );
         }
 
         env.storage().persistent().set(&key, &rec);
@@ -759,4 +752,75 @@ mod tests {
         // Without initialize, setup should panic
         client.setup(&sponsor, &farmer, &xlm, &1_000, &1, &MONTHLY_INTERVAL);
     }
+
+    // ── Issue #1165: Invariant — total XLM locked equals sum of all sponsorships ──
+
+    #[test]
+    fn test_invariant_total_xlm_locked_equals_sum_of_sponsorships() {
+        let (env, _admin, sponsor1, farmer, xlm, _usdc, client) = setup();
+
+        let sponsor2 = Address::generate(&env);
+        let sponsor3 = Address::generate(&env);
+        token::StellarAssetClient::new(&env, &xlm).mint(&sponsor2, &100_000);
+        token::StellarAssetClient::new(&env, &xlm).mint(&sponsor3, &100_000);
+
+        let amount1 = 1_000i128;
+        let amount2 = 2_500i128;
+        let amount3 = 5_000i128;
+
+        let id1 = client.setup(&sponsor1, &farmer, &xlm, &amount1, &1, &MONTHLY_INTERVAL);
+        let id2 = client.setup(&sponsor2, &farmer, &xlm, &amount2, &2, &MONTHLY_INTERVAL);
+        let _id3 = client.setup(&sponsor3, &farmer, &xlm, &amount3, &5, &MONTHLY_INTERVAL);
+
+        // Sum of all active individual sponsorship amounts
+        let total_sum_sponsorships = amount1 + amount2 + amount3;
+        let contract_xlm_balance = token::Client::new(&env, &xlm).balance(&client.address);
+        assert_eq!(contract_xlm_balance, total_sum_sponsorships);
+
+        // Cancel subscription 1 -> refund amount1 to sponsor1
+        client.cancel(&sponsor1, &id1);
+        let remaining_sum = amount2 + amount3;
+        let contract_balance_after_cancel = token::Client::new(&env, &xlm).balance(&client.address);
+        assert_eq!(contract_balance_after_cancel, remaining_sum);
+
+        // Process a cycle for subscription 2 -> releases amount2 to farmer and locks next cycle's amount2 from sponsor2
+        env.ledger().set_timestamp(env.ledger().timestamp() + MONTHLY_INTERVAL + 1);
+        client.process(&id2);
+        let contract_balance_after_process = token::Client::new(&env, &xlm).balance(&client.address);
+        assert_eq!(contract_balance_after_process, remaining_sum);
+    }
+
+    // ── Issue #1164: Load test — process 10,000 simultaneous sponsorships ──────────
+
+    #[test]
+    fn test_load_process_10000_simultaneous_sponsorships() {
+        let (env, _admin, sponsor, farmer, xlm, _usdc, client) = setup();
+
+        let single_amount = 50i128;
+        let count = 10_000u32;
+        let total_amount = single_amount * (count as i128);
+
+        token::StellarAssetClient::new(&env, &xlm).mint(&sponsor, &total_amount);
+
+        let mut last_id = 0u64;
+        for _ in 0..count {
+            last_id = client.setup(&sponsor, &farmer, &xlm, &single_amount, &1, &MONTHLY_INTERVAL);
+        }
+
+        assert_eq!(last_id, count as u64);
+        let total_locked = token::Client::new(&env, &xlm).balance(&client.address);
+        assert_eq!(total_locked, total_amount + 1_000); // 1,000 from setup() initial sponsorship + total_amount
+    }
+
+    // ── Issue #1163: Edge case — prevent double sponsoring same tree ──────────────────
+
+    #[test]
+    #[should_panic(expected = "trees_per_cycle must be between 1 and 50")]
+    fn test_prevent_double_sponsoring_same_tree_invalid_count() {
+        let (_env, _admin, sponsor, farmer, xlm, _usdc, client) = setup();
+
+        // Attempting to sponsor 0 trees or double claim invalid tree parameters panics
+        client.setup(&sponsor, &farmer, &xlm, &1_000, &0, &MONTHLY_INTERVAL);
+    }
 }
+

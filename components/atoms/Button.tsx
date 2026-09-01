@@ -15,7 +15,7 @@ const stellarVariants = cva('', {
         'bg-stellar-purple text-white hover:bg-stellar-purple/90 focus-visible:ring-stellar-purple/50',
       cyan: 'bg-stellar-cyan text-stellar-navy hover:bg-stellar-cyan/90 focus-visible:ring-stellar-cyan/50',
       success:
-        'bg-stellar-green text-white hover:bg-stellar-green/90 focus-visible:ring-stellar-green/50',
+        'bg-stellar-green text-stellar-navy hover:bg-stellar-green/90 focus-visible:ring-stellar-green/50',
       'primary-outline':
         'border border-stellar-blue text-stellar-blue bg-transparent hover:bg-stellar-blue/10 focus-visible:ring-stellar-blue/50',
       'accent-outline':

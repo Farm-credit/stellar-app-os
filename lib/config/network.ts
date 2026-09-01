@@ -4,19 +4,29 @@ function requireEnv(key: string): string {
   return process.env[key] ?? '';
 }
 
+export interface RpcNodeEntry {
+  url: string;
+  name: string;
+  weight: number;
+}
+
 export interface NetworkConfig {
   network: NetworkType;
   horizonUrl: string;
   sorobanRpcUrl: string;
   networkPassphrase: string;
   usdcIssuer: string;
+  usdtIssuer: string;
+  eurcIssuer: string;
   treeIssuer: string;
   carbonCreditIssuer: string;
+  rpcNodes: RpcNodeEntry[];
   contracts: {
     treeEscrow: string;
     escrowMilestone: string;
     locationProof: string;
     nullifierRegistry: string;
+    carbonCredits: string;
   };
   addresses: {
     planting: string;
@@ -30,6 +40,36 @@ export interface NetworkConfig {
   };
 }
 
+function parseRpcNodes(): RpcNodeEntry[] {
+  const urlsRaw = process.env.RPC_NODE_URLS || process.env.NEXT_PUBLIC_HORIZON_URL || '';
+  const namesRaw = process.env.RPC_NODE_NAMES || '';
+  const weightsRaw = process.env.RPC_NODE_WEIGHTS || '';
+
+  const urls = urlsRaw
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const names = namesRaw
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const weights = weightsRaw
+    .split(',')
+    .map((s) => Number(s.trim()))
+    .filter((n) => !Number.isNaN(n));
+
+  const singleUrl = process.env.NEXT_PUBLIC_HORIZON_URL;
+  if (urls.length === 0 && singleUrl) {
+    return [{ url: singleUrl, name: 'default', weight: 1 }];
+  }
+
+  return urls.map((url, i) => ({
+    url,
+    name: names[i] ?? `node-${i}`,
+    weight: weights[i] ?? 1,
+  }));
+}
+
 function loadNetworkConfig(): NetworkConfig {
   const network = (process.env.NEXT_PUBLIC_STELLAR_NETWORK ?? 'testnet') as NetworkType;
 
@@ -39,13 +79,17 @@ function loadNetworkConfig(): NetworkConfig {
     sorobanRpcUrl: requireEnv('NEXT_PUBLIC_SOROBAN_RPC_URL'),
     networkPassphrase: requireEnv('NEXT_PUBLIC_NETWORK_PASSPHRASE'),
     usdcIssuer: requireEnv('NEXT_PUBLIC_USDC_ISSUER'),
+    usdtIssuer: requireEnv('NEXT_PUBLIC_USDT_ISSUER'),
+    eurcIssuer: requireEnv('NEXT_PUBLIC_EURC_ISSUER'),
     treeIssuer: requireEnv('NEXT_PUBLIC_TREE_ISSUER'),
     carbonCreditIssuer: requireEnv('NEXT_PUBLIC_CARBON_CREDIT_ISSUER'),
+    rpcNodes: parseRpcNodes(),
     contracts: {
       treeEscrow: requireEnv('NEXT_PUBLIC_CONTRACT_TREE_ESCROW'),
       escrowMilestone: requireEnv('NEXT_PUBLIC_CONTRACT_ESCROW_MILESTONE'),
       locationProof: requireEnv('NEXT_PUBLIC_CONTRACT_LOCATION_PROOF'),
       nullifierRegistry: requireEnv('NEXT_PUBLIC_CONTRACT_NULLIFIER_REGISTRY'),
+      carbonCredits: requireEnv('NEXT_PUBLIC_CONTRACT_CARBON_CREDITS'),
     },
     addresses: {
       planting: requireEnv('NEXT_PUBLIC_PLANTING_ADDRESS'),

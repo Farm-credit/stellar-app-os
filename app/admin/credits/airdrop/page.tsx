@@ -196,9 +196,7 @@ export default function RetroactiveAirdropPage(): ReactNode {
               <table className="w-full text-sm">
                 <thead className="sticky top-0 bg-muted/60">
                   <tr>
-                    <th className="px-4 py-2 text-left font-medium text-muted-foreground">
-                      Email
-                    </th>
+                    <th className="px-4 py-2 text-left font-medium text-muted-foreground">Email</th>
                     <th className="px-4 py-2 text-left font-medium text-muted-foreground">
                       Wallet
                     </th>

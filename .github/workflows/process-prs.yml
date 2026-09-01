@@ -1,0 +1,41 @@
+name: Process Pull Requests
+
+on:
+  pull_request_target:
+    types: [opened, reopened, synchronize]
+  schedule:
+    # Runs every 15 minutes as a fallback sync/cleanup
+    - cron: '*/15 * * * *'
+  workflow_dispatch: {} # Allows manual trigger from Actions tab
+
+concurrency:
+  group: process-prs
+  cancel-in-progress: false # Avoid interrupting active PR merges/reviews
+
+jobs:
+  process-prs:
+    name: Process and Manage PRs
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Run PR processor script
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          PYTHONUNBUFFERED: "1"
+        run: |
+          python3 scripts/process_prs.py
