@@ -45,7 +45,10 @@ export class MemoryRateLimiter {
     if (ts.length >= c.maxRequests) {
       const v = (this.violations.get(key) || 0) + 1;
       this.violations.set(key, v);
-      const backoff = Math.min(c.backoffBaseMc * Math.pow(c.backoffFactor, v - 1), c.maxBackoffMc);
+      const backoff = Math.min(
+        (c.backoffBaseMs ?? 1000) * Math.pow(c.backoffFactor ?? 2, v - 1),
+        c.maxBackoffMs ?? 3600000
+      );
       const until = now + backoff;
       this.blocks.set(key, until);
       return {
