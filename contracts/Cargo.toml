@@ -38,6 +38,7 @@ members = [
     "transparent-proxy",
     "tree-retirement",
     "staking-rewards",
+    "tree-genetics",
 ]
 resolver = "2"
 
