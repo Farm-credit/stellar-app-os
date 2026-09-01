@@ -39,6 +39,7 @@ members = [
     "tree-retirement",
     "staking-rewards",
     "tree-genetics",
+    "carbon-price-oracle",
 ]
 resolver = "2"
 
