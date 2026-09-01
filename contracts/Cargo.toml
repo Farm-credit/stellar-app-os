@@ -1,4 +1,4 @@
-﻿[workspace]
+[workspace]
 members = [
     "contract-utils",
     "auth-contract",
@@ -27,7 +27,6 @@ members = [
     "platform-governance",
     "nft-certificate",
     "subscription-sponsorship",
-    "nft-certificate",
     "sponsor-receipt",
     "carbon-marketplace",
     "carbon-dex",
@@ -38,6 +37,7 @@ members = [
     "leaderboard",
     "transparent-proxy",
     "tree-retirement",
+    "staking-rewards",
 ]
 resolver = "2"
 
