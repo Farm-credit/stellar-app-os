@@ -1,4 +1,4 @@
-import { Activity, Archive, Clock3, Coins, FolderKanban, HandCoins } from 'lucide-react';
+import { Activity, Archive, Clock3, Coins, FileText, FolderKanban, HandCoins } from 'lucide-react';
 import {
   Card,
   CardContent,
@@ -171,6 +171,26 @@ export default async function AdminDashboardPage({
             </CardContent>
           </Card>
         </div>
+      </section>
+
+      <section aria-labelledby="tax-heading" className="mb-8">
+        <Card>
+          <CardHeader>
+            <CardDescription className="flex items-center gap-2 text-muted-foreground">
+              <FileText className="h-4 w-4" aria-hidden="true" />
+              Tax reporting
+            </CardDescription>
+            <CardTitle id="tax-heading" className="text-xl">
+              1099 form generation
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground">
+              IRS 1099 forms are generated automatically for sponsors with more than $20,000 in
+              annual sponsorships for carbon credit deductions.
+            </p>
+          </CardContent>
+        </Card>
       </section>
 
       <section className="mb-8">

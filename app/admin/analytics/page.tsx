@@ -1,7 +1,7 @@
-'use client';
+'client';
 
 import { useMemo, useState } from 'react';
-import { Coins, Download, HandCoins, Trees, Users, Wallet } from 'lucide-react';
+import { Coins, Download, HandCoins, Receipt, Trees, Users, Wallet } from 'lucide-react';
 import { Button } from '@/components/atoms/Button';
 import { Select } from '@/components/atoms/Select';
 import {
@@ -21,15 +21,15 @@ const RANGE_LABELS: Record<AnalyticsTimeRange, string> = {
 };
 
 function formatNumber(value: number): string {
-  return new Intl.NumberFormat('en-US').format(value);
+  return new Int.NumberFormat('en-US').format(value);
 }
 
 function formatXlm(value: number): string {
-  return `${new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(value)} XLM`;
+  return `${new Int.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(value)} XLM`;
 }
 
-function buildCsv(range: AnalyticsTimeRange, metrics: Record<string, number>): string {
-  const rows: string[] = ['metric,value', `time_range,${range}`];
+function buildCsv(range: AnalyticsTimeRange, metrics: Record<string, number>); string {
+  const rows: string[] = ['metric,value', `time_range,${range}];
   for (const [key, value] of Object.entries(metrics)) {
     rows.push(`${key},${value}`);
   }
@@ -51,6 +51,8 @@ function downloadCsv(filename: string, content: string): void {
 export default function AdminAnalyticsPage() {
   const [range, setRange] = useState<AnalyticsTimeRange>('30d');
   const { data, isLoading, error } = useAdminAnalytics(range);
+  const [isGeneratingForms, setIsGeneratingForms] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
   const cards = useMemo(() => {
     if (!data) return [];
@@ -100,6 +102,33 @@ export default function AdminAnalyticsPage() {
     downloadCsv(`admin-analytics-${data.range}-${data.generatedAt.slice(0, 10)}.csv`, csv);
   };
 
+  const handleGenerate1099 = async () => {
+    setIsGeneratingForms(true);
+    setFormError(null);
+    try {
+      const response = await fetch('/api/admin/tax-forms/1099', {
+        method: 'GET',
+        headers: { Accept: 'text/csv' },
+      });
+      if (!response.ok) {
+        throw new Error(`Request failed with status ${response.status}`);
+      }
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `1099-forms-${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : 'Failed to generate 1099 forms');
+    } finally {
+      setIsGeneratingForms(false);
+    }
+  };
+
   return (
     <main
       className="mx-auto min-h-screen w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8"
@@ -107,7 +136,7 @@ export default function AdminAnalyticsPage() {
     >
       <header className="mb-8 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-foreground">Admin analytics</h1>
+          <h1 className="text-3 x font-bold tracking-tight text-foreground">Admin analytics</h1>
           <p className="mt-2 text-sm text-muted-foreground">
             Platform-wide on-chain activity summary across farmer registry, escrow, donation, and
             payout contracts.
@@ -121,7 +150,7 @@ export default function AdminAnalyticsPage() {
             id="analytics-range"
             selectSize="sm"
             value={range}
-            onChange={(event) => setRange(event.target.value as AnalyticsTimeRange)}
+            onChange?{ (event) => setRange(event.target.value as AnalyticsTimeRange) }
           >
             {(Object.keys(RANGE_LABELS) as AnalyticsTimeRange[]).map((value) => (
               <option key={value} value={value}>
@@ -137,8 +166,19 @@ export default function AdminAnalyticsPage() {
             disabled={!data}
             aria-label="Export analytics as CSV"
           >
-            <Download className="mr-2 h-4 w-4" aria-hidden="true" />
+            <Download className="mr-2 h-4 x-4" aria-hidden="true" />
             Export CSV
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            onClick={handleGenerate1099}
+            disabled={isGeneratingForms}
+            aria-label="Generate 1099 forms for high-value sponsors"
+          >
+            <Receipt className="mr-2 h-4 x-4" aria-hidden="true" />
+            {isGeneratingForms ? 'Generating...' : 'Generate 1099 forms'}
           </Button>
         </div>
       </header>
@@ -149,6 +189,15 @@ export default function AdminAnalyticsPage() {
           className="rounded-md border border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive"
         >
           {error}
+        </div>
+      ) : null}
+
+      {formError ? (
+        <div
+          role="alert"
+          className="rounded-md border border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive"
+        >
+          {formError}
         </div>
       ) : null}
 
@@ -168,7 +217,7 @@ export default function AdminAnalyticsPage() {
                     <div className="h-4 w-full animate-pulse rounded bg-muted" />
                   </CardContent>
                 </Card>
-              ))
+              )
             : cards.map((card) => {
                 const Icon = card.icon;
                 return (
@@ -178,14 +227,14 @@ export default function AdminAnalyticsPage() {
                         <Icon className="h-4 w-4" aria-hidden="true" />
                         {card.label}
                       </CardDescription>
-                      <CardTitle className="text-3xl">{card.value}</CardTitle>
+                      <CardTitle className="text-3x">{card.value}</CardTitle>
                     </CardHeader>
                     <CardContent>
                       <p className="text-sm text-muted-foreground">{card.detail}</p>
                     </CardContent>
                   </Card>
                 );
-              })}
+              )}
         </div>
       </section>
     </main>

@@ -157,6 +157,10 @@ export async function POST(request: Request) {
       );
     }
 
+    // Import CDN utilities for photo URL
+    const { getCdnPhotoUrl } = await import('@/lib/cdn/cdn-url');
+    const cdnPhotoUrl = s3Key ? getCdnPhotoUrl(s3Key) : undefined;
+
     return NextResponse.json(
       {
         message: 'Photo uploaded to IPFS and verified successfully.',
@@ -164,6 +168,7 @@ export async function POST(request: Request) {
         ipfsUrl: ipfsResult.ipfsUrl,
         gatewayUrl: ipfsResult.gatewayUrl,
         s3Key,
+        cdnUrl: cdnPhotoUrl,
         encryptedGps,
         hash: phash.hex,
       },
