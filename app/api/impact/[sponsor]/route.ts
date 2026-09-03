@@ -24,9 +24,36 @@
  */
 
 import { type NextRequest, NextResponse } from 'next/server';
-import { getSponsorImpact, isValidStellarAddress } from '@/lib/api/carbon-impact';
+import Stripe from 'stripe';
+import { isValidStellarAddress, listBySponsor } from '@/lib/api/carbon-impact';
 
 export const runtime = 'nodejs';
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+
+interface Tree {
+  species?: string;
+  co2Offset?: number;
+  status?: string;
+  location?: {
+    lat: number | null;
+    lon: number | null;
+  };
+  distanceKm?: number;
+}
+
+interface SponsorImpact {
+  totalCo2Offset: number;
+  treeCount: number;
+  perSpecies: Record<string, number>;
+  cachedAt: string;
+  trees?: Tree[];
+  location?: {
+    lat: number | null;
+    lon: number | null;
+  };
+  distanceKm?: number;
+}
 
 const EARTH_RADIUS_KM = 6371;
 const toRad = (value: number) => (value * Math.PI) / 180;
@@ -43,8 +70,7 @@ function haversineDistance(
   lat1: number,
   lon1: number,
   lat2: number,
-  lon2: number
-): number {
+  lon2: number): number {
   const dLat = toRad(lat2 - lat1);
   const dLon = toRad(lon2 - lon1);
   const a =
@@ -54,13 +80,26 @@ function haversineDistance(
   return EARTH_RADIUS_KM * c;
 }
 
+async function getXlmPriceInUsd(): Promise<number> {
+  const fallbackRate = 0.12; // $0.12 per XLM
+  try {
+    const response = await fetch(
+      'https://api.coingecko.com/api/v3/simple/price?ids=stellar&vs_currencies=usd'
+    );
+    const data = await response.json();
+    return data.stellar?.usd ?? fallbackRate;
+  } catch {
+    return fallbackRate;
+  }
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ sponsor: string }> }
 ) {
   try {
     const { sponsor: rawSponsor } = await params;
-    const sponsor = rawSponsor?.trim() ?? '';
+    const sponsor = rawSponsor?.trim() || '';
 
     if (!sponsor) {
       return NextResponse.json({ error: 'sponsor address is required' }, { status: 400 });
@@ -68,12 +107,12 @@ export async function GET(
 
     if (!isValidStellarAddress(sponsor)) {
       return NextResponse.json(
-        { error: 'Invalid Stellar address — must be a 56-character G… public key' },
+        { error: 'Invalid Stellar address — must be a 56-character G․ public key' },
         { status: 400 }
       );
     }
 
-    const { searchParams } = new URL(request.url);
+    const searchParams = request.nextUrl.searchParams;
     const latParam = searchParams.get('lat');
     const lonParam = searchParams.get('lon');
     const lat = latParam === null ? null : Number(latParam);
@@ -86,8 +125,7 @@ export async function GET(
       );
     }
 
-    const requestedStatus = searchParams.get('status');
-    const rawStatus = requestedStatus?.trim() ?? '';
+    const rawStatus = searchParams.get('status')?.trim() ?? '';
 
     const allowedStatuses = new Set(['all', 'pending', 'planted', 'verified', 'failed']);
     if (rawStatus && !allowedStatuses.has(rawStatus.toLowerCase())) {
@@ -98,10 +136,37 @@ export async function GET(
     }
 
     const filterStatus = rawStatus.toLowerCase() === 'all' ? '' : rawStatus.toLowerCase();
-    // Analytics queries are heavy — use the read replica to avoid blocking production writes.
-    const impact = filterStatus
-      ? await getSponsorImpact(sponsor, filterStatus, { readReplica: true })
-      : await getSponsorImpact(sponsor, undefined, { readReplica: true });
+
+    // Aggregate all trees for the sponsor, handling pagination for large datasets.
+    let cursor: string | null = null;
+    const trees: Tree[] = [];
+    const perSpecies: Record<string, number> = {};
+    let totalCo2Offset = 0;
+    let treeCount = 0;
+
+    do {
+      const page = await listBySponsor(sponsor, cursor);
+      for (const tree of page.trees ?? []) {
+        const treeItem = tree as Tree;
+        if (filterStatus && treeItem.status?.toLowerCase() !== filterStatus) {
+          continue;
+        }
+        trees.push(treeItem);
+        treeCount += 1;
+        totalCo2Offset += treeItem.co2Offset ?? 0;
+        const species = treeItem.species ?? 'Unknown';
+        perSpecies[species] = (perSpecies[species] ?? 0) + 1;
+      }
+      cursor = page.nextCursor ?? null;
+    } while (cursor);
+
+    const impact: SponsorImpact = {
+      totalCo2Offset,
+      treeCount,
+      perSpecies,
+      cachedAt: new Date().toISOString(),
+      trees,
+    };
 
     if (lat !== null && lon !== null) {
       if (Array.isArray(impact.trees)) {
@@ -130,6 +195,76 @@ export async function GET(
     console.error('[api/impact/:sponsor] error:', err);
     return NextResponse.json(
       { error: err instanceof Error ? err.message : 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function POST(
+  request: NextRequest,
+  { params }: { params: Promise<{ sponsor: string }> }
+) {
+  try {
+    const { sponsor: rawSponsor } = await params;
+    const sponsor = rawSponsor?.trim() || '';
+
+    if (!sponsor || !isValidStellarAddress(sponsor)) {
+      return NextResponse.json(
+        { error: 'Invalid Stellar address' },
+        { status: 400 }
+      );
+    }
+
+    const body = await request.json();
+    const { amount, paymentMethodId } = body || {};
+
+    if (typeof amount !== 'number' || !Number.isFinite(amount) || amount <= 0) {
+      return NextResponse.json(
+        { error: 'Invalid amount — must be a positive number' },
+        { status: 400 }
+      );
+    }
+
+    if (!paymentMethodId || typeof paymentMethodId !== 'string') {
+      return NextResponse.json(
+        { error: 'Invalid paymentMethodId' },
+        { status: 400 }
+      );
+    }
+
+    const xlmPriceUsd = await getXlmPriceInUsd();
+    const xlmAmount = amount / xlmPriceUsd;
+
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount: Math.round(amount * 100), // Stripe expects cents
+      currency: 'usd',
+      payment_method: paymentMethodId,
+      confirm: true,
+      automatic_payment_methods: { enabled: true },
+      metadata: {
+        sponsor,
+        xmlAmount: xlmAmount.toFixed(7),
+      },
+    });
+
+    // TODO: After successful payment, settle the CarbonCredits contract
+    // with the XLM amount. This is a stub for the integration.
+    console.log(
+      `Payment ${paymentIntent.id} for sponsor ${sponsor} succeeded. ` +
+      `Would send ${xlmAmount.toFixed(7)} XLM to contract.`
+    );
+
+    return NextResponse.json({
+      success: true,
+      paymentIntentId: paymentIntent.id,
+      sponsor,
+      xlmAmount,
+      xlmPriceUsd,
+    }, { status: 201 });
+  } catch (error) {
+    console.error('[api/impact/:sponsor] payment error:', error);
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : 'Payment failed' },
       { status: 500 }
     );
   }

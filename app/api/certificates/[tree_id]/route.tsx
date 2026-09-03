@@ -7,6 +7,26 @@ import { TREE_SPECIES } from '@/lib/constants/species';
 
 export const runtime = 'nodejs';
 
+const ALLOWED_ORIGINS = new Set(
+  (process.env.CORS_ORIGINS || process.env.ALLOWED_ORIGINS || '')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean),
+);
+
+function isWhitelistedOrigin(origin: string | null): boolean {
+  return origin !== null && ALLOWED_ORIGINS.has(origin);
+}
+
+// In-memory tombstone set for GDPR right-to-be-forgotten deletions.
+const gdprDeletedTreeIds = new Set<string>();
+
+// ── Audit logging ─────────────────────────────────────────────────────────────
+function logAuditEvent(event: string, details: Record<string, unknown>, request?: NextRequest): void {
+  const ip = request?.headers.get('x-forwarded-for') ?? request?.headers.get('x-real-ip') ?? null;
+  console.log(JSON.stringify({ audit: true, timestamp: new Date().toISOString(), event, ...details, ip }));
+}
+
 // ── Styles ────────────────────────────────────────────────────────────────────
 
 const S = StyleSheet.create({
@@ -280,6 +300,25 @@ function haversineDistanceKm(lat1: number, lon1: number, lat2: number, lon2: num
 
 // ── Route Handler ─────────────────────────────────────────────────────────────
 
+export async function OPTIONS(request: NextRequest): Promise<NextResponse> {
+  const origin = request.headers.get('origin');
+
+  if (!origin || !isWhitelistedOrigin(origin)) {
+    return new NextResponse(null, { status: 204 });
+  }
+
+  return new NextResponse(null, {
+    status: 204,
+    headers: {
+      'Access-Control-Allow-Origin': origin,
+      'Access-Control-Allow-Methods': 'GET, DELETE, OPTIONS',
+      'Access-Control-Allow-Headers': request.headers.get('access-control-request-headers') ?? 'Content-Type, Authorization',
+      'Access-Control-Max-Age': '86400',
+      Vary: 'Origin',
+    },
+  });
+}
+
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ tree_id: string }> }
@@ -290,6 +329,10 @@ export async function GET(
   const tree = trees.find((t) => t.id === tree_id || t.treeId === tree_id);
 
   if (!tree) {
+    return NextResponse.json({ error: 'Tree not found' }, { status: 404 });
+  }
+
+  if (gdprDeletedTreeIds.has(tree.treeId)) {
     return NextResponse.json({ error: 'Tree not found' }, { status: 404 });
   }
 
@@ -311,6 +354,14 @@ export async function GET(
       ? `${haversineDistanceKm(Number(sponsorLat), Number(sponsorLng), Number(treeLat), Number(treeLng)).toFixed(1)} km`
       : undefined;
 
+  logAuditEvent('sensitive.certificate.access', {
+    treeId: tree.treeId,
+    queriedCoordinates: {
+      latitude: sponsorLat ?? null,
+      longitude: sponsorLng ?? null,
+    },
+  }, _request);
+
   const qrDataUrl = await QRCode.toDataURL(treeUrl, { margin: 1, width: 200, type: 'image/png' });
 
   const plantedAt = tree.plantedAt
@@ -326,6 +377,35 @@ export async function GET(
     month: 'long',
     day: 'numeric',
   });
+
+  const wantsJsonExport = Boolean(
+    _request.nextUrl.searchParams.get('export') === 'json' ||
+      _request.nextUrl.searchParams.get('format') === 'json' ||
+      _request.headers.get('accept')?.includes('application/json')
+  );
+
+  if (wantsJsonExport) {
+    return NextResponse.json(
+      {
+        personalData: {
+          treeId: tree.treeId,
+          species: tree.species,
+          region: tree.region,
+          projectName: tree.projectName,
+          plantedAt,
+          co2Tonnes,
+          distanceFromSponsor: distanceFromSponsor ?? null,
+          treeUrl,
+          issuedDate,
+          queriedCoordinates: {
+            latitude: sponsorLat ?? null,
+            longitude: sponsorLng ?? null,
+          },
+        },
+      },
+      { headers: { 'Cache-Control': 'no-store' } }
+    );
+  }
 
   const pdfBuffer = await renderToBuffer(
     <TreeCertificate
@@ -348,5 +428,30 @@ export async function GET(
       'Content-Disposition': `attachment; filename="certificate-${tree.treeId}.pdf"`,
       'Cache-Control': 'no-store',
     },
+  });
+}
+
+export async function DELETE(
+  _request: NextRequest,
+  { params }: { params: Promise<{ tree_id: string }> }
+): Promise<NextResponse> {
+  const { tree_id } = await params;
+
+  const trees = getMockTrees();
+  const treeIndex = trees.findIndex((t) => t.id === tree_id || t.treeId === tree_id);
+
+  if (treeIndex === -1) {
+    return NextResponse.json({ error: 'Tree not found' }, { status: 404 });
+  }
+
+  const [tree] = trees.splice(treeIndex, 1);
+
+  gdprDeletedTreeIds.add(tree.treeId);
+
+  logAuditEvent('admin.certificate.delete', { treeId: tree.treeId }, _request);
+
+  return NextResponse.json({
+    status: 'ok',
+    message: `User data associated with certificate ${tree.treeId} has been deleted.`,
   });
 }

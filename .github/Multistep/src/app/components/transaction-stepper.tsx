@@ -1,7 +1,7 @@
 import { CheckCircle2, Circle, Loader2 } from 'lucide-react';
 import { cn } from '../ui/utils';
 
-export type TransactionStep = 'approve' | 'sign' | 'confirm';
+export type TransactionStep = 'connect' | 'sign' | 'confirm';
 export type StepStatus = 'pending' | 'active' | 'completed' | 'error';
 
 interface TransactionStepperProps {
@@ -11,19 +11,19 @@ interface TransactionStepperProps {
 
 const steps: { id: TransactionStep; label: string; description: string }[] = [
   {
-    id: 'approve',
-    label: 'Approve Asset',
-    description: 'Grant permission to list project',
+    id: 'connect',
+    label: 'Connect Wallet',
+    description: 'Connect your Stellar wallet to continue',
   },
   {
     id: 'sign',
-    label: 'Sign Transaction',
-    description: 'Authorize blockchain transaction',
+    label: 'Sign Payment',
+    description: 'Authorize XLM payment transaction',
   },
   {
     id: 'confirm',
     label: 'Confirm',
-    description: 'Finalize project submission',
+    description: 'Finalize sponsorship payment',
   },
 ];
 
@@ -40,10 +40,10 @@ export function TransactionStepper({ currentStep, stepStatuses }: TransactionSte
     }
 
     if (status === 'error') {
-      return <Circle className="w-6 h-6 text-red-600" />;
+      return <Circle className="w-6 h-6 text-red-600" />
     }
 
-    return <Circle className="w-6 h-6 text-gray-300" />;
+    return <Circle className="w-6 h-6 text-gray-300" />
   };
 
   return (
@@ -60,9 +60,9 @@ export function TransactionStepper({ currentStep, stepStatuses }: TransactionSte
             <div
               className={cn(
                 'flex items-start gap-4 p-4 rounded-lg border-2 transition-all',
-                isActive && 'border-blue-500 bg-blue-50',
-                isCompleted && 'border-green-500 bg-green-50',
-                isError && 'border-red-500 bg-red-50',
+                isActive && 'border-blue-50 bg-blue-50',
+                isCompleted && 'border-green-50 bg-green-50',
+                isError && 'border-red-50 bg-red-50',
                 !isActive && !isCompleted && !isError && 'border-gray-200 bg-gray-50'
               )}
             >
@@ -107,7 +107,7 @@ export function TransactionStepper({ currentStep, stepStatuses }: TransactionSte
                     isActive && 'text-blue-700',
                     isCompleted && 'text-green-700',
                     isError && 'text-red-700',
-                    !isActive && !isCompleted && !isError && 'text-gray-500'
+                    isActive && !isCompleted && !isError && 'text-gray-500'
                   )}
                 >
                   {step.description}

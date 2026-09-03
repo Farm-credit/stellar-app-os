@@ -4,6 +4,34 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* ===== Accessibility baseline (WCAG 2.1) =====
+ * Visible keyboard focus for every focusable element, including ones that do
+ * not carry Tailwind focus-visible utilities. 3:1 contrast against both the
+ * light and dark themes is satisfied by the brand blue outline + offset.
+ */
+:focus-visible {
+  outline: 2px solid var(--stellar-blue);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* Offset the sticky header when navigating to in-page anchors (e.g. skip link). */
+#main-content {
+  scroll-margin-top: 5rem;
+}
+
+/* Honor reduced-motion preferences (WCAG 2.3.3 — AAA). */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
 /*
  * Stellar Network Color Palette
  * Source: stellar.org
@@ -270,7 +298,10 @@
 *,
 *::before,
 *::after {
-  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease;
 }
 
 /* Suppress transitions on initial load to prevent flash */
@@ -297,7 +328,8 @@ html.no-transitions *::after {
 }
 
 @keyframes float {
-  0%, 100% {
+  0%,
+  100% {
     transform: translateY(0px);
   }
   50% {
@@ -328,20 +360,20 @@ html.no-transitions *::after {
 .dark .glass-strong {
   background-color: rgba(0, 0, 0, 0.3);
   border: 1px solid rgba(255, 255, 255, 0.1);
-/* ===== GLASSMORPHISM UTILITIES ===== */
-.glass-surface {
-  background: var(--glass-surface);
-  border: 1px solid var(--glass-border);
-  box-shadow: var(--glass-shadow);
-  backdrop-filter: blur(var(--glass-blur));
-  -webkit-backdrop-filter: blur(var(--glass-blur));
-}
+  /* ===== GLASSMORPHISM UTILITIES ===== */
+  .glass-surface {
+    background: var(--glass-surface);
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--glass-shadow);
+    backdrop-filter: blur(var(--glass-blur));
+    -webkit-backdrop-filter: blur(var(--glass-blur));
+  }
 
-.glass-surface-selected {
-  background: var(--glass-selected-bg);
-  border-color: var(--glass-selected-border);
-  box-shadow:
-    var(--glass-shadow),
-    0 0 0 1px var(--glass-selected-border);
-}
+  .glass-surface-selected {
+    background: var(--glass-selected-bg);
+    border-color: var(--glass-selected-border);
+    box-shadow:
+      var(--glass-shadow),
+      0 0 0 1px var(--glass-selected-border);
+  }
 }

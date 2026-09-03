@@ -27,7 +27,6 @@ members = [
     "platform-governance",
     "nft-certificate",
     "subscription-sponsorship",
-    "nft-certificate",
     "sponsor-receipt",
     "carbon-marketplace",
     "carbon-dex",
@@ -37,6 +36,10 @@ members = [
     "upgrade-timelock",
     "leaderboard",
     "transparent-proxy",
+    "tree-retirement",
+    "staking-rewards",
+    "tree-genetics",
+    "carbon-price-oracle",
 ]
 resolver = "2"
 

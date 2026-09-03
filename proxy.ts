@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { checkRateLimit } from '@/lib/rateLimit';
 import { checkTieredRateLimit, WINDOW_MS } from '@/lib/rateLimit/tieredRateLimit';
 import { findApiKeyByRawValue, touchApiKey, recordApiKeyUsage } from '@/lib/api/apiKeys';
+import { getCorsHeaders, handleCorsPreflight, isOriginAllowed } from '@/lib/cors';
 
 // Auth endpoints get a much stricter limit to slow brute-force attacks.
 const AUTH_LIMIT = 10; // per minute
@@ -27,6 +28,29 @@ function getApiKey(request: NextRequest): string | null {
 }
 
 export async function proxy(request: NextRequest): Promise<NextResponse> {
+export function proxy(request: NextRequest): NextResponse {
+  const origin = request.headers.get('origin');
+
+  // Handle CORS preflight (OPTIONS) requests
+  const preflightResponse = handleCorsPreflight(request);
+  if (preflightResponse) {
+    return preflightResponse;
+  }
+
+  // Reject requests from non-verified origins
+  if (origin && !isOriginAllowed(origin)) {
+    return new NextResponse(
+      JSON.stringify({
+        error: 'Forbidden',
+        message: 'CORS policy violation: Origin not allowed',
+      }),
+      {
+        status: 403,
+        headers: { 'Content-Type': 'application/json' },
+      }
+    );
+  }
+
   const ip = getClientIp(request);
   const { pathname } = request.nextUrl;
 
@@ -128,8 +152,24 @@ async function enforceApiKeyLimit(apiKey: string, txId: string): Promise<NextRes
     console.error('[proxy] tiered rate limit failed open', { error });
     return null;
   }
+  const txId = request.headers.get('x-tx-id') ?? crypto.randomUUID();
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set('x-tx-id', txId);
+
+  const response = NextResponse.next({ request: { headers: requestHeaders } });
+
+  // Attach CORS response headers for valid cross-origin requests
+  const corsHeaders = getCorsHeaders(origin);
+  Object.entries(corsHeaders).forEach(([key, value]) => {
+    if (value) {
+      response.headers.set(key, value);
+    }
+  });
+
+  return response;
 }
 
 export const config = {
   matcher: ['/api/:path*'],
 };
+

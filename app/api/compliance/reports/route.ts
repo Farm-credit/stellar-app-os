@@ -1,23 +1,28 @@
 /*
  * GET /api/compliance/reports
  * Generate compliance reports for carbon registry standards
-*
-Query Parameters:
- - type: project-registry | carbon-credits | tree-inventory | verification-audits | issuance-report | retirement-report
- - format: csv | json | both
- - registry: verra | gold-standard | car | plan-vivo | cdm | generic
- - startDate: ISO 8601 date string (default: 30 days ago)
- - endDate: ISO 8601 date string (default: now)
- - projectIds: comma-separated project IDs
- - sponsorAddresses: comma-separated sponsor addresses
- - species: comma-separated species names
- - regions: comma-separated region names
- - status: comma-separated status values
-*/
+ *
+ * Query Parameters:
+ * - type: project-registry | carbon-credits | tree-inventory | verification-audits | issuance-report | retirement-report
+ * - format: csv | json | both
+ * - registry: verra | gold-standard | car | plan-vivo | cdm | generic
+ * - startDate: ISO 8601 date string (default: 30 days ago)
+ * - endDate: ISO 8601 date string (default: now)
+ * - projectIds: comma-separated project IDs
+ * - sponsorAddresses: comma-separated sponsor addresses
+ * - species: comma-separated species names
+ * - regions: comma-separated region names
+ * - status: comma-separated status values
+ *
+ * GDPR
+ * - GET with userId parameter exports all personal data for the user (DSAR)
+ * - DELETE with userId parameter (query or body) deletes all personal data for the user
+ */
 
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { getComplianceReportGenerator } from '@/lib/compliance/report-generator';
+import { exportUserData, deleteUserData } from '@/lib/compliance/gdpr';
 
 export const runtime = 'nodejs';
 
@@ -37,7 +42,19 @@ function parseCommaSeparated(str: string | null): string[] | undefined {
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
-
+  const userId = searchParams.get('userId');
+  if (userId) {
+    try {
+      const data = await exportUserData(userId);
+      return NextResponse.json({ data });
+    } catch (error) {
+      console.error('[api/compliance/reports] DSAR export error:', error);
+      return NextResponse.json(
+        { error: error instanceof Error ? error.message : 'Internal server error' },
+        { status: 500 }
+      );
+    }
+  }
   const reportType =
     (searchParams.get('type') as
       | 'project-registry'
@@ -46,18 +63,21 @@ export async function GET(request: NextRequest) {
       | 'verification-audits'
       | 'issuance-report'
       | 'retirement-report') || 'carbon-credits';
-
   const format = (searchParams.get('format') as 'csv' | 'json' | 'both') || 'json';
   const registry =
     (searchParams.get('registry') as
-      'verra' | 'gold-standard' | 'car' | 'plan-vivo' | 'cdm' | 'generic') || 'verra';
+      | 'verra'
+      | 'gold-standard'
+      | 'car'
+      | 'plan-vivo'
+      | 'cdm'
+      | 'generic') || 'verra';
 
   const startDate = parseDateParam(
     searchParams.get('startDate'),
     new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
   );
   const endDate = parseDateParam(searchParams.get('endDate'), new Date());
-
   const filters = {
     projectIds: parseCommaSeparated(searchParams.get('projectIds')),
     sponsorAddresses: parseCommaSeparated(searchParams.get('sponsorAddresses')),
@@ -71,34 +91,29 @@ export async function GET(request: NextRequest) {
       ? parseFloat(searchParams.get('maxCo2OffsetKg') as string)
       : undefined,
   };
-
   try {
     const generator = getComplianceReportGenerator();
-    const response = await generator.generateReport(
+    const response = await generator.generateReport({
       reportType,
       format === 'both' ? 'json' : format,
       registry,
-      { startDate, endDate },
-      filters
-    );
-
+      startDate,
+      endDate,
+      filters,
+    });
     const contentType =
       format === 'csv' ? 'text/csv' : format === 'json' ? 'application/json' : 'application/zip';
-
     const headers: Record<string, string> = {
       'Content-Type': contentType,
       'Cache-Control': 'no-store, max-age=0',
     };
-
     if (format === 'csv' || format === 'both') {
       const filename = `compliance-${reportType}-${registry}-${startDate.toISOString().split('T')[0]}-to-${endDate.toISOString().split('T')[0]}.csv`;
       headers['Content-Disposition'] = `attachment; filename="${filename}"`;
     }
-
     if (format === 'csv') {
       return new NextResponse(response.csvContent, { headers });
     }
-
     if (format === 'json') {
       headers['Content-Type'] = 'application/json';
       return NextResponse.json(
@@ -108,7 +123,6 @@ export async function GET(request: NextRequest) {
         { headers }
       );
     }
-
     return NextResponse.json(
       {
         metadata: response.metadata,
@@ -158,7 +172,7 @@ export async function POST(request: NextRequest) {
       return new NextResponse(response.csvContent, {
         headers: {
           'Content-Type': 'text/csv',
-          'Content-Disposition': `attachment; filename="compliance-${type}-${registry}-${new Date().toISOString().split('T')[0]}.csv"`,
+          'Content-Disposition': `attachment; filename="compliance-${type}-${registry}-${new Date().toISOString().split('T')[0]}.csv`",
         },
       });
     }
@@ -179,6 +193,35 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error('[api/compliance/reports] POST error:', error);
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const searchParams = request.nextUrl.searchParams;
+    const userId = searchParams.get('userId');
+    if (userId) {
+      await deleteUserData(userId);
+      return NextResponse.json({ success: true });
+    }
+
+    const body = await request.json().catch(() => null);
+    const userIdFromBody = body?.userId;
+    if (userIdFromBody) {
+      await deleteUserData(userIdFromBody);
+      return NextResponse.json({ success: true });
+    }
+
+    return NextResponse.json(
+      { error: 'userId is required' },
+      { status: 400 }
+    );
+  } catch (error) {
+    console.error('[api/compliance/reports] DELETE error:', error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Internal server error' },
       { status: 500 }

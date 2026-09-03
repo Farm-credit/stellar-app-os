@@ -2,12 +2,13 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
-import { MapPin, TreePine, Users, UserPlus, UserCheck, ArrowRight } from 'lucide-react';
+import { MapPin, TreePine, Users, UserPlus, UserCheck, ArrowRight, Star } from 'lucide-react';
 import { Card, CardContent } from '@/components/molecules/Card';
 import { Badge } from '@/components/atoms/Badge';
 import { Text } from '@/components/atoms/Text';
 import { cn } from '@/lib/utils';
 import { usePlanterConnections } from '@/hooks/usePlanterConnections';
+import { getPlanterReviewSummary } from '@/lib/api/mock/planterReviews';
 import type { PlanterProfile } from '@/lib/types/planter';
 
 interface PlanterCardProps {
@@ -22,6 +23,7 @@ interface PlanterCardProps {
 export function PlanterCard({ planter, className }: PlanterCardProps) {
   const { isConnected, toggleConnection } = usePlanterConnections();
   const connected = isConnected(planter.id);
+  const reviewSummary = getPlanterReviewSummary(planter.id);
 
   return (
     <Card
@@ -109,7 +111,7 @@ export function PlanterCard({ planter, className }: PlanterCardProps) {
           ))}
         </div>
 
-        <div className="mt-5 grid grid-cols-3 gap-2 border-t border-border pt-4 text-center">
+        <div className="mt-5 grid grid-cols-4 gap-2 border-t border-border pt-4 text-center">
           <div>
             <div className="flex items-center justify-center gap-1 text-sm font-bold text-stellar-green">
               <TreePine className="h-3.5 w-3.5" aria-hidden />
@@ -134,6 +136,15 @@ export function PlanterCard({ planter, className }: PlanterCardProps) {
             </div>
             <Text variant="small" className="text-muted-foreground">
               Survival
+            </Text>
+          </div>
+          <div>
+            <div className="flex items-center justify-center gap-1 text-sm font-bold">
+              <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" aria-hidden />
+              {reviewSummary.totalReviews > 0 ? reviewSummary.averageRating.toFixed(1) : '—'}
+            </div>
+            <Text variant="small" className="text-muted-foreground">
+              Rating
             </Text>
           </div>
         </div>

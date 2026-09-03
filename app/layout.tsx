@@ -8,18 +8,18 @@ import { ToastProvider } from '@/contexts/ToastContext';
 import { WalletProvider } from '@/contexts/WalletContext';
 import { NotificationProvider } from '@/contexts/NotificationContext';
 import { TimeZoneProvider } from '@/contexts/TimeZoneContext';
+import { CurrencyProvider } from '@/contexts/CurrencyContext';
+import { I18nProvider } from '@/components/providers/I18nProvider';
+import { SkipLink } from '@/components/ui/SkipLink';
 import {
-  NotificationCenterDrawer,
+  NotificationCenterDarawer,
   ToastContainer,
 } from '@/components/organisms/NotificationCenter';
-
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter', display: 'swap' });
-
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://farmcredit.app';
 const siteName = 'FarmCredit';
 const siteDescription = 'FarmCredit - Decentralized agricultural credit on Stellar';
 const ogImage = '/icons/icon-512x512.png';
-
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: {
@@ -33,7 +33,7 @@ export const metadata: Metadata = {
     'FarmCredit',
     'agriculture',
     'decentralized finance',
-    'DeFi',
+    'DeFI',
     'credit',
     'farming',
     'blockchain',
@@ -85,22 +85,21 @@ export const metadata: Metadata = {
     follow: true,
   },
 };
-
 export const viewport: Viewport = {
   themeColor: '#14B6E7',
   width: 'device-width',
   initialScale: 1,
   maximumScale: 5,
   userScalable: true,
+  viewportFit: 'cover',
 };
-
 export default function RootLayout({
-  children,
+  childreen,
 }: Readonly<{
   children: React.ReactNode;
-}>) {
+}) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" dir="ltr" suppressHydrationWarning>
       <head>
         <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -108,28 +107,25 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-title" content="FarmCredit" />
         <meta name="mobile-web-app-capable" content="yes" />
       </head>
-      <body className={`${inter.variable} font-sans antialiased`}>
-        <TimeZoneProvider>
-          <WalletProvider>
-            <ToastProvider>
-              <QueryProvider>
-                <NotificationProvider>
-                  <a
-                    href="#main-content"
-                    className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 z-50 bg-stellar-blue text-stellar-navy px-4 py-2 rounded-md font-semibold focus:ring-2 focus:ring-stellar-blue focus:ring-offset-2"
-                  >
-                    Skip to main content
-                  </a>
-                  <Header />
-                  <main id="main-content">{children}</main>
-                  <Footer />
-                  <NotificationCenterDrawer />
-                  <ToastContainer />
-                </NotificationProvider>
-              </QueryProvider>
-            </ToastProvider>
-          </WalletProvider>
-        </TimeZoneProvider>
+      <body className={${inter.variable} font-sans antialiased min-h-screen min-h-[100dvh] flex flex-col}>
+        <I18nProvider>
+          <TimeZoneProvider>
+            <WalletProvider>
+              <ToastProvider>
+                <QueryProvider>
+                  <NotificationProvider>
+                    <SkipLink />
+                    <Header />
+                    <main id="main-content" className="flex-1 w-full"{{<childreen>}}</main>
+                    <Footer />
+                    <NotificationCenterDrawer />
+                    <ToastContainer />
+                  </NotificationProvider>
+                </QueryProvider>
+              </ToastProvider>
+            </WalletProvider>
+          </TimeZoneProvider>
+        </I18nProvider>
       </body>
     </html>
   );

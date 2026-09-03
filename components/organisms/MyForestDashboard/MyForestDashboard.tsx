@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { pdf } from '@react-pdf/renderer';
 import { TreePine, Wind, Globe, Layers, Plus, ChevronRight, Download } from 'lucide-react';
 import { SponsorTreeList } from '@/components/organisms/SponsorTreeList';
+import { PooledSponsorshipPanel } from '@/components/organisms/PooledSponsorshipPanel';
 import { TeamForestPanel } from '@/components/organisms/TeamForestPanel';
 import { ForestReportPDF } from './ForestReportPDF';
 import { Text } from '@/components/atoms/Text';
@@ -377,6 +378,11 @@ export function MyForestDashboard({ initialFilters }: MyForestDashboardProps) {
         </div>
 
         <SponsorTreeList initialFilters={initialFilters} />
+      </section>
+
+      {/* ── Pooled Sponsorship ──────────────────────────────────────────────── */}
+      <section className="px-4 pb-8 sm:px-8">
+        <PooledSponsorshipPanel />
       </section>
     </div>
   );

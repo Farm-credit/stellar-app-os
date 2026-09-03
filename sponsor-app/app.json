@@ -1,0 +1,36 @@
+{
+  "expo": {
+    "name": "FarmCredit Sponsor",
+    "slug": "sponsor-app",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "plugins": [
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Allow FarmCredit Sponsor to use Face ID to unlock your sponsorship wallet."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "sounds": []
+        }
+      ]
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "app.farmcredit.sponsor",
+      "infoPlist": {
+        "NSFaceIDUsageDescription": "Allow FarmCredit Sponsor to use Face ID to unlock your sponsorship wallet.",
+        "NSPhotoLibraryUsageDescription": "Allow FarmCredit Sponsor to attach tree photos to sponsorship updates.",
+        "NSCameraUsageDescription": "Allow FarmCredit Sponsor to capture tree growth photos for your sponsored trees.",
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "android": {
+      "predictiveBackGestureEnabled": false
+    }
+  }
+}
