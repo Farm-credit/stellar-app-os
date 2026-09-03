@@ -103,6 +103,18 @@ function rateLimitResponse(retryAfterMs: number): NextResponse {
   );
 }
 
+interface AuditLogEntry {
+  action: string;
+  actorId?: string;
+  ip?: string;
+  apiKeyPresent?: boolean;
+  metadata?: Record<string, unknown>;
+}
+
+function auditLog(entry: AuditLogEntry): void {
+  console.log(JSON.stringify({ type: 'AUDIT', ...entry, timestamp: new Date().toISOString() }));
+}
+
 function truncate(text: string, maxLength: number): string {
   return text.length > maxLength ? `${text.slice(0, maxLength - 3)}...` : text;
 }
@@ -168,6 +180,22 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         { status: 400 }
       );
     }
+
+    auditLog({
+      action: 'certificate.generate',
+      actorId: body.walletAddress,
+      ip,
+      apiKeyPresent: Boolean(apiKey),
+      metadata: {
+        treeCount: body.treeCount,
+        co2Offset: body.co2Offset,
+        region: body.region,
+        projectName: body.projectName,
+        transactionHash: body.transactionHash,
+        userNameProvided: Boolean(body.userName),
+        isAnonymous: Boolean(body.isAnonymous),
+      },
+    });
 
     const explorerBaseUrl = body.explorerBaseUrl ?? 'https://stellar.expert/explorer/public/tx';
     const explorerUrl = `${explorerBaseUrl}/${body.transactionHash}`;

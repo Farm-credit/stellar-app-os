@@ -21,6 +21,12 @@ function isWhitelistedOrigin(origin: string | null): boolean {
 // In-memory tombstone set for GDPR right-to-be-forgotten deletions.
 const gdprDeletedTreeIds = new Set<string>();
 
+// ── Audit logging ─────────────────────────────────────────────────────────────
+function logAuditEvent(event: string, details: Record<string, unknown>, request?: NextRequest): void {
+  const ip = request?.headers.get('x-forwarded-for') ?? request?.headers.get('x-real-ip') ?? null;
+  console.log(JSON.stringify({ audit: true, timestamp: new Date().toISOString(), event, ...details, ip }));
+}
+
 // ── Styles ────────────────────────────────────────────────────────────────────
 
 const S = StyleSheet.create({
@@ -348,6 +354,14 @@ export async function GET(
       ? `${haversineDistanceKm(Number(sponsorLat), Number(sponsorLng), Number(treeLat), Number(treeLng)).toFixed(1)} km`
       : undefined;
 
+  logAuditEvent('sensitive.certificate.access', {
+    treeId: tree.treeId,
+    queriedCoordinates: {
+      latitude: sponsorLat ?? null,
+      longitude: sponsorLng ?? null,
+    },
+  }, _request);
+
   const qrDataUrl = await QRCode.toDataURL(treeUrl, { margin: 1, width: 200, type: 'image/png' });
 
   const plantedAt = tree.plantedAt
@@ -433,6 +447,8 @@ export async function DELETE(
   const [tree] = trees.splice(treeIndex, 1);
 
   gdprDeletedTreeIds.add(tree.treeId);
+
+  logAuditEvent('admin.certificate.delete', { treeId: tree.treeId }, _request);
 
   return NextResponse.json({
     status: 'ok',

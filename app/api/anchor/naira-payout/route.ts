@@ -81,6 +81,16 @@ export async function POST(request: Request) {
       );
     }
 
+    console.log('[AUDIT] naira_payout initiated', JSON.stringify({
+      actor: farmerPublicKey,
+      mode,
+      usdcAmount,
+      offRampMethod,
+      hasQuoteId: Boolean(quoteId),
+      timestamp: new Date().toISOString(),
+      ip: request.headers.get('x-forwarded-for') || null,
+    }));
+
     // ── Stripe credit card sponsorship ──────────────────────────────────────
     if (mode === 'stripe') {
       if (!process.env.STRIPE_SECRET_KEY) {
@@ -192,6 +202,10 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     console.error('[naira-payout] error:', error);
+    console.log('[AUDIT] naira_payout failed', JSON.stringify({
+      error: error instanceof Error ? error.message : 'Unknown error',
+      timestamp: new Date().toISOString(),
+    }));
     const message = error instanceof Error ? error.message : 'Internal server error';
     return NextResponse.json({ error: message }, { status: 500 });
   }
