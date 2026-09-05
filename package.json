@@ -34,6 +34,7 @@
     "db:backup": "node scripts/db-backup.mjs",
     "compliance:export": "tsx scripts/compliance-export.ts",
     "compliance:export:dry-run": "tsx scripts/compliance-export.ts --dry-run",
+    "test:load": "k6 run infra/load-tests/sponsor-load-test.js",
     "prepare": "husky"
   },
   "dependencies": {
