@@ -2,8 +2,16 @@ import { NextResponse } from 'next/server';
 import { getPool } from '@/lib/db/client';
 import { insertSubscription, listSubscriptions } from '@/lib/webhook/repository';
 import { randomBytes } from 'node:crypto';
+import { WEBHOOK_EVENT_TYPES } from '@/lib/webhook/types';
 
-const TREE_STATUS_EVENTS = ['tree.status.changed', 'planter.tree.health.updated'];
+const TREE_STATUS_EVENTS = [
+  'tree.planted',
+  'tree.verified',
+  'tree.grown',
+  'tree.died',
+  'tree.status.changed',
+  'planter.tree.health.updated',
+];
 
 function normalizeUrl(url: string): string {
   return url.trim();
@@ -36,16 +44,30 @@ export async function POST(request: Request) {
 
     const planterId = Number(body.planterId);
     const url = normalizeUrl(body.url ?? '');
-    const eventTypes = Array.isArray(body.eventTypes) && body.eventTypes.length > 0
-      ? body.eventTypes
-      : TREE_STATUS_EVENTS;
+    const eventTypes =
+      Array.isArray(body.eventTypes) && body.eventTypes.length > 0
+        ? body.eventTypes
+        : TREE_STATUS_EVENTS;
+    const unsupported = eventTypes.filter(
+      (eventType) =>
+        !WEBHOOK_EVENT_TYPES.includes(eventType as (typeof WEBHOOK_EVENT_TYPES)[number])
+    );
 
     if (!Number.isInteger(planterId) || planterId <= 0) {
       return NextResponse.json({ error: 'A valid planterId is required' }, { status: 400 });
     }
 
     if (!url || !/^https?:\/\//i.test(url)) {
-      return NextResponse.json({ error: 'A valid http(s) callback URL is required' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'A valid http(s) callback URL is required' },
+        { status: 400 }
+      );
+    }
+    if (unsupported.length > 0) {
+      return NextResponse.json(
+        { error: 'Unsupported webhook event type', unsupported },
+        { status: 400 }
+      );
     }
 
     const secret = randomBytes(32).toString('hex');
