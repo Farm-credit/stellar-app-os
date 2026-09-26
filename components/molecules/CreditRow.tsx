@@ -9,6 +9,11 @@ interface CreditRowProps {
   onRetire: (credit: CreditHolding) => void;
 }
 
+function formatRetirementDate(value: string): string {
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? value : parsed.toLocaleDateString('en-US');
+}
+
 export function CreditRow({ credit, onTrade, onRetire }: CreditRowProps) {
   return (
     <div className="flex flex-col gap-4 border-b border-gray-200 px-4 py-4 dark:border-gray-800 sm:flex-row sm:items-center sm:justify-between">
@@ -20,6 +25,23 @@ export function CreditRow({ credit, onTrade, onRetire }: CreditRowProps) {
           </Text>
           <CreditStatusBadge status={credit.status} />
         </div>
+        {credit.retirementDate && (
+          <Text variant="small" as="p" className="text-muted-foreground">
+            Retired on {formatRetirementDate(credit.retirementDate)}
+          </Text>
+        )}
+        {credit.coBenefits && credit.coBenefits.length > 0 && (
+          <ul className="flex flex-wrap gap-1 pt-1" aria-label="Co-benefits">
+            {credit.coBenefits.map((benefit) => (
+              <li
+                key={benefit}
+                className="rounded-full bg-stellar-green/10 px-2 py-0.5 text-xs text-stellar-green"
+              >
+                {benefit}
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
 
       <div className="grid grid-cols-2 gap-4 sm:flex sm:items-center sm:gap-6">
@@ -53,6 +75,19 @@ export function CreditRow({ credit, onTrade, onRetire }: CreditRowProps) {
           <Text variant="body" as="p" className="font-semibold text-stellar-blue">
             $
             {credit.totalValue.toLocaleString('en-US', {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            })}
+          </Text>
+        </div>
+
+        <div className="text-right">
+          <Text variant="small" as="p" className="mb-0.5 text-muted-foreground">
+            Purchase Cost
+          </Text>
+          <Text variant="body" as="p" className="font-semibold">
+            $
+            {(credit.purchaseCost ?? credit.totalValue).toLocaleString('en-US', {
               minimumFractionDigits: 2,
               maximumFractionDigits: 2,
             })}
