@@ -1,90 +1,83 @@
 import type {
   CommunityOffsetPool,
-  CreateOffsetPoolInput,
-  OffsetPoolMember,
-} from '@/lib/types/issue-1374-1377';
+  CommunityPoolMember,
+  CreateCommunityPoolInput,
+  JoinCommunityPoolInput,
+} from '@/lib/types/community-offset-pool';
 const pools = new Map<string, CommunityOffsetPool>();
-let sequence = 0;
-const money = (n: number) => Number(n.toFixed(2));
-function shares(members: OffsetPoolMember[], total: number): OffsetPoolMember[] {
-  return members.map((m) => ({
-    ...m,
-    sharePct: total ? Number(((m.contribution / total) * 100).toFixed(4)) : 0,
+const round = (value: number, digits = 7) => Number(value.toFixed(digits));
+function shares(members: CommunityPoolMember[], total: number) {
+  return members.map((member) => ({
+    ...member,
+    sharePercent: total ? round((member.contribution / total) * 100, 4) : 0,
   }));
 }
-export function resetCommunityOffsetPools() {
-  pools.clear();
-  sequence = 0;
-}
-export function createCommunityOffsetPool(input: CreateOffsetPoolInput): CommunityOffsetPool {
-  if (!input.name?.trim() || !input.creditListingId?.trim() || !input.wallet?.trim())
-    throw new Error('name, creditListingId, and wallet are required');
-  if (!Number.isFinite(input.targetAmount) || input.targetAmount <= 0)
-    throw new Error('targetAmount must be greater than zero');
-  const contribution = Math.min(Math.max(input.contribution ?? 0, 0), input.targetAmount);
-  const now = new Date().toISOString();
-  const id = `offset-pool-${++sequence}`;
-  const member = {
-    wallet: input.wallet,
+export function createCommunityPool(input: CreateCommunityPoolInput): CommunityOffsetPool {
+  if (!input.name.trim() || !input.creditProject.trim() || !input.creatorWallet.trim())
+    throw new Error('name, creditProject, and creatorWallet are required');
+  if (input.targetAmount <= 0 || input.pricePerCredit <= 0)
+    throw new Error('targetAmount and pricePerCredit must be greater than zero');
+  const contribution = Math.min(Math.max(input.initialContribution ?? 0, 0), input.targetAmount);
+  const member: CommunityPoolMember = {
+    wallet: input.creatorWallet,
     contribution,
-    sharePct: contribution ? 100 : 0,
-    joinedAt: now,
+    sharePercent: contribution ? 100 : 0,
+    creditsAllocated: 0,
+    joinedAt: new Date().toISOString(),
   };
+  const id = `community_pool_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
   const pool: CommunityOffsetPool = {
     id,
-    name: input.name.trim(),
-    creditListingId: input.creditListingId,
+    name: input.name,
+    description: input.description,
+    creditProject: input.creditProject,
     targetAmount: input.targetAmount,
     totalContributed: contribution,
-    creditsPurchased: 0,
+    remainingAmount: round(input.targetAmount - contribution),
+    pricePerCredit: input.pricePerCredit,
+    estimatedCredits: round(input.targetAmount / input.pricePerCredit),
     status: contribution >= input.targetAmount ? 'funded' : 'open',
-    members: contribution ? [member] : [],
-    createdAt: now,
-    ...(contribution >= input.targetAmount ? { fundedAt: now } : {}),
+    members: [member],
+    deadline: input.deadline,
+    createdAt: new Date().toISOString(),
   };
   pools.set(id, pool);
   return pool;
 }
-export function contributeToCommunityOffsetPool(
-  poolId: string,
-  wallet: string,
-  amount: number
-): CommunityOffsetPool {
-  const pool = pools.get(poolId);
-  if (!pool) throw new Error('Pool not found');
-  if (pool.status !== 'open') throw new Error('Pool is not open');
-  if (!wallet || !Number.isFinite(amount) || amount <= 0)
-    throw new Error('wallet and positive amount are required');
-  const effective = Math.min(amount, pool.targetAmount - pool.totalContributed);
-  const existing = pool.members.find((m) => m.wallet === wallet);
-  if (existing) existing.contribution = money(existing.contribution + effective);
+export function joinCommunityPool(input: JoinCommunityPoolInput) {
+  const pool = pools.get(input.poolId);
+  if (!pool) throw new Error('Community pool not found');
+  if (pool.status !== 'open') throw new Error('Community pool is not open');
+  if (input.amount <= 0) throw new Error('amount must be greater than zero');
+  const amount = Math.min(input.amount, pool.remainingAmount);
+  const existing = pool.members.find((member) => member.wallet === input.wallet);
+  if (existing) existing.contribution = round(existing.contribution + amount);
   else
     pool.members.push({
-      wallet,
-      contribution: effective,
-      sharePct: 0,
+      wallet: input.wallet,
+      contribution: amount,
+      sharePercent: 0,
+      creditsAllocated: 0,
       joinedAt: new Date().toISOString(),
     });
-  pool.totalContributed = money(pool.members.reduce((sum, m) => sum + m.contribution, 0));
+  pool.totalContributed = round(pool.members.reduce((sum, member) => sum + member.contribution, 0));
+  pool.remainingAmount = round(Math.max(0, pool.targetAmount - pool.totalContributed));
   pool.members = shares(pool.members, pool.totalContributed);
-  if (pool.totalContributed >= pool.targetAmount) {
+  if (pool.remainingAmount === 0) {
     pool.status = 'funded';
-    pool.fundedAt = new Date().toISOString();
+    pool.members = pool.members.map((member) => ({
+      ...member,
+      creditsAllocated: round((member.sharePercent / 100) * pool.estimatedCredits),
+    }));
   }
+  pools.set(pool.id, pool);
   return pool;
 }
-export function purchasePoolCredits(poolId: string, credits: number): CommunityOffsetPool {
-  const pool = pools.get(poolId);
-  if (!pool) throw new Error('Pool not found');
-  if (pool.status !== 'funded') throw new Error('Pool must be fully funded before purchase');
-  if (!Number.isFinite(credits) || credits <= 0) throw new Error('credits must be positive');
-  pool.creditsPurchased = credits;
-  pool.status = 'purchased';
-  return pool;
+export function listCommunityPools(status?: CommunityOffsetPool['status']) {
+  return [...pools.values()]
+    .filter((pool) => !status || pool.status === status)
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }
-export function getCommunityOffsetPool(poolId: string) {
-  return pools.get(poolId) ?? null;
-}
-export function listCommunityOffsetPools() {
-  return [...pools.values()].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+export function getCommunityPool(id: string) {
+  return pools.get(id) ?? null;
 }

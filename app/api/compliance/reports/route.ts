@@ -23,6 +23,11 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { getComplianceReportGenerator } from '@/lib/compliance/report-generator';
 import { exportUserData, deleteUserData } from '@/lib/compliance/gdpr';
+import {
+  generateComplianceBundle,
+  listComplianceReports,
+} from '@/lib/services/compliance-reporting';
+import type { ComplianceReportInput } from '@/lib/types/compliance-report';
 
 export const runtime = 'nodejs';
 
@@ -42,6 +47,10 @@ function parseCommaSeparated(str: string | null): string[] | undefined {
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
+  const buyerId = searchParams.get('buyerId');
+  if (buyerId) {
+    return NextResponse.json({ reports: listComplianceReports(buyerId) });
+  }
   const userId = searchParams.get('userId');
   if (userId) {
     try {
@@ -66,12 +75,7 @@ export async function GET(request: NextRequest) {
   const format = (searchParams.get('format') as 'csv' | 'json' | 'both') || 'json';
   const registry =
     (searchParams.get('registry') as
-      | 'verra'
-      | 'gold-standard'
-      | 'car'
-      | 'plan-vivo'
-      | 'cdm'
-      | 'generic') || 'verra';
+      'verra' | 'gold-standard' | 'car' | 'plan-vivo' | 'cdm' | 'generic') || 'verra';
 
   const startDate = parseDateParam(
     searchParams.get('startDate'),
@@ -95,7 +99,7 @@ export async function GET(request: NextRequest) {
     const generator = getComplianceReportGenerator();
     const response = await generator.generateReport({
       reportType,
-      format === 'both' ? 'json' : format,
+      format: format === 'both' ? 'json' : format,
       registry,
       startDate,
       endDate,
@@ -144,7 +148,13 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-
+    if (body?.buyerId && body?.emissionsTonnes !== undefined && body?.offsetsTonnes !== undefined) {
+      const input = body as ComplianceReportInput & { regimes?: ('SEC' | 'EPA' | 'CARBON_TAX')[] };
+      return NextResponse.json(
+        { bundle: generateComplianceBundle(input, input.regimes) },
+        { status: 201 }
+      );
+    }
     const {
       type = 'carbon-credits',
       format = 'json',
@@ -172,7 +182,7 @@ export async function POST(request: NextRequest) {
       return new NextResponse(response.csvContent, {
         headers: {
           'Content-Type': 'text/csv',
-          'Content-Disposition': `attachment; filename="compliance-${type}-${registry}-${new Date().toISOString().split('T')[0]}.csv`",
+          'Content-Disposition': `attachment; filename="compliance-${type}-${registry}-${new Date().toISOString().split('T')[0]}.csv"`,
         },
       });
     }
@@ -216,10 +226,7 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ success: true });
     }
 
-    return NextResponse.json(
-      { error: 'userId is required' },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: 'userId is required' }, { status: 400 });
   } catch (error) {
     console.error('[api/compliance/reports] DELETE error:', error);
     return NextResponse.json(
