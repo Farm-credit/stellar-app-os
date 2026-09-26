@@ -373,7 +373,7 @@ export function ProjectComparisonTool({ initialProjectIds = [], className }: Pro
                     onToggle={() => toggleProject(project.id)}
                     disabled={selectedIds.length >= 5 && !selectedIds.includes(project.id)}
                   />
-                )}
+                ))}
               </div>
             )}
           </TabsContent>
