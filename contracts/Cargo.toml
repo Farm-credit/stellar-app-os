@@ -40,6 +40,7 @@ members = [
     "staking-rewards",
     "tree-genetics",
     "carbon-price-oracle",
+    "community-offset-pool",
 ]
 resolver = "2"
 
