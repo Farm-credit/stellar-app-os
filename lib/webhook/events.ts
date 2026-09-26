@@ -113,3 +113,37 @@ export async function emitPlanterMilestoneClaimed(
     return [];
   }
 }
+
+/** Emit one of the partner-facing tree lifecycle events. */
+export async function emitTreeLifecycleEvent(
+  eventType: 'tree.planted' | 'tree.verified' | 'tree.grown' | 'tree.died',
+  payload: Record<string, unknown>
+): Promise<WebhookDeliveryRow[]> {
+  try {
+    return await dispatchEvent(getPool(), eventType, {
+      ...payload,
+      occurredAt: payload.occurredAt ?? new Date().toISOString(),
+    });
+  } catch (err) {
+    console.error(`[webhook] failed to emit ${eventType}`, err);
+    return [];
+  }
+}
+
+/** Translate the persisted tree status vocabulary to partner event names. */
+export function emitTreeLifecycleForStatus(
+  status: string,
+  payload: Record<string, unknown>
+): Promise<WebhookDeliveryRow[]> {
+  const eventByStatus: Record<
+    string,
+    'tree.planted' | 'tree.verified' | 'tree.grown' | 'tree.died'
+  > = {
+    planted: 'tree.planted',
+    verified: 'tree.verified',
+    completed: 'tree.grown',
+    failed: 'tree.died',
+  };
+  const eventType = eventByStatus[status];
+  return eventType ? emitTreeLifecycleEvent(eventType, payload) : Promise.resolve([]);
+}
