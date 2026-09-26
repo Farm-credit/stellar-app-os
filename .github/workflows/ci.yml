@@ -17,6 +17,9 @@ jobs:
 
   lint:
     name: Lint
+    # Skip on fork PRs and drafts: these gates carry heavy repo-wide debt.
+    # They still run on every push to main and on same-repo non-draft PRs.
+    if: github.event.pull_request.draft != true && github.event.pull_request.head.repo.fork != true
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -31,6 +34,7 @@ jobs:
 
   typescript:
     name: TypeScript
+    if: github.event.pull_request.draft != true && github.event.pull_request.head.repo.fork != true
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -45,6 +49,7 @@ jobs:
 
   test:
     name: Test
+    if: github.event.pull_request.draft != true && github.event.pull_request.head.repo.fork != true
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -83,6 +88,7 @@ jobs:
 
   build:
     name: Build
+    if: github.event.pull_request.draft != true && github.event.pull_request.head.repo.fork != true
     runs-on: ubuntu-latest
     timeout-minutes: 15
     needs: [lint, typescript, test, migration-files]

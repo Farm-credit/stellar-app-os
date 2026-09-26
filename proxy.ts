@@ -28,7 +28,6 @@ function getApiKey(request: NextRequest): string | null {
 }
 
 export async function proxy(request: NextRequest): Promise<NextResponse> {
-export function proxy(request: NextRequest): NextResponse {
   const origin = request.headers.get('origin');
 
   // Handle CORS preflight (OPTIONS) requests

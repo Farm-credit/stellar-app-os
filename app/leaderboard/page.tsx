@@ -25,6 +25,7 @@ import {
 } from '@/components/molecules/Card';
 import {
   Table,
+  TableBody,
   TableHeader,
   TableHead,
   TableRow,
@@ -42,6 +43,10 @@ import {
   Crown,
   Sparkles,
   Gift,
+  Leaf,
+  ChevronUp,
+  ChevronDown,
+  Wallet,
 } from 'lucide-react';
 import Link from 'next/link';
 
