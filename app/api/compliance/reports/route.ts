@@ -101,8 +101,7 @@ export async function GET(request: NextRequest) {
       reportType,
       format: format === 'both' ? 'json' : format,
       registry,
-      startDate,
-      endDate,
+      dateRange: { start: startDate, end: endDate },
       filters,
     });
     const contentType =

@@ -15,6 +15,10 @@ concurrency:
 jobs:
   security-scan:
     name: Snyk Dependency & Code Vulnerability Scan
+    # Skip on pull_request events: SNYK_TOKEN is not exposed to PR runs from
+    # forks, so this job could never pass there (it failed at the SARIF
+    # upload). Scans still run on pushes to main and on the weekly schedule.
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     permissions:
       contents: read
