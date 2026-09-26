@@ -41,6 +41,8 @@ members = [
     "tree-genetics",
     "carbon-price-oracle",
     "community-offset-pool",
+    "xlm-bridge",
+    "insurance-pool",
 ]
 resolver = "2"
 
