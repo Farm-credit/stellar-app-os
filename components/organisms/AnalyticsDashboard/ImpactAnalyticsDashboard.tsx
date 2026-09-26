@@ -1,9 +1,14 @@
 'use client';
 
 import { type JSX, useState, useEffect } from 'react';
-import { Leaf, Users, Sprout } from 'lucide-react';
+import { Droplets, Leaf, Sprout, TreePine, Users } from 'lucide-react';
 import { MetricCard } from './MetricCard';
-import { AnalyticsChart, ChartDataPoint } from './AnalyticsChart';
+import { AnalyticsChart, type ChartDataPoint } from './AnalyticsChart';
+import {
+  buildProjectImpactSnapshot,
+  formatImpactMetric,
+  type ProjectImpactSnapshot,
+} from '@/lib/impact/project-impact';
 
 export interface AnalyticsData {
   co2Reduced: {
@@ -21,6 +26,7 @@ export interface AnalyticsData {
     change: number;
     history: ChartDataPoint[];
   };
+  projectImpact: ProjectImpactSnapshot;
 }
 
 export function ImpactAnalyticsDashboard(): JSX.Element {
@@ -34,7 +40,7 @@ export function ImpactAnalyticsDashboard(): JSX.Element {
         setLoading(true);
         setError(null);
 
-        await new Promise((resolve) => setTimeout(resolve, 1500));
+        await new Promise((resolve) => setTimeout(resolve, 150));
 
         const mockData: AnalyticsData = {
           co2Reduced: {
@@ -73,6 +79,7 @@ export function ImpactAnalyticsDashboard(): JSX.Element {
               { label: 'Jun', value: 12500 },
             ],
           },
+          projectImpact: buildProjectImpactSnapshot(),
         };
 
         setData(mockData);
@@ -84,6 +91,8 @@ export function ImpactAnalyticsDashboard(): JSX.Element {
     };
 
     fetchData();
+    const refreshTimer = window.setInterval(fetchData, 30_000);
+    return () => window.clearInterval(refreshTimer);
   }, []);
 
   if (error) {
@@ -132,6 +141,75 @@ export function ImpactAnalyticsDashboard(): JSX.Element {
           loading={loading}
         />
       </div>
+
+      <section aria-labelledby="project-impact-heading" className="space-y-4">
+        <div>
+          <h2 id="project-impact-heading" className="text-xl font-semibold text-foreground">
+            Project impact tracking
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            Verified environmental and community outcomes across active projects. Updated every 30
+            seconds.
+          </p>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+          <MetricCard
+            title="Emissions reduced"
+            value={formatImpactMetric(
+              data?.projectImpact.emissionsReduced ?? { value: 0, unit: 'tCO₂e', change: 0 }
+            )}
+            change={data?.projectImpact.emissionsReduced.change}
+            icon={<Leaf className="h-5 w-5" />}
+            trend="up"
+            loading={loading}
+          />
+          <MetricCard
+            title="Jobs created"
+            value={formatImpactMetric(
+              data?.projectImpact.jobsCreated ?? { value: 0, unit: 'jobs', change: 0 }
+            )}
+            change={data?.projectImpact.jobsCreated.change}
+            icon={<Users className="h-5 w-5" />}
+            trend="up"
+            loading={loading}
+          />
+          <MetricCard
+            title="Soil carbon"
+            value={formatImpactMetric(
+              data?.projectImpact.soilCarbonSequestered ?? { value: 0, unit: 'tCO₂e', change: 0 }
+            )}
+            change={data?.projectImpact.soilCarbonSequestered.change}
+            icon={<Sprout className="h-5 w-5" />}
+            trend="up"
+            loading={loading}
+          />
+          <MetricCard
+            title="Water quality"
+            value={formatImpactMetric(
+              data?.projectImpact.waterQualityImproved ?? { value: 0, unit: 'hectares', change: 0 }
+            )}
+            change={data?.projectImpact.waterQualityImproved.change}
+            icon={<Droplets className="h-5 w-5" />}
+            trend="up"
+            loading={loading}
+          />
+          <MetricCard
+            title="Biodiversity"
+            value={formatImpactMetric(
+              data?.projectImpact.biodiversity ?? { value: 0, unit: 'projects', change: 0 }
+            )}
+            change={data?.projectImpact.biodiversity.change}
+            icon={<TreePine className="h-5 w-5" />}
+            trend="up"
+            loading={loading}
+          />
+        </div>
+        {data?.projectImpact.asOf && (
+          <p className="text-xs text-muted-foreground">
+            Last synchronized: {new Date(data.projectImpact.asOf).toLocaleString()}
+          </p>
+        )}
+      </section>
 
       <div className="grid gap-6 lg:grid-cols-2">
         <AnalyticsChart
