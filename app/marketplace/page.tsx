@@ -8,6 +8,9 @@ import { PaginationControl } from '@/components/molecules/PaginationControl';
 import { Text } from '@/components/atoms/Text';
 import { getMockMarketplaceListings } from '@/lib/api/mock/marketplaceListings';
 import type { FundingStatus, ProjectType, SortOption } from '@/lib/types/marketplace';
+import { CertificationFilter } from '@/components/marketplace/CertificationFilter';
+import { credentialsForListing } from '@/lib/services/farmer-credentials';
+import type { SustainabilityCertification } from '@/lib/types/issue-1374-1377';
 
 const SORT_OPTIONS: SortOption[] = [
   'date-newest',
@@ -50,6 +53,8 @@ function MarketplacePageContent() {
   const selectedType = (searchParams.get('type') as ProjectType) || null;
   const selectedLocation = searchParams.get('location') || null;
   const selectedFundingStatus = normalizeFundingStatus(searchParams.get('fundingStatus'));
+  const selectedCertification =
+    (searchParams.get('certification') as SustainabilityCertification) || null;
   const sortBy = normalizeSort(searchParams.get('sort'));
   const searchQuery = searchParams.get('search') || '';
 
@@ -66,10 +71,27 @@ function MarketplacePageContent() {
     [currentPage, selectedType, sortBy, searchQuery, selectedLocation, selectedFundingStatus]
   );
 
+  const certificationFilteredListings = useMemo(
+    () =>
+      selectedCertification
+        ? data.listings.filter((listing) =>
+            credentialsForListing(listing.sellerId).some((farmer) =>
+              farmer.certifications.includes(selectedCertification)
+            )
+          )
+        : data.listings,
+    [data.listings, selectedCertification]
+  );
   const activeFilterCount = useMemo(
     () =>
-      [selectedType, selectedLocation, selectedFundingStatus, searchQuery].filter(Boolean).length,
-    [selectedType, selectedLocation, selectedFundingStatus, searchQuery]
+      [
+        selectedType,
+        selectedLocation,
+        selectedFundingStatus,
+        selectedCertification,
+        searchQuery,
+      ].filter(Boolean).length,
+    [selectedType, selectedLocation, selectedFundingStatus, selectedCertification, searchQuery]
   );
 
   const updateUrlParams = useCallback(
@@ -80,6 +102,7 @@ function MarketplacePageContent() {
       fundingStatus?: FundingStatus | null;
       sort?: SortOption;
       search?: string;
+      certification?: SustainabilityCertification | null;
     }) => {
       const newParams = new URLSearchParams();
 
@@ -90,6 +113,8 @@ function MarketplacePageContent() {
         params.fundingStatus !== undefined ? params.fundingStatus : selectedFundingStatus;
       const sort = params.sort ?? sortBy;
       const search = params.search !== undefined ? params.search : searchQuery;
+      const certification =
+        params.certification !== undefined ? params.certification : selectedCertification;
 
       if (page > 1) newParams.set('page', page.toString());
       if (type) newParams.set('type', type);
@@ -97,6 +122,7 @@ function MarketplacePageContent() {
       if (fundingStatus) newParams.set('fundingStatus', fundingStatus);
       if (sort !== 'date-newest') newParams.set('sort', sort);
       if (search) newParams.set('search', search);
+      if (certification) newParams.set('certification', certification);
 
       const queryString = newParams.toString();
       const newUrl = queryString ? `/marketplace?${queryString}` : '/marketplace';
@@ -109,6 +135,7 @@ function MarketplacePageContent() {
       selectedFundingStatus,
       sortBy,
       searchQuery,
+      selectedCertification,
       router,
     ]
   );
@@ -134,6 +161,11 @@ function MarketplacePageContent() {
     [updateUrlParams]
   );
 
+  const handleCertificationChange = useCallback(
+    (certification: SustainabilityCertification | null) =>
+      updateUrlParams({ certification, page: 1 }),
+    [updateUrlParams]
+  );
   const handleSortChange = useCallback(
     (sort: SortOption) => {
       updateUrlParams({ sort, page: 1 });
@@ -154,6 +186,7 @@ function MarketplacePageContent() {
       type: null,
       location: null,
       fundingStatus: null,
+      certification: null,
       search: '',
       sort: 'date-newest',
     });
@@ -190,6 +223,12 @@ function MarketplacePageContent() {
             onSearchChange={handleSearchChange}
             onClearAllFilters={handleClearAllFilters}
           />
+          <div className="mt-4 rounded-3xl border border-border bg-background p-4 lg:p-6">
+            <CertificationFilter
+              value={selectedCertification}
+              onChange={handleCertificationChange}
+            />
+          </div>
         </aside>
 
         <section className="space-y-6">
@@ -197,11 +236,11 @@ function MarketplacePageContent() {
             <Text variant="small" className="text-muted-foreground">
               {data.pagination.totalListings === 0
                 ? 'No listings match your filters.'
-                : `Showing ${data.listings.length} of ${data.pagination.totalListings} listings`}
+                : `Showing ${certificationFilteredListings.length} of ${data.pagination.totalListings} listings`}
             </Text>
           </div>
 
-          <MarketplaceGrid listings={data.listings} currentUserId={null} />
+          <MarketplaceGrid listings={certificationFilteredListings} currentUserId={null} />
 
           {data.pagination.totalPages > 1 && (
             <div className="mt-8">

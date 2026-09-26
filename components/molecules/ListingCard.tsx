@@ -7,6 +7,7 @@ import { Text } from '@/components/atoms/Text';
 import { Card, CardContent, CardFooter } from '@/components/molecules/Card';
 import type { ListingCardProps } from '@/lib/types/marketplace';
 import { cn } from '@/lib/utils';
+import { FarmerCertificationBadges } from '@/components/marketplace/FarmerCertificationBadges';
 
 /**
  * Formats a number as USD currency
@@ -111,6 +112,7 @@ export function ListingCard({ listing, isOwnListing = false }: ListingCardProps)
             <Text variant="muted" as="p" className="text-xs truncate">
               {location}
             </Text>
+            <FarmerCertificationBadges farmerId={listing.sellerId} />
           </div>
         </div>
 
