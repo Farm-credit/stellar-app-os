@@ -5,6 +5,8 @@ on:
     branches: [main]
 jobs:
   lighthouse:
+    # Skip on draft PRs: runs on pushes to main and non-draft PRs.
+    if: github.event.pull_request.draft != true
     runs-on: ubuntu-latest
     timeout-minutes: 15
     strategy:
