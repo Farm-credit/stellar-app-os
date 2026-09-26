@@ -43,7 +43,7 @@ COPY . .
 USER worker
 
 # Default worker — override via WORKER env var
-# Available: email-digest, indexer, indexer-events, indexer-cdc, carbon-calculator, treasury-monitor
+# Available: email-digest, digest-generator, newsletter, indexer, indexer-events, indexer-cdc, carbon-calculator, treasury-monitor
 ENV WORKER=email-digest
 
 # Expose metrics port for health checks (each worker exposes a different port)
@@ -58,6 +58,8 @@ ENTRYPOINT ["tini", "--"]
 # Select the worker based on WORKER env var
 CMD ["sh", "-c", "case \"$WORKER\" in \
   email-digest)       exec pnpm tsx lib/workers/email-digest-worker.ts --once ;; \
+  digest-generator)   exec pnpm email:digests:generate ;; \
+  newsletter)         exec pnpm email:newsletters:send ;; \
   indexer)            exec pnpm indexer ;; \
   indexer-events)     exec pnpm indexer:events ;; \
   indexer-cdc)        exec pnpm indexer:cdc ;; \

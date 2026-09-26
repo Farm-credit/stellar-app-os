@@ -30,6 +30,7 @@ Migrations are numbered sequentially and should be named in the format: `XXX_des
 - `015_create_email_digests.sql` - Stores pending/sent/failed email digest jobs for the email digest worker (see `lib/workers/email-digest-worker.ts`)
 - `018_add_tree_search_indexes.sql` - Adds indexes on trees (region, species_slug, planter_id) for search query optimization (#1175)
 - `019_create_farmer_kyc.sql` - Stores farmer KYC applications: identity verification, land ownership proof, agricultural experience, and certification eligibility screening (#1397)
+- `020_create_sponsor_email_campaigns.sql` - Stores segmented newsletter campaigns and delivery attempts (#1117), plus digest-generation indexes (#1110)
 
 ## Running Migrations
 

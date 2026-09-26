@@ -30,6 +30,8 @@
     "db:migrate:validate": "node scripts/run-migrations.m.js validate",
     "monitor:treasury": "tsx lib/monitor/worker.ts",
     "monitor:metrics": "tsx lib/monitor/metrics.ts",
+    "email:digests:generate": "tsx lib/workers/generate-weekly-digests.ts --once",
+    "email:newsletters:send": "tsx lib/workers/newsletter-worker.ts --once",
     "seed:species": "node scripts/seed-species.mjs",
     "db:backup": "node scripts/db-backup.mjs",
     "compliance:export": "tsx scripts/compliance-export.ts",

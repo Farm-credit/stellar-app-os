@@ -82,5 +82,5 @@ const logger = createLogger({
   transports: loggerTransports,
 });
 
+export { logger };
 export default logger;
-

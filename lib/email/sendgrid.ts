@@ -5,7 +5,7 @@ if (apiKey) sgMail.setApiKey(apiKey);
 
 const FROM = process.env.SENDGRID_FROM_EMAIL ?? 'no-reply@harvesta.app';
 
-function isConfigured(): boolean {
+export function isEmailConfigured(): boolean {
   return Boolean(apiKey);
 }
 
@@ -30,7 +30,12 @@ export interface WeeklySponsorDigestParams {
 }
 
 function escapeHtml(value: string): string {
-  return value.replace(/[&<>'"]/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[character] ?? character);
+  return value.replace(
+    /[&<>'"]/g,
+    (character) =>
+      ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[character] ??
+      character
+  );
 }
 
 export async function sendSegmentedNewsletter(params: {
@@ -38,8 +43,8 @@ export async function sendSegmentedNewsletter(params: {
   message: string;
   recipients: NewsletterRecipient[];
 }): Promise<number> {
-  if (!isConfigured()) return 0;
-  const message = escapeHtml(params.message).replace(/\\n/g, '<br/>');
+  if (!isEmailConfigured()) return 0;
+  const htmlMessage = escapeHtml(params.message).replace(/\\n/g, '<br/>');
   let sent = 0;
   for (const recipient of params.recipients) {
     const greeting = escapeHtml(recipient.name || 'Sponsor');
@@ -48,7 +53,7 @@ export async function sendSegmentedNewsletter(params: {
       from: FROM,
       subject: params.subject,
       text: `Hi ${recipient.name || 'Sponsor'},\\n\\n${params.message}\\n\\nThanks,\\nThe Harvesta Team`,
-      html: `<p>Hi ${greeting},</p><p>${message}</p><p>Thanks,<br/>The Harvesta Team</p>`,
+      html: `<p>Hi ${greeting},</p><p>${htmlMessage}</p><p>Thanks,<br/>The Harvesta Team</p>`,
     });
     sent += 1;
   }
@@ -56,9 +61,17 @@ export async function sendSegmentedNewsletter(params: {
 }
 
 export async function sendWeeklySponsorDigest(params: WeeklySponsorDigestParams): Promise<void> {
-  if (!isConfigured()) return;
-  const photos = params.photoUrls.filter(Boolean).map((url) => `<img src="${escapeHtml(url)}" alt="Tree progress photo" style="max-width:100%;border-radius:8px;margin:4px 0;"/>`).join('');
-  const highlights = params.communityHighlights.map((highlight) => `<li>${escapeHtml(highlight)}</li>`).join('');
+  if (!isEmailConfigured()) return;
+  const photos = params.photoUrls
+    .filter(Boolean)
+    .map(
+      (url) =>
+        `<img src="${escapeHtml(url)}" alt="Tree progress photo" style="max-width:100%;border-radius:8px;margin:4px 0;"/>`
+    )
+    .join('');
+  const highlights = params.communityHighlights
+    .map((highlight) => `<li>${escapeHtml(highlight)}</li>`)
+    .join('');
   await sgMail.send({
     to: params.sponsorEmail,
     from: FROM,
@@ -99,7 +112,7 @@ export interface CarbonMilestoneParams {
 }
 
 export async function sendJobAcceptedEmail(params: JobAcceptedParams): Promise<void> {
-  if (!isConfigured()) return;
+  if (!isEmailConfigured()) return;
   const { sponsorEmail, sponsorName, treeId, planterName, species } = params;
   await sgMail.send({
     to: sponsorEmail,
@@ -111,7 +124,7 @@ export async function sendJobAcceptedEmail(params: JobAcceptedParams): Promise<v
 }
 
 export async function sendPhotoUploadedEmail(params: PhotoUploadedParams): Promise<void> {
-  if (!isConfigured()) return;
+  if (!isEmailConfigured()) return;
   const { sponsorEmail, sponsorName, treeId, photoUrl } = params;
   await sgMail.send({
     to: sponsorEmail,
@@ -123,7 +136,7 @@ export async function sendPhotoUploadedEmail(params: PhotoUploadedParams): Promi
 }
 
 export async function sendTreeVerifiedEmail(params: TreeVerifiedParams): Promise<void> {
-  if (!isConfigured()) return;
+  if (!isEmailConfigured()) return;
   const { sponsorEmail, sponsorName, treeId, species, co2KgPerYear } = params;
   await sgMail.send({
     to: sponsorEmail,
@@ -147,7 +160,7 @@ export interface WaitlistNotificationParams {
 export async function sendWaitlistNotificationEmail(
   params: WaitlistNotificationParams
 ): Promise<void> {
-  if (!isConfigured()) return;
+  if (!isEmailConfigured()) return;
   const { sponsorEmail, sponsorName, treeId, species, region, estimatedWaitDays, waitlistId } =
     params;
   await sgMail.send({
@@ -160,7 +173,7 @@ export async function sendWaitlistNotificationEmail(
 }
 
 export async function sendCarbonMilestoneEmail(params: CarbonMilestoneParams): Promise<void> {
-  if (!isConfigured()) return;
+  if (!isEmailConfigured()) return;
   const { sponsorEmail, sponsorName, totalCo2Kg, treeCount } = params;
   await sgMail.send({
     to: sponsorEmail,
@@ -186,7 +199,7 @@ export interface TreasuryDailySummaryParams {
 }
 
 export async function sendTreasuryAlertEmail(params: TreasuryAlertParams): Promise<void> {
-  if (!isConfigured()) return;
+  if (!isEmailConfigured()) return;
   const { to, address, assetCode, balance, threshold } = params;
   await sgMail.send({
     to,
@@ -200,7 +213,7 @@ export async function sendTreasuryAlertEmail(params: TreasuryAlertParams): Promi
 export async function sendTreasuryDailySummaryEmail(
   params: TreasuryDailySummaryParams
 ): Promise<void> {
-  if (!isConfigured()) return;
+  if (!isEmailConfigured()) return;
   const { to, balances, threshold } = params;
   const lines = balances.map((b) => `${b.address} — ${b.assetCode}: ${b.balance}`);
   const htmlLines = balances.map(
