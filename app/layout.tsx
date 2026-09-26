@@ -12,7 +12,7 @@ import { CurrencyProvider } from '@/contexts/CurrencyContext';
 import { I18nProvider } from '@/components/providers/I18nProvider';
 import { SkipLink } from '@/components/ui/SkipLink';
 import {
-  NotificationCenterDarawer,
+  NotificationCenterDrawer,
   ToastContainer,
 } from '@/components/organisms/NotificationCenter';
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter', display: 'swap' });
