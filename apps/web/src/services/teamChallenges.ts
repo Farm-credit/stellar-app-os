@@ -3,10 +3,10 @@
 
 /**
  * Corporate Offset Goals - Team Challenges Service
- * 
- * Issue #1423: Gamified feature allowing employee teams to compete on 
+ *
+ * Issue #1423: Gamified feature allowing employee teams to compete on
  * sustainability goals. Team with best offset-per-employee ratio wins recognition.
- * 
+ *
  * Features:
  * - Team creation and management
  * - Challenge creation with configurable metrics
@@ -15,7 +15,7 @@
  * - Challenge templates for common use cases
  */
 
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
 export interface Team {
   id: string;
@@ -79,12 +79,12 @@ export interface Challenge {
   templateId?: string;
 }
 
-export type ChallengeMetric = 
-  | 'offset_per_employee' 
-  | 'total_trees' 
-  | 'total_co2' 
-  | 'sponsorships' 
-  | 'completion_rate' 
+export type ChallengeMetric =
+  | 'offset_per_employee'
+  | 'total_trees'
+  | 'total_co2'
+  | 'sponsorships'
+  | 'completion_rate'
   | 'species_diversity';
 
 export interface ChallengeTeam {
@@ -262,14 +262,12 @@ export class TeamChallengesService {
     if (error) throw new Error(`Failed to create team: ${error.message}`);
 
     // Add captain as first member
-    await this.supabase
-      .from('team_members')
-      .insert({
-        team_id: team.id,
-        user_id: request.companyId, // Placeholder
-        role: 'captain',
-        joined_at: new Date().toISOString(),
-      });
+    await this.supabase.from('team_members').insert({
+      team_id: team.id,
+      user_id: request.companyId, // Placeholder
+      role: 'captain',
+      joined_at: new Date().toISOString(),
+    });
 
     return this.enrichTeam(team);
   }
@@ -277,13 +275,15 @@ export class TeamChallengesService {
   async getTeam(teamId: string): Promise<Team | null> {
     const { data: team, error } = await this.supabase
       .from('teams')
-      .select(`
+      .select(
+        `
         *,
         members:team_members(
           *,
           user:users(name, email, avatar_url)
         )
-      `)
+      `
+      )
       .eq('id', teamId)
       .single();
 
@@ -294,18 +294,20 @@ export class TeamChallengesService {
   async getCompanyTeams(companyId: string): Promise<Team[]> {
     const { data, error } = await this.supabase
       .from('teams')
-      .select(`
+      .select(
+        `
         *,
         members:team_members(
           *,
           user:users(name, email, avatar_url)
         )
-      `)
+      `
+      )
       .eq('company_id', companyId)
       .order('created_at', { ascending: false });
 
     if (error) throw new Error(`Failed to fetch teams: ${error.message}`);
-    return (data || []).map(t => this.enrichTeam(t));
+    return (data || []).map((t) => this.enrichTeam(t));
   }
 
   async joinTeam(request: JoinTeamRequest): Promise<TeamMember> {
@@ -337,7 +339,8 @@ export class TeamChallengesService {
   async getUserTeams(userId: string): Promise<Team[]> {
     const { data, error } = await this.supabase
       .from('team_members')
-      .select(`
+      .select(
+        `
         team:teams(
           *,
           members:team_members(
@@ -345,11 +348,12 @@ export class TeamChallengesService {
             user:users(name, email, avatar_url)
           )
         )
-      `)
+      `
+      )
       .eq('user_id', userId);
 
     if (error) throw new Error(`Failed to fetch user teams: ${error.message}`);
-    return (data?.map(d => this.enrichTeam(d.team)).filter(Boolean) || []) as Team[];
+    return (data?.map((d) => this.enrichTeam(d.team)).filter(Boolean) || []) as Team[];
   }
 
   // ==================== Challenge Management ====================
@@ -392,7 +396,7 @@ export class TeamChallengesService {
     if (error) throw new Error(`Failed to create challenge: ${error.message}`);
 
     // Add teams to challenge
-    const challengeTeams = request.teamIds.map(teamId => ({
+    const challengeTeams = request.teamIds.map((teamId) => ({
       challenge_id: challenge.id,
       team_id: teamId,
       score: 0,
@@ -407,13 +411,15 @@ export class TeamChallengesService {
   async getChallenge(challengeId: string): Promise<Challenge | null> {
     const { data: challenge, error } = await this.supabase
       .from('challenges')
-      .select(`
+      .select(
+        `
         *,
         teams:challenge_teams(
           *,
           team:teams(*)
         )
-      `)
+      `
+      )
       .eq('id', challengeId)
       .single();
 
@@ -421,20 +427,25 @@ export class TeamChallengesService {
     return this.enrichChallenge(challenge);
   }
 
-  async getCompanyChallenges(companyId: string, options?: { 
-    status?: string[]; 
-    limit?: number; 
-    offset?: number;
-  }): Promise<Challenge[]> {
+  async getCompanyChallenges(
+    companyId: string,
+    options?: {
+      status?: string[];
+      limit?: number;
+      offset?: number;
+    }
+  ): Promise<Challenge[]> {
     let query = this.supabase
       .from('challenges')
-      .select(`
+      .select(
+        `
         *,
         teams:challenge_teams(
           team_id,
           team:teams(name)
         )
-      `)
+      `
+      )
       .eq('company_id', companyId)
       .order('start_date', { ascending: true });
 
@@ -450,7 +461,7 @@ export class TeamChallengesService {
 
     const { data, error } = await query;
     if (error) throw new Error(`Failed to fetch challenges: ${error.message}`);
-    return (data || []).map(c => this.enrichChallenge(c));
+    return (data || []).map((c) => this.enrichChallenge(c));
   }
 
   async getChallengeLeaderboard(challengeId: string): Promise<ChallengeLeaderboardEntry[]> {
@@ -478,7 +489,7 @@ export class TeamChallengesService {
       // Simulate score calculation based on challenge metric
       // In production, query actual data from sponsorships, tree planting, etc.
       const score = Math.random() * 1000;
-      
+
       await this.supabase
         .from('challenge_teams')
         .update({ score })
@@ -515,14 +526,78 @@ export class TeamChallengesService {
     // In production, this would query a materialized view or compute on-demand
     // For now, return mock data based on config
     const metricLabel = METRIC_LABELS[config.metric] || config.metric;
-    
+
     // Simulate leaderboard data
     const mockEntries: ChallengeLeaderboardEntry[] = [
-      { teamId: 'team-1', teamName: 'Green Warriors', rank: 1, score: 98.5, membersCount: 5, totalOffset: 125.3, treesPlanted: 2500, sponsorships: 45, completionRate: 95, speciesCount: 12, trend: 'up', previousRank: 2 },
-      { teamId: 'team-2', teamName: 'Eco Champions', rank: 2, score: 94.2, membersCount: 4, totalOffset: 110.8, treesPlanted: 2200, sponsorships: 38, completionRate: 92, speciesCount: 10, trend: 'same', previousRank: 2 },
-      { teamId: 'team-3', teamName: 'Green Guardians', rank: 3, score: 91.7, membersCount: 6, totalOffset: 105.2, treesPlanted: 2100, sponsorships: 35, completionRate: 88, speciesCount: 15, trend: 'up', previousRank: 4 },
-      { teamId: 'team-4', teamName: 'Eco Warriors', rank: 4, score: 87.3, membersCount: 3, totalOffset: 98.1, treesPlanted: 1800, sponsorships: 30, completionRate: 85, speciesCount: 8, trend: 'down', previousRank: 3 },
-      { teamId: 'team-5', teamName: 'Carbon Crushers', rank: 5, score: 82.1, membersCount: 4, totalOffset: 92.5, treesPlanted: 1700, sponsorships: 28, completionRate: 82, speciesCount: 9, trend: 'new' },
+      {
+        teamId: 'team-1',
+        teamName: 'Green Warriors',
+        rank: 1,
+        score: 98.5,
+        membersCount: 5,
+        totalOffset: 125.3,
+        treesPlanted: 2500,
+        sponsorships: 45,
+        completionRate: 95,
+        speciesCount: 12,
+        trend: 'up',
+        previousRank: 2,
+      },
+      {
+        teamId: 'team-2',
+        teamName: 'Eco Champions',
+        rank: 2,
+        score: 94.2,
+        membersCount: 4,
+        totalOffset: 110.8,
+        treesPlanted: 2200,
+        sponsorships: 38,
+        completionRate: 92,
+        speciesCount: 10,
+        trend: 'same',
+        previousRank: 2,
+      },
+      {
+        teamId: 'team-3',
+        teamName: 'Green Guardians',
+        rank: 3,
+        score: 91.7,
+        membersCount: 6,
+        totalOffset: 105.2,
+        treesPlanted: 2100,
+        sponsorships: 35,
+        completionRate: 88,
+        speciesCount: 15,
+        trend: 'up',
+        previousRank: 4,
+      },
+      {
+        teamId: 'team-4',
+        teamName: 'Eco Warriors',
+        rank: 4,
+        score: 87.3,
+        membersCount: 3,
+        totalOffset: 98.1,
+        treesPlanted: 1800,
+        sponsorships: 30,
+        completionRate: 85,
+        speciesCount: 8,
+        trend: 'down',
+        previousRank: 3,
+      },
+      {
+        teamId: 'team-5',
+        teamName: 'Carbon Crushers',
+        rank: 5,
+        score: 82.1,
+        membersCount: 4,
+        totalOffset: 92.5,
+        treesPlanted: 1700,
+        sponsorships: 28,
+        completionRate: 82,
+        speciesCount: 9,
+        trend: 'new',
+      },
     ];
 
     return {
@@ -539,8 +614,14 @@ export class TeamChallengesService {
     const members = team.members || [];
     const totalTrees = members.reduce((sum, m) => sum + (m.contributions?.treesPlanted || 0), 0);
     const totalCo2 = members.reduce((sum, m) => sum + (m.contributions?.co2Offset || 0), 0);
-    const totalSponsorships = members.reduce((sum, m) => sum + (m.contributions?.sponsorships || 0), 0);
-    const totalPoints = members.reduce((sum, m) => sum + (m.contributions?.challengePoints || 0), 0);
+    const totalSponsorships = members.reduce(
+      (sum, m) => sum + (m.contributions?.sponsorships || 0),
+      0
+    );
+    const totalPoints = members.reduce(
+      (sum, m) => sum + (m.contributions?.challengePoints || 0),
+      0
+    );
 
     return {
       ...team,
@@ -559,17 +640,18 @@ export class TeamChallengesService {
   }
 
   private enrichChallenge(challenge: any): Challenge {
-    const teams = challenge.teams?.map((ct: any) => ({
-      teamId: ct.team_id,
-      teamName: ct.team?.name || 'Unknown',
-      score: ct.score || 0,
-      membersCount: ct.team?.members?.length || 0,
-      totalOffset: 0, // Would compute from data
-      treesPlanted: 0,
-      sponsorships: 0,
-      completionRate: 0,
-      speciesCount: 0,
-    }) || [];
+    const teams =
+      challenge.teams?.map((ct: any) => ({
+        teamId: ct.team_id,
+        teamName: ct.team?.name || 'Unknown',
+        score: ct.score || 0,
+        membersCount: ct.team?.members?.length || 0,
+        totalOffset: 0, // Would compute from data
+        treesPlanted: 0,
+        sponsorships: 0,
+        completionRate: 0,
+        speciesCount: 0,
+      })) || [];
 
     return {
       ...challenge,

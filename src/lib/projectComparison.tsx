@@ -3,7 +3,7 @@
 
 /**
  * Project Comparison Tool
- * 
+ *
  * Issue #1416: Compare multiple offset projects side-by-side:
  * - Price, co-benefits, methodology, verifier, risk rating, buyer reviews
  */
@@ -22,7 +22,8 @@ export interface Project {
   description: string;
   location: string;
   country: string;
-  projectType: 'reforestation' | 'avoided_deforestation' | 'renewable_energy' | 'community' | 'blue_carbon';
+  projectType:
+    'reforestation' | 'avoided_deforestation' | 'renewable_energy' | 'community' | 'blue_carbon';
   methodology: string;
   verifier: string;
   certification: string[];
@@ -40,7 +41,8 @@ export interface Project {
 }
 
 export interface CoBenefit {
-  category: 'biodiversity' | 'community' | 'water' | 'soil' | 'climate_resilience' | 'gender_equality';
+  category:
+    'biodiversity' | 'community' | 'water' | 'soil' | 'climate_resilience' | 'gender_equality';
   description: string;
   verified: boolean;
 }
@@ -67,19 +69,110 @@ export interface ComparisonCriteria {
 }
 
 export const COMPARISON_CRITERIA: ComparisonCriteria[] = [
-  { id: 'name', label: 'Project Name', key: 'name', type: 'text', sortable: true, defaultVisible: true },
-  { id: 'location', label: 'Location', key: 'location', type: 'text', sortable: true, defaultVisible: true },
-  { id: 'projectType', label: 'Type', key: 'projectType', type: 'text', sortable: true, defaultVisible: true },
-  { id: 'methodology', label: 'Methodology', key: 'methodology', type: 'text', sortable: false, defaultVisible: true },
-  { id: 'verifier', label: 'Verifier', key: 'verifier', type: 'text', sortable: false, defaultVisible: true },
-  { id: 'certification', label: 'Certifications', key: 'certification', type: 'tags', sortable: false, defaultVisible: true },
-  { id: 'pricePerTon', label: 'Price/Ton', key: 'pricePerTon', type: 'number', sortable: true, defaultVisible: true },
-  { id: 'vintage', label: 'Vintage', key: 'vintage', type: 'text', sortable: true, defaultVisible: false },
-  { id: 'totalCredits', label: 'Total Credits', key: 'totalCredits', type: 'number', sortable: true, defaultVisible: false },
-  { id: 'availableCredits', label: 'Available', key: 'availableCredits', type: 'number', sortable: true, defaultVisible: true },
-  { id: 'riskRating', label: 'Risk Rating', key: 'riskRating', type: 'rating', sortable: true, defaultVisible: true },
-  { id: 'coBenefits', label: 'Co-Benefits', key: 'coBenefits', type: 'custom', sortable: false, defaultVisible: true },
-  { id: 'buyerReviews', label: 'Buyer Reviews', key: 'buyerReviews', type: 'custom', sortable: false, defaultVisible: true },
+  {
+    id: 'name',
+    label: 'Project Name',
+    key: 'name',
+    type: 'text',
+    sortable: true,
+    defaultVisible: true,
+  },
+  {
+    id: 'location',
+    label: 'Location',
+    key: 'location',
+    type: 'text',
+    sortable: true,
+    defaultVisible: true,
+  },
+  {
+    id: 'projectType',
+    label: 'Type',
+    key: 'projectType',
+    type: 'text',
+    sortable: true,
+    defaultVisible: true,
+  },
+  {
+    id: 'methodology',
+    label: 'Methodology',
+    key: 'methodology',
+    type: 'text',
+    sortable: false,
+    defaultVisible: true,
+  },
+  {
+    id: 'verifier',
+    label: 'Verifier',
+    key: 'verifier',
+    type: 'text',
+    sortable: false,
+    defaultVisible: true,
+  },
+  {
+    id: 'certification',
+    label: 'Certifications',
+    key: 'certification',
+    type: 'tags',
+    sortable: false,
+    defaultVisible: true,
+  },
+  {
+    id: 'pricePerTon',
+    label: 'Price/Ton',
+    key: 'pricePerTon',
+    type: 'number',
+    sortable: true,
+    defaultVisible: true,
+  },
+  {
+    id: 'vintage',
+    label: 'Vintage',
+    key: 'vintage',
+    type: 'text',
+    sortable: true,
+    defaultVisible: false,
+  },
+  {
+    id: 'totalCredits',
+    label: 'Total Credits',
+    key: 'totalCredits',
+    type: 'number',
+    sortable: true,
+    defaultVisible: false,
+  },
+  {
+    id: 'availableCredits',
+    label: 'Available',
+    key: 'availableCredits',
+    type: 'number',
+    sortable: true,
+    defaultVisible: true,
+  },
+  {
+    id: 'riskRating',
+    label: 'Risk Rating',
+    key: 'riskRating',
+    type: 'rating',
+    sortable: true,
+    defaultVisible: true,
+  },
+  {
+    id: 'coBenefits',
+    label: 'Co-Benefits',
+    key: 'coBenefits',
+    type: 'custom',
+    sortable: false,
+    defaultVisible: true,
+  },
+  {
+    id: 'buyerReviews',
+    label: 'Buyer Reviews',
+    key: 'buyerReviews',
+    type: 'custom',
+    sortable: false,
+    defaultVisible: true,
+  },
 ];
 
 export async function getProjects(filters?: {
@@ -92,11 +185,13 @@ export async function getProjects(filters?: {
 }): Promise<Project[]> {
   let query = supabase
     .from('projects')
-    .select(`
+    .select(
+      `
       *,
       co_benefits(*),
       buyer_reviews(*)
-    `)
+    `
+    )
     .eq('status', 'active')
     .order('created_at', { ascending: false });
 
@@ -128,11 +223,13 @@ export async function getProjects(filters?: {
 export async function getProjectById(id: string): Promise<Project | null> {
   const { data, error } = await supabase
     .from('projects')
-    .select(`
+    .select(
+      `
       *,
       co_benefits(*),
       buyer_reviews(*)
-    `)
+    `
+    )
     .eq('id', id)
     .single();
 
@@ -142,14 +239,16 @@ export async function getProjectById(id: string): Promise<Project | null> {
 
 export async function getComparisonProjects(ids: string[]): Promise<Project[]> {
   if (ids.length === 0) return [];
-  
+
   const { data, error } = await supabase
     .from('projects')
-    .select(`
+    .select(
+      `
       *,
       co_benefits(*),
       buyer_reviews(*)
-    `)
+    `
+    )
     .in('id', ids);
 
   if (error) throw new Error(`Failed to fetch comparison projects: ${error.message}`);
@@ -158,17 +257,23 @@ export async function getComparisonProjects(ids: string[]): Promise<Project[]> {
 
 export function getRiskColor(rating: Project['riskRating']): string {
   switch (rating) {
-    case 'low': return 'text-green-600 bg-green-100';
-    case 'medium': return 'text-yellow-600 bg-yellow-100';
-    case 'high': return 'text-red-600 bg-red-100';
+    case 'low':
+      return 'text-green-600 bg-green-100';
+    case 'medium':
+      return 'text-yellow-600 bg-yellow-100';
+    case 'high':
+      return 'text-red-600 bg-red-100';
   }
 }
 
 export function getRiskIcon(rating: Project['riskRating']): React.ReactNode {
   switch (rating) {
-    case 'low': return <Check className="w-4 h-4 text-green-600" />;
-    case 'medium': return <AlertCircle className="w-4 h-4 text-yellow-600" />;
-    case 'high': return <X className="w-4 h-4 text-red-600" />;
+    case 'low':
+      return <Check className="w-4 h-4 text-green-600" />;
+    case 'medium':
+      return <AlertCircle className="w-4 h-4 text-yellow-600" />;
+    case 'high':
+      return <X className="w-4 h-4 text-red-600" />;
   }
 }
 

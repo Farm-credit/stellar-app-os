@@ -94,10 +94,10 @@ export const viewport: Viewport = {
   viewportFit: 'cover',
 };
 export default function RootLayout({
-  childreen,
+  children,
 }: Readonly<{
   children: React.ReactNode;
-}) {
+}>) {
   return (
     <html lang="en" dir="ltr" suppressHydrationWarning>
       <head>
@@ -107,7 +107,9 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-title" content="FarmCredit" />
         <meta name="mobile-web-app-capable" content="yes" />
       </head>
-      <body className={${inter.variable} font-sans antialiased min-h-screen min-h-[100dvh] flex flex-col}>
+      <body
+        className={`${inter.variable} font-sans antialiased min-h-screen min-h-[100dvh] flex flex-col`}
+      >
         <I18nProvider>
           <TimeZoneProvider>
             <WalletProvider>
@@ -116,7 +118,9 @@ export default function RootLayout({
                   <NotificationProvider>
                     <SkipLink />
                     <Header />
-                    <main id="main-content" className="flex-1 w-full"{{<childreen>}}</main>
+                    <main id="main-content" className="flex-1 w-full">
+                      {children}
+                    </main>
                     <Footer />
                     <NotificationCenterDrawer />
                     <ToastContainer />
