@@ -1,3 +1,3 @@
 # White-Label Integration Guide
 
-Contact enterprise-support@farmcredit.example for integration details.
+For the embeddable carbon-offset purchase widget, API key management, allowed-domain configuration, and Stripe setup, see the [Carbon Offset Website Embed guide](docs/carbon-offset-embed.md).

@@ -21,6 +21,7 @@ const NAV_LINKS = [
   { href: '/', label: 'nav.home' },
   { href: '/projects', label: 'nav.projects' },
   { href: '/marketplace', label: 'nav.marketplace' },
+  { href: '/cooperatives', label: 'nav.cooperatives' },
   { href: '/transactions', label: 'nav.transactions' },
   { href: '/dashboard', label: 'nav.dashboard' },
 ] as const;

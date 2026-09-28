@@ -132,7 +132,7 @@ export interface FarmerVerificationCredit {
 
 export interface FarmerVerificationReport {
   farmerAddress: string;
-  apiVersion: 'v2';
+  apiVersion: 'v1' | 'v2';
   /** On-chain vocabulary: approved → verified, open → pending, plus rejected/expired. */
   verificationStatus: 'verified' | 'pending' | 'rejected' | 'expired';
   /** Overall: true only once the application has been approved. */
@@ -256,7 +256,7 @@ export function evaluateCredit(
   };
 }
 
-function buildReport(row: VerificationRow): FarmerVerificationReport {
+function buildReport(row: VerificationRow, apiVersion: 'v1' | 'v2'): FarmerVerificationReport {
   const status = row.status as KycApplicationStatus;
   const screening = asScreening(row.screening, row.updated_at);
   const activeSanctions = row.active_sanctions ?? [];
@@ -265,7 +265,7 @@ function buildReport(row: VerificationRow): FarmerVerificationReport {
 
   return {
     farmerAddress: row.farmer_address,
-    apiVersion: 'v2',
+    apiVersion,
     verificationStatus: toOnChainKycStatus(status),
     verified: status === 'approved',
     identity: {
@@ -313,7 +313,8 @@ const SELECT_VERIFICATION_COLUMNS = `
  */
 export async function getFarmerVerification(
   db: FarmerVerificationDb,
-  farmerAddress: string
+  farmerAddress: string,
+  apiVersion: 'v1' | 'v2' = 'v2'
 ): Promise<FarmerVerificationLookup> {
   const { rows } = await db.query<VerificationRow>(
     `SELECT ${SELECT_VERIFICATION_COLUMNS}
@@ -328,7 +329,7 @@ export async function getFarmerVerification(
   if (!row) return { ok: false, reason: 'not_found' };
   if (!row.consent_granted) return { ok: false, reason: 'consent_denied' };
 
-  return { ok: true, report: buildReport(row) };
+  return { ok: true, report: buildReport(row, apiVersion) };
 }
 
 /**
@@ -339,12 +340,13 @@ export async function getFarmerVerification(
  */
 export async function verifyFarmers(
   db: FarmerVerificationDb,
-  addresses: readonly string[]
+  addresses: readonly string[],
+  apiVersion: 'v1' | 'v2' = 'v2'
 ): Promise<FarmerVerificationBatch> {
   const outcomes = await Promise.all(
     addresses.map(async (address) => ({
       address,
-      outcome: await getFarmerVerification(db, address),
+      outcome: await getFarmerVerification(db, address, apiVersion),
     }))
   );
 

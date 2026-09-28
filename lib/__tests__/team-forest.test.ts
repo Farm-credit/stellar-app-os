@@ -3,6 +3,7 @@ import {
   createInviteCode,
   createSponsorTeam,
   isValidTeamWallet,
+  isMilestoneStatus,
   normalizeTeamName,
   joinSponsorTeam,
 } from '@/lib/team-forest';
@@ -50,5 +51,16 @@ describe('team forest operations', () => {
     await expect(joinSponsorTeam(pool, 'invite-1', memberWallet)).resolves.toEqual({
       teamId: '12',
     });
+  });
+});
+
+describe('milestone detection', () => {
+  it('identifies milestone statuses and rejects non-milestone or null statuses', () => {
+    expect(isMilestoneStatus('planted')).toBe(true);
+    expect(isMilestoneStatus('verified')).toBe(true);
+    expect(isMilestoneStatus('completed')).toBe(true);
+    expect(isMilestoneStatus('funded')).toBe(false);
+    expect(isMilestoneStatus('failed')).toBe(false);
+    expect(isMilestoneStatus(null)).toBe(false);
   });
 });

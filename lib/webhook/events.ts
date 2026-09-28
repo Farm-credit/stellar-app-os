@@ -5,12 +5,18 @@
 
 import { getPool } from '@/lib/db/client';
 import { dispatchEvent } from './dispatch';
+import type { OffsetVerificationEventType } from './offset-verification';
 import type {
   MilestonePayoutApprovedPayload,
   PlanterTreeRegisteredPayload,
   PlanterTreeVerifiedPayload,
   PlanterTreeHealthUpdatedPayload,
   PlanterMilestoneClaimedPayload,
+  CreditVerifiedPayload,
+  ProjectApprovedPayload,
+  CreditRetiredPayload,
+  PriceChangedPayload,
+  ProjectStatusChangedPayload,
   WebhookDeliveryRow,
 } from './types';
 
@@ -146,4 +152,63 @@ export function emitTreeLifecycleForStatus(
   };
   const eventType = eventByStatus[status];
   return eventType ? emitTreeLifecycleEvent(eventType, payload) : Promise.resolve([]);
+}
+
+// ── Offset-verification events (issue #1378) ──────────────────────────────────
+//
+// One emitter per offset lifecycle event, all best-effort: a webhook failure
+// must never fail the registry/on-chain action that triggered it. Build the
+// payload with the matching builder in `./offset-verification` so it is
+// validated before it is signed and fanned out.
+
+/**
+ * Shared best-effort dispatch for the offset-verification events. Failed HTTP
+ * deliveries are still persisted in `webhook_deliveries` and retried by the
+ * backoff processor, so swallowing the error here does not drop the event.
+ */
+async function emitOffsetVerificationEvent(
+  eventType: OffsetVerificationEventType,
+  payload: Record<string, unknown>
+): Promise<WebhookDeliveryRow[]> {
+  try {
+    return await dispatchEvent(getPool(), eventType, payload);
+  } catch (err) {
+    console.error(`[webhook] failed to emit ${eventType}`, err);
+    return [];
+  }
+}
+
+/** Emit `credit.verified` once a verifier/registry confirms an issuance. */
+export async function emitCreditVerified(
+  payload: CreditVerifiedPayload
+): Promise<WebhookDeliveryRow[]> {
+  return emitOffsetVerificationEvent('credit.verified', { ...payload });
+}
+
+/** Emit `project.approved` when a carbon project passes review. */
+export async function emitProjectApproved(
+  payload: ProjectApprovedPayload
+): Promise<WebhookDeliveryRow[]> {
+  return emitOffsetVerificationEvent('project.approved', { ...payload });
+}
+
+/** Emit `credit.retired` when a buyer retires credits. */
+export async function emitCreditRetired(
+  payload: CreditRetiredPayload
+): Promise<WebhookDeliveryRow[]> {
+  return emitOffsetVerificationEvent('credit.retired', { ...payload });
+}
+
+/** Emit `price.changed` when a listed series is repriced. */
+export async function emitPriceChanged(
+  payload: PriceChangedPayload
+): Promise<WebhookDeliveryRow[]> {
+  return emitOffsetVerificationEvent('price.changed', { ...payload });
+}
+
+/** Emit `project.status.changed` when a project moves lifecycle status. */
+export async function emitProjectStatusChanged(
+  payload: ProjectStatusChangedPayload
+): Promise<WebhookDeliveryRow[]> {
+  return emitOffsetVerificationEvent('project.status.changed', { ...payload });
 }

@@ -11,10 +11,12 @@ import {
   Wind,
   PlusCircle,
   FileText,
+  Trophy,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/molecules/Card';
 import { Button } from '@/components/atoms/Button';
 import { Text } from '@/components/atoms/Text';
+import Link from 'next/link';
 import { generateEsgReport } from '@/lib/corporate';
 import { cn } from '@/lib/utils';
 import { CarbonOffsetCalculator } from '@/components/organisms/CarbonOffsetCalculator';
@@ -62,6 +64,20 @@ export function CorporateDashboard() {
           </Text>
         </div>
         <div className="flex gap-2">
+          <Link
+            href="/esg-disclosure"
+            className="inline-flex items-center gap-2 rounded-md border border-white/10 px-4 py-2 text-sm font-medium hover:bg-white/5"
+          >
+            <FileText className="h-4 w-4" />
+            ESG disclosure
+          </Link>
+          <Link
+            href="/dashboard/team-challenges"
+            className="inline-flex items-center gap-2 rounded-md border border-white/10 px-4 py-2 text-sm font-medium hover:bg-white/5"
+          >
+            <Trophy className="h-4 w-4" />
+            Team challenges
+          </Link>
           <Button
             onClick={handleExportEsg}
             disabled={isExporting}

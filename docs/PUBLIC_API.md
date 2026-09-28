@@ -43,6 +43,30 @@ When a Free or Standard key exhausts its rolling hourly budget the request is
 **queued** rather than dropped. The queue is drained as capacity frees up when
 the window rolls, allowing bursts to be processed without losing work.
 
+## Farmer Verification API (v1)
+
+The v1 endpoints below are the stable third-party integration contract for
+partner platforms and financial institutions. Requests use the same active
+`x-api-key` authentication and tiered limits described above. The report
+answers three questions in one call — identity, land ownership, and credit
+availability — while returning no personal data or evidence documents.
+
+### `GET /api/v1/farmers/{address}/verification`
+
+Verify one farmer. `address` is a 56-character Stellar public key.
+
+### `POST /api/v1/farmers/verification`
+
+Verify a portfolio of 1–100 unique farmers with
+`{"addresses": ["G...", "G..."]}`. The response includes `requested`,
+`count`, `verified`, `reports`, `notFound`, and `consentDenied` fields.
+
+Both endpoints return `X-API-Version: v1`, private no-store responses, and the
+same `FarmerVerificationReport` fields documented below. A farmer must have
+granted recorded consent; otherwise the single-farmer endpoint returns
+`403 consent_denied` and the batch endpoint places the address in
+`consentDenied`.
+
 ## Farmer Verification API (v2)
 
 For partner platforms, lenders, and financial institutions that need to verify

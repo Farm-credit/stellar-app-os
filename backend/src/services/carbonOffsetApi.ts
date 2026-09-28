@@ -10,6 +10,8 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import Stripe from 'stripe';
+import { generateApiKey, hashApiKey } from './carbonOffsetSecurity';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -29,6 +31,9 @@ export interface EmbedConfig {
   locale: string;
   webhookUrl?: string;
   metadata?: Record<string, string>;
+  widgetTitle?: string;
+  brandName?: string;
+  showBranding?: boolean;
 }
 
 export interface OffsetPurchaseRequest {
@@ -81,11 +86,8 @@ export async function validateApiKey(apiKey: string): Promise<EmbedConfig | null
 
   if (error || !data) return null;
 
-  // Check domain allowlist
-  // In production, would validate against request origin
-
   return {
-    apiKey: data.api_key,
+    apiKey,
     companyId: data.company_id,
     allowedDomains: data.allowed_domains,
     theme: data.theme,
@@ -97,6 +99,9 @@ export async function validateApiKey(apiKey: string): Promise<EmbedConfig | null
     locale: data.locale,
     webhookUrl: data.webhook_url,
     metadata: data.metadata,
+    widgetTitle: data.widget_title,
+    brandName: data.brand_name,
+    showBranding: data.show_branding ?? false,
   };
 }
 
@@ -116,6 +121,9 @@ export async function createEmbedApiKey(data: {
   locale?: string;
   webhookUrl?: string;
   metadata?: Record<string, string>;
+  widgetTitle?: string;
+  brandName?: string;
+  showBranding?: boolean;
 }): Promise<{ apiKey: string; config: EmbedConfig }> {
   const apiKey = generateApiKey();
   const keyHash = hashApiKey(apiKey);
@@ -133,6 +141,9 @@ export async function createEmbedApiKey(data: {
     locale: data.locale || 'en',
     webhookUrl: data.webhookUrl,
     metadata: data.metadata,
+    widgetTitle: data.widgetTitle,
+    brandName: data.brandName,
+    showBranding: data.showBranding ?? false,
   };
 
   const { error } = await supabase
@@ -151,6 +162,9 @@ export async function createEmbedApiKey(data: {
       locale: config.locale,
       webhook_url: config.webhookUrl,
       metadata: config.metadata,
+      widget_title: config.widgetTitle,
+      brand_name: config.brandName,
+      show_branding: config.showBranding,
       active: true,
       created_at: new Date().toISOString(),
     });
@@ -160,6 +174,30 @@ export async function createEmbedApiKey(data: {
   }
 
   return { apiKey, config };
+}
+
+export async function listEmbedApiKeys(companyId: string): Promise<Record<string, unknown>[]> {
+  const { data, error } = await supabase
+    .from('embed_api_keys')
+    .select('id, name, allowed_domains, theme, primary_color, show_project_selector, default_project_id, default_amount, currency, locale, widget_title, brand_name, show_branding, active, created_at')
+    .eq('company_id', companyId)
+    .order('created_at', { ascending: false });
+
+  if (error) throw new Error(`Failed to list embed API keys: ${error.message}`);
+  return data || [];
+}
+
+export async function revokeEmbedApiKey(companyId: string, keyId: string): Promise<boolean> {
+  const { data, error } = await supabase
+    .from('embed_api_keys')
+    .update({ active: false })
+    .eq('id', keyId)
+    .eq('company_id', companyId)
+    .select('id')
+    .maybeSingle();
+
+  if (error) throw new Error(`Failed to revoke embed API key: ${error.message}`);
+  return !!data;
 }
 
 /**
@@ -174,10 +212,15 @@ export async function createOffsetPurchaseSession(
     .from('projects')
     .select('id, name, price_per_ton, currency, available_credits, status')
     .eq('id', request.projectId)
+    .eq('company_id', config.companyId)
     .single();
 
   if (projectError || !project || project.status !== 'active') {
     throw new Error('Project not found or not available');
+  }
+
+  if (!Number.isFinite(request.amount) || request.amount <= 0) {
+    throw new Error('Amount must be a positive number');
   }
 
   // Check availability
@@ -185,21 +228,90 @@ export async function createOffsetPurchaseSession(
     throw new Error('Insufficient credits available');
   }
 
+  if (
+    request.currency.toUpperCase() !== config.currency.toUpperCase() ||
+    request.currency.toUpperCase() !== String(project.currency).toUpperCase()
+  ) {
+    throw new Error('Requested currency is not available for this project');
+  }
+
   // Calculate total
   const pricePerTon = project.price_per_ton;
   const totalPrice = pricePerTon * request.amount;
+  if (!Number.isFinite(totalPrice) || totalPrice <= 0) {
+    throw new Error('Project price is invalid');
+  }
 
-  // Create Stripe checkout session (or payment provider)
-  // For now, simulate
-  const sessionId = `cs_${generateId()}`;
-  const checkoutUrl = `${process.env.NEXT_PUBLIC_APP_URL}/embed/checkout/${sessionId}`;
+  const stripeKey = process.env.STRIPE_SECRET_KEY;
+  if (!stripeKey) throw new Error('Stripe checkout is not configured');
+
+  const stripe = new Stripe(stripeKey);
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL;
+  if (!appUrl) throw new Error('NEXT_PUBLIC_APP_URL is not configured');
+  const defaultReturnUrl = new URL('/', appUrl).toString();
+  const { data: reserved, error: reserveError } = await supabase.rpc('reserve_embed_project_credits', {
+    p_project_id: request.projectId,
+    p_amount: request.amount,
+  });
+  if (reserveError || reserved !== true) {
+    throw new Error(reserveError?.message || 'Insufficient credits available');
+  }
+
+  let stripeSession: Stripe.Checkout.Session;
+  try {
+    stripeSession = await stripe.checkout.sessions.create({
+      mode: 'payment',
+      payment_method_types: ['card'],
+      customer_email: request.customerEmail,
+      line_items: [
+        {
+          price_data: {
+            currency: request.currency.toLowerCase(),
+            product_data: { name: `${project.name} carbon offset` },
+            unit_amount: Math.round(totalPrice * 100),
+          },
+          quantity: 1,
+        },
+      ],
+      success_url: request.returnUrl || defaultReturnUrl,
+      cancel_url: request.cancelUrl || defaultReturnUrl,
+      metadata: {
+        ...request.metadata,
+        companyId: config.companyId,
+        projectId: request.projectId,
+        amount: String(request.amount),
+        currency: request.currency,
+        customerEmail: request.customerEmail,
+      },
+    });
+  } catch (error) {
+    await supabase.rpc('release_embed_project_credits', {
+      p_project_id: request.projectId,
+      p_amount: request.amount,
+    });
+    throw error;
+  }
+
+  if (!stripeSession.url) {
+    await stripe.checkout.sessions.expire(stripeSession.id).catch(() => undefined);
+    await supabase.rpc('release_embed_project_credits', {
+      p_project_id: request.projectId,
+      p_amount: request.amount,
+    });
+    throw new Error('Stripe did not return a checkout URL');
+  }
+  const sessionId = stripeSession.id;
+  const checkoutUrl = stripeSession.url;
+  const expiresAt = stripeSession.expires_at
+    ? new Date(stripeSession.expires_at * 1000).toISOString()
+    : new Date(Date.now() + 30 * 60 * 1000).toISOString();
 
   // Store session
   const { error: sessionError } = await supabase
     .from('embed_checkout_sessions')
     .insert({
       session_id: sessionId,
-      api_key: config.apiKey,
+      api_key_hash: hashApiKey(config.apiKey),
       company_id: config.companyId,
       project_id: request.projectId,
       amount: request.amount,
@@ -212,18 +324,23 @@ export async function createOffsetPurchaseSession(
       return_url: request.returnUrl,
       cancel_url: request.cancelUrl,
       status: 'pending',
-      expires_at: new Date(Date.now() + 30 * 60 * 1000).toISOString(), // 30 min
+      expires_at: expiresAt,
       created_at: new Date().toISOString(),
     });
 
   if (sessionError) {
+    await stripe.checkout.sessions.expire(sessionId).catch(() => undefined);
+    await supabase.rpc('release_embed_project_credits', {
+      p_project_id: request.projectId,
+      p_amount: request.amount,
+    });
     throw new Error(`Failed to create session: ${sessionError.message}`);
   }
 
   return {
     sessionId,
     checkoutUrl,
-    expiresAt: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
+    expiresAt,
     amount: request.amount,
     currency: request.currency,
     projectId: request.projectId,
@@ -250,12 +367,43 @@ export async function verifyCheckoutSession(sessionId: string): Promise<{
     return { completed: false };
   }
 
-  // In production, would verify with payment provider (Stripe)
-  // For now, check status
   return {
     completed: data.status === 'completed',
     session: data,
   };
+}
+
+export async function completeOffsetPurchaseSession(sessionId: string): Promise<boolean> {
+  const { data, error } = await supabase.rpc('complete_embed_checkout', {
+    p_session_id: sessionId,
+  });
+  if (error) throw new Error(`Failed to complete checkout session: ${error.message}`);
+  return data === true;
+}
+
+export async function expireOffsetPurchaseSession(sessionId: string): Promise<boolean> {
+  const { data, error } = await supabase.rpc('expire_embed_checkout', {
+    p_session_id: sessionId,
+  });
+  if (error) throw new Error(`Failed to expire checkout session: ${error.message}`);
+  return data === true;
+}
+
+export async function getEmbedPurchaseStatus(
+  sessionId: string,
+  companyId: string,
+  apiKey: string
+): Promise<Record<string, unknown> | null> {
+  const { data, error } = await supabase
+    .from('embed_checkout_sessions')
+    .select('session_id, project_id, amount, currency, total_price, status, created_at, completed_at')
+    .eq('session_id', sessionId)
+    .eq('company_id', companyId)
+    .eq('api_key_hash', hashApiKey(apiKey))
+    .maybeSingle();
+
+  if (error) throw new Error(`Failed to fetch checkout status: ${error.message}`);
+  return data;
 }
 
 /**
@@ -279,27 +427,16 @@ export async function getEmbeddableProjects(companyId: string): Promise<any[]> {
  */
 export function generateEmbedScript(config: EmbedScriptConfig): string {
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-  const scriptUrl = `${baseUrl}/embed.js`;
-  
-  const params = new URLSearchParams({
-    key: config.apiKey,
-    mode: config.mode,
-    ...(config.projectId && { project: config.projectId }),
-    ...(config.amount && { amount: config.amount.toString() }),
-    ...(config.theme && { theme: config.theme }),
-    ...(config.primaryColor && { color: config.primaryColor.replace('#', '') }),
-    ...(config.locale && { locale: config.locale }),
-    ...(config.containerId && { container: config.containerId }),
-  });
+  const scriptUrl = `${baseUrl}/api/embed/script`;
 
   return `
 <!-- Farm-credit Carbon Offset Embed -->
 <div id="${config.containerId || 'farm-credit-offset'}"></div>
 <script>
   (function() {
-    var config = ${JSON.stringify(config)};
+    var config = ${JSON.stringify({ ...config, apiBase: baseUrl })};
     var script = document.createElement('script');
-    script.src = '${scriptUrl}?' + new URLSearchParams(config).toString();
+    script.src = ${JSON.stringify(scriptUrl)} + '?key=' + encodeURIComponent(config.apiKey);
     script.async = true;
     script.onload = function() {
       if (window.FarmCreditOffset) {
@@ -373,30 +510,4 @@ function getContrastColor(hexColor: string): string {
   const b = parseInt(color.substr(4, 2), 16);
   const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
   return luminance > 0.5 ? '#000000' : '#ffffff';
-}
-
-function hashApiKey(apiKey: string): string {
-  // In production, use proper hashing (bcrypt, argon2)
-  // This is a simplified version
-  let hash = 0;
-  for (let i = 0; i < apiKey.length; i++) {
-    const char = apiKey.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash = hash & hash;
-  }
-  return 'fk_' + Math.abs(hash).toString(36) + '_' + Date.now().toString(36);
-}
-
-function generateApiKey(): string {
-  const prefix = 'fc_live_';
-  const randomPart = Array.from({ length: 32 }, () => 
-    'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'[Math.floor(Math.random() * 62)]
-  ).join('');
-  return prefix + randomPart;
-}
-
-function generateId(): string {
-  return Array.from({ length: 24 }, () => 
-    'abcdefghijklmnopqrstuvwxyz0123456789'[Math.floor(Math.random() * 36)]
-  ).join('');
 }

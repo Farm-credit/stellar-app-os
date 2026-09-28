@@ -12,6 +12,40 @@ import {
   OffsetPurchaseResponse,
   EmbedScriptConfig,
 } from './carbonOffsetApi';
+import {
+  generateApiKey,
+  hashApiKey,
+  isAllowedOrigin,
+  isAllowedRedirectUrl,
+  isValidAllowedDomain,
+} from './carbonOffsetSecurity';
+
+describe('Carbon offset embed security', () => {
+  it('generates random keys with stable, one-way hashes', () => {
+    const first = generateApiKey();
+    const second = generateApiKey();
+
+    expect(first).toMatch(/^fc_live_[A-Za-z0-9_-]{43}$/);
+    expect(second).not.toBe(first);
+    expect(hashApiKey(first)).toBe(hashApiKey(first));
+    expect(hashApiKey(first)).toMatch(/^[a-f0-9]{64}$/);
+  });
+
+  it('matches exact hosts only', () => {
+    expect(isAllowedOrigin('https://shop.example.com', ['shop.example.com'])).toBe(true);
+    expect(isAllowedOrigin('https://other.example.com', ['shop.example.com'])).toBe(false);
+    expect(isAllowedOrigin('https://shop.example.com', ['example.com'])).toBe(false);
+    expect(isAllowedOrigin('http://shop.example.com', ['shop.example.com'])).toBe(false);
+  });
+
+  it('accepts only valid domain entries and redirect origins on the allowlist', () => {
+    expect(isValidAllowedDomain('shop.example.com')).toBe(true);
+    expect(isValidAllowedDomain('*.example.com')).toBe(false);
+    expect(isValidAllowedDomain('https://example.com/path')).toBe(false);
+    expect(isAllowedRedirectUrl('https://shop.example.com/complete', ['shop.example.com'])).toBe(true);
+    expect(isAllowedRedirectUrl('https://attacker.example/complete', ['shop.example.com'])).toBe(false);
+  });
+});
 
 describe('Carbon Offset Embeddable API Types', () => {
   it('should have valid EmbedConfig interface', () => {

@@ -29,6 +29,7 @@ import {
   TableHeader,
   TableHead,
   TableRow,
+  TableBody,
   TableCell,
 } from '@/components/ui/table';
 import {
@@ -161,6 +162,13 @@ function LeaderboardContent() {
                 ? 'Honoring the sponsors who make our planet greener, one tree at a time.'
                 : 'Celebrating the planters who bring our forests to life, one tree at a time.'}
             </Text>
+            <Link
+              href="/leaderboard/sponsors"
+              className="mt-3 inline-flex items-center gap-2 text-sm font-medium text-stellar-green hover:underline"
+            >
+              <span className="size-2 animate-pulse rounded-full bg-stellar-green" aria-hidden />
+              Global live sponsor rankings
+            </Link>
           </div>
 
           <div className="flex items-center gap-3">

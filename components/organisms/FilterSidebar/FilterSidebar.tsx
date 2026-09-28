@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
+import { useState, useCallback, useMemo, useRef, useEffect, type JSX } from 'react';
 import { Checkbox } from '@/components/atoms/Checkbox';
 import { Input } from '@/components/atoms/Input';
 import { Button } from '@/components/atoms/Button';
@@ -9,16 +9,24 @@ import { Text } from '@/components/atoms/Text';
 import { getActiveFilterCount } from '@/lib/utils/filterUtils';
 import type { FilterSidebarProps } from '@/lib/types/filters';
 
+const DEFAULT_STANDARDS = [
+  'Gold Standard',
+  'Verra (VCS)',
+  'Climate Action Reserve',
+  'Plan Vivo',
+];
+
 export function FilterSidebar({
   filters,
   onFiltersChange,
   availableTypes,
   availableLocations,
   availableCoBenefits,
+  availableStandards = DEFAULT_STANDARDS,
   priceRange,
   isOpen = false,
   onClose,
-}: FilterSidebarProps) {
+}: FilterSidebarProps): JSX.Element {
   const [locationSearch, setLocationSearch] = useState('');
   const [isLocationDropdownOpen, setIsLocationDropdownOpen] = useState(false);
   const locationDropdownRef = useRef<HTMLDivElement>(null);
@@ -55,6 +63,17 @@ export function FilterSidebar({
         ? filters.types.filter((t) => t !== type)
         : [...filters.types, type as (typeof filters.types)[number]];
       onFiltersChange({ ...filters, types: newTypes });
+    },
+    [filters, onFiltersChange]
+  );
+
+  const handleStandardToggle = useCallback(
+    (standard: string) => {
+      const currentStandards = filters.certificationStandards || [];
+      const newStandards = currentStandards.includes(standard)
+        ? currentStandards.filter((s) => s !== standard)
+        : [...currentStandards, standard];
+      onFiltersChange({ ...filters, certificationStandards: newStandards });
     },
     [filters, onFiltersChange]
   );
@@ -96,6 +115,7 @@ export function FilterSidebar({
 
   const handleClearAll = useCallback(() => {
     onFiltersChange({
+      search: '',
       types: [],
       locations: [],
       priceRange: {
@@ -103,10 +123,19 @@ export function FilterSidebar({
         max: priceRange.max,
       },
       coBenefits: [],
+      certificationStandards: [],
     });
     setLocationSearch('');
     setIsLocationDropdownOpen(false);
   }, [onFiltersChange, priceRange]);
+
+  const getCoBenefitLabel = (benefit: string) => {
+    const lower = benefit.toLowerCase();
+    if (lower.includes('bio')) return `🌱 ${benefit}`;
+    if (lower.includes('water')) return `💧 ${benefit}`;
+    if (lower.includes('soil')) return `🌍 ${benefit}`;
+    return benefit;
+  };
 
   const sidebarContent = (
     <div className="space-y-6">
@@ -137,6 +166,28 @@ export function FilterSidebar({
               className="data-[state=checked]:bg-stellar-blue data-[state=checked]:border-stellar-blue"
             />
           ))}
+        </div>
+      </div>
+
+      {/* Certification Standard */}
+      <div>
+        <Text variant="small" as="span" className="font-semibold mb-3 block">
+          Certification Standard
+        </Text>
+        <div className="space-y-2">
+          {availableStandards.map((standard) => {
+            const isChecked = (filters.certificationStandards || []).includes(standard);
+            return (
+              <Checkbox
+                key={standard}
+                id={`standard-${standard}`}
+                label={standard}
+                checked={isChecked}
+                onChange={() => handleStandardToggle(standard)}
+                className="data-[state=checked]:bg-stellar-blue data-[state=checked]:border-stellar-blue"
+              />
+            );
+          })}
         </div>
       </div>
 
@@ -267,9 +318,12 @@ export function FilterSidebar({
 
       {/* Co-benefits */}
       <div>
-        <Text variant="small" as="span" className="font-semibold mb-3 block">
-          Co-benefits
+        <Text variant="small" as="span" className="font-semibold mb-2 block">
+          Co-benefits (Biodiversity, Water, Soil)
         </Text>
+        <p className="text-[11px] text-muted-foreground mb-3">
+          Filter projects delivering verified ecological & community co-benefits:
+        </p>
         <div className="flex flex-wrap gap-2">
           {availableCoBenefits.map((coBenefit) => {
             const isSelected = filters.coBenefits.includes(coBenefit);
@@ -277,9 +331,9 @@ export function FilterSidebar({
               <Badge
                 key={coBenefit}
                 variant={isSelected ? 'accent' : 'outline'}
-                className={`cursor-pointer transition-colors ${
+                className={`cursor-pointer transition-colors text-xs py-1 px-2.5 ${
                   isSelected
-                    ? 'bg-stellar-purple text-white border-stellar-purple'
+                    ? 'bg-stellar-purple text-white border-stellar-purple shadow-sm'
                     : 'hover:bg-stellar-purple/10'
                 }`}
                 onClick={() => handleCoBenefitToggle(coBenefit)}
@@ -292,7 +346,7 @@ export function FilterSidebar({
                   }
                 }}
               >
-                {coBenefit}
+                {getCoBenefitLabel(coBenefit)}
               </Badge>
             );
           })}
@@ -308,7 +362,7 @@ export function FilterSidebar({
           className="w-full"
           aria-label="Clear all filters"
         >
-          Clear All Filters
+          Clear All Filters ({activeFilterCount})
         </Button>
       )}
     </div>

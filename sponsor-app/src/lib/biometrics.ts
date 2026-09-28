@@ -1,4 +1,5 @@
 import * as LocalAuthentication from 'expo-local-authentication';
+import { Platform } from 'react-native';
 
 export type BiometricAvailability =
   | { available: true; enrolled: boolean; type: LocalAuthentication.AuthenticationType[] }
@@ -36,16 +37,23 @@ export async function authenticateWithBiometrics(
   return result.success;
 }
 
-/** Human-readable label for the device's strongest supported biometric. */
+/**
+ * Human-readable label for the device's strongest supported biometric.
+ *
+ * iOS uses Apple's trademarked names (Face ID / Touch ID); Android has no
+ * equivalent trademark, so it gets platform-neutral labels instead of
+ * incorrectly borrowing Apple's terms.
+ */
 export function biometricLabel(types: LocalAuthentication.AuthenticationType[]): string {
+  const isAndroid = Platform.OS === 'android';
   if (types.includes(LocalAuthentication.AuthenticationType.FACIAL_RECOGNITION)) {
-    return 'Face ID';
+    return isAndroid ? 'Face unlock' : 'Face ID';
   }
   if (types.includes(LocalAuthentication.AuthenticationType.FINGERPRINT)) {
-    return 'Touch ID';
+    return isAndroid ? 'Fingerprint' : 'Touch ID';
   }
   if (types.includes(LocalAuthentication.AuthenticationType.IRIS)) {
     return 'Iris';
   }
-  return 'Biometrics';
+  return isAndroid ? 'Biometric unlock' : 'Biometrics';
 }

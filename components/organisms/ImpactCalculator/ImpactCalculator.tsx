@@ -6,6 +6,7 @@ import { pdf } from '@react-pdf/renderer';
 import {
   Plane,
   Car,
+  Users,
   Zap,
   Flame,
   Leaf,
@@ -251,10 +252,22 @@ function EnergyStep({
         <Text variant="h3" className="mb-2">
           Home Energy Use
         </Text>
-        <Text variant="muted">Average monthly household energy consumption.</Text>
+        <Text variant="muted">
+          We use your share of household energy to estimate your individual impact.
+        </Text>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+        <NumberInput
+          id="household-size"
+          label="People in your household"
+          value={energy.householdSize}
+          onChange={(v) => onChange({ ...energy, householdSize: Math.max(1, v) })}
+          icon={Users}
+          unit="people"
+          min={1}
+          max={25}
+        />
         <NumberInput
           id="electricity"
           label="Electricity usage"
@@ -412,6 +425,7 @@ function ResultsStep({
     params.set('lf', travel.longFlightsPerYear.toString());
     params.set('cm', travel.carMilesPerWeek.toString());
     params.set('pt', travel.primaryTransport);
+    params.set('hs', energy.householdSize.toString());
     params.set('el', energy.electricityKwhPerMonth.toString());
     params.set('ga', energy.gasThermPerMonth.toString());
     params.set('re', energy.renewablePercentage.toString());
@@ -674,6 +688,10 @@ export function ImpactCalculator() {
       };
 
       const restoredEnergy: EnergyInput = {
+        householdSize: Math.max(
+          1,
+          parseInt(params.get('hs') || '', 10) || DEFAULT_ENERGY.householdSize
+        ),
         electricityKwhPerMonth:
           parseInt(params.get('el') || '0', 10) || DEFAULT_ENERGY.electricityKwhPerMonth,
         gasThermPerMonth: parseInt(params.get('ga') || '0', 10) || DEFAULT_ENERGY.gasThermPerMonth,
@@ -729,8 +747,8 @@ export function ImpactCalculator() {
           What&apos;s your impact?
         </Text>
         <Text variant="muted" className="text-base sm:text-lg max-w-lg mx-auto">
-          Estimate your annual carbon footprint and discover how many credits you need to go carbon
-          neutral.
+          Add your household size, driving and home energy use to estimate your annual footprint and
+          the verified credits you need to go carbon neutral.
         </Text>
       </div>
 

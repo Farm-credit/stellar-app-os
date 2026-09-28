@@ -92,6 +92,7 @@ contracts/
 ## Documentation & Guides
 
 - [Planter Onboarding & Tree Verification Guide](docs/PLANTER_ONBOARDING_GUIDE.md) — Step-by-step field verification, photo rules, GPS accuracy thresholds, and milestone payout workflow.
+- [Carbon Offset Website Embed](docs/carbon-offset-embed.md) — White-label widget, API key setup, checkout, and Stripe webhook configuration.
 - [Interactive API Documentation](/api-docs) — Interactive developer API reference and OpenAPI live console.
 
 ---
@@ -367,6 +368,8 @@ FarmCredit exposes a REST API under `/api` for programmatic access. Key endpoint
 | `/api/trees` | GET | List tree IDs and status |
 
 Use the API to embed sponsorship functionality directly into your existing corporate portal.
+
+Companies can also offer carbon-offset purchases directly on their own sites with the white-label embed widget. See the [Carbon Offset Website Embed guide](docs/carbon-offset-embed.md) for setup, API key management, allowed-domain controls, and Stripe checkout configuration.
 
 ### Whitelabel Metrics
 

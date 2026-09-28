@@ -49,14 +49,14 @@ const BPS_DENOMINATOR: i128 = 10_000;
 //!    Token(id)   — Token           (owner + metadata)
 
 use soroban_sdk::{
-    contract, contractimpl, contracttype, panic_with_error, symbol_short,
-    Address, Env, String, Vec,
+    contract, contractimpl, contracttype, panic_with_error, symbol_short, token,
+    Address, Env, String, Symbol, Vec,
 };
 use harvesta_errors::{HarvestaError, NftError};
 
 // ── Error codes ───────────────────────────────────────────────────────────────
 
-/// Contract-specific error codes for the multi-issuer authority system.
+/// Contract-specific error codes for the multi-issuer authority system and protocol verification.
 #[soroban_sdk::contracterror]
 #[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 #[repr(u32)]
@@ -69,9 +69,69 @@ pub enum NftCertError {
     IssuerNotFound      = 302,
     /// Cannot remove the last issuer (would make minting impossible).
     CannotRemoveLastIssuer = 303,
+    /// Registered protocol project not found.
+    ProtocolProjectNotFound = 304,
+    /// Protocol project is already registered.
+    ProtocolProjectAlreadyExists = 305,
+    /// Protocol project is inactive or paused.
+    ProtocolProjectNotActive = 306,
+    /// Insufficient registered credits remaining on the protocol project.
+    InsufficientRegisteredCredits = 307,
+    /// Invalid parameters for protocol verification.
+    InvalidProtocolParameters = 308,
 }
 
 // ── Types ─────────────────────────────────────────────────────────────────────
+
+/// Certificate metadata attributes.
+#[contracttype]
+#[derive(Clone, Debug, PartialEq)]
+pub struct CertificateMetadata {
+    pub tree_count: i128,
+    pub co2_offset_kg: i128,
+    pub planting_date: String,
+    pub region: String,
+}
+
+/// Verification standard protocol (Verra or Gold Standard) — Issue #1383.
+#[contracttype]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[repr(u32)]
+pub enum VerificationProtocol {
+    VerraVcs = 1,
+    GoldStandard = 2,
+}
+
+/// A registered Verra or Gold Standard carbon project for automated validation (issue #1383).
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct ProtocolProject {
+    pub project_id: Symbol,
+    pub protocol: VerificationProtocol,
+    pub registry_id: String,      // e.g. "VCS-984" or "GS-1124"
+    pub standard_version: String, // e.g. "v4.4" or "GS4GG"
+    pub methodology: String,      // e.g. "VM0042" or "AR-ACM0003"
+    pub total_approved_credits_tonnes: u64,
+    pub issued_credits_tonnes: u64,
+    pub active: bool,
+    pub registered_at: u64,
+}
+
+/// On-chain audit record for an automatically validated and issued NFT certificate (issue #1383).
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct ProtocolValidationRecord {
+    pub token_id: u64,
+    pub project_id: Symbol,
+    pub protocol: VerificationProtocol,
+    pub registry_id: String,
+    pub credits_tonnes: u64,
+    pub recipient: Address,
+    pub serial_number_start: String,
+    pub serial_number_end: String,
+    pub registry_url: String,
+    pub verified_at: u64,
+}
 
 /// On-chain data stored for each certificate NFT.
 #[contracttype]
@@ -115,6 +175,10 @@ pub struct IssuerRecord {
 enum DataKey {
     /// Token record (persistent, keyed by token ID)
     Token(u64),
+    /// Protocol project registered under Verra or Gold Standard
+    ProtocolProject(Symbol),
+    /// Validation and issuance audit record, keyed by token ID
+    ProtocolValidation(u64),
 }
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -729,6 +793,190 @@ impl NftCertificate {
     pub fn token_uri(env: Env, token_id: u64) -> String {
         let _svg = Self::render_svg(env.clone(), token_id);
         String::from_str(&env, "data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"400\" height=\"400\"><rect width=\"100%\" height=\"100%\" fill=\"#1b4332\"/><text x=\"20\" y=\"40\" fill=\"#ffffff\">Harvesta NFT Certificate</text></svg>")
+    }
+
+    // ── Protocol Verification: Verra & Gold Standard (issue #1383) ────────────
+
+    /// Register a verified Verra or Gold Standard carbon project. Admin only.
+    pub fn register_protocol_project(
+        env: Env,
+        project_id: Symbol,
+        protocol: VerificationProtocol,
+        registry_id: String,
+        standard_version: String,
+        methodology: String,
+        total_approved_credits_tonnes: u64,
+    ) {
+        Self::require_admin(&env);
+
+        if total_approved_credits_tonnes == 0 {
+            panic_with_error!(&env, NftCertError::InvalidProtocolParameters);
+        }
+
+        let key = DataKey::ProtocolProject(project_id.clone());
+        if env.storage().persistent().has(&key) {
+            panic_with_error!(&env, NftCertError::ProtocolProjectAlreadyExists);
+        }
+
+        let project = ProtocolProject {
+            project_id: project_id.clone(),
+            protocol,
+            registry_id,
+            standard_version,
+            methodology,
+            total_approved_credits_tonnes,
+            issued_credits_tonnes: 0,
+            active: true,
+            registered_at: env.ledger().timestamp(),
+        };
+
+        env.storage().persistent().set(&key, &project);
+
+        env.events().publish(
+            (symbol_short!("proto_reg"), project_id),
+            total_approved_credits_tonnes,
+        );
+    }
+
+    /// Automatically validate carbon credits against a registered Verra or Gold Standard
+    /// project and issue the corresponding NFT certificate.
+    pub fn validate_and_issue_protocol_nft(
+        env: Env,
+        issuer: Address,
+        project_id: Symbol,
+        to: Address,
+        token_id: u64,
+        credits_tonnes: u64,
+        serial_number_start: String,
+        serial_number_end: String,
+        registry_url: String,
+        metadata: CertificateMetadata,
+    ) -> u64 {
+        Self::assert_not_paused(&env);
+        issuer.require_auth();
+
+        if !Self::check_is_issuer(&env, &issuer) {
+            panic_with_error!(&env, NftCertError::NotAuthorizedIssuer);
+        }
+
+        if credits_tonnes == 0 {
+            panic_with_error!(&env, NftCertError::InvalidProtocolParameters);
+        }
+        if metadata.tree_count <= 0 || metadata.co2_offset_kg <= 0 {
+            panic_with_error!(&env, HarvestaError::Co2MustBePositive);
+        }
+
+        // 1. Automatically validate against registered protocol project
+        let proj_key = DataKey::ProtocolProject(project_id.clone());
+        let mut project: ProtocolProject = env
+            .storage()
+            .persistent()
+            .get(&proj_key)
+            .unwrap_or_else(|| panic_with_error!(&env, NftCertError::ProtocolProjectNotFound));
+
+        if !project.active {
+            panic_with_error!(&env, NftCertError::ProtocolProjectNotActive);
+        }
+
+        let remaining = project
+            .total_approved_credits_tonnes
+            .checked_sub(project.issued_credits_tonnes)
+            .unwrap_or(0);
+
+        if credits_tonnes > remaining {
+            panic_with_error!(&env, NftCertError::InsufficientRegisteredCredits);
+        }
+
+        // 2. Prevent token ID collisions
+        let token_key = DataKey::Token(token_id);
+        if env.storage().persistent().has(&token_key) {
+            panic_with_error!(&env, NftError::TokenAlreadyMinted);
+        }
+
+        // 3. Update project issued allocation
+        project.issued_credits_tonnes = project
+            .issued_credits_tonnes
+            .checked_add(credits_tonnes)
+            .expect("overflow in issued credits");
+        env.storage().persistent().set(&proj_key, &project);
+
+        // 4. Mint NFT certificate to recipient
+        env.storage().persistent().set(
+            &token_key,
+            &Token {
+                owner: to.clone(),
+                original_planter: to.clone(),
+                issuer: issuer.clone(),
+                metadata,
+                soulbound: false,
+            },
+        );
+
+        let count: u64 = env
+            .storage()
+            .instance()
+            .get(&symbol_short!("TOK_COUNT"))
+            .unwrap_or(0);
+        env.storage().instance().set(
+            &symbol_short!("TOK_COUNT"),
+            &count.checked_add(1).expect("token count overflow"),
+        );
+
+        // 5. Store validation audit trail
+        let validation_record = ProtocolValidationRecord {
+            token_id,
+            project_id: project_id.clone(),
+            protocol: project.protocol,
+            registry_id: project.registry_id.clone(),
+            credits_tonnes,
+            recipient: to.clone(),
+            serial_number_start,
+            serial_number_end,
+            registry_url,
+            verified_at: env.ledger().timestamp(),
+        };
+        env.storage()
+            .persistent()
+            .set(&DataKey::ProtocolValidation(token_id), &validation_record);
+
+        env.events().publish(
+            (symbol_short!("proto_nft"), project_id),
+            (token_id, to, credits_tonnes),
+        );
+
+        token_id
+    }
+
+    /// Check if credits are valid and available under a registered project.
+    pub fn validate_protocol_credits(env: Env, project_id: Symbol, credits_tonnes: u64) -> bool {
+        let proj_key = DataKey::ProtocolProject(project_id);
+        if let Some(project) = env.storage().persistent().get::<DataKey, ProtocolProject>(&proj_key) {
+            if !project.active {
+                return false;
+            }
+            let remaining = project
+                .total_approved_credits_tonnes
+                .saturating_sub(project.issued_credits_tonnes);
+            credits_tonnes > 0 && credits_tonnes <= remaining
+        } else {
+            false
+        }
+    }
+
+    /// Retrieve the registered Verra/Gold Standard project.
+    pub fn get_protocol_project(env: Env, project_id: Symbol) -> ProtocolProject {
+        env.storage()
+            .persistent()
+            .get(&DataKey::ProtocolProject(project_id))
+            .unwrap_or_else(|| panic_with_error!(&env, NftCertError::ProtocolProjectNotFound))
+    }
+
+    /// Retrieve the validation audit record for an issued NFT.
+    pub fn get_protocol_validation(env: Env, token_id: u64) -> ProtocolValidationRecord {
+        env.storage()
+            .persistent()
+            .get(&DataKey::ProtocolValidation(token_id))
+            .unwrap_or_else(|| panic_with_error!(&env, NftError::TokenNotFound))
     }
 
     // ── Internal ──────────────────────────────────────────────────────

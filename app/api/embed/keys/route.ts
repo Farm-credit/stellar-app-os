@@ -11,9 +11,9 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import {
   createEmbedApiKey,
-  validateApiKey,
-  EmbedConfig,
+  listEmbedApiKeys,
 } from '@/backend/src/services/carbonOffsetApi';
+import { isValidAllowedDomain } from '@/backend/src/services/carbonOffsetSecurity';
 
 /**
  * POST /api/embed/keys
@@ -36,6 +36,26 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
     }
 
+    if (body.allowedDomains.some((domain: unknown) => typeof domain !== 'string' || !isValidAllowedDomain(domain))) {
+      return NextResponse.json({ error: 'allowedDomains must contain valid hostnames' }, { status: 400 });
+    }
+
+    if (body.primaryColor && (typeof body.primaryColor !== 'string' || !/^#[0-9a-fA-F]{6}$/.test(body.primaryColor))) {
+      return NextResponse.json({ error: 'primaryColor must be a 6-digit hex color' }, { status: 400 });
+    }
+
+    if (body.theme !== undefined && !['light', 'dark', 'auto'].includes(body.theme)) {
+      return NextResponse.json({ error: 'theme must be light, dark, or auto' }, { status: 400 });
+    }
+
+    if (body.currency !== undefined && !['USD', 'EUR', 'GBP'].includes(body.currency)) {
+      return NextResponse.json({ error: 'currency must be USD, EUR, or GBP' }, { status: 400 });
+    }
+
+    if (body.showBranding !== undefined && typeof body.showBranding !== 'boolean') {
+      return NextResponse.json({ error: 'showBranding must be a boolean' }, { status: 400 });
+    }
+
     const result = await createEmbedApiKey({
       companyId: session.user.companyId,
       name: body.name,
@@ -49,6 +69,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       locale: body.locale,
       webhookUrl: body.webhookUrl,
       metadata: body.metadata,
+      widgetTitle: body.widgetTitle,
+      brandName: body.brandName,
+      showBranding: body.showBranding,
     });
 
     return NextResponse.json({
@@ -77,9 +100,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // In production, would fetch from database
-    // For now, return empty array
-    return NextResponse.json({ keys: [] });
+    const keys = await listEmbedApiKeys(session.user.companyId);
+    return NextResponse.json({ keys });
 
   } catch (error) {
     console.error('List embed API keys error:', error);

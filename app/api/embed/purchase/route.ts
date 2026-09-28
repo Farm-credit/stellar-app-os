@@ -11,8 +11,8 @@ import {
   validateApiKey,
   createOffsetPurchaseSession,
   OffsetPurchaseRequest,
-  EmbedConfig,
 } from '@/backend/src/services/carbonOffsetApi';
+import { isAllowedOrigin, isAllowedRedirectUrl } from '@/backend/src/services/carbonOffsetSecurity';
 
 /**
  * POST /api/embed/purchase
@@ -40,14 +40,50 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    const body = await request.json();
+    const origin = request.headers.get('origin');
+    if (!isAllowedOrigin(origin, config.allowedDomains)) {
+      return NextResponse.json({ error: 'Origin is not allowed for this API key' }, { status: 403 });
+    }
 
-    // Validate required fields
-    const requiredFields = ['projectId', 'amount', 'currency', 'customerEmail'];
-    for (const field of requiredFields) {
-      if (!body[field]) {
+    let body: Record<string, unknown>;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ error: 'Request body must be valid JSON' }, { status: 400 });
+    }
+
+    if (
+      typeof body.projectId !== 'string' ||
+      typeof body.amount !== 'number' || !Number.isFinite(body.amount) || body.amount <= 0 ||
+      typeof body.currency !== 'string' ||
+      typeof body.customerEmail !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.customerEmail)
+    ) {
+      return NextResponse.json(
+        { error: 'projectId, a positive amount, currency, and valid customerEmail are required' },
+        { status: 400 }
+      );
+    }
+
+    for (const field of ['returnUrl', 'cancelUrl'] as const) {
+      if (body[field] !== undefined && (typeof body[field] !== 'string' || !isAllowedRedirectUrl(body[field], config.allowedDomains))) {
         return NextResponse.json(
-          { error: `Missing required field: ${field}` },
+          { error: `${field} must use an allowed website origin` },
+          { status: 400 }
+        );
+      }
+    }
+
+    if (body.metadata !== undefined) {
+      const metadataIsValid =
+        typeof body.metadata === 'object' && body.metadata !== null &&
+        !Array.isArray(body.metadata) &&
+        Object.entries(body.metadata).length <= 20 &&
+        Object.entries(body.metadata).every(([key, value]) =>
+          key.length <= 40 && typeof value === 'string' && value.length <= 500
+        );
+      if (!metadataIsValid) {
+        return NextResponse.json(
+          { error: 'metadata must contain at most 20 string fields (keys up to 40 and values up to 500 characters)' },
           { status: 400 }
         );
       }
@@ -56,17 +92,26 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const purchaseRequest: OffsetPurchaseRequest = {
       projectId: body.projectId,
       amount: body.amount,
-      currency: body.currency,
+      currency: body.currency as OffsetPurchaseRequest['currency'],
       customerEmail: body.customerEmail,
-      customerName: body.customerName,
-      metadata: body.metadata,
-      returnUrl: body.returnUrl,
-      cancelUrl: body.cancelUrl,
+      customerName: typeof body.customerName === 'string' ? body.customerName : undefined,
+      metadata: typeof body.metadata === 'object' && body.metadata !== null && !Array.isArray(body.metadata)
+        ? body.metadata as Record<string, string>
+        : undefined,
+      returnUrl: typeof body.returnUrl === 'string'
+        ? body.returnUrl
+        : `${origin}/?carbon_offset=success&session_id={CHECKOUT_SESSION_ID}`,
+      cancelUrl: typeof body.cancelUrl === 'string'
+        ? body.cancelUrl
+        : `${origin}/?carbon_offset=cancelled`,
     };
 
-    const response = await createOffsetPurchaseSession(config as any, purchaseRequest);
+    const response = await createOffsetPurchaseSession(config, purchaseRequest);
 
-    return NextResponse.json(response, { status: 201 });
+    return NextResponse.json(response, {
+      status: 201,
+      headers: { 'Access-Control-Allow-Origin': origin, Vary: 'Origin' },
+    });
 
   } catch (error) {
     console.error('Create purchase session error:', error);
@@ -75,4 +120,16 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       { status: 500 }
     );
   }
+}
+
+export async function OPTIONS(): Promise<NextResponse> {
+  return new NextResponse(null, {
+    status: 204,
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Authorization, Content-Type',
+      'Access-Control-Max-Age': '600',
+    },
+  });
 }

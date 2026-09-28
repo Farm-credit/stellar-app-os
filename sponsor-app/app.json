@@ -30,7 +30,10 @@
       }
     },
     "android": {
-      "predictiveBackGestureEnabled": false
+      "package": "app.farmcredit.sponsor",
+      "versionCode": 1,
+      "predictiveBackGestureEnabled": false,
+      "googleServicesFile": "./google-services.json"
     }
   }
 }

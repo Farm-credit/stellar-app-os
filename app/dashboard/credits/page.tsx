@@ -13,10 +13,11 @@ function CreditsContent() {
       <div className="space-y-6">
         <div>
           <Text variant="h2" as="h1" className="mb-2">
-            My Carbon Credits
+            Buyer Portfolio
           </Text>
           <Text variant="muted" as="p">
-            View and manage your carbon credit portfolio in real-time.
+            Track your purchased credits, including quantity, cost, retirement date, and project
+            co-benefits.
           </Text>
         </div>
 
@@ -34,7 +35,7 @@ export default function DashboardCreditsPage() {
           <div className="space-y-6">
             <div>
               <Text variant="h2" as="h1" className="mb-2">
-                My Carbon Credits
+                Buyer Portfolio
               </Text>
               <Text variant="muted" as="p">
                 Loading your portfolio...

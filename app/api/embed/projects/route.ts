@@ -7,9 +7,8 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
-import { getEmbeddableProjects } from '@/backend/src/services/carbonOffsetApi';
+import { getEmbeddableProjects, validateApiKey } from '@/backend/src/services/carbonOffsetApi';
+import { isAllowedOrigin } from '@/backend/src/services/carbonOffsetSecurity';
 
 /**
  * GET /api/embed/projects
@@ -18,14 +17,38 @@ import { getEmbeddableProjects } from '@/backend/src/services/carbonOffsetApi';
  */
 export async function GET(request: NextRequest): Promise<NextResponse> {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.companyId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const authorization = request.headers.get('authorization');
+    const apiKey = authorization?.startsWith('Bearer ') ? authorization.slice(7) : '';
+    const config = apiKey ? await validateApiKey(apiKey) : null;
+    if (!config) {
+      return NextResponse.json({ error: 'Missing or invalid API key' }, { status: 401 });
     }
 
-    const projects = await getEmbeddableProjects(session.user.companyId);
+    const origin = request.headers.get('origin');
+    if (!isAllowedOrigin(origin, config.allowedDomains)) {
+      return NextResponse.json({ error: 'Origin is not allowed for this API key' }, { status: 403 });
+    }
 
-    return NextResponse.json({ projects });
+    const projects = await getEmbeddableProjects(config.companyId);
+
+    return NextResponse.json(
+      {
+        projects,
+        config: {
+          theme: config.theme,
+          primaryColor: config.primaryColor,
+          showProjectSelector: config.showProjectSelector,
+          defaultProjectId: config.defaultProjectId,
+          defaultAmount: config.defaultAmount,
+          currency: config.currency,
+          locale: config.locale,
+          widgetTitle: config.widgetTitle,
+          brandName: config.brandName,
+          showBranding: config.showBranding,
+        },
+      },
+      { headers: { 'Access-Control-Allow-Origin': origin!, Vary: 'Origin' } }
+    );
 
   } catch (error) {
     console.error('List embeddable projects error:', error);
@@ -34,4 +57,16 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       { status: 500 }
     );
   }
+}
+
+export async function OPTIONS(): Promise<NextResponse> {
+  return new NextResponse(null, {
+    status: 204,
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, OPTIONS',
+      'Access-Control-Allow-Headers': 'Authorization, Content-Type',
+      'Access-Control-Max-Age': '600',
+    },
+  });
 }

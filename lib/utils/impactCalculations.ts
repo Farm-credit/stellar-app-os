@@ -26,8 +26,11 @@ export function calculateEnergyEmissions(energy: EnergyInput): number {
   const electricity = energy.electricityKwhPerMonth * 12 * EMISSION_FACTORS.electricityKwh;
   const gas = energy.gasThermPerMonth * 12 * EMISSION_FACTORS.gasTherms;
   const renewableReduction = 1 - energy.renewablePercentage / 100;
+  // Household bills represent the whole home. Attribute an equal share to the
+  // individual completing the calculator, while keeping single-person homes intact.
+  const householdSize = Math.max(1, energy.householdSize);
 
-  return Math.max(0, (electricity + gas) * renewableReduction);
+  return Math.max(0, ((electricity + gas) * renewableReduction) / householdSize);
 }
 
 export function calculateLifestyleEmissions(lifestyle: LifestyleInput): number {

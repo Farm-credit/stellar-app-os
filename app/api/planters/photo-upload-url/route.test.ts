@@ -86,7 +86,7 @@ describe('tree photo signed uploads', () => {
   it('does not leak AWS errors', async () => {
     createPhotoUploadUrl.mockRejectedValueOnce(new Error('AWS secret detail'));
     const response = await POST(
-      request({ treeId: 'TREE', contentType: 'image/webp', contentLength: 10 }) as never
+      request({ treeId: 'TREE', contentType: 'image/jpeg', contentLength: 10 }) as never
     );
     expect(response.status).toBe(503);
     expect(await response.json()).toEqual({ error: 'Photo upload is temporarily unavailable' });

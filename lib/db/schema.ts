@@ -297,6 +297,35 @@ export interface ApiKeyUsageRow {
   updated_at: Date;
 }
 
+// ── Planting Locations (migration 024) ───────────────────────────────────────
+
+export interface PlantingLocationRow {
+  id: number;
+  name: string;
+  description: string;
+  latitude: number;
+  longitude: number;
+  region: string;
+  climate: string;
+  species: string[];
+  available_capacity: number;
+  created_at: Date;
+  updated_at: Date;
+}
+
+/** Frontend-facing shape — snake→camel, species slugs resolved to names optional. */
+export interface PlantingLocation {
+  id: number;
+  name: string;
+  description: string;
+  latitude: number;
+  longitude: number;
+  region: string;
+  climate: string;
+  species: string[];
+  availableCapacity: number;
+}
+
 // ── Joined view type (common API response shape) ──────────────────────────────
 
 /** Convenience type: tree row joined with planter display name and species. */

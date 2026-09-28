@@ -1,12 +1,17 @@
 import { Button } from '@/components/atoms/Button';
 import { CreditStatusBadge } from '@/components/atoms/CreditStatusBadge';
 import { Text } from '@/components/atoms/Text';
-import type { CreditHolding } from '@/lib/types/credits';
+import type { OwnedCredit } from '@/lib/types/credits';
 
 interface CreditRowProps {
-  credit: CreditHolding;
-  onTrade: (credit: CreditHolding) => void;
-  onRetire: (credit: CreditHolding) => void;
+  credit: OwnedCredit;
+  onTrade: (credit: OwnedCredit) => void;
+  onRetire: (credit: OwnedCredit) => void;
+}
+
+function formatRetirementDate(value: string): string {
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? value : parsed.toLocaleDateString('en-US');
 }
 
 export function CreditRow({ credit, onTrade, onRetire }: CreditRowProps) {
@@ -20,6 +25,29 @@ export function CreditRow({ credit, onTrade, onRetire }: CreditRowProps) {
           </Text>
           <CreditStatusBadge status={credit.status} />
         </div>
+        <Text variant="small" as="p" className="text-muted-foreground">
+          Retirement date:{' '}
+          <span className="font-medium text-foreground">
+            {credit.retirementDate ? formatRetirementDate(credit.retirementDate) : 'Not retired'}
+          </span>
+        </Text>
+        {credit.coBenefits.length > 0 && (
+          <div className="pt-1">
+            <Text variant="small" as="span" className="mr-2 text-muted-foreground">
+              Co-benefits:
+            </Text>
+            <ul className="inline-flex flex-wrap gap-1 align-middle" aria-label="Co-benefits">
+              {credit.coBenefits.map((benefit) => (
+                <li
+                  key={benefit}
+                  className="rounded-full bg-stellar-green/10 px-2 py-0.5 text-xs text-stellar-green"
+                >
+                  {benefit}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-2 gap-4 sm:flex sm:items-center sm:gap-6">
@@ -53,6 +81,19 @@ export function CreditRow({ credit, onTrade, onRetire }: CreditRowProps) {
           <Text variant="body" as="p" className="font-semibold text-stellar-blue">
             $
             {credit.totalValue.toLocaleString('en-US', {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            })}
+          </Text>
+        </div>
+
+        <div className="text-right">
+          <Text variant="small" as="p" className="mb-0.5 text-muted-foreground">
+            Purchase Cost
+          </Text>
+          <Text variant="body" as="p" className="font-semibold">
+            $
+            {(credit.purchaseCost ?? credit.totalValue).toLocaleString('en-US', {
               minimumFractionDigits: 2,
               maximumFractionDigits: 2,
             })}

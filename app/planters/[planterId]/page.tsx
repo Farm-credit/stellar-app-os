@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation';
 import dynamic from 'next/dynamic';
-import { Award, Camera, CheckCircle2, Clock3, MapPin } from 'lucide-react';
+import { Award, Camera, CheckCircle2, Clock3, MapPin, MessageCircle } from 'lucide-react';
 import { getPlanterProfile } from '@/lib/api/planters';
 import ReferralLinkCard from '@/components/ReferralLinkCard';
 import { getPlanterReferralUrl } from '@/lib/referrals';
@@ -70,6 +70,13 @@ export default async function PlanterProfilePage({
               </div>
             </div>
             <p className="max-w-2xl text-sm leading-7 text-slate-600">{profile.about}</p>
+            <a
+              href={`mailto:${profile.id}@example.com?subject=Custom Deal Inquiry`}
+              className="inline-flex w-fit items-center justify-center gap-2 rounded-xl bg-emerald-600 px-6 py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-emerald-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600"
+            >
+              <MessageCircle className="h-5 w-5" aria-hidden />
+              Contact for Custom Deal
+            </a>
             <ReferralLinkCard referralLink={getPlanterReferralUrl(profile.id)} />
             <p className="text-sm font-medium text-emerald-700">
               Earn 5 XLM when a new sponsor uses your link.

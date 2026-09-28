@@ -1,0 +1,25 @@
+name: Marketplace Settlement
+on:
+  schedule:
+    - cron: '0 * * * *'
+  workflow_dispatch: {}
+concurrency:
+  group: marketplace-settlement
+  cancel-in-progress: false
+jobs:
+  settle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm settlement:run
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          SETTLEMENT_API_URL: ${{ secrets.SETTLEMENT_API_URL }}
+          SETTLEMENT_WORKER_TOKEN: ${{ secrets.SETTLEMENT_WORKER_TOKEN }}

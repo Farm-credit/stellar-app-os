@@ -3,6 +3,23 @@ import type { Pool } from 'pg';
 
 const STELLAR_ADDRESS_PATTERN = /^G[A-Z2-7]{55}$/;
 
+const MILESTONE_STATUSES = new Set(['planted', 'verified', 'completed']);
+
+export type TeamForestMilestoneStatus = 'planted' | 'verified' | 'completed';
+
+export interface TeamForestPhoto {
+  treeRef: string;
+  mediaUrl: string;
+  submittedAt: string;
+}
+
+export interface TeamForestMilestone {
+  treeRef: string;
+  species: string;
+  status: TeamForestMilestoneStatus;
+  occurredAt: string;
+}
+
 export interface TeamForestSummary {
   id: string;
   name: string;
@@ -19,6 +36,8 @@ export interface TeamForestSummary {
   }>;
   totalTrees: number;
   totalCo2OffsetKgPerYear: number;
+  recentPhotos: TeamForestPhoto[];
+  recentMilestones: TeamForestMilestone[];
 }
 
 export function isValidTeamWallet(wallet: string): boolean {
@@ -31,6 +50,15 @@ export function normalizeTeamName(name: string): string {
 
 export function createInviteCode(): string {
   return randomBytes(6).toString('base64url');
+}
+
+/**
+ * A tree lifecycle status counts as a "milestone" worth celebrating on the
+ * team forest dashboard — 'funded' is just the starting point and 'failed'
+ * is not a celebration.
+ */
+export function isMilestoneStatus(status: string | null): status is TeamForestMilestoneStatus {
+  return status !== null && MILESTONE_STATUSES.has(status);
 }
 
 async function assertMember(pool: Pick<Pool, 'query'>, teamId: string, wallet: string) {
@@ -127,34 +155,57 @@ export async function getSponsorTeam(
   wallet: string
 ): Promise<TeamForestSummary> {
   await assertMember(pool, teamId, wallet);
-  const [teamResult, membersResult, treesResult] = await Promise.all([
-    pool.query<{ id: string; name: string; owner_wallet: string; invite_code: string }>(
-      'SELECT id, name, owner_wallet, invite_code FROM sponsor_teams WHERE id = $1',
-      [teamId]
-    ),
-    pool.query<{ wallet: string; role: 'owner' | 'member'; joined_at: string }>(
-      `SELECT wallet, role, joined_at FROM sponsor_team_members
-       WHERE team_id = $1 ORDER BY joined_at ASC`,
-      [teamId]
-    ),
-    pool.query<{
-      id: string;
-      tree_ref: string;
-      species: string;
-      region: string;
-      status: string;
-      co2_offset_kg_per_year: string | number;
-    }>(
-      `SELECT t.id, t.tree_ref, COALESCE(sc.name, t.species_slug, 'Unknown') AS species,
-              t.region, t.status, COALESCE(sc.co2_kg_per_year, 0) AS co2_offset_kg_per_year
-       FROM sponsor_team_trees stt
-       JOIN trees t ON t.id = stt.tree_id
-       LEFT JOIN species_catalogue sc ON sc.slug = t.species_slug
-       WHERE stt.team_id = $1 AND t.deleted_at IS NULL
-       ORDER BY stt.added_at DESC`,
-      [teamId]
-    ),
-  ]);
+  const [teamResult, membersResult, treesResult, photosResult, milestonesResult] =
+    await Promise.all([
+      pool.query<{ id: string; name: string; owner_wallet: string; invite_code: string }>(
+        'SELECT id, name, owner_wallet, invite_code FROM sponsor_teams WHERE id = $1',
+        [teamId]
+      ),
+      pool.query<{ wallet: string; role: 'owner' | 'member'; joined_at: string }>(
+        `SELECT wallet, role, joined_at FROM sponsor_team_members
+         WHERE team_id = $1 ORDER BY joined_at ASC`,
+        [teamId]
+      ),
+      pool.query<{
+        id: string;
+        tree_ref: string;
+        species: string;
+        region: string;
+        status: string;
+        co2_offset_kg_per_year: string | number;
+      }>(
+        `SELECT t.id, t.tree_ref, COALESCE(sc.name, t.species_slug, 'Unknown') AS species,
+                t.region, t.status, COALESCE(sc.co2_kg_per_year, 0) AS co2_offset_kg_per_year
+         FROM sponsor_team_trees stt
+         JOIN trees t ON t.id = stt.tree_id
+         LEFT JOIN species_catalogue sc ON sc.slug = t.species_slug
+         WHERE stt.team_id = $1 AND t.deleted_at IS NULL
+         ORDER BY stt.added_at DESC`,
+        [teamId]
+      ),
+      pool.query<{ tree_ref: string; media_url: string; created_at: string }>(
+        `SELECT DISTINCT ON (pu.tree_id) t.tree_ref, pu.media_url, pu.created_at
+         FROM progress_updates pu
+         JOIN sponsor_team_trees stt ON stt.team_id = $1 AND stt.tree_id = pu.tree_id
+         JOIN trees t ON t.id = pu.tree_id
+         WHERE pu.update_type = 'photo_submitted' AND pu.media_url IS NOT NULL
+         ORDER BY pu.tree_id, pu.created_at DESC`,
+        [teamId]
+      ),
+      pool.query<{ tree_ref: string; species: string; to_status: string; created_at: string }>(
+        `SELECT t.tree_ref, COALESCE(sc.name, t.species_slug, 'Unknown') AS species,
+                pu.to_status, pu.created_at
+         FROM progress_updates pu
+         JOIN sponsor_team_trees stt ON stt.team_id = $1 AND stt.tree_id = pu.tree_id
+         JOIN trees t ON t.id = pu.tree_id
+         LEFT JOIN species_catalogue sc ON sc.slug = t.species_slug
+         WHERE pu.update_type = 'status_change'
+           AND pu.to_status IN ('planted', 'verified', 'completed')
+         ORDER BY pu.created_at DESC
+         LIMIT 10`,
+        [teamId]
+      ),
+    ]);
 
   const team = teamResult.rows[0];
   if (!team) throw new Error('Team not found');
@@ -166,6 +217,21 @@ export async function getSponsorTeam(
     status: tree.status,
     co2OffsetKgPerYear: Number(tree.co2_offset_kg_per_year ?? 0),
   }));
+
+  const recentPhotos: TeamForestPhoto[] = photosResult.rows.map((photo) => ({
+    treeRef: photo.tree_ref,
+    mediaUrl: photo.media_url,
+    submittedAt: photo.created_at,
+  }));
+
+  const recentMilestones: TeamForestMilestone[] = milestonesResult.rows
+    .filter((row) => isMilestoneStatus(row.to_status))
+    .map((row) => ({
+      treeRef: row.tree_ref,
+      species: row.species,
+      status: row.to_status as TeamForestMilestoneStatus,
+      occurredAt: row.created_at,
+    }));
 
   return {
     id: team.id,
@@ -180,5 +246,7 @@ export async function getSponsorTeam(
     trees,
     totalTrees: trees.length,
     totalCo2OffsetKgPerYear: trees.reduce((total, tree) => total + tree.co2OffsetKgPerYear, 0),
+    recentPhotos,
+    recentMilestones,
   };
 }

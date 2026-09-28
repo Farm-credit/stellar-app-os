@@ -1,0 +1,49 @@
+// Prisma schema for the Stellar Farm Credit application.
+//
+// NOTE: This schema documents the data model in Prisma format per the
+// sponsor-map feature request. The production app uses raw SQL migrations
+// under db/migrations/ with the `pg` driver (see lib/db/client.ts).
+// To keep both in sync, mirror any model change here into a new SQL
+// migration file (e.g. db/migrations/NNN_description.sql).
+//
+// Usage (if you later switch the app to Prisma ORM):
+//   npx prisma generate
+//   npx prisma migrate dev --name <description>
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ── PlantingLocation ─────────────────────────────────────────────────────────
+//
+// Browseable, filterable tree-planting sites displayed on the sponsor map.
+//
+// Required environment for this model:
+//   DATABASE_URL — standard PostgreSQL connection string
+
+model PlantingLocation {
+  id                Int       @id @default(autoincrement())
+  name              String    @db.VarChar(200)
+  description       String    @db.Text
+  latitude          Float     @db.DoublePrecision
+  longitude         Float     @db.DoublePrecision
+  region            String    @db.VarChar(100) // e.g. "North America", "Sub-Saharan Africa"
+  climate           String    @db.VarChar(50)  // e.g. "Tropical", "Arid", "Temperate"
+  species           String[]                     // PostgreSQL TEXT[] — slugs matching species_catalogue.slug
+  availableCapacity Int       @default(0)
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+
+  // Optional: if you later relate this to existing DB tables, uncomment:
+  // trees             Tree[]
+
+  @@index([region])
+  @@index([climate])
+  @@index([latitude, longitude])
+  @@map("planting_locations")
+}

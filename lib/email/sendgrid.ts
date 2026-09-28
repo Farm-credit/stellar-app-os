@@ -228,3 +228,34 @@ export async function sendTreasuryDailySummaryEmail(
     html: `<p><strong>Treasury Daily Summary</strong></p><table style="border-collapse:collapse;width:100%;">${htmlLines.join('')}</table><p>Alert threshold: ${threshold}</p>`,
   });
 }
+
+export interface GiftCertificateEmailParams {
+  to: string;
+  subject: string;
+  text: string;
+  html: string;
+  pdf: { fileName: string; content: ArrayBuffer };
+}
+
+/** Sends a gift sponsorship certificate (Issue #1107) with the PDF attached. */
+export async function sendGiftCertificateEmail(
+  params: GiftCertificateEmailParams
+): Promise<boolean> {
+  if (!isEmailConfigured()) return false;
+  await sgMail.send({
+    to: params.to,
+    from: FROM,
+    subject: params.subject,
+    text: params.text,
+    html: params.html,
+    attachments: [
+      {
+        content: Buffer.from(params.pdf.content).toString('base64'),
+        filename: params.pdf.fileName,
+        type: 'application/pdf',
+        disposition: 'attachment',
+      },
+    ],
+  });
+  return true;
+}

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { TrendingUp, RefreshCw, AlertCircle, Wallet } from 'lucide-react';
+import { TrendingUp, RefreshCw, AlertCircle, Wallet, Receipt } from 'lucide-react';
 import { Button } from '@/components/atoms/Button';
 import { Text } from '@/components/atoms/Text';
 import {
@@ -108,7 +108,7 @@ function CreditPortfolioContent() {
   return (
     <div className="space-y-6">
       {/* Portfolio Stats */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <StatCard
           label="Total Credits"
           value={`${stats.totalCredits.toLocaleString('en-US', {
@@ -116,6 +116,16 @@ function CreditPortfolioContent() {
             maximumFractionDigits: 2,
           })} tons`}
           icon={<TrendingUp className="h-5 w-5 text-stellar-blue" />}
+          loading={isLoading}
+        />
+        <StatCard
+          label="Total invested"
+          value={`$${stats.totalCost.toLocaleString('en-US', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          })}`}
+          icon={<Receipt className="h-5 w-5 text-stellar-purple" />}
+          variant="accent"
           loading={isLoading}
         />
         <StatCard
@@ -145,8 +155,10 @@ function CreditPortfolioContent() {
       <Card>
         <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <CardTitle>Your Carbon Credits</CardTitle>
-            <CardDescription>Manage your portfolio of verified carbon credits</CardDescription>
+            <CardTitle>Owned carbon credits</CardTitle>
+            <CardDescription>
+              Track each purchase, retirement date, and the co-benefits supported by its project.
+            </CardDescription>
           </div>
           <Button
             stellar="primary"

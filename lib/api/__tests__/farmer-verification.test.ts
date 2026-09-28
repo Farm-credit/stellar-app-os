@@ -133,6 +133,15 @@ describe('getFarmerVerification', () => {
     expect(result.report.verificationStatus).toBe('verified');
   });
 
+  it('can emit the v1 contract for legacy partner integrations', async () => {
+    const { db } = stubDb([row({ status: 'approved' })]);
+    const result = await getFarmerVerification(db, FARMER, 'v1');
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.report.apiVersion).toBe('v1');
+    expect(result.report.credit.available).toBe(true);
+  });
+
   it('reports consent_denied instead of a redacted record', async () => {
     const { db } = stubDb([row({ consent_granted: false })]);
     const result = await getFarmerVerification(db, FARMER);

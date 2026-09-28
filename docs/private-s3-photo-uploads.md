@@ -11,7 +11,7 @@ Content-Type: application/json
 ```
 
 The response includes a server-generated `key`, `uploadUrl`, expiry, method,
-and the exact headers for the subsequent `PUT`. JPEG, PNG, and WebP files up
+and the exact headers for the subsequent `PUT`. JPEG and PNG files up
 to 5 MB are accepted. Clients must send the declared content type and length.
 
 ## Environment

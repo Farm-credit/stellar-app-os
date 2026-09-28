@@ -52,6 +52,7 @@ export default function App() {
           accessibilityRole="button"
           accessibilityLabel="Unlock the app"
           onPress={() => void authenticateWithBiometrics().then(setUnlocked)}
+          android_ripple={{ color: '#0d90b8' }}
           style={({ pressed }) => [styles.unlockButton, pressed && styles.unlockPressed]}
         >
           <Text style={styles.unlockText}>Unlock</Text>
@@ -79,6 +80,7 @@ export default function App() {
               accessibilityLabel={label}
               accessibilityState={{ selected }}
               onPress={() => setTab(id)}
+              android_ripple={{ color: '#e0e0e0' }}
               style={[styles.tab, selected && styles.tabSelected]}
             >
               <Text style={[styles.tabText, selected && styles.tabTextSelected]}>{label}</Text>
