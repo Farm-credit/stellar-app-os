@@ -7,6 +7,7 @@ import { ReviewCard } from '@/app/components/reviews/ReviewCard';
 import { TeamReviewSummary } from '@/app/components/reviews/TeamReviewSummary';
 import { Review, ReviewSummary } from '@/lib/types/review';
 import { CarbonOffsetCalculator } from '@/app/components/carbon/CarbonOffsetCalculator';
+import { AuctionPanel } from '@/app/components/marketplace/AuctionPanel';
 
 export default function SponsorReviewsPage() {
   const params = useParams();
@@ -17,6 +18,7 @@ export default function SponsorReviewsPage() {
   const [showForm, setShowForm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [showCalculator, setShowCalculator] = useState(false);
+  const [showAuction, setShowAuction] = useState(false);
 
   useEffect(() => {
     fetchReviews();
@@ -79,7 +81,13 @@ export default function SponsorReviewsPage() {
         </button>
       </div>
 
-      <div className="flex justify-end">
+      <div className="flex justify-end gap-3">
+        <button
+          onClick={() => setShowAuction(!showAuction)}
+          className="px-4 py-2 text-sm font-medium text-white bg-emerald-600 rounded-md hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500"
+        >
+          {showAuction ? 'Hide Auctions' : 'View Credit Auctions'}
+        </button>
         <button
           onClick={() => setShowCalculator(!showCalculator)}
           className="px-4 py-2 text-sm font-medium text-green-700 bg-green-50 border border-green-200 rounded-md hover:bg-green-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
@@ -87,6 +95,8 @@ export default function SponsorReviewsPage() {
           {showCalculator ? 'Hide Carbon Calculator' : 'Calculate My Carbon Offset'}
         </button>
       </div>
+
+      {showAuction && <AuctionPanel sponsorId={sponsorId} />}
 
       {showCalculator && <CarbonOffsetCalculator />}
 
