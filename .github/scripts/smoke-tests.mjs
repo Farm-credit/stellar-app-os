@@ -81,7 +81,7 @@ for (const check of CHECKS) {
     const bodyOk = !check.bodyContains || body.includes(check.bodyContains);
 
     if (statusOk && bodyOk) {
-      console.log(`✅ `  ${check.path} -- ${res.status}`);
+      console.log(`✅  ${check.path} - ${res.status}`);
       passed++;
     } else {
       const reason = !statusOk

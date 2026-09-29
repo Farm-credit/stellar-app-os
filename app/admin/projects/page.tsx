@@ -37,8 +37,8 @@ export default function AdminProjectsPage(): ReactNode {
         </Text>
       </div>
 
-      <div ref={scrollRef className="overflow-auto" style={ height: '600px' }}>
-        <div className="relative" style={ height: `${virtualizer.getTotalSize()}px` }>
+      <div ref={scrollRef} className="overflow-auto" style={{ height: '600px' }}>
+        <div className="relative" style={{ height: `${virtualizer.getTotalSize()}px` }}>
           {virtualizer.getVirtualItems().map((virtualItem) => {
             const project = mockAdminProjectDetails[virtualItem.index];
             return (
@@ -47,7 +47,7 @@ export default function AdminProjectsPage(): ReactNode {
                 ref={virtualizer.measureElement}
                 data-index={virtualItem.index}
                 className="absolute top-0 left-0 w-full"
-                style={ transform: `translateY(${virtualItem.start}px)` }
+                style={{ transform: `translateY(${virtualItem.start}px)` }}
               >
                 <div className="p-2">
                   <Card>
@@ -55,7 +55,7 @@ export default function AdminProjectsPage(): ReactNode {
                       <div>
                         <CardTitle className="text-xl">{project.name}</CardTitle>
                         <CardDescription>
-                          {project.id} •  {project.country} •  {project.type}
+                          {project.id} • {project.country} • {project.type}
                         </CardDescription>
                       </div>
                       <div className="flex flex-wrap gap-2">
@@ -68,7 +68,7 @@ export default function AdminProjectsPage(): ReactNode {
                     <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                       <p className="text-sm text-muted-foreground">{project.description}</p>
                       <Button asChild stellar="primary" className="shrink-0">
-                        <Link href={'/admin/projects/${project.id}'}>Open Detail View</Link>
+                        <Link href={`/admin/projects/${project.id}`}>Open Detail View</Link>
                       </Button>
                     </CardContent>
                   </Card>

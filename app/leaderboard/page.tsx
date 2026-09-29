@@ -25,6 +25,7 @@ import {
 } from '@/components/molecules/Card';
 import {
   Table,
+  TableBody,
   TableHeader,
   TableHead,
   TableRow,

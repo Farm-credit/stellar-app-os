@@ -5,6 +5,7 @@ import { CarbonChart } from './CarbonChart';
 import { BadgesList, type BadgeItem } from './BadgesList';
 import { SocialShareCard } from './SocialShareCard';
 import { CarbonCreditSwapWidget } from '@/components/organisms/CarbonCreditSwapWidget';
+import { SponsorImpactComparison } from '@/components/organisms/SponsorImpactComparison';
 import { Counter } from '@/components/atoms/Counter';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';

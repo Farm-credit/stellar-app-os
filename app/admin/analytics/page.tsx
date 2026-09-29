@@ -25,11 +25,11 @@ function formatNumber(value: number): string {
 }
 
 function formatXlm(value: number): string {
-  return `${new Int.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(value)} XLM`;
+  return `${new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(value)} XLM`;
 }
 
-function buildCsv(range: AnalyticsTimeRange, metrics: Record<string, number>); string {
-  const rows: string[] = ['metric,value', `time_range,${range}];
+function buildCsv(range: AnalyticsTimeRange, metrics: Record<string, number>): string {
+  const rows: string[] = ['metric,value', `time_range,${range}`];
   for (const [key, value] of Object.entries(metrics)) {
     rows.push(`${key},${value}`);
   }
@@ -150,7 +150,7 @@ export default function AdminAnalyticsPage() {
             id="analytics-range"
             selectSize="sm"
             value={range}
-            onChange?{ (event) => setRange(event.target.value as AnalyticsTimeRange) }
+            onChange={(event) => setRange(event.target.value as AnalyticsTimeRange)}
           >
             {(Object.keys(RANGE_LABELS) as AnalyticsTimeRange[]).map((value) => (
               <option key={value} value={value}>
@@ -166,7 +166,7 @@ export default function AdminAnalyticsPage() {
             disabled={!data}
             aria-label="Export analytics as CSV"
           >
-            <Download className="mr-2 h-4 x-4" aria-hidden="true" />
+            <Download className="mr-2 h-4 w-4" aria-hidden="true" />
             Export CSV
           </Button>
           <Button
@@ -217,7 +217,7 @@ export default function AdminAnalyticsPage() {
                     <div className="h-4 w-full animate-pulse rounded bg-muted" />
                   </CardContent>
                 </Card>
-              )
+              ))
             : cards.map((card) => {
                 const Icon = card.icon;
                 return (
@@ -227,14 +227,14 @@ export default function AdminAnalyticsPage() {
                         <Icon className="h-4 w-4" aria-hidden="true" />
                         {card.label}
                       </CardDescription>
-                      <CardTitle className="text-3x">{card.value}</CardTitle>
+                      <CardTitle className="text-3xl">{card.value}</CardTitle>
                     </CardHeader>
                     <CardContent>
                       <p className="text-sm text-muted-foreground">{card.detail}</p>
                     </CardContent>
                   </Card>
                 );
-              )}
+              })}
         </div>
       </section>
     </main>
