@@ -42,6 +42,7 @@ members = [
     "carbon-price-oracle",
     "community-offset-pool",
     "atomic-swap",
+    "carbon-insurance",
 ]
 resolver = "2"
 

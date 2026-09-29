@@ -332,6 +332,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d3fb67a6e08acf24fdeccbac2cb6ac4305825bd1f117462e0e6f2f193345ad56"
 
 [[package]]
+name = "atomic-swap"
+version = "0.1.0"
+dependencies = [
+ "soroban-sdk 21.7.7",
+]
+
+[[package]]
 name = "auth-contract"
 version = "0.1.0"
 dependencies = [
@@ -480,6 +487,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "carbon-insurance"
+version = "0.1.0"
+dependencies = [
+ "soroban-sdk 27.0.6",
+]
+
+[[package]]
 name = "carbon-marketplace"
 version = "0.1.0"
 dependencies = [
@@ -487,6 +501,13 @@ dependencies = [
  "harvesta-errors",
  "proptest",
  "soroban-sdk 27.0.6",
+]
+
+[[package]]
+name = "carbon-price-oracle"
+version = "0.1.0"
+dependencies = [
+ "soroban-sdk 21.7.7",
 ]
 
 [[package]]
@@ -526,6 +547,13 @@ dependencies = [
  "num-traits",
  "serde",
  "windows-link",
+]
+
+[[package]]
+name = "community-offset-pool"
+version = "0.1.0"
+dependencies = [
+ "soroban-sdk 27.0.6",
 ]
 
 [[package]]
@@ -2536,6 +2564,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6ce2be8dc25455e1f91df71bfa12ad37d7af1092ae736f3a6cd0e37bc7810596"
 
 [[package]]
+name = "staking-rewards"
+version = "0.1.0"
+dependencies = [
+ "soroban-sdk 21.7.7",
+]
+
+[[package]]
 name = "static_assertions"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2787,6 +2822,13 @@ dependencies = [
  "harvesta-errors",
  "proptest",
  "soroban-sdk 27.0.6",
+]
+
+[[package]]
+name = "tree-genetics"
+version = "0.1.0"
+dependencies = [
+ "soroban-sdk 21.7.7",
 ]
 
 [[package]]
