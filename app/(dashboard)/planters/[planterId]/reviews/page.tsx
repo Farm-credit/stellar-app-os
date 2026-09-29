@@ -43,7 +43,7 @@ export default function PlanterReviewsPage() {
       const response = await fetch(`/api/marketplace/auctions?planterId=${planterId}`);
       if (!response.ok) throw new Error('Failed to fetch auctions');
       const data = await response.json();
-      setAuctions(data.auctions);
+      setAuctions(data.auctions ?? []);
     } catch (error) {
       console.error('Error fetching auctions:', error);
     }
@@ -67,11 +67,10 @@ export default function PlanterReviewsPage() {
 
       <div className="space-y-4">
         <h2 className="text-xl font-semibold text-gray-900">Carbon Credit Auctions</h2>
-        <AuctionList auctions={auctions} onRefresh={fetchAuctions} />
+        <AuctionList auctions={auctions} planterId={planterId} />
       </div>
 
       <div className="space-y-4">
-        <h2 className="text-xl font-semibold text-gray-900">Recent Reviews</h2>
         {reviews.length === 0 ? (
           <p className="text-center text-gray-500 py-8">No reviews yet.</p>
         ) : (

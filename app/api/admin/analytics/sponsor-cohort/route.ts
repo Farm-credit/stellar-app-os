@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server';
-import { randomUUID } from 'crypto';
 
 import { getPool } from '@/lib/db/client';
 import {
@@ -7,46 +6,30 @@ import {
   refreshCohortRetention,
   getSponsorRetentionSummary,
 } from '@/lib/analytics/sponsor-cohort-retention';
-import { getAuctionService } from '@/lib/marketplace/auction-service';
 
 export const runtime = 'nodejs';
 
 export const dynamic = 'force-dynamic';
 
 /**
- * GET /api/admin/analytics/sponsor-cohort
+ * Get /api/admin/analytics/sponsor-cohort
  *
  * Returns the sponsor cohort retention matrix.
- * Also exposes auction state for the marketplace competitive bidding (v1).
  *
  * Query params:
  *   from       - filter cohorts from this month (YYYY-MM)
  *   to         - filter cohorts up to this month (YYYY-MM)
  *   max_periods - max period offsets to include (default 12)
  *   wallet     - if provided, returns a single sponsor's retention summary instead
- *   payment_method - optional filter by payment method (e.g. 'xlm' for Stellar)
- *   auction_id - if provided, returns the current state of a carbon credit auction
+ *   payment_method - optional filter by payment method (e.g. 'xlm' for Stellar, 'usdc', 'bank', 'fiat')
  */
 export async function GET(request: Request) {
   const url = new URL(request.url);
-  const wallet = url.searchParams.get('wallet')?.trim() ?? null;
+  const wallet = url.searchParams.get('wallet') ?? null;
   const paymentMethod = url.searchParams.get('payment_method') ?? undefined;
   const action = wallet ? 'view_sponsor_retention' : 'view_cohort_retention';
 
   try {
-    const auctionId = url.searchParams.get('auction_id')?.trim() ?? null;
-    if (auctionId) {
-      const auction = await getAuctionService(getPool()).getAuction(auctionId);
-      if (!auction) {
-        await logAuditEvent(request, 'view_auction', { auction_id: auctionId, status: 'not_found' });
-        return NextResponse.json({ error: 'Auction not found' }, { status: 404 });
-      }
-      await logAuditEvent(request, 'view_auction', { auction_id: auctionId, status: 'success' });
-      return NextResponse.json(auction, {
-        headers: { 'Cache-Control': 'private, s-maxage=5, stale-while-revalidate=10' },
-      });
-    }
-
     if (wallet) {
       const summary = await getSponsorRetentionSummary(getPool(), wallet);
       if (!summary) {
@@ -86,7 +69,7 @@ export async function GET(request: Request) {
 }
 
 /**
- * Generates IRS 1099 forms for sponsors with >$20k annual sponsorships.
+ * Generates ISS 1099 forms for sponsors with >$20k annual sponsorships.
  * This is a placeholder implementation that returns the list of eligible sponsors.
  * In production, this should generate actual PDF forms and store them securely.
  */
@@ -99,7 +82,7 @@ async function generate1099Forms(pool: any) {
       SUM(sp.amount) AS total_annual
     FROM sponsors s
     JOIN sponsorships sp ON sp.sponsor_id = s.id
-    WHERE sp.created_at >= NOW() - INTERVAL '1 year'
+    WHERE sp.created_at >= NOW() - INTERVAL 'y type'
     GROUP BY s.id, s.name, s.email
     HAVING SUM(sp.amount) > 20000
   `);
@@ -119,8 +102,6 @@ async function generate1099Forms(pool: any) {
  *
  * Triggers a cohort retention refresh (recomputes the snapshot table)
  * or generates 1099 forms for high-value sponsors.
- * Also handles marketplace auction actions: create an auction, place a bid,
- * or settle an auction to the highest bidder.
  *
  * Query params:
  *   action \u2014 optional. Set to 'generate_1099' to generate tax forms.
@@ -129,65 +110,8 @@ async function generate1099Forms(pool: any) {
 export async function POST(request: Request) {
   const url = new URL(request.url);
   const action = url.searchParams.get('action');
-  const auctionService = getAuctionService(getPool());
 
   try {
-    if (action === 'create_auction' || action === 'place_bid' || action === 'settle_auction') {
-      const body = await request.json().catch(() => ({}));
-      const actor =
-        request.headers.get('x-admin-user') ||
-        request.headers.get('x-user-id') ||
-        body?.bidder_id ||
-        body?.seller_id ||
-        'unknown';
-
-      if (action === 'create_auction') {
-        const auction = await auctionService.createAuction({
-          auction_id: body?.auction_id ?? randomUUID(),
-          seller_id: body?.seller_id ?? actor,
-          credit_id: body?.credit_id,
-          quantity: Number(body?.quantity),
-          reserve_price: Number(body?.reserve_price),
-          min_increment: body?.min_increment != null ? Number(body.min_increment) : undefined,
-          starts_at: body?.starts_at,
-          ends_at: body?.ends_at,
-        });
-        await logAuditEvent(request, 'create_auction', {
-          auction_id: auction.auction_id,
-          seller_id: auction.seller_id,
-          status: 'success',
-        });
-        return NextResponse.json({ success: true, auction }, { status: 201 });
-      }
-
-      if (action === 'place_bid') {
-        const bid = await auctionService.placeBid({
-          auction_id: body?.auction_id,
-          bidder_id: body?.bidder_id ?? actor,
-          amount: Number(body?.amount),
-        });
-        await logAuditEvent(request, 'place_bid', {
-          auction_id: body?.auction_id,
-          bidder_id: bid.bidder_id,
-          amount: bid.amount,
-          status: 'success',
-        });
-        return NextResponse.json({ success: true, bid }, { status: 201 });
-      }
-
-      const settlement = await auctionService.settleAuction({
-        auction_id: body?.auction_id,
-        settled_by: actor,
-      });
-      await logAuditEvent(request, 'settle_auction', {
-        auction_id: body?.auction_id,
-        winner_id: settlement.winner_id ?? null,
-        winning_bid: settlement.winning_bid ?? null,
-        status: 'success',
-      });
-      return NextResponse.json({ success: true, settlement });
-    }
-
     if (action === 'generate_1099') {
       const forms = await generate1099Forms(getPool());
       await logAuditEvent(request, 'generate_1099', {
@@ -226,7 +150,8 @@ async function logAuditEvent(request: Request, action: string, details: Record<s
     const actor = request.headers.get('x-admin-user') || request.headers.get('x-user-id') || 'unknown';
     await pool.query(
       `INSERT INTO admin_audit_log (actor_id, action, resource, details, created_at)
-       VALUES ($1, $2, 'sponsor-cohort-analytics', $3::jsonb, NOW())`,
+       VALUES ($1, $2, 'sponsor-cohort-analytics', $3::jsonb, NOW())
+      `,
       [actor, action, JSON.stringify(details)]
     );
   } catch (err) {

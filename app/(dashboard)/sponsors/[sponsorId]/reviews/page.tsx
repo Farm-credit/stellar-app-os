@@ -7,7 +7,9 @@ import { ReviewCard } from '@/app/components/reviews/ReviewCard';
 import { TeamReviewSummary } from '@/app/components/reviews/TeamReviewSummary';
 import { Review, ReviewSummary } from '@/lib/types/review';
 import { CarbonOffsetCalculator } from '@/app/components/carbon/CarbonOffsetCalculator';
-import { AuctionPanel } from '@/app/components/marketplace/AuctionPanel';
+import { OffsetProjectSearch } from '@/app/components/carbon/OffsetProjectSearch';
+import { AuctionList } from '@/app/components/marketplace/AuctionList';
+import { CreateAuctionForm } from '@/app/components/marketplace/CreateAuctionForm';
 
 export default function SponsorReviewsPage() {
   const params = useParams();
@@ -18,7 +20,9 @@ export default function SponsorReviewsPage() {
   const [showForm, setShowForm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [showCalculator, setShowCalculator] = useState(false);
-  const [showAuction, setShowAuction] = useState(false);
+  const [showProjectSearch, setShowProjectSearch] = useState(false);
+  const [showAuctions, setShowAuctions] = useState(false);
+  const [showCreateAuction, setShowCreateAuction] = useState(false);
 
   useEffect(() => {
     fetchReviews();
@@ -83,10 +87,10 @@ export default function SponsorReviewsPage() {
 
       <div className="flex justify-end gap-3">
         <button
-          onClick={() => setShowAuction(!showAuction)}
-          className="px-4 py-2 text-sm font-medium text-white bg-emerald-600 rounded-md hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500"
+          onClick={() => setShowProjectSearch(!showProjectSearch)}
+          className="px-4 py-2 text-sm font-medium text-green-700 bg-green-50 border border-green-200 rounded-md hover:bg-green-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
         >
-          {showAuction ? 'Hide Auctions' : 'View Credit Auctions'}
+          {showProjectSearch ? 'Hide Project Search' : 'Search Offset Projects'}
         </button>
         <button
           onClick={() => setShowCalculator(!showCalculator)}
@@ -96,7 +100,26 @@ export default function SponsorReviewsPage() {
         </button>
       </div>
 
-      {showAuction && <AuctionPanel sponsorId={sponsorId} />}
+      <div className="flex justify-end gap-3">
+        <button
+          onClick={() => setShowAuctions(!showAuctions)}
+          className="px-4 py-2 text-sm font-medium text-green-700 bg-green-50 border border-green-200 rounded-md hover:bg-green-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+        >
+          {showAuctions ? 'Hide Auctions' : 'View Carbon Credit Auctions'}
+        </button>
+        <button
+          onClick={() => setShowCreateAuction(!showCreateAuction)}
+          className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+        >
+          {showCreateAuction ? 'Cancel Auction' : 'Create Auction'}
+        </button>
+      </div>
+
+      {showCreateAuction && <CreateAuctionForm sponsorId={sponsorId} />}
+
+      {showAuctions && <AuctionList sponsorId={sponsorId} />}
+
+      {showProjectSearch && <OffsetProjectSearch />}
 
       {showCalculator && <CarbonOffsetCalculator />}
 
