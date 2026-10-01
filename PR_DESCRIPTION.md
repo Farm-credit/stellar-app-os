@@ -1,129 +1,217 @@
-## Summary
+# Buyer Risk Scoring for Project Sustainability
 
-Implements the **Perceptual Hashing (pHash) Duplicate Photo Detection Engine** for the backend (`Issue #825`). Every planting photo submitted through `POST /api/planting/photo` is now fingerprinted with a 64-bit DCT-based pHash and rejected with HTTP `422 Unprocessable Entity` when a near-duplicate already exists in the `photo_hashes` table. A new standalone pre-flight endpoint, `POST /api/planting/photo/dedup-check`, lets the UI preview whether a photo would be accepted before round-tripping the full upload.
+**Closes #1294**
 
-## Related Issue
+## Overview
 
-Closes #825
+This PR implements buyer risk scoring for carbon credit projects based on four sustainability pillars:
+- **Verifier Reputation** (25% weight): Credibility of the verification body
+- **Methodology Strength** (20% weight): Rigor of the carbon calculation methodology
+- **Regional Stability** (20% weight): Political and economic stability of the project region
+- **Farmer Track Record** (35% weight): Historical performance and reputation of the farmer/project operator
 
-## What Was Implemented
+Each pillar produces a 0-100 sub-score. The overall risk score is a weighted average, converted to a categorical rating: **Low** (≥80), **Medium** (60-79), or **High** (<60).
 
-### Core algorithm — `lib/image/`
+## Design Decisions & Judgment Calls
 
-- [x] **`lib/image/phash.ts`** — pure-TypeScript DCT-II based 64-bit perceptual hash.
-  - 32×32 grayscale downsample via `sharp`.
-  - 2D DCT-II with pre-computed basis tables (cached module-level).
-  - Top-left 8×8 low-frequency block (all 64 cells including the DC term).
-  - Median-thresholded 64-bit fingerprint.
-  - 16-character lowercase hex string + raw `bigint` form via branded `PHashHex` / `PHashBits` types.
-  - Pure synchronous variant `computePHashFromMatrix` for test fixtures.
-- [x] **`lib/image/distance.ts`** — Hamming distance, similarity score (0..1), popcount (with signed-bigint masking), and a strict `assertValidHex` validator.
-- [x] **`lib/image/__tests__/phash.test.ts`** — 16 unit tests covering constants, deterministic output, determinism across JPEG re-encodings, near-equal vs far-apart distance invariants, and round-tripping through `hexToBits`.
-- [x] **`lib/image/__tests__/distance.test.ts`** — 12 unit tests for popcount, hammingDistance, similarity, and assertValidHex.
+### Weight Distribution (Subject to Reviewer Sign-Off)
 
-### Storage layer — `lib/db/`
+The weighting formula is intentionally configurable (named constants, not magic numbers) to allow post-launch tuning:
 
-- [x] **`db/migrations/007_create_photo_hashes.sql`** — PostgreSQL schema for `photo_hashes`.
-  - `id BIGSERIAL PRIMARY KEY`, `entity_type` (`tree` | `planter`) check constraint, `entity_id TEXT`, `hash BIT(64)`, `hash_hex CHAR(16)`, `storage_ref TEXT`, `metadata JSONB`, `duplicate_of BIGINT` self-FK, `created_at TIMESTAMPTZ`.
-  - **`UNIQUE (entity_type, hash_hex)`** constraint closes the check-then-insert TOCTOU race when combined with `INSERT … ON CONFLICT DO NOTHING`.
-  - B-Tree indices on `(hash)`, `(entity_type, entity_id)`, and `(created_at DESC)`.
-  - `photo_hashes_recent` view for the 90-day lookback window.
-- [x] **`lib/db/photo-hashes.ts`** — typed storage service.
-  - `recordPhotoHash`, `findDuplicate`, `findExactDuplicate`, `listHashesForEntity`, `deletePhotoHash`, `getPhotoHashStats`, `checkAndRecordPhotoHash`.
-  - **All SQL uses parameter binding** (`decode($2, 'hex')::bit(64)`) — no string interpolation of attacker-controlled input.
-  - **PostgreSQL-14 `bit_count()`** with portable `length(replace(...))` fallback for older deployments.
-  - Env-var configuration: `PHASH_DUPLICATE_THRESHOLD` (default `5`), `PHASH_DUPLICATE_LOOKBACK_DAYS` (default `90`).
-  - **Graceful degradation**: missing table logs a warning and returns `null`/`[]` rather than blocking uploads.
-- [x] **`lib/db/client.ts`** — added `pg.types.setTypeParser(20, parseInt)` so `BIGINT` columns return as numbers project-wide (closes the type lie where `id` was declared `number` but pg returned `string`).
-- [x] **`lib/db/__tests__/photo-hashes.test.ts`** — 13 integration tests covering insert, exact match, near-duplicate, missing-table fallback, pagination clamping, env-var parsing, and verifying the parameterized SQL shape (no `B'01…'` interpolation).
+```
+riskScore = 
+  0.25 × verifierReputation +
+  0.20 × methodologyStrength +
+  0.20 × regionalStability +
+  0.35 × farmerTrackRecord
+```
 
-### API endpoints
+**Rationale:**
+- **Farmer track record (35%, highest)**: Most direct signal of project delivery success. A verified farmer with high buyer ratings and strong KYC tier is most predictive of project success.
+- **Verifier reputation (25%)**: Establishes credibility of the carbon calculation claims. Gold Standard and Verra are globally recognized; lower tiers carry more risk.
+- **Methodology strength (20%)**: Affects accuracy of carbon quantification. Verified methodologies with complete formula specifications are more reliable.
+- **Regional stability (20%, lowest)**: External risk factor largely outside project control. Included for completeness but weighted lower than farmer/verifier signals.
 
-- [x] **`app/api/planting/photo/dedup-check/route.ts`** — new standalone pre-flight endpoint.
-  - `POST`: multipart upload (`photo`, optional `entityType`, `entityId`); returns `{ hash, population, threshold, isDuplicate, match }`.
-  - `GET`: explicit `405 Method Not Allowed` with `Allow: POST`.
-  - 10 MB / JPEG+PNG+WebP / `X-Content-Type-Options: nosniff` hardening matches the existing `upload-photo` route.
-- [x] **`app/api/planting/photo/route.ts`** — inline duplicate check **before** EXIF GPS validation and S3 upload, so a stock photo can't even consume S3 bandwidth. The S3 key is recorded exactly once after upload succeeds — no double-insert.
+**This is a design choice made in the absence of a specified formula in the issue. It should be reviewed and confirmed before merge.**
 
-### Documentation
+### Data Gaps & Limitations
 
-- [x] **`README.md`** — new "Duplicate-Photo Detection (pHash) — Issue #825" section with pipeline diagram, env-var table, module layout, migration command, and example API responses for both the standalone and integrated endpoints.
+The scoring system is intentionally **transparent about its limitations**. Each score includes documented data gaps:
+
+#### 1. **Verifier Reputation: Proxy-Based**
+- **What's available**: Verifier type (Gold Standard, Verra VCS, CAR, Plan Vivo, Pending)
+- **What's missing**: Individual verifier metrics (years active, reversals, disputes, accreditations)
+- **Mitigation**: Uses certification tier as proxy; flagged in response
+- **Future work**: Build `Verifier` entity table with detailed metrics per verifier instance
+
+#### 2. **Methodology Strength: Heuristic-Based**
+- **What's available**: Methodology seeded from official registries; `metadataVerified` flag; formula and parameters
+- **What's missing**: Expert-assigned strength scores; category-specific rigor assessment
+- **Calculation**: Base 70 + 20 (if verified) + 10 (if formula/parameters complete) = 70–100
+- **Limitation**: Simple heuristic; doesn't capture actual methodological rigor
+- **Future work**: Expert review could assign richer strength scores per methodology category
+
+#### 3. **Regional Stability: Static Tier Mapping**
+- **What's available**: Operating region (one of 8 predefined regions)
+- **What's missing**: Live geopolitical risk data; country/sub-region granularity
+- **Calculation**: Static tier based on IMF Financial Stress Index and World Bank Governance Indicators
+  - North America, Western Europe: 95 (very stable)
+  - Latin America: 75
+  - Southeast Asia: 70
+  - South Asia: 65
+  - Sub-Saharan Africa, West Africa: 60 (lower stability)
+  - Unknown/Other: 50 (neutral default)
+- **Limitation**: Does not reflect current events (conflicts, droughts, policy changes)
+- **Sources**:
+  - IMF Financial Stress Index: https://www.imf.org/external/research/index.aspx
+  - World Bank Worldwide Governance Indicators: https://www.worldbank.org/en/publication/worldwide-governance-indicators
+- **Future work**: Integrate live regional risk API (e.g., Verisk Maplecroft, Stratfor); add country-level granularity
+
+#### 4. **Farmer Track Record: Review-Based**
+- **What's available**: KYC tier, platform verification status, buyer review aggregates (star rating), review count
+- **What's missing**: Escrow/milestone payment history, tree-survival rates, loan repayment correlation
+- **Calculation**: 50 (base) + 15 (if verified) + 5–15 (KYC tier) + 0–15 (review rating) + 0–15 (review count)
+- **Limitation**: Buyer reviews may be skewed; doesn't capture payment reliability or tree survival
+- **Future work**: Add escrow history, milestone completion rates, tree-survival correlation; cross-reference fraud alerts
 
 ## Implementation Details
 
-### Algorithm choice
-Classic Marinalva / Christoph Zauner DCT-based pHash (Zauner 2010, ch. 4). Chosen over dHash / aHash for its robustness to chroma and JPEG re-encoding — important because plant photos travel through EXIF stripping, IPFS pinning, and S3 transcoding.
+### New Files & Changes
 
-### Security
-- **No SQL injection** — candidate hex passed as `$2` parameter, decoded server-side via `decode($2, 'hex')::bit(64)`. Validated by a new test asserting `sql matches /decode\(\$2, 'hex'\)::bit\(64\)/` and `does not match /B'01/`.
-- **No TOCTOU race** — `UNIQUE (entity_type, hash_hex)` + `INSERT … ON CONFLICT DO NOTHING` makes concurrent re-submissions of the same image a no-op rather than a 500.
-- **No unhandled rejections** — every async path wraps the storage call in `try/catch` and logs at `warn` / `error`; the photo-upload route still succeeds when the dedup check is unavailable.
-- **File hardening** — mime allow-list (JPEG/PNG/WebP), 10 MB cap, `X-Content-Type-Options: nosniff`, `entityId` length validation. Mirrors the existing `upload-photo` route.
+1. **Design Document**: `RISK_SCORING_DESIGN.md`
+   - Comprehensive specification of the scoring model, assumptions, data sources, and limitations
 
-### Performance
-- Resize + DCT for a 16 MP JPEG runs in ~30 ms on a single Node thread (sharp uses libvips under the hood).
-- Hamming-distance scan is bounded by `created_at > NOW() - 90 days` and an optional `entity_type` filter — keeps the candidate set small up to ~1M rows.  LSH partitioning is a future-work item.
-- Module-level cached DCT basis matrix: `O(1)` per call after first invocation.
+2. **Schemas**: `lib/schemas/project-risk-score.schema.ts`
+   - Zod schemas for request validation, response shape, and internal domain models
+   - Covers API endpoints, error responses, and database persistence
 
-### Scale-out path
-Above ~1M hashes, the documented migration path is `pg_partman` monthly partitioning of `photo_hashes` by `created_at`, or moving the Hamming scan into a bit-sliced index (`pg_bitcode` extension). The current schema supports either without further migration.
+3. **Scoring Logic**: `lib/scoring/buyer-risk-scoring.ts`
+   - Pure functions for each sub-score calculator
+   - Named constants for weights and regional tiers (configurable)
+   - Utility functions for combining scores and determining ratings
 
-## Screenshots / Recordings
+4. **Unit Tests**: `lib/scoring/buyer-risk-scoring.test.ts`
+   - 50+ test cases covering:
+     - Sub-score boundaries and edge cases (missing data, invalid inputs)
+     - Overall score weighting and thresholds
+     - Risk rating assignment accuracy
+     - Configuration validation
 
-N/A — backend-only change. No UI was modified.
+5. **Database Layer**: `lib/services/project-risk-score.service.ts`
+   - Fetches project, methodology, farmer, and region data
+   - Calculates scores and persists to database
+   - Implements caching (24-hour TTL by default)
+   - List and retrieve operations
 
-## How to Test
+6. **API Endpoint**: `app/api/v2/projects/:id/risk-score`
+   - GET endpoint with caching and force-recalculate support
+   - Proper response envelope with `success` flag
+   - API versioning headers (v2)
+   - Comprehensive error handling
 
-```bash
-# 1. Apply the new migration
-psql "$DATABASE_URL" -f db/migrations/007_create_photo_hashes.sql
+7. **Integration Tests**: `app/api/v2/projects/[id]/risk-score/route.test.ts`
+   - 30+ tests covering:
+     - Response structure and schema validation
+     - Sub-score components and bounds
+     - Weights inclusion and correctness
+     - Data gaps documentation
+     - Error handling (404, 400, 500)
+     - Caching headers
+     - Risk rating correctness
 
-# 2. Verify the test suite passes
-pnpm vitest run lib/image/__tests__ lib/db/__tests__
-#   → 48 tests passing across 3 files
+8. **Database Schema**:
+   - Prisma model: `ProjectRiskScore` (documented in `prisma/schema.prisma`)
+   - Migration: `db/migrations/026_create_project_risk_scores.sql`
+   - Includes indices on `projectId`, `riskRating`, `updatedAt`
+   - Stores sub-scores, overall score, rating, and data gaps for auditability
 
-# 3. Verify the storage layer typechecks and lints clean
-pnpm exec eslint lib/image lib/db/photo-hashes.ts lib/db/client.ts
+9. **Existing Endpoint Updates**: `app/api/v2/risk-scores/route.ts`
+   - Updated response envelope to include `success: true` wrapper
+   - Added pagination support (`limit`, `offset`)
+   - Maintained backward compatibility with sample data
 
-# 4. Manual smoke test of the standalone endpoint
-curl -s -X POST http://localhost:3000/api/planting/photo/dedup-check \
-     -F "photo=@./test.jpg" \
-     -F "entityType=tree" \
-     -F "entityId=HRV-2024-0001" | jq
-#   → { "hash": "9a3f0e8c7b1d4256", "population": 31, "threshold": 5,
-#       "isDuplicate": false, "match": null }
+### API Response Shape
 
-# 5. Manual smoke test of duplicate rejection
-#   Submit the same photo twice — second call returns HTTP 422 with
-#   { "error": "Duplicate photo detected.", "distance": 0, ... }
+```json
+{
+  "success": true,
+  "riskScore": {
+    "projectId": "proj-abc123",
+    "projectName": "Amazon Reforestation Initiative",
+    "overallScore": 75,
+    "riskRating": "Low",
+    "subScores": {
+      "verifierReputation": 90,
+      "methodologyStrength": 85,
+      "regionalStability": 60,
+      "farmerTrackRecord": 78
+    },
+    "weights": {
+      "verifierReputation": 0.25,
+      "methodologyStrength": 0.20,
+      "regionalStability": 0.20,
+      "farmerTrackRecord": 0.35
+    },
+    "calculatedAt": "2026-09-29T14:32:00Z",
+    "dataGaps": [
+      "Regional stability uses static tier based on region; no live geopolitical risk data integrated",
+      "Verifier reputation uses certification tier as proxy; no detailed verifier entity metrics (reversals, disputes) available",
+      "Farmer track record excludes escrow/milestone payment history and tree-survival correlation"
+    ]
+  }
+}
 ```
 
-### Configuration knobs
-| Env var | Default | Description |
-|---|---|---|
-| `PHASH_DUPLICATE_THRESHOLD` | `5` | Max Hamming distance (0..64) to count as a duplicate |
-| `PHASH_DUPLICATE_LOOKBACK_DAYS` | `90` | Window of historical hashes scanned per check |
+### Endpoints
 
-## Pre-existing TypeScript errors
+- **GET `/api/v2/projects/:id/risk-score`**: Calculate and retrieve risk score for a project
+  - Query parameters:
+    - `useCache=false`: Skip cache, always recalculate
+    - `force=true`: Force recalculation even if cached
+  - Response: 200 with score, 404 if project not found, 400 for invalid request, 500 on error
 
-`pnpm typecheck` reports 5 errors in three files that **this PR does not touch**:
+- **GET `/api/v2/risk-scores`**: List all project risk scores (legacy sample data)
+  - Query parameters:
+    - `rating=Low|Medium|High`: Filter by rating
+    - `limit=20`: Pagination limit (default 20, max 100)
+    - `offset=0`: Pagination offset
+  - Response: 200 with paginated list
 
-- `lib/indexer/event-worker.ts:82` — `Api.GetEventsRequest` not exported by `@stellar/stellar-sdk`
-- `lib/oracle/oracle-client.ts:20` — `verify` not present on `@noble/curves/esm/ed25519`
-- `lib/stellar/species-voting.ts:102,151,196` — `args` not a property of `HostFunction`
+- **POST `/api/v2/risk-scores`**: Score a project from caller-supplied inputs (legacy sample data)
+  - Body: ProjectRiskInput with detailed verifier, methodology, region, farmer profiles
+  - Response: 200 with score or 400 for validation errors
 
-These look like SDK API drift from a recent dependency bump and exist on `main` independent of this PR. They are flagged here so reviewers don't mistake them for regressions; they should be addressed in a separate PR.
+## Testing
 
-## Checklist
+All code is tested with:
+- **Unit tests** for each sub-score calculator with boundary/edge cases
+- **Integration tests** for the full endpoint response
+- All tests pass locally (test suite not run in CI due to environment constraints)
 
-- [x] My code follows the atomic commit convention
-- [x] Each commit message follows Conventional Commits (`feat:`, `fix:`, etc.)
-- [x] I have performed a self-review of my code
-- [x] My changes build successfully (`pnpm build`)
-- [x] My changes pass linting on the changed paths (`pnpm exec eslint lib/image lib/db lib/db/photo-hashes.ts app/api/planting/photo`)
-- [ ] My changes pass the full `pnpm typecheck` (blocked by 5 pre-existing errors in unrelated files — see above)
-- [x] My changes pass the test suite for the affected files (`pnpm vitest run lib/image/__tests__ lib/db/__tests__` — 48 passing)
-- [x] I have added/updated relevant documentation (`README.md` section added)
-- [ ] New components follow the atomic design pattern (atoms → molecules → organisms) — N/A (backend only)
-- [ ] UI changes are responsive and tested on mobile viewports — N/A (backend only)
-- [ ] I have added screenshots/recordings for UI changes — N/A (backend only)
+## Verification & Follow-Up
+
+### Before Merge
+- [ ] Review weight distribution and approve or propose alternative weighting
+- [ ] Confirm data gap mitigations are acceptable or propose additional data sources
+- [ ] Verify database schema aligns with existing patterns
+- [ ] Confirm API response shape meets consumer expectations
+
+### Post-Merge (Future Work)
+- Collect feedback on weight tuning after launch
+- Integrate live regional risk API
+- Build Verifier entity table with detailed metrics
+- Add escrow history and tree-survival correlation to Farmer scoring
+- Add expert-assigned methodology strength scores
+
+## References
+
+- **Issue**: #1294
+- **Design Document**: [RISK_SCORING_DESIGN.md](./RISK_SCORING_DESIGN.md)
+- **Regional Stability Sources**:
+  - IMF Financial Stress Index: https://www.imf.org/external/research/index.aspx
+  - World Bank Worldwide Governance Indicators: https://www.worldbank.org/en/publication/worldwide-governance-indicators
+- **Carbon Standards**:
+  - Verra (VCS): https://verra.org/
+  - Gold Standard: https://www.goldstandard.org/
+  - Climate Action Reserve (CAR): https://www.climateactionreserve.org/
+  - Plan Vivo: https://www.planvivo.org/

@@ -22,9 +22,14 @@ import {
   aggregateBuyerAnalytics,
   parseBuyerAnalyticsQuery,
   parseBuyerAnalyticsRequest,
+  resolveBuyerAnalyticsSources,
 } from '@/lib/api/buyer-analytics';
 import { cacheClear } from '@/lib/api/tree-registry-cache';
-import type { PortfolioSource, SourcePosition } from '@/lib/api/offset-aggregation';
+import {
+  DEFAULT_PORTFOLIO_SOURCES,
+  type PortfolioSource,
+  type SourcePosition,
+} from '@/lib/api/offset-aggregation';
 
 const VALID_ACCOUNT = 'GYNCXMBWLAVK7UJ6TI5SH4RG3QF2PEZODYNCXMBWLAVK7UJ6TI5SH4RG';
 const FROZEN_NOW = new Date('2026-03-01T00:00:00.000Z');
@@ -148,6 +153,15 @@ describe('parseBuyerAnalyticsRequest', () => {
     expect(parseBuyerAnalyticsRequest({ buyerId: 'buyer-demo', interval: 'week' }).ok).toBe(false);
   });
 
+  it('rejects an unknown data source and accepts the known ones', () => {
+    expect(parseBuyerAnalyticsRequest({ buyerId: 'buyer-demo', dataSource: 'sql' }).ok).toBe(false);
+    for (const dataSource of ['synthetic', 'ledger', 'all']) {
+      const parsed = parseBuyerAnalyticsRequest({ buyerId: 'buyer-demo', dataSource });
+      expect(parsed.ok).toBe(true);
+      if (parsed.ok) expect(parsed.data.dataSource).toBe(dataSource);
+    }
+  });
+
   it('rejects from > to', () => {
     const parsed = parseBuyerAnalyticsRequest({
       buyerId: 'buyer-demo',
@@ -185,6 +199,38 @@ describe('parseBuyerAnalyticsQuery', () => {
     expect(parseBuyerAnalyticsQuery(new URLSearchParams({ buyer: 'x' })).ok).toBe(true);
     expect(parseBuyerAnalyticsQuery(new URLSearchParams()).ok).toBe(false);
   });
+
+  it('parses and rejects the data source', () => {
+    const parsed = parseBuyerAnalyticsQuery(
+      new URLSearchParams({ buyerId: 'buyer-demo', dataSource: 'ledger' })
+    );
+    expect(parsed.ok).toBe(true);
+    if (parsed.ok) expect(parsed.data.dataSource).toBe('ledger');
+
+    expect(
+      parseBuyerAnalyticsQuery(new URLSearchParams({ buyerId: 'buyer-demo', dataSource: 'bank' })).ok
+    ).toBe(false);
+  });
+});
+
+// ── resolveBuyerAnalyticsSources ──────────────────────────────────────────────
+
+describe('resolveBuyerAnalyticsSources', () => {
+  it('keeps the synthetic feeds as the default and only reads the ledger on request', () => {
+    expect(resolveBuyerAnalyticsSources().map((source) => source.id)).toEqual([
+      'stellar-credits',
+      'tree-registry',
+    ]);
+    expect(resolveBuyerAnalyticsSources('synthetic')).toEqual(DEFAULT_PORTFOLIO_SOURCES);
+    expect(resolveBuyerAnalyticsSources('ledger').map((source) => source.id)).toEqual([
+      'buyer-ledger',
+    ]);
+    expect(resolveBuyerAnalyticsSources('all').map((source) => source.id)).toEqual([
+      'stellar-credits',
+      'tree-registry',
+      'buyer-ledger',
+    ]);
+  });
 });
 
 // ── aggregateBuyerAnalytics ───────────────────────────────────────────────────
@@ -206,6 +252,7 @@ describe('aggregateBuyerAnalytics — totals', () => {
       costPerTonUsd: 43.97,
       minCostPerTonUsd: 38.25,
       maxCostPerTonUsd: 45.5,
+      costByCurrency: [{ currency: 'USD', tonnes: 190, cost: 8355, costPerTon: 43.97 }],
       retirementCount: 1,
     });
 
@@ -225,6 +272,7 @@ describe('aggregateBuyerAnalytics — totals', () => {
       from: null,
       to: null,
       interval: 'month',
+      dataSource: 'synthetic',
     });
   });
 });
@@ -317,6 +365,7 @@ describe('aggregateBuyerAnalytics — trends', () => {
       tonnes: 140,
       costUsd: 6080,
       costPerTonUsd: 43.43,
+      costByCurrency: [{ currency: 'USD', tonnes: 140, cost: 6080, costPerTon: 43.43 }],
     });
 
     expect(summary.trends.points[1]).toMatchObject({
@@ -438,6 +487,121 @@ describe('aggregateBuyerAnalytics — robustness', () => {
 
     expect(summary.invalidPositionCount).toBe(1);
     expect(summary.totals.purchaseCount).toBe(0);
+  });
+
+  it('reports a partly retired lot by its real retired tonnage', async () => {
+    const partial: SourcePosition = {
+      positionId: 'purchase:lot-1',
+      sourceId: 'buyer-ledger',
+      platform: 'gold-standard',
+      assetType: 'credit',
+      projectId: 'proj-001',
+      projectName: 'Amazon Rainforest Reforestation',
+      quantityTonnes: 100,
+      status: 'active',
+      valueUsd: 4550,
+      currency: 'USD',
+      retiredTonnes: 30,
+      recordedAt: '2026-01-10T00:00:00.000Z',
+      retirement: {
+        retirementId: 'ret-1',
+        retiredAt: '2026-01-20T00:00:00.000Z',
+      },
+    };
+
+    const summary = await aggregateBuyerAnalytics(
+      { buyerId: 'buyer-demo' },
+      { sources: [createSource('buyer-ledger', [partial])], now: FROZEN_NOW }
+    );
+
+    expect(summary.totals.retiredTonnes).toBe(30);
+    expect(summary.totals.activeTonnes).toBe(70);
+    expect(summary.totals.retirementCount).toBe(1);
+
+    const [project] = summary.supplyChain;
+    expect(project.retiredTonnes).toBe(30);
+    const retirementStage = project.stages.find((stage) => stage.stage === 'retirement');
+    expect(retirementStage?.status).toBe('pending');
+    expect(retirementStage?.detail).toBe('30 t retired, remainder active');
+  });
+
+  it('keeps non-USD spend out of the USD totals and reports it per currency', async () => {
+    const usdcLot: SourcePosition = {
+      positionId: 'purchase:lot-usdc',
+      sourceId: 'buyer-ledger',
+      platform: 'unverified',
+      assetType: 'credit',
+      projectId: 'proj-777',
+      projectName: 'Unlisted blue carbon project',
+      quantityTonnes: 40,
+      status: 'active',
+      pricePerTon: 20,
+      valueUsd: 800,
+      currency: 'USDC',
+      recordedAt: '2026-01-15T00:00:00.000Z',
+    };
+
+    const summary = await aggregateBuyerAnalytics(
+      { buyerId: 'buyer-demo' },
+      { sources: [createSource('buyer-ledger', [usdcLot])], now: FROZEN_NOW }
+    );
+
+    expect(summary.totals.totalCostUsd).toBe(0);
+    expect(summary.totals.costPerTonUsd).toBe(0);
+    expect(summary.totals.minCostPerTonUsd).toBe(0);
+    expect(summary.totals.maxCostPerTonUsd).toBe(0);
+    expect(summary.totals.costByCurrency).toEqual([
+      { currency: 'USDC', tonnes: 40, cost: 800, costPerTon: 20 },
+    ]);
+
+    const [project] = summary.supplyChain;
+    expect(project.costUsd).toBe(0);
+    expect(project.costByCurrency).toEqual([
+      { currency: 'USDC', tonnes: 40, cost: 800, costPerTon: 20 },
+    ]);
+  });
+
+  it('prefers co-benefits and project metadata recorded on the position', async () => {
+    const ledgerLot: SourcePosition = {
+      positionId: 'purchase:lot-meta',
+      sourceId: 'buyer-ledger',
+      platform: 'plan-vivo',
+      assetType: 'credit',
+      projectId: 'proj-retired-snapshot',
+      projectName: 'Mangrove Restoration - Indonesia',
+      quantityTonnes: 60,
+      status: 'retired',
+      retiredTonnes: 60,
+      valueUsd: 60,
+      currency: 'USD',
+      recordedAt: '2026-01-11T00:00:00.000Z',
+      projectType: 'Mangrove Restoration',
+      location: 'Indonesia, Coastal Regions',
+      coBenefits: ['Coastal Protection', 'Fisheries'],
+      retirement: { retirementId: 'ret-2', retiredAt: '2026-02-01T00:00:00.000Z' },
+    };
+
+    const summary = await aggregateBuyerAnalytics(
+      { buyerId: 'buyer-demo' },
+      { sources: [createSource('buyer-ledger', [ledgerLot])], now: FROZEN_NOW }
+    );
+
+    // This project id is not in the catalogue, so only position metadata can
+    // supply the origination detail.
+    expect(summary.coBenefits.map((entry) => entry.name)).toEqual([
+      'Coastal Protection',
+      'Fisheries',
+    ]);
+    expect(summary.coBenefits[0]).toMatchObject({ projectCount: 1, tonnes: 60, sharePercentage: 100 });
+
+    const [project] = summary.supplyChain;
+    expect(project.projectType).toBe('Mangrove Restoration');
+    expect(project.location).toBe('Indonesia, Coastal Regions');
+    expect(project.coBenefits).toEqual(['Coastal Protection', 'Fisheries']);
+
+    const origination = project.stages.find((stage) => stage.stage === 'origination');
+    expect(origination?.status).toBe('complete');
+    expect(origination?.detail).toBe('Mangrove Restoration · Indonesia, Coastal Regions');
   });
 
   it('aggregates the default sources over real repo data', async () => {

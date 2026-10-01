@@ -60,9 +60,9 @@ function row(overrides: Record<string, unknown> = {}): Record<string, unknown> {
 function stubDb(rows: unknown[]): { db: FarmerVerificationDb; calls: Array<[string, unknown[]?]> } {
   const calls: Array<[string, unknown[]?]> = [];
   const db = {
-    query: vi.fn(async (sql: string, params?: unknown[]) => {
+    query: vi.fn((sql: string, params?: unknown[]) => {
       calls.push([sql, params]);
-      return { rows };
+      return Promise.resolve({ rows });
     }),
   } as unknown as FarmerVerificationDb;
   return { db, calls };
@@ -227,14 +227,17 @@ describe('parseVerificationAddresses', () => {
 });
 
 describe('verifyFarmers', () => {
-  it('buckets hits, misses, and consent refusals in request order', async () => {
+  it('fetches the portfolio once and buckets results in request order', async () => {
     const db = {
-      query: vi.fn(async (_sql: string, params?: unknown[]) => {
-        const address = params?.[0];
-        if (address === FARMER) return { rows: [row({ status: 'approved' })] };
-        if (address === OTHER_FARMER) return { rows: [row({ consent_granted: false })] };
-        return { rows: [] };
-      }),
+      query: vi.fn(() =>
+        Promise.resolve({
+          // Deliberately reverse DB order: response order follows the request.
+          rows: [
+            row({ farmer_address: OTHER_FARMER, consent_granted: false }),
+            row({ farmer_address: FARMER, status: 'approved' }),
+          ],
+        })
+      ),
     } as unknown as FarmerVerificationDb;
 
     const third = THIRD_FARMER;
@@ -246,6 +249,23 @@ describe('verifyFarmers', () => {
     expect(batch.reports[0].farmerAddress).toBe(FARMER);
     expect(batch.consentDenied).toEqual([OTHER_FARMER]);
     expect(batch.notFound).toEqual([third]);
+    expect(db.query).toHaveBeenCalledTimes(1);
+    expect(db.query).toHaveBeenCalledWith(expect.stringContaining('DISTINCT ON'), [
+      [FARMER, OTHER_FARMER, third],
+    ]);
+  });
+
+  it('does not query the database for an empty portfolio', async () => {
+    const { db } = stubDb([]);
+    await expect(verifyFarmers(db, [])).resolves.toEqual({
+      requested: 0,
+      count: 0,
+      verified: 0,
+      reports: [],
+      notFound: [],
+      consentDenied: [],
+    });
+    expect(db.query).not.toHaveBeenCalled();
   });
 });
 
@@ -268,7 +288,7 @@ describe('authenticateFarmerVerificationRequest', () => {
   it('rejects an unknown or revoked key', async () => {
     const result = await authenticateFarmerVerificationRequest(
       request('fc_deadbeef'),
-      vi.fn(async () => null)
+      vi.fn(() => Promise.resolve(null))
     );
     expect(result.ok).toBe(false);
     if (result.ok) return;
@@ -276,18 +296,20 @@ describe('authenticateFarmerVerificationRequest', () => {
   });
 
   it('accepts an active key and exposes only its display metadata', async () => {
-    const lookup = vi.fn(async () => ({
-      id: 7,
-      name: 'Lagos Microfinance',
-      prefix: 'fc_1a2b3c4d',
-      key_hash: 'secret-hash',
-      tier: 'standard' as const,
-      owner_wallet: FARMER,
-      is_active: true,
-      created_at: new Date(),
-      last_used_at: null,
-      revoked_at: null,
-    }));
+    const lookup = vi.fn(() =>
+      Promise.resolve({
+        id: 7,
+        name: 'Lagos Microfinance',
+        prefix: 'fc_1a2b3c4d',
+        key_hash: 'secret-hash',
+        tier: 'standard' as const,
+        owner_wallet: FARMER,
+        is_active: true,
+        created_at: new Date(),
+        last_used_at: null,
+        revoked_at: null,
+      })
+    );
 
     const result = await authenticateFarmerVerificationRequest(request('fc_live_key'), lookup);
     expect(result).toEqual({

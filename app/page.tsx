@@ -85,6 +85,9 @@ export default function HomePage() {
               <Link href="/blog">Read Blog</Link>
             </Button>
             <Button asChild variant="outline" size="lg" className="w-full">
+              <Link href="/success-stories">Farmer Success Stories</Link>
+            </Button>
+            <Button asChild variant="outline" size="lg" className="w-full">
               <Link href="/api-docs">Explore API Documentation</Link>
             </Button>
           </CardContent>

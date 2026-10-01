@@ -1,0 +1,18 @@
+{
+  "default_branch": "main",
+  "branches": [
+    "feat/issue-1342-feat-marketplace-auction-mechanism-competitive",
+    "main",
+    "origin"
+  ],
+  "parent": {
+    "feat/issue-1342-feat-marketplace-auction-mechanism-competitive": "main",
+    "main": null,
+    "origin": "main"
+  },
+  "order": [
+    "main",
+    "feat/issue-1342-feat-marketplace-auction-mechanism-competitive",
+    "origin"
+  ]
+}

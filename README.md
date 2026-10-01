@@ -369,6 +369,7 @@ FarmCredit exposes a REST API under `/api` for programmatic access. Key endpoint
 | `/api/sponsorships` | POST | Create a new sponsorship |
 | `/api/planters` | GET | List registered planters |
 | `/api/trees` | GET | List tree IDs and status |
+| `/api/farmer-income-prediction` | POST | Predict potential farmer income from a carbon project based on land size, location, practice type, and historical prices |
 
 Use the API to embed sponsorship functionality directly into your existing corporate portal.
 

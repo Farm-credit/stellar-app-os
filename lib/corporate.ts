@@ -19,6 +19,18 @@ export interface EsgReportData {
     tonnesCo2e: number;
     verification: string;
   }>;
+  coBenefits?: Array<{
+    name: string;
+    tonnes: number;
+    sharePercentage: number;
+  }>;
+  supplyChain?: Array<{
+    projectName: string;
+    location: string;
+    tonnesCo2e: number;
+    retiredTonnes: number;
+    stageSummary: string;
+  }>;
 }
 
 export function generateEsgReport(data: EsgReportData): void {
@@ -109,6 +121,58 @@ export function generateEsgReport(data: EsgReportData): void {
     });
   }
 
+  if (data.coBenefits?.length) {
+    y += 8;
+    ensureSpace(20);
+    doc.setFontSize(16);
+    doc.setTextColor(20, 182, 231);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Co-Benefits Achieved', 20, y);
+    y += 10;
+    doc.setFontSize(10);
+    data.coBenefits.forEach((benefit) => {
+      ensureSpace(7);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(100, 116, 139);
+      doc.text(`• ${benefit.name}`, 25, y);
+      doc.text(
+        `${benefit.tonnes.toLocaleString()} tCO2e · ${benefit.sharePercentage}% of portfolio`,
+        pageWidth - 20,
+        y,
+        { align: 'right' }
+      );
+      y += 7;
+    });
+  }
+
+  if (data.supplyChain?.length) {
+    y += 8;
+    ensureSpace(20);
+    doc.setFontSize(16);
+    doc.setTextColor(20, 182, 231);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Supply Chain Impact', 20, y);
+    y += 10;
+    doc.setFontSize(10);
+    data.supplyChain.forEach((project) => {
+      ensureSpace(12);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(0, 0, 0);
+      doc.text(`• ${project.projectName}`, 25, y);
+      doc.text(`${project.tonnesCo2e.toLocaleString()} tCO2e`, pageWidth - 20, y, {
+        align: 'right',
+      });
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(100, 116, 139);
+      doc.text(
+        `${project.location} · ${project.stageSummary} · ${project.retiredTonnes.toLocaleString()} tCO2e retired`,
+        30,
+        y + 5
+      );
+      y += 12;
+    });
+  }
+
   // Footer (on every page)
   const pageCount = doc.getNumberOfPages();
   for (let page = 1; page <= pageCount; page += 1) {
@@ -121,4 +185,101 @@ export function generateEsgReport(data: EsgReportData): void {
   }
 
   doc.save(`esg-report-${data.companyName.replace(/\s+/g, '-').toLowerCase()}.pdf`);
+}
+
+const escapeXml = (value: string): string =>
+  value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+
+function xmlCell(value: string | number, bold = false): string {
+  const data =
+    typeof value === 'number'
+      ? `<Data ss:Type="Number">${value}</Data>`
+      : `<Data ss:Type="String">${escapeXml(value)}</Data>`;
+  const style = bold ? ' ss:StyleID="sBold"' : '';
+  return `<Cell${style}>${data}</Cell>`;
+}
+
+function xmlRow(values: Array<string | number>, bold = false): string {
+  return `<Row>${values.map((value) => xmlCell(value, bold)).join('')}</Row>`;
+}
+
+function xmlWorksheet(name: string, rows: string[]): string {
+  return `<Worksheet ss:Name="${escapeXml(name)}"><Table>${rows.join('')}</Table></Worksheet>`;
+}
+
+/**
+ * Builds an Excel 2003 SpreadsheetML workbook (one worksheet per report
+ * section) as a string. Uses no third-party dependency so the Excel export
+ * stays a light, offline, deterministic build step (#1345).
+ */
+export function buildEsgSpreadsheet(data: EsgReportData): string {
+  const summaryRows = [
+    xmlRow(['ESG Impact Report'], true),
+    xmlRow(['Organization', data.companyName]),
+    xmlRow(['Reporting Period', data.period]),
+    xmlRow(['Report ID', data.reportId]),
+    xmlRow(['Total Trees Planted', data.totalTrees]),
+    xmlRow(['Total CO2 Sequestered (tCO2e)', data.totalCo2Offset]),
+  ];
+
+  const offsetRows = [
+    xmlRow(['Project', 'Credit Type', 'Tonnes (tCO2e)', 'Verification'], true),
+    ...(data.offsets ?? []).map((line) =>
+      xmlRow([line.projectName, line.creditType, line.tonnesCo2e, line.verification])
+    ),
+  ];
+
+  const coBenefitRows = [
+    xmlRow(['Co-Benefit', 'Tonnes (tCO2e)', 'Share of Portfolio (%)'], true),
+    ...(data.coBenefits ?? []).map((benefit) =>
+      xmlRow([benefit.name, benefit.tonnes, benefit.sharePercentage])
+    ),
+  ];
+
+  const supplyChainRows = [
+    xmlRow(['Project', 'Location', 'Tonnes (tCO2e)', 'Retired (tCO2e)', 'Chain of Custody'], true),
+    ...(data.supplyChain ?? []).map((project) =>
+      xmlRow([
+        project.projectName,
+        project.location,
+        project.tonnesCo2e,
+        project.retiredTonnes,
+        project.stageSummary,
+      ])
+    ),
+  ];
+
+  return [
+    '<?xml version="1.0"?>',
+    '<?mso-application progid="Excel.Sheet"?>',
+    '<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"',
+    ' xmlns:o="urn:schemas-microsoft-com:office:office"',
+    ' xmlns:x="urn:schemas-microsoft-com:office:excel"',
+    ' xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">',
+    '<Styles><Style ss:ID="sBold"><Font ss:Bold="1"/></Style></Styles>',
+    xmlWorksheet('Summary', summaryRows),
+    xmlWorksheet('Offsets', offsetRows),
+    xmlWorksheet('Co-Benefits', coBenefitRows),
+    xmlWorksheet('Supply Chain', supplyChainRows),
+    '</Workbook>',
+  ].join('');
+}
+
+/** Downloads the ESG report as an Excel-openable .xls workbook (#1345). */
+export function generateEsgExcel(data: EsgReportData): void {
+  const workbook = buildEsgSpreadsheet(data);
+  const blob = new Blob([workbook], { type: 'application/vnd.ms-excel;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = `esg-report-${data.companyName.replace(/\s+/g, '-').toLowerCase()}.xls`;
+  document.body.appendChild(anchor);
+  anchor.click();
+  document.body.removeChild(anchor);
+  URL.revokeObjectURL(url);
 }

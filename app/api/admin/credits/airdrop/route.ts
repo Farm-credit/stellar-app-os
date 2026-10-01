@@ -132,13 +132,15 @@ function checkRateLimit(key: string): { allowed: boolean; retryAfter?: number } 
     return { allowed: false, retryAfter: blockedUntilTime - now };
   }
 
-  const timestamps = (requestTimestamps.get(key) ?? []).filter((ts) => now - ts < RATE_LIMIT_WINDOW_MS);
+  const timestamps = (requestTimestamps.get(key) ?? []).filter(
+    (ts) => now - ts < RATE_LIMIT_WINDOW_MS
+  );
 
   if (timestamps.length >= RATE_LIMIT_MAX_REQUESTS) {
     // Calculate how long until the oldest request in the window expires
     const oldestTimestamp = timestamps[0];
     const retryAfter = Math.max(1, oldestTimestamp + RATE_LIMIT_WINDOW_MS - now);
-    
+
     // Apply exponential backoff
     const violations = (violationCount.get(key) ?? 0) + 1;
     violationCount.set(key, violations);
@@ -163,7 +165,10 @@ function enforceRateLimit(request: Request): NextResponse | null {
     if (!result.allowed) {
       return NextResponse.json(
         { error: 'Too many requests, please slow down.' },
-        { status: 429, headers: { 'Retry-After': String(Math.ceil((result.retryAfter ?? 0) / 1000)) } }
+        {
+          status: 429,
+          headers: { 'Retry-After': String(Math.ceil((result.retryAfter ?? 0) / 1000)) },
+        }
       );
     }
   }
@@ -183,7 +188,7 @@ function logAudit(action: string, details: Record<string, unknown>): void {
 // Carbon credit fractionalization - retail access
 // Minimum purchase is 1 ton instead of 100+ ton blocks.
 const MINIMUM_PURCHASE_TONS = 1;
-const MAX_FRACTIONAL_TORS = 1000000;
+const MAX_FRACTIONAL_TONS = 1000000;
 
 interface FractionalizationRequest {
   projectId: string;
@@ -200,15 +205,13 @@ interface FractionalizationResult {
   error?: string;
 }
 
-function validateFractionalization(
-  request: FractionalizationRequest
-): string | null {
+function validateFractionalization(request: FractionalizationRequest): string | null {
   if (!request.projectId) return 'projectId is required';
   if (!request.totalTons || request.totalTons <= 0) {
     return 'totalTons must be greater than zero';
   }
-  if (request.totalTons > MAX_FRACTIONAL_TORS) {
-    return `totalTons exceeds maximum of ${MAX_FRACTIONAL_TORS}`;
+  if (request.totalTons > MAX_FRACTIONAL_TONS) {
+    return `totalTons exceeds maximum of ${MAX_FRACTIONAL_TONS}`;
   }
   const minimum = request.minimumPurchaseTons ?? MINIMUM_PURCHASE_TONS;
   if (minimum < MINIMUM_PURCHASE_TONS) {
@@ -223,9 +226,7 @@ function validateFractionalization(
   return null;
 }
 
-function fractionalizeProject(
-  request: FractionalizationRequest
-): FractionalizationResult {
+function fractionalizeProject(request: FractionalizationRequest): FractionalizationResult {
   const validationError = validateFractionalization(request);
   if (validationError) {
     return {
@@ -275,7 +276,7 @@ interface Auction {
   reservePricePerTon: number;
   closesAt: string;
   status: AuctionStatus;
-  bids: AuctionBid;
+  bids: AuctionBid[];
 }
 
 interface AuctionCreateRequest {
@@ -294,7 +295,8 @@ interface AuctionBidRequest {
 }
 
 interface AuctionSettlement {
-  auctionId: status: AuctionStatus;
+  auctionId: string;
+  status: AuctionStatus;
   winningBid?: AuctionBid;
   totalValue?: number;
   error?: string;
@@ -316,13 +318,13 @@ function validateAuctionCreation(request: AuctionCreateRequest): string | null {
   if (!request.tonsOffered || request.tonsOffered <= 0) {
     return 'tonsOffered must be greater than zero';
   }
-  if (request.tomsOffered < MIN_AUCTION_TONS) {
+  if (request.tonsOffered < MIN_AUCTION_TONS) {
     return `tonsOffered must be at least ${MIN_AUCTION_TONS} ton`;
   }
   if (request.tonsOffered > MAX_AUCTION_TONS) {
     return `tonsOffered exceeds maximum of ${MAX_AUCTION_TONS}`;
   }
-  if (!request.reservePricePerTon || reservePricePerTon <= 0) {
+  if (!request.reservePricePerTon || request.reservePricePerTon <= 0) {
     return 'reservePricePerTon must be greater than zero';
   }
   if (!request.closesAt) {
@@ -361,7 +363,7 @@ function validateBid(auction: Auction, bid: AuctionBidRequest): string | null {
     return `amountPerTon must be at least ${MIN_BID_PER_TON}`;
   }
   if (!bid.tons || bid.tons <= 0) return 'tons must be greater than zero';
-  if (bid.tons > auction.tomsOffered) {
+  if (bid.tons > auction.tonsOffered) {
     return `bid tons cannot exceed tonsOffered (${auction.tonsOffered})`;
   }
   if (bid.amountPerTon < auction.reservePricePerTon) {
@@ -421,7 +423,6 @@ function settleAuction(auctionId: string): AuctionSettlement {
     totalValue: winningBid.amountPerTon * winningBid.tons,
   };
 }
-
 function getEarlySponsors(platformLaunchDate: string): AirdropRecipient[] {
   const launch = new Date(platformLaunchDate);
   const cutoff = new Date(launch);

@@ -141,12 +141,21 @@ export default function VerificationPhotosPage(): React.ReactNode {
     });
   };
 
+  // Selection persists across pages, so "select all" must be scoped to the
+  // current page's photos rather than comparing total selected to page size.
+  const allOnPageSelected =
+    photos.length > 0 && photos.every((p) => selectedPhotos.has(p.id));
+
   const toggleSelectAll = () => {
-    if (selectedPhotos.size === photos.length) {
-      setSelectedPhotos(new Set());
-    } else {
-      setSelectedPhotos(new Set(photos.map((p) => p.id)));
-    }
+    setSelectedPhotos((prev) => {
+      const next = new Set(prev);
+      if (allOnPageSelected) {
+        photos.forEach((p) => next.delete(p.id));
+      } else {
+        photos.forEach((p) => next.add(p.id));
+      }
+      return next;
+    });
   };
 
   const handleBatchAction = async (action: 'approve' | 'reject') => {
@@ -452,7 +461,7 @@ export default function VerificationPhotosPage(): React.ReactNode {
             </CardDescription>
           </div>
           <Button variant="outline" size="sm" onClick={toggleSelectAll}>
-            {selectedPhotos.size === photos.length ? 'Deselect All' : 'Select All'}
+            {allOnPageSelected ? 'Deselect All' : 'Select All'}
           </Button>
         </CardHeader>
         <CardContent>

@@ -1,4 +1,6 @@
+import Link from 'next/link';
 import {
+  ArrowRight,
   Coins,
   Droplets,
   Leaf,
@@ -160,8 +162,8 @@ export function FarmerStoryCard({ story, className }: FarmerStoryCardProps) {
           )}
           {typeof environmentalImpact.soilHealthImprovementPercent === 'number' && (
             <dd className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
-              <Sprout className="h-3.5 w-3.5" aria-hidden="true" />
-              +{environmentalImpact.soilHealthImprovementPercent}% soil health
+              <Sprout className="h-3.5 w-3.5" aria-hidden="true" />+
+              {environmentalImpact.soilHealthImprovementPercent}% soil health
             </dd>
           )}
         </dl>
@@ -187,6 +189,14 @@ export function FarmerStoryCard({ story, className }: FarmerStoryCardProps) {
           )}
         </div>
       </details>
+
+      <Link
+        href={`/success-stories/${story.slug}`}
+        className="mt-auto inline-flex items-center gap-2 text-sm font-semibold text-stellar-blue underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stellar-blue focus-visible:ring-offset-2"
+      >
+        View full case study
+        <ArrowRight className="h-4 w-4" aria-hidden="true" />
+      </Link>
     </article>
   );
 }

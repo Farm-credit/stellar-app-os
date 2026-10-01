@@ -6,6 +6,7 @@ import { getCarbonOffsetEstimate, parseCarbonOffsetInput } from '@/lib/analytics
 import { processFarmerPayment, parseFarmerPaymentInput } from '@/lib/payments/farmer-payment';
 import { getFarmerPaymentMethods, parseFarmerPaymentMethodFilters } from '@/lib/payments/farmer-payment-methods';
 import { getFarmerIncomePrediction, parseFarmerIncomePredictionInput } from '@/lib/analytics/farmer-income';
+import { getComplianceReport, parseComplianceReportInput } from '@/lib/analytics/compliance-report';
 import { createAuction, parseCreateAuctionInput } from '@/lib/marketplace/auction-create';
 import { placeBid, parsePlaceBidInput } from '@/lib/marketplace/auction-bid';
 import { closeAuction, parseCloseAuctionInput } from '@/lib/marketplace/auction-close';
@@ -38,7 +39,7 @@ export async function GET(request: Request): Promise<NextResponse> {
 }
 
 /**
- * GET /api/admin/analytics/tree-survival/payment-methods
+* GET /api/admin/analytics/tree-survival/payment-methods
  *
  * Returns the supported farmer payment methods across XLM, USDC, and fiat
  * currencies, including bank transfers, crypto wallets, and payment apps.
@@ -108,7 +109,6 @@ export async function POST(request: Request): Promise<NextResponse> {
     return NextResponse.json({ error: message }, { status });
   }
 }
-
 /**
  * PATCH /api/admin/analytics/tree-survival
  *

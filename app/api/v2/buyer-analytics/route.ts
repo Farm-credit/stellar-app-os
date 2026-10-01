@@ -17,10 +17,15 @@
  *   &from=<ISO date>             inclusive lower bound on recordedAt
  *   &to=<ISO date>               inclusive upper bound on recordedAt
  *   &interval=month|quarter      (default: month)
+ *   &dataSource=synthetic|ledger|all (default: synthetic)
  *
  * POST /api/v2/buyer-analytics
  *   Same fields as JSON: { buyerId, account?, platforms?, projectIds?,
- *   status?, from?, to?, interval? }
+ *   status?, from?, to?, interval?, dataSource? }
+ *
+ * `dataSource=ledger` reads the buyer's real corporate purchase ledger and
+ * retirement receipts from PostgreSQL; `buyerId` may be a Stellar wallet or a
+ * corporate program UUID (see `lib/api/buyer-offset-ledger.ts`).
  *
  * Responses:
  *   200  BuyerAnalyticsSummary
@@ -28,7 +33,7 @@
  *   502  { error, failures: [{ sourceId, message }] } — every source failed
  *   500  { error }
  *
- * Closes #1413
+ * Closes #1289
  */
 
 import { NextResponse } from 'next/server';

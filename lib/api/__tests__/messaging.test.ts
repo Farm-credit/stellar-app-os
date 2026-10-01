@@ -311,6 +311,46 @@ describe('deal negotiation', () => {
     });
     expect(accepted.status).toBe('agreed');
   });
+
+  it('negotiates custom deal volume, delivery timing windows and pricing', () => {
+    const conversation = makeConversation();
+    const customDeal = handleDealAction(conversation.id, {
+      actorId: BUYER,
+      action: 'propose',
+      terms: {
+        quantityTons: 250.5,
+        pricePerTon: 32.75,
+        currency: 'USDC',
+        deliveryStart: '2026-11-01T00:00:00.000Z',
+        deliveryEnd: '2026-11-30T00:00:00.000Z',
+        notes: 'High-grade agroforestry credits with community co-benefits',
+      },
+      note: 'Proposing bulk order for Q4 delivery',
+    });
+
+    expect(customDeal.currentTerms?.quantityTons).toBe(250.5);
+    expect(customDeal.currentTerms?.pricePerTon).toBe(32.75);
+    expect(customDeal.currentTerms?.currency).toBe('USDC');
+    expect(customDeal.currentTerms?.notes).toContain('High-grade agroforestry');
+
+    // Counter with revised timing and price
+    const countered = handleDealAction(conversation.id, {
+      actorId: FARMER,
+      action: 'counter',
+      terms: {
+        quantityTons: 250.5,
+        pricePerTon: 34.0,
+        currency: 'USDC',
+        deliveryStart: '2026-11-15T00:00:00.000Z',
+        deliveryEnd: '2026-12-15T00:00:00.000Z',
+        notes: 'Delivery staged across mid-November to mid-December',
+      },
+      note: 'Countered price and delivery window',
+    });
+
+    expect(countered.currentTerms?.pricePerTon).toBe(34.0);
+    expect(countered.currentTerms?.deliveryStart).toBe('2026-11-15T00:00:00.000Z');
+  });
 });
 
 // ── Access control & read state ───────────────────────────────────────────────

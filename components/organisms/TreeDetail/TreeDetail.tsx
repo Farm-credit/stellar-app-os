@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { ArrowLeft, Leaf, MapPin, TreePine, Wind } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Camera, Leaf, MapPin, TreePine, Wind } from 'lucide-react';
 import { Text } from '@/components/atoms/Text';
 import { TreeStatusBadge } from '@/components/molecules/TreeStatusBadge';
 import { TreeLifecycleTimeline } from '@/components/organisms/TreeLifecycleTimeline';
@@ -17,15 +17,6 @@ import { TreeImage } from './TreeImage';
 
 interface TreeDetailProps {
   tree: Tree;
-}
-
-function fmtDate(iso?: string) {
-  if (!iso) return 'Not yet planted';
-  return new Date(iso).toLocaleDateString('en-GB', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  });
 }
 
 /** Tree detail view for sponsors and map click-through (#532, #533). */
@@ -108,6 +99,25 @@ export function TreeDetail({ tree }: TreeDetailProps) {
             <TreeLifecycleTimeline tree={tree} />
           </CardContent>
         </Card>
+
+        <Link
+          href={`/trees/${tree.id}/timeline`}
+          className="group flex min-h-[44px] items-center justify-between gap-3 rounded-xl border border-border bg-card px-4 py-3 transition-colors hover:bg-muted sm:col-span-2"
+        >
+          <span className="flex items-center gap-3">
+            <Camera className="h-5 w-5 text-stellar-green" aria-hidden />
+            <span>
+              <span className="block font-semibold">Photo timeline</span>
+              <span className="block text-sm text-muted-foreground">
+                Month-by-month growth photos, milestones, and impact metrics.
+              </span>
+            </span>
+          </span>
+          <ArrowRight
+            className="h-5 w-5 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5"
+            aria-hidden
+          />
+        </Link>
       </div>
     </div>
   );

@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { Text } from '@/components/atoms/Text';
 import { CertificationRegistryPanel } from '@/components/organisms/CertificationRegistryPanel/CertificationRegistryPanel';
+import { ComplianceReportingPanel } from '@/components/organisms/ComplianceReportingPanel/ComplianceReportingPanel';
 
 export default function AdminCertificationsPage(): ReactNode {
   return (
@@ -16,6 +17,18 @@ export default function AdminCertificationsPage(): ReactNode {
       </div>
 
       <CertificationRegistryPanel />
+
+      <div className="mt-12 mb-8">
+        <Text as="h2" variant="h2" className="mb-2">
+          Buyer compliance reporting
+        </Text>
+        <Text as="p" variant="muted">
+          Generate SEC, EPA, and carbon tax compliance reports with automatic
+          offset-vs-emissions calculations for regulatory filings.
+        </Text>
+      </div>
+
+      <ComplianceReportingPanel />
     </div>
   );
 }
