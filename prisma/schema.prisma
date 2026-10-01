@@ -100,3 +100,60 @@ model ProjectRiskScore {
   @@index([updatedAt])
   @@map("project_risk_scores")
 }
+
+// ── Auction ─────────────────────────────────────────────────────────────────
+//
+// Competitive bidding mechanism allowing farmers to auction carbon credits
+// to multiple buyers. Buyers place bids; the highest bidder wins at auction
+// close, providing transparent price discovery.
+//
+// Schema is for documentation; production uses raw SQL migrations (see note above).
+model Auction {
+  id              String    @id @default(cuid())
+  farmerId        String    @map("farmer_id")
+  projectId       String    @map("project_id")
+  creditAmount    Int       @map("credit_amount")   // number of carbon credits auctioned
+  reservePrice    Decimal   @map("reserve_price") @db.Decimal(18, 2) // minimum acceptable price per credit
+  currency        String    @default("USD") @db.VarChar(10)
+  status          String    @default("open") @db.VarChar(20) // 'open' | 'closed' | 'settled' | 'cancelled'
+  startsAt        DateTime  @map("starts_at") @default(now())
+  endsAt          DateTime  @map("ends_at")
+  winningBidId    String?   @unique @map("winning_bid_id")
+  winningBid      Bid?      @relation("AuctionWinningBid", fields: [winningBidId], references: [id])
+  bids            Bid[]     @relation("AuctionBids")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  @@index([farmerId])
+  @@index([projectId])
+  @@index([status])
+  @@index([endsAt])
+  @@map("auctions")
+}
+
+// ── Bid ─────────────────────────────────────────────────────────────────────
+//
+// A single competitive bid placed by a buyer on an auction. The highest valid
+// bid at auction close wins, subject to the auction's reserve price.
+//
+// Schema is for documentation; production uses raw SQL migrations (see note above).
+model Bid {
+  id          String    @id @default(cuid())
+  auctionId   String    @map("auction_id")
+  auction     Auction   @relation("AuctionBids", fields: [auctionId], references: [id])
+  buyerId     String    @map("buyer_id")
+  pricePerCredit Decimal @map("price_per_credit") @db.Decimal(18, 2)
+  creditAmount   Int    @map("credit_amount")
+  totalAmount    Decimal @map("total_amount") @db.Decimal(18, 2)
+  status      String    @default("active") @db.VarChar(20) // 'active' | 'outbid' | 'won' | 'withdrawn'
+  placedAt    DateTime  @default(now()) @map("placed_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  wonAuction  Auction?  @relation("AuctionWinningBid")
+
+  @@index([auctionId])
+  @@index([buyerId])
+  @@index([status])
+  @@index([pricePerCredit])
+  @@map("bids")
+}

@@ -6,16 +6,20 @@ import { ReviewCard } from '@/app/components/reviews/ReviewCard';
 import { TeamReviewSummary } from '@/app/components/reviews/TeamReviewSummary';
 import { Review, ReviewSummary } from '@/lib/types/review';
 import { CarbonOffsetCalculator } from '@/app/components/carbon/CarbonOffsetCalculator';
+import { AuctionList } from '@/app/components/marketplace/AuctionList';
+import { Auction } from '@/lib/types/auction';
 
 export default function PlanterReviewsPage() {
   const params = useParams();
   const planterId = params.planterId as string;
   const [reviews, setReviews] = useState<Review[]>([]);
   const [summary, setSummary] = useState<ReviewSummary | null>(null);
+  const [auctions, setAuctions] = useState<Auction[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetchReviews();
+    fetchAuctions();
   }, [planterId]);
 
   const fetchReviews = async () => {
@@ -34,6 +38,17 @@ export default function PlanterReviewsPage() {
     }
   };
 
+  const fetchAuctions = async () => {
+    try {
+      const response = await fetch(`/api/marketplace/auctions?planterId=${planterId}`);
+      if (!response.ok) throw new Error('Failed to fetch auctions');
+      const data = await response.json();
+      setAuctions(data.auctions ?? []);
+    } catch (error) {
+      console.error('Error fetching auctions:', error);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -49,6 +64,11 @@ export default function PlanterReviewsPage() {
       {summary && <TeamReviewSummary summary={summary} />}
 
       <CarbonOffsetCalculator />
+
+      <div className="space-y-4">
+        <h2 className="text-xl font-semibold text-gray-900">Carbon Credit Auctions</h2>
+        <AuctionList auctions={auctions} planterId={planterId} />
+      </div>
 
       <div className="space-y-4">
         {reviews.length === 0 ? (

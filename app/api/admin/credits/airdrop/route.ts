@@ -252,6 +252,177 @@ function fractionalizeProject(request: FractionalizationRequest): Fractionalizat
   };
 }
 
+// -----------------------------------------------------------------------------
+// Auction mechanism - competitive bidding (v1)
+// Farmers auction carbon credits to multiple buyers. Buyers place bids.
+// Highest bidder wins. Transparent price discovery.
+// -----------------------------------------------------------------------------
+
+type AuctionStatus = 'open' | 'closed' | 'settled' | 'cancelled';
+
+interface AuctionBid {
+  bidId: string;
+  buyerId: string;
+  amountPerTon: number;
+  tons: number;
+  placedAt: string;
+}
+
+interface Auction {
+  auctionId: string;
+  farmerId: string;
+  projectId: string;
+  tonsOffered: number;
+  reservePricePerTon: number;
+  closesAt: string;
+  status: AuctionStatus;
+  bids: AuctionBid[];
+}
+
+interface AuctionCreateRequest {
+  farmerId: string;
+  projectId: string;
+  tonsOffered: number;
+  reservePricePerTon: number;
+  closesAt: string;
+}
+
+interface AuctionBidRequest {
+  auctionId: string;
+  buyerId: string;
+  amountPerTon: number;
+  tons: number;
+}
+
+interface AuctionSettlement {
+  auctionId: string;
+  status: AuctionStatus;
+  winningBid?: AuctionBid;
+  totalValue?: number;
+  error?: string;
+}
+
+const MIN_BID_PER_TON = 0.01;
+const MIN_AUCTION_TONS = 1;
+const MAX_AUCTION_TONS = 1000000;
+
+const auctions = new Map<string, Auction>();
+
+function generateId(prefix: string): string {
+  return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function validateAuctionCreation(request: AuctionCreateRequest): string | null {
+  if (!request.farmerId) return 'farmerId is required';
+  if (!request.projectId) return 'projectId is required';
+  if (!request.tonsOffered || request.tonsOffered <= 0) {
+    return 'tonsOffered must be greater than zero';
+  }
+  if (request.tonsOffered < MIN_AUCTION_TONS) {
+    return `tonsOffered must be at least ${MIN_AUCTION_TONS} ton`;
+  }
+  if (request.tonsOffered > MAX_AUCTION_TONS) {
+    return `tonsOffered exceeds maximum of ${MAX_AUCTION_TONS}`;
+  }
+  if (!request.reservePricePerTon || request.reservePricePerTon <= 0) {
+    return 'reservePricePerTon must be greater than zero';
+  }
+  if (!request.closesAt) {
+    return 'closesAt is required';
+  }
+  const closesAt = new Date(request.closesAt);
+  if (isNaN(closesAt.getTime())) return 'invalid closesAt date';
+  if (closesAt.getTime() <= Date.now()) return 'closesAt must be in the future';
+  return null;
+}
+
+function createAuction(request: AuctionCreateRequest): { auction?: Auction; error?: string } {
+  const validationError = validateAuctionCreation(request);
+  if (validationError) return { error: validationError };
+
+  const auction: Auction = {
+    auctionId: generateId('auction'),
+    farmerId: request.farmerId,
+    projectId: request.projectId,
+    tonsOffered: request.tonsOffered,
+    reservePricePerTon: request.reservePricePerTon,
+    closesAt: new Date(request.closesAt).toISOString(),
+    status: 'open',
+    bids: [],
+  };
+  auctions.set(auction.auctionId, auction);
+  return { auction };
+}
+
+function validateBid(auction: Auction, bid: AuctionBidRequest): string | null {
+  if (!auction) return 'auction not found';
+  if (auction.status !== 'open') return `auction is not open (current status: ${auction.status})`;
+  if (Date.now() > new Date(auction.closesAt).getTime()) return 'auction has closed';
+  if (!bid.buyerId) return 'buyerId is required';
+  if (!bid.amountPerTon || bid.amountPerTon < MIN_BID_PER_TON) {
+    return `amountPerTon must be at least ${MIN_BID_PER_TON}`;
+  }
+  if (!bid.tons || bid.tons <= 0) return 'tons must be greater than zero';
+  if (bid.tons > auction.tonsOffered) {
+    return `bid tons cannot exceed tonsOffered (${auction.tonsOffered})`;
+  }
+  if (bid.amountPerTon < auction.reservePricePerTon) {
+    return `amountPerTon must meet the reserve price of ${auction.reservePricePerTon}`;
+  }
+  return null;
+}
+
+function placeBid(auctionId: string, bidRequest: AuctionBidRequest): { auction?: Auction; bid?: AuctionBid; error?: string } {
+  const auction = auctions.get(auctionId);
+  const validationError = validateBid(auction as Auction, bidRequest);
+  if (validationError) return { error: validationError };
+
+  const bid: AuctionBid = {
+    bidId: generateId('bid'),
+    buyerId: bidRequest.buyerId,
+    amountPerTon: bidRequest.amountPerTon,
+    tons: bidRequest.tons,
+    placedAt: new Date().toISOString(),
+  };
+  auction!.bids.push(bid);
+  return { auction, bid };
+}
+
+function selectWinningBid(auction: Auction): AuctionBid | undefined {
+  if (auction.bids.length === 0) return undefined;
+  return [...auction.bids].sort((a, b) => {
+    if (b.amountPerTon !== a.amountPerTon) {
+      return b.amountPerTon - a.amountPerTon;
+    }
+    // Tie breaker: earlier bid wins
+    return new Date(a.placedAt).getTime() - new Date(b.placedAt).getTime();
+  })[0];
+}
+
+function settleAuction(auctionId: string): AuctionSettlement {
+  const auction = auctions.get(auctionId);
+  if (!auction) return { auctionId, status: 'cancelled', error: 'auction not found' };
+  if (auction.status !== 'open') {
+    return { auctionId, status: auction.status, error: `auction is not open (current status: ${auction.status})` };
+  }
+  if (Date.now() < new Date(auction.closesAt).getTime()) {
+    return { auctionId, status: auction.status, error: 'auction has not closed yet' };
+  }
+
+  const winningBid = selectWinningBid(auction);
+  if (!winningBid) {
+    auction.status = 'cancelled';
+    return { auctionId, status: 'cancelled', error: 'no bids received' };
+  }
+
+  auction.status = 'settled';
+  return {
+    auctionId,
+    status: 'settled',
+    winningBid,
+    totalValue: winningBid.amountPerTon * winningBid.tons,
+  };
+}
 function getEarlySponsors(platformLaunchDate: string): AirdropRecipient[] {
   const launch = new Date(platformLaunchDate);
   const cutoff = new Date(launch);
@@ -370,98 +541,27 @@ export async function POST(request: Request) {
     }
 
     const recipients = getEarlySponsors(platformLaunchDate);
+    const cutoff = new Date(platformLaunchDate);
+    cutoff.setMonth(cutoff.getMonth() + 6);
 
-    if (recipients.length === 0) {
-      logAudit('admin.airdrop.execute', { status: 'no_eligible_sponsors' });
-      return NextResponse.json(
-        { error: 'No eligible sponsors found for the given launch date' },
-        { status: 400 }
-      );
-    }
-
-    // TODO: replace with real Stellar CARBON token transfer per recipient wallet
-    const results: AirdropResult = {
-      totalQueued: recipients.length,
-      recipients: recipients.map((r) => ({
-        walletAddress: r.walletAddress,
-        status: 'queued' as const,
-      })),
+    const result: AirdropResult = {
+      projectId,
+      recipients,
+      totalCredits: recipients.length * creditsPerSponsor,
+      cutoffDate: cutoff.toISOString(),
+      status: 'queued',
     };
 
     logAudit('admin.airdrop.execute', {
       status: 'success',
-      totalQueued: results.totalQueued,
       projectId,
+      recipientCount: recipients.length,
+      totalCredits: result.totalCredits,
     });
 
-    return NextResponse.json(results);
-  } catch (err) {
-    const message = err instanceof Error ? err.message : 'Airdrop failed';
-    logAudit('admin.airdrop.execute', { status: 'error', message });
-    return NextResponse.json({ error: message }, { status: 500 });
-  }
-}
-
-export async function PUT(request: Request) {
-  if (!(await isAdminRequest())) {
-    logAudit('admin.farmer_payments.process', { status: 'denied' });
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
-  const rateLimitInspection = enforceRateLimit(request);
-  if (rateLimitInspection) {
-    logAudit('admin.farmer_payments.process', {
-      status: 'rate_limited',
-      keys: getClientKeys(request),
-    });
-    return rateLimitInspection;
-  }
-
-  try {
-    const body = (await request.json()) as {
-      payments?: FarmerPaymentRequest[];
-      fractionalization?: FractionalizationRequest;
-    };
-    const payments = body.payments ?? [];
-    const fractionalization = body.fractionalization;
-
-    logAudit('admin.farmer_payments.process', {
-      status: 'started',
-      paymentCount: payments.length,
-      hasFractionalization: Boolean(fractionalization),
-    });
-
-    if (fractionalization) {
-      const result = fractionalizeProject(fractionalization);
-      logAudit('admin.fractionalization.process', {
-        status: result.status,
-        projectId: result.projectId,
-        availableUnits: result.availableUnits,
-        error: result.error,
-      });
-      if (result.status === 'failed') {
-        return NextResponse.json({ error: result.error }, { status: 400 });
-      }
-      return NextResponse.json({ fractionalization: result });
-    }
-
-    if (!Array.isArray(payments) || payments.length === 0) {
-      logAudit('admin.farmer_payments.process', { status: 'no_payments' });
-      return NextResponse.json({ error: 'payments must be a non-empty array' }, { status: 400 });
-    }
-
-    const results = processFarmerPayments(payments);
-
-    logAudit('admin.farmer_payments.process', {
-      status: 'success',
-      queued: results.filter((r) => r.status === 'queued').length,
-      failed: results.filter((r) => r.status === 'failed').length,
-    });
-
-    return NextResponse.json({ payments: results });
-  } catch (err) {
-    const message = err instanceof Error ? err.message : 'Payment processing failed';
-    logAudit('admin.farmer_payments.process', { status: 'error', message });
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json(result);
+  } catch {
+    logAudit('admin.airdrop.execute', { status: 'invalid_body' });
+    return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
   }
 }

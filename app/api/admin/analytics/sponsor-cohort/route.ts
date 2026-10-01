@@ -82,7 +82,7 @@ async function generate1099Forms(pool: any) {
       SUM(sp.amount) AS total_annual
     FROM sponsors s
     JOIN sponsorships sp ON sp.sponsor_id = s.id
-    WHERE sp.created_at >= NOW() - INTERVAL '1 year'
+    WHERE sp.created_at >= NOW() - INTERVAL 'y type'
     GROUP BY s.id, s.name, s.email
     HAVING SUM(sp.amount) > 20000
   `);
@@ -303,7 +303,7 @@ async function logAuditEvent(request: Request, action: string, details: Record<s
     const actor = request.headers.get('x-admin-user') || request.headers.get('x-user-id') || 'unknown';
     await pool.query(
       `INSERT INTO admin_audit_log (actor_id, action, resource, details, created_at)
-       VALUES ($1, $2, 'sponsor-cohort-analytics', $3::jsonb, NOT())
+VALUES ($1, $2, 'sponsor-cohort-analytics', $3::jsonb, NOW())
       `,
       [actor, action, JSON.stringify(details)]
     );

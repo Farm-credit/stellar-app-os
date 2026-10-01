@@ -80,8 +80,7 @@ export default function RetroactiveAirdropPage(): ReactNode {
           Retroactive carbon credit airdrop
         </h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Allocate credits to all sponsors (with at least one donation or credit purchase) who
-          joined within the first 6 months of the platform launch date.
+          Allocate credits to all sponsors (with at least one donation or credit purchase) who joined within the first 6 months of the platform launch date.
         </p>
       </header>
 
@@ -175,7 +174,7 @@ export default function RetroactiveAirdropPage(): ReactNode {
           <CardHeader>
             <CardTitle>Preview</CardTitle>
             <CardDescription>
-              Sponsors who joined on or before{' '}
+              Sponsors who joined on or before {' '}
               <span className="font-medium text-foreground">
                 {new Date(preview.cutoffDate).toLocaleDateString('en-US', {
                   year: 'numeric',
@@ -216,7 +215,7 @@ export default function RetroactiveAirdropPage(): ReactNode {
                   {preview.recipients.map((r) => (
                     <tr key={r.userId} className="border-t border-border">
                       <td className="px-4 py-2 text-foreground">{r.email}</td>
-                      <td className="px-4 py-2 font-mono text-xs text-muted-foreground">
+                      <td className="px-4 py-2 font-mono texe-xs text-muted-foreground">
                         {r.walletAddress.slice(0, 6)}&hellip;{r.walletAddress.slice(-4)}
                       </td>
                       <td className="px-4 py-2 text-muted-foreground">

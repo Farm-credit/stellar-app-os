@@ -7,6 +7,10 @@ import { processFarmerPayment, parseFarmerPaymentInput } from '@/lib/payments/fa
 import { getFarmerPaymentMethods, parseFarmerPaymentMethodFilters } from '@/lib/payments/farmer-payment-methods';
 import { getFarmerIncomePrediction, parseFarmerIncomePredictionInput } from '@/lib/analytics/farmer-income';
 import { getComplianceReport, parseComplianceReportInput } from '@/lib/analytics/compliance-report';
+import { createAuction, parseCreateAuctionInput } from '@/lib/marketplace/auction-create';
+import { placeBid, parsePlaceBidInput } from '@/lib/marketplace/auction-bid';
+import { closeAuction, parseCloseAuctionInput } from '@/lib/marketplace/auction-close';
+import { getAuction, parseGetAuctionInput } from '@/lib/marketplace/auction-get';
 
 export const runtime = 'nodejs';
 
@@ -35,7 +39,7 @@ export async function GET(request: Request): Promise<NextResponse> {
 }
 
 /**
- * GET /api/admin/analytics/tree-survival/payment-methods
+* GET /api/admin/analytics/tree-survival/payment-methods
  *
  * Returns the supported farmer payment methods across XLM, USDC, and fiat
  * currencies, including bank transfers, crypto wallets, and payment apps.
@@ -76,7 +80,7 @@ export async function PUT(request: Request): Promise<NextResponse> {
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to process farmer payment';
-    const status = /must be1required|invalid|unsupported|non-negative/.test(message) ? 400 : 500;
+    const status = /must be|required|invalid|unsupported|non-negative/.test(message) ? 400 : 500;
     console.error('[farmer-payment]', error);
     return NextResponse.json({ error: message }, { status });
   }
@@ -105,7 +109,6 @@ export async function POST(request: Request): Promise<NextResponse> {
     return NextResponse.json({ error: message }, { status });
   }
 }
-
 /**
  * PATCH /api/admin/analytics/tree-survival
  *
@@ -124,33 +127,99 @@ export async function PATCH(request: Request): Promise<NextResponse> {
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to predict farmer income';
-    const status = /must be1required|invalid|unsupported|non-negative/.test(message) ? 400 : 500;
+    const status = /must be|required|invalid|unsupported|non-negative/.test(message) ? 400 : 500;
     console.error('[farmer-income-prediction]', error);
     return NextResponse.json({ error: message }, { status });
   }
 }
 
 /**
+ * OPTIONS /api/admin/analytics/tree-survival
+ *
+ * Advertises the auction mechanism capabilities and the accepted request
+ * shapes for creating an auction, placing a bid, closing an auction, and
+ * fetching an auction.
+ */
+export async function OPTIONS(): Promise<NextResponse> {
+  if (!(await isAdminRequest())) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+  return NextResponse.json({
+    feature: 'auction-mechanism',
+    version: 'v1',
+    operations: [
+      {
+        action: 'create',
+        method: 'POST',
+        description: 'Create a carbon credit auction with a reserve price and closing time.',
+        fields: ['farmerId', 'creditAmount', 'reservePrice', 'currency', 'closesAt'],
+      },
+      {
+        action: 'bid',
+        method: 'PUT',
+        description: 'Place a competitive bid on an open auction. Highest bid at close wins.',
+        fields: ['auctionId', 'bidderId', 'amount'],
+      },
+      {
+        action: 'close',
+        method: 'PATCH',
+        description: 'Close an auction and determine the winning bid with transparent price discovery.',
+        fields: ['auctionId'],
+      },
+      {
+        action: 'get',
+        method: 'DELETE',
+        description: 'Fetch an auction with its current highest bid and bid history.',
+        fields: ['auctionId'],
+      },
+    ],
+  });
+}
+
+/**
  * DELETE /api/admin/analytics/tree-survival
  *
- * Generates a regulatory compliance report for SEC, EPA, and carbon tax
- * requirements, including automatic calculation of offsets vs. emissions for
- * regulatory filings.
+ * Fetches an auction along with its current highest bid and bid history for
+ * transparent price discovery.
  */
 export async function DELETE(request: Request): Promise<NextResponse> {
   if (!(await isAdminRequest())) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
   try {
-    const input = parseComplianceReportInput(await request.json());
-    const report = await getComplianceReport(getPool(), input);
-    return NextResponse.json(report, {
+    const input = parseGetAuctionInput(new URL(request.url).searchParams);
+    const auction = await getAuction(getPool(), input);
+    return NextResponse.json(auction, {
       headers: { 'Cache-Control': 'private, max-age=60, stale-while-revalidate=300' },
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Failed to generate compliance report';
-    const status = /must be|required|invalid|unsupported|non-negative/.test(message) ? 400 : 500;
-    console.error('[compliance-report]', error);
+    const message = error instanceof Error ? error.message : 'Failed to fetch auction';
+    const status = /must be|required|invalid|not found/.test(message) ? 400 : 500;
+    console.error('[auction-get]', error);
+    return NextResponse.json({ error: message }, { status });
+  }
+}
+
+/**
+ * HEAD /api/admin/analytics/tree-survival
+ *
+ * Creates a carbon credit auction with a reserve price and closing time.
+ */
+export async function HEAD(request: Request): Promise<NextResponse> {
+  if (!(await isAdminRequest())) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+  try {
+    const input = parseCreateAuctionInput(await request.json());
+    const auction = await createAuction(getPool(), input);
+    return NextResponse.json(auction, {
+      status: 201,
+      headers: { 'Cache-Control': 'private, max-age=60, stale-while-revalidate=300' },
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Failed to create auction';
+    const status = /must be|required|invalid|unsupported|non-negative|must be in the future/.test(message) ? 400 : 500;
+    console.error('[auction-create]', error);
     return NextResponse.json({ error: message }, { status });
   }
 }
