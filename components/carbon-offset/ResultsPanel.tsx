@@ -13,7 +13,11 @@ function formatNumber(value: number, digits = 1): string {
 }
 
 function formatCurrency(value: number): string {
-  return value.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
+  return value.toLocaleString('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    maximumFractionDigits: 0,
+  });
 }
 
 const BRAKKEDOWN_LABELS: Record<keyof CarbonProfileResult['breakdown'], string> = {
@@ -41,10 +45,12 @@ export function ResultsPanel({ result, onReset }: ResultsPanelProps) {
       <div className="bg-green-600 text-white rounded-lg p-6 shadow">
         <p className="text-sm uppercase tracking-wide opacity-80">Your annual carbon footprint</p>
         <p className="text-4xl font-bold mt-1">
-          {formatNumber(result.totalTCO2e, 2)} <span className="text-lg font-normal">tCO2e/year</span>
+          {formatNumber(result.totalTCO2e, 2)}{' '}
+          <span className="text-lg font-normal">tCO2e/year</span>
         </p>
         <p className="text-sm mt-2 opacity-90">
-          {formatNumber(result.perCapitaTC2e, 2)} tCO2e per person · {result.creditsNeeded} carbon credit{result.creditsNeeded === 1 ? '' : 's'} needed
+          {formatNumber(result.perCapitaTC2e, 2)} tCO2e per person · {result.creditsNeeded} carbon
+          credit{result.creditsNeeded === 1 ? '' : 's'} needed
         </p>
       </div>
 
@@ -55,11 +61,21 @@ export function ResultsPanel({ result, onReset }: ResultsPanelProps) {
         </div>
         <div className="bg-white border border-gray-200 rounded-lg p-4 text-center">
           <p className="text-xs uppercase tracking-wide text-gray-500">Estimated cost</p>
-          <p className="text-2xl font-bold text-gray-900 mt-1">{formatCurrency(result.estimatedCostUSD)}</p>
+          <p className="text-2xl font-bold text-gray-900 mt-1">
+            {formatCurrency(result.estimatedCostUSD)}
+          </p>
+        </div>
+        <div className="bg-white border border-gray-200 rounded-lg p-4 text-center">
+          <p className="text-xs uppercase tracking-wide text-gray-500">Estimated cost</p>
+          <p className="text-2xl font-bold text-gray-900 mt-1">
+            {formatCurrency(result.estimatedCostUSD)}
+          </p>
         </div>
         <div className="bg-white border border-gray-200 rounded-lg p-4 text-center">
           <p className="text-xs uppercase tracking-wide text-gray-500">Trees equivalent</p>
-          <p className="text-2xl font-bold text-gray-900 mt-1">{formatNumber(result.treesNeeded, 0)}</p>
+          <p className="text-2xl font-bold text-gray-900 mt-1">
+            {formatNumber(result.treesNeeded, 0)}
+          </p>
         </div>
       </div>
 
@@ -86,10 +102,16 @@ export function ResultsPanel({ result, onReset }: ResultsPanelProps) {
       <div className="bg-white border border-gray-200 rounded-lg p-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-2">How you compare</h3>
         <p className="text-sm text-gray-700">
-          Regional average for a household your size: <span className="font-medium">{formatNumber(comparison.regionAverageTCO2e, 2)} tCO2e</span>
+          Regional average for a household your size:{' '}
+          <span className="font-medium">
+            {formatNumber(comparison.regionAverageTCO2e, 2)} tCO2e
+          </span>
         </p>
-        <p className={`mt-2 text-sm font-medium ${isBelowAverage ? 'text-green-700' : 'text-amber-700'`}>
-          {isBelowAverage ? 'Below' : 'Above'} regional average by {formatNumber(Math.abs(comparison.percentDifference), 1)}%
+        <p
+          className={`mt-2 text-sm font-medium ${isBelowAverage ? 'text-green-700' : 'text-amber-700'}`}
+        >
+          {isBelowAverage ? 'Below' : 'Above'} regional average by{' '}
+          {formatNumber(Math.abs(comparison.percentDifference), 1)}%
         </p>
       </div>
 
@@ -97,7 +119,7 @@ export function ResultsPanel({ result, onReset }: ResultsPanelProps) {
         <button
           type="button"
           onClick={onReset}
-          className="wfull px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-md hover:bg-gray-50"
+          className="w-full px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-md hover:bg-gray-50"
         >
           Recalculate
         </button>

@@ -101,6 +101,8 @@ describe('share link round trip', () => {
 
     expect(parsed.companyName).toBe('Acme & Sons');
     expect(parsed.offsets).toEqual(input.offsets);
+    expect(parsed.coBenefits).toEqual(input.coBenefits);
+    expect(parsed.supplyChain).toEqual(input.supplyChain);
     expect(parsed.totalCo2Offset).toBe(input.totalCo2Offset);
   });
 });
@@ -121,6 +123,51 @@ describe('parseEsgOffsetsParam', () => {
     ]);
     expect(parseEsgOffsetsParam(raw)).toEqual([
       { projectName: 'Ok', creditType: 'ARR', tonnesCo2e: 5, verification: 'Verra VCS' },
+    ]);
+  });
+});
+
+describe('parseEsgCoBenefitsParam', () => {
+  it('returns [] for missing or malformed input', () => {
+    expect(parseEsgCoBenefitsParam(null)).toEqual([]);
+    expect(parseEsgCoBenefitsParam('invalid')).toEqual([]);
+  });
+
+  it('parses valid co-benefit lines correctly', () => {
+    const raw = JSON.stringify([
+      { name: 'Biodiversity', tonnes: 300, sharePercentage: 60 },
+      { name: 'Invalid', tonnes: -5, sharePercentage: 10 },
+    ]);
+    expect(parseEsgCoBenefitsParam(raw)).toEqual([
+      { name: 'Biodiversity', tonnes: 300, sharePercentage: 60 },
+    ]);
+  });
+});
+
+describe('parseEsgSupplyChainParam', () => {
+  it('returns [] for missing or malformed input', () => {
+    expect(parseEsgSupplyChainParam(null)).toEqual([]);
+    expect(parseEsgSupplyChainParam('invalid')).toEqual([]);
+  });
+
+  it('parses valid supply chain lines correctly', () => {
+    const raw = JSON.stringify([
+      {
+        projectName: 'Amazon',
+        location: 'Brazil',
+        tonnesCo2e: 180,
+        retiredTonnes: 50,
+        stageSummary: '4/5 complete',
+      },
+    ]);
+    expect(parseEsgSupplyChainParam(raw)).toEqual([
+      {
+        projectName: 'Amazon',
+        location: 'Brazil',
+        tonnesCo2e: 180,
+        retiredTonnes: 50,
+        stageSummary: '4/5 complete',
+      },
     ]);
   });
 });

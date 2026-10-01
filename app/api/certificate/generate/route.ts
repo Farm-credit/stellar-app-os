@@ -31,6 +31,17 @@ const PAGE_H = 297;
 const MARGIN = 20;
 const CONTENT_W = PAGE_W - MARGIN * 2;
 
+const MM_PER_INCH = 25.4;
+const QR_SIZE_MM = 38;
+const DEFAULT_CERTIFICATE_DPI = 150;
+
+// QR is placed at a fixed physical size, so CERTIFICATE_DPI controls how many
+// pixels it is rasterized at — i.e. the print resolution of the PDF's QR code.
+function resolveCertificateDpi(): number {
+  const dpi = Number(process.env.CERTIFICATE_DPI);
+  return Number.isFinite(dpi) && dpi > 0 ? dpi : DEFAULT_CERTIFICATE_DPI;
+}
+
 // --- Rate limiting ---
 type RateLimitConfig = {
   windowMs: number;
@@ -197,10 +208,17 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       },
     });
 
-    const explorerBaseUrl = body.explorerBaseUrl ?? 'https://stellar.expert/explorer/public/tx';
+    const explorerBaseUrl =
+      body.explorerBaseUrl ??
+      process.env.CERTIFICATE_EXPLORER_BASE_URL ??
+      'https://stellar.expert/explorer/public/tx';
     const explorerUrl = `${explorerBaseUrl}/${body.transactionHash}`;
 
-    const qrDataUrl = await QRCode.toDataURL(explorerUrl, { width: 200, margin: 1 });
+    const qrWidthPx = Math.max(
+      1,
+      Math.round((QR_SIZE_MM / MM_PER_INCH) * resolveCertificateDpi())
+    );
+    const qrDataUrl = await QRCode.toDataURL(explorerUrl, { width: qrWidthPx, margin: 1 });
 
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
     const displayName = getDisplayName(body.userName, body.walletAddress, body.isAnonymous);
@@ -302,7 +320,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     doc.line(MARGIN, y, PAGE_W - MARGIN, y);
 
     y += 10;
-    const qrSize = 38;
+    const qrSize = QR_SIZE_MM;
     const qrX = PAGE_W - MARGIN - qrSize;
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(9);

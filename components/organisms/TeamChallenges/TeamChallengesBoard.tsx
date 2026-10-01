@@ -3,14 +3,14 @@
 /**
  * Corporate offset goals — team challenges board (Issue #1361)
  *
- * Surfaces the v1 team-challenge standings: the team with the best
+ * Surfaces the team-challenge standings: the team with the best
  * offset-per-employee ratio is recognised, and every team is listed with its
  * ratio, headcount and total offset. Ranking comes from the pure helper in
  * `@/lib/team-challenges/ranking`, so the UI and the tests agree on the rules.
  */
 
 import { useMemo } from 'react';
-import { Trophy, Users, TrendingUp } from 'lucide-react';
+import { Trophy, Users, TrendingUp, Leaf, CalendarDays } from 'lucide-react';
 import {
   Card,
   CardContent,
@@ -28,12 +28,21 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { pickWinner, rankTeams, type TeamChallengeEntry } from '@/lib/team-challenges/ranking';
+import type { TeamChallengeTotals, TeamChallengeWindow } from '@/lib/team-challenges/standings';
 
 export interface TeamChallengesBoardProps {
   teams: readonly TeamChallengeEntry[];
+  /** Challenge window the teams are competing in; optional for standalone boards. */
+  challenge?: Pick<TeamChallengeWindow, 'name' | 'endsAt' | 'recognition'>;
+  /** Pre-computed totals from the standings snapshot; derived from `teams` when absent. */
+  totals?: TeamChallengeTotals;
 }
 
 const numberFormatter = new Intl.NumberFormat('en-US', { maximumFractionDigits: 1 });
+const dateFormatter = new Intl.DateTimeFormat('en-US', {
+  dateStyle: 'medium',
+  timeZone: 'UTC',
+});
 
 function formatTonnes(value: number): string {
   return `${numberFormatter.format(value)}t`;
@@ -43,22 +52,46 @@ function formatRatio(value: number): string {
   return `${numberFormatter.format(value)}t / employee`;
 }
 
-export function TeamChallengesBoard({ teams }: TeamChallengesBoardProps) {
+function deriveTotals(teams: readonly TeamChallengeEntry[]): TeamChallengeTotals {
+  const employees = teams.reduce(
+    (total, team) => total + Math.max(0, Math.floor(team.employeeCount ?? 0)),
+    0
+  );
+  return {
+    teams: teams.length,
+    eligibleTeams: teams.filter((team) => (team.employeeCount ?? 0) > 0).length,
+    employees,
+    totalOffsetTonnes: teams.reduce(
+      (total, team) => total + Math.max(0, team.totalOffsetTonnes),
+      0
+    ),
+    treesPlanted: 0,
+  };
+}
+
+export function TeamChallengesBoard({ teams, challenge, totals }: TeamChallengesBoardProps) {
   const rankings = useMemo(() => rankTeams(teams), [teams]);
   const winner = useMemo(() => pickWinner(teams), [teams]);
+  const summary = useMemo(() => totals ?? deriveTotals(teams), [teams, totals]);
   const eligibleCount = rankings.filter((team) => team.isEligible).length;
 
   return (
     <section className="space-y-8">
       <header className="flex flex-col gap-2">
         <Text variant="h1" className="text-foreground">
-          Corporate offset goals
+          {challenge ? challenge.name : 'Corporate offset goals'}
         </Text>
         <Text variant="muted" as="p" className="max-w-2xl">
           Employee teams compete on sustainability goals. The team with the best offset-per-employee
           ratio wins recognition — total offset is split by team size so smaller teams can outrank
           larger ones.
         </Text>
+        {challenge && (
+          <Text variant="small" className="flex items-center gap-2 text-muted-foreground">
+            <CalendarDays className="h-4 w-4" aria-hidden />
+            Challenge closes {dateFormatter.format(new Date(challenge.endsAt))}
+          </Text>
+        )}
       </header>
 
       {rankings.length === 0 ? (
@@ -73,6 +106,13 @@ export function TeamChallengesBoard({ teams }: TeamChallengesBoardProps) {
         </Card>
       ) : (
         <>
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+            <Stat label="Teams" value={numberFormatter.format(summary.teams)} />
+            <Stat label="Employees" value={numberFormatter.format(summary.employees)} />
+            <Stat label="Total offset" value={formatTonnes(summary.totalOffsetTonnes)} />
+            <Stat label="Eligible teams" value={numberFormatter.format(summary.eligibleTeams)} />
+          </div>
+
           {winner ? (
             <Card className="border-stellar-blue/40 bg-stellar-blue/5">
               <CardHeader className="flex-row items-start justify-between gap-4 space-y-0">
@@ -82,7 +122,9 @@ export function TeamChallengesBoard({ teams }: TeamChallengesBoardProps) {
                     {winner.teamName}
                   </CardTitle>
                   <CardDescription>
-                    Wins recognition with the best offset-per-employee ratio.
+                    {challenge
+                      ? `Wins recognition — ${challenge.recognition}`
+                      : 'Wins recognition with the best offset-per-employee ratio.'}
                   </CardDescription>
                 </div>
                 <Text variant="label" className="whitespace-nowrap">
@@ -111,8 +153,8 @@ export function TeamChallengesBoard({ teams }: TeamChallengesBoardProps) {
               <CardContent className="flex items-center gap-3 py-6">
                 <TrendingUp className="h-5 w-5 text-muted-foreground" aria-hidden />
                 <Text variant="muted" as="p">
-                  No team is eligible yet — add employees to a team to record an
-                  offset-per-employee ratio.
+                  No team is eligible yet — add employees to a team to record an offset-per-employee
+                  ratio.
                 </Text>
               </CardContent>
             </Card>
@@ -138,9 +180,7 @@ export function TeamChallengesBoard({ teams }: TeamChallengesBoardProps) {
                     <TableCell className="font-medium">
                       {team.teamName}
                       {!team.isEligible && (
-                        <span className="ml-2 text-xs text-muted-foreground">
-                          (not eligible)
-                        </span>
+                        <span className="ml-2 text-xs text-muted-foreground">(not eligible)</span>
                       )}
                     </TableCell>
                     <TableCell className="text-right">{team.employeeCount}</TableCell>
@@ -162,5 +202,19 @@ export function TeamChallengesBoard({ teams }: TeamChallengesBoardProps) {
         </>
       )}
     </section>
+  );
+}
+
+function Stat({ label, value }: { label: string; value: string }) {
+  return (
+    <Card>
+      <CardContent className="space-y-1 py-4">
+        <Text variant="label" className="flex items-center gap-1.5">
+          <Leaf className="h-3.5 w-3.5 text-stellar-green" aria-hidden />
+          {label}
+        </Text>
+        <Text variant="h4">{value}</Text>
+      </CardContent>
+    </Card>
   );
 }

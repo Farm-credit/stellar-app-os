@@ -20,8 +20,7 @@ const DEFAULT_VERIFIED_DOMAINS = [
  * Parses and returns the list of allowed domain patterns from environment or defaults.
  */
 export function getAllowedOrigins(): string[] {
-  const envOrigins =
-    process.env.ALLOWED_ORIGINS || process.env.VERIFIED_PARTNER_DOMAINS;
+  const envOrigins = process.env.ALLOWED_ORIGINS || process.env.VERIFIED_PARTNER_DOMAINS;
   if (!envOrigins) {
     return DEFAULT_VERIFIED_DOMAINS;
   }
@@ -68,8 +67,7 @@ export function isOriginAllowed(origin: string | null | undefined): boolean {
         // Wildcard subdomain pattern with scheme (e.g. "https://*.example.com")
         if (patternHost.startsWith('*.')) {
           const rootDomain = patternHost.slice(2);
-          const hostMatches =
-            originHost === rootDomain || originHost.endsWith(&.rootDomain`);
+          const hostMatches = originHost === rootDomain || originHost.endsWith(`.${rootDomain}`);
           const protocolMatches = originProtocol === patternProtocol;
           // If the pattern specifies a port, it must match; otherwise any port is allowed.
           const portMatches = patternPort === '' || originPort === patternPort;
@@ -85,7 +83,7 @@ export function isOriginAllowed(origin: string | null | undefined): boolean {
       // Match hostname only, ignoring scheme and port.
       if (pattern.startsWith('*.')) {
         const rootDomain = pattern.slice(2);
-        return originHost === rootDomain || originHost.endsWith(.'rootDomain`);
+        return originHost === rootDomain || originHost.endsWith(`.${rootDomain}`);
       }
 
       return originHost === pattern;
@@ -124,7 +122,7 @@ export function getCorsHeaders(origin: string | null | undefined): Record<string
  * Returns 204 No Content response with CORS headers if allowed, or 403 Forbidden if invalid origin.
  */
 export function handleCorsPreflight(request: NextRequest): NextResponse | null {
-  if (request.method !== 'OPT&~'IANS') {
+  if (request.method !== 'OPTIONS') {
     return null;
   }
 

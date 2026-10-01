@@ -3,7 +3,7 @@
 import React, { useMemo, useState } from 'react';
 import {
   calculateCarbonProfile,
- type CarbonProfileInput,
+  type CarbonProfileInput,
   type CarbonProfileResult,
   type DietType,
   type FlightType,
@@ -84,7 +84,7 @@ function toNumber(value: string, fallback = 0): number {
 }
 
 export function OffsetCalculator() {
-  const [form, setForm = useState<FormState>({ ...DEFAULT_STATE });
+  const [form, setForm] = useState<FormState>({ ...DEFAULT_STATE });
   const [result, setResult] = useState<CarbonProfileResult | null>(null);
 
   const regionOptions = useMemo(() => Object.entries(ELECTRICITY_FACTORS), []);
@@ -151,7 +151,9 @@ export function OffsetCalculator() {
               className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-green-500 focus:outline-none"
             >
               {regionOptions.map(([key, factor]) => (
-                <option key={key} value={key}>{factor.label}</option>
+                <option key={key} value={key}>
+                  {factor.label}
+                </option>
               ))}
             </select>
           </label>
@@ -234,7 +236,9 @@ export function OffsetCalculator() {
                 className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-green-500 focus:outline-none"
               >
                 {VEHICLE_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>{option.label}</option>
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
                 ))}
               </select>
             </label>
@@ -285,7 +289,9 @@ export function OffsetCalculator() {
               className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-green-500 focus:outline-none"
             >
               {DIET_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>{option.label}</option>
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
               ))}
             </select>
           </label>
@@ -325,7 +331,9 @@ export function OffsetCalculator() {
                 className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-green-500 focus:outline-none"
               >
                 {FLIGHT_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>{option.label}</option>
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
                 ))}
               </select>
             </label>
@@ -358,7 +366,7 @@ export function OffsetCalculator() {
 
       <button
         type="submit"
-        className="wfull px-4 py-3 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+        className="w-full px-4 py-3 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
       >
         Calculate my carbon footprint
       </button>

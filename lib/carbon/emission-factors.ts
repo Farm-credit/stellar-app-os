@@ -19,30 +19,80 @@ export interface EmissionFactor {
 /** Electricity grid intensity (tCO2e per kWh). */
 export const ELECTRICITY_FACTORS: Record<string, EmissionFactor> = {
   global_average: { label: 'Global average', factor: 0.475, unit: 'tCO2e/kWh', source: 'IEA 2023' },
-  us_average: { label: 'United States', factor: 0.393, unit: 'tCO2e/kWh', source: 'EPA eGRID 2022' },
+  us_average: {
+    label: 'United States',
+    factor: 0.393,
+    unit: 'tCO2e/kWh',
+    source: 'EPA eGRID 2022',
+  },
   eu_average: { label: 'European Union', factor: 0.251, unit: 'tCO2e/kWh', source: 'EEA 2022' },
   india: { label: 'India', factor: 0.713, unit: 'tCO2e/kWh', source: 'IEA 2023' },
   brazil: { label: 'Brazil', factor: 0.122, unit: 'tCO2e/kWh', source: 'IEA 2023' },
-  kenya: { label: 'Kenya', factor: 0.100, unit: 'tCO2e/kWh', source: 'IEA 2023' },
+  kenya: { label: 'Kenya', factor: 0.1, unit: 'tCO2e/kWh', source: 'IEA 2023' },
 };
 
 /** Vehicle fuel emission factors (tCO2e per litre or per unit). */
 export const VEHICLE_FACTORS: Record<string, EmissionFactor> = {
-  gasoline_small: { label: 'Gasoline (compact)', factor: 0.192, unit: 'tCO2e/litre', source: 'DEFU 2023' },
-  gasoline_mid: { label: 'Gasoline (midsize)', factor: 0.220, unit: 'tCO2e/litre', source: 'DEFU 2023' },
-  gasoline_large: { label: 'Gasoline (SUV/Truck)', factor: 0.285, unit: 'tCO2e/litre', source: 'DEFU 2023' },
-  diesel_small: { label: 'Diesel (compact)', factor: 0.170, unit: 'tCO2e/litre', source: 'DEFU 2023' },
-  diesel_mid: { label: 'Diesel (midsize)', factor: 0.198, unit: 'tCO2e/litre', source: 'DEFU 2023' },
-  diesel_large: { label: 'Diesel (SUV/Truck)', factor: 0.265, unit: 'tCO2e/litre', source: 'DEFU 2023' },
+  gasoline_small: {
+    label: 'Gasoline (compact)',
+    factor: 0.192,
+    unit: 'tCO2e/litre',
+    source: 'DEFU 2023',
+  },
+  gasoline_mid: {
+    label: 'Gasoline (midsize)',
+    factor: 0.22,
+    unit: 'tCO2e/litre',
+    source: 'DEFU 2023',
+  },
+  gasoline_large: {
+    label: 'Gasoline (SUV/Truck)',
+    factor: 0.285,
+    unit: 'tCO2e/litre',
+    source: 'DEFU 2023',
+  },
+  diesel_small: {
+    label: 'Diesel (compact)',
+    factor: 0.17,
+    unit: 'tCO2e/litre',
+    source: 'DEFU 2023',
+  },
+  diesel_mid: {
+    label: 'Diesel (midsize)',
+    factor: 0.198,
+    unit: 'tCO2e/litre',
+    source: 'DEFU 2023',
+  },
+  diesel_large: {
+    label: 'Diesel (SUV/Truck)',
+    factor: 0.265,
+    unit: 'tCO2e/litre',
+    source: 'DEFU 2023',
+  },
   hybrid: { label: 'Hybrid', factor: 0.105, unit: 'tCO2e/litre', source: 'DEFU 2023' },
   electric: { label: 'Electric', factor: 0.053, unit: 'tCO2e/kWh', source: 'EEA 2022' },
 };
 
 /** Flight emission factors (tCO2e per passenger-km). */
 export const FLIGHT_FACTORS: Record<string, EmissionFactor> = {
-  short_haul: { label: 'Short-haul (<3 hrs)', factor: 0.180, unit: 'tCO2e/pax-km', source: 'DEFU 2023' },
-  medium_haul: { label: 'Medium-haul (3-6 hrs)', factor: 0.150, unit: 'tCO2e/pax-km', source: 'DEFU 2023' },
-  long_haul: { label: 'Long-haul (>6 hrs)', factor: 0.110, unit: 'tCO2e/pax-km', source: 'DEFU 2023' },
+  short_haul: {
+    label: 'Short-haul (<3 hrs)',
+    factor: 0.18,
+    unit: 'tCO2e/pax-km',
+    source: 'DEFU 2023',
+  },
+  medium_haul: {
+    label: 'Medium-haul (3-6 hrs)',
+    factor: 0.15,
+    unit: 'tCO2e/pax-km',
+    source: 'DEFU 2023',
+  },
+  long_haul: {
+    label: 'Long-haul (>6 hrs)',
+    factor: 0.11,
+    unit: 'tCO2e/pax-km',
+    source: 'DEFU 2023',
+  },
 };
 
 /** Natural gas emission factor (tCO2e per kWh). */
@@ -71,10 +121,25 @@ export const PROPANE_FACTOR: EmissionFactor = {
 
 /** Dietary emission factors (tCO2e per person per year). */
 export const DIET_FACTORS: Record<string, EmissionFactor> = {
-  meat_heavy: { label: 'High meat (>150g/day)', factor: 2.500, unit: 'tCO2e/person/yr', source: 'Pooine 2021' },
-  meat_medium: { label: 'Medium meat (<annotation>50-150g/day)', factor: 2.000, unit: 'tCO2e/person/yr', source: 'Pooine 2021' },
-  pescetarian: { label: 'Pescetarian', factor: 1.660, unit: 'tCO2e/person/yr', source: 'Pooine 2021' },
-  vegan: { label: 'Vegan', factor: 1.380, unit: 'tCO2e/person/yr', source: 'Pooine 2021' },
+  meat_heavy: {
+    label: 'High meat (>150g/day)',
+    factor: 2.5,
+    unit: 'tCO2e/person/yr',
+    source: 'Pooine 2021',
+  },
+  meat_medium: {
+    label: 'Medium meat (<annotation>50-150g/day)',
+    factor: 2.0,
+    unit: 'tCO2e/person/yr',
+    source: 'Pooine 2021',
+  },
+  pescetarian: {
+    label: 'Pescetarian',
+    factor: 1.66,
+    unit: 'tCO2e/person/yr',
+    source: 'Pooine 2021',
+  },
+  vegan: { label: 'Vegan', factor: 1.38, unit: 'tCO2e/person/yr', source: 'Pooine 2021' },
 };
 
 /** Average annual emissions per person by region (tCO2e/person/yr). */
@@ -88,10 +153,10 @@ export const REGIONAL_PER_CAPITA_EMISSIONS: Record<string, number> = {
 };
 
 /** Default annual household electricity usage (kWh) if unknown. */
-export const DEFAULT_HOUSEHOLD_KWH_PER_YEAR = 4,000;
+export const DEFAULT_HOUSEHOLD_KWH_PER_YEAR = 4000;
 
 /** Default annual driving distance (km) if unknown. */
-export const DEFAULT_DRIVING_KM_PER_YEAR = 15,000;
+export const DEFAULT_DRIVING_KM_PER_YEAR = 15000;
 
 /** Default fuel efficiency (litres per 100 km). */
 export const DEFAULT_FUEL_EFFICIENCY_L_PER_100KM = 8.0;

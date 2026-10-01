@@ -135,18 +135,25 @@ function ProjectsContent(): JSX.Element {
         <div className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
             <div className="flex items-center gap-2">
-              <Badge variant="outline" className="border-stellar-green text-stellar-green bg-stellar-green/10">
+              <Badge
+                variant="outline"
+                className="border-stellar-green text-stellar-green bg-stellar-green/10"
+              >
                 Verified Offsets
               </Badge>
-              <span className="text-xs text-muted-foreground">Certified Standards & Co-Benefits</span>
+              <span className="text-xs text-muted-foreground">
+                Certified Standards & Co-Benefits
+              </span>
             </div>
             <Text variant="h1" as="h1" className="mt-1 mb-1">
               Carbon Offset Projects
             </Text>
             <Text variant="muted" as="p">
-              Discover and compare high-integrity projects by type, location, certification standard, and co-benefits.
+              Discover and compare high-integrity projects by type, location, certification
+              standard, and co-benefits.
             </Text>
           </div>
+        </div>
 
         {/* Search Bar & Co-Benefit Quick Filters */}
         <div className="mb-6 space-y-3 bg-card/60 backdrop-blur-sm p-4 rounded-xl border border-border/60">
@@ -207,7 +214,9 @@ function ProjectsContent(): JSX.Element {
               </Badge>
             )}
 
-            {(filters.coBenefits?.length > 0 || filters.types.length > 0 || (filters.certificationStandards && filters.certificationStandards.length > 0)) && (
+            {(filters.coBenefits?.length > 0 ||
+              filters.types.length > 0 ||
+              (filters.certificationStandards && filters.certificationStandards.length > 0)) && (
               <button
                 type="button"
                 onClick={handleResetFilters}
@@ -222,7 +231,8 @@ function ProjectsContent(): JSX.Element {
         {/* Results Counter and View Mode Switcher */}
         <div className="mb-4 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
           <span>
-            Showing <strong className="text-foreground">{filteredProjects.length}</strong> {filteredProjects.length === 1 ? 'project' : 'projects'} matching criteria
+            Showing <strong className="text-foreground">{filteredProjects.length}</strong>{' '}
+            {filteredProjects.length === 1 ? 'project' : 'projects'} matching criteria
           </span>
 
           <div className="flex items-center gap-2">
@@ -261,7 +271,11 @@ function ProjectsContent(): JSX.Element {
 
         {viewMode === 'map' ? (
           <div className="mb-8">
-            <OffsetProjectMapWrapper projects={mockCarbonProjects} height="650px" showFilters={true} />
+            <OffsetProjectMapWrapper
+              projects={mockCarbonProjects}
+              height="650px"
+              showFilters={true}
+            />
           </div>
         ) : (
           <div className="flex gap-6">
@@ -287,7 +301,8 @@ function ProjectsContent(): JSX.Element {
                     No projects match your filter combination
                   </Text>
                   <Text variant="muted" as="p" className="mb-4 text-sm max-w-md mx-auto">
-                    Try clearing or relaxing co-benefit, certification standard, or price filters to view more available projects.
+                    Try clearing or relaxing co-benefit, certification standard, or price filters to
+                    view more available projects.
                   </Text>
                   <Button onClick={handleResetFilters} stellar="primary">
                     Reset All Filters

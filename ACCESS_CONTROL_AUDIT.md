@@ -6,7 +6,7 @@
 
 ---
 
-## Executive Summary
+##Executive Summary
 
 An in-depth access control audit was conducted across the **FarmCredit / Harvesta** smart contract suite to ensure that:
 1. Privileged functions (admin, verifier, oracle, treasury multisig, governance) cannot be invoked or bypassed by unauthorized actors.

@@ -1,4 +1,4 @@
-'client';
+'use client';
 
 import { useMemo, useState } from 'react';
 import { Coins, Download, HandCoins, Receipt, Trees, Users, Wallet } from 'lucide-react';
@@ -13,6 +13,7 @@ import {
 } from '@/components/molecules/Card';
 import { useAdminAnalytics } from '@/hooks/useAdminAnalytics';
 import type { AnalyticsTimeRange } from '@/lib/types/adminAnalytics';
+import type { ComplianceReport, ComplianceStandard } from '@/lib/types/compliance';
 
 const RANGE_LABELS: Record<AnalyticsTimeRange, string> = {
   '7d': 'Last 7 days',
@@ -21,15 +22,15 @@ const RANGE_LABELS: Record<AnalyticsTimeRange, string> = {
 };
 
 function formatNumber(value: number): string {
-  return new Int.NumberFormat('en-US').format(value);
+  return new Intl.NumberFormat('en-US').format(value);
 }
 
 function formatXlm(value: number): string {
-  return `${new Int.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(value)} XLM`;
+  return `${new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(value)} XLM`;
 }
 
-function buildCsv(range: AnalyticsTimeRange, metrics: Record<string, number>); string {
-  const rows: string[] = ['metric,value', `time_range,${range}];
+function buildCsv(range: AnalyticsTimeRange, metrics: Record<string, number>): string {
+  const rows: string[] = ['metric,value', `time_range,${range}`];
   for (const [key, value] of Object.entries(metrics)) {
     rows.push(`${key},${value}`);
   }
@@ -53,6 +54,9 @@ export default function AdminAnalyticsPage() {
   const { data, isLoading, error } = useAdminAnalytics(range);
   const [isGeneratingForms, setIsGeneratingForms] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [complianceStandard, setComplianceStandard] = useState<ComplianceStandard>('sec');
+  const [isGeneratingCompliance, setIsGeneratingCompliance] = useState(false);
+  const [complianceError, setComplianceError] = useState<string | null>(null);
 
   const cards = useMemo(() => {
     if (!data) return [];
@@ -129,6 +133,32 @@ export default function AdminAnalyticsPage() {
     }
   };
 
+  const handleGenerateCompliance = async () => {
+    setIsGeneratingCompliance(true);
+    setComplianceError(null);
+    try {
+      const response = await fetch(
+        `/api/admin/compliance/reports?standard=${complianceStandard}&range=${range}`,
+        {
+          method: 'GET',
+          headers: { Accept: 'application/json' },
+        }
+      );
+      if (!response.ok) {
+        throw new Error(`Request failed with status ${response.status}`);
+      }
+      const report = (await response.json()) as ComplianceReport;
+      const csv = buildComplianceCsv(report);
+      downloadCsv(`compliance-${complianceStandard}-${report.generatedAt.slice(0, 10)}.csv`, csv);
+    } catch (err) {
+      setComplianceError(
+        err instanceof Error ? err.message : 'Failed to generate compliance report'
+      );
+    } finally {
+      setIsGeneratingCompliance(false);
+    }
+  };
+
   return (
     <main
       className="mx-auto min-h-screen w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8"
@@ -136,7 +166,7 @@ export default function AdminAnalyticsPage() {
     >
       <header className="mb-8 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-3 x font-bold tracking-tight text-foreground">Admin analytics</h1>
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">Admin analytics</h1>
           <p className="mt-2 text-sm text-muted-foreground">
             Platform-wide on-chain activity summary across farmer registry, escrow, donation, and
             payout contracts.
@@ -150,7 +180,7 @@ export default function AdminAnalyticsPage() {
             id="analytics-range"
             selectSize="sm"
             value={range}
-            onChange?{ (event) => setRange(event.target.value as AnalyticsTimeRange) }
+            onChange={(event) => setRange(event.target.value as AnalyticsTimeRange)}
           >
             {(Object.keys(RANGE_LABELS) as AnalyticsTimeRange[]).map((value) => (
               <option key={value} value={value}>
@@ -166,7 +196,7 @@ export default function AdminAnalyticsPage() {
             disabled={!data}
             aria-label="Export analytics as CSV"
           >
-            <Download className="mr-2 h-4 x-4" aria-hidden="true" />
+            <Download className="mr-2 h-4 w-4" aria-hidden="true" />
             Export CSV
           </Button>
           <Button
@@ -177,8 +207,34 @@ export default function AdminAnalyticsPage() {
             disabled={isGeneratingForms}
             aria-label="Generate 1099 forms for high-value sponsors"
           >
-            <Receipt className="mr-2 h-4 x-4" aria-hidden="true" />
+            <Receipt className="mr-2 h-4 w-4" aria-hidden="true" />
             {isGeneratingForms ? 'Generating...' : 'Generate 1099 forms'}
+          </Button>
+        </div>
+        <div className="flex flex-wrap items-center gap-3">
+          <label className="text-sm text-muted-foreground" htmlFor="compliance-standard">
+            Compliance standard
+          </label>
+          <Select
+            id="compliance-standard"
+            selectSize="sm"
+            value={complianceStandard}
+            onChange={(event) => setComplianceStandard(event.target.value as ComplianceStandard)}
+          >
+            <option value="sec">SEC</option>
+            <option value="epa">EPA</option>
+            <option value="carbon_tax">Carbon tax</option>
+          </Select>
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            onClick={handleGenerateCompliance}
+            disabled={isGeneratingCompliance || !data}
+            aria-label="Generate compliance report"
+          >
+            <Download className="mr-2 h-4 w-4" aria-hidden="true" />
+            {isGeneratingCompliance ? 'Generating...' : 'Generate compliance report'}
           </Button>
         </div>
       </header>
@@ -201,6 +257,15 @@ export default function AdminAnalyticsPage() {
         </div>
       ) : null}
 
+      {complianceError ? (
+        <div
+          role="alert"
+          className="rounded-md border border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive"
+        >
+          {complianceError}
+        </div>
+      ) : null}
+
       <section aria-labelledby="metrics-heading" className="space-y-4">
         <h2 id="metrics-heading" className="sr-only">
           Metrics
@@ -217,7 +282,7 @@ export default function AdminAnalyticsPage() {
                     <div className="h-4 w-full animate-pulse rounded bg-muted" />
                   </CardContent>
                 </Card>
-              )
+              ))
             : cards.map((card) => {
                 const Icon = card.icon;
                 return (
@@ -227,14 +292,14 @@ export default function AdminAnalyticsPage() {
                         <Icon className="h-4 w-4" aria-hidden="true" />
                         {card.label}
                       </CardDescription>
-                      <CardTitle className="text-3x">{card.value}</CardTitle>
+                      <CardTitle className="text-3xl">{card.value}</CardTitle>
                     </CardHeader>
                     <CardContent>
                       <p className="text-sm text-muted-foreground">{card.detail}</p>
                     </CardContent>
                   </Card>
                 );
-              )}
+              })}
         </div>
       </section>
     </main>

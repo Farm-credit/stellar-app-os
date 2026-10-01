@@ -20,7 +20,7 @@ export default function SponsorReviewsPage() {
   const [showForm, setShowForm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [showCalculator, setShowCalculator] = useState(false);
-  const [showProjectSearch, setShowProjectSearch] = useState(false);
+const [showProjectSearch, setShowProjectSearch] = useState(false);
   const [showAuctions, setShowAuctions] = useState(false);
   const [showCreateAuction, setShowCreateAuction] = useState(false);
 
@@ -100,7 +100,7 @@ export default function SponsorReviewsPage() {
         </button>
       </div>
 
-      <div className="flex justify-end gap-3">
+<div className="flex justify-end gap-3">
         <button
           onClick={() => setShowAuctions(!showAuctions)}
           className="px-4 py-2 text-sm font-medium text-green-700 bg-green-50 border border-green-200 rounded-md hover:bg-green-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
@@ -120,7 +120,6 @@ export default function SponsorReviewsPage() {
       {showAuctions && <AuctionList sponsorId={sponsorId} />}
 
       {showProjectSearch && <OffsetProjectSearch />}
-
       {showCalculator && <CarbonOffsetCalculator />}
 
       {summary && <TeamReviewSummary summary={summary} />}

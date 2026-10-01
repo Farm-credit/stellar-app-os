@@ -1,9 +1,7 @@
 import { NextResponse } from 'next/server';
-import {
-  createBlockchainReceipt,
-  listBlockchainReceipts,
-} from '@/lib/retirement/receipt';
+import { createBlockchainReceipt, listBlockchainReceipts } from '@/lib/retirement/receipt';
 import { mockCarbonProjects } from '@/lib/api/mock/carbonProjects';
+import { notifyCreditRetired } from '@/lib/webhook/offset-verification-bridge';
 import logger from '@/lib/logger';
 
 export const runtime = 'nodejs';
@@ -66,6 +64,22 @@ export async function POST(request: Request) {
       timestamp: receipt.timestamp,
     });
 
+    // Outbound `credit.retired` notification (issue #1316). Fire-and-forget: the
+    // bridge never throws, so a webhook problem cannot fail the retirement.
+    void notifyCreditRetired({
+      creditId: receipt.receiptId,
+      assetCode: `CARBON-${receipt.project.id}-${receipt.project.vintageYear}`,
+      projectId: receipt.project.id,
+      buyerWallet: receipt.buyer.walletAddress,
+      quantityTonnes: receipt.creditsRetired,
+      retirementPurpose: receipt.retirementReason,
+      beneficiary: receipt.buyer.organizationName ?? null,
+      retirementCertificateUrl: receipt.certificateUrl,
+      transactionHash: receipt.transactionHash,
+      explorerUrl: receipt.explorerUrl,
+      retiredAt: receipt.timestamp,
+    });
+
     return NextResponse.json(
       {
         success: true,
@@ -83,7 +97,7 @@ export async function POST(request: Request) {
   }
 }
 
-export async function GET(request: Request) {
+export function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const buyerAddress = searchParams.get('buyer') || undefined;

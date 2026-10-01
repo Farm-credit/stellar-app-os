@@ -45,7 +45,7 @@ Contracts panic with a descriptive string on invalid input. The Stellar SDK surf
 | `"survival not yet verified"` — Attempting to call 1-year milestone before survival check |
 | `"1-year milestone period not yet elapsed"` — Called before 1 year elapsed since planting |
 | `"rating must be between 1 and 5"` — Rating outside valid range |
-| `"can only rate after escrow is completed"` — Rating before job completion |
+| `"can only rate after escrow is completed"` — Bating before job completion |
 | `"only the original donor can rate the planter"` — Non-donor attempting to rate |
 | `"sponsor has already rated this planter"` — Duplicate rating attempt |
 | `"soil health score must be between 0 and 1000"` — Score outside valid range |
@@ -54,6 +54,10 @@ Contracts panic with a descriptive string on invalid input. The Stellar SDK surf
 | `"no soil health record for farmer"` | No record found for farmer |
 | `"soil health record already exists for farmer"` | Duplicate registration attempt |
 | `"carbon credits must be positive"` — `carbon_credits_awarded ≤ 0` |
+| `"minimum purchase is 1 ton"` — `tons` ≤ 0 or fractional purchase below 1 ton |
+| `"fractional purchase not allowed for this project"` — Project disabled fractionalization |
+| `"project not found"` — Project ID has no registered carbon project |
+| `"insufficient credits available"` — Requested tons exceed project remaining supply |
 
 ---
 
@@ -75,7 +79,7 @@ Sponsor deposits funds for a tree with the 1-year survival guarantee. Transfers 
 |---|---|---|
 | `sponsor` | `Address` | Sponsor paying for tree + 2% insurance guarantee |
 | `planter` | `Address` | Planter planting the tree |
-| `tree_id` | `u64` | Target tree ID |
+| `tree_id` | `u64` x Target tree ID |
 | `token` | `Address` | SAC token contract address |
 | `amount` | `i128` | Tree deposit amount |
 
@@ -172,7 +176,8 @@ Donor deposits funds into escrow for a specific farmer. Transfers `amount` of `t
 
 **Events emitted:** `DonationReceived(donor, farmer) → (amount, token)`**
 **Errors:**
-- `"amount must be positive"` — `amount ≤ 0`- `"active escrow already exists for this farmer"` — farmer already has an open escrow
+- `"amount must be positive"` — `amount ≤ 0`
+- `"active escrow already exists for this farmer"` — farmer already has an open escrow
 - `"planting density below minimum for job size"` — Job area meets threshold but density is too low
 - `"area hectares must be positive"` — `area_hectares ≤ 0`
 
@@ -210,7 +215,7 @@ Admin confirms GPS + photo proof of planting. Releases **Tranche 1 (30%)** of es
 | Parameter | Type | Description |
 |---|---|---|
 | `farmer` | `Address` | Farmer whose escrow to update |
-| `proof_hash` | `BytesN<32>` | SHA-256 of the GPS + photo proof payload |
+| `proof_hash` | `BytesN32>` | SHA-256 of the GPS + photo proof payload |
 
 **Returns:** `void`
 
@@ -225,7 +230,7 @@ stellar contract invoke \
   --id $CONTRACT_ID --network testnet --source admin \
   -- verify_planting \
     --farmer GFARMER... \
-    --proof_hash aabbcc...  # 32-byte hex
+    --proof_hash aabbbc...  # 32-byte hex
 ```
 
 ```ts
@@ -247,7 +252,7 @@ Admin confirms 6-month survival check. Releases **Tranche 2 (40%)** to the farme
 | Parameter | Type | Description |
 |---|---|---|
 | `farmer` | `Address` | Farmer whose escrow to update |
-| `proof_hash` | `BytesN<32>` | SHA-256 of the survival proof payload |
+| `proof_hash` | `BytesN32>` | SHA-256 of the survival proof payload |
 | `survival_rate_percent` | `u32` | Survival rate (0..=100) |
 
 **Returns:** `void`
@@ -255,7 +260,8 @@ Admin confirms 6-month survival check. Releases **Tranche 2 (40%)** to the farme
 **Events emitted:** `SurvivalVerified(farmer) → (tranche2_amount, proof_hash)`
 
 **Errors:**
-- `"planting not yet verified"` — status is not `Planted`- `"6-month survival period not yet elapsed"` — called too early
+- `"planting not yet verified"` — status is not `Planted`
+- `"6-month survival period not yet elapsed"` — called too early
 - `"survival rate below minimum"` — survival rate below configured threshold
 - `"nothing left to release"` — released amount already equals total
 
@@ -271,14 +277,14 @@ await client.verify_survival({
 
 ### `verify_year_milestone`
 
-Admin confirms 1-year milestone. Releases **Tranche 3 (30%)** to the farmer. Enforces that at least 1 year (≈ 52 weeks) has elapsed since `verify_planting`.
+Admin confirms 1-milestone. Releases **Tranche 3 (30%)** to the farmer. Enforces that at least 1 year (≈ 52 weeks) has elapsed since `verify_planting`.
 
 **Auth:** admin-only
 
 | Parameter | Type | Description |
 |---|---|---|
 | `farmer` | `Address` | Farmer whose escrow to complete |
-| `proof_hash` | `BytesN<32>` | SHA-256 of the year milestone proof payload |
+| `proof_hash` | `BytesN32>` | SHA-256 of the year milestone proof payload |
 
 **Returns:** `void`
 
@@ -309,7 +315,8 @@ Returns the full escrowed amount to the donor. Only callable before planting is 
 
 **Returns:** `void`
 
-**Events emitted:** `DonationRefunded(donor, farmer) → total_amount`**
+**Events emitted:** `DonationRefunded(donor, farmer) → total_amount)`
+
 **Errors:**
 - `"cannot refund after planting has been verified"` — status is not `Funded`
 
@@ -325,200 +332,74 @@ Read-only. Returns the full escrow record for a farmer.
 
 | Parameter | Type | Description |
 |---|---|---|
-| `farmer` | `Address` | Farmer address to look up |
-
-**Returns:** `Option<EscrowRecord>`
-
-```ts
-const record = await client.get_record({ farmer: farmerAddress });
-// record.status: "Funded" | "Planted" | "Survived" | "Completed" | "Refunded"
-// record.total_amount: bigint
-// record.released: bigint
-```
+| `farmer` | `Address` | Farmer whose escrow record to retrieve |
 
 ---
 
-### `rate_planter`
+## carbon-credits
 
-Sponsor rates a planter after job completion. Rating must be 1-5 stars. Only callable by the original donor after escrow is completed. Each sponsor can only rate a specific planter once per escrow.
+Manages the lifecycle of voluntary carbon units (VCUs) minted from verified tree plantings. Supports **fractionalization** so retail buyers can purchase as little as **1 ton** of a larger project.
 
-**Auth:** sponsor (caller-auth)
+### Fractionalization Overview
 
-| Parameter | Type | Description |
-|---|---|---|
-| `sponsor` | `Address` | Sponsor submitting the rating |
-| `farmer` | `Address` | Planter being rated |
-| `rating` | `u32` | Rating from 1 to 5 |
-
-**Returns:** `void`
-
-**Events emitted:** `PlanterRated(sponsor, farmer) → rating`
-
-**Errors:**
-- `"rating must be between 1 and 5"` — rating outside valid range
-- `"can only rate after escrow is completed"` — rating before job completion
-- `"only the original donor can rate the planter"` — non-donor attempting to rate
-- `"sponsor has already rated this planter"` — duplicate rating attempt
-
-```ts
-await client.rate_planter({
-  sponsor: sponsorAddress,
-  farmer: farmerAddress,
-  rating: 5,
-});
-```
-
----
-
-### `get_reputation`
-
-Read-only. Returns the aggregated reputation score (0-100) for a planter.
-
-| Parameter | Type | Description |
-|---|---|---|
-| `farmer` | `Address` | Planter address to look up |
-
-**Returns:** `unt32` — reputation score (0-100)
-
-```ts
-const reputation = await client.get_reputation({ farmer: farmerAddress });
-```
-
----
-
-## soil-health (Soil Health Scoring & Regenerative Agriculture Incentives #1022)
-
-Measures soil health improvement from regenerative farming practices and awards bonus carbon credits for soil carbon sequestration above a farmer's baseline.
-
-### Overview
-
-Regenerative practices (no-till, utilizing cover crops, composting, agroforestry, etc.) improve soil organic carbon and general soil health. This contract lets a verifier record a soil health score (0..=1000) for a farmer, compares it against the farmer's baseline, and awards bonus carbon credits for verified improvement.
-
-- **Soil Health Score:** integer in `[0, 1000]`. Higher is better.
-- **Baseline:** the farmer's pre-regenerative-practice soil health score (0..=1000), recorded on first registration.
-- **Improvement Score:** `current_score - baseline_score` (clamped at 0).
-- **Bonus Carbon Credits:** awarded for improvement above baseline, scaled by a configurable `bonus_rate_bps .
+- **Minimum Purchase:** 1 ton (`1 ton = 1_000_000_000` grams, i.e. credits are stored in grams of CO2-e). This replaces the old 100+ ton block model.
+- **Fractional Purchase:** Any project can be marked `fractional_enabled` at registration. When enabled, buyers may purchase any integer number of tons ≥ 1.
+- **Remaining Supply:** Each project tracks `total_tons` and `tons_sold`, and purchases fail with `"insufficient credits available"` if the request exceeds the remaining supply.
 
 ### `initialize`
 
-One-time setup. Must be called before any other function.
+One-time setup.
 
 **Auth:** deployer (anyone, once)
 
 | Parameter | Type | Description |
 |---|---|---|
-| `admin` | `Address` | Address that will act as verifier/admin |
-| `carbon_token` | `Address` | Carbon credit token contract address |
-| `bonus_rate_bps` | `u32` | Bonus carbon credits awarded per point of improvement, in basis points (e.g. 100 = 1% bonus) |
+| `admin` | `Address` | Admin address for project registration and minting |
+| `carbon_token` | `Address` | CARBON token contract address |
 
-**Returns:** `void`
+### `register_project`
 
-**Errors:** panics with `"already initialized"` if called again.
-
-```bash
-stellar contract invoke \
-  --id $CONTRACT_ID --network testnet --source deployer \
-  -- initialize \
-    --admin GADMIN... \
-    --carbon_token GCARBON... \
-    --bonus_rate_bps 100
-```
-
-```ts
-await client.initialize({
-  admin: adminAddress,
-  carbon_token: carbonTokenAddress,
-  bonus_rate_bps: 100,
-});
-```
-
----
-
-### `register_baseline`
-
-Records the farmer's baseline soil health score. Must be called before any improvement can be measured. Only one baseline per farmer.
+Registers a new carbon project with a total tonnage and fractionalization flag.
 
 **Auth:** admin-only
 
 | Parameter | Type | Description |
 |---|---|---|
-| `farmer` | `Address` | Farmer whose baseline to record |
-| `baseline_score` | `u32` | Baseline soil health score (0..=1000) |
+| `project_id` | `u64` | Unique project identifier |
+| `total_tons` | `i128` | Total CO2-e tonnage available (must be > 0) |
+| `fractional_enabled` | `bool` | Whether retail 1-ton purchases are allowed |
+
+### `purchase_credits`
+
+Buyer purchases an integer number of tons from a project. Enforces the 1-ton minimum and the project's fractionalization flag.
+
+**Auth:** `buyer` (caller-auth)
+
+| Parameter | Type | Description |
+|---|---|---|
+| `buyer` | `Address` | Address paying for the credits |
+| `project_id` | `u64` | Project to purchase from |
+| `tons` | `i128` | Number of tons to buy (must be ≥ 1) |
+| `token` | `Address` | SAC token contract for payment |
 
 **Returns:** `void`
 
-**Events emitted:** `SoilBaselineRegistered(farmer) → baseline_score`
-
+**Events emitted:** `CreditsPurchased(buyer, project_id) → (tons, amount,`)*
 **Errors:**
-- `"baseline soil health score must be between 0 and 1000"` — `baseline_score > 1000`
-- `"soil health record already exists for farmer"` — duplicate registration
+- `"minimum purchase is 1 ton"` — `tons ≤ 0`
+- `"fractional purchase not allowed for this project"` — Project disabled fractionalization and `tons <100` (legacy block mode)
+- `"project not found"` — Project ID has no registered carbon project
+- `"insufficient credits available"` — tons exceed project remaining supply
 
 ```ts
-await client.register_baseline({
-  farmer: farmerAddress,
-  baseline_score: 400,
+await client.purchase_credits({
+  buyer: buyerAddress,
+  project_id: BigInt(1),
+  tons: BigInt(1),
+  token: usdcAddress,
 });
 ```
 
----
+### `get_project`
 
-### `record_soil_health`
-
-Records an updated soil health score for a farmer and awards bonus carbon credits for improvement above the registered baseline. The improvement score is `current_score - baseline_score` (clamped at 0), and bonus carbon credits are `ceil(improvement_score * bonus_rate_bps / 10_000)`.
-
-**Auth:** admin-only
-
-| Parameter | Type | Description |
-|---|---|---|
-| `farmer` | `Address` | Farmer whose soil health to update |
-| `current_score` | `u32` | Current soil health score (0..=1000) |
-
-**Returns:** `u32` — bonus carbon credits awarded
-
-**Events emitted:** `SoilHealthRecorded(farmer) → (current_score, improvement_score, carbon_credits_awarded)`**
-**Errors:**
-- `"soil health score must be between 0 and 1000"` — `current_score > 1000`
-- `"no soil health record for farmer"` — baseline not registered yet
-
-```ts
-await client.record_soil_health({
-  farmer: farmerAddress,
-  current_score: 750,
-});
-```
-
----
-
-### `get_soil_health`
-
-Read-only. Returns the farmer's soil health record.
-
-| Parameter | Type | Description |
-|---|---|---|
-| `farmer` | `Address` | Farmer address to look up |
-
-**Returns:** `Option<SoilHealthRecord>`
-
-```ts
-const record = await client.get_soil_health({ farmer: farmerAddress });
-// record.baseline_score: number
-// record.current_score: number
-// record.improvement_score: number
-// record.carbon_credits_awarded: number
-```
-
----
-
-### `get_carbon_bonus`
-
-Read-only. Returns the cumulative bonus carbon credits awarded to a farmer for soil sequestration above baseline.
-
-| Parameter | Type | Description |
-|---|---|---|
-| `farmer` | `Address` | Farmer address to look up |
-
-**Returns:** `u32` — total bonus carbon credits awarded
-
-```ts
-const bonus = await client.get_carbon_bonus({ farmer: farmerAddress });
-```
+Read-only. Returns `(total_tons, tons_sold, fractional_enabled).

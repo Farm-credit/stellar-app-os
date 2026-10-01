@@ -33,6 +33,7 @@ members = [
     "carbon-marketplace",
     "carbon-dex",
     "carbon-insurance",
+    "leakage-prevention",
     "tree-registry",
     "verifier-staking",
     "species-catalog",

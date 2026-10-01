@@ -38,6 +38,7 @@
     "db:backup": "node scripts/db-backup.mjs",
     "compliance:export": "tsx scripts/compliance-export.ts",
     "compliance:export:dry-run": "tsx scripts/compliance-export.ts --dry-run",
+    "prepare": "husky",
     "monitor:fraud": "tsx lib/monitor/fraud-worker.ts",
     "test:load": "k6 run infra/load-tests/sponsor-load-test.js",
     "prepare": "husky"
@@ -102,6 +103,7 @@
     "tailwind-merge": "^3.5.0",
     "vite": "^8.1.5",
     "winston": "3.17.0",
+    "xlsx": "^0.18.5",
     "zod": "^4.3.6"
   },
   "devDependencies": {
