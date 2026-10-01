@@ -7,6 +7,7 @@ import { processFarmerPayment, parseFarmerPaymentInput } from '@/lib/payments/fa
 import { getFarmerPaymentMethods, parseFarmerPaymentMethodFilters } from '@/lib/payments/farmer-payment-methods';
 import { getFarmerIncomePrediction, parseFarmerIncomePredictionInput } from '@/lib/analytics/farmer-income';
 import { getComplianceReport, parseComplianceReportInput } from '@/lib/analytics/compliance-report';
+import { createBulkPurchaseAgreement, parseBulkPurchaseInput } from '@/lib/marketplace/bulk-purchase';
 
 export const runtime = 'nodejs';
 
@@ -35,7 +36,7 @@ export async function GET(request: Request): Promise<NextResponse> {
 }
 
 /**
- * GET /api/admin/analytics/tree-survival/payment-methods
+* GET /api/admin/analytics/tree-survival/payment-methods
  *
  * Returns the supported farmer payment methods across XLM, USDC, and fiat
  * currencies, including bank transfers, crypto wallets, and payment apps.
@@ -76,7 +77,7 @@ export async function PUT(request: Request): Promise<NextResponse> {
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to process farmer payment';
-    const status = /must be1required|invalid|unsupported|non-negative/.test(message) ? 400 : 500;
+    const status = /must be|required|invalid|unsupported|non-negative/.test(message) ? 400 : 500;
     console.error('[farmer-payment]', error);
     return NextResponse.json({ error: message }, { status });
   }
@@ -105,7 +106,6 @@ export async function POST(request: Request): Promise<NextResponse> {
     return NextResponse.json({ error: message }, { status });
   }
 }
-
 /**
  * PATCH /api/admin/analytics/tree-survival
  *
@@ -124,7 +124,7 @@ export async function PATCH(request: Request): Promise<NextResponse> {
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to predict farmer income';
-    const status = /must be1required|invalid|unsupported|non-negative/.test(message) ? 400 : 500;
+    const status = /must be|required|invalid|unsupported|non-negative/.test(message) ? 400 : 500;
     console.error('[farmer-income-prediction]', error);
     return NextResponse.json({ error: message }, { status });
   }
@@ -133,24 +133,23 @@ export async function PATCH(request: Request): Promise<NextResponse> {
 /**
  * DELETE /api/admin/analytics/tree-survival
  *
- * Generates a regulatory compliance report for SEC, EPA, and carbon tax
- * requirements, including automatic calculation of offsets vs. emissions for
- * regulatory filings.
+ * Creates a bulk purchase agreement between a corporate buyer and farmers for
+ * 100+ metric ton batches at negotiated volume-discounted rates.
  */
 export async function DELETE(request: Request): Promise<NextResponse> {
   if (!(await isAdminRequest())) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
   try {
-    const input = parseComplianceReportInput(await request.json());
-    const report = await getComplianceReport(getPool(), input);
-    return NextResponse.json(report, {
+    const input = parseBulkPurchaseInput(await request.json());
+    const agreement = await createBulkPurchaseAgreement(getPool(), input);
+    return NextResponse.json(agreement, {
       headers: { 'Cache-Control': 'private, max-age=60, stale-while-revalidate=300' },
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Failed to generate compliance report';
-    const status = /must be|required|invalid|unsupported|non-negative/.test(message) ? 400 : 500;
-    console.error('[compliance-report]', error);
+    const message = error instanceof Error ? error.message : 'Failed to create bulk purchase agreement';
+    const status = /must be|required|invalid|unsupported|non-negative|at least/.test(message) ? 400 : 500;
+    console.error('[bulk-purchase]', error);
     return NextResponse.json({ error: message }, { status });
   }
 }

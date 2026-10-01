@@ -6,6 +6,7 @@ import { ReviewCard } from '@/app/components/reviews/ReviewCard';
 import { TeamReviewSummary } from '@/app/components/reviews/TeamReviewSummary';
 import { Review, ReviewSummary } from '@/lib/types/review';
 import { CarbonOffsetCalculator } from '@/app/components/carbon/CarbonOffsetCalculator';
+import { BulkPurchaseAgreement } from '@/app/components/marketplace/BulkPurchaseAgreement';
 
 export default function PlanterReviewsPage() {
   const params = useParams();
@@ -49,6 +50,8 @@ export default function PlanterReviewsPage() {
       {summary && <TeamReviewSummary summary={summary} />}
 
       <CarbonOffsetCalculator />
+
+      <BulkPurchaseAgreement planterId={planterId} />
 
       <div className="space-y-4">
         {reviews.length === 0 ? (

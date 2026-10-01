@@ -100,3 +100,76 @@ model ProjectRiskScore {
   @@index([updatedAt])
   @@map("project_risk_scores")
 }
+
+// ── BulkPurchaseAgreement ───────────────────────────────────────────────────
+//
+// Negotiated bulk purchase agreements between corporate buyers and farmers
+// for large-volume (100+ ton) batches at discounted rates (Issue: buyer bulk
+// purchasing - volume discounts v1).
+//
+// Schema is for documentation; production uses raw SQL migrations (see note above).
+model BulkPurchaseAgreement {
+  id                  String   @id @default(cuid())
+  buyerId             String   @map("buyer_id")
+  farmerId            String   @map("farmer_id")
+  commodity           String   @db.VarChar(100)
+  quantityTons        Float    @map("quantity_tons") @db.DoublePrecision
+  basePricePerTon     Float    @map("base_price_per_ton") @db.DoublePrecision
+  discountPercent     Float    @map("discount_percent") @db.DoublePrecision
+  negotiatedPricePerTon Float  @map("negotiated_price_per_ton") @db.DoublePrecision
+  totalValue          Float    @map("total_value") @db.DoublePrecision
+  currency            String   @default("USD") @db.VarChar(3)
+  status              String   @default("draft") @db.VarChar(20) // draft | active | fulfilled | cancelled | expired
+  deliveryStartDate   DateTime? @map("delivery_start_date")
+  deliveryEndDate     DateTime? @map("delivery_end_date")
+  terms               String?  @db.Text
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  @@index([buyerId])
+  @@index([farmerId])
+  @@index([status])
+  @@index([commodity])
+  @@map("bulk_purchase_agreements")
+}
+
+// ── BulkPurchaseTier ────────────────────────────────────────────────────────
+//
+// Volume discount tiers applied to bulk purchase agreements. Each tier defines
+// a minimum quantity threshold and the discount percentage granted at or above
+// that threshold. Tiers are evaluated in ascending order of minQuantityTons.
+model BulkPurchaseTier {
+  id                String   @id @default(cuid())
+  agreementId       String   @map("agreement_id")
+  minQuantityTons   Float    @map("min_quantity_tons") @db.DoublePrecision
+  discountPercent   Float    @map("discount_percent") @db.DoublePrecision
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  @@index([agreementId])
+  @@index([minQuantityTons])
+  @@map("bulk_purchase_tiers")
+}
+
+// ── BulkPurchaseOrder ───────────────────────────────────────────────────────
+//
+// Individual orders drawn against a bulk purchase agreement. Each order
+// consumes a portion of the agreement's quantity and records the applied
+// volume discount tier.
+model BulkPurchaseOrder {
+  id                String   @id @default(cuid())
+  agreementId       String   @map("agreement_id")
+  quantityTons      Float    @map("quantity_tons") @db.DoublePrecision
+  appliedTierId     String?  @map("applied_tier_id")
+  discountPercent   Float    @map("discount_percent") @db.DoublePrecision
+  pricePerTon       Float    @map("price_per_ton") @db.DoublePrecision
+  totalValue        Float    @map("total_value") @db.DoublePrecision
+  status            String   @default("pending") @db.VarChar(20) // pending | confirmed | delivered | cancelled
+  orderedAt         DateTime @default(now()) @map("ordered_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  @@index([agreementId])
+  @@index([status])
+  @@index([orderedAt])
+  @@map("bulk_purchase_orders")
+}

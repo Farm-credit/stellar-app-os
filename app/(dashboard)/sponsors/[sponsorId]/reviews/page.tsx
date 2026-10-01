@@ -8,6 +8,9 @@ import { TeamReviewSummary } from '@/app/components/reviews/TeamReviewSummary';
 import { Review, ReviewSummary } from '@/lib/types/review';
 import { CarbonOffsetCalculator } from '@/app/components/carbon/CarbonOffsetCalculator';
 import { OffsetProjectSearch } from '@/app/components/carbon/OffsetProjectSearch';
+import { BulkPurchaseAgreementForm } from '@/app/components/marketplace/BulkPurchaseAgreementForm';
+import { BulkPurchaseAgreementCard } from '@/app/components/marketplace/BulkPurchaseAgreementCard';
+import type { BulkPurchaseAgreement } from '@/lib/types/bulkPurchase';
 
 export default function SponsorReviewsPage() {
   const params = useParams();
@@ -18,10 +21,18 @@ export default function SponsorReviewsPage() {
   const [showForm, setShowForm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [showCalculator, setShowCalculator] = useState(false);
-  const [showProjectSearch, setShowProjectSearch] = useState(false);
+const [showProjectSearch, setShowProjectSearch] = useState(false);
+  const [agreements, setAgreements] = useState<BulkPurchaseAgreement[]>([]);
+  const [agreementsLoading, setAgreementsLoading] = useState(true);
+  const [showAgreementForm, setShowAgreementForm] = useState(false);
+  const [submittingAgreement, setSubmittingAgreement] = useState(false);
 
   useEffect(() => {
     fetchReviews();
+  }, [sponsorId]);
+
+  useEffect(() => {
+    fetchAgreements();
   }, [sponsorId]);
 
   const fetchReviews = async () => {
@@ -37,6 +48,20 @@ export default function SponsorReviewsPage() {
       console.error('Error fetching reviews:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchAgreements = async () => {
+    try {
+      setAgreementsLoading(true);
+      const response = await fetch(`/api/marketplace/bulk-agreements?sponsorId=${sponsorId}`);
+      if (!response.ok) throw new Error('Failed to fetch bulk agreements');
+      const data = await response.json();
+      setAgreements(data.agreements ?? []);
+    } catch (error) {
+      console.error('Error fetching bulk agreements:', error);
+    } finally {
+      setAgreementsLoading(false);
     }
   };
 
@@ -58,6 +83,25 @@ export default function SponsorReviewsPage() {
       alert('Failed to submit review. Please try again.');
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleSubmitAgreement = async (data: any) => {
+    try {
+      setSubmittingAgreement(true);
+      const response = await fetch('/api/marketplace/bulk-agreements', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...data, sponsorId }),
+      });
+      if (!response.ok) throw new Error('Failed to create bulk purchase agreement');
+      setShowAgreementForm(false);
+      await fetchAgreements();
+    } catch (error) {
+      console.error('Error creating bulk purchase agreement:', error);
+      alert('Failed to create bulk purchase agreement. Please try again.');
+    } finally {
+      setSubmittingAgreement(false);
     }
   };
 
@@ -118,6 +162,38 @@ export default function SponsorReviewsPage() {
           reviews.map((review) => (
             <ReviewCard key={review.id} review={review} />
           ))
+        )}
+      </div>
+
+      <div className="border-t border-gray-200 pt-8">
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-xl font-semibold text-gray-900">Bulk Purchase Agreements</h2>
+          <button
+            onClick={() => setShowAgreementForm(!showAgreementForm)}
+            className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+          >
+            {showAgreementForm ? 'Cancel' : 'Create Bulk Agreement'}
+          </button>
+        </div>
+
+        {showAgreementForm && (
+          <BulkPurchaseAgreementForm
+            onSubmit={handleSubmitAgreement}
+            onCancel={() => setShowAgreementForm(false)}
+            isSubmitting={submittingAgreement}
+          />
+        )}
+
+        {agreementsLoading ? (
+          <p className="text-center text-gray-500 py-4">Loading agreements...</p>
+        ) : agreements.length === 0 ? (
+          <p className="text-center text-gray-500 py-4">No bulk purchase agreements yet.</p>
+        ) : (
+          <div className="space-y-4">
+            {agreements.map((agreement) => (
+              <BulkPurchaseAgreementCard key={agreement.id} agreement={agreement} />
+            ))}
+          </div>
         )}
       </div>
     </div>
