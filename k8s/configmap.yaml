@@ -1,0 +1,34 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: harvesta-config
+  namespace: harvesta
+  labels:
+    app.kubernetes.io/name: harvesta
+    app.kubernetes.io/component: config
+data:
+  # ── Stellar network ─────────────────────────────────────────────────────────
+  NEXT_PUBLIC_STELLAR_NETWORK: "testnet"
+  NEXT_PUBLIC_HORIZON_URL: "https://horizon-testnet.stellar.org"
+  NEXT_PUBLIC_SOROBAN_RPC_URL: "https://soroban-testnet.stellar.org"
+  NEXT_PUBLIC_NETWORK_PASSPHRASE: "Test SDF Network ; September 2015"
+
+  # ── USDC & TREE token issuers ────────────────────────────────────────────────
+  NEXT_PUBLIC_USDC_ISSUER: "GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5"
+  NEXT_PUBLIC_TREE_ISSUER: "GA5WBQTSUOCBCNI4GNX7RKN75F5RNUR25KJXADQ7VBCKHTKPDVU4R27S"
+  NEXT_PUBLIC_TREE_DISTRIBUTOR: "GDB7XVIR7YF5QEPL5N7ZVGBLGETUOTZS46MPM32SYNIWZNYXCKYZDVLG"
+  NEXT_PUBLIC_CARBON_CREDIT_ISSUER: "GDUKMGUGDORQJH6YWY4RHDE6GV3NCYCBN3MORXYL43TSJPCCZFLNOA5H"
+
+  # ── Platform addresses ───────────────────────────────────────────────────────
+  NEXT_PUBLIC_PLANTING_ADDRESS: "GABEMKJNR4GK7M4FROGA7I7PG63N2CKE3EGDSBSISG56SVL2O3KRNDXA"
+  NEXT_PUBLIC_REPLANTING_BUFFER_ADDRESS: "GBUQWP3BOUZX34TOND2QV7QQ7K7VJTG6VSE62MFPXXXIAGKZ6YTDCXI"
+  NEXT_PUBLIC_BULK_RECIPIENT_ADDRESS: "GABEMKJNR4GK7M4FROGA7I7PG63N2CKE3EGDSBSISG56SVL2O3KRNDXA"
+
+  # ── Anchor ───────────────────────────────────────────────────────────────────
+  NEXT_PUBLIC_ANCHOR_API_URL: "https://testanchor.stellar.org"
+  NEXT_PUBLIC_ANCHOR_HOME_DOMAIN: "testanchor.stellar.org"
+
+  # ── App ──────────────────────────────────────────────────────────────────────
+  NEXT_PUBLIC_APP_URL: "https://harvesta.app"
+  NODE_ENV: "production"
+  PORT: "3000"

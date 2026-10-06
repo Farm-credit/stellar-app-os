@@ -84,6 +84,7 @@ pub enum KycStatus {
     Pending,
     Verified,
     Rejected,
+    Expired,
 }
 
 /// Legacy per-attestation record (verifier-gated path, unchanged).
@@ -93,6 +94,7 @@ pub struct Attestation {
     pub verifier: Address,
     pub status: KycStatus,
     pub timestamp: u64,
+    pub expires_at: u64,
 }
 
 /// ZK proof inputs supplied by the verifier.
@@ -378,10 +380,12 @@ impl KycAttestation {
         verifier.require_auth();
         Self::require_verifier(&env, &verifier);
 
+        let timestamp = env.ledger().timestamp();
         let attestation = Attestation {
             verifier: verifier.clone(),
             status: status.clone(),
-            timestamp: env.ledger().timestamp(),
+            timestamp,
+            expires_at: timestamp + 31_536_000,
         };
 
         // Append to history (never overwrite)
@@ -425,10 +429,15 @@ impl KycAttestation {
 
     /// Returns the current legacy KYC status of a farmer. Defaults to Pending.
     pub fn get_kyc_status(env: Env, farmer_id: Address) -> KycStatus {
-        env.storage()
-            .persistent()
-            .get(&status_key(&env, &farmer_id))
-            .unwrap_or(KycStatus::Pending)
+        let history = Self::get_kyc_history(env.clone(), farmer_id.clone());
+        if let Some(latest) = history.last() {
+            if latest.status == KycStatus::Verified && env.ledger().timestamp() >= latest.expires_at {
+                return KycStatus::Expired;
+            }
+            latest.status
+        } else {
+            KycStatus::Pending
+        }
     }
 
     /// Returns the full legacy attestation history for a farmer.

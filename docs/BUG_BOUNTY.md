@@ -4,6 +4,8 @@
 
 Harvesta operates a bug bounty program on [Immunefi](https://immunefi.com/) to incentivize security researchers to identify vulnerabilities in our smart contracts and infrastructure. This program helps us maintain the highest security standards for our decentralized tree-planting platform.
 
+> We also run a complementary [HackerOne bug bounty program](HACKERONE_BUG_BOUNTY.md). Researchers may report qualifying vulnerabilities through either platform.
+
 ## Program Details
 
 - **Platform**: Immunefi

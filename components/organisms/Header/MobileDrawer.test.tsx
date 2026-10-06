@@ -78,6 +78,7 @@ vi.mock('@/hooks/useTranslation', () => ({
         'nav.marketplace': 'Marketplace',
         'nav.transactions': 'Transactions',
         'nav.dashboard': 'Dashboard',
+        'nav.cooperatives': 'Cooperatives',
         'header.connectWallet': 'Connect Wallet',
         'mobile.closeMenu': 'Close navigation menu',
         'mobile.tapToDisconnect': 'Tap to disconnect',
@@ -144,6 +145,7 @@ vi.mock('lucide-react', () => {
     ShoppingBag: createElement('ShoppingBag'),
     LayoutDashboard: createElement('LayoutDashboard'),
     History: createElement('History'),
+    Users: createElement('Users'),
   };
 });
 
@@ -180,11 +182,12 @@ describe('MobileDrawer', () => {
       expect(screen.getByText('FarmCredit')).toBeInTheDocument();
     });
 
-    it('renders all five navigation links', () => {
+    it('renders all six navigation links', () => {
       render(<MobileDrawer {...defaultProps} isOpen={true} />);
       expect(screen.getByRole('link', { name: /Home/i })).toBeInTheDocument();
       expect(screen.getByRole('link', { name: /Projects/i })).toBeInTheDocument();
       expect(screen.getByRole('link', { name: /Marketplace/i })).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: /Cooperatives/i })).toBeInTheDocument();
       expect(screen.getByRole('link', { name: /Transactions/i })).toBeInTheDocument();
       expect(screen.getByRole('link', { name: /Dashboard/i })).toBeInTheDocument();
     });

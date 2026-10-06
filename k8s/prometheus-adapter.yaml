@@ -1,0 +1,146 @@
+##############################################################################
+# Prometheus Adapter
+#
+# Translates Prometheus metrics into the Kubernetes custom-metrics API so
+# the HPA can query them.
+#
+# Installation (alternative to this file):
+#   helm install prometheus-adapter prometheus-community/prometheus-adapter \
+#     -n monitoring --create-namespace \
+#     -f k8s/prometheus-adapter-values.yaml
+#
+# This file provides:
+#   1. A ConfigMap with the adapter's metric rules
+#   2. A Helm values file (as a comment) for easy helm install
+#
+# Custom metrics exposed to HPA:
+#   - api_request_rps             (requests per second per pod)
+#   - api_request_duration_p95_ms (p95 latency in ms per pod)
+#   - api_error_rate              (error fraction 0–1 per pod)
+##############################################################################
+
+# ─── Adapter metric rules ───────────────────────────────────────────────────
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-adapter-config
+  namespace: monitoring          # Deploy adapter into monitoring namespace
+  labels:
+    app.kubernetes.io/name: prometheus-adapter
+    app.kubernetes.io/component: metrics-adapter
+data:
+  config.yaml: |
+    # How often the adapter syncs with Prometheus
+    # (should match HPA poll interval or be faster)
+    metricsRelistInterval: 30s
+
+    # Prometheus URL — update if using a different service name/port
+    prometheus:
+      url: http://prometheus.monitoring.svc.cluster.local
+      port: 9090
+
+    rules:
+      # ── 1. api_request_rps ──────────────────────────────────────────────────
+      # Rate of total API requests per second, per pod.
+      # Source metric: api_request_total{route="..."}
+      # The adapter aggregates across all routes with sum() and converts to
+      # a per-pod value via the pod label that Prometheus scrapes.
+      - seriesQuery: 'api_request_total{namespace!="",pod!=""}'
+        resources:
+          overrides:
+            namespace:
+              resource: namespace
+            pod:
+              resource: pod
+        name:
+          matches: "api_request_total"
+          as: "api_request_rps"
+        metricsQuery: |
+          sum by (<<.GroupBy>>) (
+            rate(api_request_total{<<.LabelMatchers>>}[2m])
+          )
+
+      # ── 2. api_request_duration_p95_ms ──────────────────────────────────────
+      # 95th-percentile request latency in milliseconds, per pod.
+      # Source metric: api_request_duration_ms histogram (buckets + count + sum)
+      # Uses histogram_quantile; requires the histogram bucket metrics to be
+      # scraped from /api/metrics.
+      - seriesQuery: 'api_request_duration_ms_bucket{namespace!="",pod!=""}'
+        resources:
+          overrides:
+            namespace:
+              resource: namespace
+            pod:
+              resource: pod
+        name:
+          matches: "api_request_duration_ms_bucket"
+          as: "api_request_duration_p95_ms"
+        metricsQuery: |
+          histogram_quantile(0.95,
+            sum by (le, <<.GroupBy>>) (
+              rate(api_request_duration_ms_bucket{<<.LabelMatchers>>}[2m])
+            )
+          )
+
+      # ── 3. api_error_rate ───────────────────────────────────────────────────
+      # Fraction of requests that are errors (0.0 – 1.0), per pod.
+      # Useful for alert-driven scaling or as a scaleDown gate.
+      # Not wired to HPA by default but available for Prometheus rules / alerts.
+      - seriesQuery: 'api_error_total{namespace!="",pod!=""}'
+        resources:
+          overrides:
+            namespace:
+              resource: namespace
+            pod:
+              resource: pod
+        name:
+          matches: "api_error_total"
+          as: "api_error_rate"
+        metricsQuery: |
+          sum by (<<.GroupBy>>) (
+            rate(api_error_total{<<.LabelMatchers>>}[2m])
+          )
+          /
+          sum by (<<.GroupBy>>) (
+            rate(api_request_total{<<.LabelMatchers>>}[2m])
+          )
+---
+##############################################################################
+# prometheus-adapter-values.yaml (Helm values override)
+#
+# Save this section to k8s/prometheus-adapter-values.yaml and run:
+#
+#   helm install prometheus-adapter \
+#     prometheus-community/prometheus-adapter \
+#     -n monitoring --create-namespace \
+#     -f k8s/prometheus-adapter-values.yaml
+##############################################################################
+# (stored as a separate file below)
+
+# ─── ServiceMonitor — scrape harvesta-web pods ───────────────────────────────
+# Requires kube-prometheus-stack (Prometheus Operator).
+# If you are using a plain Prometheus deployment, use prometheus.yml scrape
+# configs instead (see monitoring/prometheus.yml).
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: harvesta-web
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/name: harvesta
+    app.kubernetes.io/component: web
+    # Must match the Prometheus Operator's serviceMonitorSelector
+    release: kube-prometheus-stack
+spec:
+  namespaceSelector:
+    matchNames:
+      - harvesta
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: harvesta
+      app.kubernetes.io/component: web
+  endpoints:
+    - port: http
+      path: /api/metrics
+      interval: 15s
+      scrapeTimeout: 10s

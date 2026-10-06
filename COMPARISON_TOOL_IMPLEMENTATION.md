@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document describes the implementation of Issue #56: Carbon Credit Comparison Tool for the FarmCredit Stellar application.
+This document describes the implementation of Issue #56: Carbon Credit Comparison Tool for the FarmCredit Stellar application, enabling side-by-side review of multiple offset projects including price, co-benefits, methodology, verifier, risk rating, and buyer reviews.
 
 ## Features Implemented
 
@@ -21,7 +21,11 @@ The comparison table displays the following attributes side-by-side:
 - **Type**: Project category (Reforestation, Renewable Energy, etc.)
 - **Location**: Geographic location of the project
 - **Co-Benefits**: Environmental and social benefits (displayed as badges)
+- **Methodology**: Carbon accounting methodology used by the project
 - **Verification Status**: Certification standard (Gold Standard, Verra, etc.)
+- **Verifier**: Third-party verifier organization that validated the project
+- **Risk Rating**: Overall project risk rating (Low, Medium, High)
+- **Buyer Reviews**: Aggregated buyer review score and count
 - **Vintage Year**: Year of carbon credit generation
 - **Available Supply**: Quantity available in tons CO₂
 
@@ -101,7 +105,11 @@ Added to `CarbonProject` interface:
 type: ProjectType;
 location: string;
 coBenefits: string[];
+methodology: string;
 verificationStatus: VerificationStatus;
+verifier: string;
+riskRating: RiskRating;
+buyerReviews: BuyerReviewSummary;
 ```
 
 ### Component Architecture
@@ -144,6 +152,10 @@ Following atomic design pattern:
 - [ ] All attributes are correctly displayed
 - [ ] Price formatting is correct (USD currency)
 - [ ] Co-benefits display as badges
+- [ ] Methodology is displayed for each project
+- [ ] Verifier is displayed for each project
+- [ ] Risk rating is displayed with correct styling
+- [ ] Buyer reviews show score and review count
 - [ ] Table is readable on all screen sizes
 - [ ] Horizontal scroll works on mobile
 
@@ -223,6 +235,7 @@ npm run build
 3. **Test the workflow**:
    - Select 2-3 projects by clicking checkboxes
    - Verify comparison table appears
+   - Verify methodology, verifier, risk rating, and buyer reviews are shown
    - Click "Export as PDF" and verify download
    - Click "Add to Cart" on a project
    - Verify navigation to purchase page
@@ -258,6 +271,9 @@ npm run build
 
 ✅ Up to 3 projects selectable
 ✅ Comparison table accurate
+✅ Methodology and verifier shown side-by-side
+✅ Risk rating displayed per project
+✅ Buyer reviews displayed per project
 ✅ Add to Cart works per project
 ✅ PDF export generates correctly
 ✅ Responsive layout (scroll on mobile)
@@ -277,5 +293,6 @@ This feature was implemented with atomic commits:
 6. `feat(carbon): add ComparisonTool organism component`
 7. `feat(carbon): add comparison page route`
 8. `feat(carbon): add navigation link to comparison tool from purchase page`
+9. `feat(carbon): add methodology, verifier, risk rating, and buyer reviews to comparison`
 
 Each commit builds on the previous one and maintains a working state.

@@ -47,6 +47,37 @@ fn test_anonymous_tree_not_in_dashboard() {
 }
 
 #[test]
+fn test_sponsored_tree_mints_transferable_collectible() {
+    let (env, sponsor, planter, registry) = setup();
+    let buyer = Address::generate(&env);
+    let payment_token = env.register_stellar_asset_contract_v2(sponsor.clone()).address();
+    let price = 1_000i128;
+
+    env.mock_all_auths();
+    soroban_sdk::token::StellarAssetClient::new(&env, &payment_token).mint(&buyer, &price);
+
+    let tree_id = registry.mint_sponsored(
+        &sponsor,
+        &planter,
+        &symbol_short!("teak"),
+        &symbol_short!("kenya"),
+    );
+    let tree = registry.get_tree(&tree_id).unwrap();
+    assert_eq!(tree.nft_id, Some(tree_id));
+    assert_eq!(tree.nft_owner, Some(sponsor.clone()));
+    assert_eq!(registry.nft_owner(&tree_id).unwrap(), sponsor.clone());
+
+    registry.transfer_nft(&tree_id, &sponsor, &buyer).unwrap();
+    assert_eq!(registry.nft_owner(&tree_id).unwrap(), buyer.clone());
+
+    registry
+        .trade_nft(&tree_id, &buyer, &sponsor, &payment_token, &price)
+        .unwrap();
+    assert_eq!(registry.nft_owner(&tree_id).unwrap(), sponsor);
+    assert_eq!(soroban_sdk::token::Client::new(&env, &payment_token).balance(&sponsor), price);
+}
+
+#[test]
 fn test_anonymous_event_emitted() {
     let (env, _, planter, registry) = setup();
     let escrow = Address::generate(&env);

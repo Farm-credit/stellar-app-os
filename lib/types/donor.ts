@@ -20,6 +20,8 @@ export interface DonorInfo {
 export interface DonationFlowState {
   amount: number;
   treeCount: number;
+  speciesSlug: string;
+  regionId: string;
   isMonthly: boolean;
   /** Stellar payment asset; 'XLM' is converted to USDC on-chain. */
   asset: DonationAsset;
@@ -38,6 +40,8 @@ export const DEFAULT_DONOR_INFO: DonorInfo = {
 export const DEFAULT_DONATION_FLOW_STATE: DonationFlowState = {
   amount: 25,
   treeCount: 1,
+  speciesSlug: 'moringa',
+  regionId: 'kano',
   isMonthly: false,
   asset: 'USDC',
   donorInfo: { ...DEFAULT_DONOR_INFO },

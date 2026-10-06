@@ -14,7 +14,7 @@ runs:
       run: |
         npm install -g pnpm
         echo "$(npm bin -g)" >> $GITHUB_PATH
-        echo "PNPM version: $(pnpm -v)"
+        echo "PNPm version: $(pnpm -v)"
 
     - name: Install dependencies
       shell: bash
@@ -27,3 +27,13 @@ runs:
     - name: Build
       shell: bash
       run: pnpm build
+
+    - name: Run Lighthouse performance tests
+      shell: bash
+      run: |
+        npx lhci autorun \
+          --collect.staticDistDir=dist \
+          --collect.numberOfRuns=1 \
+          --assert.performance=90 \
+          --assert.accessibility=90 \
+          --assert.best-practices=90

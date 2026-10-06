@@ -60,6 +60,8 @@ tags:
     description: Administrative operations (airdrop)
   - name: Planters
     description: Planter registration and photo uploads
+  - name: Farmers
+    description: Consent-bound farmer identity, land, and credit verification
   - name: Webhooks
     description: Webhook event management and retry
   - name: Newsletter
@@ -357,19 +359,167 @@ paths:
         "500":
           $ref: "#/components/responses/InternalServerError"
 
-  /api/trees/status:
+  /api/trees/search:
     get:
-      operationId: streamTreeStatus
+      operationId: searchTrees
       tags: [Trees]
-      summary: Server-Sent Events stream for tree status
-      description: Streams real-time tree status updates. Returns text/event-stream.
+      summary: Search trees with advanced filters and pagination
+      description: >
+        Search and filter registered trees across species, regions, life-cycle statuses,
+        planters, CO2 thresholds, and planting date ranges with configurable sorting
+        and full metadata pagination.
+      parameters:
+        - name: q
+          in: query
+          description: Free-text search query across tree ID, species, region, planter, and project name
+          schema:
+            type: string
+            example: "Mangrove Rift"
+        - name: species
+          in: query
+          description: Filter by tree species name
+          schema:
+            type: string
+            enum: [Teak, Moringa, Eucalyptus, Mangrove, Mahogany, Bamboo, Acacia, all]
+            example: "Mangrove"
+        - name: region
+          in: query
+          description: Filter by geographic region or country string
+          schema:
+            type: string
+            example: "East Africa"
+        - name: status
+          in: query
+          description: Filter by tree verification lifecycle status
+          schema:
+            type: string
+            enum: [funded, planted, verified, completed, failed, all]
+            example: "verified"
+        - name: planterId
+          in: query
+          description: Filter by Stellar public key address or ID of planter
+          schema:
+            type: string
+            pattern: "^G[A-Z0-9]{55}$"
+            example: "GABEMKJNR4GK7M4FROGA7I7PG63N2CKE3EGDSBSISG56SVL2O3KRNDXA"
+        - name: minCo2
+          in: query
+          description: Minimum estimated CO2 offset in kg
+          schema:
+            type: number
+            minimum: 0
+            example: 10.5
+        - name: maxCo2
+          in: query
+          description: Maximum estimated CO2 offset in kg
+          schema:
+            type: number
+            minimum: 0
+            example: 500.0
+        - name: plantedAfter
+          in: query
+          description: ISO 8601 start date for planting window filter
+          schema:
+            type: string
+            format: date-time
+            example: "2026-01-01T00:00:00.000Z"
+        - name: plantedBefore
+          in: query
+          description: ISO 8601 end date for planting window filter
+          schema:
+            type: string
+            format: date-time
+            example: "2026-12-31T23:59:59.000Z"
+        - name: sortBy
+          in: query
+          description: Field name to sort search results by
+          schema:
+            type: string
+            enum: [createdAt, co2Offset, treeId, species, status]
+            default: "createdAt"
+        - name: sortOrder
+          in: query
+          description: Sort direction
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: "desc"
+        - name: limit
+          in: query
+          description: Maximum number of search results to return per page (max 200)
+          schema:
+            type: integer
+            default: 50
+            minimum: 1
+            maximum: 200
+        - name: offset
+          in: query
+          description: Pagination record offset count
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
       responses:
         "200":
-          description: SSE stream
-          content:
-            text/event-stream:
+          description: Successfully retrieved tree search results
+          headers:
+            X-Cached-At:
+              description: ISO timestamp when query result was cached
               schema:
                 type: string
+                format: date-time
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [trees, pagination, filtersApplied]
+                properties:
+                  trees:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Tree"
+                  pagination:
+                    type: object
+                    required: [total, limit, offset, hasMore, page, totalPages]
+                    properties:
+                      total:
+                        type: integer
+                        example: 142
+                      limit:
+                        type: integer
+                        example: 50
+                      offset:
+                        type: integer
+                        example: 0
+                      hasMore:
+                        type: boolean
+                        example: true
+                      page:
+                        type: integer
+                        example: 1
+                      totalPages:
+                        type: integer
+                        example: 3
+                  filtersApplied:
+                    type: object
+                    properties:
+                      species:
+                        type: string
+                        example: "Mangrove"
+                      status:
+                        type: string
+                        example: "verified"
+                      q:
+                        type: string
+                        example: "Rift"
+                  cachedAt:
+                    type: string
+                    format: date-time
+                    example: "2026-08-31T09:00:00.000Z"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
 
   # ──────────────────────────────────────────────
   # Impact
@@ -440,6 +590,112 @@ paths:
                     type: array
                     items:
                       $ref: "#/components/schemas/CarbonSnapshot"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/v2/carbon-accounting:
+    get:
+      operationId: getCarbonAccounting
+      tags: [Carbon]
+      summary: Emission-factor catalogue, or an ad-hoc inventory from scalar query params
+      description: |
+        GHG Protocol corporate carbon accounting.
+
+        With no query parameters this returns the emission-factor catalogue —
+        every published factor the calculator uses, so results are reproducible.
+
+        Supplying any `scope1.*`, `scope2.*` or `offsets.*` parameter (or `from`/`to`)
+        instead runs an inventory and returns a `GhgInventoryReport`. Scope 3 activity
+        data is too structured for a query string; use POST for the full shape.
+      parameters:
+        - name: scope1.naturalGasTherms
+          in: query
+          description: Scope 1 stationary combustion, therms burned
+          schema:
+            type: number
+            minimum: 0
+        - name: scope2.electricityKwh
+          in: query
+          schema:
+            type: number
+            minimum: 0
+        - name: scope2.gridRegion
+          in: query
+          description: Grid emission factor to apply
+          schema:
+            type: string
+            enum: [us-average, us-west, eu, uk, global]
+            default: us-average
+        - name: scope2.renewablePercentage
+          in: query
+          description: Share of electricity covered by renewable contracts (RECs/PPAs)
+          schema:
+            type: number
+            minimum: 0
+            maximum: 100
+        - name: offsets.creditsRetiredTonnes
+          in: query
+          schema:
+            type: number
+            minimum: 0
+        - name: offsets.treesPlanted
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+        - name: from
+          in: query
+          description: Reporting period start (ISO 8601)
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          description: Reporting period end (ISO 8601)
+          schema:
+            type: string
+            format: date-time
+      responses:
+        "200":
+          description: |
+            Factor catalogue, or a `GhgInventoryReport` when inventory parameters are present.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/GhgFactorCatalogue"
+                  - $ref: "#/components/schemas/GhgInventoryReport"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+    post:
+      operationId: createCarbonAccountingInventory
+      tags: [Carbon]
+      summary: Calculate a full GHG Protocol inventory
+      description: |
+        Accepts the complete Scope 1 / 2 / 3 activity dataset and returns a
+        `GhgInventoryReport`.
+
+        Offsets (retired credits, tree sequestration) are reported separately
+        from gross emissions, as the GHG Protocol requires reductions and offsets
+        to remain distinguishable; a net position is provided for convenience.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GhgInventoryRequest"
+      responses:
+        "200":
+          description: GHG Protocol inventory report
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GhgInventoryReport"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "500":
           $ref: "#/components/responses/InternalServerError"
 
@@ -2403,6 +2659,138 @@ paths:
           $ref: "#/components/responses/InternalServerError"
 
   # ──────────────────────────────────────────────
+  # Farmers
+  # ──────────────────────────────────────────────
+  /api/v1/farmers/{farmerAddress}/verification:
+    get:
+      operationId: getV1FarmerVerification
+      tags: [Farmers]
+      summary: Verify a farmer for a third-party integration
+      description: >
+        Returns consent-bound identity, land-ownership, certification, and
+        credit-availability assertions. Personal identifiers and evidence
+        documents are never returned.
+      security:
+        - apiKeyAuth: []
+      parameters:
+        - name: farmerAddress
+          in: path
+          required: true
+          description: Stellar public key of the farmer to verify.
+          schema:
+            type: string
+            pattern: "^G[A-Z2-7]{55}$"
+      responses:
+        "200":
+          description: Farmer verification report
+          headers:
+            X-API-Version:
+              schema:
+                type: string
+                enum: [v1]
+            X-API-Tier:
+              schema:
+                type: string
+                enum: [free, standard, premium]
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FarmerVerificationReport"
+        "400":
+          description: Invalid Stellar farmer address
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FarmerVerificationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: The farmer has not consented to third-party disclosure
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FarmerVerificationError"
+        "404":
+          description: No verification record exists for this farmer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FarmerVerificationError"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+        "503":
+          description: API-key authentication is temporarily unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/v1/farmers/verification:
+    post:
+      operationId: postV1FarmerVerificationBatch
+      tags: [Farmers]
+      summary: Verify a portfolio of farmers
+      description: >
+        Verifies 1–100 unique Stellar farmer addresses. Invalid entries reject
+        the complete request; missing and non-consenting records are returned
+        in separate buckets.
+      security:
+        - apiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [addresses]
+              properties:
+                addresses:
+                  type: array
+                  minItems: 1
+                  maxItems: 100
+                  uniqueItems: true
+                  items:
+                    type: string
+                    pattern: "^G[A-Z2-7]{55}$"
+      responses:
+        "200":
+          description: Portfolio verification results
+          headers:
+            X-API-Version:
+              schema:
+                type: string
+                enum: [v1]
+            X-API-Tier:
+              schema:
+                type: string
+                enum: [free, standard, premium]
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FarmerVerificationBatch"
+        "400":
+          description: Malformed JSON or invalid address list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FarmerVerificationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+        "503":
+          description: API-key authentication is temporarily unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  # ──────────────────────────────────────────────
   # Planters
   # ──────────────────────────────────────────────
   /api/planters/register:
@@ -2699,6 +3087,11 @@ components:
       type: http
       scheme: bearer
       description: WEBHOOK_CRON_SECRET token
+    apiKeyAuth:
+      type: apiKey
+      in: header
+      name: x-api-key
+      description: Active public API key issued by POST /api/api-keys
 
   schemas:
     ErrorResponse:
@@ -2706,6 +3099,571 @@ components:
       properties:
         error:
           type: string
+
+    FarmerVerificationError:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+        code:
+          type: string
+          enum: [invalid_address, consent_denied, not_found]
+        details:
+          type: array
+          items:
+            type: string
+
+    FarmerVerificationReport:
+      type: object
+      additionalProperties: false
+      required:
+        - farmerAddress
+        - apiVersion
+        - verificationStatus
+        - verified
+        - identity
+        - land
+        - certification
+        - credit
+        - consent
+        - checkedAt
+      properties:
+        farmerAddress:
+          type: string
+          pattern: "^G[A-Z2-7]{55}$"
+        apiVersion:
+          type: string
+          enum: [v1]
+        verificationStatus:
+          type: string
+          enum: [verified, pending, rejected, expired]
+        verified:
+          type: boolean
+        identity:
+          $ref: "#/components/schemas/FarmerVerificationIdentity"
+        land:
+          $ref: "#/components/schemas/FarmerVerificationLand"
+        certification:
+          $ref: "#/components/schemas/FarmerVerificationCertification"
+        credit:
+          $ref: "#/components/schemas/FarmerVerificationCredit"
+        consent:
+          type: object
+          additionalProperties: false
+          required: [granted]
+          properties:
+            granted:
+              type: boolean
+              enum: [true]
+        checkedAt:
+          type: string
+          format: date-time
+
+    FarmerVerificationIdentity:
+      type: object
+      additionalProperties: false
+      required: [verified, verifiedAt, documentType]
+      properties:
+        verified:
+          type: boolean
+        verifiedAt:
+          type: string
+          format: date-time
+          nullable: true
+        documentType:
+          type: string
+          enum: [nin, voter_card, passport, drivers_licence]
+          nullable: true
+
+    FarmerVerificationLand:
+      type: object
+      additionalProperties: false
+      required:
+        - verified
+        - verifiedAt
+        - ownershipType
+        - plotSizeHectares
+        - region
+        - gpsCoordinates
+      properties:
+        verified:
+          type: boolean
+        verifiedAt:
+          type: string
+          format: date-time
+          nullable: true
+        ownershipType:
+          type: string
+          enum: [title_deed, lease, customary, communal, family_inheritance]
+          nullable: true
+        plotSizeHectares:
+          type: number
+          minimum: 0
+          nullable: true
+        region:
+          type: string
+          nullable: true
+        gpsCoordinates:
+          type: object
+          nullable: true
+          additionalProperties: false
+          required: [latitude, longitude]
+          properties:
+            latitude:
+              type: number
+              minimum: -90
+              maximum: 90
+            longitude:
+              type: number
+              minimum: -180
+              maximum: 180
+
+    FarmerVerificationCertification:
+      type: object
+      additionalProperties: false
+      required: [eligible, tier, blockers, advisories, rulesetVersion]
+      properties:
+        eligible:
+          type: boolean
+        tier:
+          type: string
+          enum: [none, provisional, full]
+        blockers:
+          type: array
+          items:
+            type: string
+        advisories:
+          type: array
+          items:
+            type: string
+        rulesetVersion:
+          type: string
+
+    FarmerVerificationCredit:
+      type: object
+      additionalProperties: false
+      required:
+        - available
+        - tier
+        - blockers
+        - advisories
+        - applicationSettled
+        - sanctionsClear
+      properties:
+        available:
+          type: boolean
+        tier:
+          type: string
+          enum: [none, provisional, full]
+        blockers:
+          type: array
+          items:
+            type: string
+        advisories:
+          type: array
+          items:
+            type: string
+        applicationSettled:
+          type: boolean
+        sanctionsClear:
+          type: boolean
+
+    FarmerVerificationBatch:
+      type: object
+      additionalProperties: false
+      required: [requested, count, verified, reports, notFound, consentDenied]
+      properties:
+        requested:
+          type: integer
+          minimum: 1
+          maximum: 100
+        count:
+          type: integer
+          minimum: 0
+        verified:
+          type: integer
+          minimum: 0
+        reports:
+          type: array
+          items:
+            $ref: "#/components/schemas/FarmerVerificationReport"
+        notFound:
+          type: array
+          items:
+            type: string
+            pattern: "^G[A-Z2-7]{55}$"
+        consentDenied:
+          type: array
+          items:
+            type: string
+            pattern: "^G[A-Z2-7]{55}$"
+
+    GhgInventoryRequest:
+      type: object
+      description: At least one of scope1, scope2, scope3 or offsets is required.
+      properties:
+        reportingPeriod:
+          type: object
+          description: Defaults to the current calendar year.
+          properties:
+            from:
+              type: string
+              format: date-time
+            to:
+              type: string
+              format: date-time
+        organization:
+          type: object
+          properties:
+            name:
+              type: string
+            employees:
+              type: integer
+              minimum: 1
+              description: Enables a per-employee intensity metric.
+        scope1:
+          type: object
+          description: Direct emissions from owned or controlled sources.
+          properties:
+            stationary:
+              type: array
+              items:
+                $ref: "#/components/schemas/GhgFuelLine"
+            mobile:
+              type: array
+              items:
+                $ref: "#/components/schemas/GhgFuelLine"
+            fugitive:
+              type: array
+              items:
+                type: object
+                required: [refrigerant, quantityKg]
+                properties:
+                  refrigerant:
+                    type: string
+                    enum: [R-410A, R-134A, R-404A, R-22]
+                  quantityKg:
+                    type: number
+                    minimum: 0
+                    description: Charge weight in kg.
+        scope2:
+          type: object
+          description: Indirect emissions from purchased energy.
+          properties:
+            electricityKwh:
+              type: number
+              minimum: 0
+            heatKwh:
+              type: number
+              minimum: 0
+            steamKwh:
+              type: number
+              minimum: 0
+            gridRegion:
+              type: string
+              enum: [us-average, us-west, eu, uk, global]
+              default: us-average
+            renewablePercentage:
+              type: number
+              minimum: 0
+              maximum: 100
+              description: Share of electricity covered by renewable contracts (RECs/PPAs).
+        scope3:
+          type: object
+          description: Value-chain emissions; categories 4, 5, 6 and 7 are supported.
+          properties:
+            freight:
+              type: array
+              items:
+                type: object
+                required: [mode, tonnes, distanceKm]
+                properties:
+                  mode:
+                    type: string
+                    enum: [truck, rail, air, ship]
+                  tonnes:
+                    type: number
+                    minimum: 0
+                  distanceKm:
+                    type: number
+                    minimum: 0
+            waste:
+              type: array
+              items:
+                type: object
+                required: [method, tonnes]
+                properties:
+                  method:
+                    type: string
+                    enum: [landfill, incineration, recycled, composted]
+                  tonnes:
+                    type: number
+                    minimum: 0
+            businessTravel:
+              type: object
+              properties:
+                shortHaulFlights:
+                  type: integer
+                  minimum: 0
+                longHaulFlights:
+                  type: integer
+                  minimum: 0
+                railKm:
+                  type: number
+                  minimum: 0
+                carKm:
+                  type: number
+                  minimum: 0
+            commuting:
+              type: array
+              items:
+                type: object
+                required: [mode, distanceKm]
+                properties:
+                  mode:
+                    type: string
+                    enum: [car, bus, rail, walk, bike]
+                  distanceKm:
+                    type: number
+                    minimum: 0
+        offsets:
+          type: object
+          description: Reported separately from gross emissions, per the GHG Protocol.
+          properties:
+            creditsRetiredTonnes:
+              type: number
+              minimum: 0
+            treesPlanted:
+              type: integer
+              minimum: 0
+            co2KgPerTree:
+              type: number
+              minimum: 0
+              description: Override the default lifetime sequestration per tree (kg CO2e).
+
+    GhgFuelLine:
+      type: object
+      required: [fuel, quantity]
+      properties:
+        fuel:
+          type: string
+          enum: [natural-gas, gasoline, diesel]
+        quantity:
+          type: number
+          minimum: 0
+          description: Therms for natural gas, gallons for gasoline/diesel.
+
+    EmissionsLine:
+      type: object
+      properties:
+        source:
+          type: string
+          description: Human-readable source label, e.g. 'natural-gas', 'R-410A', 'truck'.
+        emissionsKg:
+          type: number
+
+    GhgInventoryReport:
+      type: object
+      properties:
+        standard:
+          type: string
+          example: GHG Protocol Corporate Standard
+        version:
+          type: string
+          example: "2.0"
+        generatedAt:
+          type: string
+          format: date-time
+        period:
+          type: object
+          properties:
+            from:
+              type: string
+              format: date-time
+            to:
+              type: string
+              format: date-time
+        organization:
+          type: object
+          properties:
+            name:
+              type: string
+            employees:
+              type: integer
+        scope1:
+          type: object
+          properties:
+            stationary:
+              type: array
+              items:
+                $ref: "#/components/schemas/EmissionsLine"
+            mobile:
+              type: array
+              items:
+                $ref: "#/components/schemas/EmissionsLine"
+            fugitive:
+              type: array
+              items:
+                $ref: "#/components/schemas/EmissionsLine"
+            totalKg:
+              type: number
+            totalTonnes:
+              type: number
+        scope2:
+          type: object
+          description: Dual-reported per the GHG Protocol Scope 2 Guidance.
+          properties:
+            electricityKg:
+              type: number
+            heatKg:
+              type: number
+            steamKg:
+              type: number
+            gridRegion:
+              type: string
+            renewablePercentage:
+              type: number
+            locationBasedKg:
+              type: number
+              description: Grid-factor method; all electricity at the grid average.
+            marketBasedKg:
+              type: number
+              description: Contractual method; renewable-covered electricity counted as zero.
+            locationBasedTonnes:
+              type: number
+            marketBasedTonnes:
+              type: number
+            totalKg:
+              type: number
+            totalTonnes:
+              type: number
+        scope3:
+          type: object
+          properties:
+            categories:
+              type: array
+              items:
+                type: object
+                properties:
+                  category:
+                    type: integer
+                    enum: [4, 5, 6, 7]
+                  name:
+                    type: string
+                  emissionsKg:
+                    type: number
+                  emissionsTonnes:
+                    type: number
+            totalKg:
+              type: number
+            totalTonnes:
+              type: number
+        grossEmissions:
+          type: object
+          description: Scope 1 + Scope 2 (location-based) + Scope 3.
+          properties:
+            kg:
+              type: number
+            tonnes:
+              type: number
+        offsets:
+          type: object
+          properties:
+            creditsRetiredTonnes:
+              type: number
+            treeSequestrationTonnes:
+              type: number
+            totalTonnes:
+              type: number
+        netEmissions:
+          type: object
+          description: gross − offsets. Negative means a net-negative position.
+          properties:
+            kg:
+              type: number
+            tonnes:
+              type: number
+        intensity:
+          type: object
+          description: Present when organization.employees was supplied.
+          properties:
+            perEmployeeTonnes:
+              type: number
+
+    GhgFactorCatalogue:
+      type: object
+      description: Every published factor the calculator uses, so results are reproducible.
+      properties:
+        standard:
+          type: string
+        version:
+          type: string
+        scopes:
+          type: object
+          additionalProperties:
+            type: string
+        factors:
+          type: object
+          properties:
+            scope1:
+              type: object
+              properties:
+                stationary:
+                  type: object
+                  additionalProperties:
+                    type: object
+                    properties:
+                      unit:
+                        type: string
+                      kgCo2ePerUnit:
+                        type: number
+                mobile:
+                  type: object
+                  additionalProperties:
+                    type: object
+                    properties:
+                      unit:
+                        type: string
+                      kgCo2ePerUnit:
+                        type: number
+                refrigerants:
+                  type: object
+                  additionalProperties:
+                    type: number
+                  description: Refrigerant global warming potential (GWP).
+            scope2:
+              type: object
+              properties:
+                gridRegions:
+                  type: object
+                  additionalProperties:
+                    type: number
+                heatKgPerKwh:
+                  type: number
+                steamKgPerKwh:
+                  type: number
+                marketBasedMethod:
+                  type: string
+            scope3:
+              type: object
+              properties:
+                freightKgPerTonneKm:
+                  type: object
+                  additionalProperties:
+                    type: number
+                wasteKgPerTonne:
+                  type: object
+                  additionalProperties:
+                    type: number
+                businessTravel:
+                  type: object
+                  additionalProperties:
+                    type: number
+                commutingKgPerKm:
+                  type: object
+                  additionalProperties:
+                    type: number
 
     HealthzResponse:
       type: object

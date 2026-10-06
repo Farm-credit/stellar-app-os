@@ -1,0 +1,95 @@
+##############################################################################
+# Ingress — nginx ingress controller + cert-manager TLS.
+#
+# Prerequisites:
+#   helm install ingress-nginx ingress-nginx/ingress-nginx -n ingress-nginx --create-namespace
+#   helm install cert-manager jetstack/cert-manager -n cert-manager --create-namespace --set installCRDs=true
+#
+# Then create a ClusterIssuer (see below) before applying this file.
+##############################################################################
+
+# ─── cert-manager ClusterIssuer (Let's Encrypt production) ──────────────────
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-prod
+spec:
+  acme:
+    server: https://acme-v02.api.letsencrypt.org/directory
+    email: ops@harvesta.app                  # Change to your email
+    privateKeySecretRef:
+      name: letsencrypt-prod-account-key
+    solvers:
+      - http01:
+          ingress:
+            class: nginx
+---
+# ─── Ingress ─────────────────────────────────────────────────────────────────
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: harvesta
+  namespace: harvesta
+  labels:
+    app.kubernetes.io/name: harvesta
+    app.kubernetes.io/component: ingress
+  annotations:
+    kubernetes.io/ingress.class: nginx
+
+    # TLS — cert-manager will auto-provision and renew the cert
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+
+    # Proxy settings for SSR & large planter uploads (photos)
+    nginx.ingress.kubernetes.io/proxy-body-size: "20m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "60"
+
+    # Rate limiting (protect API endpoints)
+    nginx.ingress.kubernetes.io/limit-rps: "100"
+
+    # Security headers
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      add_header X-Frame-Options "SAMEORIGIN" always;
+      add_header X-Content-Type-Options "nosniff" always;
+      add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+      add_header X-XSS-Protection "1; mode=block" always;
+      add_header Permissions-Policy "camera=(), microphone=(), geolocation=(self)" always;
+
+    # Force HTTPS redirect
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+
+    # HSTS
+    nginx.ingress.kubernetes.io/hsts: "true"
+    nginx.ingress.kubernetes.io/hsts-max-age: "31536000"
+    nginx.ingress.kubernetes.io/hsts-include-subdomains: "true"
+
+spec:
+  tls:
+    - hosts:
+        - harvesta.app
+        - www.harvesta.app
+      secretName: harvesta-tls
+  rules:
+    # ── Primary domain ────────────────────────────────────────────────────────
+    - host: harvesta.app
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: harvesta-web
+                port:
+                  name: http
+    # ── www → same backend (Ingress controller will redirect in HTTPS) ────────
+    - host: www.harvesta.app
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: harvesta-web
+                port:
+                  name: http

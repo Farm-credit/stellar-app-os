@@ -48,6 +48,14 @@ pub enum Error {
     WithdrawalAmountTooSmall = 12,
     DepositBelowMinimumLiquidity = 13,
     ArithmeticError = 14,
+    PairAlreadyExists = 15,
+    PairNotFound = 16,
+    IdenticalTokens = 17,
+    InvalidFee = 18,
+    InsufficientLiquidity = 19,
+    InsufficientOutput = 20,
+    SlippageExceeded = 21,
+    InsufficientLpShares = 22,
 }
 
 // ── Types ───────────────────────────────────────────────────────────────────
@@ -68,6 +76,10 @@ pub enum DataKey {
     Pool(Address),
     /// (token, provider) -> share balance.
     Position(Address, Address),
+    /// Ordered token pair state. The pair order is fixed at creation.
+    Pair(Address, Address),
+    /// (token_a, token_b, provider) -> LP shares.
+    PairPosition(Address, Address, Address),
 }
 
 #[contracttype]
@@ -77,6 +89,21 @@ pub struct PoolState {
     pub total_shares: i128,
     pub total_deposits: i128,
 }
+
+/// Reserves and LP share supply for an ordered constant-product pair.
+#[contracttype]
+#[derive(Clone, Debug, PartialEq)]
+pub struct PairState {
+    pub token_a: Address,
+    pub token_b: Address,
+    pub reserve_a: i128,
+    pub reserve_b: i128,
+    pub total_lp_shares: i128,
+    pub fee_bps: u32,
+}
+
+const PAIR_MINIMUM_LIQUIDITY: i128 = 1_000;
+const BPS_DENOMINATOR: i128 = 10_000;
 
 // ── Contract ────────────────────────────────────────────────────────────────
 
@@ -92,8 +119,12 @@ impl CarbonDexContract {
         }
         admin.require_auth();
 
-        env.storage().instance().set(&symbol_short!("ADMIN"), &admin);
-        env.storage().instance().set(&symbol_short!("PAUSED"), &false);
+        env.storage()
+            .instance()
+            .set(&symbol_short!("ADMIN"), &admin);
+        env.storage()
+            .instance()
+            .set(&symbol_short!("PAUSED"), &false);
         Self::extend_instance_ttl(&env);
     }
 
@@ -175,8 +206,10 @@ impl CarbonDexContract {
             .persistent()
             .extend_ttl(&position_key, BUMP_THRESHOLD, BUMP_AMOUNT);
 
-        env.events()
-            .publish((symbol_short!("deposit"), from), (token, amount, shares_minted));
+        env.events().publish(
+            (symbol_short!("deposit"), from),
+            (token, amount, shares_minted),
+        );
 
         shares_minted
     }
@@ -236,13 +269,19 @@ impl CarbonDexContract {
         if remaining_shares == 0 {
             env.storage().persistent().remove(&position_key);
         } else {
-            env.storage().persistent().set(&position_key, &remaining_shares);
+            env.storage()
+                .persistent()
+                .set(&position_key, &remaining_shares);
             env.storage()
                 .persistent()
                 .extend_ttl(&position_key, BUMP_THRESHOLD, BUMP_AMOUNT);
         }
 
-        token::Client::new(&env, &token).transfer(&env.current_contract_address(), &from, &amount_out);
+        token::Client::new(&env, &token).transfer(
+            &env.current_contract_address(),
+            &from,
+            &amount_out,
+        );
 
         env.events().publish(
             (symbol_short!("withdraw"), from),
@@ -263,7 +302,9 @@ impl CarbonDexContract {
         if paused {
             panic_with_error!(&env, Error::AlreadyPaused);
         }
-        env.storage().instance().set(&symbol_short!("PAUSED"), &true);
+        env.storage()
+            .instance()
+            .set(&symbol_short!("PAUSED"), &true);
     }
 
     /// Admin-only: resume `deposit` / `withdraw`.
@@ -277,7 +318,9 @@ impl CarbonDexContract {
         if !paused {
             panic_with_error!(&env, Error::NotPaused);
         }
-        env.storage().instance().set(&symbol_short!("PAUSED"), &false);
+        env.storage()
+            .instance()
+            .set(&symbol_short!("PAUSED"), &false);
     }
 
     /// Read a pool's state. Returns `None` if nothing has ever been deposited.
@@ -293,7 +336,328 @@ impl CarbonDexContract {
             .unwrap_or(0)
     }
 
+    /// Create an ordered token pair. Only the initialized admin may create pairs.
+    /// `fee_bps` is the swap fee in basis points and must not exceed 100%.
+    pub fn create_pair(env: Env, token_a: Address, token_b: Address, fee_bps: u32) {
+        Self::extend_instance_ttl(&env);
+        Self::require_admin(&env);
+        if token_a == token_b {
+            panic_with_error!(&env, Error::IdenticalTokens);
+        }
+        if fee_bps as i128 >= BPS_DENOMINATOR {
+            panic_with_error!(&env, Error::InvalidFee);
+        }
+        let key = DataKey::Pair(token_a.clone(), token_b.clone());
+        if env.storage().persistent().has(&key)
+            || env
+                .storage()
+                .persistent()
+                .has(&DataKey::Pair(token_b.clone(), token_a.clone()))
+        {
+            panic_with_error!(&env, Error::PairAlreadyExists);
+        }
+        let state = PairState {
+            token_a,
+            token_b,
+            reserve_a: 0,
+            reserve_b: 0,
+            total_lp_shares: 0,
+            fee_bps,
+        };
+        env.storage().persistent().set(&key, &state);
+        env.storage()
+            .persistent()
+            .extend_ttl(&key, BUMP_THRESHOLD, BUMP_AMOUNT);
+    }
+
+    /// Add both assets to a pair and mint LP shares to `from`.
+    pub fn add_liquidity(
+        env: Env,
+        from: Address,
+        token_a: Address,
+        token_b: Address,
+        amount_a: i128,
+        amount_b: i128,
+    ) -> i128 {
+        Self::extend_instance_ttl(&env);
+        Self::assert_not_paused(&env);
+        from.require_auth();
+        if amount_a <= 0 || amount_b <= 0 {
+            panic_with_error!(&env, Error::AmountMustBePositive);
+        }
+        let key = DataKey::Pair(token_a.clone(), token_b.clone());
+        let mut pair: PairState = env
+            .storage()
+            .persistent()
+            .get(&key)
+            .unwrap_or_else(|| panic_with_error!(&env, Error::PairNotFound));
+        let shares = if pair.total_lp_shares == 0 {
+            let product = amount_a
+                .checked_mul(amount_b)
+                .unwrap_or_else(|| panic_with_error!(&env, Error::ArithmeticError));
+            let root = Self::integer_sqrt(product);
+            if root <= PAIR_MINIMUM_LIQUIDITY {
+                panic_with_error!(&env, Error::DepositBelowMinimumLiquidity);
+            }
+            root - PAIR_MINIMUM_LIQUIDITY
+        } else {
+            let shares_a = amount_a
+                .checked_mul(pair.total_lp_shares)
+                .and_then(|v| v.checked_div(pair.reserve_a))
+                .unwrap_or_else(|| panic_with_error!(&env, Error::ArithmeticError));
+            let shares_b = amount_b
+                .checked_mul(pair.total_lp_shares)
+                .and_then(|v| v.checked_div(pair.reserve_b))
+                .unwrap_or_else(|| panic_with_error!(&env, Error::ArithmeticError));
+            shares_a.min(shares_b)
+        };
+        if shares <= 0 {
+            panic_with_error!(&env, Error::ZeroSharesMinted);
+        }
+        token::Client::new(&env, &token_a).transfer(
+            &from,
+            &env.current_contract_address(),
+            &amount_a,
+        );
+        token::Client::new(&env, &token_b).transfer(
+            &from,
+            &env.current_contract_address(),
+            &amount_b,
+        );
+        pair.reserve_a = pair
+            .reserve_a
+            .checked_add(amount_a)
+            .unwrap_or_else(|| panic_with_error!(&env, Error::ArithmeticError));
+        pair.reserve_b = pair
+            .reserve_b
+            .checked_add(amount_b)
+            .unwrap_or_else(|| panic_with_error!(&env, Error::ArithmeticError));
+        pair.total_lp_shares = pair
+            .total_lp_shares
+            .checked_add(shares)
+            .and_then(|v| {
+                v.checked_add(if pair.total_lp_shares == 0 {
+                    PAIR_MINIMUM_LIQUIDITY
+                } else {
+                    0
+                })
+            })
+            .unwrap_or_else(|| panic_with_error!(&env, Error::ArithmeticError));
+        env.storage().persistent().set(&key, &pair);
+        env.storage()
+            .persistent()
+            .extend_ttl(&key, BUMP_THRESHOLD, BUMP_AMOUNT);
+        let position_key = DataKey::PairPosition(token_a.clone(), token_b.clone(), from.clone());
+        let current: i128 = env.storage().persistent().get(&position_key).unwrap_or(0);
+        env.storage().persistent().set(
+            &position_key,
+            &current
+                .checked_add(shares)
+                .unwrap_or_else(|| panic_with_error!(&env, Error::ArithmeticError)),
+        );
+        env.storage()
+            .persistent()
+            .extend_ttl(&position_key, BUMP_THRESHOLD, BUMP_AMOUNT);
+        env.events().publish(
+            (symbol_short!("liq_add"), from),
+            (token_a, token_b, amount_a, amount_b, shares),
+        );
+        shares
+    }
+
+    /// Burn LP shares and return the provider's proportional reserves.
+    pub fn remove_liquidity(
+        env: Env,
+        from: Address,
+        token_a: Address,
+        token_b: Address,
+        shares: i128,
+    ) -> (i128, i128) {
+        Self::extend_instance_ttl(&env);
+        Self::assert_not_paused(&env);
+        from.require_auth();
+        if shares <= 0 {
+            panic_with_error!(&env, Error::SharesMustBePositive);
+        }
+        let key = DataKey::Pair(token_a.clone(), token_b.clone());
+        let mut pair: PairState = env
+            .storage()
+            .persistent()
+            .get(&key)
+            .unwrap_or_else(|| panic_with_error!(&env, Error::PairNotFound));
+        let position_key = DataKey::PairPosition(token_a.clone(), token_b.clone(), from.clone());
+        let owned: i128 = env.storage().persistent().get(&position_key).unwrap_or(0);
+        if shares > owned {
+            panic_with_error!(&env, Error::InsufficientLpShares);
+        }
+        let amount_a = shares
+            .checked_mul(pair.reserve_a)
+            .and_then(|v| v.checked_div(pair.total_lp_shares))
+            .unwrap_or_else(|| panic_with_error!(&env, Error::ArithmeticError));
+        let amount_b = shares
+            .checked_mul(pair.reserve_b)
+            .and_then(|v| v.checked_div(pair.total_lp_shares))
+            .unwrap_or_else(|| panic_with_error!(&env, Error::ArithmeticError));
+        if amount_a <= 0 || amount_b <= 0 {
+            panic_with_error!(&env, Error::WithdrawalAmountTooSmall);
+        }
+        pair.reserve_a -= amount_a;
+        pair.reserve_b -= amount_b;
+        pair.total_lp_shares -= shares;
+        env.storage().persistent().set(&key, &pair);
+        let remaining = owned - shares;
+        if remaining == 0 {
+            env.storage().persistent().remove(&position_key);
+        } else {
+            env.storage().persistent().set(&position_key, &remaining);
+        }
+        token::Client::new(&env, &token_a).transfer(
+            &env.current_contract_address(),
+            &from,
+            &amount_a,
+        );
+        token::Client::new(&env, &token_b).transfer(
+            &env.current_contract_address(),
+            &from,
+            &amount_b,
+        );
+        env.events().publish(
+            (symbol_short!("liq_rm"), from),
+            (token_a, token_b, amount_a, amount_b, shares),
+        );
+        (amount_a, amount_b)
+    }
+
+    /// Calculate the output amount for a swap without changing state.
+    pub fn quote_swap(env: Env, token_a: Address, token_b: Address, amount_in: i128) -> i128 {
+        let pair: PairState = env
+            .storage()
+            .persistent()
+            .get(&DataKey::Pair(token_a.clone(), token_b.clone()))
+            .unwrap_or_else(|| panic_with_error!(&env, Error::PairNotFound));
+        Self::swap_output(&env, &pair, amount_in, true)
+    }
+
+    /// Swap `token_a` for `token_b` using the pair's xy=k invariant.
+    pub fn swap(
+        env: Env,
+        from: Address,
+        token_a: Address,
+        token_b: Address,
+        amount_in: i128,
+        min_amount_out: i128,
+    ) -> i128 {
+        Self::extend_instance_ttl(&env);
+        Self::assert_not_paused(&env);
+        from.require_auth();
+        let key = DataKey::Pair(token_a.clone(), token_b.clone());
+        let mut pair: PairState = env
+            .storage()
+            .persistent()
+            .get(&key)
+            .unwrap_or_else(|| panic_with_error!(&env, Error::PairNotFound));
+        let amount_out = Self::swap_output(&env, &pair, amount_in, true);
+        if amount_out < min_amount_out {
+            panic_with_error!(&env, Error::SlippageExceeded);
+        }
+        token::Client::new(&env, &token_a).transfer(
+            &from,
+            &env.current_contract_address(),
+            &amount_in,
+        );
+        token::Client::new(&env, &token_b).transfer(
+            &env.current_contract_address(),
+            &from,
+            &amount_out,
+        );
+        pair.reserve_a = pair
+            .reserve_a
+            .checked_add(amount_in)
+            .unwrap_or_else(|| panic_with_error!(&env, Error::ArithmeticError));
+        pair.reserve_b = pair
+            .reserve_b
+            .checked_sub(amount_out)
+            .unwrap_or_else(|| panic_with_error!(&env, Error::ArithmeticError));
+        env.storage().persistent().set(&key, &pair);
+        env.storage()
+            .persistent()
+            .extend_ttl(&key, BUMP_THRESHOLD, BUMP_AMOUNT);
+        env.events().publish(
+            (symbol_short!("swap"), from),
+            (token_a, token_b, amount_in, amount_out),
+        );
+        amount_out
+    }
+
+    /// Return pair reserves and fee configuration.
+    pub fn get_pair(env: Env, token_a: Address, token_b: Address) -> Option<PairState> {
+        env.storage()
+            .persistent()
+            .get(&DataKey::Pair(token_a, token_b))
+    }
+
+    /// Return a provider's LP share balance for an ordered pair.
+    pub fn get_pair_position(
+        env: Env,
+        token_a: Address,
+        token_b: Address,
+        provider: Address,
+    ) -> i128 {
+        env.storage()
+            .persistent()
+            .get(&DataKey::PairPosition(token_a, token_b, provider))
+            .unwrap_or(0)
+    }
+
     // ── Internal ────────────────────────────────────────────────────────────
+
+    fn swap_output(env: &Env, pair: &PairState, amount_in: i128, a_to_b: bool) -> i128 {
+        if amount_in <= 0 {
+            panic_with_error!(env, Error::AmountMustBePositive);
+        }
+        let (reserve_in, reserve_out) = if a_to_b {
+            (pair.reserve_a, pair.reserve_b)
+        } else {
+            (pair.reserve_b, pair.reserve_a)
+        };
+        if reserve_in <= 0 || reserve_out <= 0 {
+            panic_with_error!(env, Error::InsufficientLiquidity);
+        }
+        let fee = amount_in
+            .checked_mul(pair.fee_bps as i128)
+            .and_then(|v| v.checked_div(BPS_DENOMINATOR))
+            .unwrap_or_else(|| panic_with_error!(env, Error::ArithmeticError));
+        let amount_after_fee = amount_in
+            .checked_sub(fee)
+            .unwrap_or_else(|| panic_with_error!(env, Error::ArithmeticError));
+        if amount_after_fee <= 0 {
+            panic_with_error!(env, Error::InsufficientOutput);
+        }
+        let numerator = reserve_out
+            .checked_mul(amount_after_fee)
+            .unwrap_or_else(|| panic_with_error!(env, Error::ArithmeticError));
+        let denominator = reserve_in
+            .checked_add(amount_after_fee)
+            .unwrap_or_else(|| panic_with_error!(env, Error::ArithmeticError));
+        let output = numerator / denominator;
+        if output <= 0 || output >= reserve_out {
+            panic_with_error!(env, Error::InsufficientOutput);
+        }
+        output
+    }
+
+    fn integer_sqrt(value: i128) -> i128 {
+        if value <= 0 {
+            return 0;
+        }
+        let mut x = value;
+        let mut y = (x + 1) / 2;
+        while y < x {
+            x = y;
+            y = (x + value / x) / 2;
+        }
+        x
+    }
 
     fn require_admin(env: &Env) {
         let admin: Address = env
@@ -371,7 +735,10 @@ mod tests {
         let shares = client.deposit(&provider, &token, &10_000);
 
         assert_eq!(shares, 10_000 - MINIMUM_LIQUIDITY);
-        assert_eq!(client.get_position(&token, &provider), 10_000 - MINIMUM_LIQUIDITY);
+        assert_eq!(
+            client.get_position(&token, &provider),
+            10_000 - MINIMUM_LIQUIDITY
+        );
 
         let pool = client.get_pool(&token).unwrap();
         assert_eq!(pool.total_shares, 10_000);
@@ -606,7 +973,10 @@ mod tests {
         client.unpause();
         client.deposit(&provider, &token, &10_000);
 
-        assert_eq!(client.get_position(&token, &provider), 10_000 - MINIMUM_LIQUIDITY);
+        assert_eq!(
+            client.get_position(&token, &provider),
+            10_000 - MINIMUM_LIQUIDITY
+        );
     }
 
     #[test]
@@ -638,5 +1008,86 @@ mod tests {
         let (env, _, token, client) = setup();
         let provider = Address::generate(&env);
         assert_eq!(client.get_position(&token, &provider), 0);
+    }
+
+    fn setup_pair() -> (
+        Env,
+        Address,
+        Address,
+        Address,
+        CarbonDexContractClient<'static>,
+    ) {
+        let env = Env::default();
+        env.mock_all_auths();
+        let admin = Address::generate(&env);
+        let token_admin = Address::generate(&env);
+        let token_a = env
+            .register_stellar_asset_contract_v2(token_admin.clone())
+            .address();
+        let token_b = env
+            .register_stellar_asset_contract_v2(token_admin)
+            .address();
+        let contract_id = env.register_contract(None, CarbonDexContract);
+        let client = CarbonDexContractClient::new(&env, &contract_id);
+        client.initialize(&admin);
+        client.create_pair(&token_a, &token_b, &30);
+        (env, admin, token_a, token_b, client)
+    }
+
+    #[test]
+    fn test_pair_add_liquidity_quote_and_swap_preserve_invariant_direction() {
+        let (env, _, token_a, token_b, client) = setup_pair();
+        let provider = Address::generate(&env);
+        mint(&env, &token_a, &provider, 200_000);
+        mint(&env, &token_b, &provider, 200_000);
+
+        let shares = client.add_liquidity(&provider, &token_a, &token_b, &100_000, &100_000);
+        assert_eq!(shares, 99_000);
+        let quoted = client.quote_swap(&token_a, &token_b, &10_000);
+        assert!(quoted > 9_000 && quoted < 10_000);
+        let received = client.swap(&provider, &token_a, &token_b, &10_000, &quoted);
+        assert_eq!(received, quoted);
+        let pair = client.get_pair(&token_a, &token_b).unwrap();
+        assert_eq!(pair.reserve_a, 110_000);
+        assert_eq!(pair.reserve_b, 100_000 - received);
+        assert_eq!(
+            client.get_pair_position(&token_a, &token_b, &provider),
+            shares
+        );
+    }
+
+    #[test]
+    fn test_pair_remove_liquidity_returns_proportional_reserves() {
+        let (env, _, token_a, token_b, client) = setup_pair();
+        let provider = Address::generate(&env);
+        mint(&env, &token_a, &provider, 200_000);
+        mint(&env, &token_b, &provider, 200_000);
+        let shares = client.add_liquidity(&provider, &token_a, &token_b, &100_000, &100_000);
+        let before_a = token::Client::new(&env, &token_a).balance(&provider);
+        let returned = client.remove_liquidity(&provider, &token_a, &token_b, &shares);
+        assert_eq!(returned, (99_000, 99_000));
+        assert_eq!(
+            token::Client::new(&env, &token_a).balance(&provider),
+            before_a + 99_000
+        );
+        assert_eq!(client.get_pair_position(&token_a, &token_b, &provider), 0);
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #17)")]
+    fn test_pair_rejects_identical_tokens() {
+        let (_, _, token, client) = setup();
+        client.create_pair(&token, &token, &30);
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #21)")]
+    fn test_swap_enforces_slippage_limit() {
+        let (env, _, token_a, token_b, client) = setup_pair();
+        let provider = Address::generate(&env);
+        mint(&env, &token_a, &provider, 200_000);
+        mint(&env, &token_b, &provider, 200_000);
+        client.add_liquidity(&provider, &token_a, &token_b, &100_000, &100_000);
+        client.swap(&provider, &token_a, &token_b, &10_000, &10_000);
     }
 }

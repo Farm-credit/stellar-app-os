@@ -1,14 +1,16 @@
 'use client';
 
 import { useState, useCallback, useRef, useEffect } from 'react';
-import type { CreditHolding, PortfolioStats, PriceCache } from '@/lib/types/credits';
+import { enrichHolding } from '@/lib/credits/portfolio';
+import type { OwnedCredit, PortfolioStats, PriceCache } from '@/lib/types/credits';
 
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
 export function useCreditPortfolio(publicKey: string | null) {
-  const [credits, setCredits] = useState<CreditHolding[]>([]);
+  const [credits, setCredits] = useState<OwnedCredit[]>([]);
   const [stats, setStats] = useState<PortfolioStats>({
     totalCredits: 0,
+    totalCost: 0,
     totalValue: 0,
     activeCredits: 0,
     retiredCredits: 0,
@@ -54,6 +56,7 @@ export function useCreditPortfolio(publicKey: string | null) {
           setCredits([]);
           setStats({
             totalCredits: 0,
+            totalCost: 0,
             totalValue: 0,
             activeCredits: 0,
             retiredCredits: 0,
@@ -66,7 +69,7 @@ export function useCreditPortfolio(publicKey: string | null) {
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const account = (await response.json()) as any;
-      const balances: CreditHolding[] = [];
+      const balances: OwnedCredit[] = [];
       let totalValue = 0;
       let activeCount = 0;
       let retiredCount = 0;
@@ -95,7 +98,7 @@ export function useCreditPortfolio(publicKey: string | null) {
           }
         }
 
-        const holding: CreditHolding = {
+        const holding: OwnedCredit = enrichHolding({
           projectId,
           projectName: getProjectName(projectId),
           quantity,
@@ -105,7 +108,7 @@ export function useCreditPortfolio(publicKey: string | null) {
           totalValue: quantity * price,
           assetCode,
           issuer: balance.asset_issuer || '',
-        };
+        });
 
         balances.push(holding);
         totalValue += holding.totalValue;
@@ -120,6 +123,7 @@ export function useCreditPortfolio(publicKey: string | null) {
       setCredits(balances);
       setStats({
         totalCredits: balances.reduce((sum, c) => sum + c.quantity, 0),
+        totalCost: balances.reduce((sum, c) => sum + c.purchaseCost, 0),
         totalValue,
         activeCredits: activeCount,
         retiredCredits: retiredCount,

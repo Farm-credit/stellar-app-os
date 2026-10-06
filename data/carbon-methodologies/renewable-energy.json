@@ -1,0 +1,644 @@
+[
+  {
+    "slug": "acm0002",
+    "code": "ACM0002",
+    "name": "Grid-connected electricity generation from renewable sources",
+    "category": "renewable_energy",
+    "standard": "CDM",
+    "version": "22.0",
+    "description": "Large-scale CDM methodology for new, capacity-addition or retrofit renewable power (solar, wind, hydro, geothermal, etc.) displacing grid electricity.",
+    "formula": "ER_y = BE_y − PE_y;  BE_y = EG_PJ,y × EF_grid,CM,y;  PE_y = PE_FF,y + PE_GP,y + PE_HP,y  (EG_PJ,y = EG_facility,y for greenfield; net of baseline generation for retrofits/additions)",
+    "parameters": [
+      {
+        "symbol": "ER_y",
+        "name": "Emission reductions",
+        "unit": "tCO2e/yr",
+        "description": "Net emission reductions in year y"
+      },
+      {
+        "symbol": "BE_y",
+        "name": "Baseline emissions",
+        "unit": "tCO2e/yr",
+        "description": "Emissions in the baseline scenario"
+      },
+      {
+        "symbol": "PE_y",
+        "name": "Project emissions",
+        "unit": "tCO2e/yr",
+        "description": "Emissions from the project activity"
+      },
+      {
+        "symbol": "EG_PJ,y",
+        "name": "Net electricity supplied by project",
+        "unit": "MWh/yr",
+        "description": "Net quantity of electricity generated and delivered"
+      },
+      {
+        "symbol": "EF_grid,CM,y",
+        "name": "Combined-margin grid emission factor",
+        "unit": "tCO2/MWh",
+        "description": "Per the CDM emission-factor tool"
+      },
+      {
+        "symbol": "PE_FF,y",
+        "name": "Fossil-fuel emissions",
+        "unit": "tCO2e/yr",
+        "description": "On-site fossil fuel use"
+      },
+      {
+        "symbol": "PE_GP,y",
+        "name": "Geothermal fugitive emissions",
+        "unit": "tCO2e/yr",
+        "description": "Non-condensable gases and fuel for geothermal plants"
+      },
+      {
+        "symbol": "PE_HP,y",
+        "name": "Reservoir emissions",
+        "unit": "tCO2e/yr",
+        "description": "Hydropower reservoir CH4 (power density based)"
+      }
+    ],
+    "applicability": [
+      "Grid-connected renewable electricity: new plant, capacity addition, retrofit, rehabilitation or replacement",
+      "Not applicable to biomass co-firing or fuel switching within the project"
+    ],
+    "sourceRef": "UNFCCC CDM ACM0002 v22.0",
+    "metadataVerified": true
+  },
+  {
+    "slug": "vmr0017",
+    "code": "VMR0017",
+    "name": "Grid-Connected Electricity Generation from Renewable Sources (ACM0002 Revision)",
+    "category": "renewable_energy",
+    "standard": "Verra VCS",
+    "version": "1.0",
+    "description": "Verra revision of CDM ACM0002 for grid-connected renewable electricity generation, active in the VCS Program.",
+    "formula": "ER_y = BE_y − PE_y;  BE_y = EG_PJ,y × EF_grid,y  (see ACM0002 for detailed terms)",
+    "parameters": [
+      {
+        "symbol": "ER_y",
+        "name": "Emission reductions",
+        "unit": "tCO2e/yr",
+        "description": "Net emission reductions in year y"
+      },
+      {
+        "symbol": "BE_y",
+        "name": "Baseline emissions",
+        "unit": "tCO2e/yr",
+        "description": "Emissions in the baseline scenario"
+      },
+      {
+        "symbol": "PE_y",
+        "name": "Project emissions",
+        "unit": "tCO2e/yr",
+        "description": "Emissions from the project activity"
+      },
+      {
+        "symbol": "EG_PJ,y",
+        "name": "Net electricity supplied by project",
+        "unit": "MWh/yr",
+        "description": "Net quantity of electricity generated and delivered"
+      },
+      {
+        "symbol": "EF_grid,y",
+        "name": "Grid emission factor",
+        "unit": "tCO2/MWh",
+        "description": "Emission factor of the connected electricity system"
+      }
+    ],
+    "applicability": [
+      "Grid-connected renewable electricity generation projects under the VCS Program",
+      "Applies the ACM0002 quantification approach as revised by Verra"
+    ],
+    "sourceRef": "Verra VCS VMR0017 v1.0 (Verra ICVCM announcement Aug 2026)",
+    "metadataVerified": true
+  },
+  {
+    "slug": "ams-i-a",
+    "code": "AMS-I.A",
+    "name": "Electricity generation by the user",
+    "category": "renewable_energy",
+    "standard": "CDM",
+    "version": null,
+    "description": "Small-scale renewable electricity used on-site by the user (e.g. solar home systems, small hydro for own use), replacing fossil-fuel or grid supply.",
+    "formula": "BE_y = EG_PJ,y × EF_CO2,y;  ER_y = BE_y − PE_y − LE_y",
+    "parameters": [
+      {
+        "symbol": "ER_y",
+        "name": "Emission reductions",
+        "unit": "tCO2e/yr",
+        "description": "Net emission reductions in year y"
+      },
+      {
+        "symbol": "BE_y",
+        "name": "Baseline emissions",
+        "unit": "tCO2e/yr",
+        "description": "Emissions in the baseline scenario"
+      },
+      {
+        "symbol": "PE_y",
+        "name": "Project emissions",
+        "unit": "tCO2e/yr",
+        "description": "Emissions from the project activity"
+      },
+      {
+        "symbol": "EG_PJ,y",
+        "name": "Net electricity supplied by project",
+        "unit": "MWh/yr",
+        "description": "Net quantity of electricity generated and delivered"
+      },
+      {
+        "symbol": "EF_CO2,y",
+        "name": "Baseline emission factor",
+        "unit": "tCO2/MWh",
+        "description": "Diesel-genset or grid factor per applicable scenario"
+      }
+    ],
+    "applicability": [
+      "Renewable electricity generated and used by the user (off-grid or grid-connected)",
+      "Small-scale CDM Type I limit: renewable capacity ≤ 15 MW (or ≤ 45 MWth thermal equivalent)"
+    ],
+    "sourceRef": "UNFCCC CDM AMS-I.A (title per CDM listing; version not pinned)",
+    "metadataVerified": true
+  },
+  {
+    "slug": "ams-i-b",
+    "code": "AMS-I.B",
+    "name": "Mechanical energy for the user with or without electrical energy",
+    "category": "renewable_energy",
+    "standard": "CDM",
+    "version": null,
+    "description": "Small-scale renewable mechanical energy (e.g. wind pumps, water mills) replacing fossil-fuel-driven equipment.",
+    "formula": "BE_y = (E_mech,y / η_BL) × EF_fuel;  ER_y = BE_y − PE_y − LE_y",
+    "parameters": [
+      {
+        "symbol": "ER_y",
+        "name": "Emission reductions",
+        "unit": "tCO2e/yr",
+        "description": "Net emission reductions in year y"
+      },
+      {
+        "symbol": "BE_y",
+        "name": "Baseline emissions",
+        "unit": "tCO2e/yr",
+        "description": "Emissions in the baseline scenario"
+      },
+      {
+        "symbol": "PE_y",
+        "name": "Project emissions",
+        "unit": "tCO2e/yr",
+        "description": "Emissions from the project activity"
+      },
+      {
+        "symbol": "E_mech,y",
+        "name": "Mechanical energy delivered",
+        "unit": "GJ/yr",
+        "description": "Useful mechanical energy"
+      },
+      {
+        "symbol": "η_BL",
+        "name": "Baseline efficiency",
+        "unit": "fraction",
+        "description": "Efficiency of the baseline appliance/system"
+      },
+      {
+        "symbol": "EF_fuel",
+        "name": "Fuel emission factor",
+        "unit": "tCO2/GJ",
+        "description": "CO2 emission factor of the baseline fuel"
+      }
+    ],
+    "applicability": [
+      "Renewable mechanical energy for the user",
+      "Small-scale CDM Type I limit: renewable capacity ≤ 15 MW (or ≤ 45 MWth thermal equivalent)"
+    ],
+    "sourceRef": "UNFCCC CDM AMS-I.B (title per CDM listing; version not pinned)",
+    "metadataVerified": true
+  },
+  {
+    "slug": "ams-i-c",
+    "code": "AMS-I.C",
+    "name": "Thermal energy production with or without electricity",
+    "category": "renewable_energy",
+    "standard": "CDM",
+    "version": null,
+    "description": "Small-scale renewable thermal energy (e.g. biomass, solar thermal, geothermal heat) displacing fossil-fuel heat.",
+    "formula": "BE_y = HG_y × EF_fuel / η_BL;  ER_y = BE_y − PE_y − LE_y",
+    "parameters": [
+      {
+        "symbol": "ER_y",
+        "name": "Emission reductions",
+        "unit": "tCO2e/yr",
+        "description": "Net emission reductions in year y"
+      },
+      {
+        "symbol": "BE_y",
+        "name": "Baseline emissions",
+        "unit": "tCO2e/yr",
+        "description": "Emissions in the baseline scenario"
+      },
+      {
+        "symbol": "PE_y",
+        "name": "Project emissions",
+        "unit": "tCO2e/yr",
+        "description": "Emissions from the project activity"
+      },
+      {
+        "symbol": "HG_y",
+        "name": "Net heat supplied by project",
+        "unit": "GJ/yr",
+        "description": "Net quantity of thermal energy supplied"
+      },
+      {
+        "symbol": "EF_fuel",
+        "name": "Fuel emission factor",
+        "unit": "tCO2/GJ",
+        "description": "CO2 emission factor of the baseline fuel"
+      },
+      {
+        "symbol": "η_BL",
+        "name": "Baseline efficiency",
+        "unit": "fraction",
+        "description": "Efficiency of the baseline appliance/system"
+      }
+    ],
+    "applicability": [
+      "Renewable thermal energy production, optionally with electricity",
+      "Small-scale CDM Type I limit: renewable capacity ≤ 15 MW (or ≤ 45 MWth thermal equivalent)"
+    ],
+    "sourceRef": "UNFCCC CDM AMS-I.C (title per CDM listing; version not pinned)",
+    "metadataVerified": true
+  },
+  {
+    "slug": "ams-i-d",
+    "code": "AMS-I.D",
+    "name": "Grid connected renewable electricity generation",
+    "category": "renewable_energy",
+    "standard": "CDM",
+    "version": "18.0",
+    "description": "Small-scale renewable electricity supplied to a grid, displacing grid generation.",
+    "formula": "BE_y = EG_PJ,y × EF_CO2,grid,y;  ER_y = BE_y − PE_y − LE_y",
+    "parameters": [
+      {
+        "symbol": "ER_y",
+        "name": "Emission reductions",
+        "unit": "tCO2e/yr",
+        "description": "Net emission reductions in year y"
+      },
+      {
+        "symbol": "BE_y",
+        "name": "Baseline emissions",
+        "unit": "tCO2e/yr",
+        "description": "Emissions in the baseline scenario"
+      },
+      {
+        "symbol": "PE_y",
+        "name": "Project emissions",
+        "unit": "tCO2e/yr",
+        "description": "Emissions from the project activity"
+      },
+      {
+        "symbol": "LE_y",
+        "name": "Leakage emissions",
+        "unit": "tCO2e/yr",
+        "description": "Emissions displaced outside the project boundary"
+      },
+      {
+        "symbol": "EG_PJ,y",
+        "name": "Net electricity supplied by project",
+        "unit": "MWh/yr",
+        "description": "Net quantity of electricity generated and delivered"
+      },
+      {
+        "symbol": "EF_CO2,grid,y",
+        "name": "Grid emission factor",
+        "unit": "tCO2/MWh",
+        "description": "Per the CDM emission-factor tool"
+      }
+    ],
+    "applicability": [
+      "Renewable electricity (solar, hydro, wind, biomass, geothermal) exported to a grid",
+      "Small-scale CDM Type I limit: renewable capacity ≤ 15 MW (or ≤ 45 MWth thermal equivalent)"
+    ],
+    "sourceRef": "UNFCCC CDM AMS-I.D v18.0",
+    "metadataVerified": true
+  },
+  {
+    "slug": "ams-i-e",
+    "code": "AMS-I.E",
+    "name": "Switch from non-renewable biomass for thermal applications by the user",
+    "category": "renewable_energy",
+    "standard": "CDM",
+    "version": null,
+    "description": "Small-scale switch from non-renewable biomass to renewable energy for household or user thermal needs.",
+    "formula": "ER_y = B_y,savings × f_NRB,y × NCV_biomass × EF_projected_fossilfuel − LE_y",
+    "parameters": [
+      {
+        "symbol": "ER_y",
+        "name": "Emission reductions",
+        "unit": "tCO2e/yr",
+        "description": "Net emission reductions in year y"
+      },
+      {
+        "symbol": "B_y,savings",
+        "name": "Biomass saved",
+        "unit": "t/yr",
+        "description": "Quantity of woody biomass saved"
+      },
+      {
+        "symbol": "f_NRB,y",
+        "name": "Fraction of non-renewable biomass",
+        "unit": "fraction",
+        "description": "Share of saved biomass that is non-renewable"
+      },
+      {
+        "symbol": "NCV_biomass",
+        "name": "Net calorific value of biomass",
+        "unit": "GJ/t",
+        "description": "Net calorific value"
+      },
+      {
+        "symbol": "EF_projected_fossilfuel",
+        "name": "Projected fossil fuel emission factor",
+        "unit": "tCO2/GJ",
+        "description": "Emission factor of the fossil fuel that would replace non-renewable biomass"
+      },
+      {
+        "symbol": "LE_y",
+        "name": "Leakage emissions",
+        "unit": "tCO2e/yr",
+        "description": "Emissions displaced outside the project boundary"
+      }
+    ],
+    "applicability": [
+      "Switch from non-renewable biomass to renewable energy for thermal applications",
+      "Small-scale CDM Type I limit: renewable capacity ≤ 15 MW (or ≤ 45 MWth thermal equivalent)"
+    ],
+    "sourceRef": "UNFCCC CDM AMS-I.E (title per CDM listing; version not pinned)",
+    "metadataVerified": true
+  },
+  {
+    "slug": "ams-i-f",
+    "code": "AMS-I.F",
+    "name": "Renewable electricity generation for captive use and mini-grid",
+    "category": "renewable_energy",
+    "standard": "CDM",
+    "version": null,
+    "description": "Small-scale renewable electricity for captive consumers or isolated mini-grids.",
+    "formula": "BE_y = EG_PJ,y × EF_CO2,y;  ER_y = BE_y − PE_y − LE_y",
+    "parameters": [
+      {
+        "symbol": "ER_y",
+        "name": "Emission reductions",
+        "unit": "tCO2e/yr",
+        "description": "Net emission reductions in year y"
+      },
+      {
+        "symbol": "BE_y",
+        "name": "Baseline emissions",
+        "unit": "tCO2e/yr",
+        "description": "Emissions in the baseline scenario"
+      },
+      {
+        "symbol": "PE_y",
+        "name": "Project emissions",
+        "unit": "tCO2e/yr",
+        "description": "Emissions from the project activity"
+      },
+      {
+        "symbol": "EG_PJ,y",
+        "name": "Net electricity supplied by project",
+        "unit": "MWh/yr",
+        "description": "Net quantity of electricity generated and delivered"
+      },
+      {
+        "symbol": "EF_CO2,y",
+        "name": "Baseline emission factor",
+        "unit": "tCO2/MWh",
+        "description": "Grid or diesel-genset factor per scenario"
+      }
+    ],
+    "applicability": [
+      "Renewable generation for captive use or mini-grid",
+      "Small-scale CDM Type I limit: renewable capacity ≤ 15 MW (or ≤ 45 MWth thermal equivalent)"
+    ],
+    "sourceRef": "UNFCCC CDM AMS-I.F (title per CDM listing; version not pinned)",
+    "metadataVerified": true
+  },
+  {
+    "slug": "ams-i-j",
+    "code": "AMS-I.J",
+    "name": "Solar water heating systems (SWH)",
+    "category": "renewable_energy",
+    "standard": "CDM",
+    "version": null,
+    "description": "Small-scale solar water heaters replacing fossil-fuel or electric water heating.",
+    "formula": "BE_y = HG_y × EF_fuel / η_BL;  ER_y = BE_y − PE_y − LE_y",
+    "parameters": [
+      {
+        "symbol": "ER_y",
+        "name": "Emission reductions",
+        "unit": "tCO2e/yr",
+        "description": "Net emission reductions in year y"
+      },
+      {
+        "symbol": "BE_y",
+        "name": "Baseline emissions",
+        "unit": "tCO2e/yr",
+        "description": "Emissions in the baseline scenario"
+      },
+      {
+        "symbol": "PE_y",
+        "name": "Project emissions",
+        "unit": "tCO2e/yr",
+        "description": "Emissions from the project activity"
+      },
+      {
+        "symbol": "HG_y",
+        "name": "Net heat supplied by project",
+        "unit": "GJ/yr",
+        "description": "Net quantity of thermal energy supplied"
+      },
+      {
+        "symbol": "EF_fuel",
+        "name": "Fuel emission factor",
+        "unit": "tCO2/GJ",
+        "description": "CO2 emission factor of the baseline fuel"
+      },
+      {
+        "symbol": "η_BL",
+        "name": "Baseline efficiency",
+        "unit": "fraction",
+        "description": "Efficiency of the baseline appliance/system"
+      }
+    ],
+    "applicability": [
+      "Installation of solar water heating systems",
+      "Small-scale CDM Type I limit: renewable capacity ≤ 15 MW (or ≤ 45 MWth thermal equivalent)"
+    ],
+    "sourceRef": "UNFCCC CDM AMS-I.J (title per CDM listing; version not pinned)",
+    "metadataVerified": true
+  },
+  {
+    "slug": "acm0006",
+    "code": "ACM0006",
+    "name": "Electricity and heat generation from biomass",
+    "category": "renewable_energy",
+    "standard": "CDM",
+    "version": null,
+    "description": "Large-scale methodology for biomass-fired electricity and/or heat generation, including biomass residues and their baseline fate.",
+    "formula": "ER_y = BE_y − PE_y − LE_y;  BE_y = EG_PJ,y × EF_grid,y + HG_PJ,y × EF_heat,y + BE_biomass,y",
+    "parameters": [
+      {
+        "symbol": "ER_y",
+        "name": "Emission reductions",
+        "unit": "tCO2e/yr",
+        "description": "Net emission reductions in year y"
+      },
+      {
+        "symbol": "BE_y",
+        "name": "Baseline emissions",
+        "unit": "tCO2e/yr",
+        "description": "Emissions in the baseline scenario"
+      },
+      {
+        "symbol": "PE_y",
+        "name": "Project emissions",
+        "unit": "tCO2e/yr",
+        "description": "Emissions from the project activity"
+      },
+      {
+        "symbol": "LE_y",
+        "name": "Leakage emissions",
+        "unit": "tCO2e/yr",
+        "description": "Emissions displaced outside the project boundary"
+      },
+      {
+        "symbol": "EG_PJ,y",
+        "name": "Net electricity supplied by project",
+        "unit": "MWh/yr",
+        "description": "Net quantity of electricity generated and delivered"
+      },
+      {
+        "symbol": "HG_y",
+        "name": "Net heat supplied by project",
+        "unit": "GJ/yr",
+        "description": "Net quantity of thermal energy supplied"
+      },
+      {
+        "symbol": "EF_grid,y",
+        "name": "Grid emission factor",
+        "unit": "tCO2/MWh",
+        "description": "Emission factor of the connected electricity system"
+      },
+      {
+        "symbol": "BE_biomass,y",
+        "name": "Baseline biomass fate emissions",
+        "unit": "tCO2e/yr",
+        "description": "Methane or burning emissions avoided for residues"
+      }
+    ],
+    "applicability": [
+      "Biomass-based electricity and/or heat generation, including cogeneration",
+      "Biomass residues must be documented and sustainably sourced"
+    ],
+    "sourceRef": "UNFCCC CDM ACM0006 (title per CDM listing; version not pinned)",
+    "metadataVerified": true
+  },
+  {
+    "slug": "acm0018",
+    "code": "ACM0018",
+    "name": "Electricity generation from biomass in power-only plants",
+    "category": "renewable_energy",
+    "standard": "CDM",
+    "version": null,
+    "description": "Large-scale methodology for power-only biomass plants.",
+    "formula": "ER_y = BE_y − PE_y − LE_y;  BE_y = EG_PJ,y × EF_grid,y (+ baseline biomass-fate emissions)",
+    "parameters": [
+      {
+        "symbol": "ER_y",
+        "name": "Emission reductions",
+        "unit": "tCO2e/yr",
+        "description": "Net emission reductions in year y"
+      },
+      {
+        "symbol": "BE_y",
+        "name": "Baseline emissions",
+        "unit": "tCO2e/yr",
+        "description": "Emissions in the baseline scenario"
+      },
+      {
+        "symbol": "PE_y",
+        "name": "Project emissions",
+        "unit": "tCO2e/yr",
+        "description": "Emissions from the project activity"
+      },
+      {
+        "symbol": "LE_y",
+        "name": "Leakage emissions",
+        "unit": "tCO2e/yr",
+        "description": "Emissions displaced outside the project boundary"
+      },
+      {
+        "symbol": "EG_PJ,y",
+        "name": "Net electricity supplied by project",
+        "unit": "MWh/yr",
+        "description": "Net quantity of electricity generated and delivered"
+      },
+      {
+        "symbol": "EF_grid,y",
+        "name": "Grid emission factor",
+        "unit": "tCO2/MWh",
+        "description": "Emission factor of the connected electricity system"
+      }
+    ],
+    "applicability": ["Power-only biomass plants (new, capacity addition or replacement)"],
+    "sourceRef": "UNFCCC CDM ACM0018 (title per CDM listing; version not pinned)",
+    "metadataVerified": true
+  },
+  {
+    "slug": "gccm001",
+    "code": "GCCM001",
+    "name": "Methodology for Renewable Energy Generation Projects",
+    "category": "renewable_energy",
+    "standard": "Global Carbon Council",
+    "version": "4",
+    "description": "Global Carbon Council methodology for renewable generation projects, based on CDM ACM0002 and AMS-I.D.",
+    "formula": "ER_y = BE_y − PE_y;  BE_y = EG_PJ,y × EF_grid,y",
+    "parameters": [
+      {
+        "symbol": "ER_y",
+        "name": "Emission reductions",
+        "unit": "tCO2e/yr",
+        "description": "Net emission reductions in year y"
+      },
+      {
+        "symbol": "BE_y",
+        "name": "Baseline emissions",
+        "unit": "tCO2e/yr",
+        "description": "Emissions in the baseline scenario"
+      },
+      {
+        "symbol": "PE_y",
+        "name": "Project emissions",
+        "unit": "tCO2e/yr",
+        "description": "Emissions from the project activity"
+      },
+      {
+        "symbol": "EG_PJ,y",
+        "name": "Net electricity supplied by project",
+        "unit": "MWh/yr",
+        "description": "Net quantity of electricity generated and delivered"
+      },
+      {
+        "symbol": "EF_grid,y",
+        "name": "Grid emission factor",
+        "unit": "tCO2/MWh",
+        "description": "Emission factor of the connected electricity system"
+      }
+    ],
+    "applicability": ["Renewable energy generation projects under the GCC programme"],
+    "sourceRef": "Global Carbon Council GCCM001 v4 (based on CDM ACM0002 and AMS-I.D)",
+    "metadataVerified": true
+  }
+]

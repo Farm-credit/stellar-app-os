@@ -8,6 +8,11 @@ use soroban_sdk::{
 pub struct Tree {
     pub id: u64,
     pub sponsor: Option<Address>,
+    /// Unique NFT identifier. It is equal to the tree ID and is absent for
+    /// anonymous trees, which are not collectible.
+    pub nft_id: Option<u64>,
+    /// Current owner of the sponsored-tree collectible.
+    pub nft_owner: Option<Address>,
     pub planter: Address,
     pub species: Symbol,
     pub region: Symbol,
@@ -48,6 +53,10 @@ pub enum Error {
     Unauthorized = 3,
     TreeAlreadyPlanted = 4,
     InvalidCoordinates = 5,
+    NftNotFound = 6,
+    NotNftOwner = 7,
+    InvalidTradeAmount = 8,
+    SelfTrade = 9,
 }
 
 #[contract]
@@ -74,6 +83,8 @@ impl TreeRegistryContract {
         let tree = Tree {
             id: tree_id,
             sponsor: None,
+            nft_id: None,
+            nft_owner: None,
             planter: planter.clone(),
             species,
             region,
@@ -110,6 +121,8 @@ impl TreeRegistryContract {
         let tree = Tree {
             id: tree_id,
             sponsor: Some(sponsor.clone()),
+            nft_id: Some(tree_id),
+            nft_owner: Some(sponsor.clone()),
             planter: planter.clone(),
             species,
             region,
@@ -129,9 +142,90 @@ impl TreeRegistryContract {
         env.storage().persistent().set(&DataKey::PlanterTrees(planter.clone()), &planter_trees);
         let total: u64 = env.storage().instance().get(&DataKey::TotalTrees).unwrap_or(0);
         env.storage().instance().set(&DataKey::TotalTrees, &(total + 1));
-        env.events().publish((symbol_short!("tree_minted"),), (tree_id, sponsor, planter, species));
+        env.events().publish(
+            (symbol_short!("tree_minted"),),
+            (tree_id, sponsor, planter, species),
+        );
+        env.events().publish(
+            (symbol_short!("nft_minted"),),
+            (tree_id, tree_id),
+        );
         env.storage().instance().set(&DataKey::NextTreeId, &(tree_id + 1));
         tree_id
+    }
+
+    /// Return the owner of the unique collectible for a sponsored tree.
+    pub fn nft_owner(env: Env, tree_id: u64) -> Result<Address, Error> {
+        let tree = env
+            .storage()
+            .persistent()
+            .get::<DataKey, Tree>(&DataKey::Tree(tree_id))
+            .ok_or(Error::NftNotFound)?;
+        tree.nft_owner.ok_or(Error::NftNotFound)
+    }
+
+    /// Transfer a sponsored-tree collectible without changing the planter or
+    /// the tree's impact record.
+    pub fn transfer_nft(
+        env: Env,
+        tree_id: u64,
+        from: Address,
+        to: Address,
+    ) -> Result<(), Error> {
+        from.require_auth();
+        let mut tree = env
+            .storage()
+            .persistent()
+            .get::<DataKey, Tree>(&DataKey::Tree(tree_id))
+            .ok_or(Error::NftNotFound)?;
+        if tree.nft_owner != Some(from.clone()) {
+            return Err(Error::NotNftOwner);
+        }
+        tree.nft_owner = Some(to.clone());
+        env.storage().persistent().set(&DataKey::Tree(tree_id), &tree);
+        env.events()
+            .publish((symbol_short!("nft_transfer"),), (tree_id, from, to));
+        Ok(())
+    }
+
+    /// Sell a sponsored-tree collectible for a Stellar asset.
+    ///
+    /// The buyer authorizes payment and the seller authorizes the NFT transfer
+    /// in the same transaction. The tree's planter and impact data remain
+    /// immutable, while ownership moves to the buyer.
+    pub fn trade_nft(
+        env: Env,
+        tree_id: u64,
+        seller: Address,
+        buyer: Address,
+        payment_token: Address,
+        price: i128,
+    ) -> Result<(), Error> {
+        if seller == buyer {
+            return Err(Error::SelfTrade);
+        }
+        if price <= 0 {
+            return Err(Error::InvalidTradeAmount);
+        }
+        seller.require_auth();
+        buyer.require_auth();
+
+        let mut tree = env
+            .storage()
+            .persistent()
+            .get::<DataKey, Tree>(&DataKey::Tree(tree_id))
+            .ok_or(Error::NftNotFound)?;
+        if tree.nft_owner != Some(seller.clone()) {
+            return Err(Error::NotNftOwner);
+        }
+
+        soroban_sdk::token::Client::new(&env, &payment_token)
+            .transfer(&buyer, &seller, &price);
+        tree.nft_owner = Some(buyer.clone());
+        env.storage().persistent().set(&DataKey::Tree(tree_id), &tree);
+        env.events()
+            .publish((symbol_short!("nft_traded"),), (tree_id, seller, buyer, price));
+        Ok(())
     }
 
     pub fn get_sponsor_trees(env: Env, sponsor: Address) -> Vec<Tree> {

@@ -20,6 +20,7 @@
 | `auth-contract` | 7 | 3 | 0 |
 | `carbon-credits` | 8 | 3 | 1 |
 | `carbon-dex` | 7 | 4 | 0 |
+| `carbon-insurance` | 13 | 6 | 1 |
 | `carbon-marketplace` | 57 | 14 | 10 |
 | `contract-utils` | 6 | 0 | 0 |
 | `donation-escrow` | 27 | 11 | 0 |
@@ -204,6 +205,43 @@
 | Topic | Source |
 |---|---|
 | — | No inline `symbol_short!` event topics detected. |
+
+### `carbon-insurance`
+
+#### Functions
+
+| Name | ABI signature |
+|---|---|
+| `initialize` | `fn initialize(env: Env, admin: Address, token: Address)` |
+| `fund_pool` | `fn fund_pool(env: Env, funder: Address, amount: i128)` |
+| `withdraw_excess` | `fn withdraw_excess(env: Env, caller: Address, to: Address, amount: i128)` |
+| `set_verifier` | `fn set_verifier(env: Env, caller: Address, verifier: Address)` |
+| `purchase_policy` | `fn purchase_policy( env: Env, farmer: Address, project_id: Symbol, coverage_amount: i128, ) -> u64` |
+| `get_policy` | `fn get_policy(env: Env, policy_id: u64) -> Policy` |
+| `record_verification` | `fn record_verification(env: Env, caller: Address, project_id: Symbol, approved: bool)` |
+| `get_verification` | `fn get_verification(env: Env, project_id: Symbol) -> Verification` |
+| `claim` | `fn claim(env: Env, claimant: Address, policy_id: u64) -> i128` |
+| `settle_approved` | `fn settle_approved(env: Env, policy_id: u64)` |
+| `get_pool` | `fn get_pool(env: Env) -> PoolStatus` |
+| `guaranteed_payout_bps` | `fn guaranteed_payout_bps(_env: Env) -> u32` |
+| `preview_payout` | `fn preview_payout(_env: Env, coverage_amount: i128) -> i128` |
+
+#### Public types
+
+| Type | Encoding source |
+|---|---|
+| `CarbonInsurance` | `#[contracttype]` or public Rust type in `contracts/carbon-insurance/src/lib.rs` |
+| `CarbonInsuranceError` | `#[contracttype]` or public Rust type in `contracts/carbon-insurance/src/lib.rs` |
+| `Policy` | `#[contracttype]` or public Rust type in `contracts/carbon-insurance/src/lib.rs` |
+| `PolicyStatus` | `#[contracttype]` or public Rust type in `contracts/carbon-insurance/src/lib.rs` |
+| `PoolStatus` | `#[contracttype]` or public Rust type in `contracts/carbon-insurance/src/lib.rs` |
+| `Verification` | `#[contracttype]` or public Rust type in `contracts/carbon-insurance/src/lib.rs` |
+
+#### Event topics
+
+| Topic | Source |
+|---|---|
+| `verifier` | `env.events().publish` in `contracts/carbon-insurance/src/lib.rs` |
 
 ### `carbon-marketplace`
 

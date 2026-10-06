@@ -128,6 +128,33 @@ Run tests with Vitest:
 pnpm test lib/db/replica-balancer.test.ts
 ```
 
+## Read Replicas for Analytics Queries
+
+For simple round-robin routing of read-only/analytics queries to dedicated
+replicas, use `lib/db/read-replica.ts`. This keeps heavy analytics queries off
+the primary so they never block production writes.
+
+```typescript
+import { getReadPool, queryRead } from '@/lib/db/read-replica';
+
+// Get a pool for read-only queries (round-robins across replicas).
+const pool = getReadPool();
+const { rows } = await pool.query('SELECT ... FROM planting_regions');
+
+// Or run a query directly.
+const result = await queryRead('SELECT COUNT(*) FROM donations');
+```
+
+Configuration:
+
+- `DATABASE_READ_REPLICA_URLS` — comma-separated replica connection strings.
+- `DATABASE_URL_READ_REPLICA` — optional single replica URL (legacy).
+- `DATABASE_URL` — primary; used as a fallback when no replica is configured.
+
+When no replica is configured, `getReadPool()` transparently returns the
+primary pool so local development keeps working.
+
+
 ## Migration from Single Pool
 
 Replace existing pool usage:

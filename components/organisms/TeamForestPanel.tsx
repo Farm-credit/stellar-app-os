@@ -1,7 +1,7 @@
 'use client';
 
 import { FormEvent, useCallback, useEffect, useState } from 'react';
-import { Users, UserPlus, TreePine, Wind, Copy, Check } from 'lucide-react';
+import { Users, UserPlus, TreePine, Wind, Copy, Check, Camera, Sparkles } from 'lucide-react';
 import { Button } from '@/components/atoms/Button';
 import { useWalletContext } from '@/contexts/WalletContext';
 import type { TeamForestSummary } from '@/lib/team-forest';
@@ -264,6 +264,44 @@ export function TeamForestPanel() {
               ))}
             </ul>
           </div>
+          {team.recentMilestones.length > 0 && (
+            <div>
+              <h3 className="mb-2 flex items-center gap-1.5 text-sm font-bold">
+                <Sparkles className="h-4 w-4 text-stellar-purple" aria-hidden />
+                Milestones
+              </h3>
+              <ul className="space-y-1 text-xs" role="status" aria-live="polite">
+                {team.recentMilestones.map((milestone, index) => (
+                  <li
+                    key={`${milestone.treeRef}-${milestone.occurredAt}-${index}`}
+                    className="rounded-lg bg-stellar-purple/10 px-3 py-2 text-stellar-purple"
+                  >
+                    🎉 {milestone.species} ({milestone.treeRef}) reached{' '}
+                    <span className="font-semibold">{milestone.status}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {team.recentPhotos.length > 0 && (
+            <div>
+              <h3 className="mb-2 flex items-center gap-1.5 text-sm font-bold">
+                <Camera className="h-4 w-4 text-stellar-green" aria-hidden />
+                Tree photos
+              </h3>
+              <div className="flex gap-2 overflow-x-auto pb-1">
+                {team.recentPhotos.map((photo) => (
+                  <img
+                    key={photo.treeRef}
+                    src={photo.mediaUrl}
+                    alt={`Photo of tree ${photo.treeRef}`}
+                    loading="lazy"
+                    className="h-20 w-20 flex-shrink-0 rounded-lg object-cover"
+                  />
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
       {message && (

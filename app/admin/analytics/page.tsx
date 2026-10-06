@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { Coins, Download, HandCoins, Trees, Users, Wallet } from 'lucide-react';
+import { Coins, Download, HandCoins, Receipt, Trees, Users, Wallet } from 'lucide-react';
 import { Button } from '@/components/atoms/Button';
 import { Select } from '@/components/atoms/Select';
 import {
@@ -13,6 +13,7 @@ import {
 } from '@/components/molecules/Card';
 import { useAdminAnalytics } from '@/hooks/useAdminAnalytics';
 import type { AnalyticsTimeRange } from '@/lib/types/adminAnalytics';
+import type { ComplianceReport, ComplianceStandard } from '@/lib/types/compliance';
 
 const RANGE_LABELS: Record<AnalyticsTimeRange, string> = {
   '7d': 'Last 7 days',
@@ -51,6 +52,11 @@ function downloadCsv(filename: string, content: string): void {
 export default function AdminAnalyticsPage() {
   const [range, setRange] = useState<AnalyticsTimeRange>('30d');
   const { data, isLoading, error } = useAdminAnalytics(range);
+  const [isGeneratingForms, setIsGeneratingForms] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [complianceStandard, setComplianceStandard] = useState<ComplianceStandard>('sec');
+  const [isGeneratingCompliance, setIsGeneratingCompliance] = useState(false);
+  const [complianceError, setComplianceError] = useState<string | null>(null);
 
   const cards = useMemo(() => {
     if (!data) return [];
@@ -100,6 +106,59 @@ export default function AdminAnalyticsPage() {
     downloadCsv(`admin-analytics-${data.range}-${data.generatedAt.slice(0, 10)}.csv`, csv);
   };
 
+  const handleGenerate1099 = async () => {
+    setIsGeneratingForms(true);
+    setFormError(null);
+    try {
+      const response = await fetch('/api/admin/tax-forms/1099', {
+        method: 'GET',
+        headers: { Accept: 'text/csv' },
+      });
+      if (!response.ok) {
+        throw new Error(`Request failed with status ${response.status}`);
+      }
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `1099-forms-${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : 'Failed to generate 1099 forms');
+    } finally {
+      setIsGeneratingForms(false);
+    }
+  };
+
+  const handleGenerateCompliance = async () => {
+    setIsGeneratingCompliance(true);
+    setComplianceError(null);
+    try {
+      const response = await fetch(
+        `/api/admin/compliance/reports?standard=${complianceStandard}&range=${range}`,
+        {
+          method: 'GET',
+          headers: { Accept: 'application/json' },
+        }
+      );
+      if (!response.ok) {
+        throw new Error(`Request failed with status ${response.status}`);
+      }
+      const report = (await response.json()) as ComplianceReport;
+      const csv = buildComplianceCsv(report);
+      downloadCsv(`compliance-${complianceStandard}-${report.generatedAt.slice(0, 10)}.csv`, csv);
+    } catch (err) {
+      setComplianceError(
+        err instanceof Error ? err.message : 'Failed to generate compliance report'
+      );
+    } finally {
+      setIsGeneratingCompliance(false);
+    }
+  };
+
   return (
     <main
       className="mx-auto min-h-screen w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8"
@@ -140,6 +199,43 @@ export default function AdminAnalyticsPage() {
             <Download className="mr-2 h-4 w-4" aria-hidden="true" />
             Export CSV
           </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            onClick={handleGenerate1099}
+            disabled={isGeneratingForms}
+            aria-label="Generate 1099 forms for high-value sponsors"
+          >
+            <Receipt className="mr-2 h-4 w-4" aria-hidden="true" />
+            {isGeneratingForms ? 'Generating...' : 'Generate 1099 forms'}
+          </Button>
+        </div>
+        <div className="flex flex-wrap items-center gap-3">
+          <label className="text-sm text-muted-foreground" htmlFor="compliance-standard">
+            Compliance standard
+          </label>
+          <Select
+            id="compliance-standard"
+            selectSize="sm"
+            value={complianceStandard}
+            onChange={(event) => setComplianceStandard(event.target.value as ComplianceStandard)}
+          >
+            <option value="sec">SEC</option>
+            <option value="epa">EPA</option>
+            <option value="carbon_tax">Carbon tax</option>
+          </Select>
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            onClick={handleGenerateCompliance}
+            disabled={isGeneratingCompliance || !data}
+            aria-label="Generate compliance report"
+          >
+            <Download className="mr-2 h-4 w-4" aria-hidden="true" />
+            {isGeneratingCompliance ? 'Generating...' : 'Generate compliance report'}
+          </Button>
         </div>
       </header>
 
@@ -149,6 +245,24 @@ export default function AdminAnalyticsPage() {
           className="rounded-md border border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive"
         >
           {error}
+        </div>
+      ) : null}
+
+      {formError ? (
+        <div
+          role="alert"
+          className="rounded-md border border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive"
+        >
+          {formError}
+        </div>
+      ) : null}
+
+      {complianceError ? (
+        <div
+          role="alert"
+          className="rounded-md border border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive"
+        >
+          {complianceError}
         </div>
       ) : null}
 

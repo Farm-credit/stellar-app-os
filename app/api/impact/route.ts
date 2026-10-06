@@ -1,11 +1,6 @@
 import { NextResponse } from 'next/server';
-import { Pool } from 'pg';
+import { getReadPool } from '@/lib/db/read-replica';
 import { apiVersionHeaders, readStatus } from '@/lib/api/versioning';
-
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL_READ_REPLICA || process.env.DATABASE_URL,
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
-});
 
 export async function getImpactResponse(request: Request, version: 'v1' | 'v2' = 'v1') {
   try {
@@ -17,7 +12,7 @@ export async function getImpactResponse(request: Request, version: 'v1' | 'v2' =
       query += ' WHERE datus = $1';
       params.push(status);
     }
-    const result = await pool.query(query, params);
+    const result = await getReadPool().query(query, params);
     return NextResponse.json(result.rows, {
       headers: {
         'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',

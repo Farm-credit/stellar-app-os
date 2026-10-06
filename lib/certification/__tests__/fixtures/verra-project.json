@@ -1,0 +1,25 @@
+{
+  "id": "VCS-1913",
+  "name": "Kijani Forest Carbon Project",
+  "status": "Verified",
+  "countryCode": "ke",
+  "methodology": { "id": "VM0047", "name": "Afforestation, Reforestation and Revegetation" },
+  "proponent": { "name": "Kijani Cooperative" },
+  "creditingPeriod": {
+    "startDate": "2022-01-01T00:00:00Z",
+    "endDate": "2031-12-31T23:59:59Z"
+  },
+  "issuance": { "issued": 12000, "available": 7500, "retired": 4500 },
+  "documents": [
+    {
+      "id": "DOC-1",
+      "type": "project-description",
+      "name": "Project description",
+      "status": "approved",
+      "issuedAt": "2022-02-01T00:00:00Z",
+      "expiresAt": null,
+      "url": "https://registry.example/documents/DOC-1"
+    }
+  ],
+  "updatedAt": "2026-09-20T12:00:00Z"
+}

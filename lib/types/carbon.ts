@@ -7,6 +7,12 @@ export type ProjectType =
   | 'Sustainable Agriculture'
   | 'Other';
 
+/** Minimum quantity (in tonnes) required for a bulk-purchase order. */
+export const BULK_PURCHASE_MIN_QUANTITY = 100;
+
+/** Where to store corporate metadata for a bulk purchase. */
+export type MetadataStorageType = 'none' | 'on-chain' | 'ipfs';
+
 export type VerificationStatus =
   'Gold Standard' | 'Verra (VCS)' | 'Climate Action Reserve' | 'Plan Vivo' | 'Pending';
 

@@ -1,0 +1,103 @@
+##############################################################################
+# Horizontal Pod Autoscaler — harvesta-web
+#
+# Three scaling signals:
+#   1. CPU utilisation        (built-in, always available)
+#   2. Memory utilisation     (built-in, via metrics-server)
+#   3. api_request_total RPS  (custom, requires prometheus-adapter)
+#
+# Prerequisites:
+#   kubectl apply -f k8s/prometheus-adapter.yaml
+#   helm install metrics-server metrics-server/metrics-server -n kube-system
+#
+# The HPA scales UP when ANY metric exceeds its target.
+# The HPA scales DOWN only after all metrics fall below target
+# for at least stabilizationWindowSeconds (300 s default).
+##############################################################################
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: harvesta-web
+  namespace: harvesta
+  labels:
+    app.kubernetes.io/name: harvesta
+    app.kubernetes.io/component: hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: harvesta-web
+
+  # ── Replica bounds ──────────────────────────────────────────────────────────
+  # minReplicas: always at least 2 for zero-downtime rolling updates and HA
+  minReplicas: 2
+  maxReplicas: 10
+
+  # ── Metrics ─────────────────────────────────────────────────────────────────
+  metrics:
+    # 1. CPU — scale when average pod CPU > 60% of the 250m request
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 60
+
+    # 2. Memory — scale when average pod memory > 75% of the 256Mi request
+    #    Note: memory is a lagging signal; use a high threshold to avoid
+    #    thrashing on short GC spikes.
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 75
+
+    # 3. Custom metric: api_request_total RPS (requests-per-second per pod)
+    #    Served by prometheus-adapter from the /api/metrics Prometheus endpoint.
+    #    Scale up when each pod handles more than 50 req/s.
+    - type: Pods
+      pods:
+        metric:
+          name: api_request_rps
+        target:
+          type: AverageValue
+          averageValue: "50"
+
+    # 4. Custom metric: api_request_duration_ms p95 latency
+    #    Scale up when p95 latency across pods exceeds 500 ms — a proxy for
+    #    the app being CPU-bound on SSR / Soroban calls.
+    - type: Pods
+      pods:
+        metric:
+          name: api_request_duration_p95_ms
+        target:
+          type: AverageValue
+          averageValue: "500"
+
+  # ── Scaling behaviour ───────────────────────────────────────────────────────
+  behavior:
+    scaleUp:
+      # React quickly to traffic spikes
+      stabilizationWindowSeconds: 30
+      policies:
+        # Add at most 2 pods every 30 s
+        - type: Pods
+          value: 2
+          periodSeconds: 30
+        # …or 50% of current replicas (whichever adds more)
+        - type: Percent
+          value: 50
+          periodSeconds: 30
+      selectPolicy: Max
+
+    scaleDown:
+      # Be conservative: wait 5 min before scaling down
+      # (Soroban operations can cause brief CPU spikes that clear quickly)
+      stabilizationWindowSeconds: 300
+      policies:
+        # Remove at most 1 pod every 60 s
+        - type: Pods
+          value: 1
+          periodSeconds: 60
+      selectPolicy: Min

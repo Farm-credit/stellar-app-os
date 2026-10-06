@@ -1,0 +1,577 @@
+[
+  {
+    "slug": "vm0042",
+    "code": "VM0042",
+    "name": "Methodology for Improved Agricultural Land Management",
+    "category": "soil_sequestration",
+    "standard": "Verra VCS",
+    "version": "2.2",
+    "description": "Quantifies GHG benefits from improved cropland, grazing and agroforestry management: soil organic carbon change plus CH4, N2O and fossil-fuel emissions, via measurement and/or modelling.",
+    "formula": "NER_t = (ΔSOC_PROJ,t − ΔSOC_BSL,t) × 44/12 + (E_BSL,t − E_PROJ,t) − GHG_LK,t  (E = CH4, N2O and fossil CO2e emissions)",
+    "parameters": [
+      {
+        "symbol": "NER_t",
+        "name": "Net GHG emission reductions/removals",
+        "unit": "tCO2e",
+        "description": "Net benefit credited in monitoring period t"
+      },
+      {
+        "symbol": "ΔSOC",
+        "name": "Change in soil organic carbon stock",
+        "unit": "tC",
+        "description": "Project vs baseline SOC change over the period"
+      },
+      {
+        "symbol": "E_BSL,t",
+        "name": "Baseline non-CO2 and fossil emissions",
+        "unit": "tCO2e",
+        "description": "CH4, N2O, fossil fuel emissions in baseline"
+      },
+      {
+        "symbol": "E_PROJ,t",
+        "name": "Project non-CO2 and fossil emissions",
+        "unit": "tCO2e",
+        "description": "Same sources under project"
+      },
+      {
+        "symbol": "GHG_LK,t",
+        "name": "Leakage emissions",
+        "unit": "tCO2e",
+        "description": "Emissions displaced outside the project boundary as a result of the activity"
+      },
+      {
+        "symbol": "44/12",
+        "name": "CO2-to-C molecular weight ratio",
+        "unit": "tCO2/tC",
+        "description": "Converts carbon stock changes (tC) to CO2 equivalents"
+      }
+    ],
+    "applicability": [
+      "Improved agricultural land management practices on cropland, grassland or agroforestry",
+      "Baseline practices documented; SOC quantified by measurement, model or both"
+    ],
+    "sourceRef": "Verra VCS VM0042 v2.2 (Verra ICVCM announcements)",
+    "metadataVerified": true
+  },
+  {
+    "slug": "vm0044",
+    "code": "VM0044",
+    "name": "Biochar Utilization in Soil and Non-Soil Applications",
+    "category": "soil_sequestration",
+    "standard": "Verra VCS",
+    "version": "1.2",
+    "description": "Credits carbon durably stored in biochar (soil or non-soil use) after deducting production, transport and leakage emissions.",
+    "formula": "NER_y = Q_biochar,y × C_org × PF × 44/12 + BE_feedstock,y − PE_y − GHG_LK,y",
+    "parameters": [
+      {
+        "symbol": "NER_y",
+        "name": "Net emission reductions",
+        "unit": "tCO2e",
+        "description": "Credited amount in year y"
+      },
+      {
+        "symbol": "Q_biochar,y",
+        "name": "Biochar quantity",
+        "unit": "t (dry mass)",
+        "description": "Biochar applied or used"
+      },
+      {
+        "symbol": "C_org",
+        "name": "Organic carbon fraction",
+        "unit": "fraction",
+        "description": "Organic C content of biochar"
+      },
+      {
+        "symbol": "PF",
+        "name": "Persistence fraction",
+        "unit": "fraction",
+        "description": "Share of carbon remaining after the crediting horizon"
+      },
+      {
+        "symbol": "BE_feedstock,y",
+        "name": "Avoided baseline feedstock emissions",
+        "unit": "tCO2e",
+        "description": "Emissions the feedstock would have caused otherwise"
+      },
+      {
+        "symbol": "PE_y",
+        "name": "Project emissions",
+        "unit": "tCO2e",
+        "description": "Feedstock collection, pyrolysis, transport, application"
+      },
+      {
+        "symbol": "GHG_LK,y",
+        "name": "Leakage",
+        "unit": "tCO2e",
+        "description": "Leakage emissions"
+      }
+    ],
+    "applicability": [
+      "Biochar produced from eligible biomass and applied to soil or durable non-soil products",
+      "Carbon content and persistence tested per methodology"
+    ],
+    "sourceRef": "Verra VCS VM0044 v1.2 (Verra ICVCM announcement Aug 2025)",
+    "metadataVerified": true
+  },
+  {
+    "slug": "vm0026",
+    "code": "VM0026",
+    "name": "Sustainable Grassland Management (SGM)",
+    "category": "soil_sequestration",
+    "standard": "Verra VCS",
+    "version": null,
+    "description": "Credits emission reductions and removals from improved grassland management, including changes in soil carbon and livestock-related emissions.",
+    "formula": "ER_t = (ΔSOC_PROJ,t − ΔSOC_BSL,t) × 44/12 + (E_BSL,t − E_PROJ,t) − GHG_LK,t",
+    "parameters": [
+      {
+        "symbol": "ER_t",
+        "name": "Net emission reductions",
+        "unit": "tCO2e",
+        "description": "Credited amount in period t"
+      },
+      {
+        "symbol": "ΔSOC",
+        "name": "Soil organic carbon change",
+        "unit": "tC",
+        "description": "Project vs baseline"
+      },
+      {
+        "symbol": "E_BSL,t",
+        "name": "Baseline emissions",
+        "unit": "tCO2e",
+        "description": "Grazing-related CH4/N2O and fossil emissions"
+      },
+      {
+        "symbol": "E_PROJ,t",
+        "name": "Project emissions",
+        "unit": "tCO2e",
+        "description": "Same sources under project"
+      },
+      {
+        "symbol": "GHG_LK,t",
+        "name": "Leakage emissions",
+        "unit": "tCO2e",
+        "description": "Emissions displaced outside the project boundary as a result of the activity"
+      }
+    ],
+    "applicability": ["Managed grasslands with a documented change in grazing/land management"],
+    "sourceRef": "Verra VCS VM0026 (summary; version not pinned)",
+    "metadataVerified": true
+  },
+  {
+    "slug": "vm0032",
+    "code": "VM0032",
+    "name": "Methodology for the Adoption of Sustainable Grasslands through Adjustment of Fire and Grazing",
+    "category": "soil_sequestration",
+    "standard": "Verra VCS",
+    "version": null,
+    "description": "Credits carbon gains and avoided emissions from adjusting fire and grazing regimes on grasslands.",
+    "formula": "ER_t = (ΔC_PROJ,t − ΔC_BSL,t) + (E_fire,BSL,t − E_fire,PROJ,t) − GHG_LK,t",
+    "parameters": [
+      {
+        "symbol": "ER_t",
+        "name": "Net emission reductions",
+        "unit": "tCO2e",
+        "description": "Credited amount in period t"
+      },
+      {
+        "symbol": "ΔC",
+        "name": "Carbon stock change (biomass and soil)",
+        "unit": "tCO2e",
+        "description": "Project vs baseline"
+      },
+      {
+        "symbol": "E_fire",
+        "name": "Fire emissions (CH4, N2O)",
+        "unit": "tCO2e",
+        "description": "Emissions from biomass burning"
+      },
+      {
+        "symbol": "GHG_LK,t",
+        "name": "Leakage emissions",
+        "unit": "tCO2e",
+        "description": "Emissions displaced outside the project boundary as a result of the activity"
+      }
+    ],
+    "applicability": ["Grasslands where fire and grazing management are changed by the project"],
+    "sourceRef": "Verra VCS VM0032 (title from VCS methodology list, partially confirmed; version not pinned)",
+    "metadataVerified": false
+  },
+  {
+    "slug": "vm0021",
+    "code": "VM0021",
+    "name": "Soil Carbon Quantification Methodology",
+    "category": "soil_sequestration",
+    "standard": "Verra VCS",
+    "version": null,
+    "description": "Methodology for measuring and quantifying soil organic carbon stock changes for soil-carbon projects.",
+    "formula": "SOC (tC/ha) = BD × d × C_org(%);  ΔSOC = SOC_t2 − SOC_t1;  tCO2e = ΔSOC × 44/12",
+    "parameters": [
+      {
+        "symbol": "BD",
+        "name": "Soil bulk density",
+        "unit": "g/cm3",
+        "description": "Measured bulk density of the layer"
+      },
+      {
+        "symbol": "d",
+        "name": "Layer depth",
+        "unit": "cm",
+        "description": "Sampled soil depth"
+      },
+      {
+        "symbol": "C_org",
+        "name": "Soil organic carbon concentration",
+        "unit": "% by mass",
+        "description": "Measured concentration"
+      },
+      {
+        "symbol": "ΔSOC",
+        "name": "SOC stock change",
+        "unit": "tC/ha",
+        "description": "Difference between sampling events"
+      },
+      {
+        "symbol": "44/12",
+        "name": "CO2-to-C molecular weight ratio",
+        "unit": "tCO2/tC",
+        "description": "Converts carbon stock changes (tC) to CO2 equivalents"
+      }
+    ],
+    "applicability": ["Soil carbon quantification with repeat field sampling"],
+    "sourceRef": "Verra VCS VM0021 (title/code from memory of VCS list; not re-verified; version not pinned)",
+    "metadataVerified": false
+  },
+  {
+    "slug": "vm0022",
+    "code": "VM0022",
+    "name": "Quantifying N2O Emissions Reductions in Agricultural Crops through Nitrogen Fertilizer Rate Reduction",
+    "category": "soil_sequestration",
+    "standard": "Verra VCS",
+    "version": "1.1",
+    "description": "Credits N2O emission reductions from lowering nitrogen fertiliser application rates on cropland.",
+    "formula": "ER_y = (N_BSL,y − N_PROJ,y) × EF × 44/28 × GWP_N2O − GHG_LK,y  (N applied in kg N; EF in kg N2O-N per kg N)",
+    "parameters": [
+      {
+        "symbol": "ER_y",
+        "name": "Emission reductions",
+        "unit": "tCO2e",
+        "description": "Credited amount in year y"
+      },
+      {
+        "symbol": "N_BSL,y",
+        "name": "Baseline N applied",
+        "unit": "kg N",
+        "description": "Nitrogen applied under baseline rate"
+      },
+      {
+        "symbol": "N_PROJ,y",
+        "name": "Project N applied",
+        "unit": "kg N",
+        "description": "Nitrogen applied under reduced rate"
+      },
+      {
+        "symbol": "EF",
+        "name": "N2O emission factor",
+        "unit": "kg N2O-N/kg N",
+        "description": "Direct emission factor"
+      },
+      {
+        "symbol": "GWP_N2O",
+        "name": "Global warming potential of nitrous oxide",
+        "unit": "tCO2e/tN2O",
+        "description": "Value prescribed by the programme for the crediting period"
+      }
+    ],
+    "applicability": [
+      "Crop systems where fertiliser N rate is reduced without a yield-compensating shift outside the project"
+    ],
+    "sourceRef": "Verra VCS VM0022 v1.1 (Verra Scope 3 RFP page)",
+    "metadataVerified": true
+  },
+  {
+    "slug": "vm0036",
+    "code": "VM0036",
+    "name": "Methodology for Rewetting Drained Temperate Peatlands",
+    "category": "soil_sequestration",
+    "standard": "Verra VCS",
+    "version": null,
+    "description": "Credits avoided peat oxidation and CH4 changes from rewetting drained temperate peatlands.",
+    "formula": "ER_t = (E_BSL,t − E_PROJ,t) − GHG_LK,t;  E = Σ (A × EF_CO2) + Σ (A × EF_CH4 × GWP_CH4)",
+    "parameters": [
+      {
+        "symbol": "ER_t",
+        "name": "Net emission reductions",
+        "unit": "tCO2e",
+        "description": "Credited amount in period t"
+      },
+      {
+        "symbol": "A",
+        "name": "Area",
+        "unit": "ha",
+        "description": "Rewetted peatland area per stratum"
+      },
+      {
+        "symbol": "EF_CO2",
+        "name": "CO2 emission factor",
+        "unit": "tCO2/ha/yr",
+        "description": "By water-table class or site type"
+      },
+      {
+        "symbol": "EF_CH4",
+        "name": "CH4 emission factor",
+        "unit": "tCH4/ha/yr",
+        "description": "By water-table class or site type"
+      },
+      {
+        "symbol": "GWP_CH4",
+        "name": "Global warming potential of methane",
+        "unit": "tCO2e/tCH4",
+        "description": "Value prescribed by the programme for the crediting period"
+      }
+    ],
+    "applicability": ["Drained temperate peatlands being rewetted"],
+    "sourceRef": "Verra VCS VM0036 (title/code from memory; not re-verified; version not pinned)",
+    "metadataVerified": false
+  },
+  {
+    "slug": "gs-soc-framework",
+    "code": "GS SOC Framework",
+    "name": "Soil Organic Carbon Framework Methodology",
+    "category": "soil_sequestration",
+    "standard": "Gold Standard",
+    "version": null,
+    "description": "Framework methodology for quantifying SOC sequestration and related emissions from land-management practice changes.",
+    "formula": "ER = (ΔSOC_PROJ − ΔSOC_BSL) × 44/12 − PE − LK",
+    "parameters": [
+      {
+        "symbol": "ER",
+        "name": "Net emission reductions",
+        "unit": "tCO2e",
+        "description": "Credited amount in the period"
+      },
+      {
+        "symbol": "ΔSOC",
+        "name": "SOC change",
+        "unit": "tC",
+        "description": "Project vs baseline"
+      },
+      {
+        "symbol": "PE",
+        "name": "Project emissions",
+        "unit": "tCO2e",
+        "description": "Emissions caused by the practice change"
+      },
+      {
+        "symbol": "LK",
+        "name": "Leakage",
+        "unit": "tCO2e",
+        "description": "Leakage emissions"
+      },
+      {
+        "symbol": "44/12",
+        "name": "CO2-to-C molecular weight ratio",
+        "unit": "tCO2/tC",
+        "description": "Converts carbon stock changes (tC) to CO2 equivalents"
+      }
+    ],
+    "applicability": ["Land-management practice changes affecting soil organic carbon"],
+    "sourceRef": "Gold Standard Soil Organic Carbon Framework Methodology (not re-verified; version not pinned)",
+    "metadataVerified": false
+  },
+  {
+    "slug": "car-soil-enrichment",
+    "code": "CAR Soil Enrichment Protocol",
+    "name": "Soil Enrichment Protocol",
+    "category": "soil_sequestration",
+    "standard": "Climate Action Reserve",
+    "version": null,
+    "description": "Protocol quantifying GHG benefits from soil-enriching agricultural practices via biogeochemical modelling with field measurement.",
+    "formula": "ER = (ΔSOC_PROJ − ΔSOC_BSL) × 44/12 + (ΔN2O_BSL − ΔN2O_PROJ) + (ΔCH4_BSL − ΔCH4_PROJ) − PE − LK",
+    "parameters": [
+      {
+        "symbol": "ER",
+        "name": "Net emission reductions",
+        "unit": "tCO2e",
+        "description": "Credited amount in the period"
+      },
+      {
+        "symbol": "ΔSOC",
+        "name": "SOC change",
+        "unit": "tC",
+        "description": "Modelled/measured project vs baseline"
+      },
+      {
+        "symbol": "N2O",
+        "name": "Soil N2O emissions",
+        "unit": "tCO2e",
+        "description": "Baseline vs project"
+      },
+      {
+        "symbol": "CH4",
+        "name": "Soil/livestock CH4",
+        "unit": "tCO2e",
+        "description": "Baseline vs project"
+      },
+      {
+        "symbol": "44/12",
+        "name": "CO2-to-C molecular weight ratio",
+        "unit": "tCO2/tC",
+        "description": "Converts carbon stock changes (tC) to CO2 equivalents"
+      }
+    ],
+    "applicability": ["Cropland and rangeland practice changes that enrich soil carbon"],
+    "sourceRef": "Climate Action Reserve Soil Enrichment Protocol (not re-verified; version not pinned)",
+    "metadataVerified": false
+  },
+  {
+    "slug": "ipcc-2006-v4-ch5-soil-carbon",
+    "code": "IPCC 2006 GL Vol.4 Ch.5",
+    "name": "Cropland: mineral soil carbon stock change (stock-change method)",
+    "category": "soil_sequestration",
+    "standard": "IPCC",
+    "version": null,
+    "description": "IPCC stock-change approach for mineral soil carbon using reference stocks and relative stock-change factors for land use, management and input.",
+    "formula": "SOC = Σ (SOC_REF × F_LU × F_MG × F_I × A);  ΔC_mineral = (SOC_0 − SOC_(0−T)) / D",
+    "parameters": [
+      {
+        "symbol": "SOC_REF",
+        "name": "Reference soil organic carbon stock",
+        "unit": "tC/ha",
+        "description": "Default by climate/soil class"
+      },
+      {
+        "symbol": "F_LU",
+        "name": "Land-use factor",
+        "unit": "dimensionless",
+        "description": "Stock-change factor"
+      },
+      {
+        "symbol": "F_MG",
+        "name": "Management factor",
+        "unit": "dimensionless",
+        "description": "Tillage regime factor"
+      },
+      {
+        "symbol": "F_I",
+        "name": "Input factor",
+        "unit": "dimensionless",
+        "description": "Carbon input level factor"
+      },
+      {
+        "symbol": "A",
+        "name": "Area",
+        "unit": "ha",
+        "description": "Stratum area"
+      },
+      {
+        "symbol": "D",
+        "name": "Inventory time dependence",
+        "unit": "years",
+        "description": "Default 20 years"
+      }
+    ],
+    "applicability": [
+      "Mineral soils on cropland (Tier 1 defaults available)",
+      "Guidance methodology, not a crediting programme"
+    ],
+    "sourceRef": "IPCC 2006 Guidelines, Vol.4 Ch.5 (uses Ch.2 Eq. 2.25)",
+    "metadataVerified": false
+  },
+  {
+    "slug": "ipcc-2006-v4-ch6-grassland",
+    "code": "IPCC 2006 GL Vol.4 Ch.6",
+    "name": "Grassland: soil carbon stock change",
+    "category": "soil_sequestration",
+    "standard": "IPCC",
+    "version": null,
+    "description": "IPCC approach for carbon stock change on grassland, with management and input factors applied to soil reference stocks.",
+    "formula": "SOC = Σ (SOC_REF × F_LU × F_MG × F_I × A);  ΔC_mineral = (SOC_0 − SOC_(0−T)) / D",
+    "parameters": [
+      {
+        "symbol": "SOC_REF",
+        "name": "Reference soil organic carbon stock",
+        "unit": "tC/ha",
+        "description": "Default by climate/soil class"
+      },
+      {
+        "symbol": "F_MG",
+        "name": "Management factor",
+        "unit": "dimensionless",
+        "description": "Grazing/improvement factor"
+      },
+      {
+        "symbol": "F_I",
+        "name": "Input factor",
+        "unit": "dimensionless",
+        "description": "Carbon input level factor"
+      },
+      {
+        "symbol": "A",
+        "name": "Area",
+        "unit": "ha",
+        "description": "Stratum area"
+      },
+      {
+        "symbol": "D",
+        "name": "Inventory time dependence",
+        "unit": "years",
+        "description": "Default 20 years"
+      }
+    ],
+    "applicability": [
+      "Grassland remaining grassland, mineral soils",
+      "Guidance methodology, not a crediting programme"
+    ],
+    "sourceRef": "IPCC 2006 Guidelines, Vol.4 Ch.6",
+    "metadataVerified": false
+  },
+  {
+    "slug": "ipcc-2006-v4-ch11-soil-n2o",
+    "code": "IPCC 2006 GL Vol.4 Ch.11",
+    "name": "N2O emissions from managed soils",
+    "category": "soil_sequestration",
+    "standard": "IPCC",
+    "version": null,
+    "description": "IPCC method for direct N2O emissions from nitrogen inputs to managed soils.",
+    "formula": "N2O_direct-N = (F_SN + F_ON + F_CR + F_SOM) × EF1 (+ other terms);  N2O = N2O-N × 44/28",
+    "parameters": [
+      {
+        "symbol": "F_SN",
+        "name": "Synthetic fertiliser N",
+        "unit": "kg N/yr",
+        "description": "Applied to soils"
+      },
+      {
+        "symbol": "F_ON",
+        "name": "Organic N applied",
+        "unit": "kg N/yr",
+        "description": "Manure, compost, sewage sludge"
+      },
+      {
+        "symbol": "F_CR",
+        "name": "Crop residue N",
+        "unit": "kg N/yr",
+        "description": "Returned to soils"
+      },
+      {
+        "symbol": "F_SOM",
+        "name": "N from soil organic matter loss",
+        "unit": "kg N/yr",
+        "description": "Mineralisation with land-use/management change"
+      },
+      {
+        "symbol": "EF1",
+        "name": "Direct emission factor",
+        "unit": "kg N2O-N/kg N",
+        "description": "IPCC default or country-specific"
+      }
+    ],
+    "applicability": [
+      "Managed soils receiving nitrogen inputs",
+      "Guidance methodology, not a crediting programme"
+    ],
+    "sourceRef": "IPCC 2006 Guidelines, Vol.4 Ch.11",
+    "metadataVerified": false
+  }
+]

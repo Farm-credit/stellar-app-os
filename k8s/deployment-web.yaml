@@ -1,0 +1,199 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: harvesta-web
+  namespace: harvesta
+  labels:
+    app.kubernetes.io/name: harvesta
+    app.kubernetes.io/component: web
+    app.kubernetes.io/version: "1.0.0"
+  annotations:
+    # Rolling update: Kubernetes waits for each new pod to pass readiness before continuing
+    deployment.kubernetes.io/revision: "1"
+spec:
+  # Initial replica count — HPA will take over after bootstrap
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: harvesta
+      app.kubernetes.io/component: web
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0        # Zero-downtime rollout
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: harvesta
+        app.kubernetes.io/component: web
+        app.kubernetes.io/version: "1.0.0"
+      annotations:
+        # Prometheus auto-scrape annotations (for kube-prometheus-stack / annotations-based scraping)
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "3000"
+        prometheus.io/path: "/api/metrics"
+    spec:
+      # Spread pods across nodes for HA
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: DoNotSchedule
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: harvesta
+              app.kubernetes.io/component: web
+
+      # Graceful shutdown: give Node.js 30 s to drain connections
+      terminationGracePeriodSeconds: 30
+
+      # Security context for the pod
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        runAsGroup: 1001
+        fsGroup: 1001
+        seccompProfile:
+          type: RuntimeDefault
+
+      containers:
+        - name: web
+          # Replace with your registry/image:tag
+          image: ghcr.io/harvesta/harvesta-web:latest
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 3000
+              protocol: TCP
+
+          # Load non-secret env vars from ConfigMap
+          envFrom:
+            - configMapRef:
+                name: harvesta-config
+          # Load secret env vars individually from Secret
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: harvesta-secrets
+                  key: DATABASE_URL
+            - name: SENDGRID_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: harvesta-secrets
+                  key: SENDGRID_API_KEY
+            - name: SENDGRID_FROM_EMAIL
+              valueFrom:
+                secretKeyRef:
+                  name: harvesta-secrets
+                  key: SENDGRID_FROM_EMAIL
+            - name: REGION_HASH_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: harvesta-secrets
+                  key: REGION_HASH_SECRET
+            - name: STRIPE_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: harvesta-secrets
+                  key: STRIPE_SECRET_KEY
+            - name: STRIPE_WEBHOOK_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: harvesta-secrets
+                  key: STRIPE_WEBHOOK_SECRET
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: harvesta-secrets
+                  key: AWS_ACCESS_KEY_ID
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: harvesta-secrets
+                  key: AWS_SECRET_ACCESS_KEY
+            - name: AWS_REGION
+              valueFrom:
+                secretKeyRef:
+                  name: harvesta-secrets
+                  key: AWS_REGION
+            - name: AWS_S3_BUCKET
+              valueFrom:
+                secretKeyRef:
+                  name: harvesta-secrets
+                  key: AWS_S3_BUCKET
+            - name: ADMIN_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: harvesta-secrets
+                  key: ADMIN_SECRET
+            - name: NEXT_PUBLIC_CONTRACT_TREE_ESCROW
+              valueFrom:
+                secretKeyRef:
+                  name: harvesta-secrets
+                  key: NEXT_PUBLIC_CONTRACT_TREE_ESCROW
+            - name: NEXT_PUBLIC_CONTRACT_ESCROW_MILESTONE
+              valueFrom:
+                secretKeyRef:
+                  name: harvesta-secrets
+                  key: NEXT_PUBLIC_CONTRACT_ESCROW_MILESTONE
+            - name: NEXT_PUBLIC_CONTRACT_LOCATION_PROOF
+              valueFrom:
+                secretKeyRef:
+                  name: harvesta-secrets
+                  key: NEXT_PUBLIC_CONTRACT_LOCATION_PROOF
+            - name: NEXT_PUBLIC_CONTRACT_NULLIFIER_REGISTRY
+              valueFrom:
+                secretKeyRef:
+                  name: harvesta-secrets
+                  key: NEXT_PUBLIC_CONTRACT_NULLIFIER_REGISTRY
+
+          # Resource limits — sized for Next.js 16 standalone + SSR
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "256Mi"
+            limits:
+              cpu: "1000m"
+              memory: "1Gi"
+
+          # Liveness: restarts the container if the app is deadlocked
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 3
+
+          # Readiness: gates traffic until the app is ready to serve
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+
+          # Startup: extended window for slow cold-starts
+          startupProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            failureThreshold: 12     # 60 s total before giving up
+
+          # Drop all capabilities; the app doesn't need any
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false   # Next.js needs /tmp
+            capabilities:
+              drop:
+                - ALL
+
+      # Prefer pulling from a private registry if configured
+      # imagePullSecrets:
+      #   - name: ghcr-credentials

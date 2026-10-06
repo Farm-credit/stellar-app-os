@@ -14,6 +14,8 @@ interface DonationContextValue {
   state: DonationFlowState;
   setAmount: (_amount: number) => void;
   setTreeCount: (_count: number) => void;
+  setSpecies: (_speciesSlug: string) => void;
+  setRegion: (_regionId: string) => void;
   setIsMonthly: (_isMonthly: boolean) => void;
   setAsset: (_asset: DonationAsset) => void;
   setDonorInfo: (_info: Partial<DonorInfo>) => void;
@@ -35,6 +37,14 @@ export function DonationProvider({ children }: { children: ReactNode }) {
 
   const setTreeCount = useCallback((treeCount: number) => {
     setState((prev) => ({ ...prev, treeCount }));
+  }, []);
+
+  const setSpecies = useCallback((speciesSlug: string) => {
+    setState((prev) => ({ ...prev, speciesSlug }));
+  }, []);
+
+  const setRegion = useCallback((regionId: string) => {
+    setState((prev) => ({ ...prev, regionId }));
   }, []);
 
   const setIsMonthly = useCallback((isMonthly: boolean) => {
@@ -69,6 +79,8 @@ export function DonationProvider({ children }: { children: ReactNode }) {
       state,
       setAmount,
       setTreeCount,
+      setSpecies,
+      setRegion,
       setIsMonthly,
       setAsset,
       setDonorInfo,
@@ -80,6 +92,8 @@ export function DonationProvider({ children }: { children: ReactNode }) {
       state,
       setAmount,
       setTreeCount,
+      setSpecies,
+      setRegion,
       setIsMonthly,
       setAsset,
       setDonorInfo,

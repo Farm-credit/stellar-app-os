@@ -1,4 +1,4 @@
-import { Activity, Archive, Clock3, Coins, FolderKanban, HandCoins } from 'lucide-react';
+import { Activity, Archive, Clock3, Coins, FileText, FolderKanban, HandCoins } from 'lucide-react';
 import {
   Card,
   CardContent,
@@ -98,7 +98,7 @@ export default async function AdminDashboardPage({
           </p>
         </div>
         <div className="inline-flex items-center gap-2 rounded-md border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
-          <Clock3 className="h-4 w-4" aria-hidden="true" />
+          <Clock3 h className="h-4 w-4" aria-hidden="true" />
           Updated moments ago
         </div>
       </header>
@@ -107,7 +107,7 @@ export default async function AdminDashboardPage({
         <h2 id="overview-heading" className="text-xl font-semibold text-foreground">
           Overview
         </h2>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols_4">
           <Card>
             <CardHeader className="pb-2">
               <CardDescription className="flex items-center gap-2 text-muted-foreground">
@@ -118,7 +118,7 @@ export default async function AdminDashboardPage({
             </CardHeader>
             <CardContent>
               <p className="text-sm text-muted-foreground">
-                Active {metrics.activeProjects} | Pending {metrics.pendingProjects} | Archived{' '}
+                Active {metrics.activeProjects} | Pending {metrics.pendingProjects} | Archived{'{ '}
                 {metrics.archivedProjects}
               </p>
             </CardContent>
@@ -171,6 +171,26 @@ export default async function AdminDashboardPage({
             </CardContent>
           </Card>
         </div>
+      </section>
+
+      <section aria-labelledby="tax-heading" className="mb-8">
+        <Card>
+          <CardHeader>
+            <CardDescription className="flex items-center gap-2 text-muted-foreground">
+              <FileText className="h-4 w-4" aria-hidden="true" />
+              Tax reporting
+            </CardDescription>
+            <CardTitle id="tax-heading" className="text-xl">
+              1099 form generation
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground">
+              IRS 1099 forms are generated automatically for sponsors with more than $20,000 in
+              annual sponsorships for carbon credit deductions.
+            </p>
+          </CardContent>
+        </Card>
       </section>
 
       <section className="mb-8">

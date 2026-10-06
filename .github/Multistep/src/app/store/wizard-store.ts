@@ -2,6 +2,8 @@ import { create } from 'zustand';
 
 export type ProjectType = 'carbon-credit' | 'tree-planting' | null;
 
+export type PaymentStatus = 'unpaid' | 'pending' | 'paid';
+
 export interface ProjectData {
   // Step 1: Project Selection
   projectType: ProjectType;
@@ -13,6 +15,11 @@ export interface ProjectData {
   projectSize: number;
   projectDuration: number;
   pricePerCredit: number;
+
+  // Step 4: Payment (Stellar)
+  stellarWalletAddress: string;
+  paymentTransactionHash: string;
+  paymentStatus: PaymentStatus;
 }
 
 interface WizardState {
@@ -33,6 +40,9 @@ const initialProjectData: ProjectData = {
   projectSize: 0,
   projectDuration: 12,
   pricePerCredit: 15,
+  stellarWalletAddress: '',
+  paymentTransactionHash: '',
+  paymentStatus: 'unpaid',
 };
 
 export const useWizardStore = create<WizardState>((set) => ({
@@ -50,7 +60,7 @@ export const useWizardStore = create<WizardState>((set) => ({
     }),
   nextStep: () =>
     set((state) => ({
-      currentStep: Math.min(state.currentStep + 1, 3),
+      currentStep: Math.min(state.currentStep + 1, 4),
     })),
   prevStep: () =>
     set((state) => ({

@@ -86,6 +86,67 @@ function aggregate(records: { species: TreeSpecies; co2KgPerYear: number }[]): {
   return { bySpecies, totalTrees: records.length, totalCo2OffsetKg };
 }
 
+// ── Global Stats Types ────────────────────────────────────────────────────────
+
+export interface PercentileThreshold {
+  percentile: number;
+  co2OffsetKg: number;
+}
+
+export interface GlobalSponsorStats {
+  totalSponsors: number;
+  averageCo2OffsetKg: number;
+  averageCo2OffsetTonnes: number;
+  medianCo2OffsetKg: number;
+  medianCo2OffsetTonnes: number;
+  topPercentiles: PercentileThreshold[];
+  cachedAt: string;
+}
+
+// ── Mock Global Stats ─────────────────────────────────────────────────────────
+
+/**
+ * Generates deterministic mock global sponsor stats for development.
+ * In production, this would query a database or analytics service.
+ */
+function computeGlobalStats(): GlobalSponsorStats {
+  const totalSponsors = 847;
+  const averageCo2OffsetKg = 342;
+  const medianCo2OffsetKg = 185;
+
+  return {
+    totalSponsors,
+    averageCo2OffsetKg,
+    averageCo2OffsetTonnes: parseFloat((averageCo2OffsetKg / 1_000).toFixed(4)),
+    medianCo2OffsetKg,
+    medianCo2OffsetTonnes: parseFloat((medianCo2OffsetKg / 1_000).toFixed(4)),
+    topPercentiles: [
+      { percentile: 1, co2OffsetKg: 2450 },
+      { percentile: 5, co2OffsetKg: 1680 },
+      { percentile: 10, co2OffsetKg: 920 },
+      { percentile: 25, co2OffsetKg: 510 },
+      { percentile: 50, co2OffsetKg: medianCo2OffsetKg },
+    ],
+    cachedAt: new Date().toISOString(),
+  };
+}
+
+/**
+ * Computes the percentile rank of a sponsor's CO2 offset relative to the global distribution.
+ * Returns a value between 1 and 100 (lower is better, e.g., 10 = top 10%).
+ */
+export function computePercentileRank(
+  sponsorCo2Kg: number,
+  percentiles: PercentileThreshold[]
+): number {
+  for (const threshold of percentiles) {
+    if (sponsorCo2Kg >= threshold.co2OffsetKg) {
+      return threshold.percentile;
+    }
+  }
+  return 99;
+}
+
 // ── Public API ────────────────────────────────────────────────────────────────
 
 /**
@@ -113,6 +174,21 @@ export async function getSponsorImpact(sponsor: string): Promise<SponsorImpact> 
 
   cacheSet(cacheKey, result);
   return result;
+}
+
+/**
+ * Returns global platform-wide sponsor statistics for comparison.
+ * Caches the result for 60 s.
+ */
+export async function getGlobalSponsorStats(): Promise<GlobalSponsorStats> {
+  await Promise.resolve();
+  const cacheKey = 'global-sponsor-stats';
+  const cached = cacheGet<GlobalSponsorStats>(cacheKey);
+  if (cached) return cached;
+
+  const stats = computeGlobalStats();
+  cacheSet(cacheKey, stats);
+  return stats;
 }
 
 /**

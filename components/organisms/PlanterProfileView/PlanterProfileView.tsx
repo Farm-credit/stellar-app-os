@@ -36,6 +36,7 @@ import {
 import { usePlanterConnections } from '@/hooks/usePlanterConnections';
 import { cn } from '@/lib/utils';
 import type { PlanterProfile } from '@/lib/types/planter';
+import { PlanterReviews } from '@/components/organisms/PlanterReviews';
 
 interface PlanterProfileViewProps {
   planter: PlanterProfile;
@@ -277,6 +278,9 @@ export function PlanterProfileView({ planter }: PlanterProfileViewProps) {
               ))}
             </div>
           </section>
+
+          {/* Reviews */}
+          <PlanterReviews planterId={planter.id} planterName={planter.firstName} />
 
           {/* Certifications */}
           <section>

@@ -6,7 +6,8 @@
     "dashboard": "Painel",
     "projects": "Projetos",
     "marketplace": "Mercado",
-    "transactions": "Transações"
+    "transactions": "Transações",
+    "cooperatives": "Cooperativas"
   },
   "header": {
     "connectWallet": "Conectar Carteira",
@@ -91,6 +92,7 @@
     "en": "Inglês",
     "es": "Espanhol",
     "fr": "Francês",
-    "pt": "Português"
+    "pt": "Português",
+    "ha": "Hausa"
   }
 }

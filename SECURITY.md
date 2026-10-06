@@ -4,11 +4,13 @@
 
 **Do not open a public GitHub issue for security vulnerabilities.**
 
-We run a bug bounty program on [Immunefi](https://immunefi.com/) — all vulnerability reports should be submitted there. Immunefi handles triage, communication, and reward payouts.
+We run bug bounty programs on [HackerOne](https://www.hackerone.com/) and [Immunefi](https://immunefi.com/) — all vulnerability reports should be submitted there. The platforms handle triage, communication, and reward payouts.
 
-> Search for **"Harvesta"** or **"Stellar App OS"** on Immunefi to find our program.
+> Search for **"Harvesta"** or **"Stellar App OS"** on HackerOne or Immunefi to find our program.
 
-For full program details — scope, severity levels, reward amounts, and rules of engagement — see [`docs/BUG_BOUNTY.md`](docs/BUG_BOUNTY.md).
+For full program details — scope, severity levels, tiered reward amounts, and rules of engagement — see:
+- [`docs/HACKERONE_BUG_BOUNTY.md`](docs/HACKERONE_BUG_BOUNTY.md) (HackerOne)
+- [`docs/BUG_BOUNTY.md`](docs/BUG_BOUNTY.md) (Immunefi)
 
 ## Scope Summary
 
@@ -34,9 +36,10 @@ For full program details — scope, severity levels, reward amounts, and rules o
 
 ## Safe Harbor
 
-Researchers who follow responsible disclosure guidelines will not face legal action. See [`docs/BUG_BOUNTY.md`](docs/BUG_BOUNTY.md) for the full safe harbor statement.
+Researchers who follow responsible disclosure guidelines will not face legal action. See [`docs/HACKERONE_BUG_BOUNTY.md`](docs/HACKERONE_BUG_BOUNTY.md) and [`docs/BUG_BOUNTY.md`](docs/BUG_BOUNTY.md) for the full safe harbor statements.
 
 ## Contact
 
+- **HackerOne**: [Submit a report](https://www.hackerone.com/)
 - **Immunefi**: [Submit a report](https://immunefi.com/)
 - **Email**: security@harvesta.io

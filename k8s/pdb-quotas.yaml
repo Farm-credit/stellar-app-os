@@ -1,0 +1,112 @@
+##############################################################################
+# Reliability controls
+#
+#   PodDisruptionBudget — ensures at least 1 pod is always available during
+#     voluntary disruptions (node drain, rolling upgrades).
+#
+#   ResourceQuota — prevents one namespace from consuming all cluster
+#     resources (important in shared clusters).
+#
+#   LimitRange — sets sensible per-container defaults so pods without
+#     explicit requests/limits are still bounded.
+##############################################################################
+
+# ─── PodDisruptionBudget: harvesta-web ───────────────────────────────────────
+# Guarantees that at most 1 pod is disrupted at any time.
+# With minReplicas=2 in the HPA, this means at least 1 pod stays healthy.
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: harvesta-web-pdb
+  namespace: harvesta
+  labels:
+    app.kubernetes.io/name: harvesta
+    app.kubernetes.io/component: web
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: harvesta
+      app.kubernetes.io/component: web
+---
+# ─── PodDisruptionBudget: postgres ───────────────────────────────────────────
+# Single-replica StatefulSet — no budget needed, but defined to prevent
+# accidental simultaneous disruption if replicas are later increased.
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: postgres-pdb
+  namespace: harvesta
+  labels:
+    app.kubernetes.io/name: harvesta
+    app.kubernetes.io/component: postgres
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: harvesta
+      app.kubernetes.io/component: postgres
+---
+# ─── ResourceQuota ───────────────────────────────────────────────────────────
+# Caps the total resources consumed by the harvesta namespace.
+# Adjust to match your cluster capacity and cost constraints.
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: harvesta-quota
+  namespace: harvesta
+  labels:
+    app.kubernetes.io/name: harvesta
+    app.kubernetes.io/component: quota
+spec:
+  hard:
+    # Compute
+    requests.cpu: "4"            # 4 vCPU total requested across all pods
+    limits.cpu: "8"              # 8 vCPU burst maximum
+    requests.memory: "4Gi"
+    limits.memory: "8Gi"
+
+    # Storage
+    requests.storage: "50Gi"     # PVC storage budget
+    persistentvolumeclaims: "5"
+
+    # Object counts (prevent runaway controllers)
+    pods: "20"
+    services: "10"
+    configmaps: "20"
+    secrets: "20"
+---
+# ─── LimitRange ──────────────────────────────────────────────────────────────
+# Default requests/limits for containers that don't specify them,
+# and enforces minimum/maximum bounds.
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: harvesta-limit-range
+  namespace: harvesta
+  labels:
+    app.kubernetes.io/name: harvesta
+    app.kubernetes.io/component: limit-range
+spec:
+  limits:
+    # Per-container defaults and bounds
+    - type: Container
+      default:
+        cpu: "500m"
+        memory: "512Mi"
+      defaultRequest:
+        cpu: "100m"
+        memory: "128Mi"
+      max:
+        cpu: "2"
+        memory: "2Gi"
+      min:
+        cpu: "50m"
+        memory: "64Mi"
+
+    # Per-PVC storage bounds
+    - type: PersistentVolumeClaim
+      max:
+        storage: 30Gi
+      min:
+        storage: 1Gi

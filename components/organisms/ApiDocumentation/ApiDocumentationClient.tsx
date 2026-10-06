@@ -33,6 +33,65 @@ interface RateLimitRule {
 
 const endpointDocs: EndpointDoc[] = [
   {
+    id: 'trees-search',
+    title: 'Search Registered Trees',
+    method: 'GET',
+    path: '/api/trees/search',
+    description:
+      'Search and filter registered trees across species, regions, life-cycle statuses, planters, CO2 thresholds, and planting date ranges with full metadata pagination.',
+    tags: ['trees', 'search', 'inventory', 'pagination'],
+    requestExample: {
+      q: 'Mangrove',
+      species: 'Mangrove',
+      status: 'verified',
+      limit: 50,
+      offset: 0,
+    },
+    responseExample: {
+      trees: [
+        {
+          id: 'HRV-2026-0042',
+          species: 'Mangrove',
+          region: 'East Africa',
+          status: 'verified',
+          co2Offset: 24.5,
+          planter: 'GABEMKJNR4GK7M4FROGA7I7PG63N2CKE3EGDSBSISG56SVL2O3KRNDXA',
+          createdAt: '2026-03-15T10:00:00.000Z',
+        },
+      ],
+      pagination: {
+        total: 142,
+        limit: 50,
+        offset: 0,
+        hasMore: true,
+        page: 1,
+        totalPages: 3,
+      },
+      filtersApplied: {
+        q: 'Mangrove',
+        species: 'Mangrove',
+        status: 'verified',
+        sortBy: 'createdAt',
+        sortOrder: 'desc',
+      },
+      cachedAt: '2026-08-31T09:00:00.000Z',
+    },
+    errorExamples: [
+      {
+        status: 400,
+        body: {
+          error: 'Invalid search parameters',
+        },
+      },
+      {
+        status: 500,
+        body: {
+          error: 'Failed to execute tree search query',
+        },
+      },
+    ],
+  },
+  {
     id: 'health-get',
     title: 'Health Check',
     method: 'GET',
@@ -447,12 +506,21 @@ export function ApiDocumentationClient() {
     <main className="min-h-screen bg-background px-4 py-8 sm:px-6 lg:px-8">
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-8">
         <header className="rounded-2xl border border-border bg-card p-6 shadow-sm sm:p-8">
-          <p className="text-sm font-semibold uppercase tracking-wide text-stellar-blue">
-            Developer Docs
-          </p>
-          <h1 className="mt-2 text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
-            FarmCredit API Documentation
-          </h1>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm font-semibold uppercase tracking-wide text-stellar-blue">
+                Developer Docs
+              </p>
+              <h1 className="mt-2 text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
+                FarmCredit API Documentation
+              </h1>
+            </div>
+            <a href="/api-docs/swagger">
+              <Button variant="default" size="md" className="bg-stellar-blue text-white">
+                🚀 Launch Interactive Swagger UI ("Try It Out") &rarr;
+              </Button>
+            </a>
+          </div>
           <p className="mt-4 max-w-3xl text-sm leading-6 text-muted-foreground sm:text-base">
             Public API reference for integrations. Use the search to filter endpoints by name,
             method, path, or tags.

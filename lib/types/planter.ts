@@ -90,3 +90,36 @@ export interface RegisterPlanterResponse {
   planterId: string;
   status: 'pending';
 }
+
+// ── Planter Reviews ───────────────────────────────────────────────────────
+
+/** Rating categories sponsors can score planting teams on */
+export type ReviewCategory = 'quality' | 'responsiveness' | 'treeHealth';
+
+/** A single sponsor review of a planting team */
+export interface PlanterReview {
+  id: string;
+  planterId: string;
+  sponsorName: string;
+  sponsorAvatarUrl?: string;
+  rating: number; // 1-5 overall
+  categoryRatings: Record<ReviewCategory, number>;
+  comment: string;
+  treeSpecies?: string;
+  projectId?: string;
+  createdAt: string;
+}
+
+/** Aggregated review summary for a planter profile */
+export interface PlanterReviewSummary {
+  averageRating: number;
+  totalReviews: number;
+  categoryAverages: Record<ReviewCategory, number>;
+  ratingDistribution: Record<number, number>; // 1-5 star counts
+}
+
+export const REVIEW_CATEGORY_LABELS: Record<ReviewCategory, string> = {
+  quality: 'Planting Quality',
+  responsiveness: 'Responsiveness',
+  treeHealth: 'Tree Health Outcomes',
+};

@@ -6,7 +6,8 @@
     "dashboard": "Dashboard",
     "projects": "Projects",
     "marketplace": "Marketplace",
-    "transactions": "Transactions"
+    "transactions": "Transactions",
+    "cooperatives": "Cooperatives"
   },
   "header": {
     "connectWallet": "Connect Wallet",

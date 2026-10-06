@@ -43,5 +43,5 @@
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts"
   ],
-  "exclude": ["node_modules", "farm Guage/**", ".github/Multistep/**", "**/__tests__/**"]
+  "exclude": ["node_modules", "farm Guage/**", ".github/Multistep/**", "**/__tests__/**", "backend/**", "e2e/**", "**/*.stories.ts", "**/*.stories.tsx"]
 }

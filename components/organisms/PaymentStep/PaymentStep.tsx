@@ -14,6 +14,8 @@ import { AnonymousPaymentSection } from '@/components/molecules/AnonymousPayment
 import { useDonationPayment } from '@/hooks/useDonationPayment';
 import { useDonationContext } from '@/contexts/DonationContext';
 import { useWalletContext } from '@/contexts/WalletContext';
+import { IMPACT_DATA } from '@/lib/api/impactData';
+import { TREE_SPECIES } from '@/lib/constants/species';
 
 const steps = [
   { id: 'amount', label: 'AMOUNT', path: '/donate', status: 'completed' as const },
@@ -25,7 +27,7 @@ const steps = [
 export function PaymentStep() {
   const router = useRouter();
   const { connect: connectWallet } = useWalletContext();
-  const { setAsset } = useDonationContext();
+  const { setAsset, state } = useDonationContext();
   const {
     paymentState,
     setMethod,
@@ -154,6 +156,8 @@ export function PaymentStep() {
             isMonthly={donationState.isMonthly}
             paymentMethod={paymentState.method}
             treeCount={donationState.treeCount}
+            species={TREE_SPECIES.find((species) => species.slug === state.speciesSlug)?.name}
+            region={IMPACT_DATA.regions.find((region) => region.id === state.regionId)?.name}
           />
         </div>
       </div>

@@ -270,6 +270,62 @@ export interface SponsorStreakRow {
   updated_at: Date;
 }
 
+// ── API Keys (migration 017) ──────────────────────────────────────────────────
+
+export type ApiKeyTier = 'free' | 'standard' | 'premium';
+
+export interface ApiKeyRow {
+  id: number;
+  name: string;
+  prefix: string;
+  key_hash: string;
+  tier: ApiKeyTier;
+  owner_wallet: string | null;
+  is_active: boolean;
+  created_at: Date;
+  last_used_at: Date | null;
+  revoked_at: Date | null;
+}
+
+/** Rolling hourly usage accounting for a single API key. */
+export interface ApiKeyUsageRow {
+  id: number;
+  api_key_id: number;
+  window_ms: number;
+  count: number;
+  queued: number;
+  updated_at: Date;
+}
+
+// ── Planting Locations (migration 024) ───────────────────────────────────────
+
+export interface PlantingLocationRow {
+  id: number;
+  name: string;
+  description: string;
+  latitude: number;
+  longitude: number;
+  region: string;
+  climate: string;
+  species: string[];
+  available_capacity: number;
+  created_at: Date;
+  updated_at: Date;
+}
+
+/** Frontend-facing shape — snake→camel, species slugs resolved to names optional. */
+export interface PlantingLocation {
+  id: number;
+  name: string;
+  description: string;
+  latitude: number;
+  longitude: number;
+  region: string;
+  climate: string;
+  species: string[];
+  availableCapacity: number;
+}
+
 // ── Joined view type (common API response shape) ──────────────────────────────
 
 /** Convenience type: tree row joined with planter display name and species. */

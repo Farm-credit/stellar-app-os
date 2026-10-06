@@ -1,14 +1,15 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import dynamic from 'next/dynamic';
 import { Button } from '@/components/atoms/Button';
 import { Text } from '@/components/atoms/Text';
 import { Input } from '@/components/atoms/Input';
 import { Badge } from '@/components/atoms/Badge';
 import { ProgressStepper } from '@/components/molecules/ProgressStepper/ProgressStepper';
 import { useDonationContext } from '@/contexts/DonationContext';
-import { Trees, Mountain, Leaf, Sprout, Minus } from 'lucide-react';
+import { Trees, Mountain, Leaf, Sprout, Minus, Wind, UserRound, EyeOff } from 'lucide-react';
 import {
   MINIMUM_DONATION,
   TREES_PER_DOLLAR,
@@ -22,6 +23,12 @@ import {
 import { MAX_BATCH_TREES } from '@/lib/stellar/transaction';
 import { IMPACT_DATA } from '@/lib/api/impactData';
 import type { RegionAllocation } from '@/lib/types/donor';
+import { TREE_SPECIES } from '@/lib/constants/species';
+
+const DonationRegionMap = dynamic(
+  () => import('@/components/organisms/DonationRegionMap').then((module) => module.DonationRegionMap),
+  { ssr: false }
+);
 
 const QUICK_AMOUNTS = [10, 25, 50, 100];
 
@@ -33,6 +40,9 @@ export function DonationAmountStep() {
     setTreeCount: persistTreeCount,
     setIsMonthly: persistIsMonthly,
     setRegionAllocations,
+    setSpecies,
+    setRegion,
+    setDonorInfo,
     state,
   } = useDonationContext();
 
@@ -73,6 +83,11 @@ export function DonationAmountStep() {
   });
 
   const [treeCount, setTreeCount] = useState<number>(1);
+  const [selectedSpeciesSlug, setSelectedSpeciesSlug] = useState(state.speciesSlug);
+  const [selectedRegionId, setSelectedRegionId] = useState(state.regionId || IMPACT_DATA.regions[0].id);
+  const [donationMode, setDonationMode] = useState<'tracked' | 'anonymous'>(
+    state.donorInfo.anonymous ? 'anonymous' : 'tracked'
+  );
 
   // Initialize region allocations with default (first region gets all trees)
   const [regionAllocations, setLocalRegionAllocations] = useState<RegionAllocation[]>(() => {
@@ -83,6 +98,8 @@ export function DonationAmountStep() {
 
   const currentAmount = isCustom ? parseFloat(customAmount) || 0 : selectedAmount || 0;
   const isValidAmount = currentAmount >= MINIMUM_DONATION;
+  const selectedSpecies = TREE_SPECIES.find((species) => species.slug === selectedSpeciesSlug) ?? TREE_SPECIES[0];
+  const selectedRegion = IMPACT_DATA.regions.find((region) => region.id === selectedRegionId) ?? IMPACT_DATA.regions[0];
 
   // Handle extremely large amounts (cap display at reasonable values)
   const safeAmount = Math.min(currentAmount, 1000000);
@@ -94,6 +111,12 @@ export function DonationAmountStep() {
   const totalAllocatedTrees = useMemo(() => {
     return regionAllocations.reduce((sum, alloc) => sum + alloc.treeCount, 0);
   }, [regionAllocations]);
+
+  useEffect(() => {
+    if (regionAllocations.length === 1 && regionAllocations[0].regionId === selectedRegionId) {
+      setLocalRegionAllocations([{ regionId: selectedRegionId, treeCount }]);
+    }
+  }, [selectedRegionId, treeCount]);
 
   // Helper to update region tree counts
   const updateRegionAllocation = (regionId: string, newTreeCount: number) => {
@@ -155,8 +178,11 @@ export function DonationAmountStep() {
       persistAmount(currentAmount);
       persistTreeCount(treeCount);
       persistIsMonthly(isMonthly);
+      setSpecies(selectedSpecies.slug);
+      setRegion(selectedRegion.id);
       setRegionAllocations(regionAllocations);
-      router.push('/donate/info');
+      setDonorInfo({ anonymous: donationMode === 'anonymous', privacyAccepted: donationMode === 'anonymous' });
+      router.push(donationMode === 'anonymous' ? '/donate/payment' : '/donate/info');
     }
   };
 
@@ -186,6 +212,94 @@ export function DonationAmountStep() {
               Every dollar brings us closer to a greener planet.
             </Text>
           </div>
+
+          {/* Species selection */}
+          <section className="space-y-4" aria-labelledby="species-heading">
+            <div>
+              <Text variant="h2" as="h2" id="species-heading" className="text-xl font-bold">
+                Choose a species
+              </Text>
+              <Text variant="muted" className="text-sm">
+                Your selection sets the estimated annual CO2 impact.
+              </Text>
+            </div>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+              {TREE_SPECIES.slice(0, 6).map((species) => {
+                const selected = species.slug === selectedSpecies.slug;
+                return (
+                  <button
+                    key={species.slug}
+                    type="button"
+                    onClick={() => setSelectedSpeciesSlug(species.slug)}
+                    aria-pressed={selected}
+                    className={`rounded-xl border p-3 text-left transition ${selected ? 'border-stellar-green bg-stellar-green/10 ring-2 ring-stellar-green/20' : 'border-gray-200 bg-white hover:border-stellar-green/50'}`}
+                  >
+                    <span className="block font-semibold text-gray-900">{species.name}</span>
+                    <span className="mt-1 block text-xs text-gray-500">{species.maturityYears} year maturity</span>
+                  </button>
+                );
+              })}
+            </div>
+            <div className="flex items-center gap-4 rounded-xl border border-stellar-green/30 bg-stellar-green/10 p-4">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-stellar-green text-white">
+                <Wind className="h-5 w-5" aria-hidden />
+              </div>
+              <div>
+                <Text className="font-semibold">{selectedSpecies.name} CO2 estimate</Text>
+                <Text variant="muted" className="text-sm">
+                  About {selectedSpecies.co2KgPerYear} kg CO2 per tree per year at maturity
+                </Text>
+              </div>
+            </div>
+          </section>
+
+          {/* Region map */}
+          <section className="space-y-4" aria-labelledby="region-heading">
+            <div>
+              <Text variant="h2" as="h2" id="region-heading" className="text-xl font-bold">
+                Pick a planting region
+              </Text>
+              <Text variant="muted" className="text-sm">
+                Select a marker to direct your trees to a local planting team.
+              </Text>
+            </div>
+            <div className="overflow-hidden rounded-xl border border-gray-200">
+              <DonationRegionMap
+                regions={IMPACT_DATA.regions}
+                selectedRegionId={selectedRegion.id}
+                onSelect={(regionId) => {
+                  setSelectedRegionId(regionId);
+                  setLocalRegionAllocations([{ regionId, treeCount }]);
+                }}
+              />
+            </div>
+            <div className="flex items-center justify-between rounded-xl bg-gray-50 px-4 py-3 text-sm">
+              <span className="font-medium text-gray-900">Selected region</span>
+              <span className="text-stellar-blue">{selectedRegion.name}</span>
+            </div>
+          </section>
+
+          {/* Visibility choice */}
+          <fieldset className="space-y-3">
+            <legend className="font-semibold text-gray-900">How should this gift appear?</legend>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {([
+                ['tracked', 'Tracked impact', 'Receive updates and follow your trees.', UserRound],
+                ['anonymous', 'Anonymous gift', 'Donate without a public donor profile.', EyeOff],
+              ] as const).map(([mode, label, description, Icon]) => (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={() => setDonationMode(mode)}
+                  aria-pressed={donationMode === mode}
+                  className={`flex items-start gap-3 rounded-xl border p-4 text-left ${donationMode === mode ? 'border-stellar-blue bg-stellar-blue/10 ring-2 ring-stellar-blue/20' : 'border-gray-200 hover:border-stellar-blue/50'}`}
+                >
+                  <Icon className="mt-0.5 h-5 w-5 shrink-0 text-stellar-blue" aria-hidden />
+                  <span><span className="block font-medium">{label}</span><span className="mt-1 block text-xs text-muted-foreground">{description}</span></span>
+                </button>
+              ))}
+            </div>
+          </fieldset>
 
           {/* Quick Select Buttons */}
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">

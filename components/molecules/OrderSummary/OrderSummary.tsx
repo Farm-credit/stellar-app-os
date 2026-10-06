@@ -18,6 +18,8 @@ interface OrderSummaryProps {
   isMonthly: boolean;
   paymentMethod: DonationPaymentMethod;
   treeCount?: number;
+  species?: string;
+  region?: string;
 }
 
 export function OrderSummary({
@@ -25,6 +27,8 @@ export function OrderSummary({
   isMonthly,
   paymentMethod,
   treeCount = 1,
+  species,
+  region,
 }: OrderSummaryProps) {
   const safeAmount = Math.min(amount, 1000000);
   const totalAmount = safeAmount * treeCount;
@@ -57,6 +61,23 @@ export function OrderSummary({
             </Badge>
           </div>
         </div>
+
+        {(species || region) && (
+          <div className="space-y-2 rounded-lg bg-muted/40 p-3 text-sm">
+            {species && (
+              <div className="flex items-center justify-between gap-3">
+                <Text variant="small" className="text-muted-foreground">Species</Text>
+                <Text variant="small" className="font-medium">{species}</Text>
+              </div>
+            )}
+            {region && (
+              <div className="flex items-center justify-between gap-3">
+                <Text variant="small" className="text-muted-foreground">Planting region</Text>
+                <Text variant="small" className="text-right font-medium">{region}</Text>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Payment Method */}
         <div className="flex items-center justify-between">

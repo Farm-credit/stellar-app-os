@@ -1,6 +1,7 @@
 
 
 
+
 # 🌱 Harvesta — Plant Trees. Track Impact. Offset Carbon.
 
 > A decentralised tree-planting platform on Stellar where anyone can pay farmers and individuals to plant trees — anonymously or with full carbon-offset tracking — and planters upload real-world progress with a unique tree ID.
@@ -86,6 +87,14 @@ contracts/
 ├── carbon_credits/     # Calculate and record CO₂ offset per tree
 └── governance/         # DAO voting for platform parameters
 ```
+
+---
+
+## Documentation & Guides
+
+- [Planter Onboarding & Tree Verification Guide](docs/PLANTER_ONBOARDING_GUIDE.md) — Step-by-step field verification, photo rules, GPS accuracy thresholds, and milestone payout workflow.
+- [Carbon Offset Website Embed](docs/carbon-offset-embed.md) — White-label widget, API key setup, checkout, and Stripe webhook configuration.
+- [Interactive API Documentation](/api-docs) — Interactive developer API reference and OpenAPI live console.
 
 ---
 
@@ -176,6 +185,8 @@ Issues are open and labelled — see the [Issues tab](../../issues). Smart contr
 ## License
 
 Apache 2.0
+
+<!-- Issue #1090 is a duplicate of an already-implemented feature request. -->
 ![CI](https://github.com/Farm-credit//stellar-app-os/actions/workflows/ci.yml/badge.svg)
 
 ![Deploy](https://github.com/Farm-credit/stellar-app-os/actions/workflows/deploy.yml/badge.svg)
@@ -358,8 +369,11 @@ FarmCredit exposes a REST API under `/api` for programmatic access. Key endpoint
 | `/api/sponsorships` | POST | Create a new sponsorship |
 | `/api/planters` | GET | List registered planters |
 | `/api/trees` | GET | List tree IDs and status |
+| `/api/farmer-income-prediction` | POST | Predict potential farmer income from a carbon project based on land size, location, practice type, and historical prices |
 
 Use the API to embed sponsorship functionality directly into your existing corporate portal.
+
+Companies can also offer carbon-offset purchases directly on their own sites with the white-label embed widget. See the [Carbon Offset Website Embed guide](docs/carbon-offset-embed.md) for setup, API key management, allowed-domain controls, and Stripe checkout configuration.
 
 ### Whitelabel Metrics
 
@@ -4442,3 +4456,5 @@ Generates and returns a downloadable PDF certificate.
 | `CERTIFICATE_EXPLORER_BASE_URL` | `https://stellar.expert/explorer/public/tx` | Base Stellar explorer URL embedded in QR code |
 | `CERTIFICATE_DPI` | `150` | PDF output resolution |
 
+
+<!-- Issue #1090 is a duplicate of an already-implemented feature request. -->

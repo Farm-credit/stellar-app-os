@@ -1,0 +1,175 @@
+// Prisma schema for the Stellar Farm Credit application.
+//
+// NOTE: This schema documents the data model in Prisma format per the
+// sponsor-map feature request. The production app uses raw SQL migrations
+// under db/migrations/ with the `pg` driver (see lib/db/client.ts).
+// To keep both in sync, mirror any model change here into a new SQL
+// migration file (e.g. db/migrations/NNN_description.sql).
+//
+// Usage (if you later switch the app to Prisma ORM):
+//   npx prisma generate
+//   npx prisma migrate dev --name <description>
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ── PlantingLocation ─────────────────────────────────────────────────────────
+//
+// Browseable, filterable tree-planting sites displayed on the sponsor map.
+//
+// Required environment for this model:
+//   DATABASE_URL — standard PostgreSQL connection string
+
+model PlantingLocation {
+  id                Int       @id @default(autoincrement())
+  name              String    @db.VarChar(200)
+  description       String    @db.Text
+  latitude          Float     @db.DoublePrecision
+  longitude         Float     @db.DoublePrecision
+  region            String    @db.VarChar(100) // e.g. "North America", "Sub-Saharan Africa"
+  climate           String    @db.VarChar(50)  // e.g. "Tropical", "Arid", "Temperate"
+  species           String[]                     // PostgreSQL TEXT[] — slugs matching species_catalogue.slug
+  availableCapacity Int       @default(0)
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+
+  // Optional: if you later relate this to existing DB tables, uncomment:
+  // trees             Tree[]
+
+  @@index([region])
+  @@index([climate])
+  @@index([latitude, longitude])
+  @@map("planting_locations")
+}
+
+// Carbon methodology library (migration 025). Reference catalogue of calculation
+// methodologies; seeded from data/carbon-methodologies/*.json.
+model CarbonMethodology {
+  slug             String   @id
+  code             String
+  name             String
+  category         String   // reforestation | soil_sequestration | renewable_energy | methane_reduction | energy_efficiency
+  standard         String
+  version          String?
+  description      String   @db.Text
+  formula          String   @db.Text
+  parameters       Json     @default("[]")
+  applicability    String[]
+  sourceRef        String   @map("source_ref") @db.Text
+  metadataVerified Boolean  @default(false) @map("metadata_verified")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  @@map("carbon_methodologies")
+  @@index([category])
+  @@index([standard])
+}
+
+// ── ProjectRiskScore ────────────────────────────────────────────────────────
+//
+// Buyer risk scores for carbon credit projects (Issue #1294).
+// Calculated from verifier reputation, methodology strength, regional stability,
+// and farmer track record. Persisted for auditability and caching.
+//
+// Schema is for documentation; production uses raw SQL migrations (see note above).
+model ProjectRiskScore {
+  id                          String   @id @default(cuid())
+  projectId                   String   @unique
+  overallScore                Int      // 0-100
+  riskRating                  String   // 'Low' | 'Medium' | 'High'
+  verifierReputationScore     Int      // 0-100
+  methodologyStrengthScore    Int      // 0-100
+  regionalStabilityScore      Int      // 0-100
+  farmerTrackRecordScore      Int      // 0-100
+  
+  // Data gap documentation (for transparency)
+  dataGaps                    String[]
+  
+  // Metadata
+  calculatedAt                DateTime @default(now()) @map("calculated_at")
+  updatedAt                   DateTime @updatedAt @map("updated_at")
+
+  @@index([projectId])
+  @@index([riskRating])
+  @@index([updatedAt])
+  @@map("project_risk_scores")
+}
+
+// ── BulkPurchaseAgreement ───────────────────────────────────────────────────
+//
+// Negotiated bulk purchase agreements between corporate buyers and farmers
+// for large-volume (100+ ton) batches at discounted rates (Issue: buyer bulk
+// purchasing - volume discounts v1).
+//
+// Schema is for documentation; production uses raw SQL migrations (see note above).
+model BulkPurchaseAgreement {
+  id                  String   @id @default(cuid())
+  buyerId             String   @map("buyer_id")
+  farmerId            String   @map("farmer_id")
+  commodity           String   @db.VarChar(100)
+  quantityTons        Float    @map("quantity_tons") @db.DoublePrecision
+  basePricePerTon     Float    @map("base_price_per_ton") @db.DoublePrecision
+  discountPercent     Float    @map("discount_percent") @db.DoublePrecision
+  negotiatedPricePerTon Float  @map("negotiated_price_per_ton") @db.DoublePrecision
+  totalValue          Float    @map("total_value") @db.DoublePrecision
+  currency            String   @default("USD") @db.VarChar(3)
+  status              String   @default("draft") @db.VarChar(20) // draft | active | fulfilled | cancelled | expired
+  deliveryStartDate   DateTime? @map("delivery_start_date")
+  deliveryEndDate     DateTime? @map("delivery_end_date")
+  terms               String?  @db.Text
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  @@index([buyerId])
+  @@index([farmerId])
+  @@index([status])
+  @@index([commodity])
+  @@map("bulk_purchase_agreements")
+}
+
+// ── BulkPurchaseTier ────────────────────────────────────────────────────────
+//
+// Volume discount tiers applied to bulk purchase agreements. Each tier defines
+// a minimum quantity threshold and the discount percentage granted at or above
+// that threshold. Tiers are evaluated in ascending order of minQuantityTons.
+model BulkPurchaseTier {
+  id                String   @id @default(cuid())
+  agreementId       String   @map("agreement_id")
+  minQuantityTons   Float    @map("min_quantity_tons") @db.DoublePrecision
+  discountPercent   Float    @map("discount_percent") @db.DoublePrecision
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  @@index([agreementId])
+  @@index([minQuantityTons])
+  @@map("bulk_purchase_tiers")
+}
+
+// ── BulkPurchaseOrder ───────────────────────────────────────────────────────
+//
+// Individual orders drawn against a bulk purchase agreement. Each order
+// consumes a portion of the agreement's quantity and records the applied
+// volume discount tier.
+model BulkPurchaseOrder {
+  id                String   @id @default(cuid())
+  agreementId       String   @map("agreement_id")
+  quantityTons      Float    @map("quantity_tons") @db.DoublePrecision
+  appliedTierId     String?  @map("applied_tier_id")
+  discountPercent   Float    @map("discount_percent") @db.DoublePrecision
+  pricePerTon       Float    @map("price_per_ton") @db.DoublePrecision
+  totalValue        Float    @map("total_value") @db.DoublePrecision
+  status            String   @default("pending") @db.VarChar(20) // pending | confirmed | delivered | cancelled
+  orderedAt         DateTime @default(now()) @map("ordered_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  @@index([agreementId])
+  @@index([status])
+  @@index([orderedAt])
+  @@map("bulk_purchase_orders")
+}

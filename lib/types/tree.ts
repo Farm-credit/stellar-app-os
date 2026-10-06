@@ -28,6 +28,9 @@ export interface Tree {
   lng: number;
   co2OffsetKgPerYear: number;
   projectName: string;
+  /** On-chain collectible ID and current owner for sponsored trees. */
+  nftTokenId?: string;
+  nftOwner?: string;
   /** Optional evidence image shown on the tree detail page. */
   imageUrl?: string;
 }

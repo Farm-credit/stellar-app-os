@@ -142,6 +142,7 @@ pub struct FarmerProfile {
     /// Geohash for the farmer's region (Northern Nigeria s0–s8 prefix scheme).
     pub region_geohash: String,
     pub registered_at: u64,
+    pub plot_merkle_root: BytesN<32>,
 }
 
 /// Publicly-visible subset of a profile — no wallet address exposed.
@@ -152,6 +153,7 @@ pub struct PublicFarmerView {
     pub land_doc_hash: BytesN<32>,
     pub region_geohash: String,
     pub registered_at: u64,
+    pub plot_merkle_root: BytesN<32>,
 }
 
 /// Snapshot of a profile at a given version, stored for audit history.
@@ -375,6 +377,7 @@ impl FarmerRegistry {
         land_doc_hash: BytesN<32>,
         doc_preimage: Bytes,
         region_geohash: String,
+        plot_merkle_root: BytesN<32>,
     ) -> FarmerProfile {
         Self::assert_not_paused(&env);
         validator.require_auth();
@@ -394,6 +397,7 @@ impl FarmerRegistry {
             land_doc_hash: land_doc_hash.clone(),
             region_geohash,
             registered_at: env.ledger().timestamp(),
+            plot_merkle_root,
         };
 
         env.storage().persistent().set(&key, &profile);
@@ -446,6 +450,7 @@ impl FarmerRegistry {
         new_land_doc_hash: BytesN<32>,
         new_doc_preimage: Bytes,
         new_region_geohash: String,
+        new_plot_merkle_root: BytesN<32>,
     ) -> FarmerProfile {
         Self::assert_not_paused(&env);
         validator.require_auth();
@@ -490,6 +495,7 @@ impl FarmerRegistry {
             land_doc_hash: new_land_doc_hash.clone(),
             region_geohash: new_region_geohash,
             registered_at: old_profile.registered_at,
+            plot_merkle_root: new_plot_merkle_root,
         };
 
         env.storage().persistent().set(&key, &new_profile);
@@ -590,6 +596,7 @@ impl FarmerRegistry {
                 land_doc_hash: p.land_doc_hash,
                 region_geohash: p.region_geohash,
                 registered_at: p.registered_at,
+                plot_merkle_root: p.plot_merkle_root,
             })
     }
 
@@ -646,6 +653,42 @@ impl FarmerRegistry {
         env.storage()
             .persistent()
             .has(&DataKey::Farmer(wallet_address))
+    }
+
+    // ── Merkle Plot Verification ─────────────────────────────────────────────
+
+    /// Verify a plot boundary using a Merkle proof against the stored root
+    pub fn verify_plot_boundary(
+        env: Env,
+        wallet_address: Address,
+        leaf: BytesN<32>,
+        proof: Vec<BytesN<32>>,
+    ) -> bool {
+        let profile = Self::get_farmer(env.clone(), wallet_address.clone())
+            .unwrap_or_else(|| panic_with_error!(&env, FarmerError::FarmerNotRegistered));
+
+        let mut computed_hash = leaf.to_array();
+        for sibling in proof.into_iter() {
+            let sibling_arr = sibling.to_array();
+            let mut combined = [0u8; 64];
+            if computed_hash < sibling_arr {
+                combined[..32].copy_from_slice(&computed_hash);
+                combined[32..].copy_from_slice(&sibling_arr);
+            } else {
+                combined[..32].copy_from_slice(&sibling_arr);
+                combined[32..].copy_from_slice(&computed_hash);
+            }
+            computed_hash = env
+                .crypto()
+                .sha256(&Bytes::from_slice(&env, &combined))
+                .to_array();
+        }
+
+        if computed_hash != profile.plot_merkle_root.to_array() {
+            panic_with_error!(&env, FarmerError::InvalidMerkleProof);
+        }
+
+        true
     }
 
     // ── Availability toggle (farmer-only, unchanged) ──────────────────────────
@@ -1349,8 +1392,8 @@ mod tests {
         let (p1, h1) = doc(&env, 1);
         let (p2, h2) = doc(&env, 2);
 
-        client.register_farmer(&validator, &farmer, &h1, &p1, &region(&env, "s1"));
-        client.register_farmer(&validator, &farmer, &h2, &p2, &region(&env, "s2"));
+        client.register_farmer(&validator, &farmer, &h1, &p1, &region(&env, "s1"), &soroban_sdk::BytesN::from_array(&env, &[0u8; 32]));
+        client.register_farmer(&validator, &farmer, &h2, &p2, &region(&env, "s2"), &soroban_sdk::BytesN::from_array(&env, &[0u8; 32]));
     }
 
     #[test]
@@ -1521,12 +1564,12 @@ mod tests {
         let farmer = Address::generate(&env);
         let (p1, h1) = doc(&env, 1);
 
-        client.register_farmer(&validator, &farmer, &h1, &p1, &region(&env, "s1"));
+        client.register_farmer(&validator, &farmer, &h1, &p1, &region(&env, "s1"), &soroban_sdk::BytesN::from_array(&env, &[0u8; 32]));
 
         let (p2, _real_h2) = doc(&env, 2);
         let wrong_hash = BytesN::from_array(&env, &[0xadu8; 32]);
 
-        client.update_profile(&validator, &farmer, &wrong_hash, &p2, &region(&env, "s2"));
+        client.update_profile(&validator, &farmer, &wrong_hash, &p2, &region(&env, "s2"), &soroban_sdk::BytesN::from_array(&env, &[0u8; 32]));
     }
 
     #[test]
@@ -1554,8 +1597,8 @@ mod tests {
         let (p1, h1) = doc(&env, 1);
         let (p2, h2) = doc(&env, 2);
 
-        client.register_farmer(&validator, &farmer, &h1, &p1, &region(&env, "s1"));
-        client.update_profile(&validator, &farmer, &h2, &p2, &region(&env, "s2"));
+        client.register_farmer(&validator, &farmer, &h1, &p1, &region(&env, "s1"), &soroban_sdk::BytesN::from_array(&env, &[0u8; 32]));
+        client.update_profile(&validator, &farmer, &h2, &p2, &region(&env, "s2"), &soroban_sdk::BytesN::from_array(&env, &[0u8; 32]));
 
         let view = client.get_farmer(&farmer).unwrap();
         assert_eq!(view.land_doc_hash, h2);
@@ -1570,13 +1613,13 @@ mod tests {
         let (p2, h2) = doc(&env, 2);
         let (p3, h3) = doc(&env, 3);
 
-        client.register_farmer(&validator, &farmer, &h1, &p1, &region(&env, "s1"));
+        client.register_farmer(&validator, &farmer, &h1, &p1, &region(&env, "s1"), &soroban_sdk::BytesN::from_array(&env, &[0u8; 32]));
         assert_eq!(client.get_version(&farmer), 0);
 
-        client.update_profile(&validator, &farmer, &h2, &p2, &region(&env, "s2"));
+        client.update_profile(&validator, &farmer, &h2, &p2, &region(&env, "s2"), &soroban_sdk::BytesN::from_array(&env, &[0u8; 32]));
         assert_eq!(client.get_version(&farmer), 1);
 
-        client.update_profile(&validator, &farmer, &h3, &p3, &region(&env, "s3"));
+        client.update_profile(&validator, &farmer, &h3, &p3, &region(&env, "s3"), &soroban_sdk::BytesN::from_array(&env, &[0u8; 32]));
         assert_eq!(client.get_version(&farmer), 2);
     }
 
@@ -1587,8 +1630,8 @@ mod tests {
         let (p1, h1) = doc(&env, 1);
         let (p2, h2) = doc(&env, 2);
 
-        client.register_farmer(&validator, &farmer, &h1, &p1, &region(&env, "s1"));
-        client.update_profile(&validator, &farmer, &h2, &p2, &region(&env, "s2"));
+        client.register_farmer(&validator, &farmer, &h1, &p1, &region(&env, "s1"), &soroban_sdk::BytesN::from_array(&env, &[0u8; 32]));
+        client.update_profile(&validator, &farmer, &h2, &p2, &region(&env, "s2"), &soroban_sdk::BytesN::from_array(&env, &[0u8; 32]));
 
         let h = client
             .get_profile_history(&validator, &farmer, &0u32)
@@ -1604,7 +1647,7 @@ mod tests {
         let farmer = Address::generate(&env);
         let (p1, h1) = doc(&env, 1);
 
-        client.register_farmer(&validator, &farmer, &h1, &p1, &region(&env, "s1"));
+        client.register_farmer(&validator, &farmer, &h1, &p1, &region(&env, "s1"), &soroban_sdk::BytesN::from_array(&env, &[0u8; 32]));
 
         let attacker = Address::generate(&env);
         client.get_profile_history(&attacker, &farmer, &0u32);
@@ -1617,7 +1660,7 @@ mod tests {
         let stranger = Address::generate(&env);
         let (p, h) = doc(&env, 1);
 
-        client.update_profile(&validator, &stranger, &h, &p, &region(&env, "s1"));
+        client.update_profile(&validator, &stranger, &h, &p, &region(&env, "s1"), &soroban_sdk::BytesN::from_array(&env, &[0u8; 32]));
     }
 
     // ── availability ──────────────────────────────────────────────────────────
@@ -1628,7 +1671,7 @@ mod tests {
         let farmer = Address::generate(&env);
         let (p, h) = doc(&env, 1);
 
-        client.register_farmer(&validator, &farmer, &h, &p, &region(&env, "s1"));
+        client.register_farmer(&validator, &farmer, &h, &p, &region(&env, "s1"), &soroban_sdk::BytesN::from_array(&env, &[0u8; 32]));
         assert!(client.is_available(&farmer));
     }
 
@@ -1638,7 +1681,7 @@ mod tests {
         let farmer = Address::generate(&env);
         let (p, h) = doc(&env, 1);
 
-        client.register_farmer(&validator, &farmer, &h, &p, &region(&env, "s1"));
+        client.register_farmer(&validator, &farmer, &h, &p, &region(&env, "s1"), &soroban_sdk::BytesN::from_array(&env, &[0u8; 32]));
         client.set_available(&farmer, &false);
         assert!(!client.is_available(&farmer));
     }
@@ -1649,7 +1692,7 @@ mod tests {
         let farmer = Address::generate(&env);
         let (p, h) = doc(&env, 1);
 
-        client.register_farmer(&validator, &farmer, &h, &p, &region(&env, "s1"));
+        client.register_farmer(&validator, &farmer, &h, &p, &region(&env, "s1"), &soroban_sdk::BytesN::from_array(&env, &[0u8; 32]));
         client.set_available(&farmer, &false);
         client.set_available(&farmer, &true);
         assert!(client.is_available(&farmer));
@@ -1671,8 +1714,8 @@ mod tests {
         let (pa, ha) = doc(&env, 1);
         let (pb, hb) = doc(&env, 2);
 
-        client.register_farmer(&validator, &farmer_a, &ha, &pa, &region(&env, "s1"));
-        client.register_farmer(&validator, &farmer_b, &hb, &pb, &region(&env, "s2"));
+        client.register_farmer(&validator, &farmer_a, &ha, &pa, &region(&env, "s1"), &soroban_sdk::BytesN::from_array(&env, &[0u8; 32]));
+        client.register_farmer(&validator, &farmer_b, &hb, &pb, &region(&env, "s2"), &soroban_sdk::BytesN::from_array(&env, &[0u8; 32]));
 
         client.set_available(&farmer_a, &false);
         assert!(!client.is_available(&farmer_a));
@@ -1803,11 +1846,11 @@ mod tests {
         let farmer = Address::generate(&env);
         let (p1, h1) = doc(&env, 1);
 
-        client.register_farmer(&validator, &farmer, &h1, &p1, &region(&env, "s1"));
+        client.register_farmer(&validator, &farmer, &h1, &p1, &region(&env, "s1"), &soroban_sdk::BytesN::from_array(&env, &[0u8; 32]));
         client.freeze_farmer(&admin, &farmer);
 
         let (p2, h2) = doc(&env, 2);
-        client.update_profile(&validator, &farmer, &h2, &p2, &region(&env, "s2"));
+        client.update_profile(&validator, &farmer, &h2, &p2, &region(&env, "s2"), &soroban_sdk::BytesN::from_array(&env, &[0u8; 32]));
     }
 
     #[test]
@@ -1817,7 +1860,7 @@ mod tests {
         let farmer = Address::generate(&env);
         let (p1, h1) = doc(&env, 1);
 
-        client.register_farmer(&validator, &farmer, &h1, &p1, &region(&env, "s1"));
+        client.register_farmer(&validator, &farmer, &h1, &p1, &region(&env, "s1"), &soroban_sdk::BytesN::from_array(&env, &[0u8; 32]));
         client.freeze_farmer(&admin, &farmer);
 
         client.set_available(&farmer, &false);
@@ -1830,7 +1873,7 @@ mod tests {
         let farmer = Address::generate(&env);
         let (p1, h1) = doc(&env, 1);
 
-        client.register_farmer(&validator, &farmer, &h1, &p1, &region(&env, "s1"));
+        client.register_farmer(&validator, &farmer, &h1, &p1, &region(&env, "s1"), &soroban_sdk::BytesN::from_array(&env, &[0u8; 32]));
         client.freeze_farmer(&admin, &farmer);
 
         let plot_id = BytesN::from_array(&env, &[5u8; 32]);

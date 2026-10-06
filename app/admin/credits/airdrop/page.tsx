@@ -13,6 +13,7 @@ import { Button } from '@/components/atoms/Button';
 import type { AirdropPreview, AirdropResult } from '@/lib/types/carbon';
 
 const DEFAULT_LAUNCH_DATE = '2022-01-01';
+const MIN_CREDITS_PER_SPONSOR = 1;
 
 export default function RetroactiveAirdropPage(): ReactNode {
   const [projectId, setProjectId] = useState('');
@@ -116,7 +117,8 @@ export default function RetroactiveAirdropPage(): ReactNode {
               <input
                 id="credits-per-sponsor"
                 type="number"
-                min={1}
+                min={MIN_CREDITS_PER_SPONSOR}
+                step={1}
                 value={creditsPerSponsor}
                 onChange={(e) => {
                   setCreditsPerSponsor(Number(e.target.value));
@@ -153,10 +155,15 @@ export default function RetroactiveAirdropPage(): ReactNode {
             </p>
           ) : null}
 
+          <p className="text-xs text-muted-foreground">
+            Retail buyers can purchase as little as {MIN_CREDITS_PER_SPONSOR} ton (1 credit).
+            Minimum allocation per sponsor is {MIN_CREDITS_PER_SPONSOR} credit.
+          </p>
+
           <Button
             type="button"
             onClick={handlePreview}
-            disabled={loading || !projectId || creditsPerSponsor <= 0}
+            disabled={loading || !projectId || creditsPerSponsor < MIN_CREDITS_PER_SPONSOR}
           >
             {loading && !preview ? 'Loading\u2026' : 'Preview eligible sponsors'}
           </Button>

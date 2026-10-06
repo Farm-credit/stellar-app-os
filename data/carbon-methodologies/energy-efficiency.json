@@ -1,0 +1,824 @@
+[
+  {
+    "slug": "vm0008",
+    "code": "VM0008",
+    "name": "Weatherization of Single Family and Multi-Family Buildings",
+    "category": "energy_efficiency",
+    "standard": "Verra VCS",
+    "version": "1.2",
+    "description": "Credits energy savings from building envelope upgrades (insulation, air sealing) in residential buildings.",
+    "formula": "ER_y = (EC_BL,y − EC_PJ,y) × EF_y − PE_y − LE_y",
+    "parameters": [
+      {
+        "symbol": "ER_y",
+        "name": "Emission reductions",
+        "unit": "tCO2e/yr",
+        "description": "Net emission reductions in year y"
+      },
+      {
+        "symbol": "EC_BL,y",
+        "name": "Baseline energy use",
+        "unit": "MWh/yr or GJ/yr",
+        "description": "Building energy consumption"
+      },
+      {
+        "symbol": "EC_PJ,y",
+        "name": "Project energy use",
+        "unit": "MWh/yr or GJ/yr",
+        "description": "After weatherization"
+      },
+      {
+        "symbol": "EF_y",
+        "name": "Emission factor of displaced energy",
+        "unit": "tCO2/unit",
+        "description": "Fuel or electricity"
+      },
+      {
+        "symbol": "PE_y",
+        "name": "Project emissions",
+        "unit": "tCO2e/yr",
+        "description": "Emissions from the project activity"
+      },
+      {
+        "symbol": "LE_y",
+        "name": "Leakage emissions",
+        "unit": "tCO2e/yr",
+        "description": "Emissions displaced outside the project boundary"
+      }
+    ],
+    "applicability": ["Weatherization of single- and multi-family residential buildings"],
+    "sourceRef": "Verra VCS VM0008 v1.2 (Verra digitalized methodologies list)",
+    "metadataVerified": true
+  },
+  {
+    "slug": "vm0050",
+    "code": "VM0050",
+    "name": "Energy Efficiency and Fuel-Switch Measures in Cookstoves",
+    "category": "energy_efficiency",
+    "standard": "Verra VCS",
+    "version": "1.0",
+    "description": "Credits fuel savings and fuel-switching from improved cookstoves, including accounting for non-renewable biomass.",
+    "formula": "ER_y = N_stoves,y × U_y × (B_BL − B_PJ) × f_NRB,y × NCV × EF − LE_y  (fuel-switch cases use fossil-fuel emission factors)",
+    "parameters": [
+      {
+        "symbol": "ER_y",
+        "name": "Emission reductions",
+        "unit": "tCO2e/yr",
+        "description": "Net emission reductions in year y"
+      },
+      {
+        "symbol": "N_stoves,y",
+        "name": "Operating stoves",
+        "unit": "count",
+        "description": "Verified operating in year y"
+      },
+      {
+        "symbol": "U_y",
+        "name": "Usage rate",
+        "unit": "fraction",
+        "description": "Share in use"
+      },
+      {
+        "symbol": "B_BL",
+        "name": "Baseline fuel use",
+        "unit": "t/stove/yr",
+        "description": "Baseline"
+      },
+      {
+        "symbol": "B_PJ",
+        "name": "Project fuel use",
+        "unit": "t/stove/yr",
+        "description": "With efficient stove"
+      },
+      {
+        "symbol": "f_NRB,y",
+        "name": "Non-renewable biomass fraction",
+        "unit": "fraction",
+        "description": "fNRB"
+      },
+      {
+        "symbol": "NCV",
+        "name": "Net calorific value of fuel",
+        "unit": "GJ/t",
+        "description": "Fuel"
+      },
+      {
+        "symbol": "EF",
+        "name": "Fuel emission factor",
+        "unit": "tCO2/GJ",
+        "description": "Displaced fuel"
+      },
+      {
+        "symbol": "LE_y",
+        "name": "Leakage emissions",
+        "unit": "tCO2e/yr",
+        "description": "Emissions displaced outside the project boundary"
+      }
+    ],
+    "applicability": ["Efficient cookstoves and fuel-switch measures"],
+    "sourceRef": "Verra VCS VM0050 v1.0 (Verra digitalized methodologies list)",
+    "metadataVerified": true
+  },
+  {
+    "slug": "ams-ii-c",
+    "code": "AMS-II.C",
+    "name": "Demand-side energy efficiency activities for specific technologies",
+    "category": "energy_efficiency",
+    "standard": "CDM",
+    "version": null,
+    "description": "Small-scale demand-side efficiency for specific technologies such as lighting, motors, chillers.",
+    "formula": "BE_y = EC_BL,y × EF_elec,y / (1 − TDL_y);  ER_y = (EC_BL,y − EC_PJ,y) × EF_elec,y / (1 − TDL_y) − PE_y − LE_y",
+    "parameters": [
+      {
+        "symbol": "ER_y",
+        "name": "Emission reductions",
+        "unit": "tCO2e/yr",
+        "description": "Net emission reductions in year y"
+      },
+      {
+        "symbol": "EC_BL,y",
+        "name": "Baseline energy consumption",
+        "unit": "MWh/yr",
+        "description": "Consumption of replaced equipment"
+      },
+      {
+        "symbol": "EC_PJ,y",
+        "name": "Project energy consumption",
+        "unit": "MWh/yr",
+        "description": "Consumption after efficiency measure"
+      },
+      {
+        "symbol": "EF_elec,y",
+        "name": "Electricity emission factor",
+        "unit": "tCO2/MWh",
+        "description": "Grid or captive factor"
+      },
+      {
+        "symbol": "TDL_y",
+        "name": "Transmission and distribution losses",
+        "unit": "fraction",
+        "description": "Average technical losses"
+      },
+      {
+        "symbol": "PE_y",
+        "name": "Project emissions",
+        "unit": "tCO2e/yr",
+        "description": "Emissions from the project activity"
+      },
+      {
+        "symbol": "LE_y",
+        "name": "Leakage emissions",
+        "unit": "tCO2e/yr",
+        "description": "Emissions displaced outside the project boundary"
+      }
+    ],
+    "applicability": [
+      "Installation or replacement of energy-efficient technologies",
+      "Small-scale CDM Type II limit: energy savings ≤ 60 GWh per year"
+    ],
+    "sourceRef": "UNFCCC CDM AMS-II.C (title per CDM listing; version not pinned)",
+    "metadataVerified": true
+  },
+  {
+    "slug": "ams-ii-b",
+    "code": "AMS-II.B",
+    "name": "Supply side energy efficiency improvements - generation",
+    "category": "energy_efficiency",
+    "standard": "CDM",
+    "version": null,
+    "description": "Small-scale efficiency improvements on the generation side (e.g. boilers, turbines).",
+    "formula": "ER_y = (FC_BL,y − FC_PJ,y) × NCV × EF_fuel − PE_y − LE_y  (fuel savings from higher efficiency)",
+    "parameters": [
+      {
+        "symbol": "ER_y",
+        "name": "Emission reductions",
+        "unit": "tCO2e/yr",
+        "description": "Net emission reductions in year y"
+      },
+      {
+        "symbol": "FC_BL,y",
+        "name": "Baseline fuel consumption",
+        "unit": "t/yr",
+        "description": "Fuel use at baseline efficiency"
+      },
+      {
+        "symbol": "FC_PJ,y",
+        "name": "Project fuel consumption",
+        "unit": "t/yr",
+        "description": "Fuel use at project efficiency"
+      },
+      {
+        "symbol": "NCV",
+        "name": "Net calorific value",
+        "unit": "GJ/t",
+        "description": "Fuel"
+      },
+      {
+        "symbol": "EF_fuel",
+        "name": "Fuel emission factor",
+        "unit": "tCO2/GJ",
+        "description": "CO2 emission factor of the baseline fuel"
+      },
+      {
+        "symbol": "PE_y",
+        "name": "Project emissions",
+        "unit": "tCO2e/yr",
+        "description": "Emissions from the project activity"
+      },
+      {
+        "symbol": "LE_y",
+        "name": "Leakage emissions",
+        "unit": "tCO2e/yr",
+        "description": "Emissions displaced outside the project boundary"
+      }
+    ],
+    "applicability": [
+      "Generation-side efficiency improvement",
+      "Small-scale CDM Type II limit: energy savings ≤ 60 GWh per year"
+    ],
+    "sourceRef": "UNFCCC CDM AMS-II.B (title per CDM listing; version not pinned)",
+    "metadataVerified": true
+  },
+  {
+    "slug": "ams-ii-d",
+    "code": "AMS-II.D",
+    "name": "Energy efficiency and fuel switching measures for industrial facilities",
+    "category": "energy_efficiency",
+    "standard": "CDM",
+    "version": null,
+    "description": "Small-scale efficiency and fuel switching in industrial processes.",
+    "formula": "ER_y = (EC_BL,y × EF_BL − EC_PJ,y × EF_PJ) − PE_y − LE_y",
+    "parameters": [
+      {
+        "symbol": "ER_y",
+        "name": "Emission reductions",
+        "unit": "tCO2e/yr",
+        "description": "Net emission reductions in year y"
+      },
+      {
+        "symbol": "EC_BL,y",
+        "name": "Baseline energy consumption",
+        "unit": "GJ/yr",
+        "description": "Industrial process"
+      },
+      {
+        "symbol": "EC_PJ,y",
+        "name": "Project energy consumption",
+        "unit": "GJ/yr",
+        "description": "After measure"
+      },
+      {
+        "symbol": "EF_BL",
+        "name": "Baseline emission factor",
+        "unit": "tCO2/GJ",
+        "description": "Baseline fuel"
+      },
+      {
+        "symbol": "EF_PJ",
+        "name": "Project emission factor",
+        "unit": "tCO2/GJ",
+        "description": "Project fuel"
+      },
+      {
+        "symbol": "PE_y",
+        "name": "Project emissions",
+        "unit": "tCO2e/yr",
+        "description": "Emissions from the project activity"
+      },
+      {
+        "symbol": "LE_y",
+        "name": "Leakage emissions",
+        "unit": "tCO2e/yr",
+        "description": "Emissions displaced outside the project boundary"
+      }
+    ],
+    "applicability": [
+      "Industrial energy efficiency or fuel switching",
+      "Small-scale CDM Type II limit: energy savings ≤ 60 GWh per year"
+    ],
+    "sourceRef": "UNFCCC CDM AMS-II.D (title per CDM listing; version not pinned)",
+    "metadataVerified": true
+  },
+  {
+    "slug": "ams-ii-e",
+    "code": "AMS-II.E",
+    "name": "Energy efficiency and fuel switching measures for buildings",
+    "category": "energy_efficiency",
+    "standard": "CDM",
+    "version": null,
+    "description": "Small-scale efficiency and fuel switching in buildings.",
+    "formula": "BE_y = EC_BL,y × EF_elec,y / (1 − TDL_y);  ER_y = (EC_BL,y − EC_PJ,y) × EF_elec,y / (1 − TDL_y) − PE_y − LE_y",
+    "parameters": [
+      {
+        "symbol": "ER_y",
+        "name": "Emission reductions",
+        "unit": "tCO2e/yr",
+        "description": "Net emission reductions in year y"
+      },
+      {
+        "symbol": "EC_BL,y",
+        "name": "Baseline energy consumption",
+        "unit": "MWh/yr",
+        "description": "Consumption of replaced equipment"
+      },
+      {
+        "symbol": "EC_PJ,y",
+        "name": "Project energy consumption",
+        "unit": "MWh/yr",
+        "description": "Consumption after efficiency measure"
+      },
+      {
+        "symbol": "EF_elec,y",
+        "name": "Electricity emission factor",
+        "unit": "tCO2/MWh",
+        "description": "Grid or captive factor"
+      },
+      {
+        "symbol": "TDL_y",
+        "name": "Transmission and distribution losses",
+        "unit": "fraction",
+        "description": "Average technical losses"
+      },
+      {
+        "symbol": "PE_y",
+        "name": "Project emissions",
+        "unit": "tCO2e/yr",
+        "description": "Emissions from the project activity"
+      },
+      {
+        "symbol": "LE_y",
+        "name": "Leakage emissions",
+        "unit": "tCO2e/yr",
+        "description": "Emissions displaced outside the project boundary"
+      }
+    ],
+    "applicability": [
+      "Energy efficiency or fuel switching in buildings",
+      "Small-scale CDM Type II limit: energy savings ≤ 60 GWh per year"
+    ],
+    "sourceRef": "UNFCCC CDM AMS-II.E (title per CDM listing; version not pinned)",
+    "metadataVerified": true
+  },
+  {
+    "slug": "ams-ii-f",
+    "code": "AMS-II.F",
+    "name": "Energy efficiency and fuel switching measures for agricultural facilities and activities",
+    "category": "energy_efficiency",
+    "standard": "CDM",
+    "version": null,
+    "description": "Small-scale efficiency and fuel switching in agricultural facilities.",
+    "formula": "BE_y = EC_BL,y × EF_elec,y / (1 − TDL_y);  ER_y = (EC_BL,y − EC_PJ,y) × EF_elec,y / (1 − TDL_y) − PE_y − LE_y",
+    "parameters": [
+      {
+        "symbol": "ER_y",
+        "name": "Emission reductions",
+        "unit": "tCO2e/yr",
+        "description": "Net emission reductions in year y"
+      },
+      {
+        "symbol": "EC_BL,y",
+        "name": "Baseline energy consumption",
+        "unit": "MWh/yr",
+        "description": "Consumption of replaced equipment"
+      },
+      {
+        "symbol": "EC_PJ,y",
+        "name": "Project energy consumption",
+        "unit": "MWh/yr",
+        "description": "Consumption after efficiency measure"
+      },
+      {
+        "symbol": "EF_elec,y",
+        "name": "Electricity emission factor",
+        "unit": "tCO2/MWh",
+        "description": "Grid or captive factor"
+      },
+      {
+        "symbol": "TDL_y",
+        "name": "Transmission and distribution losses",
+        "unit": "fraction",
+        "description": "Average technical losses"
+      },
+      {
+        "symbol": "PE_y",
+        "name": "Project emissions",
+        "unit": "tCO2e/yr",
+        "description": "Emissions from the project activity"
+      },
+      {
+        "symbol": "LE_y",
+        "name": "Leakage emissions",
+        "unit": "tCO2e/yr",
+        "description": "Emissions displaced outside the project boundary"
+      }
+    ],
+    "applicability": [
+      "Energy efficiency or fuel switching in agricultural facilities",
+      "Small-scale CDM Type II limit: energy savings ≤ 60 GWh per year"
+    ],
+    "sourceRef": "UNFCCC CDM AMS-II.F (title per CDM listing; version not pinned)",
+    "metadataVerified": true
+  },
+  {
+    "slug": "ams-ii-g",
+    "code": "AMS-II.G",
+    "name": "Energy efficiency measures in thermal applications of non-renewable biomass",
+    "category": "energy_efficiency",
+    "standard": "CDM",
+    "version": null,
+    "description": "Efficiency improvements (e.g. improved cookstoves) that reduce use of non-renewable biomass.",
+    "formula": "B_y,savings = B_old × (1 − η_old / η_new);  ER_y = B_y,savings × f_NRB,y × NCV_biomass × EF_projected_fossilfuel − LE_y",
+    "parameters": [
+      {
+        "symbol": "ER_y",
+        "name": "Emission reductions",
+        "unit": "tCO2e/yr",
+        "description": "Net emission reductions in year y"
+      },
+      {
+        "symbol": "B_old",
+        "name": "Baseline biomass use",
+        "unit": "t/yr",
+        "description": "Old appliance"
+      },
+      {
+        "symbol": "η_old",
+        "name": "Old appliance efficiency",
+        "unit": "fraction",
+        "description": "Baseline"
+      },
+      {
+        "symbol": "η_new",
+        "name": "New appliance efficiency",
+        "unit": "fraction",
+        "description": "Project"
+      },
+      {
+        "symbol": "f_NRB,y",
+        "name": "Non-renewable biomass fraction",
+        "unit": "fraction",
+        "description": "fNRB"
+      },
+      {
+        "symbol": "NCV_biomass",
+        "name": "Net calorific value",
+        "unit": "GJ/t",
+        "description": "Biomass"
+      },
+      {
+        "symbol": "LE_y",
+        "name": "Leakage emissions",
+        "unit": "tCO2e/yr",
+        "description": "Emissions displaced outside the project boundary"
+      }
+    ],
+    "applicability": [
+      "Thermal appliances using non-renewable biomass replaced by efficient ones",
+      "Small-scale CDM Type II limit: energy savings ≤ 60 GWh per year"
+    ],
+    "sourceRef": "UNFCCC CDM AMS-II.G (title per CDM listing; version not pinned)",
+    "metadataVerified": true
+  },
+  {
+    "slug": "ams-ii-j",
+    "code": "AMS-II.J",
+    "name": "Demand-side activities for efficient lighting technologies",
+    "category": "energy_efficiency",
+    "standard": "CDM",
+    "version": null,
+    "description": "Small-scale replacement of lamps with efficient lighting.",
+    "formula": "ER_y = N_lamps × (P_BL − P_PJ) × H_y × EF_elec,y / (1 − TDL_y) × 10^-6 − PE_y",
+    "parameters": [
+      {
+        "symbol": "ER_y",
+        "name": "Emission reductions",
+        "unit": "tCO2e/yr",
+        "description": "Net emission reductions in year y"
+      },
+      {
+        "symbol": "N_lamps",
+        "name": "Lamps installed",
+        "unit": "count",
+        "description": "Operating"
+      },
+      {
+        "symbol": "P_BL",
+        "name": "Baseline lamp power",
+        "unit": "W",
+        "description": "Replaced lamps"
+      },
+      {
+        "symbol": "P_PJ",
+        "name": "Project lamp power",
+        "unit": "W",
+        "description": "Efficient lamps"
+      },
+      {
+        "symbol": "H_y",
+        "name": "Operating hours",
+        "unit": "h/yr",
+        "description": "Per lamp"
+      },
+      {
+        "symbol": "EF_elec,y",
+        "name": "Electricity emission factor",
+        "unit": "tCO2/MWh",
+        "description": "Grid"
+      },
+      {
+        "symbol": "TDL_y",
+        "name": "T&D losses",
+        "unit": "fraction",
+        "description": "Average"
+      }
+    ],
+    "applicability": [
+      "Efficient lighting replacing inefficient lamps",
+      "Small-scale CDM Type II limit: energy savings ≤ 60 GWh per year"
+    ],
+    "sourceRef": "UNFCCC CDM AMS-II.J (title per CDM listing; version not pinned)",
+    "metadataVerified": true
+  },
+  {
+    "slug": "ams-ii-o",
+    "code": "AMS-II.O",
+    "name": "Dissemination of energy efficient household appliances",
+    "category": "energy_efficiency",
+    "standard": "CDM",
+    "version": null,
+    "description": "Small-scale dissemination of efficient household appliances.",
+    "formula": "ER_y = N_appliances × (EC_BL − EC_PJ) × EF_elec,y / (1 − TDL_y) − PE_y",
+    "parameters": [
+      {
+        "symbol": "ER_y",
+        "name": "Emission reductions",
+        "unit": "tCO2e/yr",
+        "description": "Net emission reductions in year y"
+      },
+      {
+        "symbol": "N_appliances",
+        "name": "Appliances in operation",
+        "unit": "count",
+        "description": "Disseminated"
+      },
+      {
+        "symbol": "EC_BL",
+        "name": "Baseline unit consumption",
+        "unit": "MWh/unit/yr",
+        "description": "Baseline appliance"
+      },
+      {
+        "symbol": "EC_PJ",
+        "name": "Project unit consumption",
+        "unit": "MWh/unit/yr",
+        "description": "Efficient appliance"
+      },
+      {
+        "symbol": "EF_elec,y",
+        "name": "Electricity emission factor",
+        "unit": "tCO2/MWh",
+        "description": "Grid"
+      },
+      {
+        "symbol": "TDL_y",
+        "name": "T&D losses",
+        "unit": "fraction",
+        "description": "Average"
+      }
+    ],
+    "applicability": [
+      "Dissemination of efficient household appliances",
+      "Small-scale CDM Type II limit: energy savings ≤ 60 GWh per year"
+    ],
+    "sourceRef": "UNFCCC CDM AMS-II.O (title per CDM listing; version not pinned)",
+    "metadataVerified": true
+  },
+  {
+    "slug": "ams-iii-ar",
+    "code": "AMS-III.AR",
+    "name": "Substituting fossil fuel based lighting with LED/CFL lighting systems",
+    "category": "energy_efficiency",
+    "standard": "CDM",
+    "version": null,
+    "description": "Replaces fossil-fuel lighting (e.g. kerosene lamps) with LED/CFL systems.",
+    "formula": "BE_y = N_lamps × H_y × F_BL × NCV × EF_fuel;  ER_y = BE_y − PE_y − LE_y",
+    "parameters": [
+      {
+        "symbol": "ER_y",
+        "name": "Emission reductions",
+        "unit": "tCO2e/yr",
+        "description": "Net emission reductions in year y"
+      },
+      {
+        "symbol": "BE_y",
+        "name": "Baseline emissions",
+        "unit": "tCO2e/yr",
+        "description": "Emissions in the baseline scenario"
+      },
+      {
+        "symbol": "PE_y",
+        "name": "Project emissions",
+        "unit": "tCO2e/yr",
+        "description": "Emissions from the project activity"
+      },
+      {
+        "symbol": "N_lamps",
+        "name": "Lighting systems installed",
+        "unit": "count",
+        "description": "Operating"
+      },
+      {
+        "symbol": "H_y",
+        "name": "Operating hours",
+        "unit": "h/yr",
+        "description": "Per lamp"
+      },
+      {
+        "symbol": "F_BL",
+        "name": "Baseline fuel use per lamp-hour",
+        "unit": "kg/h",
+        "description": "Baseline"
+      },
+      {
+        "symbol": "NCV",
+        "name": "Net calorific value",
+        "unit": "GJ/kg",
+        "description": "Fuel"
+      },
+      {
+        "symbol": "EF_fuel",
+        "name": "Fuel emission factor",
+        "unit": "tCO2/GJ",
+        "description": "CO2 emission factor of the baseline fuel"
+      }
+    ],
+    "applicability": [
+      "Substitution of fossil-fuel lighting with LED/CFL systems",
+      "Small-scale CDM Type III limit: emission reductions ≤ 60 ktCO2e per year"
+    ],
+    "sourceRef": "UNFCCC CDM AMS-III.AR (title per CDM listing; version not pinned)",
+    "metadataVerified": true
+  },
+  {
+    "slug": "acm0012",
+    "code": "ACM0012",
+    "name": "Waste energy recovery",
+    "category": "energy_efficiency",
+    "standard": "CDM",
+    "version": null,
+    "description": "Large-scale methodology for recovering waste gas, heat or pressure and using it for power or heat.",
+    "formula": "ER_y = EG_PJ,y × EF_elec,y + HG_PJ,y × EF_heat,y − PE_y",
+    "parameters": [
+      {
+        "symbol": "ER_y",
+        "name": "Emission reductions",
+        "unit": "tCO2e/yr",
+        "description": "Net emission reductions in year y"
+      },
+      {
+        "symbol": "EG_PJ,y",
+        "name": "Electricity from recovered energy",
+        "unit": "MWh/yr",
+        "description": "Generated"
+      },
+      {
+        "symbol": "EF_elec,y",
+        "name": "Electricity emission factor",
+        "unit": "tCO2/MWh",
+        "description": "Displaced"
+      },
+      {
+        "symbol": "HG_PJ,y",
+        "name": "Heat from recovered energy",
+        "unit": "GJ/yr",
+        "description": "Supplied"
+      },
+      {
+        "symbol": "EF_heat,y",
+        "name": "Heat emission factor",
+        "unit": "tCO2/GJ",
+        "description": "Displaced"
+      },
+      {
+        "symbol": "PE_y",
+        "name": "Project emissions",
+        "unit": "tCO2e/yr",
+        "description": "Emissions from the project activity"
+      }
+    ],
+    "applicability": ["Recovery and use of waste energy from industrial processes"],
+    "sourceRef": "UNFCCC CDM ACM0012 (title per CDM listing; version not pinned)",
+    "metadataVerified": true
+  },
+  {
+    "slug": "am0044",
+    "code": "AM0044",
+    "name": "Energy efficiency improvement projects - boiler rehabilitation or replacement in industrial and district heating sectors",
+    "category": "energy_efficiency",
+    "standard": "CDM",
+    "version": null,
+    "description": "Large-scale methodology for boiler rehabilitation or replacement.",
+    "formula": "ER_y = HG_y × (EF_fuel,BL / η_BL − EF_fuel,PJ / η_PJ) − PE_y",
+    "parameters": [
+      {
+        "symbol": "ER_y",
+        "name": "Emission reductions",
+        "unit": "tCO2e/yr",
+        "description": "Net emission reductions in year y"
+      },
+      {
+        "symbol": "HG_y",
+        "name": "Net heat supplied by project",
+        "unit": "GJ/yr",
+        "description": "Net quantity of thermal energy supplied"
+      },
+      {
+        "symbol": "η_BL",
+        "name": "Baseline boiler efficiency",
+        "unit": "fraction",
+        "description": "Old boiler"
+      },
+      {
+        "symbol": "η_PJ",
+        "name": "Project boiler efficiency",
+        "unit": "fraction",
+        "description": "New boiler"
+      },
+      {
+        "symbol": "EF_fuel,BL",
+        "name": "Baseline fuel factor",
+        "unit": "tCO2/GJ",
+        "description": "Fuel"
+      },
+      {
+        "symbol": "EF_fuel,PJ",
+        "name": "Project fuel factor",
+        "unit": "tCO2/GJ",
+        "description": "Fuel"
+      }
+    ],
+    "applicability": ["Boiler rehabilitation or replacement in industrial or district heating"],
+    "sourceRef": "UNFCCC CDM AM0044 (title per CDM listing; version not pinned)",
+    "metadataVerified": true
+  },
+  {
+    "slug": "ams-ii-s",
+    "code": "AMS-II.S",
+    "name": "Energy efficiency in motor systems",
+    "category": "energy_efficiency",
+    "standard": "CDM",
+    "version": null,
+    "description": "Small-scale efficiency in motor systems.",
+    "formula": "BE_y = EC_BL,y × EF_elec,y / (1 − TDL_y);  ER_y = (EC_BL,y − EC_PJ,y) × EF_elec,y / (1 − TDL_y) − PE_y − LE_y",
+    "parameters": [
+      {
+        "symbol": "ER_y",
+        "name": "Emission reductions",
+        "unit": "tCO2e/yr",
+        "description": "Net emission reductions in year y"
+      },
+      {
+        "symbol": "EC_BL,y",
+        "name": "Baseline energy consumption",
+        "unit": "MWh/yr",
+        "description": "Consumption of replaced equipment"
+      },
+      {
+        "symbol": "EC_PJ,y",
+        "name": "Project energy consumption",
+        "unit": "MWh/yr",
+        "description": "Consumption after efficiency measure"
+      },
+      {
+        "symbol": "EF_elec,y",
+        "name": "Electricity emission factor",
+        "unit": "tCO2/MWh",
+        "description": "Grid or captive factor"
+      },
+      {
+        "symbol": "TDL_y",
+        "name": "Transmission and distribution losses",
+        "unit": "fraction",
+        "description": "Average technical losses"
+      },
+      {
+        "symbol": "PE_y",
+        "name": "Project emissions",
+        "unit": "tCO2e/yr",
+        "description": "Emissions from the project activity"
+      },
+      {
+        "symbol": "LE_y",
+        "name": "Leakage emissions",
+        "unit": "tCO2e/yr",
+        "description": "Emissions displaced outside the project boundary"
+      }
+    ],
+    "applicability": [
+      "Efficient motor systems replacing existing ones",
+      "Small-scale CDM Type II limit: energy savings ≤ 60 GWh per year"
+    ],
+    "sourceRef": "UNFCCC CDM AMS-II.S (title per CDM listing; version not pinned)",
+    "metadataVerified": true
+  }
+]

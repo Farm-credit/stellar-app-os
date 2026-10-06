@@ -173,6 +173,27 @@ pub struct Listing {
     pub created_at: u64,
 }
 
+/// Verified carbon credit listing (Issue #1382).
+///
+/// Allows farmers and land managers to list carbon credits from verified projects
+/// with credit type, quantity, price per ton, and verification method.
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct VerifiedProjectListing {
+    pub id: u64,
+    pub seller: Address,
+    pub planter: Address,
+    pub project_id: Symbol,
+    pub credit_type: Symbol,         // e.g. "soil_carbon", "forestry", "blue_carbon"
+    pub quantity_tonnes: i128,       // quantity in metric tons
+    pub filled_tonnes: i128,
+    pub price_per_ton: i128,         // in payment token base units
+    pub verification_method: Symbol, // e.g. "verra_vcs", "gold_standard"
+    pub payment_token: Address,
+    pub status: ListingStatus,
+    pub published_at: u64,
+}
+
 // ── AMM Pool types (Issue #780) ───────────────────────────────────────────────
 
 /// AMM pool state stored in contract instance storage.
@@ -253,6 +274,10 @@ enum DataKey {
     TotalObservations,
     /// Global emergency pause flag
     Paused,
+    /// Next ID for verified project listing
+    NextVerifiedListingId,
+    /// Verified project listing keyed by ID
+    VerifiedListing(u64),
 }
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -530,6 +555,81 @@ impl CarbonMarketplace {
         env.storage()
             .instance()
             .get(&DataKey::Listing(listing_id))
+            .unwrap_or_else(|| panic_with_error!(&env, MarketplaceError::ListingNotFound))
+    }
+
+    // ── Verified Carbon Project Listings (Issue #1382) ────────────────────────
+
+    /// Create and publish a carbon credit listing from a verified project (Issue #1382).
+    ///
+    /// Allows farmers and land managers to specify:
+    /// - project_id: verified project identifier
+    /// - credit_type: category of credit (e.g. soil_carbon, forestry, blue_carbon)
+    /// - quantity_tonnes: amount of verified credits in metric tons
+    /// - price_per_ton: asking price per metric ton in payment token units
+    /// - verification_method: verification protocol (e.g. verra_vcs, gold_standard)
+    pub fn publish_verified_listing(
+        env: Env,
+        seller: Address,
+        planter: Address,
+        project_id: Symbol,
+        credit_type: Symbol,
+        quantity_tonnes: i128,
+        price_per_ton: i128,
+        verification_method: Symbol,
+        payment_token: Address,
+    ) -> u64 {
+        Self::assert_not_paused(&env);
+        seller.require_auth();
+
+        if quantity_tonnes <= 0 {
+            panic_with_error!(&env, MarketplaceError::ListingAmountMustBePositive);
+        }
+        if price_per_ton <= 0 {
+            panic_with_error!(&env, MarketplaceError::PriceMustBePositive);
+        }
+
+        let id: u64 = env
+            .storage()
+            .instance()
+            .get(&DataKey::NextVerifiedListingId)
+            .unwrap_or(0u64);
+
+        let listing = VerifiedProjectListing {
+            id,
+            seller: seller.clone(),
+            planter,
+            project_id: project_id.clone(),
+            credit_type: credit_type.clone(),
+            quantity_tonnes,
+            filled_tonnes: 0,
+            price_per_ton,
+            verification_method: verification_method.clone(),
+            payment_token,
+            status: ListingStatus::Active,
+            published_at: env.ledger().timestamp(),
+        };
+
+        env.storage()
+            .instance()
+            .set(&DataKey::VerifiedListing(id), &listing);
+        env.storage()
+            .instance()
+            .set(&DataKey::NextVerifiedListingId, &(id + 1));
+
+        env.events().publish(
+            (symbol_short!("pub_list"),),
+            (id, seller, project_id, quantity_tonnes, price_per_ton),
+        );
+
+        id
+    }
+
+    /// Return a verified project listing by id.
+    pub fn get_verified_listing(env: Env, listing_id: u64) -> VerifiedProjectListing {
+        env.storage()
+            .instance()
+            .get(&DataKey::VerifiedListing(listing_id))
             .unwrap_or_else(|| panic_with_error!(&env, MarketplaceError::ListingNotFound))
     }
 

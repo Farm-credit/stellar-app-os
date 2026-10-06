@@ -10,6 +10,8 @@ export interface TravelInput {
 }
 
 export interface EnergyInput {
+  /** Number of people who share this home's energy use. */
+  householdSize: number;
   electricityKwhPerMonth: number;
   gasThermPerMonth: number;
   renewablePercentage: number;
@@ -64,6 +66,7 @@ export const DEFAULT_TRAVEL: TravelInput = {
 };
 
 export const DEFAULT_ENERGY: EnergyInput = {
+  householdSize: 2,
   electricityKwhPerMonth: 900,
   gasThermPerMonth: 50,
   renewablePercentage: 0,

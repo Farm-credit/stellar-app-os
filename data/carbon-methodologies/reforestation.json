@@ -1,0 +1,609 @@
+[
+  {
+    "slug": "vm0047",
+    "code": "VM0047",
+    "name": "Afforestation, Reforestation, and Revegetation",
+    "category": "reforestation",
+    "standard": "Verra VCS",
+    "version": "1.1",
+    "description": "Quantifies net GHG removals from establishing woody vegetation on non-forest land, including biomass, dead wood, litter and soil carbon pools, against a baseline set with the methodology's dynamic performance benchmark.",
+    "formula": "NER_t = (ΔC_PROJ,t − ΔC_BSL,t) − GHG_LK,t  (ΔC_PROJ includes above/below-ground biomass, dead wood, litter, SOC; project emissions netted out; stocks converted with 44/12)",
+    "parameters": [
+      {
+        "symbol": "NER_t",
+        "name": "Net GHG emission reductions/removals",
+        "unit": "tCO2e",
+        "description": "Net benefit credited in monitoring period t"
+      },
+      {
+        "symbol": "ΔC_PROJ,t",
+        "name": "Project net carbon stock change",
+        "unit": "tCO2e",
+        "description": "Net GHG removals (or emissions) in the with-project scenario"
+      },
+      {
+        "symbol": "ΔC_BSL,t",
+        "name": "Baseline net carbon stock change",
+        "unit": "tCO2e",
+        "description": "Net GHG removals (or emissions) in the baseline scenario"
+      },
+      {
+        "symbol": "GHG_LK,t",
+        "name": "Leakage emissions",
+        "unit": "tCO2e",
+        "description": "Emissions displaced outside the project boundary as a result of the activity"
+      },
+      {
+        "symbol": "44/12",
+        "name": "CO2-to-C molecular weight ratio",
+        "unit": "tCO2/tC",
+        "description": "Converts carbon stock changes (tC) to CO2 equivalents"
+      }
+    ],
+    "applicability": [
+      "Afforestation, reforestation or revegetation (ARR) activities on eligible land",
+      "Baseline determined via the methodology's dynamic performance benchmark",
+      "Removals measured/estimated per carbon pool with stated uncertainty"
+    ],
+    "sourceRef": "Verra VCS VM0047 v1.1 (registry listing and Verra ICVCM announcements)",
+    "metadataVerified": true
+  },
+  {
+    "slug": "vm0048",
+    "code": "VM0048",
+    "name": "Reducing Emissions from Deforestation and Forest Degradation",
+    "category": "reforestation",
+    "standard": "Verra VCS",
+    "version": "1.0",
+    "description": "Consolidated REDD+ methodology crediting avoided deforestation and degradation. Baseline activity data comes from jurisdictional maps of allocated deforestation risk (module VMD0055).",
+    "formula": "NER_t = ER_BSL,t − ER_WPS,t − GHG_LK,t  (baseline vs with-project emissions from deforestation/degradation, minus leakage)",
+    "parameters": [
+      {
+        "symbol": "NER_t",
+        "name": "Net GHG emission reductions/removals",
+        "unit": "tCO2e",
+        "description": "Net benefit credited in monitoring period t"
+      },
+      {
+        "symbol": "ER_BSL,t",
+        "name": "Baseline emissions",
+        "unit": "tCO2e",
+        "description": "Emissions from projected deforestation/degradation without the project"
+      },
+      {
+        "symbol": "ER_WPS,t",
+        "name": "With-project emissions",
+        "unit": "tCO2e",
+        "description": "Emissions from deforestation/degradation with the project"
+      },
+      {
+        "symbol": "GHG_LK,t",
+        "name": "Leakage emissions",
+        "unit": "tCO2e",
+        "description": "Emissions displaced outside the project boundary as a result of the activity"
+      }
+    ],
+    "applicability": [
+      "Avoided unplanned deforestation and forest degradation projects",
+      "Project baseline uses VMD0055-compliant jurisdictional deforestation-risk data"
+    ],
+    "sourceRef": "Verra VCS VM0048 v1.0; Verra Stakeholder Update Oct 2025",
+    "metadataVerified": true
+  },
+  {
+    "slug": "vm0045",
+    "code": "VM0045",
+    "name": "Improved Forest Management Methodology Using Dynamic Matched Baselines from National Forest Inventories",
+    "category": "reforestation",
+    "standard": "Verra VCS",
+    "version": "1.2",
+    "description": "Credits improved forest management by comparing project forest carbon stocks against dynamic baselines built from matched plots in national forest inventories.",
+    "formula": "NER_t = (ΔC_PROJ,t − ΔC_BSL,t) − GHG_LK,t  (baseline stock change taken from matched national-forest-inventory plots)",
+    "parameters": [
+      {
+        "symbol": "NER_t",
+        "name": "Net GHG emission reductions/removals",
+        "unit": "tCO2e",
+        "description": "Net benefit credited in monitoring period t"
+      },
+      {
+        "symbol": "ΔC_PROJ,t",
+        "name": "Project net carbon stock change",
+        "unit": "tCO2e",
+        "description": "Net GHG removals (or emissions) in the with-project scenario"
+      },
+      {
+        "symbol": "ΔC_BSL,t",
+        "name": "Baseline net carbon stock change",
+        "unit": "tCO2e",
+        "description": "Net GHG removals (or emissions) in the baseline scenario"
+      },
+      {
+        "symbol": "GHG_LK,t",
+        "name": "Leakage emissions",
+        "unit": "tCO2e",
+        "description": "Emissions displaced outside the project boundary as a result of the activity"
+      },
+      {
+        "symbol": "44/12",
+        "name": "CO2-to-C molecular weight ratio",
+        "unit": "tCO2/tC",
+        "description": "Converts carbon stock changes (tC) to CO2 equivalents"
+      }
+    ],
+    "applicability": [
+      "Improved forest management (IFM) on managed forests",
+      "National forest inventory data available to build matched baselines"
+    ],
+    "sourceRef": "Verra VCS VM0045 v1.2 (Verra ICVCM announcement Aug 2025)",
+    "metadataVerified": true
+  },
+  {
+    "slug": "vm0033",
+    "code": "VM0033",
+    "name": "Methodology for Tidal Wetland and Seagrass Restoration",
+    "category": "reforestation",
+    "standard": "Verra VCS",
+    "version": "2.1",
+    "description": "Quantifies GHG removals and avoided emissions from restoring tidal wetlands (e.g. mangroves, salt marsh) and seagrass, covering biomass and soil carbon plus CH4/N2O effects.",
+    "formula": "NER_t = (GHG_BSL,t − GHG_WPS,t) − GHG_LK,t  (baseline minus with-project net emissions; removals count as negative emissions)",
+    "parameters": [
+      {
+        "symbol": "NER_t",
+        "name": "Net GHG emission reductions/removals",
+        "unit": "tCO2e",
+        "description": "Net benefit credited in monitoring period t"
+      },
+      {
+        "symbol": "GHG_BSL,t",
+        "name": "Baseline net GHG emissions",
+        "unit": "tCO2e",
+        "description": "Net emissions of the degraded/unrestored baseline"
+      },
+      {
+        "symbol": "GHG_WPS,t",
+        "name": "With-project net GHG emissions",
+        "unit": "tCO2e",
+        "description": "Net emissions after restoration (negative when net sink)"
+      },
+      {
+        "symbol": "GHG_LK,t",
+        "name": "Leakage emissions",
+        "unit": "tCO2e",
+        "description": "Emissions displaced outside the project boundary as a result of the activity"
+      }
+    ],
+    "applicability": [
+      "Restoration of tidal wetlands and seagrass meadows",
+      "Includes creation, hydrological restoration and revegetation activities"
+    ],
+    "sourceRef": "Verra VCS VM0033 v2.1 (Verra digitalized methodologies list)",
+    "metadataVerified": true
+  },
+  {
+    "slug": "vm0007",
+    "code": "VM0007",
+    "name": "REDD+ Methodology Framework (REDD+MF)",
+    "category": "reforestation",
+    "standard": "Verra VCS",
+    "version": null,
+    "description": "Legacy modular framework for project-level REDD+ (avoided deforestation and degradation) with project-specific baselines. Newer projects generally use VM0048.",
+    "formula": "ER_t = (ΔC_BSL,t − ΔC_PROJ,t) − GHG_LK,t  (avoided emissions relative to the modelled baseline)",
+    "parameters": [
+      {
+        "symbol": "ER_t",
+        "name": "Net emission reductions",
+        "unit": "tCO2e",
+        "description": "Credited emission reductions in period t"
+      },
+      {
+        "symbol": "ΔC_BSL,t",
+        "name": "Baseline net carbon stock change",
+        "unit": "tCO2e",
+        "description": "Net GHG removals (or emissions) in the baseline scenario"
+      },
+      {
+        "symbol": "ΔC_PROJ,t",
+        "name": "Project net carbon stock change",
+        "unit": "tCO2e",
+        "description": "Net GHG removals (or emissions) in the with-project scenario"
+      },
+      {
+        "symbol": "GHG_LK,t",
+        "name": "Leakage emissions",
+        "unit": "tCO2e",
+        "description": "Emissions displaced outside the project boundary as a result of the activity"
+      }
+    ],
+    "applicability": [
+      "Avoided unplanned or planned deforestation and degradation (via VCS modules)",
+      "Legacy pathway; see VM0048 for the consolidated methodology"
+    ],
+    "sourceRef": "Verra VCS VM0007 (summary; version not pinned)",
+    "metadataVerified": true
+  },
+  {
+    "slug": "vm0003",
+    "code": "VM0003",
+    "name": "Methodology for Improved Forest Management through Extension of Rotation Age",
+    "category": "reforestation",
+    "standard": "Verra VCS",
+    "version": "1.3",
+    "description": "Credits additional carbon stored when the harvest rotation age is extended relative to the baseline harvesting schedule.",
+    "formula": "ER_t = (C_PROJ,t − C_BSL,t) − GHG_LK,t  (long-term average carbon stocks, incl. harvested wood products)",
+    "parameters": [
+      {
+        "symbol": "ER_t",
+        "name": "Net emission reductions",
+        "unit": "tCO2e",
+        "description": "Credited reductions in period t"
+      },
+      {
+        "symbol": "C_PROJ,t",
+        "name": "Project carbon stock",
+        "unit": "tCO2e",
+        "description": "Carbon stock under the extended rotation"
+      },
+      {
+        "symbol": "C_BSL,t",
+        "name": "Baseline carbon stock",
+        "unit": "tCO2e",
+        "description": "Carbon stock under baseline rotation"
+      },
+      {
+        "symbol": "GHG_LK,t",
+        "name": "Leakage emissions",
+        "unit": "tCO2e",
+        "description": "Emissions displaced outside the project boundary as a result of the activity"
+      }
+    ],
+    "applicability": [
+      "Managed forests where rotation age is extended beyond the baseline rotation",
+      "Baseline harvesting must be documented"
+    ],
+    "sourceRef": "Verra VCS VM0003 v1.3 (VCS programme methodology list)",
+    "metadataVerified": true
+  },
+  {
+    "slug": "vm0012",
+    "code": "VM0012",
+    "name": "Improved Forest Management in Temperate and Boreal Forests (LtPF)",
+    "category": "reforestation",
+    "standard": "Verra VCS",
+    "version": "1.2",
+    "description": "Credits avoided emissions where logged temperate or boreal forest is converted to protected forest.",
+    "formula": "ER_t = (C_PROJ,t − C_BSL,t) − GHG_LK,t  (baseline includes logging emissions and wood product pools)",
+    "parameters": [
+      {
+        "symbol": "ER_t",
+        "name": "Net emission reductions",
+        "unit": "tCO2e",
+        "description": "Credited reductions in period t"
+      },
+      {
+        "symbol": "C_PROJ,t",
+        "name": "Project carbon stock",
+        "unit": "tCO2e",
+        "description": "Stock in protected forest"
+      },
+      {
+        "symbol": "C_BSL,t",
+        "name": "Baseline carbon stock",
+        "unit": "tCO2e",
+        "description": "Stock under continued logging"
+      },
+      {
+        "symbol": "GHG_LK,t",
+        "name": "Leakage emissions",
+        "unit": "tCO2e",
+        "description": "Emissions displaced outside the project boundary as a result of the activity"
+      }
+    ],
+    "applicability": [
+      "Conversion of logged forest to protected forest (LtPF)",
+      "Temperate and boreal forest types"
+    ],
+    "sourceRef": "Verra VCS VM0012 v1.2 (VCS programme methodology list)",
+    "metadataVerified": true
+  },
+  {
+    "slug": "vm0005",
+    "code": "VM0005",
+    "name": "Methodology for Conversion of Low-Productive Forest to High-Productive Forest",
+    "category": "reforestation",
+    "standard": "Verra VCS",
+    "version": null,
+    "description": "Credits carbon gains from converting low-productivity forest to high-productivity forest through enhanced management or planting.",
+    "formula": "ER_t = (C_PROJ,t − C_BSL,t) − PE_t − GHG_LK,t",
+    "parameters": [
+      {
+        "symbol": "ER_t",
+        "name": "Net emission reductions",
+        "unit": "tCO2e",
+        "description": "Credited reductions in period t"
+      },
+      {
+        "symbol": "C_PROJ,t",
+        "name": "Project carbon stock",
+        "unit": "tCO2e",
+        "description": "Stock after conversion"
+      },
+      {
+        "symbol": "C_BSL,t",
+        "name": "Baseline carbon stock",
+        "unit": "tCO2e",
+        "description": "Stock under low-productivity baseline"
+      },
+      {
+        "symbol": "PE_t",
+        "name": "Project emissions",
+        "unit": "tCO2e",
+        "description": "Emissions from site preparation, fertiliser, fossil fuel"
+      },
+      {
+        "symbol": "GHG_LK,t",
+        "name": "Leakage emissions",
+        "unit": "tCO2e",
+        "description": "Emissions displaced outside the project boundary as a result of the activity"
+      }
+    ],
+    "applicability": [
+      "Forest conversion from low- to high-productivity stands",
+      "Baseline stand productivity documented"
+    ],
+    "sourceRef": "Verra VCS VM0005 (title from VCS methodology list, partially confirmed; version not pinned)",
+    "metadataVerified": false
+  },
+  {
+    "slug": "ar-acm0003",
+    "code": "AR-ACM0003",
+    "name": "Afforestation and reforestation of lands except wetlands",
+    "category": "reforestation",
+    "standard": "CDM",
+    "version": null,
+    "description": "Large-scale CDM A/R methodology for establishing forest on lands other than wetlands, with net anthropogenic removals accounted per pool.",
+    "formula": "ΔC_AR,t = ΔC_ACTUAL,t − ΔC_BSL,t − LK_t  (net anthropogenic GHG removals by sinks)",
+    "parameters": [
+      {
+        "symbol": "ΔC_AR,t",
+        "name": "Net anthropogenic GHG removals by sinks",
+        "unit": "tCO2e",
+        "description": "Credited removals in year t"
+      },
+      {
+        "symbol": "ΔC_ACTUAL,t",
+        "name": "Actual net GHG removals",
+        "unit": "tCO2e",
+        "description": "Removals with project, net of project emissions"
+      },
+      {
+        "symbol": "ΔC_BSL,t",
+        "name": "Baseline net GHG removals",
+        "unit": "tCO2e",
+        "description": "Removals in the baseline scenario"
+      },
+      {
+        "symbol": "LK_t",
+        "name": "Leakage",
+        "unit": "tCO2e",
+        "description": "Leakage emissions"
+      }
+    ],
+    "applicability": [
+      "A/R on land that is not wetland",
+      "Eligibility of land demonstrated per CDM A/R requirements"
+    ],
+    "sourceRef": "UNFCCC CDM AR-ACM0003 (title confirmed; version not pinned)",
+    "metadataVerified": true
+  },
+  {
+    "slug": "ar-ams0007",
+    "code": "AR-AMS0007",
+    "name": "Afforestation and reforestation project activities implemented on lands other than wetlands",
+    "category": "reforestation",
+    "standard": "CDM",
+    "version": "3.1",
+    "description": "Simplified small-scale CDM A/R methodology for lands other than wetlands.",
+    "formula": "ΔC_AR,t = ΔC_ACTUAL,t − ΔC_BSL,t − LK_t",
+    "parameters": [
+      {
+        "symbol": "ΔC_AR,t",
+        "name": "Net anthropogenic GHG removals by sinks",
+        "unit": "tCO2e",
+        "description": "Credited removals in year t"
+      },
+      {
+        "symbol": "ΔC_ACTUAL,t",
+        "name": "Actual net GHG removals",
+        "unit": "tCO2e",
+        "description": "Project removals net of emissions"
+      },
+      {
+        "symbol": "ΔC_BSL,t",
+        "name": "Baseline net GHG removals",
+        "unit": "tCO2e",
+        "description": "Baseline removals"
+      },
+      {
+        "symbol": "LK_t",
+        "name": "Leakage",
+        "unit": "tCO2e",
+        "description": "Leakage emissions"
+      }
+    ],
+    "applicability": [
+      "Small-scale A/R project activity (net removals ≤ 16 ktCO2e/yr per CDM small-scale A/R definition)",
+      "Land other than wetlands"
+    ],
+    "sourceRef": "UNFCCC CDM AR-AMS0007 v3.1 (CDM approved SSC-A/R methodologies page)",
+    "metadataVerified": true
+  },
+  {
+    "slug": "ar-ams0003",
+    "code": "AR-AMS0003",
+    "name": "Afforestation and reforestation project activities implemented on wetlands",
+    "category": "reforestation",
+    "standard": "CDM",
+    "version": "3.0",
+    "description": "Simplified small-scale CDM A/R methodology for wetlands.",
+    "formula": "ΔC_AR,t = ΔC_ACTUAL,t − ΔC_BSL,t − LK_t",
+    "parameters": [
+      {
+        "symbol": "ΔC_AR,t",
+        "name": "Net anthropogenic GHG removals by sinks",
+        "unit": "tCO2e",
+        "description": "Credited removals in year t"
+      },
+      {
+        "symbol": "ΔC_ACTUAL,t",
+        "name": "Actual net GHG removals",
+        "unit": "tCO2e",
+        "description": "Project removals net of emissions"
+      },
+      {
+        "symbol": "ΔC_BSL,t",
+        "name": "Baseline net GHG removals",
+        "unit": "tCO2e",
+        "description": "Baseline removals"
+      },
+      {
+        "symbol": "LK_t",
+        "name": "Leakage",
+        "unit": "tCO2e",
+        "description": "Leakage emissions"
+      }
+    ],
+    "applicability": ["Small-scale A/R project activity on wetlands"],
+    "sourceRef": "UNFCCC CDM AR-AMS0003 v3.0 (CDM approved SSC-A/R methodologies page)",
+    "metadataVerified": true
+  },
+  {
+    "slug": "ar-am0014",
+    "code": "AR-AM0014",
+    "name": "Afforestation and reforestation of degraded mangrove habitats",
+    "category": "reforestation",
+    "standard": "CDM",
+    "version": null,
+    "description": "CDM A/R methodology for re-establishing mangrove forest on degraded mangrove habitat.",
+    "formula": "ΔC_AR,t = ΔC_ACTUAL,t − ΔC_BSL,t − LK_t",
+    "parameters": [
+      {
+        "symbol": "ΔC_AR,t",
+        "name": "Net anthropogenic GHG removals by sinks",
+        "unit": "tCO2e",
+        "description": "Credited removals in year t"
+      },
+      {
+        "symbol": "ΔC_ACTUAL,t",
+        "name": "Actual net GHG removals",
+        "unit": "tCO2e",
+        "description": "Project removals net of emissions"
+      },
+      {
+        "symbol": "ΔC_BSL,t",
+        "name": "Baseline net GHG removals",
+        "unit": "tCO2e",
+        "description": "Baseline removals"
+      },
+      {
+        "symbol": "LK_t",
+        "name": "Leakage",
+        "unit": "tCO2e",
+        "description": "Leakage emissions"
+      }
+    ],
+    "applicability": ["Degraded mangrove habitat being re-established"],
+    "sourceRef": "UNFCCC CDM AR-AM0014 (code confirmed in CDM booklet; title not re-verified; version not pinned)",
+    "metadataVerified": false
+  },
+  {
+    "slug": "ipcc-2006-v4-ch4-forest-land",
+    "code": "IPCC 2006 GL Vol.4 Ch.4",
+    "name": "Forest Land: biomass carbon stock change (gain-loss method)",
+    "category": "reforestation",
+    "standard": "IPCC",
+    "version": null,
+    "description": "Generic IPCC gain-loss approach for annual carbon stock change in forest land biomass, usable at Tier 1 with default growth rates and expansion factors.",
+    "formula": "ΔC = ΔC_G − ΔC_L;  ΔC_G = Σ (A × G_TOTAL × CF);  G_TOTAL = Σ [G_W × (1 + R)];  ΔC_L = L_wood-removals + L_fuelwood + L_disturbance",
+    "parameters": [
+      {
+        "symbol": "ΔC",
+        "name": "Annual change in biomass carbon stock",
+        "unit": "tC/yr",
+        "description": "Net change (gain minus loss)"
+      },
+      {
+        "symbol": "A",
+        "name": "Area",
+        "unit": "ha",
+        "description": "Area of forest land in the stratum"
+      },
+      {
+        "symbol": "G_W",
+        "name": "Above-ground biomass growth",
+        "unit": "t d.m./ha/yr",
+        "description": "Mean annual above-ground growth"
+      },
+      {
+        "symbol": "R",
+        "name": "Root-to-shoot ratio",
+        "unit": "dimensionless",
+        "description": "Below-ground to above-ground biomass ratio"
+      },
+      {
+        "symbol": "CF",
+        "name": "Carbon fraction of dry matter",
+        "unit": "tC/t d.m.",
+        "description": "Default 0.47 in IPCC Tier 1 for most forest types"
+      },
+      {
+        "symbol": "ΔC_L",
+        "name": "Annual carbon loss",
+        "unit": "tC/yr",
+        "description": "Wood removals, fuelwood and disturbance"
+      }
+    ],
+    "applicability": [
+      "Any forest land stratum with area and growth data (Tier 1 defaults available)",
+      "Guidance methodology, not a crediting programme"
+    ],
+    "sourceRef": "IPCC 2006 Guidelines for National GHG Inventories, Vol.4 (AFOLU), Ch.2 and Ch.4",
+    "metadataVerified": false
+  },
+  {
+    "slug": "fao-ipcc-tier1-species-rate",
+    "code": "FAO/IPCC Tier 1 species rate",
+    "name": "FAO/IPCC Tier-1 per-species annual sequestration rate (platform default)",
+    "category": "reforestation",
+    "standard": "Platform",
+    "version": "1",
+    "description": "Method the platform currently uses to estimate offset per planted tree: an FAO/IPCC Tier-1 annual CO2 rate per species multiplied by tree age, capped at maturity (see lib/carbon/worker.ts and species_catalogue).",
+    "formula": "CO2_kg = r_species × min(age_years, maturity_years)",
+    "parameters": [
+      {
+        "symbol": "r_species",
+        "name": "Species sequestration rate",
+        "unit": "kg CO2/tree/yr",
+        "description": "species_catalogue.co2_kg_per_year"
+      },
+      {
+        "symbol": "age_years",
+        "name": "Tree age",
+        "unit": "years",
+        "description": "Years since planting date"
+      },
+      {
+        "symbol": "maturity_years",
+        "name": "Maturity age",
+        "unit": "years",
+        "description": "species_catalogue.maturity_years; caps the age used"
+      }
+    ],
+    "applicability": [
+      "Trees with a species present in species_catalogue",
+      "Planted trees in active status (planted, verified, completed)"
+    ],
+    "sourceRef": "Repository: lib/carbon/worker.ts, db/migrations/002_create_species_catalogue.sql",
+    "metadataVerified": true
+  }
+]

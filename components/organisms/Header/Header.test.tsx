@@ -83,6 +83,7 @@ vi.mock('@/hooks/useTranslation', () => ({
         'nav.marketplace': 'Marketplace',
         'nav.transactions': 'Transactions',
         'nav.dashboard': 'Dashboard',
+        'nav.cooperatives': 'Cooperatives',
         'header.connectWallet': 'Connect Wallet',
         'header.openMenu': 'Open navigation menu',
         'header.languageSelector': 'Select language',
@@ -157,6 +158,13 @@ vi.mock('@/components/organisms/Header/LanguageSelector', () => ({
       Language Selector
     </div>
   ),
+}));
+
+// ── Mock NotificationBell ────────────────────────────────────────────────────
+// NotificationBell requires a NotificationProvider; the Header tests render
+// the component in isolation, so stub it out (the bell has its own suite).
+vi.mock('@/components/organisms/NotificationCenter/NotificationBell', () => ({
+  NotificationBell: () => <div data-testid="notification-bell" />,
 }));
 
 // ── Mock Button ──────────────────────────────────────────────────────────────
@@ -241,11 +249,12 @@ describe('Header', () => {
   // ── Desktop navigation ─────────────────────────────────────────────────────
 
   describe('desktop navigation', () => {
-    it('renders all five nav links', () => {
+    it('renders all six nav links', () => {
       render(<Header />);
       expect(screen.getByRole('link', { name: 'Home' })).toBeInTheDocument();
       expect(screen.getByRole('link', { name: 'Projects' })).toBeInTheDocument();
       expect(screen.getByRole('link', { name: 'Marketplace' })).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: 'Cooperatives' })).toBeInTheDocument();
       expect(screen.getByRole('link', { name: 'Transactions' })).toBeInTheDocument();
       expect(screen.getByRole('link', { name: 'Dashboard' })).toBeInTheDocument();
     });
@@ -309,18 +318,18 @@ describe('Header', () => {
   // ── Theme toggle ───────────────────────────────────────────────────────────
 
   describe('theme toggle', () => {
-    it('renders theme toggle button on desktop', () => {
+    it('renders the accessible theme switch on desktop', () => {
       render(<Header />);
-      const themeButtons = screen.getAllByRole('button');
-      const themeButton = themeButtons.find((btn) =>
-        btn.getAttribute('aria-label')?.includes('Switch to')
+      const themeSwitches = screen.getAllByRole('switch');
+      const themeSwitch = themeSwitches.find((el) =>
+        el.getAttribute('aria-label')?.includes('Switch to')
       );
-      expect(themeButton).toBeInTheDocument();
+      expect(themeSwitch).toBeInTheDocument();
     });
 
-    it('theme toggle has accessible label', () => {
+    it('theme switch has an accessible label', () => {
       render(<Header />);
-      const toggles = screen.getAllByRole('button', { name: /Switch to.*mode/i });
+      const toggles = screen.getAllByRole('switch', { name: /Switch to.*mode/i });
       expect(toggles.length).toBeGreaterThanOrEqual(1);
     });
   });

@@ -1,0 +1,58 @@
+##############################################################################
+# Kustomize root for Harvesta Kubernetes manifests.
+#
+# Apply everything at once:
+#   kubectl apply -k k8s/
+#
+# Dry-run (verify before applying):
+#   kubectl apply -k k8s/ --dry-run=client
+#
+# Diff against live cluster:
+#   kubectl diff -k k8s/
+#
+# Per-environment overlays:
+#   Create k8s/overlays/staging/ and k8s/overlays/production/ with their
+#   own kustomization.yaml files that patch image tags, replica counts, etc.
+##############################################################################
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# All resources live in the harvesta namespace
+namespace: harvesta
+
+# ── Manifest list ─────────────────────────────────────────────────────────────
+resources:
+  - namespace.yaml
+  - configmap.yaml
+  - secrets.yaml
+  - deployment-web.yaml
+  - deployment-postgres.yaml
+  - deployment-redis.yaml
+  - services.yaml
+  - ingress.yaml
+  - hpa.yaml
+  - pdb-quotas.yaml
+  # prometheus-adapter.yaml goes into the monitoring namespace — apply separately:
+  #   kubectl apply -f k8s/prometheus-adapter.yaml
+  # or with helm:
+  #   helm install prometheus-adapter prometheus-community/prometheus-adapter \
+  #     -n monitoring -f k8s/prometheus-adapter-values.yaml
+
+# ── Common labels applied to all resources ────────────────────────────────────
+commonLabels:
+  app.kubernetes.io/managed-by: kustomize
+  app.kubernetes.io/part-of: harvesta
+
+# ── Image tags — override here or via overlays ───────────────────────────────
+images:
+  - name: ghcr.io/harvesta/harvesta-web
+    newTag: latest       # Replace with a pinned SHA or semver tag in production
+
+# ── Config generator — optional: generate ConfigMap from .env.production ─────
+# Uncomment and create k8s/.env.production (git-ignored) if you prefer
+# generating the ConfigMap from a file rather than editing configmap.yaml.
+#
+# configMapGenerator:
+#   - name: harvesta-config
+#     envs:
+#       - .env.production
