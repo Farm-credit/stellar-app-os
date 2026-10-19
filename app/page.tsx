@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { Button } from '@/components/atoms/Button';
 import { Badge } from '@/components/atoms/Badge';
 import { Text } from '@/components/atoms/Text';
@@ -57,6 +58,33 @@ export default function HomePage() {
           <Text variant="muted" className="text-sm">
             Repayment Rate
           </Text>
+        </div>
+      </section>
+
+      <section className="w-full max-w-4xl overflow-hidden rounded-2xl border border-stellar-green/25 bg-stellar-green/5 shadow-sm">
+        <div className="grid items-stretch md:grid-cols-[1.1fr_0.9fr]">
+          <div className="relative min-h-56 md:min-h-full">
+            <Image
+              src="/assets/success-stories/land-after.svg"
+              alt="Illustration of restored woodland after a reforestation project"
+              fill
+              sizes="(min-width: 768px) 45vw, 100vw"
+              className="object-cover"
+            />
+          </div>
+          <div className="flex flex-col justify-center gap-4 p-6 sm:p-8">
+            <Badge variant="success" className="w-fit">
+              Quarterly restoration showcase
+            </Badge>
+            <Text variant="h2">See what farmer-led restoration makes possible.</Text>
+            <Text variant="muted">
+              Meet the farmers, sponsors and projects turning measured tree survival into healthier
+              land and stronger livelihoods.
+            </Text>
+            <Button asChild variant="default" size="sm" className="w-fit">
+              <Link href="/success-stories">Explore success stories</Link>
+            </Button>
+          </div>
         </div>
       </section>
 

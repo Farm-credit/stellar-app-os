@@ -3,6 +3,7 @@ import type { Metadata, ResolvingMetadata } from 'next';
 import { notFound } from 'next/navigation';
 
 import { ProjectDetailView } from '@/components/organisms/ProjectDetailView/ProjectDetailView';
+import { CarbonProjectFallback } from '@/components/organisms/ProjectDetailView/CarbonProjectFallback';
 import { mockAdminProjectDetails } from '@/lib/api/mock/adminProjectDetails';
 import { mockCarbonProjects } from '@/lib/api/mock/carbonProjects';
 
@@ -15,7 +16,9 @@ export async function generateMetadata(
   parent: ResolvingMetadata
 ): Promise<Metadata> {
   const { id } = await params;
-  const project = mockAdminProjectDetails.find((p) => p.id === id || p.slug === id);
+  const adminProject = mockAdminProjectDetails.find((p) => p.id === id || p.slug === id);
+  const carbonProject = mockCarbonProjects.find((p) => p.id === id);
+  const project = adminProject ?? carbonProject;
 
   if (!project) {
     return {
@@ -49,17 +52,14 @@ export async function generateMetadata(
 
 export default async function ProjectPage({ params }: Props) {
   const { id } = await params;
-  const adminProject = mockAdminProjectDetails.find((p) => p.id === id || p.slug === id);
-
-  if (!adminProject) {
-    notFound();
-  }
-
-  const carbonProject = mockCarbonProjects.find((p) => p.id === adminProject.id);
-
+  const carbonProject = mockCarbonProjects.find((p) => p.id === id);
   if (!carbonProject) {
     notFound();
   }
 
+  const adminProject = mockAdminProjectDetails.find((p) => p.id === id || p.slug === id);
+  if (!adminProject) {
+    return <CarbonProjectFallback project={carbonProject} />;
+  }
   return <ProjectDetailView adminProject={adminProject} carbonProject={carbonProject} />;
 }

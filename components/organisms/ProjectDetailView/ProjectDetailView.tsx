@@ -33,8 +33,10 @@ import {
 import { ProjectCarousel } from '@/components/organisms/ProjectCarousel/ProjectCarousel';
 import { BiodiversityIndex } from '@/components/organisms/BiodiversityIndex/BiodiversityIndex';
 import { ProjectPlanters } from '@/components/organisms/ProjectPlanters';
+import { ProjectSuccessStories } from '@/components/organisms/FarmerSuccessStories/ProjectSuccessStories';
 import { FundAllocationTransparency } from '@/components/organisms/FundAllocationTransparency';
 import { NativeSpeciesTransparency } from '@/components/organisms/NativeSpeciesTransparency';
+import { ProjectProtectionImpact } from '@/components/organisms/SponsorImpact/ProjectProtectionImpact';
 
 import { mockCarbonProjects } from '@/lib/api/mock/carbonProjects';
 import { toast } from 'sonner';
@@ -247,6 +249,10 @@ export function ProjectDetailView({ adminProject, carbonProject }: ProjectDetail
             {/* Issue #1150: Meet the people planting this project's trees */}
             <section id="planters">
               <ProjectPlanters projectId={adminProject.id} projectName={adminProject.name} />
+            </section>
+
+            <section id="success-stories">
+              <ProjectSuccessStories projectId={adminProject.id} />
             </section>
 
             {/* Issue #1693: Forest Biodiversity Index */}

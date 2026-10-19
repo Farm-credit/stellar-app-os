@@ -1,3 +1,4 @@
+import Image from 'next/image';
 import Link from 'next/link';
 import {
   ArrowLeft,
@@ -75,6 +76,12 @@ export function FarmerStoryDetail({
 }: FarmerStoryDetailProps) {
   const { incomeEarned, landTransformation, environmentalImpact } = story;
   const growthPercent = computeIncomeGrowthPercent(story);
+  const beforeImageUrl = story.beforeImageUrl ?? story.imagery?.beforeImageUrl;
+  const beforeImageAlt =
+    story.beforeImageAlt ?? story.imagery?.beforeImageAlt ?? 'Land before restoration';
+  const afterImageUrl = story.afterImageUrl ?? story.imagery?.afterImageUrl;
+  const afterImageAlt =
+    story.afterImageAlt ?? story.imagery?.afterImageAlt ?? 'Land after restoration';
   const publishedDate = new Date(story.storyDate).toLocaleDateString('en-US', {
     year: 'numeric',
     month: 'long',
@@ -104,6 +111,7 @@ export function FarmerStoryDetail({
             <Badge variant="outline">Verification pending</Badge>
           )}
           {story.featured && <Badge variant="default">Featured</Badge>}
+          {story.curatedQuarter && <Badge variant="outline">Curated {story.curatedQuarter}</Badge>}
         </div>
 
         <div className="flex items-start gap-4">
@@ -134,6 +142,58 @@ export function FarmerStoryDetail({
         </h1>
         <p className="text-lg leading-8 text-muted-foreground">{story.summary}</p>
       </header>
+
+      {(beforeImageUrl || afterImageUrl) && (
+        <section aria-labelledby="farmer-story-imagery" className="mt-10">
+          <h2 id="farmer-story-imagery" className="text-xl font-semibold">
+            Restoration, in view
+          </h2>
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            {beforeImageUrl && (
+              <figure className="overflow-hidden rounded-2xl border bg-card">
+                <div className="relative aspect-[4/3]">
+                  <Image
+                    src={beforeImageUrl}
+                    alt={beforeImageAlt}
+                    fill
+                    sizes="(min-width: 640px) 50vw, 100vw"
+                    className="object-cover"
+                  />
+                </div>
+                <figcaption className="p-4">
+                  <p className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                    Before restoration
+                  </p>
+                  <p className="mt-2 text-sm leading-6 text-foreground">
+                    {landTransformation.beforeSummary}
+                  </p>
+                </figcaption>
+              </figure>
+            )}
+            {afterImageUrl && (
+              <figure className="overflow-hidden rounded-2xl border border-stellar-green/40 bg-stellar-green/5">
+                <div className="relative aspect-[4/3]">
+                  <Image
+                    src={afterImageUrl}
+                    alt={afterImageAlt}
+                    fill
+                    sizes="(min-width: 640px) 50vw, 100vw"
+                    className="object-cover"
+                  />
+                </div>
+                <figcaption className="p-4">
+                  <p className="text-sm font-semibold uppercase tracking-wide text-stellar-green">
+                    After restoration
+                  </p>
+                  <p className="mt-2 text-sm leading-6 text-foreground">
+                    {landTransformation.afterSummary}
+                  </p>
+                </figcaption>
+              </figure>
+            )}
+          </div>
+        </section>
+      )}
 
       {story.quote && (
         <blockquote className="mt-8 rounded-2xl border-l-4 border-stellar-green bg-stellar-green/5 p-5 text-base italic text-foreground">
@@ -235,6 +295,61 @@ export function FarmerStoryDetail({
           </div>
         </div>
       </section>
+
+      {(story.sponsorName || story.sponsorQuote) && (
+        <aside className="mt-10 rounded-2xl border border-stellar-blue/20 bg-stellar-blue/5 p-5">
+          <p className="text-xs font-semibold uppercase tracking-wide text-stellar-blue">
+            Sponsor perspective
+          </p>
+          <div className="mt-3 flex items-start gap-3">
+            {story.sponsorPhotoUrl ? (
+              <Image
+                src={story.sponsorPhotoUrl}
+                alt={story.sponsorPhotoAlt ?? `${story.sponsorName ?? 'Sponsor'} profile`}
+                width={48}
+                height={48}
+                className="h-12 w-12 rounded-full object-cover"
+              />
+            ) : (
+              <span
+                aria-hidden="true"
+                className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-stellar-blue/10 text-sm font-bold text-stellar-blue"
+              >
+                {getInitials(story.sponsorName ?? 'Sponsor')}
+              </span>
+            )}
+            <div>
+              {story.sponsorQuote && (
+                <blockquote className="text-base leading-7 text-foreground">
+                  “{story.sponsorQuote}”
+                </blockquote>
+              )}
+              {story.sponsorName && (
+                <p className="mt-2 text-sm font-semibold text-muted-foreground">
+                  {story.sponsorName}
+                </p>
+              )}
+            </div>
+          </div>
+        </aside>
+      )}
+
+      {story.projectId && (
+        <div className="mt-10 rounded-2xl border bg-card p-5">
+          <p className="text-sm font-semibold text-foreground">
+            Explore the project behind this story
+          </p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Review the project profile, verification details and wider measured impact.
+          </p>
+          <Link
+            href={`/projects/${story.projectId}`}
+            className="mt-4 inline-flex items-center text-sm font-semibold text-stellar-blue underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stellar-blue focus-visible:ring-offset-2"
+          >
+            View {story.projectName}
+          </Link>
+        </div>
+      )}
 
       {relatedStories.length > 0 && (
         <section aria-labelledby="farmer-story-related" className="mt-12 border-t pt-8">

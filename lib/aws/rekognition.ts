@@ -337,3 +337,31 @@ export async function generateAltTextFromBuffer(
     return FALLBACK_ALT_TEXT;
   }
 }
+
+/**
+ * Return image-derived labels used as the feature vector for tree-health
+ * screening. The health classifier is trained on field-team corrections to
+ * these vision features; missing results are treated as a manual-review case.
+ */
+export async function detectVisionLabelsFromBuffer(buffer: Buffer): Promise<RekognitionLabel[]> {
+  if (!hasAwsCredentials()) return [];
+  const rek = await loadRekognition();
+  if (!rek) return [];
+  try {
+    const client = new rek.RekognitionClient(buildClientConfig());
+    const output = (await client.send(
+      new rek.DetectLabelsCommand({
+        Image: { Bytes: new Uint8Array(buffer) },
+        MaxLabels: 30,
+        MinConfidence: 20,
+      })
+    )) as DetectLabelsOutput;
+    return (output.Labels ?? []).map(({ Name, Confidence }) => ({
+      Name,
+      Confidence: Math.min(100, Math.max(0, Confidence)),
+    }));
+  } catch (error) {
+    console.error('[rekognition] detectVisionLabelsFromBuffer error:', error);
+    return [];
+  }
+}
