@@ -9,6 +9,9 @@
 // Usage (if you later switch the app to Prisma ORM):
 //   npx prisma generate
 //   npx prisma migrate dev --name <description>
+//
+// Related SQL migration: db/migrations/026_biome_campaigns_buffer_zones.sql
+// (biome_campaigns, corporate_match_pledges, project_buffer_zones)
 
 generator client {
   provider = "prisma-client-js"
@@ -172,4 +175,76 @@ model BulkPurchaseOrder {
   @@index([status])
   @@index([orderedAt])
   @@map("bulk_purchase_orders")
+}
+
+// ── BiomeCampaign ───────────────────────────────────────────────────────────
+//
+// Quarterly Endangered Biome focus campaigns (Issue #1706). Each campaign
+// targets a critically threatened ecosystem, carries biome-specific education
+// content, and tracks an urgent funding counter (days and trees remaining).
+//
+// Schema is for documentation; production uses raw SQL migrations (see note above).
+model BiomeCampaign {
+  id                String   @id @default(cuid())
+  slug              String   @unique @db.VarChar(120)
+  title             String   @db.VarChar(200)
+  biome             String   @db.VarChar(100) // e.g. "Atlantic Forest", "Mangrove"
+  quarter           String   @db.VarChar(10)  // e.g. "2025-Q1"
+  educationContent  String   @map("education_content") @db.Text
+  deadline          DateTime
+  treesTarget       Int      @map("trees_target")
+  treesRemaining    Int      @map("trees_remaining")
+  status            String   @default("active") @db.VarChar(20) // active | completed | cancelled
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  matchPledges      CorporateMatchPledge[]
+
+  @@index([biome])
+  @@index([quarter])
+  @@index([status])
+  @@index([deadline])
+  @@map("biome_campaigns")
+}
+
+// ── CorporateMatchPledge ────────────────────────────────────────────────────
+//
+// Corporate matching pledges attached to a BiomeCampaign (Issue #1706).
+// Tracks the match target, the remaining match balance, and the multiplier
+// applied to individual donations.
+model CorporateMatchPledge {
+  id              String   @id @default(cuid())
+  campaignId      String   @map("campaign_id")
+  corporateName   String   @map("corporate_name") @db.VarChar(200)
+  matchTarget     Float    @map("match_target") @db.DoublePrecision
+  matchRemaining  Float    @map("match_remaining") @db.DoublePrecision
+  multiplier      Float    @default(1) @db.DoublePrecision
+  currency        String   @default("USD") @db.VarChar(3)
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  campaign        BiomeCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@index([campaignId])
+  @@index([corporateName])
+  @@map("corporate_match_pledges")
+}
+
+// ── ProjectBufferZone ───────────────────────────────────────────────────────
+//
+// Designated forest protection buffer zones around reforestation projects
+// (Issue #1714). Stores the buffer polygon geometry, its area in hectares,
+// and whether deforestation has been detected inside the zone.
+model ProjectBufferZone {
+  id                String   @id @default(cuid())
+  projectId         String   @map("project_id")
+  polygon           Json     // GeoJSON polygon geometry
+  hectares          Float    @db.DoublePrecision
+  deforestationAlert Boolean @default(false) @map("deforestation_alert")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  @@index([projectId])
+  @@index([deforestationAlert])
+  @@map("project_buffer_zones")
 }

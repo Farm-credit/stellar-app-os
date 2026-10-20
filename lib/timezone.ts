@@ -280,3 +280,121 @@ export function isValidTimeZone(timeZone: string): boolean {
     return false;
   }
 }
+
+/** Hour of day (0-23) at which the daily digest is delivered, local time. */
+export const DIGEST_HOUR = 9;
+
+/**
+ * Return the wall-clock parts (year, month, day, hour, minute, second) of an
+ * instant as observed in the given IANA timezone.
+ */
+function getZonedParts(
+  date: Date,
+  timeZone: string
+): { year: number; month: number; day: number; hour: number; minute: number; second: number } {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    hourCycle: 'h23',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  }).formatToParts(date);
+  const get = (type: string): number => {
+    const value = parts.find((part) => part.type === type)?.value;
+    return value === undefined ? 0 : Number(value);
+  };
+  return {
+    year: get('year'),
+    month: get('month'),
+    day: get('day'),
+    hour: get('hour'),
+    minute: get('minute'),
+    second: get('second'),
+  };
+}
+
+/**
+ * Convert a wall-clock time in a given IANA timezone into the corresponding
+ * UTC instant. DST is handled by iteratively correcting the offset derived
+ * from Intl, so ambiguous/nonexistent local times resolve to a stable instant.
+ */
+function zonedTimeToUtc(
+  year: number,
+  month: number,
+  day: number,
+  hour: number,
+  minute: number,
+  timeZone: string
+): Date {
+  // First guess: treat the wall-clock time as if it were UTC.
+  const guess = Date.UTC(year, month - 1, day, hour, minute, 0, 0);
+  // Determine how the guess is rendered in the target zone, then shift by the
+  // difference. Repeat once to settle across DST boundaries.
+  let result = guess;
+  for (let i = 0; i < 2; i += 1) {
+    const rendered = getZonedParts(new Date(result), timeZone);
+    const renderedAsUtc = Date.UTC(
+      rendered.year,
+      rendered.month - 1,
+      rendered.day,
+      rendered.hour,
+      rendered.minute,
+      rendered.second,
+      0
+    );
+    const diff = guess - renderedAsUtc;
+    if (diff === 0) break;
+    result += diff;
+  }
+  return new Date(result);
+}
+
+/**
+ * Return the next occurrence of the daily digest time (9 AM local) for a
+ * sponsor's timezone, as a UTC Date. If the reference instant is before 9 AM
+ * local, today's 9 AM is returned; otherwise tomorrow's 9 AM is returned.
+ * Falls back to UTC when the timezone is invalid.
+ */
+export function getNextDigestTime(
+  timeZone: string,
+  from: Date = new Date(),
+  hour: number = DIGEST_HOUR
+): Date {
+  const zone = isValidTimeZone(timeZone) ? timeZone : 'UTC';
+  const now = isValidDate(from) ? from : new Date();
+  const local = getZonedParts(now, zone);
+
+  const todayDigest = zonedTimeToUtc(local.year, local.month, local.day, hour, 0, zone);
+  if (todayDigest.getTime() > now.getTime()) {
+    return todayDigest;
+  }
+
+  // Advance to the next calendar day in the sponsor's timezone.
+  const nextDay = new Date(Date.UTC(local.year, local.month - 1, local.day + 1));
+  return zonedTimeToUtc(
+    nextDay.getUTCFullYear(),
+    nextDay.getUTCMonth() + 1,
+    nextDay.getUTCDate(),
+    hour,
+    0,
+    zone
+  );
+}
+
+/**
+ * Whether the given instant falls within the digest hour (9 AM local) in the
+ * sponsor's timezone. Used by the digest worker to decide which sponsors are
+ * due for their daily summary.
+ */
+export function isDigestDue(
+  timeZone: string,
+  at: Date = new Date(),
+  hour: number = DIGEST_HOUR
+): boolean {
+  const zone = isValidTimeZone(timeZone) ? timeZone : 'UTC';
+  const instant = isValidDate(at) ? at : new Date();
+  return getZonedParts(instant, zone).hour === hour;
+}

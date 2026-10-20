@@ -33,13 +33,26 @@ contract CarbonCreditNFT is
 
     // ── Roles ────────────────────────────────────────────────────────────────
 
+    /// @notice Role granted to authorised backend / verifier wallets that may
+    ///         call {mintVerifiedCredit}.
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
+
+    /// @notice Role granted to the oracle wallet that attests off-chain
+    ///         validation records. Currently also holds {MINTER_ROLE}.
     bytes32 public constant ORACLE_ROLE = keccak256("ORACLE_ROLE");
+
+    /// @notice Role granted to administrators that may update the contract
+    ///         base URI and per-token metadata URIs.
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
 
     // ── Protocol identifiers ─────────────────────────────────────────────────
 
+    /// @notice Bytes32 identifier for the Verra registry
+    ///         (`keccak256("verra")`).
     bytes32 public constant PROTOCOL_VERRA = keccak256("verra");
+
+    /// @notice Bytes32 identifier for the Gold Standard registry
+    ///         (`keccak256("gold-standard")`).
     bytes32 public constant PROTOCOL_GOLD_STANDARD = keccak256("gold-standard");
 
     // ── Counter ──────────────────────────────────────────────────────────────
@@ -65,6 +78,9 @@ contract CarbonCreditNFT is
 
     // ── State ────────────────────────────────────────────────────────────────
 
+    /// @notice On-chain credit metadata for each token id.
+    /// @dev Populated in {mintVerifiedCredit}; entries are retained after a
+    ///      token is burned via {retireCredit} for auditability.
     mapping(uint256 tokenId => CreditData) public creditData;
 
     mapping(bytes32 protocolSerialHash => bool minted)
@@ -72,6 +88,8 @@ contract CarbonCreditNFT is
 
     mapping(uint256 tokenId => string metadataUri) private _tokenURIs;
 
+    /// @notice Base URI prepended to token URIs by the ERC-721 `_baseURI`
+    ///         implementation. Updated by {setContractBaseURI}.
     string public contractBaseURI;
 
     // ── Events ───────────────────────────────────────────────────────────────
@@ -104,6 +122,19 @@ contract CarbonCreditNFT is
 
     // ── Constructor ──────────────────────────────────────────────────────────
 
+    /**
+     * @notice Deploy the CarbonCreditNFT contract and configure roles.
+     *
+     * @dev Grants `DEFAULT_ADMIN_ROLE` and `ADMIN_ROLE` to `defaultAdmin`,
+     *      `MINTER_ROLE` to both `minterWallet` and `oracleWallet`, and
+     *      `ORACLE_ROLE` to `oracleWallet`. The token id counter is started
+     *      at 1 so that token id 0 is never minted.
+     *
+     * @param defaultAdmin  Address receiving the default admin and admin roles.
+     * @param minterWallet  Address receiving the minter role.
+     * @param oracleWallet  Address receiving the minter and oracle roles.
+     * @param baseURI       Initial value for {contractBaseURI}.
+     */
     constructor(
         address defaultAdmin,
         address minterWallet,
@@ -152,7 +183,21 @@ contract CarbonCreditNFT is
      *
      * @dev Caller must hold MINTER_ROLE (authorised backend wallet or Oracle).
      *      Reverts if the (protocol, serialNumber) pair has already been
-     *      minted to prevent double-tokenization.
+     *      minted to prevent double-tokenization. Emits {CreditMinted} on
+     *      success.
+     *
+     *      Reverts with:
+     *      - "CarbonCreditNFT: zero recipient" if `recipient` is the zero address.
+     *      - "CarbonCreditNFT: vintage too early" if `vintage` < 1900.
+     *      - "CarbonCreditNFT: vintage too late" if `vintage` > 2200.
+     *      - "CarbonCreditNFT: tonnage must be positive" if `tonnage` == 0.
+     *      - "CarbonCreditNFT: empty projectId" / "empty serialNumber" /
+     *        "projectId too long" / "serialNumber too long" from
+     *        {_validateStrings}.
+     *      - "CarbonCreditNFT: serial already minted" if the serial hash is
+     *        already recorded.
+     *      - AccessControl "account is missing role" if the caller lacks
+     *        MINTER_ROLE.
      *
      * @param recipient      Wallet receiving the NFT.
      * @param protocol       RegistryProtocol.Verra (0) or GoldStandard (1).
@@ -164,6 +209,8 @@ contract CarbonCreditNFT is
      * @param validationId   Off-chain validation record identifier.
      *
      * @return tokenId       The newly-minted token id.
+     *
+     * Emits a {CreditMinted} event.
      */
     function mintVerifiedCredit(
         address recipient,
@@ -229,6 +276,14 @@ contract CarbonCreditNFT is
 
     /**
      * @notice Returns whether a (protocol, serialNumber) pair has been minted.
+     *
+     * @dev Computes the same keccak256(protocol, serialNumber) hash used by
+     *      {mintVerifiedCredit} and checks the internal minted-serial map.
+     *
+     * @param protocol      RegistryProtocol.Verra (0) or GoldStandard (1).
+     * @param serialNumber  Retirement / issuance serial number.
+     *
+     * @return True if the pair has already been minted, false otherwise.
      */
     function isSerialMinted(
         RegistryProtocol protocol,
@@ -243,6 +298,17 @@ contract CarbonCreditNFT is
      * @notice Look up a token id by its (protocol, serialNumber) pair via
      *         a linear scan over the existing supply.  O(n) — use for
      *         debugging / tooling, not on-chain hot paths.
+     *
+     * @dev Reverts with "CarbonCreditNFT: serial not minted" if the serial
+     *      hash has never been recorded, and with
+     *      "CarbonCreditNFT: token not found for serial" if the serial is
+     *      marked minted but no matching live token is found (e.g. the token
+     *      was burned via {retireCredit}).
+     *
+     * @param protocol      RegistryProtocol.Verra (0) or GoldStandard (1).
+     * @param serialNumber  Retirement / issuance serial number.
+     *
+     * @return The token id associated with the serial number.
      */
     function findTokenIdBySerial(
         RegistryProtocol protocol,
@@ -270,6 +336,14 @@ contract CarbonCreditNFT is
     /**
      * @notice Return the protocol for a given token id as a human-readable
      *         string: "verra" or "gold-standard".
+     *
+     * @dev Reverts with ERC721 "ERC721NonexistentToken" (via `_requireOwned`)
+     *      if `tokenId` does not exist. Returns "unknown" if the stored
+     *      protocol bytes32 matches neither known constant.
+     *
+     * @param tokenId  The token id to query.
+     *
+     * @return The protocol name as a string.
      */
     function protocolString(uint256 tokenId) external view returns (string memory) {
         _requireOwned(tokenId);
@@ -285,6 +359,16 @@ contract CarbonCreditNFT is
      * @notice Burn a credit NFT, permanently removing it from supply.
      *         Emits `CreditRetired` so that the retirement is auditable.
      *         Caller must be owner or approved.
+     *
+     * @dev Reverts with ERC721 "ERC721NonexistentToken" (via `_requireOwned`)
+     *      if `tokenId` does not exist, and with
+     *      "CarbonCreditNFT: not owner nor approved" if the caller is neither
+     *      the owner, an approved operator, nor approved for the token.
+     *
+     * @param tokenId  The token id to retire (burn).
+     * @param reason   Free-form human-readable retirement reason.
+     *
+     * Emits a {CreditRetired} event.
      */
     function retireCredit(
         uint256 tokenId,
@@ -303,12 +387,33 @@ contract CarbonCreditNFT is
 
     // ── Admin functions ──────────────────────────────────────────────────────
 
+    /**
+     * @notice Update the contract-wide base URI used by {tokenURI}.
+     *
+     * @dev Caller must hold ADMIN_ROLE; otherwise reverts with AccessControl
+     *      "account is missing role".
+     *
+     * @param newBaseURI  The new base URI value.
+     */
     function setContractBaseURI(
         string calldata newBaseURI
     ) external onlyRole(ADMIN_ROLE) {
         contractBaseURI = newBaseURI;
     }
 
+    /**
+     * @notice Update the metadata URI for an existing token.
+     *
+     * @dev Caller must hold ADMIN_ROLE. Reverts with ERC721
+     *      "ERC721NonexistentToken" (via `_requireOwned`) if `tokenId` does
+     *      not exist, and with AccessControl "account is missing role" if the
+     *      caller lacks ADMIN_ROLE.
+     *
+     * @param tokenId  The token id whose URI is updated.
+     * @param newUri   The new metadata URI.
+     *
+     * Emits a {MetadataUriUpdated} event with the previous and new URIs.
+     */
     function updateTokenURI(
         uint256 tokenId,
         string calldata newUri
@@ -321,6 +426,16 @@ contract CarbonCreditNFT is
 
     // ── ERC-165 / overrides ──────────────────────────────────────────────────
 
+    /**
+     * @notice Query if this contract implements the given interface.
+     *
+     * @dev Resolves the diamond inheritance of ERC721, ERC721Enumerable,
+     *      ERC721URIStorage and AccessControl via `super`.
+     *
+     * @param interfaceId  The ERC-165 interface identifier.
+     *
+     * @return True if the interface is supported, false otherwise.
+     */
     function supportsInterface(
         bytes4 interfaceId
     )
@@ -332,6 +447,17 @@ contract CarbonCreditNFT is
         return super.supportsInterface(interfaceId);
     }
 
+    /**
+     * @notice Return the metadata URI for a token.
+     *
+     * @dev Resolves the ERC721 / ERC721URIStorage override chain via
+     *      `super`. Reverts with ERC721 "ERC721NonexistentToken" if `tokenId`
+     *      does not exist.
+     *
+     * @param tokenId  The token id to query.
+     *
+     * @return The token's metadata URI.
+     */
     function tokenURI(
         uint256 tokenId
     ) public view override(ERC721, ERC721URIStorage) returns (string memory) {

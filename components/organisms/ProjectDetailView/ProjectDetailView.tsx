@@ -37,6 +37,9 @@ import { ProjectSuccessStories } from '@/components/organisms/FarmerSuccessStori
 import { FundAllocationTransparency } from '@/components/organisms/FundAllocationTransparency';
 import { NativeSpeciesTransparency } from '@/components/organisms/NativeSpeciesTransparency';
 import { ProjectProtectionImpact } from '@/components/organisms/SponsorImpact/ProjectProtectionImpact';
+import { PlantingMethods } from '@/components/organisms/PlantingMethods/PlantingMethods';
+import { RestorationTimelineGantt } from '@/components/organisms/RestorationTimeline/RestorationTimelineGantt';
+import { LivePlantingStream } from '@/components/organisms/LivePlantingStream/LivePlantingStream';
 
 import { mockCarbonProjects } from '@/lib/api/mock/carbonProjects';
 import { toast } from 'sonner';
@@ -238,12 +241,39 @@ export function ProjectDetailView({ adminProject, carbonProject }: ProjectDetail
               />
             </section>
 
+            {/* Issue #1675: documented planting methods per project */}
+            <section id="planting-methods">
+              <Text variant="h3" className="mb-6 font-bold flex items-center gap-2">
+                Planting Methods
+                <div className="h-px bg-stellar-blue/20 flex-1 ml-4" />
+              </Text>
+              <PlantingMethods projectId={adminProject.id} />
+            </section>
+
             <section id="timeline">
               <Text variant="h3" className="mb-8 font-bold flex items-center gap-2">
                 Project Roadmap
                 <div className="h-px bg-stellar-blue/20 flex-1 ml-4" />
               </Text>
               <ProjectTimeline milestones={milestones} />
+            </section>
+
+            {/* Issue #1678: Gantt-style restoration phase timeline */}
+            <section id="restoration-timeline">
+              <Text variant="h3" className="mb-6 font-bold flex items-center gap-2">
+                Restoration Timeline
+                <div className="h-px bg-stellar-blue/20 flex-1 ml-4" />
+              </Text>
+              <RestorationTimelineGantt projectId={adminProject.id} />
+            </section>
+
+            {/* Issue #1708: live planting-event streaming for sponsors */}
+            <section id="live-events">
+              <Text variant="h3" className="mb-6 font-bold flex items-center gap-2">
+                Live Planting Events
+                <div className="h-px bg-stellar-blue/20 flex-1 ml-4" />
+              </Text>
+              <LivePlantingStream projectId={adminProject.id} />
             </section>
 
             {/* Issue #1150: Meet the people planting this project's trees */}

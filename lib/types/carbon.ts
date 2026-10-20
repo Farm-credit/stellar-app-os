@@ -47,10 +47,6 @@ export interface CreditSelectionProps {
   onSelectionChange?: (selection: CreditSelectionState) => void;
 }
 
-export const BULK_PURCHASE_MIN_QUANTITY = 1_000;
-
-export type MetadataStorageType = 'none' | 'on-chain' | 'ipfs';
-
 export interface CorporateMetadata {
   companyName: string;
   initiativeDescription: string;
