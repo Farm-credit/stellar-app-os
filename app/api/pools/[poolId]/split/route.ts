@@ -26,12 +26,13 @@ export async function GET(
 
     const { searchParams } = new URL(request.url);
     const overrideCredits = searchParams.get('totalCredits');
-    const totalCredits = overrideCredits
-      ? parseFloat(overrideCredits)
-      : pool.targetUsdc;
+    const totalCredits = overrideCredits ? parseFloat(overrideCredits) : pool.targetUsdc;
 
     if (isNaN(totalCredits) || totalCredits <= 0) {
-      return NextResponse.json({ error: 'totalCredits must be a positive number' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'totalCredits must be a positive number' },
+        { status: 400 }
+      );
     }
 
     const split = computeCreditSplit(pool, totalCredits);

@@ -222,10 +222,13 @@ describe('aggregateSeries', () => {
 
 describe('aggregateCarbonPrices', () => {
   it('quotes every series with the change against the previous close', async () => {
-    const snapshot = await aggregateCarbonPrices({}, {
-      source: stubSource(),
-      now: new Date('2026-09-26T00:00:00Z'),
-    });
+    const snapshot = await aggregateCarbonPrices(
+      {},
+      {
+        source: stubSource(),
+        now: new Date('2026-09-26T00:00:00Z'),
+      }
+    );
 
     expect(snapshot.count).toBe(2);
     const mangroves = snapshot.quotes.find((quote) => quote.assetCode === RECORD.assetCode);

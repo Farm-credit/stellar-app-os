@@ -28,8 +28,9 @@ export async function subscribeToPushNotifications(): Promise<PushSubscription |
       ? (window as typeof window & { ENV?: { NEXT_PUBLIC_VAPID_PUBLIC_KEY?: string } }).ENV
           ?.NEXT_PUBLIC_VAPID_PUBLIC_KEY
       : undefined;
+  const key = vapidKey ?? process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
 
-  if (!vapidKey) {
+  if (!key) {
     console.warn('VAPID public key not configured');
     return null;
   }
@@ -39,7 +40,7 @@ export async function subscribeToPushNotifications(): Promise<PushSubscription |
 
     const subscription = await registration.pushManager.subscribe({
       userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(vapidKey) as BufferSource,
+      applicationServerKey: urlBase64ToUint8Array(key) as BufferSource,
     });
 
     return subscription;

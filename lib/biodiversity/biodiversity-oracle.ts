@@ -55,9 +55,7 @@ export interface VerifiedBioacousticResult {
  * Validates and processes a bioacoustic sensor reading from the field.
  * Throws on invalid input or signature mismatch.
  */
-export function processBioacousticReading(
-  reading: BioacousticReading
-): VerifiedBioacousticResult {
+export function processBioacousticReading(reading: BioacousticReading): VerifiedBioacousticResult {
   // Input validation
   if (!reading.deviceId) throw new Error('Missing deviceId');
   if (!reading.regionKey) throw new Error('Missing regionKey');
@@ -130,8 +128,7 @@ export function processDroneObservation(obs: DroneObservation): VerifiedDroneRes
     throw new Error('canopyCoverPercent must be between 0 and 100');
   if (typeof obs.ndviMean !== 'number' || obs.ndviMean < 0 || obs.ndviMean > 1)
     throw new Error('ndviMean must be between 0.0 and 1.0');
-  if (!Array.isArray(obs.detectedFauna))
-    throw new Error('detectedFauna must be an array');
+  if (!Array.isArray(obs.detectedFauna)) throw new Error('detectedFauna must be an array');
   if (!obs.signature || !/^[0-9a-f]{128}$/i.test(obs.signature))
     throw new Error('signature must be a 128-char hex string');
 

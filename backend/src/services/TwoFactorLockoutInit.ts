@@ -77,10 +77,7 @@ export class RedisLockoutStore implements LockoutStore {
     exists: (key: string) => Promise<number>;
   };
 
-  constructor(
-    redisClient: RedisLockoutStore['redisClient'],
-    keyPrefix = 'lockout:'
-  ) {
+  constructor(redisClient: RedisLockoutStore['redisClient'], keyPrefix = 'lockout:') {
     this.redisClient = redisClient;
     this.keyPrefix = keyPrefix;
   }

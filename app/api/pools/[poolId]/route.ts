@@ -9,10 +9,7 @@ import type { JoinPoolRequest } from '@/lib/types/pooled-sponsorship';
 
 export const runtime = 'nodejs';
 
-export async function GET(
-  _req: NextRequest,
-  { params }: { params: Promise<{ poolId: string }> }
-) {
+export async function GET(_req: NextRequest, { params }: { params: Promise<{ poolId: string }> }) {
   try {
     const { poolId } = await params;
     const pool = getPool(poolId);

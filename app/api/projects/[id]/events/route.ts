@@ -26,10 +26,7 @@ import {
 
 export const runtime = 'nodejs';
 
-export async function GET(
-  _request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
 
   const adminProject = mockAdminProjectDetails.find(
@@ -54,7 +51,10 @@ export async function GET(
     recordingLinks: linkRecordingToTrees(event),
   }));
 
-  return NextResponse.json({ projectId, events }, {
-    headers: { 'Cache-Control': 'public, s-maxage=15, stale-while-revalidate=10' },
-  });
+  return NextResponse.json(
+    { projectId, events },
+    {
+      headers: { 'Cache-Control': 'public, s-maxage=15, stale-while-revalidate=10' },
+    }
+  );
 }

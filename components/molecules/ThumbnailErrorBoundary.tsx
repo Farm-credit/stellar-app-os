@@ -1,4 +1,4 @@
-import { Component, type ReactNode } from "react";
+import { Component, type ReactNode } from 'react';
 
 interface Props {
   children: ReactNode;
@@ -21,8 +21,7 @@ export class ThumbnailErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: unknown) {
-    // eslint-disable-next-line no-console
-    console.error("Photo thumbnail failed to render:", error);
+    console.error('Photo thumbnail failed to render:', error);
   }
 
   render() {

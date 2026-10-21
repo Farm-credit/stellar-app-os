@@ -6,6 +6,17 @@ export const metadata = {
   description: 'See how sponsor funds are allocated and how FarmCredit prioritizes native species.',
 };
 
+const seedProvenanceSummary = {
+  totalSeedBatches: 48,
+  seedBanks: 6,
+  nurseries: 14,
+  plantingSites: 32,
+  provenanceVerifiedBatches: 45,
+  provenancePendingBatches: 3,
+  seedsDistributed: 128500,
+  seedsPlanted: 96400,
+};
+
 export default function TransparencyPage() {
   return (
     <main className="min-h-screen bg-background px-4 py-12 sm:px-6 lg:px-8">
@@ -23,7 +34,11 @@ export default function TransparencyPage() {
           </p>
         </header>
         <FundAllocationTransparency />
-        <NativeSpeciesTransparency nativeTrees={9200} totalTrees={10000} />
+        <NativeSpeciesTransparency
+          nativeTrees={9200}
+          totalTrees={10000}
+          seedProvenance={seedProvenanceSummary}
+        />
       </div>
     </main>
   );

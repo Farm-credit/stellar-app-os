@@ -5,11 +5,27 @@ import { isAdminRequest } from '@/lib/auth/admin';
 import { getTreeAnalytics, parseTreeAnalyticsFilters } from '@/lib/analytics/tree-survival';
 import { getCarbonOffsetEstimate, parseCarbonOffsetInput } from '@/lib/analytics/carbon-offset';
 import { processFarmerPayment, parseFarmerPaymentInput } from '@/lib/payments/farmer-payment';
-import { getFarmerPaymentMethods, parseFarmerPaymentMethodFilters } from '@/lib/payments/farmer-payment-methods';
-import { getProjectComparison, parseProjectComparisonInput } from '@/lib/analytics/project-comparison';
-import { getFarmerIncomePrediction, parseFarmerIncomePredictionInput } from '@/lib/analytics/farmer-income';
-import { getComplianceReport, parseComplianceReportInput } from '@/lib/analytics/compliance-report';
+import {
+  getFarmerPaymentMethods,
+  parseFarmerPaymentMethodFilters,
+} from '@/lib/payments/farmer-payment-methods';
+import '@/lib/analytics/project-comparison';
+import {
+  getFarmerIncomePrediction,
+  parseFarmerIncomePredictionInput,
+} from '@/lib/analytics/farmer-income';
+import '@/lib/analytics/compliance-report';
 import { searchOffsetProjects, parseOffsetProjectSearchParams } from '@/lib/offset/project-search';
+import {
+  getTreeAge,
+  parseTreeAgeInput,
+  parseTreeMilestoneInput,
+  processTreeMilestones,
+} from '@/lib/analytics/tree-age';
+import {
+  getCorporateEsgImpact,
+  parseCorporateEsgImpactFilters,
+} from '@/lib/analytics/corporate-esg-impact';
 
 export const runtime = 'nodejs';
 
@@ -38,7 +54,61 @@ export async function GET(request: Request): Promise<NextResponse> {
 }
 
 /**
-* GET /api/admin/analytics/tree-survival/payment-methods
+ * GET /api/admin/analytics/tree-survival/age
+ *
+ * Calculates a tree's age from its planting date and returns the current
+ * growth milestone badge along with the next upcoming milestone.
+ */
+export async function GET_TREE_AGE(request: Request): Promise<NextResponse> {
+  if (!(await isAdminRequest())) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+  try {
+    const input = parseTreeAgeInput(new URL(request.url).searchParams);
+    const age = getTreeAge(input);
+    return NextResponse.json(age, {
+      headers: { 'Cache-Control': 'private, max-age=60, stale-while-revalidate=300' },
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Failed to calculate tree age';
+    const status = /must be|required|invalid|before or equal|future/.test(message) ? 400 : 500;
+    console.error('[tree-age]', error);
+    return NextResponse.json({ error: message }, { status });
+  }
+}
+
+/**
+ * GET /api/admin/analytics/tree-survival/corporate-impact
+ *
+ * Returns the corporate ESG impact dashboard for a sponsor account: trees
+ * funded, CO2 sequestered, biodiversity contribution, and employee engagement,
+ * aligned to ESG reporting frameworks (GRI, SASB, CDP, TSFD, SEBi).
+ */
+export async function GET_CORPORATE_IMPACT(request: Request): Promise<NextResponse> {
+  if (!(await isAdminRequest())) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+  try {
+    const filters = parseCorporateEsgImpactFilters(new URL(request.url).searchParams);
+    const report = await getCorporateEsgImpact(getReadPool(), filters);
+    return NextResponse.json(report, {
+      headers: { 'Cache-Control': 'private, max-age=60, stale-while-revalidate=300' },
+    });
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : 'Failed to generate corporate ESG impact';
+    const status = /must be|required|invalid|unsupported|non-negative|unknown|before or equal/.test(
+      message
+    )
+      ? 400
+      : 500;
+    console.error('[corporate-esg-impact]', error);
+    return NextResponse.json({ error: message }, { status });
+  }
+}
+
+/**
+ * GET /api/admin/analytics/tree-survival/payment-methods
  *
  * Returns the supported farmer payment methods across XLM, USDC, and fiat
  * currencies, including bank transfers, crypto wallets, and payment apps.
@@ -54,7 +124,8 @@ export async function GET_PAYMENT_METHODS(request: Request): Promise<NextRespons
       headers: { 'Cache-Control': 'private, max-age=60, stale-while-revalidate=300' },
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Failed to load farmer payment methods';
+    const message =
+      error instanceof Error ? error.message : 'Failed to load farmer payment methods';
     const status = /must be|required|invalid|unsupported|non-negative/.test(message) ? 400 : 500;
     console.error('[farmer-payment-methods]', error);
     return NextResponse.json({ error: message }, { status });
@@ -62,7 +133,7 @@ export async function GET_PAYMENT_METHODS(request: Request): Promise<NextRespons
 }
 
 /**
- * PUT /api/admin/analytics/tree-survival
+ * PU /api/admin/analytics/tree-survival
  *
  * Processes a farmer payment in XLM, USDC, or fiat currency via bank transfer,
  * crypto wallet, or payment app.
@@ -108,6 +179,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     return NextResponse.json({ error: message }, { status });
   }
 }
+
 /**
  * PATCH /api/admin/analytics/tree-survival
  *
@@ -135,7 +207,7 @@ export async function PATCH(request: Request): Promise<NextResponse> {
 /**
  * DELETE /api/admin/analytics/tree-survival
  *
-* Searches carbon offset projects with filters: project type, location,
+ * Searches carbon offset projects with filters: project type, location,
  * co-benefits (biodiversity, water, soil), certification standard, and
  * price range.
  */
@@ -144,15 +216,44 @@ export async function DELETE(request: Request): Promise<NextResponse> {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
   try {
-const params = parseOffsetProjectSearchParams(new URL(request.url).searchParams);
+    const params = parseOffsetProjectSearchParams(new URL(request.url).searchParams);
     const results = await searchOffsetProjects(getPool(), params);
     return NextResponse.json(results, {
       headers: { 'Cache-Control': 'private, max-age=60, stale-while-revalidate=300' },
     });
   } catch (error) {
-const message = error instanceof Error ? error.message : 'Failed to search offset projects';
-    const status = /must be|required|invalid|unsupported|non-negative|unknown/.test(message) ? 400 : 500;
+    const message = error instanceof Error ? error.message : 'Failed to search offset projects';
+    const status = /must be|required|invalid|unsupported|non-negative|unknown/.test(message)
+      ? 400
+      : 500;
     console.error('[offset-project-search]', error);
+    return NextResponse.json({ error: message }, { status });
+  }
+}
+
+/**
+ * POST /api/admin/analytics/tree-survival/milestones
+ *
+ * Detects newly reached growth milestones (1 month, 6 months, 1 year, 5 years)
+ * for trees, persists digital milestone badges on the tree profile, and sends
+ * milestone notification emails to the sponsor.
+ */
+export async function POST_MILESTONES(request: Request): Promise<NextResponse> {
+  if (!(await isAdminRequest())) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+  try {
+    const input = parseTreeMilestoneInput(await request.json());
+    const result = await processTreeMilestones(getPool(), input);
+    return NextResponse.json(result, {
+      headers: { 'Cache-Control': 'private, max-age=60, stale-while-revalidate=300' },
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Failed to process tree milestones';
+    const status = /must be|required|invalid|unsupported|non-negative|not found/.test(message)
+      ? 400
+      : 500;
+    console.error('[tree-milestones]', error);
     return NextResponse.json({ error: message }, { status });
   }
 }

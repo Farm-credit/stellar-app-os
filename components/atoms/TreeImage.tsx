@@ -76,16 +76,10 @@ function TreeImage({
         ? generatedAltText
         : GENERIC_ALT;
 
-  // During alt-text fetch show a temporary aria-label so screen readers
-  // still announce something meaningful immediately.
-  const ariaLabel = isLoading && !alt ? 'Loading tree photo description…' : undefined;
-
   return (
     <span
-      role="img"
-      aria-label={ariaLabel}
       className={cn('inline-block', wrapperClassName)}
-      aria-busy={isLoading && showLoadingState}
+      aria-busy={isLoading && showLoadingState ? 'true' : undefined}
     >
       <Image {...imageProps} alt={effectiveAlt} className={className} />
     </span>

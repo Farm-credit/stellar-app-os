@@ -3,11 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ExpertChatPanel } from '@/components/organisms/ExpertChatPanel/ExpertChatPanel';
 
-type TopicCategory =
-  | 'carbon-farming'
-  | 'soil-health'
-  | 'certification'
-  | 'market-prices';
+type TopicCategory = 'carbon-farming' | 'soil-health' | 'certification' | 'market-prices';
 
 interface Topic {
   id: TopicCategory;
@@ -85,7 +81,7 @@ function useTimezone() {
         return new Date(iso).toLocaleTimeString();
       }
     },
-    [timezone],
+    [timezone]
   );
 
   return { timezone, formatLocalTime };
@@ -100,7 +96,7 @@ export default function ExpertChatPage({ initialTopic }: ExpertChatPageProps) {
   });
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'live' | 'offline'>(
-    'connecting',
+    'connecting'
   );
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -220,7 +216,9 @@ export default function ExpertChatPage({ initialTopic }: ExpertChatPageProps) {
         </section>
 
         <section aria-label="Chat topics" className="mb-8">
-          <h2 className="mb-3 text-lg font-semibold text-foreground">What do you need help with?</h2>
+          <h2 className="mb-3 text-lg font-semibold text-foreground">
+            What do you need help with?
+          </h2>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {TOPICS.map((topic) => {
               const isActive = activeTopic === topic.id;
@@ -236,9 +234,7 @@ export default function ExpertChatPage({ initialTopic }: ExpertChatPageProps) {
                       : 'border-border bg-card hover:border-stellar-blue/60'
                   }`}
                 >
-                  <span className="block text-sm font-semibold text-foreground">
-                    {topic.label}
-                  </span>
+                  <span className="block text-sm font-semibold text-foreground">{topic.label}</span>
                   <span className="mt-1 block text-xs text-muted-foreground">
                     {topic.description}
                   </span>
@@ -266,13 +262,8 @@ export default function ExpertChatPage({ initialTopic }: ExpertChatPageProps) {
                   }`}
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-sm font-semibold text-foreground">
-                      {message.author}
-                    </span>
-                    <time
-                      dateTime={message.timestamp}
-                      className="text-xs text-muted-foreground"
-                    >
+                    <span className="text-sm font-semibold text-foreground">{message.author}</span>
+                    <time dateTime={message.timestamp} className="text-xs text-muted-foreground">
                       {formatLocalTime(message.timestamp)}
                     </time>
                   </div>

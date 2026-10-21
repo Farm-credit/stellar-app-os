@@ -149,7 +149,12 @@ export function PublishCarbonListingForm() {
         <CardContent className="p-8 text-center space-y-6">
           <div className="w-16 h-16 bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 rounded-full flex items-center justify-center mx-auto shadow-md">
             <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2.5}
+                d="M5 13l4 4L19 7"
+              />
             </svg>
           </div>
 
@@ -158,7 +163,9 @@ export function PublishCarbonListingForm() {
               Carbon Credit Listing Published!
             </Text>
             <p className="text-sm text-muted-foreground">
-              Your credits from verified project <span className="font-semibold text-foreground">{publishedListing.projectName}</span> are now active on the marketplace.
+              Your credits from verified project{' '}
+              <span className="font-semibold text-foreground">{publishedListing.projectName}</span>{' '}
+              are now active on the marketplace.
             </p>
           </div>
 
@@ -179,7 +186,9 @@ export function PublishCarbonListingForm() {
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Listed Quantity:</span>
-              <span className="font-semibold">{publishedListing.quantityTonnes.toLocaleString()} metric tons</span>
+              <span className="font-semibold">
+                {publishedListing.quantityTonnes.toLocaleString()} metric tons
+              </span>
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Price per Ton:</span>
@@ -188,7 +197,8 @@ export function PublishCarbonListingForm() {
             <div className="flex justify-between border-t border-border/40 pt-2 font-bold">
               <span>Total Listing Value:</span>
               <span className="text-emerald-600">
-                ${(publishedListing.quantityTonnes * publishedListing.pricePerTon).toLocaleString()} USD
+                ${(publishedListing.quantityTonnes * publishedListing.pricePerTon).toLocaleString()}{' '}
+                USD
               </span>
             </div>
           </div>
@@ -220,7 +230,8 @@ export function PublishCarbonListingForm() {
             List Carbon Credits from Verified Projects (v2)
           </CardTitle>
           <p className="text-xs sm:text-sm text-muted-foreground">
-            Allow farmers and land managers to publish verified credits. Specify credit type, quantity, price per ton, and verification method.
+            Allow farmers and land managers to publish verified credits. Specify credit type,
+            quantity, price per ton, and verification method.
           </p>
         </CardHeader>
 
@@ -235,7 +246,9 @@ export function PublishCarbonListingForm() {
           <div className="space-y-2">
             <label className="text-sm font-semibold text-foreground flex items-center justify-between">
               <span>1. Verified Carbon Project</span>
-              <span className="text-xs font-normal text-muted-foreground">Select from certified project registry</span>
+              <span className="text-xs font-normal text-muted-foreground">
+                Select from certified project registry
+              </span>
             </label>
             <select
               className="w-full px-3.5 py-2.5 rounded-lg border border-border bg-background text-foreground text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
@@ -253,9 +266,7 @@ export function PublishCarbonListingForm() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Credit Type */}
             <div className="space-y-2">
-              <label className="text-sm font-semibold text-foreground">
-                2. Credit Type
-              </label>
+              <label className="text-sm font-semibold text-foreground">2. Credit Type</label>
               <select
                 className="w-full px-3.5 py-2.5 rounded-lg border border-border bg-background text-foreground text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                 value={creditType}
@@ -333,9 +344,7 @@ export function PublishCarbonListingForm() {
 
             {/* Vintage Year */}
             <div className="space-y-2">
-              <label className="text-sm font-semibold text-foreground">
-                Vintage Year
-              </label>
+              <label className="text-sm font-semibold text-foreground">Vintage Year</label>
               <input
                 type="number"
                 min="2020"
@@ -375,7 +384,9 @@ export function PublishCarbonListingForm() {
                 </span>
               </div>
               <div>
-                <span className="text-xs text-muted-foreground block">Platform Protocol Fee (2.5%)</span>
+                <span className="text-xs text-muted-foreground block">
+                  Platform Protocol Fee (2.5%)
+                </span>
                 <span className="text-lg font-medium text-muted-foreground">
                   -${platformFee.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                 </span>

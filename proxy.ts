@@ -65,7 +65,7 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
     if (tierResult) return tierResult;
     return NextResponse.next({
       request: { headers: passHeaders },
-      headers: { 'X-TX-ID': txId },
+      headers: { ...getCorsHeaders(origin), 'X-TX-ID': txId },
     });
   }
 
@@ -92,7 +92,10 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
     });
   }
 
-  return NextResponse.next({ request: { headers: passHeaders } });
+  return NextResponse.next({
+    request: { headers: passHeaders },
+    headers: { ...getCorsHeaders(origin), 'X-TX-ID': txId },
+  });
 }
 
 /**
@@ -151,24 +154,8 @@ async function enforceApiKeyLimit(apiKey: string, txId: string): Promise<NextRes
     console.error('[proxy] tiered rate limit failed open', { error });
     return null;
   }
-  const txId = request.headers.get('x-tx-id') ?? crypto.randomUUID();
-  const requestHeaders = new Headers(request.headers);
-  requestHeaders.set('x-tx-id', txId);
-
-  const response = NextResponse.next({ request: { headers: requestHeaders } });
-
-  // Attach CORS response headers for valid cross-origin requests
-  const corsHeaders = getCorsHeaders(origin);
-  Object.entries(corsHeaders).forEach(([key, value]) => {
-    if (value) {
-      response.headers.set(key, value);
-    }
-  });
-
-  return response;
 }
 
 export const config = {
   matcher: ['/api/:path*'],
 };
-

@@ -43,6 +43,9 @@ function DonationConfirmationContent() {
   // Get donor name and amount from state, fallback to search params or defaults if state lost on refresh
   const donorName = state.donorInfo.name || 'Generous Donor';
   const amount = state.amount || parseFloat(searchParams.get('amount') || '0');
+  const localAmount = searchParams.get('localAmount');
+  const xlmAmount = searchParams.get('xlmAmount');
+  const currency = searchParams.get('currency');
   const trees = Math.round(amount * TREES_PER_DOLLAR);
   const projectName = 'Stellar Amazon Reforestation'; // Default or project selection if available
   const regionAllocations = state.regionAllocations;
@@ -187,6 +190,23 @@ function DonationConfirmationContent() {
                 <Text className="text-xs font-medium text-stellar-green uppercase">
                   Trees Planted
                 </Text>
+              </div>
+
+              <div className="rounded-xl border border-gray-100 bg-gray-50 p-4 text-left space-y-2">
+                <div className="flex items-center justify-between gap-4">
+                  <Text className="text-sm font-medium text-gray-500">
+                    Local currency{currency ? ` (${currency})` : ''}
+                  </Text>
+                  <Text className="font-semibold text-gray-800">
+                    {localAmount || formatCurrency(amount)}
+                  </Text>
+                </div>
+                <div className="flex items-center justify-between gap-4">
+                  <Text className="text-sm font-medium text-gray-500">XLM equivalent</Text>
+                  <Text className="font-semibold text-gray-800">
+                    {xlmAmount ? `${Number(xlmAmount).toFixed(7)} XLM` : 'Unavailable'}
+                  </Text>
+                </div>
               </div>
               <div className="bg-stellar-blue/5 p-4 rounded-xl border border-stellar-blue/10 text-center">
                 <DollarSign className="w-6 h-6 text-stellar-blue mx-auto mb-2" />

@@ -23,10 +23,7 @@ import { getPlantingMethodsForProject } from '@/lib/plantingMethods';
 
 export const runtime = 'nodejs';
 
-export async function GET(
-  _request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
 
   const adminProject = mockAdminProjectDetails.find(
@@ -44,7 +41,10 @@ export async function GET(
 
   const methods = getPlantingMethodsForProject(projectId);
 
-  return NextResponse.json({ projectId, hasData: methods.length > 0, methods }, {
-    headers: { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=30' },
-  });
+  return NextResponse.json(
+    { projectId, hasData: methods.length > 0, methods },
+    {
+      headers: { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=30' },
+    }
+  );
 }

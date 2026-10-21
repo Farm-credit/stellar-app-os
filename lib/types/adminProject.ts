@@ -43,6 +43,23 @@ export interface AdminActivityLogEntry {
   details: string;
 }
 
+/**
+ * A designated forest protection buffer zone around a reforestation project.
+ * Implements issue #1714.
+ */
+export interface ProjectBufferZone {
+  /** GeoJSON polygon coordinates [lng, lat] defining the buffer boundary. */
+  polygonCoordinates: Array<[number, number]>;
+  /** Area of the protection zone in hectares. */
+  areaHectares: number;
+  /** Whether deforestation has been detected inside the buffer zone. */
+  deforestationAlert: boolean;
+  /** ISO-8601 timestamp of the last satellite check for deforestation. */
+  lastCheckedAt?: string;
+  /** Human-readable description of the protection designation. */
+  designationLabel?: string;
+}
+
 export interface AdminProjectDetail {
   id: string;
   slug: string;
@@ -75,6 +92,21 @@ export interface AdminProjectDetail {
   mrvDocuments: AdminMrvDocument[];
   creditIssuanceHistory: AdminCreditIssuanceRecord[];
   activityLog: AdminActivityLogEntry[];
+  /**
+   * Optional forest protection buffer zone designation (issue #1714).
+   * Only present for reforestation / nature-based projects.
+   */
+  bufferZone?: ProjectBufferZone;
+  /**
+   * Primary tree species planted at this project site.
+   * Used by the forest regeneration simulation (issue #1710).
+   */
+  primarySpecies?: string;
+  /**
+   * Climate zone of the project location.
+   * Used by the forest regeneration simulation (issue #1710).
+   */
+  climateZone?: 'Tropical' | 'Subtropical' | 'Temperate' | 'Boreal' | 'Arid';
 }
 
 export interface AdminProjectFormValues {

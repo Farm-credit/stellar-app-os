@@ -5,7 +5,7 @@ info:
     REST API for the Stellar App OS reforestation platform. Provides endpoints
     for tree planting verification, carbon credit management, escrow operations,
     NFT minting, compliance reporting, and more.
-  version: 1.0.0
+  version: 1.1.0
   license:
     name: MIT
     url: https://opensource.org/licenses/MIT
@@ -18,6 +18,8 @@ servers:
     description: Local development
   - url: https://stellar-app-os.vercel.app
     description: Production
+  - url: https://api.stellar-app-os.vercel.app/api/v1
+    description: Public API v1 (third-party integrations)
 
 security: []
 
@@ -74,6 +76,11 @@ tags:
     description: Regional map data
   - name: Uploads
     description: General file uploads
+  - name: Public API
+    description: >
+      Versioned public REST API for third-party integrations. Query tree data,
+      create tree sponsorships, and manage webhook subscriptions. Authenticate
+      with an OAuth2 bearer token or an API key.
 
 paths:
   # ──────────────────────────────────────────────
@@ -2992,6 +2999,354 @@ paths:
           $ref: "#/components/responses/InternalServerError"
 
   # ──────────────────────────────────────────────
+  # Public API v1
+  # ──────────────────────────────────────────────
+  /api/v1/trees:
+    get:
+      operationId: listPublicTrees
+      tags: [Public API]
+      summary: List trees (public API)
+      description: >
+        Paginated tree inventory for third-party integrations. Results are
+        scoped to the authenticated client's tier and quota.
+      security:
+        - oauth2: [trees:read]
+        - apiKeyAuth: []
+      parameters:
+        - name: species
+          in: query
+          schema:
+            type: string
+        - name: region
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [funded, planted, verified, completed, failed, all]
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+            minimum: 1
+            maximum: 200
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+      responses:
+        "200":
+          description: Tree list
+          headers:
+            X-API-Version:
+              $ref: "#/components/headers/XApiVersion"
+            X-RateLimit-Limit:
+              $ref: "#/components/headers/XRateLimitLimit"
+            X-RateLimit-Remaining:
+              $ref: "#/components/headers/XRateLimitRemaining"
+            X-RateLimit-Reset:
+              $ref: "#/components/headers/XRateLimitReset"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  trees:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Tree"
+                  total:
+                    type: integer
+                  limit:
+                    type: integer
+                  offset:
+                    type: integer
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/v1/trees/{id}:
+    get:
+      operationId: getPublicTreeById
+      tags: [Public API]
+      summary: Get tree by ID (public API)
+      security:
+        - oauth2: [trees:read]
+        - apiKeyAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Tree ID (e.g. HRV-2024-0001)
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Tree details
+          headers:
+            X-API-Version:
+              $ref: "#/components/headers/XApiVersion"
+            X-RateLimit-Limit:
+              $ref: "#/components/headers/XRateLimitLimit"
+            X-RateLimit-Remaining:
+              $ref: "#/components/headers/XRateLimitRemaining"
+            X-RateLimit-Reset:
+              $ref: "#/components/headers/XRateLimitReset"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tree:
+                    $ref: "#/components/schemas/Tree"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/v1/sponsorships:
+    post:
+      operationId: createPublicSponsorship
+      tags: [Public API]
+      summary: Create a tree sponsorship (public API)
+      description: >
+        Creates a sponsorship for one or more trees. Supply an
+        `Idempotency-Key` header to make retries safe.
+      security:
+        - oauth2: [sponsorships:write]
+        - apiKeyAuth: []
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: false
+          description: Client-generated key to deduplicate retried requests
+          schema:
+            type: string
+            maxLength: 255
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SponsorshipCreateRequest"
+      responses:
+        "201":
+          description: Sponsorship created
+          headers:
+            X-API-Version:
+              $ref: "#/components/headers/XApiVersion"
+            X-RateLimit-Limit:
+              $ref: "#/components/headers/XRateLimitLimit"
+            X-RateLimit-Remaining:
+              $ref: "#/components/headers/XRateLimitRemaining"
+            X-RateLimit-Reset:
+              $ref: "#/components/headers/XRateLimitReset"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Sponsorship"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          description: Duplicate idempotency key or conflicting sponsorship
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/v1/sponsorships/{id}:
+    get:
+      operationId: getPublicSponsorship
+      tags: [Public API]
+      summary: Get sponsorship by ID (public API)
+      security:
+        - oauth2: [sponsorships:read]
+        - apiKeyAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Sponsorship details
+          headers:
+            X-API-Version:
+              $ref: "#/components/headers/XApiVersion"
+            X-RateLimit-Limit:
+              $ref: "#/components/headers/XRateLimitLimit"
+            X-RateLimit-Remaining:
+              $ref: "#/components/headers/XRateLimitRemaining"
+            X-RateLimit-Reset:
+              $ref: "#/components/headers/XRateLimitReset"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Sponsorship"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/v1/webhooks:
+    post:
+      operationId: createPublicWebhookSubscription
+      tags: [Public API]
+      summary: Create a webhook subscription
+      description: >
+        Registers an HTTPS endpoint to receive signed event deliveries.
+        The signing secret is returned only once, at creation time.
+      security:
+        - oauth2: [webhooks:write]
+        - apiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WebhookSubscriptionCreateRequest"
+      responses:
+        "201":
+          description: Subscription created
+          headers:
+            X-API-Version:
+              $ref: "#/components/headers/XApiVersion"
+            X-RateLimit-Limit:
+              $ref: "#/components/headers/XRateLimitLimit"
+            X-RateLimit-Remaining:
+              $ref: "#/components/headers/XRateLimitRemaining"
+            X-RateLimit-Reset:
+              $ref: "#/components/headers/XRateLimitReset"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebhookSubscriptionWithSecret"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+    get:
+      operationId: listPublicWebhookSubscriptions
+      tags: [Public API]
+      summary: List webhook subscriptions
+      security:
+        - oauth2: [webhooks:read]
+        - apiKeyAuth: []
+      responses:
+        "200":
+          description: Webhook subscriptions
+          headers:
+            X-API-Version:
+              $ref: "#/components/headers/XApiVersion"
+            X-RateLimit-Limit:
+              $ref: "#/components/headers/XRateLimitLimit"
+            X-RateLimit-Remaining:
+              $ref: "#/components/headers/XRateLimitRemaining"
+            X-RateLimit-Reset:
+              $ref: "#/components/headers/XRateLimitReset"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  subscriptions:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/WebhookSubscription"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/v1/webhooks/{id}:
+    delete:
+      operationId: deletePublicWebhookSubscription
+      tags: [Public API]
+      summary: Delete a webhook subscription
+      security:
+        - oauth2: [webhooks:write]
+        - apiKeyAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Subscription deleted
+          headers:
+            X-API-Version:
+              $ref: "#/components/headers/XApiVersion"
+            X-RateLimit-Limit:
+              $ref: "#/components/headers/XRateLimitLimit"
+            X-RateLimit-Remaining:
+              $ref: "#/components/headers/XRateLimitRemaining"
+            X-RateLimit-Reset:
+              $ref: "#/components/headers/XRateLimitReset"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  # ──────────────────────────────────────────────
   # GraphQL
   # ──────────────────────────────────────────────
   /api/graphql:
@@ -3092,6 +3447,20 @@ components:
       in: header
       name: x-api-key
       description: Active public API key issued by POST /api/api-keys
+    oauth2:
+      type: oauth2
+      description: >
+        OAuth2 client-credentials flow for third-party integrations. Request
+        scopes explicitly; tokens are short-lived bearer tokens.
+      flows:
+        clientCredentials:
+          tokenUrl: /api/v1/oauth/token
+          scopes:
+            trees:read: Read tree inventory and details
+            sponsorships:read: Read sponsorship records
+            sponsorships:write: Create sponsorships
+            webhooks:read: List webhook subscriptions
+            webhooks:write: Create and delete webhook subscriptions
 
   schemas:
     ErrorResponse:
@@ -3873,6 +4242,122 @@ components:
                 type: string
                 example: queued
 
+    SponsorshipCreateRequest:
+      type: object
+      additionalProperties: false
+      required: [treeIds, sponsorReference]
+      properties:
+        treeIds:
+          type: array
+          minItems: 1
+          maxItems: 100
+          uniqueItems: true
+          items:
+            type: string
+        sponsorReference:
+          type: string
+          maxLength: 255
+          description: Caller-side identifier for the sponsoring entity
+        amountUsdc:
+          type: number
+          minimum: 0
+          exclusiveMinimum: true
+        metadata:
+          type: object
+          additionalProperties: true
+
+    Sponsorship:
+      type: object
+      additionalProperties: false
+      required: [id, status, treeIds, sponsorReference, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [pending, confirmed, failed, cancelled]
+        treeIds:
+          type: array
+          items:
+            type: string
+        sponsorReference:
+          type: string
+        amountUsdc:
+          type: number
+          nullable: true
+        transactionHash:
+          type: string
+          nullable: true
+        metadata:
+          type: object
+          additionalProperties: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    WebhookSubscriptionCreateRequest:
+      type: object
+      additionalProperties: false
+      required: [url, events]
+      properties:
+        url:
+          type: string
+          format: uri
+          pattern: "^https://"
+        events:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items:
+            type: string
+            enum:
+              - tree.planted
+              - tree.verified
+              - sponsorship.created
+              - sponsorship.confirmed
+              - sponsorship.failed
+        description:
+          type: string
+          maxLength: 255
+
+    WebhookSubscription:
+      type: object
+      additionalProperties: false
+      required: [id, url, events, active, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        url:
+          type: string
+          format: uri
+        events:
+          type: array
+          items:
+            type: string
+        description:
+          type: string
+          nullable: true
+        active:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+
+    WebhookSubscriptionWithSecret:
+      allOf:
+        - $ref: "#/components/schemas/WebhookSubscription"
+        - type: object
+          required: [secret]
+          properties:
+            secret:
+              type: string
+              description: HMAC signing secret; shown only once at creation
+
     GraphQLError:
       type: object
       properties:
@@ -3889,6 +4374,25 @@ components:
               - type: string
               - type: integer
 
+  headers:
+    XApiVersion:
+      description: Public API version
+      schema:
+        type: string
+        enum: [v1]
+    XRateLimitLimit:
+      description: Request quota for the current window
+      schema:
+        type: integer
+    XRateLimitRemaining:
+      description: Requests remaining in the current window
+      schema:
+        type: integer
+    XRateLimitReset:
+      description: Seconds until the quota window resets
+      schema:
+        type: integer
+
   responses:
     BadRequest:
       description: Bad request
@@ -3899,6 +4403,13 @@ components:
 
     Unauthorized:
       description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+    Forbidden:
+      description: Authenticated but not permitted (missing scope or insufficient tier)
       content:
         application/json:
           schema:

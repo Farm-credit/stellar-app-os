@@ -22,7 +22,9 @@ export function getEmergencyWithdrawalEligibility({
   const created = new Date(createdAt);
   if (Number.isNaN(created.getTime())) throw new Error('createdAt must be a valid ISO date');
   const deadline = new Date(created.getTime() + PLANTING_DEADLINE_MS);
-  if (planterWalletAddress?.trim()) return { eligible: false, deadlineAt: deadline.toISOString(), reason: 'planter_assigned' };
-  if (now.getTime() < deadline.getTime()) return { eligible: false, deadlineAt: deadline.toISOString(), reason: 'deadline_not_reached' };
+  if (planterWalletAddress?.trim())
+    return { eligible: false, deadlineAt: deadline.toISOString(), reason: 'planter_assigned' };
+  if (now.getTime() < deadline.getTime())
+    return { eligible: false, deadlineAt: deadline.toISOString(), reason: 'deadline_not_reached' };
   return { eligible: true, deadlineAt: deadline.toISOString(), reason: 'eligible' };
 }

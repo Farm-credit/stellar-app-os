@@ -35,7 +35,10 @@ export default async function AdminProjectDetailPage({
   }
 
   const coBenefits = filters?.coBenefits
-    ? filters.coBenefits.split(',').map((benefit) => benefit.trim()).filter(Boolean)
+    ? filters.coBenefits
+        .split(',')
+        .map((benefit) => benefit.trim())
+        .filter(Boolean)
     : undefined;
 
   const minPrice = filters?.minPrice ? Number(filters.minPrice) : undefined;
@@ -50,7 +53,10 @@ export default async function AdminProjectDetailPage({
       return false;
     }
 
-    if (filters?.certificationStandard && offsetProject.certificationStandard !== filters.certificationStandard) {
+    if (
+      filters?.certificationStandard &&
+      offsetProject.certificationStandard !== filters.certificationStandard
+    ) {
       return false;
     }
 

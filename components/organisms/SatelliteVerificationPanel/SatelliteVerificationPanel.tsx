@@ -5,7 +5,6 @@ import { cn } from '@/lib/utils';
 import type {
   LandCoverChange,
   NdviAnalysisResult,
-  SatelliteVerificationRequest,
   SatelliteVerificationResult,
   TreeCountResult,
   VerificationFlag,
@@ -31,28 +30,86 @@ const HEALTH_CLASS_CONFIG: Record<
   VegetationHealthClass,
   { label: string; textColor: string; dotColor: string }
 > = {
-  water_or_cloud:     { label: 'Water / Cloud',       textColor: 'text-blue-500',     dotColor: 'bg-blue-400' },
-  bare_soil:          { label: 'Bare Soil',            textColor: 'text-amber-600',    dotColor: 'bg-amber-500' },
-  sparse_vegetation:  { label: 'Sparse Vegetation',   textColor: 'text-yellow-500',   dotColor: 'bg-yellow-400' },
-  moderate_vegetation:{ label: 'Moderate Vegetation', textColor: 'text-lime-500',     dotColor: 'bg-lime-400' },
-  healthy_vegetation: { label: 'Healthy Vegetation',  textColor: 'text-emerald-500',  dotColor: 'bg-emerald-400' },
-  dense_canopy:       { label: 'Dense Canopy',        textColor: 'text-stellar-green',dotColor: 'bg-stellar-green' },
+  water_or_cloud: { label: 'Water / Cloud', textColor: 'text-blue-500', dotColor: 'bg-blue-400' },
+  bare_soil: { label: 'Bare Soil', textColor: 'text-amber-600', dotColor: 'bg-amber-500' },
+  sparse_vegetation: {
+    label: 'Sparse Vegetation',
+    textColor: 'text-yellow-500',
+    dotColor: 'bg-yellow-400',
+  },
+  moderate_vegetation: {
+    label: 'Moderate Vegetation',
+    textColor: 'text-lime-500',
+    dotColor: 'bg-lime-400',
+  },
+  healthy_vegetation: {
+    label: 'Healthy Vegetation',
+    textColor: 'text-emerald-500',
+    dotColor: 'bg-emerald-400',
+  },
+  dense_canopy: {
+    label: 'Dense Canopy',
+    textColor: 'text-stellar-green',
+    dotColor: 'bg-stellar-green',
+  },
 };
 
 const VERDICT_CONFIG: Record<
   SatelliteVerificationResult['verdict'],
   { label: string; bg: string; border: string; textColor: string; icon: string }
 > = {
-  verified:           { label: 'Verified',           bg: 'bg-emerald-50 dark:bg-emerald-950/30', border: 'border-emerald-200 dark:border-emerald-700', textColor: 'text-emerald-700 dark:text-emerald-300', icon: '✓' },
-  partially_verified: { label: 'Partially Verified', bg: 'bg-amber-50 dark:bg-amber-950/30',     border: 'border-amber-200 dark:border-amber-700',     textColor: 'text-amber-700 dark:text-amber-300',     icon: '⚠' },
-  failed:             { label: 'Failed',             bg: 'bg-red-50 dark:bg-red-950/30',         border: 'border-red-200 dark:border-red-700',         textColor: 'text-red-700 dark:text-red-300',         icon: '✗' },
-  insufficient_data:  { label: 'Insufficient Data',  bg: 'bg-slate-50 dark:bg-slate-800/50',     border: 'border-slate-200 dark:border-slate-700',     textColor: 'text-slate-600 dark:text-slate-400',     icon: '?' },
+  verified: {
+    label: 'Verified',
+    bg: 'bg-emerald-50 dark:bg-emerald-950/30',
+    border: 'border-emerald-200 dark:border-emerald-700',
+    textColor: 'text-emerald-700 dark:text-emerald-300',
+    icon: '✓',
+  },
+  partially_verified: {
+    label: 'Partially Verified',
+    bg: 'bg-amber-50 dark:bg-amber-950/30',
+    border: 'border-amber-200 dark:border-amber-700',
+    textColor: 'text-amber-700 dark:text-amber-300',
+    icon: '⚠',
+  },
+  failed: {
+    label: 'Failed',
+    bg: 'bg-red-50 dark:bg-red-950/30',
+    border: 'border-red-200 dark:border-red-700',
+    textColor: 'text-red-700 dark:text-red-300',
+    icon: '✗',
+  },
+  insufficient_data: {
+    label: 'Insufficient Data',
+    bg: 'bg-slate-50 dark:bg-slate-800/50',
+    border: 'border-slate-200 dark:border-slate-700',
+    textColor: 'text-slate-600 dark:text-slate-400',
+    icon: '?',
+  },
 };
 
 const FLAG_CONFIG = {
-  info:     { bg: 'bg-blue-50 dark:bg-blue-950/30',   border: 'border-blue-200 dark:border-blue-700',   text: 'text-blue-800 dark:text-blue-200',   codeText: 'text-blue-600 dark:text-blue-400',   icon: 'ℹ' },
-  warning:  { bg: 'bg-amber-50 dark:bg-amber-950/30', border: 'border-amber-200 dark:border-amber-700', text: 'text-amber-800 dark:text-amber-200', codeText: 'text-amber-600 dark:text-amber-400', icon: '⚠' },
-  critical: { bg: 'bg-red-50 dark:bg-red-950/30',     border: 'border-red-200 dark:border-red-700',     text: 'text-red-800 dark:text-red-200',     codeText: 'text-red-600 dark:text-red-400',     icon: '✗' },
+  info: {
+    bg: 'bg-blue-50 dark:bg-blue-950/30',
+    border: 'border-blue-200 dark:border-blue-700',
+    text: 'text-blue-800 dark:text-blue-200',
+    codeText: 'text-blue-600 dark:text-blue-400',
+    icon: 'ℹ',
+  },
+  warning: {
+    bg: 'bg-amber-50 dark:bg-amber-950/30',
+    border: 'border-amber-200 dark:border-amber-700',
+    text: 'text-amber-800 dark:text-amber-200',
+    codeText: 'text-amber-600 dark:text-amber-400',
+    icon: '⚠',
+  },
+  critical: {
+    bg: 'bg-red-50 dark:bg-red-950/30',
+    border: 'border-red-200 dark:border-red-700',
+    text: 'text-red-800 dark:text-red-200',
+    codeText: 'text-red-600 dark:text-red-400',
+    icon: '✗',
+  },
 };
 
 // ── Primitive sub-components ──────────────────────────────────────────────────
@@ -103,7 +160,10 @@ function VegetationSection({ vegetation }: { vegetation: NdviAnalysisResult }) {
       <SectionHeading>Vegetation Health</SectionHeading>
       <div className="space-y-3">
         <div className="flex items-center gap-2">
-          <span className={cn('h-2.5 w-2.5 flex-shrink-0 rounded-full', cfg.dotColor)} aria-hidden="true" />
+          <span
+            className={cn('h-2.5 w-2.5 flex-shrink-0 rounded-full', cfg.dotColor)}
+            aria-hidden="true"
+          />
           <span className={cn('text-sm font-semibold', cfg.textColor)}>{cfg.label}</span>
           {vegetation.imageDate && (
             <span className="ml-auto text-xs text-muted-foreground">{vegetation.imageDate}</span>
@@ -119,10 +179,14 @@ function VegetationSection({ vegetation }: { vegetation: NdviAnalysisResult }) {
         </div>
 
         <div className="rounded-lg bg-muted/40 p-3 space-y-0.5">
-          <StatRow label="NDVI"  value={vegetation.indices.ndvi.toFixed(4)} />
-          <StatRow label="SAVI"  value={vegetation.indices.savi.toFixed(4)} />
-          {vegetation.indices.evi  !== null && <StatRow label="EVI"  value={vegetation.indices.evi.toFixed(4)} />}
-          {vegetation.indices.ndre !== null && <StatRow label="NDRE" value={vegetation.indices.ndre.toFixed(4)} />}
+          <StatRow label="NDVI" value={vegetation.indices.ndvi.toFixed(4)} />
+          <StatRow label="SAVI" value={vegetation.indices.savi.toFixed(4)} />
+          {vegetation.indices.evi !== null && (
+            <StatRow label="EVI" value={vegetation.indices.evi.toFixed(4)} />
+          )}
+          {vegetation.indices.ndre !== null && (
+            <StatRow label="NDRE" value={vegetation.indices.ndre.toFixed(4)} />
+          )}
         </div>
       </div>
     </section>
@@ -131,14 +195,14 @@ function VegetationSection({ vegetation }: { vegetation: NdviAnalysisResult }) {
 
 function TreeCountSection({ treeCount }: { treeCount: TreeCountResult }) {
   const statusColors = {
-    pass:     'text-emerald-600 dark:text-emerald-400',
+    pass: 'text-emerald-600 dark:text-emerald-400',
     marginal: 'text-amber-600 dark:text-amber-400',
-    fail:     'text-red-600 dark:text-red-400',
+    fail: 'text-red-600 dark:text-red-400',
   };
   const statusLabels = {
-    pass:     '✓ Count Verified',
+    pass: '✓ Count Verified',
     marginal: '⚠ Marginal Match',
-    fail:     '✗ Count Mismatch',
+    fail: '✗ Count Mismatch',
   };
 
   return (
@@ -152,14 +216,17 @@ function TreeCountSection({ treeCount }: { treeCount: TreeCountResult }) {
           <p className="mt-0.5 text-xs text-muted-foreground">
             estimated trees
             <span className="ml-1 text-muted-foreground/70">
-              (CI: {treeCount.confidenceInterval.low.toLocaleString()}–{treeCount.confidenceInterval.high.toLocaleString()})
+              (CI: {treeCount.confidenceInterval.low.toLocaleString()}–
+              {treeCount.confidenceInterval.high.toLocaleString()})
             </span>
           </p>
         </div>
 
         {treeCount.verificationStatus && (
           <div className="flex items-center justify-center gap-1.5">
-            <span className={cn('text-xs font-semibold', statusColors[treeCount.verificationStatus])}>
+            <span
+              className={cn('text-xs font-semibold', statusColors[treeCount.verificationStatus])}
+            >
               {statusLabels[treeCount.verificationStatus]}
             </span>
             {treeCount.claimedCount !== undefined && (
@@ -171,9 +238,12 @@ function TreeCountSection({ treeCount }: { treeCount: TreeCountResult }) {
         )}
 
         <div className="rounded-lg bg-muted/40 p-3 space-y-0.5">
-          <StatRow label="Plot Area"    value={`${treeCount.plotAreaHectares.toFixed(2)} ha`} />
-          <StatRow label="Canopy Cover" value={`${(treeCount.canopyCoverFraction * 100).toFixed(1)}%`} />
-          <StatRow label="Crown Diam."  value={`${treeCount.crownDiameterUsed} m`} />
+          <StatRow label="Plot Area" value={`${treeCount.plotAreaHectares.toFixed(2)} ha`} />
+          <StatRow
+            label="Canopy Cover"
+            value={`${(treeCount.canopyCoverFraction * 100).toFixed(1)}%`}
+          />
+          <StatRow label="Crown Diam." value={`${treeCount.crownDiameterUsed} m`} />
         </div>
       </div>
     </section>
@@ -200,15 +270,26 @@ function LandCoverSection({ change }: { change: LandCoverChange }) {
         {/* Date range */}
         <div className="flex items-center justify-between text-xs text-muted-foreground">
           <span className="font-medium text-foreground">{change.fromDate}</span>
-          <svg className="h-3.5 w-3.5 mx-2" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-            strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <svg
+            className="h-3.5 w-3.5 mx-2"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
             <path d="M5 12h14M12 5l7 7-7 7" />
           </svg>
           <span className="font-medium text-foreground">{change.toDate}</span>
         </div>
 
         <div className="rounded-lg bg-muted/40 p-3 space-y-0.5">
-          <StatRow label="Forest Δ"    value={`${deltaSign}${(change.forestFractionDelta * 100).toFixed(1)}%`} />
+          <StatRow
+            label="Forest Δ"
+            value={`${deltaSign}${(change.forestFractionDelta * 100).toFixed(1)}%`}
+          />
           {change.forestAreaChangePercent !== null && (
             <StatRow
               label="Relative Change"
@@ -236,7 +317,10 @@ function FlagsSection({ flags }: { flags: VerificationFlag[] }) {
           return (
             <li key={flag.code} className={cn('rounded-lg border p-3', cfg.bg, cfg.border)}>
               <div className="flex items-start gap-2">
-                <span className={cn('mt-0.5 flex-shrink-0 text-sm font-bold', cfg.text)} aria-hidden="true">
+                <span
+                  className={cn('mt-0.5 flex-shrink-0 text-sm font-bold', cfg.text)}
+                  aria-hidden="true"
+                >
                   {cfg.icon}
                 </span>
                 <div>
@@ -260,7 +344,9 @@ function ResultPanel({ result }: { result: SatelliteVerificationResult }) {
       <div className={cn('rounded-xl border p-4', vc.bg, vc.border)}>
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-2.5">
-            <span className="text-xl font-bold" aria-hidden="true">{vc.icon}</span>
+            <span className="text-xl font-bold" aria-hidden="true">
+              {vc.icon}
+            </span>
             <div>
               <p className={cn('text-sm font-bold', vc.textColor)}>{vc.label}</p>
               <p className="text-xs text-muted-foreground truncate max-w-[14rem]">
@@ -297,14 +383,14 @@ const DEFAULT_JSON = JSON.stringify(
     coordinates: { latitude: 7.35, longitude: 5.1 },
     plotAreaHectares: 2.5,
     currentBands: { red: 0.09, nir: 0.45, blue: 0.04, green: 0.1, swir1: 0.12 },
-    baselineBands:  { red: 0.28, nir: 0.15, blue: 0.06, green: 0.14 },
+    baselineBands: { red: 0.28, nir: 0.15, blue: 0.06, green: 0.14 },
     imageryMetadata: {
       resolutionMetersPerPixel: 10,
       plotAreaHectares: 2.5,
       canopyCoverFraction: 0.55,
       estimatedCrownDiameterMeters: 6,
     },
-    imageryDate:  '2025-09-15',
+    imageryDate: '2025-09-15',
     baselineDate: '2023-03-01',
     claimedTreeCount: 1200,
     speciesSlug: 'teak',
@@ -331,12 +417,10 @@ export function SatelliteVerificationPanel({
   onResult,
   className,
 }: SatelliteVerificationPanelProps) {
-  const [requestJson, setRequestJson] = useState<string>(
-    initialRequestJson ?? DEFAULT_JSON
-  );
-  const [status, setStatus]   = useState<PanelStatus>('idle');
-  const [result, setResult]   = useState<SatelliteVerificationResult | null>(null);
-  const [errorMsg, setError]  = useState<string>('');
+  const [requestJson, setRequestJson] = useState<string>(initialRequestJson ?? DEFAULT_JSON);
+  const [status, setStatus] = useState<PanelStatus>('idle');
+  const [result, setResult] = useState<SatelliteVerificationResult | null>(null);
+  const [errorMsg, setError] = useState<string>('');
 
   const handleVerify = async () => {
     setStatus('loading');
@@ -402,9 +486,16 @@ export function SatelliteVerificationPanel({
       <div>
         <h2 className="flex items-center gap-2 text-base font-semibold text-foreground">
           {/* Satellite icon */}
-          <svg className="h-4 w-4 text-stellar-blue" viewBox="0 0 24 24" fill="none"
-            stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-            aria-hidden="true">
+          <svg
+            className="h-4 w-4 text-stellar-blue"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
             <circle cx="12" cy="12" r="10" />
             <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
             <path d="M2 12h20" />
@@ -435,7 +526,8 @@ export function SatelliteVerificationPanel({
           aria-describedby="svp-json-hint"
         />
         <p id="svp-json-hint" className="text-xs text-muted-foreground">
-          Supply spectral band reflectance values (0–1) from Sentinel-2, Landsat 8/9, or Planet imagery.
+          Supply spectral band reflectance values (0–1) from Sentinel-2, Landsat 8/9, or Planet
+          imagery.
         </p>
       </div>
 
@@ -454,8 +546,14 @@ export function SatelliteVerificationPanel({
       >
         {status === 'loading' ? (
           <span className="flex items-center justify-center gap-2">
-            <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none"
-              stroke="currentColor" strokeWidth="2" aria-hidden="true">
+            <svg
+              className="h-4 w-4 animate-spin"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              aria-hidden="true"
+            >
               <circle cx="12" cy="12" r="10" strokeOpacity="0.25" />
               <path d="M12 2a10 10 0 0 1 10 10" strokeLinecap="round" />
             </svg>

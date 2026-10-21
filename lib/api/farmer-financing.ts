@@ -81,7 +81,9 @@ export function applyForCreditLine(input: ApplyForCreditLineInput): CreditLine {
   }
 
   const open = [...store.values()].some(
-    (l) => l.farmerId === input.farmerId && (l.status === 'pending' || l.status === 'approved' || l.status === 'disbursed')
+    (l) =>
+      l.farmerId === input.farmerId &&
+      (l.status === 'pending' || l.status === 'approved' || l.status === 'disbursed')
   );
   if (open) {
     throw new FinancingError('Farmer already has an open credit line', 409, 'conflict');

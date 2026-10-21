@@ -23,8 +23,7 @@ export interface VerificationClient {
 }
 
 export type VerificationAuthResult =
-  | { ok: true; client: VerificationClient }
-  | { ok: false; status: 401; error: string };
+  { ok: true; client: VerificationClient } | { ok: false; status: 401; error: string };
 
 export type ApiKeyLookup = (rawKey: string) => Promise<ApiKeyRow | null>;
 

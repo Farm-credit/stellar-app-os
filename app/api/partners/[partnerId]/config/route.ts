@@ -62,7 +62,10 @@ export async function PATCH(
         errors.push(`${key} must be a hex color like #1d4ed8`);
       }
     }
-    if (body.branding.customDomain !== undefined && !/^[a-z0-9.-]+\.[a-z]{2,}$/i.test(body.branding.customDomain.trim())) {
+    if (
+      body.branding.customDomain !== undefined &&
+      !/^[a-z0-9.-]+\.[a-z]{2,}$/i.test(body.branding.customDomain.trim())
+    ) {
       errors.push('customDomain must be a valid hostname');
     }
     if (body.branding.logoUrl !== undefined && !/^https?:\/\//i.test(body.branding.logoUrl)) {

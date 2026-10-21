@@ -617,9 +617,9 @@ describe('bargaining rounds', () => {
     const round = createBargainingRound(coop.id);
     submitBuyerOffer(coop.id, round.id, { buyerId: 'b', pricePerTon: 30, quantityTons: 300 });
 
-    expect(voteOnOffer(coop.id, round.id, { memberId: 'farmer-founder', vote: 'accept' }).status).toBe(
-      'offer_received'
-    );
+    expect(
+      voteOnOffer(coop.id, round.id, { memberId: 'farmer-founder', vote: 'accept' }).status
+    ).toBe('offer_received');
     voteOnOffer(coop.id, round.id, { memberId: 'farmer-2', vote: 'reject' });
     const resolved = voteOnOffer(coop.id, round.id, { memberId: 'farmer-3', vote: 'reject' });
     expect(resolved.status).toBe('rejected');
@@ -637,9 +637,9 @@ describe('bargaining rounds', () => {
     expect(() => voteOnOffer(id, round.id, { memberId: 'outsider', vote: 'accept' })).toThrow(
       /Only cooperative members can vote/
     );
-    expect(() => voteOnOffer(id, round.id, { memberId: 'farmer-2', vote: 'maybe' as never })).toThrow(
-      /must be either/
-    );
+    expect(() =>
+      voteOnOffer(id, round.id, { memberId: 'farmer-2', vote: 'maybe' as never })
+    ).toThrow(/must be either/);
 
     voteOnOffer(id, round.id, { memberId: 'farmer-founder', vote: 'accept' });
     voteOnOffer(id, round.id, { memberId: 'farmer-3', vote: 'reject' }); // everyone voted → resolved

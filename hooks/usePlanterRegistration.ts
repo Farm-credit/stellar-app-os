@@ -49,7 +49,7 @@ export function usePlanterRegistration(): UsePlanterRegistrationReturn {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [planterId, setPlanterId] = useState<string | null>(null);
-  
+
   const { isOnline, pendingCount, manualSync } = useOfflineUploadQueue();
 
   const form = useForm<PlanterRegistrationFormData>({
@@ -119,7 +119,7 @@ export function usePlanterRegistration(): UsePlanterRegistrationReturn {
                 status: 'pending' as const,
                 retryCount: 0,
               };
-              
+
               try {
                 const stored = localStorage.getItem('offline_upload_queue');
                 const queue = stored ? JSON.parse(stored) : { items: [] };
@@ -133,8 +133,10 @@ export function usePlanterRegistration(): UsePlanterRegistrationReturn {
             reader.onerror = () => reject(reader.error);
             reader.readAsDataURL(file);
           });
-          
-          setPhotoUploadError('You are offline. Photo will be uploaded when connection is restored.');
+
+          setPhotoUploadError(
+            'You are offline. Photo will be uploaded when connection is restored.'
+          );
           setIsUploadingPhoto(false);
           return;
         } catch (err) {

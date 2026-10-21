@@ -1,4 +1,4 @@
-import { Activity, Archive, Clock3, Coins, FileText, FolderKanban, HandCoins } from 'lucide-react';
+import { Activity, Archive, Clock3, Coins, Download, FileText, FolderKanban, HandCoins, Leaf, Users, Award } from 'lucide-react';
 import {
   Card,
   CardContent,
@@ -9,6 +9,7 @@ import {
 import { TrendChart } from '@/components/organisms/AdminDashboard/TrendChart';
 import { getAdminDashboardData } from '@/lib/api/mock/adminDashboard';
 import type { DashboardActivity } from '@/lib/types/adminDashboard';
+import { getCorporateEsgData } from '@/lib/api/mock/corporateEsg';
 
 const TREE_STATUSES = ['all', 'pending', 'planted', 'verified', 'failed'];
 
@@ -20,9 +21,11 @@ function formatCurrency(value: number): string {
   }).format(value);
 }
 
+
 function formatCount(value: number): string {
   return new Intl.NumberFormat('en-US').format(value);
 }
+
 
 function formatRelativeTime(timestamp: string): string {
   const now = Date.now();
@@ -69,12 +72,41 @@ function getActivityTreeStatus(activity: DashboardActivity): string | null {
   return null;
 }
 
+function getTreeAge(plantingDate: string): string {
+  const planted = new Date(plantingDate).getTime();
+  const now = Date.now();
+  const diffDays = Math.floor((now - planted) / (1000 * 60 * 60 * 24));
+  if (diffDays < 30) return `${diffDays} day${diffDays === 1 ? '' : 's'}`;
+  const diffMonths = Math.floor(diffDays / 30);
+  if (diffMonths < 12) return `${diffMonths} month${diffMonths === 1 ? '' : 's'}`;
+  const diffYears = Math.floor(diffMonths / 12);
+  return `${diffYears} year${diffYears === 1 ? '' : 's'}`;
+}
+
+function getMilestoneBadge(plantingDate: string): string | null {
+  const planted = new Date(plantingDate).getTime();
+  const diffDays = Math.floor((Date.now() - planted) / (1000 * 60 * 60 * 24));
+  if (diffDays >= 1825) return '5 Year Milestone';
+  if (diffDays >= 365) return '1 Year Milestone';
+  if (diffDays >= 180) return '6 Month Milestone';
+  if (diffDays >= 30) return '1 Month Milestone';
+  return null;
+}
+
+function getTreeAgeAndMilestone(plantingDate: string): { age: string; milestone: string | null } {
+  return {
+    age: getTreeAge(plantingDate),
+    milestone: getMilestoneBadge(plantingDate),
+  };
+}
+
 export default async function AdminDashboardPage({
   searchParams,
 }: {
   searchParams?: { status?: string };
 }) {
   const { metrics, trends, recentActivity } = await getAdminDashboardData();
+  const esg = await getCorporateEsgData();
 
   const selectedStatus =
     searchParams?.status && TREE_STATUSES.includes(searchParams.status)
@@ -97,17 +129,96 @@ export default async function AdminDashboardPage({
             Centralized platform health metrics, operational trends, and latest system activity.
           </p>
         </div>
+        <a
+          href="/api/corporate/esg/export"
+          className="inline-flex items-center gap-2 rounded-md border bg-background px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted focus:outline-none focus:ring-2 focus:ring-stellar-blue"
+          aria-label="Export ESG report as PDF"
+        >
+          <Download className="h-4 w-4" aria-hidden="true" />
+          Export PDF
+        </a>
         <div className="inline-flex items-center gap-2 rounded-md border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
-          <Clock3 h className="h-4 w-4" aria-hidden="true" />
+          <Clock3 className="h-4 w-4" aria-hidden="true" />
           Updated moments ago
         </div>
       </header>
+
+      <section aria-labelledby="esg-heading" className="mb-8 space-y-4">
+        <h2 id="esg-heading" className="text-xl font-semibold text-foreground">
+          ESG impact
+        </h2>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardDescription className="flex items-center gap-2 text-muted-foreground">
+                <Leaf className="h-4 w-4" aria-hidden="true" />
+                Trees funded
+              </CardDescription>
+              <CardTitle className="text-3xl">{formatCount(esg.treesFunded)}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground">
+                Total trees funded through corporate sponsorships.
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-2">
+              <CardDescription className="flex items-center gap-2 text-muted-foreground">
+                <Coins className="h-4 w-4" aria-hidden="true" />
+                CO2 sequestered
+              </CardDescription>
+              <CardTitle className="text-3xl">{formatCount(esg.co2SequesteredTonnes)} t</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground">
+                Estimated tonnes of CO2 sequestered (GHG Protocol aligned).
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-2">
+              <CardDescription className="flex items-center gap-2 text-muted-foreground">
+                <Leaf className="h-4 w-4" aria-hidden="true" />
+                Biodiversity contribution
+              </CardDescription>
+              <CardTitle className="text-3xl">{formatCount(esg.biodiversityScore)}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground">
+                Weighted biodiversity index across funded projects (TNFD aligned).
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-2">
+              <CardDescription className="flex items-center gap-2 text-muted-foreground">
+                <Users className="h-4 w-4" aria-hidden="true" />
+                Employee engagement
+              </CardDescription>
+              <CardTitle className="text-3xl">{formatCount(esg.engagedEmployees)}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground">
+                Employees participating in sponsored sustainability initiatives.
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Metrics aligned with GRI 304, SASB, and GHG Protocol reporting frameworks. Data available
+          via the BI API at <code>/api/corporate/esg</code>.
+        </p>
+      </section>
 
       <section aria-labelledby="overview-heading" className="mb-8 space-y-4">
         <h2 id="overview-heading" className="text-xl font-semibold text-foreground">
           Overview
         </h2>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols_4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <Card>
             <CardHeader className="pb-2">
               <CardDescription className="flex items-center gap-2 text-muted-foreground">
@@ -118,7 +229,7 @@ export default async function AdminDashboardPage({
             </CardHeader>
             <CardContent>
               <p className="text-sm text-muted-foreground">
-                Active {metrics.activeProjects} | Pending {metrics.pendingProjects} | Archived{'{ '}
+                Active {metrics.activeProjects} | Pending {metrics.pendingProjects} | Archived{' '}
                 {metrics.archivedProjects}
               </p>
             </CardContent>
@@ -247,6 +358,19 @@ export default async function AdminDashboardPage({
                       </span>
                     </p>
                     <p className="mt-1 text-sm text-muted-foreground">{activity.detail}</p>
+                    {activity.plantingDate && (
+                      <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                        <span className="inline-flex items-center gap-1 rounded bg-muted px-2 py-0.5 font-medium">
+                          Age: {getTreeAgeAndMilestone(activity.plantingDate).age}
+                        </span>
+                        {getTreeAgeAndMilestone(activity.plantingDate).milestone && (
+                          <span className="inline-flex items-center gap-1 rounded bg-stellar-blue/15 px-2 py-0.5 font-medium text-stellar-blue">
+                            <Award className="h-3 w-3" aria-hidden="true" />
+                            {getTreeAgeAndMilestone(activity.plantingDate).milestone}
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </div>
                   <time
                     dateTime={activity.timestamp}

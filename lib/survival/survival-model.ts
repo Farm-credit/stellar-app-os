@@ -41,10 +41,10 @@ export const MODEL_VERSION = '1.0.0';
 // are the primary priors when historical data is sparse.
 const FEATURE_WEIGHTS = {
   historicalSurvivalRate: 0.35,
-  climateSuitability:     0.25,
-  soilQuality:            0.20,
-  plantingSeasonScore:    0.10,
-  biomeMatchScore:        0.10,
+  climateSuitability: 0.25,
+  soilQuality: 0.2,
+  plantingSeasonScore: 0.1,
+  biomeMatchScore: 0.1,
 } as const;
 
 // ── Logistic calibration ──────────────────────────────────────────────────────
@@ -80,11 +80,14 @@ function estimateConfidence(
 // ── Risk factor interpretation ────────────────────────────────────────────────
 function identifyRiskFactors(features: SurvivalFeatureImportance): string[] {
   const risks: Array<[number, string]> = [
-    [features.climateSuitability,     'Climate conditions are suboptimal for this species'],
-    [features.soilQuality,            'Soil quality is poor (pH, organic matter, or drainage issues)'],
-    [features.plantingSeasonScore,    'Planting outside the wet season increases establishment risk'],
-    [features.biomeMatchScore,        'Species is outside its native biome range'],
-    [features.historicalSurvivalRate, 'Low historical survival rate for this species/region combination'],
+    [features.climateSuitability, 'Climate conditions are suboptimal for this species'],
+    [features.soilQuality, 'Soil quality is poor (pH, organic matter, or drainage issues)'],
+    [features.plantingSeasonScore, 'Planting outside the wet season increases establishment risk'],
+    [features.biomeMatchScore, 'Species is outside its native biome range'],
+    [
+      features.historicalSurvivalRate,
+      'Low historical survival rate for this species/region combination',
+    ],
   ];
 
   return risks
@@ -127,10 +130,10 @@ export function predictSurvivalProbability(
   // 2. Compute weighted linear score
   const rawScore =
     FEATURE_WEIGHTS.historicalSurvivalRate * historicalSurvivalRate +
-    FEATURE_WEIGHTS.climateSuitability      * climateSuitability     +
-    FEATURE_WEIGHTS.soilQuality             * soilQuality            +
-    FEATURE_WEIGHTS.plantingSeasonScore     * plantingSeasonScore    +
-    FEATURE_WEIGHTS.biomeMatchScore         * biomeMatchScore;
+    FEATURE_WEIGHTS.climateSuitability * climateSuitability +
+    FEATURE_WEIGHTS.soilQuality * soilQuality +
+    FEATURE_WEIGHTS.plantingSeasonScore * plantingSeasonScore +
+    FEATURE_WEIGHTS.biomeMatchScore * biomeMatchScore;
 
   // 3. Calibrate to well-formed probability
   const survivalProbability = Math.round(logisticCalibrate(rawScore) * 10000) / 10000;

@@ -6,6 +6,7 @@ import { Select } from '@/components/atoms/Select';
 import { Input } from '@/components/atoms/Input';
 import { Text } from '@/components/atoms/Text';
 import { Badge } from '@/components/atoms/Badge';
+import { Co2MethodologyLink } from '@/components/molecules/Co2MethodologyLink';
 import { cn } from '@/lib/utils';
 import { type TreeSpecies } from '@/lib/types/tree-impact';
 import {
@@ -113,7 +114,12 @@ export function TreeImpactDetails({
 
   // Safe tree count handler — clamp between 1 and 10,000
   function handleTreeCountChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const raw = parseInt(e.target.value, 10);
+    const val = e.target.value;
+    if (val === '') {
+      setTreeCount(1);
+      return;
+    }
+    const raw = parseInt(val, 10);
     if (!isNaN(raw)) {
       setTreeCount(Math.min(10_000, Math.max(1, raw)));
     }
@@ -258,6 +264,10 @@ export function TreeImpactDetails({
             ))}
           </div>
         </div>
+      </div>
+
+      <div className="px-6 pt-3">
+        <Co2MethodologyLink />
       </div>
 
       {/* Metric cards */}

@@ -44,7 +44,10 @@ export function ClimateComparisonModal({
         <div className="flex items-start justify-between border-b border-border/80 pb-4 mb-4">
           <div>
             <div className="flex items-center gap-2 mb-1">
-              <Badge variant="outline" className="text-xs bg-emerald-500/10 text-emerald-600 border-emerald-500/20">
+              <Badge
+                variant="outline"
+                className="text-xs bg-emerald-500/10 text-emerald-600 border-emerald-500/20"
+              >
                 🌱 Planting Conditions & Climate Data
               </Badge>
               <Badge variant="secondary" className="text-[10px]">
@@ -55,7 +58,8 @@ export function ClimateComparisonModal({
               {projectName}
             </h2>
             <p className="text-xs text-muted-foreground mt-0.5">
-              📍 {location} • Lat: {comparison.coordinates.latitude.toFixed(4)}, Lon: {comparison.coordinates.longitude.toFixed(4)}
+              📍 {location} • Lat: {comparison.coordinates.latitude.toFixed(4)}, Lon:{' '}
+              {comparison.coordinates.longitude.toFixed(4)}
             </p>
           </div>
           <button
@@ -103,20 +107,27 @@ export function ClimateComparisonModal({
               </div>
               <div className="grid grid-cols-2 gap-2 text-xs">
                 <div>
-                  <span className="text-[10px] text-muted-foreground block">{historicalYearRange}</span>
+                  <span className="text-[10px] text-muted-foreground block">
+                    {historicalYearRange}
+                  </span>
                   <span className="text-base font-bold text-foreground">
-                    {historical.annualRainfallMm.toLocaleString()} <span className="text-xs font-normal">mm</span>
+                    {historical.annualRainfallMm.toLocaleString()}{' '}
+                    <span className="text-xs font-normal">mm</span>
                   </span>
                 </div>
                 <div>
-                  <span className="text-[10px] text-muted-foreground block">Current Year ({currentYear})</span>
+                  <span className="text-[10px] text-muted-foreground block">
+                    Current Year ({currentYear})
+                  </span>
                   <span className="text-base font-bold text-foreground">
-                    {current.annualRainfallMm.toLocaleString()} <span className="text-xs font-normal">mm</span>
+                    {current.annualRainfallMm.toLocaleString()}{' '}
+                    <span className="text-xs font-normal">mm</span>
                   </span>
                 </div>
               </div>
               <div className="mt-2 pt-2 border-t border-border/40 text-[11px] text-muted-foreground">
-                Delta: {comp.rainfallDeltaMm >= 0 ? `+${comp.rainfallDeltaMm}` : comp.rainfallDeltaMm} mm
+                Delta:{' '}
+                {comp.rainfallDeltaMm >= 0 ? `+${comp.rainfallDeltaMm}` : comp.rainfallDeltaMm} mm
               </div>
             </div>
 
@@ -139,20 +150,30 @@ export function ClimateComparisonModal({
               </div>
               <div className="grid grid-cols-2 gap-2 text-xs">
                 <div>
-                  <span className="text-[10px] text-muted-foreground block">{historicalYearRange}</span>
+                  <span className="text-[10px] text-muted-foreground block">
+                    {historicalYearRange}
+                  </span>
                   <span className="text-base font-bold text-foreground">
-                    {historical.meanTemperatureC.toFixed(1)} <span className="text-xs font-normal">°C</span>
+                    {historical.meanTemperatureC.toFixed(1)}{' '}
+                    <span className="text-xs font-normal">°C</span>
                   </span>
                 </div>
                 <div>
-                  <span className="text-[10px] text-muted-foreground block">Current Year ({currentYear})</span>
+                  <span className="text-[10px] text-muted-foreground block">
+                    Current Year ({currentYear})
+                  </span>
                   <span className="text-base font-bold text-foreground">
-                    {current.meanTemperatureC.toFixed(1)} <span className="text-xs font-normal">°C</span>
+                    {current.meanTemperatureC.toFixed(1)}{' '}
+                    <span className="text-xs font-normal">°C</span>
                   </span>
                 </div>
               </div>
               <div className="mt-2 pt-2 border-t border-border/40 text-[11px] text-muted-foreground">
-                Delta: {comp.temperatureDeltaC >= 0 ? `+${comp.temperatureDeltaC}` : comp.temperatureDeltaC} °C
+                Delta:{' '}
+                {comp.temperatureDeltaC >= 0
+                  ? `+${comp.temperatureDeltaC}`
+                  : comp.temperatureDeltaC}{' '}
+                °C
               </div>
             </div>
           </div>

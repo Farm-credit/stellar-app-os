@@ -21,11 +21,16 @@ import type { PooledSponsorship, PoolStatus } from '@/lib/types/pooled-sponsorsh
 
 function statusColor(status: PoolStatus) {
   switch (status) {
-    case 'open': return 'bg-yellow-500/10 text-yellow-700 border-yellow-500/20';
-    case 'funded': return 'bg-stellar-green/10 text-stellar-green border-stellar-green/20';
-    case 'planting': return 'bg-blue-500/10 text-blue-700 border-blue-500/20';
-    case 'completed': return 'bg-emerald-600/10 text-emerald-700 border-emerald-600/20';
-    case 'cancelled': return 'bg-destructive/10 text-destructive border-destructive/20';
+    case 'open':
+      return 'bg-yellow-500/10 text-yellow-700 border-yellow-500/20';
+    case 'funded':
+      return 'bg-stellar-green/10 text-stellar-green border-stellar-green/20';
+    case 'planting':
+      return 'bg-blue-500/10 text-blue-700 border-blue-500/20';
+    case 'completed':
+      return 'bg-emerald-600/10 text-emerald-700 border-emerald-600/20';
+    case 'cancelled':
+      return 'bg-destructive/10 text-destructive border-destructive/20';
   }
 }
 
@@ -71,10 +76,14 @@ function PoolCard({ pool, sponsorAddress, onJoin }: PoolCardProps) {
           </div>
           <div>
             <Text className="font-bold text-sm">{pool.treeRef}</Text>
-            <Text variant="muted" className="text-xs">{pool.species} · {pool.region}</Text>
+            <Text variant="muted" className="text-xs">
+              {pool.species} · {pool.region}
+            </Text>
           </div>
         </div>
-        <span className={`text-xs px-2 py-1 rounded-full border font-medium ${statusColor(pool.status)}`}>
+        <span
+          className={`text-xs px-2 py-1 rounded-full border font-medium ${statusColor(pool.status)}`}
+        >
           {pool.status}
         </span>
       </div>
@@ -97,7 +106,8 @@ function PoolCard({ pool, sponsorAddress, onJoin }: PoolCardProps) {
           />
         </div>
         <Text variant="muted" className="text-xs mt-1">
-          {pool.fillPercent.toFixed(1)}% funded · {pool.sponsors.length} sponsor{pool.sponsors.length !== 1 ? 's' : ''}
+          {pool.fillPercent.toFixed(1)}% funded · {pool.sponsors.length} sponsor
+          {pool.sponsors.length !== 1 ? 's' : ''}
         </Text>
       </div>
 
@@ -128,12 +138,16 @@ function PoolCard({ pool, sponsorAddress, onJoin }: PoolCardProps) {
                   {s.sponsorName ?? shortAddress(s.sponsorAddress)}
                 </span>
                 {s.sponsorAddress === sponsorAddress && (
-                  <Badge variant="outline" className="text-[9px] px-1 py-0">you</Badge>
+                  <Badge variant="outline" className="text-[9px] px-1 py-0">
+                    you
+                  </Badge>
                 )}
               </div>
               <div className="text-right">
                 <span className="font-semibold">{s.sharePercent.toFixed(2)}%</span>
-                <span className="text-muted-foreground ml-2">{s.contributionUsdc.toFixed(2)} USDC</span>
+                <span className="text-muted-foreground ml-2">
+                  {s.contributionUsdc.toFixed(2)} USDC
+                </span>
               </div>
             </div>
           ))}
@@ -145,7 +159,9 @@ function PoolCard({ pool, sponsorAddress, onJoin }: PoolCardProps) {
         <div className="rounded-lg bg-stellar-green/5 border border-stellar-green/20 p-3 space-y-1">
           <div className="flex items-center gap-1.5 mb-2">
             <Leaf className="h-3.5 w-3.5 text-stellar-green" aria-hidden />
-            <Text variant="small" className="text-xs font-semibold text-stellar-green">Carbon Credit Split</Text>
+            <Text variant="small" className="text-xs font-semibold text-stellar-green">
+              Carbon Credit Split
+            </Text>
           </div>
           {pool.sponsors.map((s) => (
             <div key={s.sponsorAddress} className="flex justify-between text-xs">
@@ -185,7 +201,14 @@ function PoolCard({ pool, sponsorAddress, onJoin }: PoolCardProps) {
               disabled={!isValid || joining}
               aria-label="Join pool"
             >
-              {joining ? <LoadingSpinner size="xs" /> : <><Plus className="h-3.5 w-3.5 mr-1" />Join</>}
+              {joining ? (
+                <LoadingSpinner size="xs" />
+              ) : (
+                <>
+                  <Plus className="h-3.5 w-3.5 mr-1" />
+                  Join
+                </>
+              )}
             </Button>
           </div>
           {amount && !isNaN(parsedAmount) && parsedAmount > maxContrib && (
@@ -248,53 +271,132 @@ function CreatePoolForm({ onCreate }: CreatePoolFormProps) {
         contributionUsdc: parsedContrib,
         sponsorName: sponsorName.trim() || undefined,
       });
-      setTreeRef(''); setSpecies(''); setRegion('');
-      setTargetUsdc(''); setContribution(''); setSponsorName('');
+      setTreeRef('');
+      setSpecies('');
+      setRegion('');
+      setTargetUsdc('');
+      setContribution('');
+      setSponsorName('');
     } finally {
       setCreating(false);
     }
   };
 
-  const fieldCls = 'w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-stellar-blue/50';
+  const fieldCls =
+    'w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-stellar-blue/50';
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-3 rounded-2xl border border-dashed border-stellar-blue/30 bg-stellar-blue/5 p-5">
-      <Text variant="small" className="font-semibold text-stellar-blue">Create a new pool</Text>
+    <form
+      onSubmit={handleSubmit}
+      className="space-y-3 rounded-2xl border border-dashed border-stellar-blue/30 bg-stellar-blue/5 p-5"
+    >
+      <Text variant="small" className="font-semibold text-stellar-blue">
+        Create a new pool
+      </Text>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div>
-          <label htmlFor="treeRef" className="text-xs font-medium block mb-1">Tree Ref / ID</label>
-          <input id="treeRef" className={fieldCls} value={treeRef} onChange={(e) => setTreeRef(e.target.value)} placeholder="e.g. TREE-0042" required />
+          <label htmlFor="treeRef" className="text-xs font-medium block mb-1">
+            Tree Ref / ID
+          </label>
+          <input
+            id="treeRef"
+            className={fieldCls}
+            value={treeRef}
+            onChange={(e) => setTreeRef(e.target.value)}
+            placeholder="e.g. TREE-0042"
+            required
+          />
         </div>
         <div>
-          <label htmlFor="species" className="text-xs font-medium block mb-1">Species</label>
-          <select id="species" className={fieldCls} value={species} onChange={(e) => setSpecies(e.target.value)} required>
+          <label htmlFor="species" className="text-xs font-medium block mb-1">
+            Species
+          </label>
+          <select
+            id="species"
+            className={fieldCls}
+            value={species}
+            onChange={(e) => setSpecies(e.target.value)}
+            required
+          >
             <option value="">Select species</option>
-            {SPECIES_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
+            {SPECIES_OPTIONS.map((s) => (
+              <option key={s} value={s}>
+                {s}
+              </option>
+            ))}
           </select>
         </div>
         <div>
-          <label htmlFor="region" className="text-xs font-medium block mb-1">Region</label>
-          <input id="region" className={fieldCls} value={region} onChange={(e) => setRegion(e.target.value)} placeholder="e.g. Kano, Nigeria" required />
+          <label htmlFor="region" className="text-xs font-medium block mb-1">
+            Region
+          </label>
+          <input
+            id="region"
+            className={fieldCls}
+            value={region}
+            onChange={(e) => setRegion(e.target.value)}
+            placeholder="e.g. Kano, Nigeria"
+            required
+          />
         </div>
         <div>
-          <label htmlFor="targetUsdc" className="text-xs font-medium block mb-1">Funding target (USDC)</label>
-          <input id="targetUsdc" type="number" min="1" step="0.01" className={fieldCls} value={targetUsdc} onChange={(e) => setTargetUsdc(e.target.value)} placeholder="e.g. 50" required />
+          <label htmlFor="targetUsdc" className="text-xs font-medium block mb-1">
+            Funding target (USDC)
+          </label>
+          <input
+            id="targetUsdc"
+            type="number"
+            min="1"
+            step="0.01"
+            className={fieldCls}
+            value={targetUsdc}
+            onChange={(e) => setTargetUsdc(e.target.value)}
+            placeholder="e.g. 50"
+            required
+          />
         </div>
         <div>
-          <label htmlFor="contribution" className="text-xs font-medium block mb-1">Your initial contribution (USDC)</label>
-          <input id="contribution" type="number" min="0" step="0.01" className={fieldCls} value={contribution} onChange={(e) => setContribution(e.target.value)} placeholder="0" />
+          <label htmlFor="contribution" className="text-xs font-medium block mb-1">
+            Your initial contribution (USDC)
+          </label>
+          <input
+            id="contribution"
+            type="number"
+            min="0"
+            step="0.01"
+            className={fieldCls}
+            value={contribution}
+            onChange={(e) => setContribution(e.target.value)}
+            placeholder="0"
+          />
         </div>
         <div>
-          <label htmlFor="sponsorName" className="text-xs font-medium block mb-1">Display name (optional)</label>
-          <input id="sponsorName" className={fieldCls} value={sponsorName} onChange={(e) => setSponsorName(e.target.value)} placeholder="Your name or org" />
+          <label htmlFor="sponsorName" className="text-xs font-medium block mb-1">
+            Display name (optional)
+          </label>
+          <input
+            id="sponsorName"
+            className={fieldCls}
+            value={sponsorName}
+            onChange={(e) => setSponsorName(e.target.value)}
+            placeholder="Your name or org"
+          />
         </div>
       </div>
 
       <Button type="submit" size="sm" disabled={!valid || creating} className="w-full">
-        {creating
-          ? <span className="flex items-center gap-2"><LoadingSpinner size="xs" />Creating…</span>
-          : <><Plus className="h-3.5 w-3.5 mr-1" />Create Pool</>}
+        {creating ? (
+          <span className="flex items-center gap-2">
+            <LoadingSpinner size="xs" />
+            Creating…
+          </span>
+        ) : (
+          <>
+            <Plus className="h-3.5 w-3.5 mr-1" />
+            Create Pool
+          </>
+        )}
       </Button>
     </form>
   );
@@ -326,40 +428,48 @@ export function PooledSponsorshipPanel({ sponsorAddress = '' }: PooledSponsorshi
     }
   }, []);
 
-  useEffect(() => { void fetchPools(); }, [fetchPools]);
+  useEffect(() => {
+    void fetchPools();
+  }, [fetchPools]);
 
-  const handleCreate = useCallback(async (fields: Parameters<CreatePoolFormProps['onCreate']>[0]) => {
-    const res = await fetch('/api/pools', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...fields, sponsorAddress }),
-    });
-    if (!res.ok) {
-      const err = (await res.json()) as { error: string };
-      throw new Error(err.error ?? 'Failed to create pool');
-    }
-    showToast('Pool created!', 'success');
-    setShowCreate(false);
-    await fetchPools();
-  }, [sponsorAddress, fetchPools]);
+  const handleCreate = useCallback(
+    async (fields: Parameters<CreatePoolFormProps['onCreate']>[0]) => {
+      const res = await fetch('/api/pools', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...fields, sponsorAddress }),
+      });
+      if (!res.ok) {
+        const err = (await res.json()) as { error: string };
+        throw new Error(err.error ?? 'Failed to create pool');
+      }
+      showToast('Pool created!', 'success');
+      setShowCreate(false);
+      await fetchPools();
+    },
+    [sponsorAddress, fetchPools]
+  );
 
-  const handleJoin = useCallback(async (poolId: string, amount: number) => {
-    if (!sponsorAddress) {
-      showToast('Connect your wallet to join a pool', 'error');
-      return;
-    }
-    const res = await fetch(`/api/pools/${poolId}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sponsorAddress, contributionUsdc: amount }),
-    });
-    if (!res.ok) {
-      const err = (await res.json()) as { error: string };
-      throw new Error(err.error ?? 'Failed to join pool');
-    }
-    showToast('Contribution added!', 'success');
-    await fetchPools();
-  }, [sponsorAddress, fetchPools]);
+  const handleJoin = useCallback(
+    async (poolId: string, amount: number) => {
+      if (!sponsorAddress) {
+        showToast('Connect your wallet to join a pool', 'error');
+        return;
+      }
+      const res = await fetch(`/api/pools/${poolId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sponsorAddress, contributionUsdc: amount }),
+      });
+      if (!res.ok) {
+        const err = (await res.json()) as { error: string };
+        throw new Error(err.error ?? 'Failed to join pool');
+      }
+      showToast('Contribution added!', 'success');
+      await fetchPools();
+    },
+    [sponsorAddress, fetchPools]
+  );
 
   const openPools = pools.filter((p) => p.status === 'open');
   const closedPools = pools.filter((p) => p.status !== 'open');
@@ -396,9 +506,7 @@ export function PooledSponsorshipPanel({ sponsorAddress = '' }: PooledSponsorshi
       </div>
 
       {/* Create form */}
-      {showCreate && sponsorAddress && (
-        <CreatePoolForm onCreate={handleCreate} />
-      )}
+      {showCreate && sponsorAddress && <CreatePoolForm onCreate={handleCreate} />}
 
       {loading ? (
         <div className="flex justify-center py-12">
@@ -407,21 +515,33 @@ export function PooledSponsorshipPanel({ sponsorAddress = '' }: PooledSponsorshi
       ) : pools.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-border p-12 text-center">
           <TreePine className="h-10 w-10 text-muted-foreground mx-auto mb-3" aria-hidden />
-          <Text variant="muted" className="text-sm">No pools yet. Be the first to create one.</Text>
+          <Text variant="muted" className="text-sm">
+            No pools yet. Be the first to create one.
+          </Text>
         </div>
       ) : (
         <div className="space-y-6">
           {openPools.length > 0 && (
             <div className="space-y-4">
               <div className="flex items-center gap-2">
-                <Text variant="small" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                <Text
+                  variant="small"
+                  className="text-xs font-semibold uppercase tracking-wider text-muted-foreground"
+                >
                   Open Pools
                 </Text>
-                <Badge variant="outline" className="text-[10px]">{openPools.length}</Badge>
+                <Badge variant="outline" className="text-[10px]">
+                  {openPools.length}
+                </Badge>
               </div>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 {openPools.map((pool) => (
-                  <PoolCard key={pool.poolId} pool={pool} sponsorAddress={sponsorAddress} onJoin={handleJoin} />
+                  <PoolCard
+                    key={pool.poolId}
+                    pool={pool}
+                    sponsorAddress={sponsorAddress}
+                    onJoin={handleJoin}
+                  />
                 ))}
               </div>
             </div>
@@ -431,14 +551,24 @@ export function PooledSponsorshipPanel({ sponsorAddress = '' }: PooledSponsorshi
             <div className="space-y-4">
               <div className="flex items-center gap-2">
                 <CheckCircle className="h-3.5 w-3.5 text-stellar-green" aria-hidden />
-                <Text variant="small" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                <Text
+                  variant="small"
+                  className="text-xs font-semibold uppercase tracking-wider text-muted-foreground"
+                >
                   Funded / Completed
                 </Text>
-                <Badge variant="outline" className="text-[10px]">{closedPools.length}</Badge>
+                <Badge variant="outline" className="text-[10px]">
+                  {closedPools.length}
+                </Badge>
               </div>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 {closedPools.map((pool) => (
-                  <PoolCard key={pool.poolId} pool={pool} sponsorAddress={sponsorAddress} onJoin={handleJoin} />
+                  <PoolCard
+                    key={pool.poolId}
+                    pool={pool}
+                    sponsorAddress={sponsorAddress}
+                    onJoin={handleJoin}
+                  />
                 ))}
               </div>
             </div>

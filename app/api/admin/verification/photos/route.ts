@@ -37,7 +37,7 @@ export async function GET(request: Request) {
     const region = searchParams.get('region') || 'all';
     const species = searchParams.get('species') || 'all';
     const duplicatesOnly = searchParams.get('duplicatesOnly') === 'true';
-    
+
     const offset = (page - 1) * limit;
 
     const pool = getPool();
@@ -136,10 +136,7 @@ export async function GET(request: Request) {
 
     params.push(limit, offset);
 
-    const photosResult = await pool.query<VerificationPhoto>(
-      photosQuery,
-      params
-    );
+    const photosResult = await pool.query<VerificationPhoto>(photosQuery, params);
 
     // Get filter options
     const regionsQuery = `
@@ -148,7 +145,7 @@ export async function GET(request: Request) {
       ORDER BY region
     `;
     const regionsResult = await pool.query(regionsQuery);
-    const regions = regionsResult.rows.map(r => r.region);
+    const regions = regionsResult.rows.map((r) => r.region);
 
     const speciesQuery = `
       SELECT DISTINCT species_slug FROM trees 
@@ -156,7 +153,7 @@ export async function GET(request: Request) {
       ORDER BY species_slug
     `;
     const speciesResult = await pool.query(speciesQuery);
-    const speciesList = speciesResult.rows.map(s => s.species_slug);
+    const speciesList = speciesResult.rows.map((s) => s.species_slug);
 
     return NextResponse.json({
       photos: photosResult.rows,
@@ -171,9 +168,6 @@ export async function GET(request: Request) {
     });
   } catch (error) {
     console.error('Error fetching verification photos:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch verification photos' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to fetch verification photos' }, { status: 500 });
   }
 }

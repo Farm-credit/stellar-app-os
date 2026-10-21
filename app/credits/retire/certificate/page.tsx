@@ -132,13 +132,12 @@ function RetireCertificateContent(): JSX.Element {
             Retirement Certificate & Blockchain Proof
           </Text>
           <Text variant="muted" as="p">
-            Your retirement is permanently verified and burned on-chain. Below is your official certificate and immutable receipt.
+            Your retirement is permanently verified and burned on-chain. Below is your official
+            certificate and immutable receipt.
           </Text>
         </div>
 
-        {proofReceipt && (
-          <RetirementBlockchainProofCard receipt={proofReceipt} />
-        )}
+        {proofReceipt && <RetirementBlockchainProofCard receipt={proofReceipt} />}
 
         <CertificatePreview data={certificateData} />
 

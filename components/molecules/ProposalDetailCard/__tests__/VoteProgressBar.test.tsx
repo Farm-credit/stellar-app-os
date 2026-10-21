@@ -38,9 +38,7 @@ describe('VoteProgressBar', () => {
   });
 
   it('applies custom className', () => {
-    const { container } = render(
-      <VoteProgressBar votes={defaultVotes} className="custom-votes" />
-    );
+    const { container } = render(<VoteProgressBar votes={defaultVotes} className="custom-votes" />);
     expect(container.firstChild).toHaveClass('custom-votes');
   });
 });

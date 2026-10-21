@@ -46,15 +46,24 @@ export default function PlanterGuidePage() {
             <ul className="mt-4 space-y-2 text-sm text-muted-foreground">
               <li className="flex items-start gap-2">
                 <span className="text-emerald-500 font-bold">&#10003;</span>
-                <span><strong>Close-Up Photo:</strong> Capture leaf detail, stem texture, and visible physical tree tag ID.</span>
+                <span>
+                  <strong>Close-Up Photo:</strong> Capture leaf detail, stem texture, and visible
+                  physical tree tag ID.
+                </span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-emerald-500 font-bold">&#10003;</span>
-                <span><strong>Wide-Angle Photo:</strong> Capture surrounding landscape context within a 5-15m radius.</span>
+                <span>
+                  <strong>Wide-Angle Photo:</strong> Capture surrounding landscape context within a
+                  5-15m radius.
+                </span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-emerald-500 font-bold">&#10003;</span>
-                <span><strong>EXIF Headers:</strong> Must preserve raw camera EXIF headers (GPS, Timestamp, Device Info).</span>
+                <span>
+                  <strong>EXIF Headers:</strong> Must preserve raw camera EXIF headers (GPS,
+                  Timestamp, Device Info).
+                </span>
               </li>
             </ul>
           </div>
@@ -70,15 +79,23 @@ export default function PlanterGuidePage() {
             <ul className="mt-4 space-y-2 text-sm text-muted-foreground">
               <li className="flex items-start gap-2">
                 <span className="text-blue-500 font-bold">&#10003;</span>
-                <span><strong>Precision Threshold:</strong> Horizontal accuracy must be &lt; 5.0 meters (Ideal &lt; 2.5m).</span>
+                <span>
+                  <strong>Precision Threshold:</strong> Horizontal accuracy must be &lt; 5.0 meters
+                  (Ideal &lt; 2.5m).
+                </span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-blue-500 font-bold">&#10003;</span>
-                <span><strong>HDOP Limit:</strong> Dilution of precision (HDOP) must be &le; 2.0.</span>
+                <span>
+                  <strong>HDOP Limit:</strong> Dilution of precision (HDOP) must be &le; 2.0.
+                </span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-blue-500 font-bold">&#10003;</span>
-                <span><strong>Geofencing:</strong> Coordinates must lie within assigned parcel polygon boundaries.</span>
+                <span>
+                  <strong>Geofencing:</strong> Coordinates must lie within assigned parcel polygon
+                  boundaries.
+                </span>
               </li>
             </ul>
           </div>
@@ -94,15 +111,24 @@ export default function PlanterGuidePage() {
             <ul className="mt-4 space-y-2 text-sm text-muted-foreground">
               <li className="flex items-start gap-2">
                 <span className="text-purple-500 font-bold">&#10003;</span>
-                <span><strong>Zero-Knowledge Proofs:</strong> Groth16 ZK location proof verifies location without exposing private data.</span>
+                <span>
+                  <strong>Zero-Knowledge Proofs:</strong> Groth16 ZK location proof verifies
+                  location without exposing private data.
+                </span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-purple-500 font-bold">&#10003;</span>
-                <span><strong>Anti-Spoofing:</strong> Image perceptual hash prevents duplicate photo re-submissions.</span>
+                <span>
+                  <strong>Anti-Spoofing:</strong> Image perceptual hash prevents duplicate photo
+                  re-submissions.
+                </span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-purple-500 font-bold">&#10003;</span>
-                <span><strong>On-Chain Hash:</strong> Telemetry payload hash registered on Stellar Soroban ledger.</span>
+                <span>
+                  <strong>On-Chain Hash:</strong> Telemetry payload hash registered on Stellar
+                  Soroban ledger.
+                </span>
               </li>
             </ul>
           </div>
@@ -118,15 +144,23 @@ export default function PlanterGuidePage() {
             <ul className="mt-4 space-y-2 text-sm text-muted-foreground">
               <li className="flex items-start gap-2">
                 <span className="text-amber-500 font-bold">&#10003;</span>
-                <span><strong>Multi-Stage Screening:</strong> AI image validation + NDVI satellite vegetation tracking.</span>
+                <span>
+                  <strong>Multi-Stage Screening:</strong> AI image validation + NDVI satellite
+                  vegetation tracking.
+                </span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-amber-500 font-bold">&#10003;</span>
-                <span><strong>Automated Payout:</strong> Smart contract releases USDC directly to planter Stellar wallet.</span>
+                <span>
+                  <strong>Automated Payout:</strong> Smart contract releases USDC directly to
+                  planter Stellar wallet.
+                </span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-amber-500 font-bold">&#10003;</span>
-                <span><strong>Impact NFT:</strong> Soul-bound tree asset NFT minted upon verification.</span>
+                <span>
+                  <strong>Impact NFT:</strong> Soul-bound tree asset NFT minted upon verification.
+                </span>
               </li>
             </ul>
           </div>
@@ -142,32 +176,44 @@ export default function PlanterGuidePage() {
             <div className="rounded-lg border border-border p-4 bg-muted/20">
               <span className="text-xs font-semibold uppercase text-stellar-blue">Stage 1</span>
               <h3 className="mt-1 font-semibold text-foreground">Planter Registration</h3>
-              <p className="mt-1 text-xs text-muted-foreground">Connect wallet and verify planter credentials.</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Connect wallet and verify planter credentials.
+              </p>
             </div>
             <div className="rounded-lg border border-border p-4 bg-muted/20">
               <span className="text-xs font-semibold uppercase text-stellar-blue">Stage 2</span>
               <h3 className="mt-1 font-semibold text-foreground">Project Allocation</h3>
-              <p className="mt-1 text-xs text-muted-foreground">Select approved planting parcel & tree species.</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Select approved planting parcel & tree species.
+              </p>
             </div>
             <div className="rounded-lg border border-border p-4 bg-muted/20">
               <span className="text-xs font-semibold uppercase text-stellar-blue">Stage 3</span>
               <h3 className="mt-1 font-semibold text-foreground">On-Site Capture</h3>
-              <p className="mt-1 text-xs text-muted-foreground">Take close-up & wide photos with &lt;5m GPS precision.</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Take close-up & wide photos with &lt;5m GPS precision.
+              </p>
             </div>
             <div className="rounded-lg border border-border p-4 bg-muted/20">
               <span className="text-xs font-semibold uppercase text-stellar-blue">Stage 4</span>
               <h3 className="mt-1 font-semibold text-foreground">ZK Hash Proof</h3>
-              <p className="mt-1 text-xs text-muted-foreground">Generate cryptographic proof and store hash on-chain.</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Generate cryptographic proof and store hash on-chain.
+              </p>
             </div>
             <div className="rounded-lg border border-border p-4 bg-muted/20">
               <span className="text-xs font-semibold uppercase text-stellar-blue">Stage 5</span>
               <h3 className="mt-1 font-semibold text-foreground">NDVI & AI Screening</h3>
-              <p className="mt-1 text-xs text-muted-foreground">Satellite vegetation check and AI quality scoring.</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Satellite vegetation check and AI quality scoring.
+              </p>
             </div>
             <div className="rounded-lg border border-border p-4 bg-muted/20">
               <span className="text-xs font-semibold uppercase text-stellar-blue">Stage 6</span>
               <h3 className="mt-1 font-semibold text-foreground">Soroban Payout</h3>
-              <p className="mt-1 text-xs text-muted-foreground">Automated USDC release & tree asset minting.</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Automated USDC release & tree asset minting.
+              </p>
             </div>
           </div>
         </section>
@@ -176,7 +222,8 @@ export default function PlanterGuidePage() {
         <div className="rounded-xl border border-stellar-blue/30 bg-stellar-blue/5 p-6 text-center">
           <h3 className="text-lg font-semibold text-foreground">Need full documentation?</h3>
           <p className="mt-1 text-sm text-muted-foreground">
-            Read the full detailed markdown guide including camera EXIF calibration & technical matrix.
+            Read the full detailed markdown guide including camera EXIF calibration & technical
+            matrix.
           </p>
           <a
             href="https://github.com/Farm-credit/stellar-app-os/blob/main/docs/PLANTER_ONBOARDING_GUIDE.md"

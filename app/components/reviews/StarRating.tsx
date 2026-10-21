@@ -54,9 +54,7 @@ export const StarRating: React.FC<StarRatingProps> = ({
             fill={isFilled ? 'currentColor' : 'none'}
             stroke="currentColor"
             strokeWidth={2}
-            className={`${
-              interactive ? 'cursor-pointer' : ''
-            } transition-colors duration-200`}
+            className={`${interactive ? 'cursor-pointer' : ''} transition-colors duration-200`}
             style={{ width: size, height: size }}
             onMouseEnter={() => handleMouseEnter(starValue)}
             onMouseLeave={handleMouseLeave}

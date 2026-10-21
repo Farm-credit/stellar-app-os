@@ -95,7 +95,10 @@ export function resolveConfigByDomain(
   hostname: string,
   configs: readonly WhiteLabelConfig[] = mockWhiteLabelPartners
 ): WhiteLabelConfig | undefined {
-  const normalized = hostname.trim().toLowerCase().replace(/^www\./, '');
+  const normalized = hostname
+    .trim()
+    .toLowerCase()
+    .replace(/^www\./, '');
   return configs.find(
     (config) => config.enabled && config.branding.customDomain.toLowerCase() === normalized
   );
@@ -129,9 +132,7 @@ export function validateFees(fees: WhiteLabelFees): string[] {
   }
   const total = fees.platformFeePercent + fees.partnerMarginPercent;
   if (total > MAX_TOTAL_MARGIN_PERCENT) {
-    errors.push(
-      `Combined fees and margin (${total}%) exceed the ${MAX_TOTAL_MARGIN_PERCENT}% cap`
-    );
+    errors.push(`Combined fees and margin (${total}%) exceed the ${MAX_TOTAL_MARGIN_PERCENT}% cap`);
   }
   return errors;
 }
@@ -144,10 +145,7 @@ export interface PriceBreakdown {
 }
 
 /** Splits a sponsorship price into platform fee, partner margin, grower share. */
-export function splitSponsorshipPrice(
-  totalUsd: number,
-  fees: WhiteLabelFees
-): PriceBreakdown {
+export function splitSponsorshipPrice(totalUsd: number, fees: WhiteLabelFees): PriceBreakdown {
   if (totalUsd < 0) {
     throw new Error('totalUsd must be non-negative');
   }

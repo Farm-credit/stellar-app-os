@@ -17,7 +17,8 @@ export default function ListCreditPage() {
             List Carbon Credits for Sale
           </Text>
           <Text variant="muted" as="p">
-            Allow farmers and land managers to list carbon credits from verified projects: specify credit type, quantity, price per ton, and verification method.
+            Allow farmers and land managers to list carbon credits from verified projects: specify
+            credit type, quantity, price per ton, and verification method.
           </Text>
         </div>
 

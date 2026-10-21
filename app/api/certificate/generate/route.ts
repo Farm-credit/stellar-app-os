@@ -70,7 +70,10 @@ function getClientIp(req: NextRequest): string {
   return ip || 'unknown';
 }
 
-function checkRateLimit(key: string, config: RateLimitConfig): { allowed: boolean; retryAfter: number } {
+function checkRateLimit(
+  key: string,
+  config: RateLimitConfig
+): { allowed: boolean; retryAfter: number } {
   const now = Date.now();
   let entry = rateLimitStore.get(key);
   if (!entry) {
@@ -84,7 +87,7 @@ function checkRateLimit(key: string, config: RateLimitConfig): { allowed: boolea
   }
 
   // Remove timestamps outside the sliding window
-  entry.timestamps = entry.timestamps.filter(ts => ts > now - config.windowMs);
+  entry.timestamps = entry.timestamps.filter((ts) => ts > now - config.windowMs);
 
   // Check if over limit
   if (entry.timestamps.length >= config.maxRequests) {
@@ -214,10 +217,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       'https://stellar.expert/explorer/public/tx';
     const explorerUrl = `${explorerBaseUrl}/${body.transactionHash}`;
 
-    const qrWidthPx = Math.max(
-      1,
-      Math.round((QR_SIZE_MM / MM_PER_INCH) * resolveCertificateDpi())
-    );
+    const qrWidthPx = Math.max(1, Math.round((QR_SIZE_MM / MM_PER_INCH) * resolveCertificateDpi()));
     const qrDataUrl = await QRCode.toDataURL(explorerUrl, { width: qrWidthPx, margin: 1 });
 
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });

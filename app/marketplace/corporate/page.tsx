@@ -2,7 +2,7 @@
 
 import { useState, useEffect, type JSX } from 'react';
 import Link from 'next/link';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/atoms/Card';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/molecules/Card';
 import { Button } from '@/components/atoms/Button';
 import { Input } from '@/components/atoms/Input';
 import { Badge } from '@/components/atoms/Badge';
@@ -18,7 +18,10 @@ export default function CorporateOffsetProgramPage(): JSX.Element {
   const [programs, setPrograms] = useState<CorporateProgramRecord[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [executingId, setExecutingId] = useState<string | null>(null);
-  const [notification, setNotification] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [notification, setNotification] = useState<{
+    type: 'success' | 'error';
+    text: string;
+  } | null>(null);
 
   // Enrollment Form State
   const [formData, setFormData] = useState<EnrollCorporateProgramRequest>({
@@ -138,11 +141,17 @@ export default function CorporateOffsetProgramPage(): JSX.Element {
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-8">
         <div>
           <div className="flex items-center gap-2 mb-2">
-            <Link href="/marketplace" className="text-sm font-medium text-muted-foreground hover:text-foreground">
+            <Link
+              href="/marketplace"
+              className="text-sm font-medium text-muted-foreground hover:text-foreground"
+            >
               &larr; Marketplace
             </Link>
             <span className="text-muted-foreground">•</span>
-            <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20 text-xs">
+            <Badge
+              variant="outline"
+              className="bg-primary/5 text-primary border-primary/20 text-xs"
+            >
               Corporate Program v2
             </Badge>
           </div>
@@ -150,8 +159,9 @@ export default function CorporateOffsetProgramPage(): JSX.Element {
             Corporate Offset Program & Automated Enrollment
           </h1>
           <p className="mt-2 text-sm text-muted-foreground max-w-3xl">
-            Set verified carbon offset targets, establish automated purchasing rules on the Stellar network, and
-            receive audit-ready monthly ESG documentation with cryptographic retirement proofs.
+            Set verified carbon offset targets, establish automated purchasing rules on the Stellar
+            network, and receive audit-ready monthly ESG documentation with cryptographic retirement
+            proofs.
           </p>
         </div>
 
@@ -161,11 +171,7 @@ export default function CorporateOffsetProgramPage(): JSX.Element {
               🗺 Offset Map
             </Button>
           </Link>
-          <Button
-            size="sm"
-            onClick={() => setActiveTab('enroll')}
-            className="cursor-pointer"
-          >
+          <Button size="sm" onClick={() => setActiveTab('enroll')} className="cursor-pointer">
             + Enroll Company
           </Button>
         </div>
@@ -209,7 +215,8 @@ export default function CorporateOffsetProgramPage(): JSX.Element {
               Total Tonnes Offset
             </Text>
             <div className="text-2xl font-bold mt-1 text-emerald-600">
-              {programs.reduce((sum, p) => sum + p.cumulativeTonnesOffset, 0).toLocaleString()} <span className="text-xs font-normal text-muted-foreground">tCO2e</span>
+              {programs.reduce((sum, p) => sum + p.cumulativeTonnesOffset, 0).toLocaleString()}{' '}
+              <span className="text-xs font-normal text-muted-foreground">tCO2e</span>
             </div>
             <div className="text-xs text-muted-foreground mt-1">Retired on Stellar ledger</div>
           </CardContent>
@@ -221,7 +228,8 @@ export default function CorporateOffsetProgramPage(): JSX.Element {
               Cumulative Capital Deployed
             </Text>
             <div className="text-2xl font-bold mt-1 text-primary">
-              ${programs.reduce((sum, p) => sum + p.cumulativeSpendUsd, 0).toLocaleString()} <span className="text-xs font-normal text-muted-foreground">USDC</span>
+              ${programs.reduce((sum, p) => sum + p.cumulativeSpendUsd, 0).toLocaleString()}{' '}
+              <span className="text-xs font-normal text-muted-foreground">USDC</span>
             </div>
             <div className="text-xs text-muted-foreground mt-1">Direct to verified projects</div>
           </CardContent>
@@ -296,7 +304,9 @@ export default function CorporateOffsetProgramPage(): JSX.Element {
               {programs.map((program) => {
                 const percentAnnual = Math.min(
                   100,
-                  Math.round((program.cumulativeTonnesOffset / program.target.annualTargetTonnes) * 100)
+                  Math.round(
+                    (program.cumulativeTonnesOffset / program.target.annualTargetTonnes) * 100
+                  )
                 );
 
                 return (
@@ -351,7 +361,9 @@ export default function CorporateOffsetProgramPage(): JSX.Element {
                       <div>
                         <div className="flex items-center justify-between text-xs mb-1.5">
                           <span className="font-semibold text-foreground">
-                            Annual Offset Progress ({program.cumulativeTonnesOffset.toLocaleString()} / {program.target.annualTargetTonnes.toLocaleString()} tCO2e)
+                            Annual Offset Progress (
+                            {program.cumulativeTonnesOffset.toLocaleString()} /{' '}
+                            {program.target.annualTargetTonnes.toLocaleString()} tCO2e)
                           </span>
                           <span className="font-bold text-primary">{percentAnnual}%</span>
                         </div>
@@ -366,25 +378,33 @@ export default function CorporateOffsetProgramPage(): JSX.Element {
                       {/* Configuration Badges */}
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 rounded-xl bg-muted/40 border border-border/60 text-xs">
                         <div>
-                          <span className="text-muted-foreground block mb-0.5">Monthly Commitment:</span>
+                          <span className="text-muted-foreground block mb-0.5">
+                            Monthly Commitment:
+                          </span>
                           <span className="font-bold text-foreground text-sm">
                             {program.target.monthlyTargetTonnes} tCO2e / mo
                           </span>
                         </div>
                         <div>
-                          <span className="text-muted-foreground block mb-0.5">Purchasing Rule:</span>
+                          <span className="text-muted-foreground block mb-0.5">
+                            Purchasing Rule:
+                          </span>
                           <span className="font-bold text-foreground text-sm uppercase">
                             {program.rules.strategy.replace('_', ' ')}
                           </span>
                         </div>
                         <div>
-                          <span className="text-muted-foreground block mb-0.5">Settlement Rail:</span>
+                          <span className="text-muted-foreground block mb-0.5">
+                            Settlement Rail:
+                          </span>
                           <span className="font-bold text-foreground text-sm">
                             Stellar USDC (Instant)
                           </span>
                         </div>
                         <div>
-                          <span className="text-muted-foreground block mb-0.5">Next Scheduled Cycle:</span>
+                          <span className="text-muted-foreground block mb-0.5">
+                            Next Scheduled Cycle:
+                          </span>
                           <span className="font-bold text-primary text-sm">
                             {new Date(program.nextScheduledRun).toLocaleDateString()}
                           </span>
@@ -399,7 +419,8 @@ export default function CorporateOffsetProgramPage(): JSX.Element {
 
                         {program.executionHistory.length === 0 ? (
                           <div className="text-xs text-muted-foreground italic p-3 bg-muted/20 rounded-lg">
-                            No automated runs recorded yet. The first automated purchase will execute on schedule or click &quot;Run Monthly Purchase Now&quot; above.
+                            No automated runs recorded yet. The first automated purchase will
+                            execute on schedule or click &quot;Run Monthly Purchase Now&quot; above.
                           </div>
                         ) : (
                           <div className="overflow-x-auto">
@@ -417,8 +438,12 @@ export default function CorporateOffsetProgramPage(): JSX.Element {
                               <tbody className="divide-y divide-border/60">
                                 {program.executionHistory.map((exec) => (
                                   <tr key={exec.id} className="hover:bg-muted/20">
-                                    <td className="p-2 font-medium text-foreground">{exec.periodLabel}</td>
-                                    <td className="p-2 font-semibold text-emerald-600">{exec.tonnesPurchased} tCO2e</td>
+                                    <td className="p-2 font-medium text-foreground">
+                                      {exec.periodLabel}
+                                    </td>
+                                    <td className="p-2 font-semibold text-emerald-600">
+                                      {exec.tonnesPurchased} tCO2e
+                                    </td>
                                     <td className="p-2">${exec.totalSpendUsd.toLocaleString()}</td>
                                     <td className="p-2 text-muted-foreground">
                                       {exec.allocations[0]?.projectName || 'Verified Basket'}
@@ -427,7 +452,10 @@ export default function CorporateOffsetProgramPage(): JSX.Element {
                                       {exec.stellarTransactionHash.slice(0, 14)}...
                                     </td>
                                     <td className="p-2">
-                                      <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 text-[10px]">
+                                      <Badge
+                                        variant="outline"
+                                        className="bg-emerald-500/10 text-emerald-600 text-[10px]"
+                                      >
                                         ✓ Verified
                                       </Badge>
                                     </td>
@@ -455,7 +483,8 @@ export default function CorporateOffsetProgramPage(): JSX.Element {
               Enroll Company in Automated Carbon Offset Program
             </CardTitle>
             <p className="text-xs text-muted-foreground">
-              Configure your corporate emission baseline, net-zero milestone targets, and automated settlement rules.
+              Configure your corporate emission baseline, net-zero milestone targets, and automated
+              settlement rules.
             </p>
           </CardHeader>
 
@@ -522,7 +551,9 @@ export default function CorporateOffsetProgramPage(): JSX.Element {
                       type="text"
                       placeholder="G... (Stellar public key)"
                       value={formData.corporateWalletAddress}
-                      onChange={(e) => setFormData({ ...formData, corporateWalletAddress: e.target.value })}
+                      onChange={(e) =>
+                        setFormData({ ...formData, corporateWalletAddress: e.target.value })
+                      }
                     />
                   </div>
                 </div>
@@ -697,8 +728,9 @@ export default function CorporateOffsetProgramPage(): JSX.Element {
                     className="w-4 h-4 rounded text-primary focus:ring-primary cursor-pointer"
                   />
                   <label htmlFor="autoRetire" className="text-xs text-foreground cursor-pointer">
-                    <strong>Auto-Retire on Purchase:</strong> Immediately retire purchased credits on the Stellar
-                    blockchain to create permanent, tamper-proof retirement receipts and avoid double counting.
+                    <strong>Auto-Retire on Purchase:</strong> Immediately retire purchased credits
+                    on the Stellar blockchain to create permanent, tamper-proof retirement receipts
+                    and avoid double counting.
                   </label>
                 </div>
               </div>
@@ -734,13 +766,15 @@ export default function CorporateOffsetProgramPage(): JSX.Element {
               Monthly Audit Documentation & Compliance Packages
             </h2>
             <p className="text-xs text-muted-foreground mb-4">
-              Download audited monthly offset statements, verified project allocation certificates, and Stellar
-              cryptographic digests suitable for CSRD, SEC ESG, and GHG Protocol Scope 1-3 filings.
+              Download audited monthly offset statements, verified project allocation certificates,
+              and Stellar cryptographic digests suitable for CSRD, SEC ESG, and GHG Protocol Scope
+              1-3 filings.
             </p>
 
             {allReports.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground text-xs italic">
-                No monthly reports generated yet. Reports are produced automatically upon each completed offset run.
+                No monthly reports generated yet. Reports are produced automatically upon each
+                completed offset run.
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -767,7 +801,9 @@ export default function CorporateOffsetProgramPage(): JSX.Element {
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Total Spend:</span>
-                        <span className="font-semibold text-foreground">${report.totalSpendUsd.toLocaleString()} USDC</span>
+                        <span className="font-semibold text-foreground">
+                          ${report.totalSpendUsd.toLocaleString()} USDC
+                        </span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Supported Project:</span>
@@ -777,7 +813,9 @@ export default function CorporateOffsetProgramPage(): JSX.Element {
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Stellar Sequence:</span>
-                        <span className="font-mono text-primary">#{report.stellarLedgerSequence}</span>
+                        <span className="font-mono text-primary">
+                          #{report.stellarLedgerSequence}
+                        </span>
                       </div>
 
                       {/* SDG Impact Badges */}
@@ -787,7 +825,10 @@ export default function CorporateOffsetProgramPage(): JSX.Element {
                         </span>
                         <div className="space-y-1">
                           {report.sdgImpactMetrics.map((sdg) => (
-                            <div key={sdg.sdg} className="text-[11px] text-muted-foreground flex items-center gap-1.5">
+                            <div
+                              key={sdg.sdg}
+                              className="text-[11px] text-muted-foreground flex items-center gap-1.5"
+                            >
                               <span className="px-1 py-0.2 bg-primary/10 text-primary rounded font-bold text-[10px]">
                                 SDG {sdg.sdg}
                               </span>

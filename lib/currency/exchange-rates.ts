@@ -1,4 +1,4 @@
-export type CurrencyCode = 'USD' | 'EUR' | 'GBP' | 'INR' | 'JPY' | 'CNY' | 'AED';
+export type CurrencyCode = 'USD' | 'EUR' | 'GBP' | 'INR' | 'JPY' | 'CNY' | 'AED' | 'BRL';
 
 export interface CurrencyConfig {
   code: CurrencyCode;
@@ -16,6 +16,7 @@ export const SUPPORTED_CURRENCIES: Record<CurrencyCode, CurrencyConfig> = {
   JPY: { code: 'JPY', symbol: '¥', name: 'Japanese Yen', flagEmoji: '🇯🇵', locale: 'ja-JP' },
   CNY: { code: 'CNY', symbol: '¥', name: 'Chinese Yuan', flagEmoji: '🇨🇳', locale: 'zh-CN' },
   AED: { code: 'AED', symbol: 'AED', name: 'UAE Dirham', flagEmoji: '🇦🇪', locale: 'ar-AE' },
+  BRL: { code: 'BRL', symbol: 'R$', name: 'Brazilian Real', flagEmoji: '🇧🇷', locale: 'pt-BR' },
 };
 
 /**
@@ -26,9 +27,10 @@ export const FALLBACK_EXCHANGE_RATES: Record<CurrencyCode, number> = {
   EUR: 0.92,
   GBP: 0.79,
   INR: 83.45,
-  JPY: 155.20,
+  JPY: 155.2,
   CNY: 7.23,
   AED: 3.67,
+  BRL: 5.5,
 };
 
 let cachedRates: Record<CurrencyCode, number> | null = null;
@@ -59,13 +61,14 @@ export async function getLiveExchangeRates(): Promise<Record<CurrencyCode, numbe
         JPY: data.rates?.JPY ?? FALLBACK_EXCHANGE_RATES.JPY,
         CNY: data.rates?.CNY ?? FALLBACK_EXCHANGE_RATES.CNY,
         AED: data.rates?.AED ?? FALLBACK_EXCHANGE_RATES.AED,
+        BRL: data.rates?.BRL ?? FALLBACK_EXCHANGE_RATES.BRL,
       };
 
       cachedRates = rates;
       lastCacheFetchTime = now;
       return rates;
     }
-  } catch (error) {
+  } catch {
     // Silent fallback to static rates
   }
 
@@ -89,10 +92,7 @@ export function convertUsdToCurrency(
 /**
  * Format currency value with symbol and locale
  */
-export function formatRegionalCurrency(
-  amount: number,
-  currencyCode: CurrencyCode
-): string {
+export function formatRegionalCurrency(amount: number, currencyCode: CurrencyCode): string {
   const config = SUPPORTED_CURRENCIES[currencyCode] || SUPPORTED_CURRENCIES.USD;
   try {
     return new Intl.NumberFormat(config.locale, {
@@ -101,7 +101,7 @@ export function formatRegionalCurrency(
       maximumFractionDigits: currencyCode === 'JPY' ? 0 : 2,
       minimumFractionDigits: currencyCode === 'JPY' ? 0 : 2,
     }).format(amount);
-  } catch (e) {
+  } catch {
     return `${config.symbol}${amount.toFixed(currencyCode === 'JPY' ? 0 : 2)}`;
   }
 }

@@ -5,12 +5,9 @@
  * Specify: credit type, quantity, price per ton, verification method.
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { type NextRequest, NextResponse } from 'next/server';
 import { apiVersionHeaders } from '@/lib/api/versioning';
-import {
-  createAndPublishListing,
-  getPublishedListings,
-} from '@/lib/api/carbon-listing-publish';
+import { createAndPublishListing, getPublishedListings } from '@/lib/api/carbon-listing-publish';
 import type { PublishListingRequest } from '@/lib/types/carbon-listing-publish';
 
 export const runtime = 'nodejs';

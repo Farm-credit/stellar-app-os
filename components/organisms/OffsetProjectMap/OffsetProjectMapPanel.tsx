@@ -83,7 +83,10 @@ export function OffsetProjectMapPanel({
   }, []);
 
   const hasActiveFilters =
-    filters.types.length > 0 || filters.regions.length > 0 || filters.availableOnly || climateLayerActive;
+    filters.types.length > 0 ||
+    filters.regions.length > 0 ||
+    filters.availableOnly ||
+    climateLayerActive;
 
   // ── Render ──────────────────────────────────────────────────────────────────
 

@@ -28,7 +28,10 @@ function formatEventDate(iso: string): string {
 
 function StreamEmbed({ event }: { event: PlantingEvent }) {
   return (
-    <div className="relative overflow-hidden rounded-xl bg-stellar-navy" data-testid="stream-player">
+    <div
+      className="relative overflow-hidden rounded-xl bg-stellar-navy"
+      data-testid="stream-player"
+    >
       <video
         src={event.streamUrl}
         controls
@@ -61,8 +64,8 @@ export function LivePlantingStream({ projectId }: LivePlantingStreamProps) {
     return (
       <Card className="p-6 border-stellar-green/10">
         <p className="text-sm text-muted-foreground">
-          No planting events are scheduled for this project yet. Sponsors are invited to every
-          live stream as soon as one is set up.
+          No planting events are scheduled for this project yet. Sponsors are invited to every live
+          stream as soon as one is set up.
         </p>
       </Card>
     );
@@ -119,7 +122,9 @@ export function LivePlantingStream({ projectId }: LivePlantingStreamProps) {
                 >
                   <div>
                     <p className="font-medium">{event.title}</p>
-                    <p className="text-xs text-muted-foreground">{formatEventDate(event.scheduledAt)}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {formatEventDate(event.scheduledAt)}
+                    </p>
                   </div>
                   <div className="flex items-center gap-3">
                     {recordings.length > 0 && (
@@ -131,7 +136,10 @@ export function LivePlantingStream({ projectId }: LivePlantingStreamProps) {
                         Recording • {recordings.length} trees
                       </a>
                     )}
-                    <a href={featuredLink} className="text-xs text-muted-foreground hover:text-foreground">
+                    <a
+                      href={featuredLink}
+                      className="text-xs text-muted-foreground hover:text-foreground"
+                    >
                       View event
                     </a>
                   </div>

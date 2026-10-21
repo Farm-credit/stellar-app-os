@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { StarRating } from './StarRating';
-import { Review } from '@/lib/review-types';
+import { type Review } from '@/lib/review-types';
 
 interface ReviewListProps {
   reviews: Review[];
@@ -41,50 +41,36 @@ export const ReviewList: React.FC<ReviewListProps> = ({
   }
 
   // Calculate average ratings
-  const avgRating =
-    reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length;
-  const avgQuality =
-    reviews.reduce((sum, r) => sum + r.quality, 0) / reviews.length;
-  const avgResponsiveness =
-    reviews.reduce((sum, r) => sum + r.responsiveness, 0) / reviews.length;
-  const avgTreeHealth =
-    reviews.reduce((sum, r) => sum + r.treeHealth, 0) / reviews.length;
+  const avgRating = reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length;
+  const avgQuality = reviews.reduce((sum, r) => sum + r.quality, 0) / reviews.length;
+  const avgResponsiveness = reviews.reduce((sum, r) => sum + r.responsiveness, 0) / reviews.length;
+  const avgTreeHealth = reviews.reduce((sum, r) => sum + r.treeHealth, 0) / reviews.length;
 
   return (
     <div className="space-y-6">
       {/* Summary */}
       <div className="p-4 bg-gray-50 rounded-lg border">
-        <h3 className="text-lg font-semibold text-gray-800 mb-3">
-          Review Summary
-        </h3>
+        <h3 className="text-lg font-semibold text-gray-800 mb-3">Review Summary</h3>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div className="text-center">
             <p className="text-sm text-gray-600">Overall</p>
             <StarRating rating={Math.round(avgRating)} size={20} />
-            <p className="text-xs text-gray-500 mt-1">
-              {avgRating.toFixed(1)} / 5
-            </p>
+            <p className="text-xs text-gray-500 mt-1">{avgRating.toFixed(1)} / 5</p>
           </div>
           <div className="text-center">
             <p className="text-sm text-gray-600">Quality</p>
             <StarRating rating={Math.round(avgQuality)} size={20} />
-            <p className="text-xs text-gray-500 mt-1">
-              {avgQuality.toFixed(1)} / 5
-            </p>
+            <p className="text-xs text-gray-500 mt-1">{avgQuality.toFixed(1)} / 5</p>
           </div>
           <div className="text-center">
             <p className="text-sm text-gray-600">Responsiveness</p>
             <StarRating rating={Math.round(avgResponsiveness)} size={20} />
-            <p className="text-xs text-gray-500 mt-1">
-              {avgResponsiveness.toFixed(1)} / 5
-            </p>
+            <p className="text-xs text-gray-500 mt-1">{avgResponsiveness.toFixed(1)} / 5</p>
           </div>
           <div className="text-center">
             <p className="text-sm text-gray-600">Tree Health</p>
             <StarRating rating={Math.round(avgTreeHealth)} size={20} />
-            <p className="text-xs text-gray-500 mt-1">
-              {avgTreeHealth.toFixed(1)} / 5
-            </p>
+            <p className="text-xs text-gray-500 mt-1">{avgTreeHealth.toFixed(1)} / 5</p>
           </div>
         </div>
         <p className="text-xs text-gray-500 mt-2">
@@ -95,10 +81,7 @@ export const ReviewList: React.FC<ReviewListProps> = ({
       {/* Individual Reviews */}
       <div className="space-y-4">
         {reviews.map((review) => (
-          <div
-            key={review.id}
-            className="p-4 border rounded-lg bg-white shadow-sm"
-          >
+          <div key={review.id} className="p-4 border rounded-lg bg-white shadow-sm">
             <div className="flex justify-between items-start mb-2">
               <div>
                 <p className="text-sm text-gray-500">
@@ -131,9 +114,7 @@ export const ReviewList: React.FC<ReviewListProps> = ({
             </div>
 
             {review.comment && (
-              <p className="text-gray-700 text-sm mt-2 italic">
-                "{review.comment}"
-              </p>
+              <p className="text-gray-700 text-sm mt-2 italic">"{review.comment}"</p>
             )}
           </div>
         ))}

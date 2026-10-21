@@ -11,7 +11,10 @@ function errorResponse(error: unknown): NextResponse {
       { status: error.status }
     );
   }
-  return NextResponse.json({ success: false, error: 'Unexpected financing error' }, { status: 500 });
+  return NextResponse.json(
+    { success: false, error: 'Unexpected financing error' },
+    { status: 500 }
+  );
 }
 
 /** GET /api/farmer-financing — list credit lines (filters: farmerId, status). */

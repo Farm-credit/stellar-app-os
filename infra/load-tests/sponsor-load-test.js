@@ -6,7 +6,7 @@ export const options = {
   stages: [
     { duration: '1m', target: 1000 }, // ramp up
     { duration: '5m', target: 100000 }, // hold at 100k
-    { duration: '1m', target: 0 },    // ramp down
+    { duration: '1m', target: 0 }, // ramp down
   ],
 };
 
@@ -14,8 +14,13 @@ const BASE_URL = __ENV.BASE_URL || 'http://localhost:3000';
 
 export default function () {
   // Generate a random wallet address (Stellar format)
-  const wallet = 'G' + Array.from({length: 55}, () => 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567'[Math.floor(Math.random() * 32)]).join('');
-  
+  const wallet =
+    'G' +
+    Array.from(
+      { length: 55 },
+      () => 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567'[Math.floor(Math.random() * 32)]
+    ).join('');
+
   const payload = JSON.stringify({
     wallet: wallet,
     email: 'test@example.com',

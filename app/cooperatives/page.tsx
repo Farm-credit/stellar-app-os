@@ -58,7 +58,9 @@ export default function CooperativesPage() {
               required
               minLength={3}
               value={form.name}
-              onChange={(event: ChangeEvent<HTMLInputElement>) => setForm({ ...form, name: event.target.value })}
+              onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                setForm({ ...form, name: event.target.value })
+              }
               className="rounded border border-gray-300 px-3 py-2"
               placeholder="Nairobi Grain Alliance"
             />
@@ -67,7 +69,9 @@ export default function CooperativesPage() {
             Region
             <input
               value={form.region}
-              onChange={(event: ChangeEvent<HTMLInputElement>) => setForm({ ...form, region: event.target.value })}
+              onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                setForm({ ...form, region: event.target.value })
+              }
               className="rounded border border-gray-300 px-3 py-2"
               placeholder="Kenya"
             />
@@ -77,7 +81,9 @@ export default function CooperativesPage() {
             <input
               required
               value={form.founderId}
-              onChange={(event: ChangeEvent<HTMLInputElement>) => setForm({ ...form, founderId: event.target.value })}
+              onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                setForm({ ...form, founderId: event.target.value })
+              }
               className="rounded border border-gray-300 px-3 py-2"
               placeholder="farmer-123"
             />

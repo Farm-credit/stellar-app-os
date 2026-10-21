@@ -95,16 +95,6 @@ export const farmerSuccessStories: FarmerSuccessStory[] = [
       soilHealthImprovementPercent: 31,
     },
     quote: 'My harvest is bigger and I still earn from the trees. The land feels alive again.',
-    projectId: 'proj-009',
-    sponsorName: 'Greenline Foods Cooperative',
-    sponsorQuote:
-      'Fatima’s story makes the case for funding restoration that strengthens food security too.',
-    beforeImageUrl: '/assets/success-stories/land-before.svg',
-    beforeImageAlt: 'Illustration of an exposed, rain-fed field before agroforestry',
-    afterImageUrl: '/assets/success-stories/land-after.svg',
-    afterImageAlt: 'Illustration of a living field protected by restored trees',
-    curatedQuarter: 'Q1 2026',
-    editorialState: 'published',
   },
   {
     id: 'story-accra-kwame',
@@ -237,16 +227,6 @@ export const farmerSuccessStories: FarmerSuccessStory[] = [
       waterRetainedMegalitres: 0.9,
     },
     quote: 'The gully used to take more land every year. Now it holds water and gives us shade.',
-    projectId: 'proj-009',
-    sponsorName: 'Sahel Resilience Partners',
-    sponsorQuote:
-      'Ibrahim’s terraces turn a hard-to-farm gully into a visible, verifiable climate asset.',
-    beforeImageUrl: '/assets/success-stories/land-before.svg',
-    beforeImageAlt: 'Illustration of an actively eroding gully before restoration',
-    afterImageUrl: '/assets/success-stories/land-after.svg',
-    afterImageAlt: 'Illustration of tree-anchored terraces holding rainwater after restoration',
-    curatedQuarter: 'Q4 2025',
-    editorialState: 'published',
   },
   {
     id: 'story-katsina-aisha',

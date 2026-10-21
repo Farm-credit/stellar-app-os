@@ -1,7 +1,4 @@
-import type {
-  MintedCreditRecord,
-  RegistryProtocol,
-} from '../certification/types';
+import type { MintedCreditRecord, RegistryProtocol } from '../certification/types';
 import { makeMintRecordId, makeTokenId } from './registry-client';
 
 export interface MintedCreditRepository {

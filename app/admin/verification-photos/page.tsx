@@ -2,14 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import Image from 'next/image';
-import {
-  AlertTriangle,
-  CheckCircle2,
-  Filter,
-  MapPin,
-  RefreshCw,
-  XCircle,
-} from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Filter, MapPin, RefreshCw, XCircle } from 'lucide-react';
 import { Badge } from '@/components/atoms/Badge';
 import { Button } from '@/components/atoms/Button';
 import { Input } from '@/components/atoms/Input';
@@ -190,8 +183,7 @@ export default function VerificationPhotosPage(): React.ReactNode {
 
   // Selection persists across pages, so "select all" must be scoped to the
   // current page's photos rather than comparing total selected to page size.
-  const allOnPageSelected =
-    photos.length > 0 && photos.every((p) => selectedPhotos.has(p.id));
+  const allOnPageSelected = photos.length > 0 && photos.every((p) => selectedPhotos.has(p.id));
 
   const toggleSelectAll = () => {
     setSelectedPhotos((prev) => {
@@ -205,20 +197,14 @@ export default function VerificationPhotosPage(): React.ReactNode {
     });
   };
 
-  const handleKycDecision = async (
-    verificationId: number,
-    decision: 'approve' | 'reject'
-  ) => {
+  const handleKycDecision = async (verificationId: number, decision: 'approve' | 'reject') => {
     setKycLoading(true);
     try {
-      const response = await fetch(
-        `/api/admin/kyc/verifications/${verificationId}`,
-        {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ decision }),
-        }
-      );
+      const response = await fetch(`/api/admin/kyc/verifications/${verificationId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ decision }),
+      });
       if (!response.ok) throw new Error('KYC decision failed');
       await fetchKycVerifications();
     } catch (error) {
@@ -262,10 +248,10 @@ export default function VerificationPhotosPage(): React.ReactNode {
       setLastAction(result);
       setSelectedPhotos(new Set());
       setActionReason('');
-      
+
       // Refresh the list
       await fetchPhotos();
-      
+
       alert(result.message);
     } catch (error) {
       console.error('Error performing batch action:', error);
@@ -301,12 +287,7 @@ export default function VerificationPhotosPage(): React.ReactNode {
             Batch approve or reject tree planting verification photos
           </Text>
         </div>
-        <Button
-          variant="outline"
-          size="icon"
-          onClick={() => fetchPhotos()}
-          disabled={loading}
-        >
+        <Button variant="outline" size="icon" onClick={() => fetchPhotos()} disabled={loading}>
           <RefreshCw className={loading ? 'animate-spin' : ''} />
         </Button>
       </div>
@@ -320,10 +301,7 @@ export default function VerificationPhotosPage(): React.ReactNode {
               Identity, land ownership, and certification eligibility review
             </CardDescription>
           </div>
-          <Select
-            value={kycStatusFilter}
-            onChange={(e) => setKycStatusFilter(e.target.value)}
-          >
+          <Select value={kycStatusFilter} onChange={(e) => setKycStatusFilter(e.target.value)}>
             <option value="pending">Pending</option>
             <option value="in_review">In Review</option>
             <option value="approved">Approved</option>
@@ -338,9 +316,7 @@ export default function VerificationPhotosPage(): React.ReactNode {
             </div>
           ) : kycVerifications.length === 0 ? (
             <div className="text-center py-8">
-              <Text className="text-muted-foreground">
-                No KYC verifications found
-              </Text>
+              <Text className="text-muted-foreground">No KYC verifications found</Text>
             </div>
           ) : (
             <div className="space-y-3">
@@ -355,21 +331,13 @@ export default function VerificationPhotosPage(): React.ReactNode {
                       <Badge variant={kyc.identityVerified ? 'default' : 'secondary'}>
                         Identity
                       </Badge>
-                      <Badge
-                        variant={kyc.landOwnershipVerified ? 'default' : 'secondary'}
-                      >
+                      <Badge variant={kyc.landOwnershipVerified ? 'default' : 'secondary'}>
                         Land
                       </Badge>
-                      <Badge
-                        variant={
-                          kyc.agriculturalExperienceVerified ? 'default' : 'secondary'
-                        }
-                      >
+                      <Badge variant={kyc.agriculturalExperienceVerified ? 'default' : 'secondary'}>
                         Experience
                       </Badge>
-                      <Badge
-                        variant={kyc.certificationEligible ? 'default' : 'secondary'}
-                      >
+                      <Badge variant={kyc.certificationEligible ? 'default' : 'secondary'}>
                         Certification
                       </Badge>
                     </div>
@@ -414,9 +382,7 @@ export default function VerificationPhotosPage(): React.ReactNode {
         <CardContent className="grid grid-cols-1 md:grid-cols-5 gap-4">
           <Select
             value={filters.status}
-            onChange={(e) =>
-              setFilters((prev) => ({ ...prev, status: e.target.value }))
-            }
+            onChange={(e) => setFilters((prev) => ({ ...prev, status: e.target.value }))}
           >
             <option value="pending">Pending</option>
             <option value="all">All</option>
@@ -427,9 +393,7 @@ export default function VerificationPhotosPage(): React.ReactNode {
 
           <Select
             value={filters.region}
-            onChange={(e) =>
-              setFilters((prev) => ({ ...prev, region: e.target.value }))
-            }
+            onChange={(e) => setFilters((prev) => ({ ...prev, region: e.target.value }))}
           >
             <option value="all">All Regions</option>
             {filterOptions.regions.map((region) => (
@@ -441,9 +405,7 @@ export default function VerificationPhotosPage(): React.ReactNode {
 
           <Select
             value={filters.species}
-            onChange={(e) =>
-              setFilters((prev) => ({ ...prev, species: e.target.value }))
-            }
+            onChange={(e) => setFilters((prev) => ({ ...prev, species: e.target.value }))}
           >
             <option value="all">All Species</option>
             {filterOptions.species.map((species) => (
@@ -489,18 +451,14 @@ export default function VerificationPhotosPage(): React.ReactNode {
       {selectedPhotos.size > 0 && (
         <Card className="bg-blue-50 border-blue-200">
           <CardHeader>
-            <CardTitle>
-              Batch Actions ({selectedPhotos.size} selected)
-            </CardTitle>
+            <CardTitle>Batch Actions ({selectedPhotos.size} selected)</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <Select
                 value={conflictResolution}
                 onChange={(e) =>
-                  setConflictResolution(
-                    e.target.value as 'keep_newest' | 'keep_oldest' | 'manual'
-                  )
+                  setConflictResolution(e.target.value as 'keep_newest' | 'keep_oldest' | 'manual')
                 }
               >
                 <option value="keep_newest">Keep Newest (Auto-resolve)</option>
@@ -554,14 +512,12 @@ export default function VerificationPhotosPage(): React.ReactNode {
             <Text>{lastAction.message}</Text>
             {lastAction.conflicts.length > 0 && (
               <div className="mt-2">
-                <Text className="font-semibold">
-                  Conflicts ({lastAction.conflicts.length}):
-                </Text>
+                <Text className="font-semibold">Conflicts ({lastAction.conflicts.length}):</Text>
                 <ul className="list-disc list-inside text-sm">
                   {lastAction.conflicts.slice(0, 5).map((conflict) => (
                     <li key={conflict.photoId}>
-                      Photo #{conflict.photoId} - {conflict.treeRef}:{' '}
-                      {conflict.conflictType} - {conflict.resolution}
+                      Photo #{conflict.photoId} - {conflict.treeRef}: {conflict.conflictType} -{' '}
+                      {conflict.resolution}
                     </li>
                   ))}
                   {lastAction.conflicts.length > 5 && (
@@ -689,8 +645,7 @@ export default function VerificationPhotosPage(): React.ReactNode {
                         <div className="flex items-center gap-1 text-muted-foreground">
                           <MapPin className="w-3 h-3" />
                           <Text className="text-xs">
-                            {parseFloat(photo.lat).toFixed(4)},{' '}
-                            {parseFloat(photo.lng).toFixed(4)}
+                            {parseFloat(photo.lat).toFixed(4)}, {parseFloat(photo.lng).toFixed(4)}
                           </Text>
                         </div>
                         <Text className="text-xs text-muted-foreground">

@@ -6,6 +6,25 @@ import type { ShareConfig, ShareOptions, SharePlatform } from '@/types/sharing';
 import { trackEvent } from '@/lib/analytics';
 
 /**
+ * Annual impact summary stats used for year-in-review sharing
+ */
+export interface AnnualImpactStats {
+  treesFunded: number;
+  co2AbsorbedKg: number;
+  speciesCount: number;
+  milestones: string[];
+}
+
+/**
+ * Options for generating annual impact share text
+ */
+export interface AnnualImpactShareOptions {
+  sponsorName: string;
+  year: number;
+  stats: AnnualImpactStats;
+}
+
+/**
  * Share platform configurations
  */
 export const shareConfigs: Record<SharePlatform, ShareConfig> = {
@@ -60,9 +79,48 @@ export const shareConfigs: Record<SharePlatform, ShareConfig> = {
 };
 
 /**
+ * Build a shareable URL for a sponsor's annual impact image
+ */
+export function buildAnnualImpactShareUrl(sponsorId: string, year: number): string {
+  const baseUrl =
+    typeof window !== 'undefined' && window.location?.origin
+      ? window.location.origin
+      : process.env.NEXT_PUBLIC_APP_URL || 'https://farmcredit.app';
+
+  const params = new URLSearchParams({
+    sponsor: sponsorId,
+    year: String(year),
+  });
+
+  return `${baseUrl}/api/impact/annual-image?${params.toString()}`;
+}
+
+/**
+ * Generate annual impact share text summarising a sponsor's year
+ */
+export function generateAnnualImpactShareText(options: AnnualImpactShareOptions): string {
+  const { sponsorName, year, stats } = options;
+  const { treesFunded, co2AbsorbedKg, speciesCount, milestones } = stats;
+
+  const parts = [
+    `In ${year}, ${sponsorName} funded ${treesFunded} trees, absorbing ${co2AbsorbedKg}kg of CO2 across ${speciesCount} species`,
+  ];
+
+  if (milestones.length > 0) {
+    parts.push(`Milestones: ${milestones.join(', ')}`);
+  }
+
+  return `${parts.join('. ')}. 🌳 See the full impact on FarmCredit!`;
+}
+
+/**
  * Generate share text based on options
  */
-export function generateShareText(options: ShareOptions): string {
+export function generateShareText(options: ShareOptions | AnnualImpactShareOptions): string {
+  if ('stats' in options) {
+    return generateAnnualImpactShareText(options);
+  }
+
   const { title, description, donationAmount, impact } = options;
 
   if (donationAmount && impact) {

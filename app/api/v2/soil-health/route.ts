@@ -5,12 +5,9 @@
  * Award bonus carbon credits for soil sequestration above baseline.
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { type NextRequest, NextResponse } from 'next/server';
 import { apiVersionHeaders } from '@/lib/api/versioning';
-import {
-  calculateSoilHealthScore,
-  type SoilMeasurementInput,
-} from '@/lib/services/soil-health';
+import { calculateSoilHealthScore, type SoilMeasurementInput } from '@/lib/services/soil-health';
 
 export const runtime = 'nodejs';
 

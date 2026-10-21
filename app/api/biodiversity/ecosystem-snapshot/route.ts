@@ -16,10 +16,7 @@
 
 import { type NextRequest, NextResponse } from 'next/server';
 import { buildRecoverySnapshot } from '@/lib/biodiversity/recovery-score';
-import type {
-  GetEcosystemSnapshotResponse,
-  SpeciesDetectionEvent,
-} from '@/lib/types/biodiversity';
+import type { GetEcosystemSnapshotResponse, SpeciesDetectionEvent } from '@/lib/types/biodiversity';
 
 export const runtime = 'nodejs';
 
@@ -88,10 +85,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   const asOf = searchParams.get('asOf') ?? new Date().toISOString().slice(0, 10);
 
   if (!regionKey || !regionKey.trim()) {
-    return NextResponse.json(
-      { error: 'regionKey query parameter is required' },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: 'regionKey query parameter is required' }, { status: 400 });
   }
 
   if (asOf && isNaN(new Date(asOf).getTime())) {

@@ -385,7 +385,11 @@ export function buildIncomeSummary(
     grossUsd: grossCents / 100,
     payoutUsd: payoutCents / 100,
     carbonCreditSaleUsd: carbonCents / 100,
-    counts: { payout: payoutCount, carbonCreditSale: carbonCount, total: payoutCount + carbonCount },
+    counts: {
+      payout: payoutCount,
+      carbonCreditSale: carbonCount,
+      total: payoutCount + carbonCount,
+    },
     months,
     excludedSources: excluded,
     generatedAt: new Date().toISOString(),

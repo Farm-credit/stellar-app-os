@@ -65,11 +65,7 @@ export function MetricCard({
             </p>
           )}
         </div>
-        {icon && (
-          <div className="rounded-lg bg-stellar-blue/10 p-2 text-stellar-blue">
-            {icon}
-          </div>
-        )}
+        {icon && <div className="rounded-lg bg-stellar-blue/10 p-2 text-stellar-blue">{icon}</div>}
       </div>
     </div>
   );

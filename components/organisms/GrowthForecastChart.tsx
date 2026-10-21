@@ -1,9 +1,18 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import {
+  Area,
+  AreaChart,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts';
 import { ChartNoAxesCombined, LoaderCircle } from 'lucide-react';
 import { Text } from '@/components/atoms/Text';
+import { Co2MethodologyLink } from '@/components/molecules/Co2MethodologyLink';
 import type { Tree } from '@/lib/types/tree';
 import type { GrowthProjection } from '@/lib/growth/growthTypes';
 
@@ -69,9 +78,12 @@ export function GrowthForecastChart({ tree }: GrowthForecastChartProps) {
           <ChartNoAxesCombined className="h-4 w-4 text-stellar-green" aria-hidden />
           <Text className="text-xs font-bold">Growth forecast</Text>
         </div>
-        <Text variant="muted" className="text-[10px]">
-          Projected CO₂ / year
-        </Text>
+        <div className="flex flex-col items-end gap-0.5">
+          <Text variant="muted" className="text-[10px]">
+            Projected CO₂ / year
+          </Text>
+          <Co2MethodologyLink className="text-[10px]" />
+        </div>
       </div>
 
       {isLoading && (
@@ -79,11 +91,17 @@ export function GrowthForecastChart({ tree }: GrowthForecastChartProps) {
           className="flex h-32 items-center justify-center rounded-xl bg-slate-50/70 dark:bg-slate-800/30"
           role="status"
         >
-          <LoaderCircle className="h-5 w-5 animate-spin text-stellar-green" aria-label="Loading growth forecast" />
+          <LoaderCircle
+            className="h-5 w-5 animate-spin text-stellar-green"
+            aria-label="Loading growth forecast"
+          />
         </div>
       )}
       {hasError && (
-        <Text variant="muted" className="rounded-xl bg-slate-50/70 p-4 text-center text-xs dark:bg-slate-800/30">
+        <Text
+          variant="muted"
+          className="rounded-xl bg-slate-50/70 p-4 text-center text-xs dark:bg-slate-800/30"
+        >
           Forecast unavailable for this tree.
         </Text>
       )}
@@ -101,7 +119,12 @@ export function GrowthForecastChart({ tree }: GrowthForecastChartProps) {
                   <stop offset="95%" stopColor="#00b36b" stopOpacity={0.02} />
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="currentColor" opacity={0.1} />
+              <CartesianGrid
+                strokeDasharray="3 3"
+                vertical={false}
+                stroke="currentColor"
+                opacity={0.1}
+              />
               <XAxis dataKey="year" tickLine={false} axisLine={false} tick={{ fontSize: 10 }} />
               <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 10 }} width={30} />
               <Tooltip

@@ -3,12 +3,12 @@
 
 /**
  * Environmental Impact Verification - Satellite Imagery Service
- * 
+ *
  * Issue #1429: Use satellite data to verify environmental claims:
  * - Tree count from aerial imagery
  * - Land cover changes
  * - Vegetation health indices (NDVI, EVI)
- * 
+ *
  * This service integrates with satellite imagery providers (Sentinel-2, Landsat, Planet)
  * to verify carbon offset project claims.
  */
@@ -27,7 +27,7 @@ export interface VerificationRequest {
   bounds: SatelliteImageBounds;
   verificationType: 'tree_count' | 'land_cover_change' | 'vegetation_health';
   startDate: string; // ISO 8601
-  endDate: string;   // ISO 8601
+  endDate: string; // ISO 8601
 }
 
 export interface TreeCountResult {
@@ -54,7 +54,7 @@ export interface VegetationHealthResult {
   imageDate: string;
 }
 
-export type VerificationResult = 
+export type VerificationResult =
   | { type: 'tree_count'; data: TreeCountResult }
   | { type: 'land_cover_change'; data: LandCoverChangeResult }
   | { type: 'vegetation_health'; data: VegetationHealthResult };
@@ -77,7 +77,9 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 /**
  * Submit a new verification job using satellite imagery
  */
-export async function submitVerificationJob(request: VerificationRequest): Promise<VerificationJob> {
+export async function submitVerificationJob(
+  request: VerificationRequest
+): Promise<VerificationJob> {
   const job: VerificationJob = {
     id: crypto.randomUUID(),
     request,
@@ -86,9 +88,7 @@ export async function submitVerificationJob(request: VerificationRequest): Promi
     updatedAt: new Date().toISOString(),
   };
 
-  const { error } = await supabase
-    .from('satellite_verification_jobs')
-    .insert(job);
+  const { error } = await supabase.from('satellite_verification_jobs').insert(job);
 
   if (error) {
     throw new Error(`Failed to create verification job: ${error.message}`);
@@ -185,7 +185,6 @@ async function processVerificationJob(jobId: string): Promise<void> {
         updatedAt: new Date().toISOString(),
       })
       .eq('id', jobId);
-
   } catch (error) {
     await supabase
       .from('satellite_verification_jobs')
@@ -202,9 +201,11 @@ async function processVerificationJob(jobId: string): Promise<void> {
  * Simulated tree count analysis using satellite imagery
  * Real implementation would use ML models on Sentinel-2/Planet imagery
  */
-async function simulateTreeCountAnalysis(request: VerificationRequest): Promise<VerificationResult> {
+async function simulateTreeCountAnalysis(
+  request: VerificationRequest
+): Promise<VerificationResult> {
   // Simulate API call delay
-  await new Promise(resolve => setTimeout(resolve, 100));
+  await new Promise((resolve) => setTimeout(resolve, 100));
 
   const areaHectares = calculateAreaHectares(request.bounds);
   const estimatedDensity = 200 + Math.random() * 400; // trees per hectare
@@ -225,8 +226,10 @@ async function simulateTreeCountAnalysis(request: VerificationRequest): Promise<
 /**
  * Simulated land cover change analysis
  */
-async function simulateLandCoverChangeAnalysis(request: VerificationRequest): Promise<VerificationResult> {
-  await new Promise(resolve => setTimeout(resolve, 100));
+async function simulateLandCoverChangeAnalysis(
+  request: VerificationRequest
+): Promise<VerificationResult> {
+  await new Promise((resolve) => setTimeout(resolve, 100));
 
   const areaHectares = calculateAreaHectares(request.bounds);
   const forestGain = Math.random() * areaHectares * 0.1;
@@ -247,8 +250,10 @@ async function simulateLandCoverChangeAnalysis(request: VerificationRequest): Pr
 /**
  * Simulated vegetation health analysis (NDVI/EVI)
  */
-async function simulateVegetationHealthAnalysis(request: VerificationRequest): Promise<VerificationResult> {
-  await new Promise(resolve => setTimeout(resolve, 100));
+async function simulateVegetationHealthAnalysis(
+  request: VerificationRequest
+): Promise<VerificationResult> {
+  await new Promise((resolve) => setTimeout(resolve, 100));
 
   const meanNDVI = 0.3 + Math.random() * 0.5;
   const meanEVI = 0.2 + Math.random() * 0.4;
@@ -258,7 +263,7 @@ async function simulateVegetationHealthAnalysis(request: VerificationRequest): P
     data: {
       meanNDVI: Math.round(meanNDVI * 1000) / 1000,
       meanEVI: Math.round(meanEVI * 1000) / 1000,
-      healthScore: Math.round((meanNDVI + meanEVI) / 2 * 100),
+      healthScore: Math.round(((meanNDVI + meanEVI) / 2) * 100),
       anomalyDetected: Math.random() < 0.1,
       imageDate: request.endDate,
     },
@@ -271,13 +276,13 @@ async function simulateVegetationHealthAnalysis(request: VerificationRequest): P
 function calculateAreaHectares(bounds: SatelliteImageBounds): number {
   // Approximate calculation using Haversine formula
   const R = 6371000; // Earth radius in meters
-  const latDiff = (bounds.north - bounds.south) * Math.PI / 180;
-  const lonDiff = (bounds.east - bounds.west) * Math.PI / 180;
-  const avgLat = ((bounds.north + bounds.south) / 2) * Math.PI / 180;
-  
+  const latDiff = ((bounds.north - bounds.south) * Math.PI) / 180;
+  const lonDiff = ((bounds.east - bounds.west) * Math.PI) / 180;
+  const avgLat = (((bounds.north + bounds.south) / 2) * Math.PI) / 180;
+
   const northSouthMeters = R * latDiff;
   const eastWestMeters = R * lonDiff * Math.cos(avgLat);
-  
+
   return (northSouthMeters * eastWestMeters) / 10000; // Convert m² to hectares
 }
 
@@ -291,9 +296,12 @@ export function getSupportedProviders(): string[] {
 /**
  * Estimate cost for a verification job
  */
-export function estimateJobCost(request: VerificationRequest): { estimatedCost: number; currency: 'USD' } {
+export function estimateJobCost(request: VerificationRequest): {
+  estimatedCost: number;
+  currency: 'USD';
+} {
   const areaHectares = calculateAreaHectares(request.bounds);
-  const costPerHectare = request.verificationType === 'tree_count' ? 0.50 : 0.25;
+  const costPerHectare = request.verificationType === 'tree_count' ? 0.5 : 0.25;
   return {
     estimatedCost: Math.round(areaHectares * costPerHectare * 100) / 100,
     currency: 'USD',

@@ -57,9 +57,7 @@ export function validateTickerConfig(config: TickerServerConfig): string[] {
   }
 
   if (config.heartbeatIntervalMs < 1000) {
-    errors.push(
-      `TICKER_HEARTBEAT_MS must be >= 1000ms, got ${config.heartbeatIntervalMs}ms`
-    );
+    errors.push(`TICKER_HEARTBEAT_MS must be >= 1000ms, got ${config.heartbeatIntervalMs}ms`);
   }
 
   if (config.maxConnections < 1) {
@@ -67,9 +65,7 @@ export function validateTickerConfig(config: TickerServerConfig): string[] {
   }
 
   if (config.rateLimitPerSecond < 1) {
-    errors.push(
-      `TICKER_RATE_LIMIT_PER_SEC must be >= 1, got ${config.rateLimitPerSecond}`
-    );
+    errors.push(`TICKER_RATE_LIMIT_PER_SEC must be >= 1, got ${config.rateLimitPerSecond}`);
   }
 
   if (config.broadcastIntervalMs < 100) {
@@ -79,9 +75,7 @@ export function validateTickerConfig(config: TickerServerConfig): string[] {
   }
 
   if (config.simulateTrades && config.simulateIntervalMs < 100) {
-    errors.push(
-      `TICKER_SIMULATE_INTERVAL_MS must be >= 100ms, got ${config.simulateIntervalMs}ms`
-    );
+    errors.push(`TICKER_SIMULATE_INTERVAL_MS must be >= 100ms, got ${config.simulateIntervalMs}ms`);
   }
 
   return errors;

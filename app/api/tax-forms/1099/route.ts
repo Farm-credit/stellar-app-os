@@ -65,7 +65,10 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   if ('error' in parsed) return parsed.error;
 
   if (parsed.format === 'csv' && parsed.type === 'all') {
-    return jsonError('format=csv requires a single type (1099-NEC, income-summary, carbon-credit-sales)', 400);
+    return jsonError(
+      'format=csv requires a single type (1099-NEC, income-summary, carbon-credit-sales)',
+      400
+    );
   }
 
   const planter = await resolvePlanter(auth.payload.sub, parsed.planterId, auth.isAdmin);
@@ -191,8 +194,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 // ── Auth & parameter parsing ──────────────────────────────────────────────────
 
 type AuthResult =
-  | { payload: { sub: string; role?: string }; isAdmin: boolean }
-  | { error: NextResponse };
+  { payload: { sub: string; role?: string }; isAdmin: boolean } | { error: NextResponse };
 
 async function authenticate(request: NextRequest): Promise<AuthResult> {
   const authHeader = request.headers.get('authorization') ?? '';
@@ -273,7 +275,11 @@ async function resolvePlanter(
     if (!planter) return { error: jsonError('Planter not found', 404) };
     return { planter };
   } catch (err) {
-    console.error('[api/tax-forms/1099] DB error resolving planter', { stellarAddress, planterId, err });
+    console.error('[api/tax-forms/1099] DB error resolving planter', {
+      stellarAddress,
+      planterId,
+      err,
+    });
     return { error: jsonError('Internal server error', 500) };
   }
 }
@@ -290,9 +296,7 @@ function toDocumentMap(
     ['carbon-credit-sales', documents.carbonCreditSales],
   ];
 
-  return Object.fromEntries(
-    entries.filter(([formType]) => type === 'all' || formType === type)
-  );
+  return Object.fromEntries(entries.filter(([formType]) => type === 'all' || formType === type));
 }
 
 function jsonError(message: string, status: number): NextResponse {

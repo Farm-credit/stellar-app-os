@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { type NextRequest, NextResponse } from 'next/server';
 import {
   getTreeNFTListings,
   calculateRoyaltyBreakdown,
@@ -15,9 +15,13 @@ export async function GET(request: NextRequest) {
     const species = searchParams.get('species') || undefined;
     const region = searchParams.get('region') || undefined;
     const rarity = (searchParams.get('rarity') as NFTRarity) || undefined;
-    const minPriceXlm = searchParams.get('minPrice') ? Number(searchParams.get('minPrice')) : undefined;
-    const maxPriceXlm = searchParams.get('maxPrice') ? Number(searchParams.get('maxPrice')) : undefined;
-    const sortBy = searchParams.get('sort') as any || 'date-newest';
+    const minPriceXlm = searchParams.get('minPrice')
+      ? Number(searchParams.get('minPrice'))
+      : undefined;
+    const maxPriceXlm = searchParams.get('maxPrice')
+      ? Number(searchParams.get('maxPrice'))
+      : undefined;
+    const sortBy = (searchParams.get('sort') as any) || 'date-newest';
 
     const listings = getTreeNFTListings({
       searchQuery,
@@ -71,7 +75,9 @@ export async function POST(request: NextRequest) {
         region: body.region || 'Global',
         co2OffsetKgPerYear: body.co2OffsetKgPerYear || 100,
         plantedDate: new Date().toISOString().split('T')[0],
-        imageUrl: body.imageUrl || 'https://images.unsplash.com/photo-1542273917363-3b1817f69a2d?auto=format&fit=crop&w=600&q=80',
+        imageUrl:
+          body.imageUrl ||
+          'https://images.unsplash.com/photo-1542273917363-3b1817f69a2d?auto=format&fit=crop&w=600&q=80',
         rarity: body.rarity || 'Rare',
         verifier: 'Verra VCS Standard',
         certificateUri: `ipfs://QmTreeCert${tokenId}`,

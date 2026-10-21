@@ -10,7 +10,16 @@
  */
 
 import { useState, useCallback, useRef } from 'react';
-import { Minus, Plus, Trees, CheckCircle, AlertCircle, Wallet, CreditCard } from 'lucide-react';
+import {
+  Minus,
+  Plus,
+  Trees,
+  CheckCircle,
+  AlertCircle,
+  Wallet,
+  CreditCard,
+  MapPin,
+} from 'lucide-react';
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import { loadStripe } from '@stripe/stripe-js';
 import { Button } from '@/components/atoms/Button';
@@ -18,7 +27,9 @@ import { Text } from '@/components/atoms/Text';
 import { Badge } from '@/components/atoms/Badge';
 import { LoadingSpinner } from '@/components/atoms/LoadingSpinner/LoadingSpinner';
 import { WalletModal } from '@/components/organisms/WalletModal/WalletModal';
+import { RegionSelectorMap } from '@/components/organisms/RegionSelectorMap/RegionSelectorMap';
 import { useWalletContext } from '@/contexts/WalletContext';
+import type { PlantingRegion } from '@/lib/types/planting-region';
 import { processDonationPayment } from '@/lib/stellar/donation';
 import { generateIdempotencyKey } from '@/lib/constants/donation';
 import { showToast } from '@/lib/toast';
@@ -26,6 +37,8 @@ import type { TransactionStatus } from '@/lib/types/payment';
 import type { DonationAsset } from '@/lib/types/donation-payment';
 import { GiftTreeForm } from '@/components/organisms/GiftTreeForm/GiftTreeForm';
 import { DEFAULT_GIFT_DETAILS, isValidGiftDetails, type GiftDetails } from '@/lib/types/gift';
+import { useCurrency } from '@/contexts/CurrencyContext';
+import { CurrencySelector } from '@/components/molecules/CurrencySelector';
 
 // 1 tree = 1 USDC / $1 — consistent with TREES_PER_DOLLAR in donation constants
 const USDC_PER_TREE = 1;
@@ -39,6 +52,8 @@ const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY 
 interface ConfirmationPanelProps {
   treeCount: number;
   totalUsdc: number;
+  localAmount: string;
+  xlmAmount: string;
   txId: string;
   paymentMethod: 'stellar' | 'card';
   onDonateAgain: () => void;
@@ -47,6 +62,8 @@ interface ConfirmationPanelProps {
 function ConfirmationPanel({
   treeCount,
   totalUsdc,
+  localAmount,
+  xlmAmount,
   txId,
   paymentMethod,
   onDonateAgain,
@@ -64,7 +81,9 @@ function ConfirmationPanel({
         <Text variant="h2" className="text-2xl font-bold mb-2">
           Thank you for planting {treeCount} tree{treeCount > 1 ? 's' : ''}!
         </Text>
-        <Text variant="muted">Your {totalUsdc.toFixed(2)} USDC donation has been received.</Text>
+        <Text variant="muted">
+          Your {localAmount} donation ({totalUsdc.toFixed(2)} USDC) has been received.
+        </Text>
       </div>
 
       <div className="w-full rounded-xl border border-border bg-muted/20 p-4 space-y-2 text-left">
@@ -82,6 +101,22 @@ function ConfirmationPanel({
           </Text>
           <Text variant="small" className="font-semibold">
             {totalUsdc.toFixed(2)} USDC
+          </Text>
+        </div>
+        <div className="flex justify-between">
+          <Text variant="small" className="text-muted-foreground">
+            Local currency
+          </Text>
+          <Text variant="small" className="font-semibold">
+            {localAmount}
+          </Text>
+        </div>
+        <div className="flex justify-between">
+          <Text variant="small" className="text-muted-foreground">
+            XLM equivalent
+          </Text>
+          <Text variant="small" className="font-semibold">
+            {xlmAmount}
           </Text>
         </div>
         <div className="flex justify-between">
@@ -172,10 +207,13 @@ function StripeInnerForm({ onSuccess, onError }: StripeFormProps) {
 
 export function TreeDonationForm() {
   const { wallet } = useWalletContext();
+  const { formatPrice, xlmPerUsd } = useCurrency();
 
   const [treeCount, setTreeCount] = useState(MINIMUM_TREES);
   const [customCount, setCustomCount] = useState('');
   const [isCustom, setIsCustom] = useState(false);
+  const [selectedRegion, setSelectedRegion] = useState<PlantingRegion | undefined>();
+  const [showRegionSelector, setShowRegionSelector] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<'stellar' | 'card'>('stellar');
   const [donationAsset, setDonationAsset] = useState<DonationAsset>('USDC');
   const [stellarStatus, setStellarStatus] = useState<TransactionStatus>('idle');
@@ -183,6 +221,7 @@ export function TreeDonationForm() {
   const [walletModalOpen, setWalletModalOpen] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
   const [txId, setTxId] = useState('');
+  const [confirmedXlmAmount, setConfirmedXlmAmount] = useState<number | null>(null);
   const [stripeClientSecret, setStripeClientSecret] = useState<string | null>(null);
   const [fetchingIntent, setFetchingIntent] = useState(false);
   const [gift, setGift] = useState<GiftDetails>({ ...DEFAULT_GIFT_DETAILS });
@@ -274,6 +313,13 @@ export function TreeDonationForm() {
         donationAsset
       );
       setTxId(result.transactionHash);
+      setConfirmedXlmAmount(
+        donationAsset === 'XLM'
+          ? Number(result.estimatedSourceAmount)
+          : xlmPerUsd
+            ? totalUsdc * xlmPerUsd
+            : null
+      );
       setConfirmed(true);
       showToast('Donation successful!', 'success');
     } catch (err) {
@@ -284,12 +330,13 @@ export function TreeDonationForm() {
     } finally {
       isProcessingRef.current = false;
     }
-  }, [wallet, totalUsdc, isValidCount, donationAsset]);
+  }, [wallet, totalUsdc, isValidCount, donationAsset, xlmPerUsd]);
 
   // ── Stripe callbacks ──────────────────────────────────────────────────────
 
   const handleStripeSuccess = (paymentIntentId: string) => {
     setTxId(paymentIntentId);
+    setConfirmedXlmAmount(xlmPerUsd ? totalUsdc * xlmPerUsd : null);
     setConfirmed(true);
     showToast('Donation successful!', 'success');
   };
@@ -301,9 +348,12 @@ export function TreeDonationForm() {
   const handleDonateAgain = () => {
     setConfirmed(false);
     setTxId('');
+    setConfirmedXlmAmount(null);
     setTreeCount(MINIMUM_TREES);
     setIsCustom(false);
     setCustomCount('');
+    setSelectedRegion(undefined);
+    setShowRegionSelector(false);
     setStellarStatus('idle');
     setStellarError(null);
     setStripeClientSecret(null);
@@ -318,6 +368,8 @@ export function TreeDonationForm() {
       <ConfirmationPanel
         treeCount={resolvedCount}
         totalUsdc={totalUsdc}
+        localAmount={formatPrice(totalUsdc)}
+        xlmAmount={confirmedXlmAmount ? `${confirmedXlmAmount.toFixed(7)} XLM` : 'Rate unavailable'}
         txId={txId}
         paymentMethod={paymentMethod}
         onDonateAgain={handleDonateAgain}
@@ -430,7 +482,13 @@ export function TreeDonationForm() {
             </Text>
           </div>
           <div className="text-right">
-            <Text className="font-bold text-xl">{totalUsdc.toFixed(2)} USDC</Text>
+            <div>
+              <Text className="font-bold text-xl">{formatPrice(totalUsdc)}</Text>
+              <Text variant="small" className="text-muted-foreground">
+                {totalUsdc.toFixed(2)} USDC ·{' '}
+                {xlmPerUsd ? `${(totalUsdc * xlmPerUsd).toFixed(7)} XLM` : 'XLM rate unavailable'}
+              </Text>
+            </div>
             <Badge variant="outline" className="text-xs">
               ≈ ${totalUsdc.toFixed(2)} USD
             </Badge>
@@ -438,6 +496,79 @@ export function TreeDonationForm() {
         </div>
       )}
 
+      {/* ── Step 2: Region selection (Issue #1683) ─────────────────────────── */}
+      {isValidCount && (
+        <section aria-labelledby="region-heading">
+          <div className="flex items-center justify-between mb-4">
+            <Text id="region-heading" variant="h2" className="text-xl font-bold">
+              Where to plant?
+            </Text>
+            {!showRegionSelector && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setShowRegionSelector(true)}
+              >
+                <MapPin className="w-4 h-4 mr-2" />
+                {selectedRegion ? 'Change Region' : 'Select Region'}
+              </Button>
+            )}
+          </div>
+
+          {/* Selected region summary */}
+          {selectedRegion && !showRegionSelector && (
+            <div className="rounded-xl border border-stellar-blue/30 bg-stellar-blue/5 p-4 flex items-center gap-4">
+              <div className="flex items-center justify-center w-12 h-12 rounded-lg bg-stellar-blue">
+                <MapPin className="w-6 h-6 text-white" aria-hidden="true" />
+              </div>
+              <div className="flex-1">
+                <Text className="font-bold text-stellar-blue">
+                  {selectedRegion.name}, {selectedRegion.country}
+                </Text>
+                <Text variant="small" className="text-muted-foreground capitalize">
+                  {selectedRegion.ecosystemType} ecosystem
+                </Text>
+              </div>
+              <Badge variant="outline" className="text-xs">
+                {selectedRegion.availableCapacity.toLocaleString()} trees available
+              </Badge>
+            </div>
+          )}
+
+          {!selectedRegion && !showRegionSelector && (
+            <div className="rounded-xl border border-border bg-muted/20 p-6 text-center space-y-3">
+              <MapPin className="w-8 h-8 text-muted-foreground mx-auto" />
+              <Text variant="body" className="text-muted-foreground">
+                No region selected. Your trees will be planted in the region with highest
+                availability.
+              </Text>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setShowRegionSelector(true)}
+              >
+                Choose a specific region
+              </Button>
+            </div>
+          )}
+
+          {/* Region selector map */}
+          {showRegionSelector && (
+            <RegionSelectorMap
+              treeCount={resolvedCount}
+              onRegionSelect={(region) => {
+                setSelectedRegion(region);
+                setShowRegionSelector(false);
+              }}
+              selectedRegion={selectedRegion}
+            />
+          )}
+        </section>
+      )}
+
+      {/* ── Step 3: Payment method ─────────────────────────────────────────── */}
       {isValidCount && <GiftTreeForm treeCount={resolvedCount} gift={gift} onChange={setGift} />}
 
       {/* ── Step 2: Payment method ─────────────────────────────────────────── */}
@@ -445,6 +576,10 @@ export function TreeDonationForm() {
         <Text id="payment-method-heading" variant="h2" className="text-xl font-bold mb-4">
           Payment method
         </Text>
+        <div className="mb-4 flex items-center gap-2 text-sm text-muted-foreground">
+          <span>Display prices in</span>
+          <CurrencySelector />
+        </div>
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 mb-6">
           <button

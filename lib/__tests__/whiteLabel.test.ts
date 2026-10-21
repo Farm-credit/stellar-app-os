@@ -40,9 +40,7 @@ describe('branding configuration', () => {
 describe('fee and margin configuration', () => {
   it('validates fee combinations against the cap', () => {
     expect(validateFees({ platformFeePercent: 8, partnerMarginPercent: 12 })).toEqual([]);
-    expect(
-      validateFees({ platformFeePercent: -1, partnerMarginPercent: 0 })
-    ).toHaveLength(1);
+    expect(validateFees({ platformFeePercent: -1, partnerMarginPercent: 0 })).toHaveLength(1);
     const tooHigh = validateFees({
       platformFeePercent: MAX_TOTAL_MARGIN_PERCENT,
       partnerMarginPercent: 1,
@@ -77,10 +75,7 @@ describe('fee and margin configuration', () => {
     });
     expect(
       Math.round(
-        (breakdown.platformFeeUsd +
-          breakdown.partnerMarginUsd +
-          breakdown.growerShareUsd) *
-          100
+        (breakdown.platformFeeUsd + breakdown.partnerMarginUsd + breakdown.growerShareUsd) * 100
       )
     ).toBe(Math.round(breakdown.totalUsd * 100));
   });
@@ -99,7 +94,9 @@ describe('partner impact feed', () => {
   });
 
   it('configs are addressable by partner id', () => {
-    expect(getWhiteLabelConfig('partner-greenbank')?.branding.partnerName).toBe('GreenBank Rewards');
+    expect(getWhiteLabelConfig('partner-greenbank')?.branding.partnerName).toBe(
+      'GreenBank Rewards'
+    );
     expect(getWhiteLabelConfig('missing')).toBeUndefined();
   });
 });

@@ -204,9 +204,9 @@ describe('buildPriceChangedEvent', () => {
   });
 
   it('rejects a zero or negative previous price', () => {
-    expect(() => buildPriceChangedEvent({ ...PRICE_CHANGED_INPUT, previousPricePerTon: 0 })).toThrow(
-      /greater than 0/
-    );
+    expect(() =>
+      buildPriceChangedEvent({ ...PRICE_CHANGED_INPUT, previousPricePerTon: 0 })
+    ).toThrow(/greater than 0/);
   });
 });
 

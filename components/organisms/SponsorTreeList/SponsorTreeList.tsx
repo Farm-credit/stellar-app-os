@@ -11,6 +11,7 @@ import {
   ArrowRight,
   Calendar,
 } from 'lucide-react';
+import { Co2MethodologyLink } from '@/components/molecules/Co2MethodologyLink';
 import { TreeFilterBar } from '@/components/molecules/TreeFilterBar';
 import { TreeStatusBadge } from '@/components/molecules/TreeStatusBadge';
 import { GrowthForecastChart } from '@/components/organisms/GrowthForecastChart';
@@ -217,6 +218,7 @@ export function SponsorTreeList({ initialFilters }: SponsorTreeListProps) {
                     <Text className="text-base font-black text-stellar-green">
                       {tree.co2OffsetKgPerYear} kg/yr
                     </Text>
+                    <Co2MethodologyLink />
                   </div>
 
                   <Link

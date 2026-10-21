@@ -62,7 +62,7 @@ export function useOfflineUploadQueue() {
   // Add a file to the queue
   const addToQueue = useCallback((file: File): string => {
     const reader = new FileReader();
-    
+
     return new Promise((resolve, reject) => {
       reader.onload = () => {
         try {
@@ -79,14 +79,14 @@ export function useOfflineUploadQueue() {
             status: 'pending',
             retryCount: 0,
           };
-          
+
           setQueue((prev) => [...prev, upload]);
           resolve(upload.id);
         } catch (err) {
           reject(err);
         }
       };
-      
+
       reader.onerror = () => reject(reader.error);
       reader.readAsDataURL(file);
     }) as Promise<string>;
@@ -98,22 +98,33 @@ export function useOfflineUploadQueue() {
   }, []);
 
   // Update item status
-  const updateItemStatus = useCallback((id: string, status: QueuedUpload['status'], error?: string) => {
-    setQueue((prev) =>
-      prev.map((item) =>
-        item.id === id
-          ? { ...item, status, error, retryCount: status === 'failed' ? item.retryCount + 1 : item.retryCount }
-          : item
-      )
-    );
-  }, []);
+  const updateItemStatus = useCallback(
+    (id: string, status: QueuedUpload['status'], error?: string) => {
+      setQueue((prev) =>
+        prev.map((item) =>
+          item.id === id
+            ? {
+                ...item,
+                status,
+                error,
+                retryCount: status === 'failed' ? item.retryCount + 1 : item.retryCount,
+              }
+            : item
+        )
+      );
+    },
+    []
+  );
 
   // Sync queued uploads
   const syncQueue = useCallback(async () => {
     if (!isOnline || isSyncing) return;
 
-    const pendingItems = queue.filter((item) => item.status === 'pending' || (item.status === 'failed' && item.retryCount < MAX_RETRIES));
-    
+    const pendingItems = queue.filter(
+      (item) =>
+        item.status === 'pending' || (item.status === 'failed' && item.retryCount < MAX_RETRIES)
+    );
+
     if (pendingItems.length === 0) return;
 
     setIsSyncing(true);
@@ -140,7 +151,7 @@ export function useOfflineUploadQueue() {
         }
 
         const { cid } = await res.json();
-        
+
         // Remove successfully uploaded item
         removeFromQueue(item.id);
       } catch (err) {

@@ -12,16 +12,21 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/molecules/Card';
+import { Co2MethodologyLink } from '@/components/molecules/Co2MethodologyLink';
+import type { TreeSequestration } from '@/lib/carbon/ipcc-tier1';
 import type { Tree } from '@/lib/types/tree';
+import { TreeCo2Calculation } from './TreeCo2Calculation';
 import { TreeImage } from './TreeImage';
 import { TreeHealthPanel } from './TreeHealthPanel';
 
 interface TreeDetailProps {
   tree: Tree;
+  /** IPCC Tier 1 estimate for this tree; its inputs are shown on the profile. */
+  sequestration?: TreeSequestration;
 }
 
 /** Tree detail view for sponsors and map click-through (#532, #533). */
-export function TreeDetail({ tree }: TreeDetailProps) {
+export function TreeDetail({ tree, sequestration }: TreeDetailProps) {
   return (
     <div className="mx-auto max-w-3xl px-4 py-6 sm:py-10">
       <Link
@@ -76,9 +81,16 @@ export function TreeDetail({ tree }: TreeDetailProps) {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <Text className="text-lg font-semibold">{tree.co2OffsetKgPerYear} kg / year</Text>
+            <Text className="text-lg font-semibold">
+              {sequestration
+                ? `${sequestration.annualCo2Kg.toFixed(1)} kg / year`
+                : `${tree.co2OffsetKgPerYear} kg / year`}
+            </Text>
+            <Co2MethodologyLink className="mt-1 inline-block" />
           </CardContent>
         </Card>
+
+        {sequestration ? <TreeCo2Calculation sequestration={sequestration} /> : null}
 
         <Card className="sm:col-span-2">
           <CardHeader className="pb-2">

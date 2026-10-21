@@ -55,9 +55,13 @@ export async function enqueuePendingAction(action: {
   await AsyncStorage.setItem(QUEUE_KEY, JSON.stringify(queue));
 }
 
-export async function getPendingActions(): Promise<Array<{ type: 'sponsor'; payload: Record<string, unknown> }>> {
+export async function getPendingActions(): Promise<
+  Array<{ type: 'sponsor'; payload: Record<string, unknown> }>
+> {
   const raw = await AsyncStorage.getItem(QUEUE_KEY);
-  return raw ? (JSON.parse(raw) as Array<{ type: 'sponsor'; payload: Record<string, unknown> }>) : [];
+  return raw
+    ? (JSON.parse(raw) as Array<{ type: 'sponsor'; payload: Record<string, unknown> }>)
+    : [];
 }
 
 export async function clearPendingActions(): Promise<void> {

@@ -24,9 +24,7 @@ function projectVintage(project: CertificationProject): number | null {
   return null;
 }
 
-export function projectToRegistryData(
-  project: CertificationProject
-): RegistryProjectData {
+export function projectToRegistryData(project: CertificationProject): RegistryProjectData {
   return {
     projectId: project.projectId,
     projectName: project.name,
@@ -43,9 +41,7 @@ export function projectToRegistryData(
   };
 }
 
-export function creditToRegistryRetirement(
-  credit: ProviderCredit
-): RegistryRetirementData {
+export function creditToRegistryRetirement(credit: ProviderCredit): RegistryRetirementData {
   return {
     serialNumber: credit.serialNumber,
     projectId: credit.projectId,
@@ -71,23 +67,12 @@ function makeValidationId(
     .slice(0, 24);
 }
 
-export function makeTokenId(
-  protocol: RegistryProtocol,
-  serialNumber: string
-): string {
-  return createHash('sha256')
-    .update(`${protocol}:${serialNumber}`)
-    .digest('hex');
+export function makeTokenId(protocol: RegistryProtocol, serialNumber: string): string {
+  return createHash('sha256').update(`${protocol}:${serialNumber}`).digest('hex');
 }
 
-export function makeMintRecordId(
-  tokenId: string,
-  network: 'testnet' | 'mainnet'
-): string {
-  return createHash('sha256')
-    .update(`${network}:${tokenId}`)
-    .digest('hex')
-    .slice(0, 24);
+export function makeMintRecordId(tokenId: string, network: 'testnet' | 'mainnet'): string {
+  return createHash('sha256').update(`${network}:${tokenId}`).digest('hex').slice(0, 24);
 }
 
 export { makeValidationId };
@@ -110,9 +95,7 @@ export abstract class AbstractRegistryClient implements RegistryClient {
     return creditToRegistryRetirement(credit);
   }
 
-  async listProjectRetirements(
-    projectId: string
-  ): Promise<RegistryRetirementData[]> {
+  async listProjectRetirements(projectId: string): Promise<RegistryRetirementData[]> {
     try {
       const response = await this.http.getJson(
         `projects/${encodeURIComponent(projectId)}/retirements`,

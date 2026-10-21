@@ -54,7 +54,13 @@ describe('buildOwnedCreditsView', () => {
   it('totals credits and cost and counts statuses', () => {
     const view = buildOwnedCreditsView([
       holding({ quantity: 10, pricePerTon: 42.5 }),
-      holding({ projectId: 'PROJ-002', status: 'retired', quantity: 2.5, pricePerTon: 20, assetCode: 'CARBON-PROJ-002-2024-RET' }),
+      holding({
+        projectId: 'PROJ-002',
+        status: 'retired',
+        quantity: 2.5,
+        pricePerTon: 20,
+        assetCode: 'CARBON-PROJ-002-2024-RET',
+      }),
     ]);
 
     expect(view.credits).toHaveLength(2);

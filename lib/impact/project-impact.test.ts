@@ -24,7 +24,9 @@ describe('project impact snapshots', () => {
   });
 
   it('formats values for accessible metric cards', () => {
-    expect(formatImpactMetric({ value: 125000, unit: 'tCO₂e', change: 15.3 })).toBe('125,000 tCO₂e');
+    expect(formatImpactMetric({ value: 125000, unit: 'tCO₂e', change: 15.3 })).toBe(
+      '125,000 tCO₂e'
+    );
   });
 
   it('exposes ordered metadata for the five dashboard dimensions', () => {

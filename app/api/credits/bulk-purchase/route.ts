@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { buildBulkPurchaseTransaction } from '@/lib/stellar/transaction';
 import { BULK_PURCHASE_MIN_QUANTITY } from '@/lib/types/carbon';
 import type { BulkPurchaseOrder } from '@/lib/types/carbon';
-import { withWalletLock } from '@/lib/cache/redlock';
+import '@/lib/cache/redlock';
 import Stripe from 'stripe';
 import logger from '@/lib/logger';
 

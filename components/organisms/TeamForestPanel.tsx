@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, useCallback, useEffect, useState } from 'react';
+import { type FormEvent, useCallback, useEffect, useState } from 'react';
 import { Users, UserPlus, TreePine, Wind, Copy, Check, Camera, Sparkles } from 'lucide-react';
 import { Button } from '@/components/atoms/Button';
 import { useWalletContext } from '@/contexts/WalletContext';

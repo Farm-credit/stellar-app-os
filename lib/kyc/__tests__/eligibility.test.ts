@@ -17,9 +17,7 @@ import type { KycApplicationInput } from '@/lib/kyc/types';
 
 const NOW = new Date('2026-09-26T12:00:00Z');
 
-function certifiableFarmer(
-  overrides: Partial<KycApplicationInput> = {}
-): KycApplicationInput {
+function certifiableFarmer(overrides: Partial<KycApplicationInput> = {}): KycApplicationInput {
   return {
     farmerAddress: 'GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF',
     identity: {
@@ -56,8 +54,7 @@ function certifiableFarmer(
   };
 }
 
-const failed = (input: KycApplicationInput) =>
-  screenCertificationEligibility(input, NOW).blockers;
+const failed = (input: KycApplicationInput) => screenCertificationEligibility(input, NOW).blockers;
 
 describe('ageInYears', () => {
   it('counts whole years, flooring a birthday not yet reached', () => {
@@ -88,17 +85,13 @@ describe('screenCertificationEligibility - fully evidenced farmer', () => {
     const names = checks.map((c) => c.requirement);
 
     expect(new Set(names).size).toBe(names.length);
-    expect(checks.every((c) => typeof c.detail === 'string' && c.detail.length > 0)).toBe(
-      true
-    );
+    expect(checks.every((c) => typeof c.detail === 'string' && c.detail.length > 0)).toBe(true);
   });
 });
 
 describe('screenCertificationEligibility - blocking gates', () => {
   it('blocks a farmer who has not consented', () => {
-    expect(failed(certifiableFarmer({ consentGranted: false }))).toContain(
-      'consent_on_record'
-    );
+    expect(failed(certifiableFarmer({ consentGranted: false }))).toContain('consent_on_record');
   });
 
   it('blocks an incomplete identity record', () => {
@@ -278,11 +271,7 @@ describe('screenCertificationEligibility - determinism', () => {
     const result = screenCertificationEligibility(input, NOW);
 
     expect(result.blockers).toEqual(
-      expect.arrayContaining([
-        'consent_on_record',
-        'identity_verified',
-        'land_proof_verified',
-      ])
+      expect.arrayContaining(['consent_on_record', 'identity_verified', 'land_proof_verified'])
     );
     expect(result.blockers).toHaveLength(3);
   });

@@ -41,9 +41,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       : getAllRareSpecies();
 
     // Fetch mint counts concurrently
-    const mintCounts = await Promise.all(
-      baseSpecies.map((s) => getMintCount(s.speciesSlug))
-    );
+    const mintCounts = await Promise.all(baseSpecies.map((s) => getMintCount(s.speciesSlug)));
 
     let enriched: RareSpeciesWithAvailability[] = baseSpecies.map((s, i) => ({
       ...s,

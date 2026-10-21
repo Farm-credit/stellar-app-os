@@ -2,7 +2,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi, beforeEach, type Mock } from 'vitest';
 import { TreeClusterMap } from './TreeClusterMap';
 import { fetchPublicTrees } from '@/lib/api/trees';
-import type { TreesResponse, TreeFilterState } from '@/lib/types/tree';
+import type { TreesResponse } from '@/lib/types/tree';
 import userEvent from '@testing-library/user-event';
 
 // Mock the API
@@ -108,9 +108,7 @@ describe('TreeClusterMap', () => {
       expect(screen.getByTestId('map-container')).toBeInTheDocument();
     });
 
-    expect(
-      screen.getByText(/Displaying 3 verified tree planting locations/i)
-    ).toBeInTheDocument();
+    expect(screen.getByText(/Displaying 3 verified tree planting locations/i)).toBeInTheDocument();
   });
 
   it('renders empty state when no trees match filters', async () => {
@@ -174,9 +172,7 @@ describe('TreeClusterMap', () => {
     await user.selectOptions(speciesSelect, 'Teak');
 
     await waitFor(() => {
-      expect(fetchPublicTrees).toHaveBeenCalledWith(
-        expect.objectContaining({ species: 'Teak' })
-      );
+      expect(fetchPublicTrees).toHaveBeenCalledWith(expect.objectContaining({ species: 'Teak' }));
     });
   });
 
@@ -210,9 +206,7 @@ describe('TreeClusterMap', () => {
     await waitFor(() => {
       expect(screen.getByText('Verified Tree Clusters')).toBeInTheDocument();
       expect(
-        screen.getByText(
-          /Explore verified tree plantings in an interactive clustered map/i
-        )
+        screen.getByText(/Explore verified tree plantings in an interactive clustered map/i)
       ).toBeInTheDocument();
     });
   });
@@ -270,9 +264,7 @@ describe('TreeClusterMap', () => {
     await waitFor(() => {
       expect(screen.getByRole('alert')).toBeInTheDocument();
       expect(screen.getByText(/Failed to Load Map Data/i)).toBeInTheDocument();
-      expect(
-        screen.getByText(/We couldn't load the tree planting locations/i)
-      ).toBeInTheDocument();
+      expect(screen.getByText(/We couldn't load the tree planting locations/i)).toBeInTheDocument();
     });
   });
 

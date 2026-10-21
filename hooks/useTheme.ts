@@ -11,7 +11,13 @@ import {
 import type { Theme } from '@/types/settings';
 
 function subscribeToSystemTheme(onStoreChange: () => void): () => void {
+  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+    return () => {};
+  }
   const mq = window.matchMedia('(prefers-color-scheme: dark)');
+  if (!mq || typeof mq.addEventListener !== 'function') {
+    return () => {};
+  }
   mq.addEventListener('change', onStoreChange);
   return () => mq.removeEventListener('change', onStoreChange);
 }

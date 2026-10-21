@@ -14,10 +14,7 @@ export const runtime = 'nodejs';
  *
  * Lists the cooperative's members and their pooled contributions.
  */
-export async function GET(
-  _request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
     const cooperative = getCooperative(id);
@@ -36,10 +33,7 @@ export async function GET(
  *
  * Invites/adds a farmer to the cooperative.
  */
-export async function POST(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
     const body = await readJsonBody<AddMemberInput>(request);
@@ -66,10 +60,7 @@ export async function POST(
  * Removes a member. The founder cannot be removed and members with pooled
  * contributions must withdraw those projects first.
  */
-export async function DELETE(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
     const { searchParams } = new URL(request.url);

@@ -43,9 +43,7 @@ async function requestJson<T>(url: string, init?: RequestInit): Promise<T> {
     headers: { 'Content-Type': 'application/json', ...(init?.headers ?? {}) },
   });
 
-  const payload = (await response.json().catch(() => null)) as
-    | (T & { error?: string })
-    | null;
+  const payload = (await response.json().catch(() => null)) as (T & { error?: string }) | null;
 
   if (!response.ok || !payload) {
     throw new Error(payload?.error ?? `Request failed with status ${response.status}`);
@@ -209,7 +207,7 @@ export function useCooperative(id: string | null | undefined) {
   }, [refresh]);
 
   const runAction = useCallback(
-    async <T,>(action: () => Promise<T>): Promise<T | null> => {
+    async <T>(action: () => Promise<T>): Promise<T | null> => {
       if (!id) return null;
       setError(null);
       try {

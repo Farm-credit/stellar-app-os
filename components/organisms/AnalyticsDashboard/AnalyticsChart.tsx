@@ -92,7 +92,7 @@ export function AnalyticsChart({
   return (
     <div className={cn('rounded-xl border border-border bg-card p-6', className)}>
       <h3 className="mb-4 text-lg font-semibold text-foreground">{title}</h3>
-      
+
       {data.length === 0 ? (
         <div className="flex h-[300px] items-center justify-center text-muted-foreground">
           No data available
@@ -179,7 +179,7 @@ export function AnalyticsChart({
           ) : (
             <>
               {chartData.coordinates.map((coordinate) => {
-                const barWidth = (800 - CHART_PADDING * 2) / data.length * 0.6;
+                const barWidth = ((800 - CHART_PADDING * 2) / data.length) * 0.6;
                 const barHeight = height - CHART_PADDING * 2 - (coordinate.y - CHART_PADDING);
                 return (
                   <g key={`${coordinate.label}-${coordinate.value}`}>

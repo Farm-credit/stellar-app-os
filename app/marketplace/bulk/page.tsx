@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo, useEffect, type JSX } from 'react';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/atoms/Card';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/molecules/Card';
 import { Button } from '@/components/atoms/Button';
 import { Input } from '@/components/atoms/Input';
 import { Badge } from '@/components/atoms/Badge';
@@ -21,7 +21,9 @@ export default function BulkPurchasingPage(): JSX.Element {
   const [useNegotiatedRate, setUseNegotiatedRate] = useState<boolean>(false);
   const [negotiatedRate, setNegotiatedRate] = useState<number>(38);
   const [agreements, setAgreements] = useState<BulkPurchaseAgreement[]>([]);
-  const [activeTab, setActiveTab] = useState<'calculator' | 'agreements' | 'new-agreement'>('calculator');
+  const [activeTab, setActiveTab] = useState<'calculator' | 'agreements' | 'new-agreement'>(
+    'calculator'
+  );
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
@@ -41,11 +43,7 @@ export default function BulkPurchasingPage(): JSX.Element {
   });
 
   const pricing = useMemo(() => {
-    return calculateBulkPricing(
-      tons,
-      basePrice,
-      useNegotiatedRate ? negotiatedRate : undefined
-    );
+    return calculateBulkPricing(tons, basePrice, useNegotiatedRate ? negotiatedRate : undefined);
   }, [tons, basePrice, useNegotiatedRate, negotiatedRate]);
 
   useEffect(() => {
@@ -70,7 +68,8 @@ export default function BulkPurchasingPage(): JSX.Element {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           buyer: {
-            walletAddress: wallet?.publicKey || 'GA7QYNF7SOWQ3GLR2BGMZEHXAVIRZA4KVWLTJJFC7MGXUA74P7UJVVO5',
+            walletAddress:
+              wallet?.publicKey || 'GA7QYNF7SOWQ3GLR2BGMZEHXAVIRZA4KVWLTJJFC7MGXUA74P7UJVVO5',
             organizationName: 'Corporate Buyer Partner',
             contactEmail: 'procurement@carbonbuyer.org',
           },
@@ -102,7 +101,10 @@ export default function BulkPurchasingPage(): JSX.Element {
       setMessage({ type: 'success', text: `Agreement ${data.agreement.id} created successfully!` });
       setActiveTab('agreements');
     } catch (err) {
-      setMessage({ type: 'error', text: err instanceof Error ? err.message : 'Error creating agreement' });
+      setMessage({
+        type: 'error',
+        text: err instanceof Error ? err.message : 'Error creating agreement',
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -115,16 +117,22 @@ export default function BulkPurchasingPage(): JSX.Element {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border/40 pb-6">
           <div>
             <div className="flex items-center gap-2">
-              <Badge variant="outline" className="border-stellar-blue text-stellar-blue bg-stellar-blue/10">
+              <Badge
+                variant="outline"
+                className="border-stellar-blue text-stellar-blue bg-stellar-blue/10"
+              >
                 Marketplace v2
               </Badge>
-              <span className="text-xs text-muted-foreground">Institutional & Corporate Trading</span>
+              <span className="text-xs text-muted-foreground">
+                Institutional & Corporate Trading
+              </span>
             </div>
             <h1 className="text-3xl font-bold tracking-tight text-foreground mt-2">
               Buyer Bulk Purchasing & Volume Discounts
             </h1>
             <p className="text-muted-foreground text-sm max-w-2xl mt-1">
-              Purchase 100+ metric ton carbon credit batches at automatic volume discounts or establish negotiated forward purchase agreements directly with farmers.
+              Purchase 100+ metric ton carbon credit batches at automatic volume discounts or
+              establish negotiated forward purchase agreements directly with farmers.
             </p>
           </div>
 
@@ -190,10 +198,13 @@ export default function BulkPurchasingPage(): JSX.Element {
                           {tier.minTons} {tier.maxTons ? `- ${tier.maxTons}` : '+'} tonnes
                         </span>
                       </div>
-                      <CardTitle className="text-base font-semibold mt-2">{tier.tierName}</CardTitle>
+                      <CardTitle className="text-base font-semibold mt-2">
+                        {tier.tierName}
+                      </CardTitle>
                     </CardHeader>
                     <CardContent className="text-xs text-muted-foreground">
-                      Automatic {tier.discountPercentage}% discount on high-volume batches with full on-chain provenance.
+                      Automatic {tier.discountPercentage}% discount on high-volume batches with full
+                      on-chain provenance.
                     </CardContent>
                   </Card>
                 );
@@ -286,7 +297,8 @@ export default function BulkPurchasingPage(): JSX.Element {
                   {/* Threshold warning if under 100t */}
                   {tons < BULK_MIN_TONS && (
                     <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-400 text-xs">
-                      ⚠️ Current volume ({tons}t) is below the 100 ton bulk batch threshold. Volume discounts and bulk agreements start at 100+ metric tonnes.
+                      ⚠️ Current volume ({tons}t) is below the 100 ton bulk batch threshold. Volume
+                      discounts and bulk agreements start at 100+ metric tonnes.
                     </div>
                   )}
                 </CardContent>
@@ -374,18 +386,24 @@ export default function BulkPurchasingPage(): JSX.Element {
             ) : (
               <div className="space-y-4">
                 {agreements.map((agreement) => (
-                  <Card key={agreement.id} className="border-border/60 hover:border-stellar-blue/40 transition-all">
+                  <Card
+                    key={agreement.id}
+                    className="border-border/60 hover:border-stellar-blue/40 transition-all"
+                  >
                     <CardHeader className="pb-3">
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                         <div>
                           <div className="flex items-center gap-2">
-                            <span className="font-bold text-foreground">{agreement.projectName}</span>
+                            <span className="font-bold text-foreground">
+                              {agreement.projectName}
+                            </span>
                             <Badge variant="outline" className="font-mono text-xs">
                               {agreement.id}
                             </Badge>
                           </div>
                           <p className="text-xs text-muted-foreground mt-0.5">
-                            Farmer: {agreement.farmer.name} ({agreement.farmer.farmName}, {agreement.farmer.region})
+                            Farmer: {agreement.farmer.name} ({agreement.farmer.farmName},{' '}
+                            {agreement.farmer.region})
                           </p>
                         </div>
                         <Badge
@@ -404,19 +422,27 @@ export default function BulkPurchasingPage(): JSX.Element {
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 p-3 rounded-lg bg-muted/40">
                         <div>
                           <span className="text-muted-foreground block">Batch Volume</span>
-                          <span className="font-bold text-foreground">{agreement.committedTons} tonnes</span>
+                          <span className="font-bold text-foreground">
+                            {agreement.committedTons} tonnes
+                          </span>
                         </div>
                         <div>
                           <span className="text-muted-foreground block">Negotiated Rate</span>
-                          <span className="font-bold text-emerald-600">${agreement.negotiatedPricePerTon} / t</span>
+                          <span className="font-bold text-emerald-600">
+                            ${agreement.negotiatedPricePerTon} / t
+                          </span>
                         </div>
                         <div>
                           <span className="text-muted-foreground block">Total Contract Value</span>
-                          <span className="font-bold text-foreground">${agreement.totalValueUsd.toLocaleString()}</span>
+                          <span className="font-bold text-foreground">
+                            ${agreement.totalValueUsd.toLocaleString()}
+                          </span>
                         </div>
                         <div>
                           <span className="text-muted-foreground block">Settlement Method</span>
-                          <span className="font-medium capitalize text-foreground">{agreement.terms.settlementMethod.replace('_', ' ')}</span>
+                          <span className="font-medium capitalize text-foreground">
+                            {agreement.terms.settlementMethod.replace('_', ' ')}
+                          </span>
                         </div>
                       </div>
 
@@ -438,46 +464,63 @@ export default function BulkPurchasingPage(): JSX.Element {
             <CardHeader>
               <CardTitle className="text-lg">Create Bulk Purchase Agreement with Farmer</CardTitle>
               <p className="text-xs text-muted-foreground">
-                Commit to a 100+ ton batch directly with the producer with milestone escrow protection.
+                Commit to a 100+ ton batch directly with the producer with milestone escrow
+                protection.
               </p>
             </CardHeader>
             <CardContent>
               <form onSubmit={handleCreateAgreement} className="space-y-4 text-sm">
                 <div>
-                  <label className="text-xs font-semibold block mb-1">Committed Batch Volume (min 100 tonnes)</label>
+                  <label className="text-xs font-semibold block mb-1">
+                    Committed Batch Volume (min 100 tonnes)
+                  </label>
                   <Input
                     type="number"
                     min={100}
                     value={agreementForm.committedTons}
-                    onChange={(e) => setAgreementForm({ ...agreementForm, committedTons: Number(e.target.value) })}
+                    onChange={(e) =>
+                      setAgreementForm({ ...agreementForm, committedTons: Number(e.target.value) })
+                    }
                     required
                   />
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="text-xs font-semibold block mb-1">Farmer / Producer Name</label>
+                    <label className="text-xs font-semibold block mb-1">
+                      Farmer / Producer Name
+                    </label>
                     <Input
                       value={agreementForm.farmerName}
-                      onChange={(e) => setAgreementForm({ ...agreementForm, farmerName: e.target.value })}
+                      onChange={(e) =>
+                        setAgreementForm({ ...agreementForm, farmerName: e.target.value })
+                      }
                       required
                     />
                   </div>
                   <div>
-                    <label className="text-xs font-semibold block mb-1">Farm / Cooperative Name</label>
+                    <label className="text-xs font-semibold block mb-1">
+                      Farm / Cooperative Name
+                    </label>
                     <Input
                       value={agreementForm.farmName}
-                      onChange={(e) => setAgreementForm({ ...agreementForm, farmName: e.target.value })}
+                      onChange={(e) =>
+                        setAgreementForm({ ...agreementForm, farmName: e.target.value })
+                      }
                       required
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="text-xs font-semibold block mb-1">Farmer Stellar Wallet Address</label>
+                  <label className="text-xs font-semibold block mb-1">
+                    Farmer Stellar Wallet Address
+                  </label>
                   <Input
                     value={agreementForm.farmerAddress}
-                    onChange={(e) => setAgreementForm({ ...agreementForm, farmerAddress: e.target.value })}
+                    onChange={(e) =>
+                      setAgreementForm({ ...agreementForm, farmerAddress: e.target.value })
+                    }
                     required
                     className="font-mono text-xs"
                   />
@@ -488,16 +531,25 @@ export default function BulkPurchasingPage(): JSX.Element {
                     <label className="text-xs font-semibold block mb-1">Project Name</label>
                     <Input
                       value={agreementForm.projectName}
-                      onChange={(e) => setAgreementForm({ ...agreementForm, projectName: e.target.value })}
+                      onChange={(e) =>
+                        setAgreementForm({ ...agreementForm, projectName: e.target.value })
+                      }
                       required
                     />
                   </div>
                   <div>
-                    <label className="text-xs font-semibold block mb-1">Negotiated Rate ($/t)</label>
+                    <label className="text-xs font-semibold block mb-1">
+                      Negotiated Rate ($/t)
+                    </label>
                     <Input
                       type="number"
                       value={agreementForm.negotiatedPricePerTon}
-                      onChange={(e) => setAgreementForm({ ...agreementForm, negotiatedPricePerTon: Number(e.target.value) })}
+                      onChange={(e) =>
+                        setAgreementForm({
+                          ...agreementForm,
+                          negotiatedPricePerTon: Number(e.target.value),
+                        })
+                      }
                       required
                     />
                   </div>
@@ -509,7 +561,12 @@ export default function BulkPurchasingPage(): JSX.Element {
                     <select
                       className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm"
                       value={agreementForm.deliverySchedule}
-                      onChange={(e) => setAgreementForm({ ...agreementForm, deliverySchedule: e.target.value as any })}
+                      onChange={(e) =>
+                        setAgreementForm({
+                          ...agreementForm,
+                          deliverySchedule: e.target.value as any,
+                        })
+                      }
                     >
                       <option value="immediate">Immediate Full Transfer</option>
                       <option value="quarterly">Quarterly Tranches</option>
@@ -521,7 +578,12 @@ export default function BulkPurchasingPage(): JSX.Element {
                     <select
                       className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm"
                       value={agreementForm.settlementMethod}
-                      onChange={(e) => setAgreementForm({ ...agreementForm, settlementMethod: e.target.value as any })}
+                      onChange={(e) =>
+                        setAgreementForm({
+                          ...agreementForm,
+                          settlementMethod: e.target.value as any,
+                        })
+                      }
                     >
                       <option value="escrow_milestone">Escrow with Milestones</option>
                       <option value="upfront_discount">Direct Upfront Settlement</option>
@@ -531,7 +593,11 @@ export default function BulkPurchasingPage(): JSX.Element {
                 </div>
 
                 <div className="flex justify-end gap-3 pt-4 border-t border-border/40">
-                  <Button type="button" variant="outline" onClick={() => setActiveTab('calculator')}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setActiveTab('calculator')}
+                  >
                     Cancel
                   </Button>
                   <Button type="submit" stellar="primary" disabled={isSubmitting}>

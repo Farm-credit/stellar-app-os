@@ -2,6 +2,7 @@ import { Suspense } from 'react';
 import type { Metadata } from 'next';
 import { Trees, SlidersHorizontal, Map as MapIcon } from 'lucide-react';
 import { PlantingLocationsExplorer } from '@/components/organisms/PlantingMap/PlantingLocationsExplorer';
+import { WaitlistZoneList } from '@/components/organisms/PlantingMap/WaitlistZoneList';
 
 export const metadata: Metadata = {
   title: 'Planting Locations — Stellar Farm Credit',
@@ -30,13 +31,11 @@ export default function PlantingLocationsPage() {
               <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-stellar-green">
                 <Trees className="size-5 text-white" aria-hidden="true" />
               </div>
-              <h1 className="text-xl font-bold tracking-tight sm:text-2xl">
-                Planting Locations
-              </h1>
+              <h1 className="text-xl font-bold tracking-tight sm:text-2xl">Planting Locations</h1>
             </div>
             <p className="max-w-2xl text-sm text-muted-foreground sm:text-base">
-              Explore our global network of verified tree-planting sites. Filter by region,
-              climate, or species, then sponsor trees in the location that matters most to you.
+              Explore our global network of verified tree-planting sites. Filter by region, climate,
+              or species, then sponsor trees in the location that matters most to you.
             </p>
           </div>
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -56,6 +55,21 @@ export default function PlantingLocationsPage() {
         <Suspense fallback={<LoadingSkeleton />}>
           <PlantingLocationsExplorer />
         </Suspense>
+
+        <section className="mt-6" aria-labelledby="waitlist-heading">
+          <div className="mb-3 space-y-1">
+            <h2 id="waitlist-heading" className="text-lg font-semibold tracking-tight">
+              Fully sponsored zones
+            </h2>
+            <p className="max-w-2xl text-sm text-muted-foreground">
+              These planting zones have reached capacity. Join the waitlist and we&apos;ll
+              automatically assign you a tree when the next planting batch opens.
+            </p>
+          </div>
+          <Suspense fallback={<LoadingSkeleton />}>
+            <WaitlistZoneList />
+          </Suspense>
+        </section>
       </div>
     </div>
   );

@@ -3,7 +3,8 @@ import { AchievementBadgesCard } from '@/components/molecules/AchievementBadgesC
 
 export const metadata = {
   title: 'Achievement Badges | FarmCredit Stellar OS',
-  description: 'Track your sponsorship milestone achievements: First Tree, Century Club, Millionaire, and Explorer.',
+  description:
+    'Track your sponsorship milestone achievements: First Tree, Century Club, Millionaire, and Explorer.',
 };
 
 export default function BadgesDashboardPage() {

@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { type NextRequest, NextResponse } from 'next/server';
 import {
   listFarmerPayouts,
   processFarmerPayout,
@@ -34,11 +34,18 @@ export async function POST(request: NextRequest) {
   try {
     const body: InitiatePayoutRequest = await request.json();
 
-    if (!body.farmerId || !body.farmerName || !body.sourceAmount || !body.targetCurrency || !body.destination) {
+    if (
+      !body.farmerId ||
+      !body.farmerName ||
+      !body.sourceAmount ||
+      !body.targetCurrency ||
+      !body.destination
+    ) {
       return NextResponse.json(
         {
           success: false,
-          error: 'Missing required fields: farmerId, farmerName, sourceAmount, targetCurrency, destination',
+          error:
+            'Missing required fields: farmerId, farmerName, sourceAmount, targetCurrency, destination',
         },
         { status: 400 }
       );

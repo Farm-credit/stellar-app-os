@@ -10,7 +10,11 @@
 
 import { useState, type JSX } from 'react';
 import { MapPin, Hash, Database, Cpu, Package, ShieldCheck } from 'lucide-react';
-import { ZKProofLoader, type ZKLoaderStatus, type ZKProofStep } from '@/components/organisms/ZKProofLoader/ZKProofLoader';
+import {
+  ZKProofLoader,
+  type ZKLoaderStatus,
+  type ZKProofStep,
+} from '@/components/organisms/ZKProofLoader/ZKProofLoader';
 import { Text } from '@/components/atoms/Text';
 import { Button } from '@/components/atoms/Button';
 
@@ -60,12 +64,7 @@ const STEP_DURATIONS = [500, 400, 300, 1500, 450, 600];
 function makeSteps(activeIdx: number, doneIdx: number): ZKProofStep[] {
   return STEP_DEFS.map((def, i) => ({
     ...def,
-    status:
-      i < doneIdx
-        ? 'complete'
-        : i === activeIdx
-          ? 'active'
-          : 'pending',
+    status: i < doneIdx ? 'complete' : i === activeIdx ? 'active' : 'pending',
     durationMs: i < doneIdx ? STEP_DURATIONS[i] : undefined,
   }));
 }
@@ -133,12 +132,16 @@ export default function ZKProofDemoPage(): JSX.Element {
       <div className="mx-auto max-w-4xl space-y-16">
         {/* Page header */}
         <div className="space-y-2 text-center">
-          <Text as="h1" variant="h1" className="bg-gradient-to-r from-stellar-purple via-stellar-blue to-stellar-cyan bg-clip-text text-transparent">
+          <Text
+            as="h1"
+            variant="h1"
+            className="bg-gradient-to-r from-stellar-purple via-stellar-blue to-stellar-cyan bg-clip-text text-transparent"
+          >
             ZK Location Proof Loader
           </Text>
           <Text variant="muted" className="mx-auto max-w-xl">
-            Multi-step animated UI that visualises real-time progress while a
-            Groth16 ZK location proof is generated in-browser using snarkjs.
+            Multi-step animated UI that visualises real-time progress while a Groth16 ZK location
+            proof is generated in-browser using snarkjs.
           </Text>
         </div>
 
@@ -149,8 +152,8 @@ export default function ZKProofDemoPage(): JSX.Element {
               Demo 1 — Self-contained Simulation
             </Text>
             <Text variant="muted" className="text-sm">
-              The component manages its own state and runs a realistic multi-step
-              simulation when you click <strong>Generate Proof</strong>.
+              The component manages its own state and runs a realistic multi-step simulation when
+              you click <strong>Generate Proof</strong>.
             </Text>
           </div>
 
@@ -164,8 +167,8 @@ export default function ZKProofDemoPage(): JSX.Element {
               Demo 2 — Controlled Mode
             </Text>
             <Text variant="muted" className="text-sm">
-              Steps, progress, and status are driven from the parent. Click the
-              button below to advance through the proof generation externally.
+              Steps, progress, and status are driven from the parent. Click the button below to
+              advance through the proof generation externally.
             </Text>
           </div>
 
@@ -226,8 +229,8 @@ export default function ZKProofDemoPage(): JSX.Element {
               Demo 4 — Auto-run on Mount
             </Text>
             <Text variant="muted" className="text-sm">
-              Pass <code className="rounded bg-muted px-1 font-mono text-xs">autoRun</code> to
-              start the simulation immediately (useful in modals or step wizards).
+              Pass <code className="rounded bg-muted px-1 font-mono text-xs">autoRun</code> to start
+              the simulation immediately (useful in modals or step wizards).
             </Text>
           </div>
 

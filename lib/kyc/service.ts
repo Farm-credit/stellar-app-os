@@ -116,9 +116,7 @@ function mapRow(row: KycRow): KycApplicationRecord {
     dateOfBirth: toIsoDate(row.date_of_birth),
     documentType: row.document_type as KycApplicationRecord['documentType'],
     documentReferenceHash: row.document_reference_hash,
-    identityVerifiedAt: row.identity_verified_at
-      ? toIsoTimestamp(row.identity_verified_at)
-      : null,
+    identityVerifiedAt: row.identity_verified_at ? toIsoTimestamp(row.identity_verified_at) : null,
     ownershipType: row.ownership_type as KycApplicationRecord['ownershipType'],
     plotSizeHectares: toNumber(row.plot_size_hectares),
     gpsCoordinates: {
@@ -126,9 +124,7 @@ function mapRow(row: KycRow): KycApplicationRecord {
       longitude: toNumber(row.longitude),
     },
     region: row.region,
-    landVerifiedAt: row.land_verified_at
-      ? toIsoTimestamp(row.land_verified_at)
-      : null,
+    landVerifiedAt: row.land_verified_at ? toIsoTimestamp(row.land_verified_at) : null,
     yearsOfExperience: toNumber(row.years_of_experience),
     primaryCrop: row.primary_crop,
     secondaryCrops: row.secondary_crops ?? [],
@@ -206,9 +202,7 @@ export class KycService {
         input.identity.village,
         input.identity.dateOfBirth,
         input.identity.documentType,
-        input.identity.documentReference
-          ? hashIdentifier(input.identity.documentReference)
-          : null,
+        input.identity.documentReference ? hashIdentifier(input.identity.documentReference) : null,
         input.land.ownershipType,
         input.land.plotSizeHectares,
         input.land.gpsCoordinates.latitude,
@@ -331,8 +325,7 @@ export class KycService {
       };
     }
 
-    const status: KycApplicationStatus =
-      decision.decision === 'approve' ? 'approved' : 'rejected';
+    const status: KycApplicationStatus = decision.decision === 'approve' ? 'approved' : 'rejected';
 
     const { rows } = await this.db.query<KycRow>(
       `UPDATE farmer_kyc_applications

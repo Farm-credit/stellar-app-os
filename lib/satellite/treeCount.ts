@@ -74,16 +74,11 @@ export function estimateTreeCount(
   metadata: ImageryMetadata,
   claimedCount?: number
 ): TreeCountResult {
-  const {
-    plotAreaHectares,
-    canopyCoverFraction,
-    speciesSlug,
-    estimatedCrownDiameterMeters,
-  } = metadata;
+  const { plotAreaHectares, canopyCoverFraction, speciesSlug, estimatedCrownDiameterMeters } =
+    metadata;
 
   // Resolve crown diameter
-  const crownDiameter =
-    estimatedCrownDiameterMeters ?? resolveCrownDiameter(speciesSlug);
+  const crownDiameter = estimatedCrownDiameterMeters ?? resolveCrownDiameter(speciesSlug);
 
   // Guard: trivially-low canopy means we cannot estimate trees
   if (canopyCoverFraction < MIN_CANOPY_FRACTION) {
@@ -100,9 +95,7 @@ export function estimateTreeCount(
         ...zeroResult,
         claimedCount,
         verificationStatus: 'fail',
-        summary:
-          zeroResult.summary +
-          ` Claimed count of ${claimedCount} trees cannot be verified.`,
+        summary: zeroResult.summary + ` Claimed count of ${claimedCount} trees cannot be verified.`,
       };
     }
     return zeroResult;
@@ -128,9 +121,7 @@ export function estimateTreeCount(
     0,
     Math.round(vegetatedAreaM2 / computeCrownAreaM2(largeCrownDiameter))
   );
-  const highCount = Math.round(
-    vegetatedAreaM2 / computeCrownAreaM2(smallCrownDiameter)
-  );
+  const highCount = Math.round(vegetatedAreaM2 / computeCrownAreaM2(smallCrownDiameter));
 
   // Verify against claimed count
   let verificationStatus: TreeCountResult['verificationStatus'];

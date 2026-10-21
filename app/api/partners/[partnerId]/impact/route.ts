@@ -28,7 +28,10 @@ export async function GET(
 
   const feed = buildPartnerImpactFeed(config);
 
-  return NextResponse.json({ feed }, {
-    headers: { 'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=10' },
-  });
+  return NextResponse.json(
+    { feed },
+    {
+      headers: { 'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=10' },
+    }
+  );
 }

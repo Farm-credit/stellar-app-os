@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import type { TreeStatusEvent } from '@/lib/tree-status/types';
+import { dispatchPushNotification } from '@/lib/notifications';
 
 interface UseTreeStatusOptions {
   onEvent?: (event: TreeStatusEvent) => void;
@@ -34,6 +35,14 @@ export function useTreeStatus(options: UseTreeStatusOptions = {}): UseTreeStatus
         const data: TreeStatusEvent = JSON.parse(e.data);
         setEvents((prev) => [data, ...prev]);
         onEventRef.current?.(data);
+
+        if (
+          data.type === 'planted' ||
+          data.type === 'survival' ||
+          data.type === 'milestone'
+        ) {
+          dispatchPushNotification(data.type, data);
+        }
       } catch {
         // ignore malformed events
       }

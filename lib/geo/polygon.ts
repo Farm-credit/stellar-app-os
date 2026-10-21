@@ -170,11 +170,7 @@ function segmentIntersects(
   b1: [number, number],
   b2: [number, number]
 ): boolean {
-  const orient = (
-    p: [number, number],
-    q: [number, number],
-    r: [number, number]
-  ): number => {
+  const orient = (p: [number, number], q: [number, number], r: [number, number]): number => {
     const value = (q[1] - p[1]) * (r[0] - p[0]) - (q[0] - p[0]) * (r[1] - p[1]);
     if (Math.abs(value) < 1e-12) return 0;
     return value > 0 ? 1 : -1;
@@ -189,11 +185,7 @@ function segmentIntersects(
     return true;
   }
 
-  const onSegment = (
-    p: [number, number],
-    q: [number, number],
-    r: [number, number]
-  ): boolean =>
+  const onSegment = (p: [number, number], q: [number, number], r: [number, number]): boolean =>
     Math.min(p[0], r[0]) <= q[0] &&
     q[0] <= Math.max(p[0], r[0]) &&
     Math.min(p[1], r[1]) <= q[1] &&
@@ -212,10 +204,7 @@ function segmentIntersects(
  * or shared vertices). Longitudes are unwrapped relative to the first
  * polygon's first vertex to remain date-line safe.
  */
-export function polygonIntersectsPolygon(
-  a: [number, number][],
-  b: [number, number][]
-): boolean {
+export function polygonIntersectsPolygon(a: [number, number][], b: [number, number][]): boolean {
   if (a.length < 3 || b.length < 3) {
     return false;
   }

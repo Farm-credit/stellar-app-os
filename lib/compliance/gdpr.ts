@@ -4,5 +4,4 @@
  * `@/lib/compliance/gdpr` import path used by the compliance reports route.
  */
 
-export { exportUserData, deleteUserData } from '@/lib/gdpr';
 export { deleteUserData, exportUserData, getUserDataForExport } from '@/lib/gdpr';

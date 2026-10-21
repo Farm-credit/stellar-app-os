@@ -34,7 +34,8 @@ function hashString(str: string): number {
 const SAMPLE_PROJECT_TEMPLATES = [
   {
     name: 'Kilimanjaro Agroforestry & Regenerative Soil Project',
-    description: 'Community regenerative agroforestry and soil organic carbon enhancement initiative.',
+    description:
+      'Community regenerative agroforestry and soil organic carbon enhancement initiative.',
     projectType: 'Regenerative Agriculture',
     location: 'Moshi Rural, Kilimanjaro',
     country: 'Tanzania',
@@ -52,7 +53,8 @@ const SAMPLE_PROJECT_TEMPLATES = [
         buyerCompany: 'EcoCorp Sustainability Inc.',
         rating: 5,
         title: 'Exceptional transparency and soil sequestration data',
-        comment: 'High quality credits with verified third-party audit trail and measurable soil improvement.',
+        comment:
+          'High quality credits with verified third-party audit trail and measurable soil improvement.',
         verified: true,
         createdAt: '2025-01-15T10:30:00Z',
       },
@@ -70,7 +72,8 @@ const SAMPLE_PROJECT_TEMPLATES = [
   },
   {
     name: 'Serengeti Buffer Silvopasture & Carbon Sink',
-    description: 'Silvopasture restoration combining rotational grazing, native tree planting, and cover cropping.',
+    description:
+      'Silvopasture restoration combining rotational grazing, native tree planting, and cover cropping.',
     projectType: 'Silvopasture & Grassland',
     location: 'Mara Region',
     country: 'Tanzania',
@@ -96,7 +99,8 @@ const SAMPLE_PROJECT_TEMPLATES = [
   },
   {
     name: 'Usambara Highlands Organic Cover Crop & Carbon Project',
-    description: 'High-altitude organic farming with multi-species cover cropping and reduced tillage.',
+    description:
+      'High-altitude organic farming with multi-species cover cropping and reduced tillage.',
     projectType: 'Soil Carbon Enhancement',
     location: 'Lushoto, Tanga',
     country: 'Tanzania',
@@ -114,7 +118,8 @@ const SAMPLE_PROJECT_TEMPLATES = [
         buyerCompany: 'BioFoods Enterprise',
         rating: 4.9,
         title: 'High soil carbon sequestration benchmarks',
-        comment: 'Outstanding soil health improvement score and transparent MRV audit documentation.',
+        comment:
+          'Outstanding soil health improvement score and transparent MRV audit documentation.',
         verified: true,
         createdAt: '2025-03-01T16:20:00Z',
       },
@@ -144,9 +149,8 @@ export function buildFarmerProjects(farmerAddress: string): ListedProject[] {
 
     const avgRating =
       reviews.length > 0
-        ? Math.round(
-            (reviews.reduce((acc, curr) => acc + curr.rating, 0) / reviews.length) * 10
-          ) / 10
+        ? Math.round((reviews.reduce((acc, curr) => acc + curr.rating, 0) / reviews.length) * 10) /
+          10
         : 5.0;
 
     projects.push({
@@ -224,7 +228,9 @@ export function calculatePortfolioSummary(projects: ListedProject[]): FarmerPort
   const totalReviews = allReviews.length;
   // No reviews means no rating (0), not a perfect one.
   const overallRating =
-    totalReviews > 0 ? round(allReviews.reduce((sum, r) => sum + r.rating, 0) / totalReviews, 1) : 0;
+    totalReviews > 0
+      ? round(allReviews.reduce((sum, r) => sum + r.rating, 0) / totalReviews, 1)
+      : 0;
 
   const uniqueCertifications = Array.from(
     new Set(projects.flatMap((p) => [p.certificationStatus, ...p.certifications]))

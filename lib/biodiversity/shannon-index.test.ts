@@ -13,9 +13,7 @@ import {
 
 describe('calculateShannonIndex', () => {
   it('calculates index for single species', () => {
-    const data: SpeciesCount[] = [
-      { speciesId: '1', speciesName: 'Oak', count: 100 },
-    ];
+    const data: SpeciesCount[] = [{ speciesId: '1', speciesName: 'Oak', count: 100 }];
     const result = calculateShannonIndex(data);
     expect(result.shannonIndex).toBe(0);
     expect(result.speciesRichness).toBe(1);
@@ -78,18 +76,14 @@ describe('compareBiodiversity', () => {
       { speciesId: '1', speciesName: 'Oak', count: 50 },
       { speciesId: '2', speciesName: 'Pine', count: 50 },
     ]);
-    const baseline = calculateShannonIndex([
-      { speciesId: '1', speciesName: 'Oak', count: 100 },
-    ]);
+    const baseline = calculateShannonIndex([{ speciesId: '1', speciesName: 'Oak', count: 100 }]);
     const result = compareBiodiversity(current, baseline);
     expect(result.trend).toBe('improving');
     expect(result.change).toBeGreaterThan(0);
   });
 
   it('shows decline when current index is lower', () => {
-    const current = calculateShannonIndex([
-      { speciesId: '1', speciesName: 'Oak', count: 100 },
-    ]);
+    const current = calculateShannonIndex([{ speciesId: '1', speciesName: 'Oak', count: 100 }]);
     const baseline = calculateShannonIndex([
       { speciesId: '1', speciesName: 'Oak', count: 50 },
       { speciesId: '2', speciesName: 'Pine', count: 50 },
@@ -113,9 +107,7 @@ describe('compareBiodiversity', () => {
   });
 
   it('handles zero baseline', () => {
-    const current = calculateShannonIndex([
-      { speciesId: '1', speciesName: 'Oak', count: 50 },
-    ]);
+    const current = calculateShannonIndex([{ speciesId: '1', speciesName: 'Oak', count: 50 }]);
     const baseline = calculateShannonIndex([]);
     const result = compareBiodiversity(current, baseline);
     expect(result.change).toBe(0);
@@ -127,9 +119,7 @@ describe('calculateBiodiversityTrend', () => {
     const data: AnnualCensusData[] = [
       {
         year: 2021,
-        speciesData: [
-          { speciesId: '1', speciesName: 'Oak', count: 100 },
-        ],
+        speciesData: [{ speciesId: '1', speciesName: 'Oak', count: 100 }],
         date: '2021-01-01',
       },
       {
@@ -161,9 +151,7 @@ describe('calculateBiodiversityTrend', () => {
     const data: AnnualCensusData[] = [
       {
         year: 2021,
-        speciesData: [
-          { speciesId: '1', speciesName: 'Oak', count: 100 },
-        ],
+        speciesData: [{ speciesId: '1', speciesName: 'Oak', count: 100 }],
         date: '2021-01-01',
       },
     ];
@@ -193,9 +181,7 @@ describe('calculateBiodiversityTrend', () => {
       },
       {
         year: 2022,
-        speciesData: [
-          { speciesId: '1', speciesName: 'Oak', count: 100 },
-        ],
+        speciesData: [{ speciesId: '1', speciesName: 'Oak', count: 100 }],
         date: '2022-01-01',
       },
     ];

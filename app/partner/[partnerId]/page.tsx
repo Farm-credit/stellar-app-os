@@ -2,10 +2,7 @@ import { notFound } from 'next/navigation';
 import type { ReactNode } from 'react';
 
 import { WhiteLabelFrame } from '@/components/organisms/WhiteLabel/WhiteLabelFrame';
-import {
-  getWhiteLabelConfig,
-  splitSponsorshipPrice,
-} from '@/lib/whiteLabel';
+import { getWhiteLabelConfig, splitSponsorshipPrice } from '@/lib/whiteLabel';
 import { MOCK_TREE_SPONSORSHIP_OFFERINGS } from '@/lib/treeSponsorshipComparison';
 
 interface Props {

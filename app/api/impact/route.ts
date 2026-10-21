@@ -17,7 +17,7 @@ export async function getImpactResponse(request: Request, version: 'v1' | 'v2' =
       headers: {
         'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
         ...apiVersionHeaders(version, version === 'v1'),
-      }
+      },
     });
   } catch (error) {
     console.error('Impact data fetch error:', error);

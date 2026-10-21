@@ -90,8 +90,7 @@ export function buildComparisonUrl(
   origin?: string,
   path: string = COMPARISON_PATH
 ): string {
-  const resolvedOrigin =
-    origin ?? (typeof window === 'undefined' ? '' : window.location.origin);
+  const resolvedOrigin = origin ?? (typeof window === 'undefined' ? '' : window.location.origin);
   const query = buildComparisonSearch(selection);
 
   return `${resolvedOrigin}${path}${query ? `?${query}` : ''}`;

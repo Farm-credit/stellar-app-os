@@ -14,7 +14,10 @@ describe('getEmergencyWithdrawalEligibility', () => {
   });
 
   it('blocks withdrawal before the deadline', () => {
-    const result = getEmergencyWithdrawalEligibility({ createdAt, now: new Date('2026-02-01T00:00:00.000Z') });
+    const result = getEmergencyWithdrawalEligibility({
+      createdAt,
+      now: new Date('2026-02-01T00:00:00.000Z'),
+    });
     expect(result.eligible).toBe(false);
     expect(result.reason).toBe('deadline_not_reached');
   });

@@ -25,8 +25,14 @@ export const runtime = 'nodejs';
 // ── Validation ────────────────────────────────────────────────────────────────
 
 const VALID_SOIL_TEXTURES = [
-  'clay', 'silty-clay', 'clay-loam', 'silt-loam',
-  'loam', 'sandy-loam', 'loamy-sand', 'sand',
+  'clay',
+  'silty-clay',
+  'clay-loam',
+  'silt-loam',
+  'loam',
+  'sandy-loam',
+  'loamy-sand',
+  'sand',
 ];
 
 function validateRequest(body: unknown): string | null {
@@ -34,12 +40,9 @@ function validateRequest(body: unknown): string | null {
 
   const b = body as Record<string, unknown>;
 
-  if (typeof b.speciesSlug !== 'string' || !b.speciesSlug.trim())
-    return 'speciesSlug is required';
-  if (typeof b.biome !== 'string' || !b.biome.trim())
-    return 'biome is required';
-  if (typeof b.regionKey !== 'string' || !b.regionKey.trim())
-    return 'regionKey is required';
+  if (typeof b.speciesSlug !== 'string' || !b.speciesSlug.trim()) return 'speciesSlug is required';
+  if (typeof b.biome !== 'string' || !b.biome.trim()) return 'biome is required';
+  if (typeof b.regionKey !== 'string' || !b.regionKey.trim()) return 'regionKey is required';
   if (typeof b.plantingDate !== 'string' || isNaN(new Date(b.plantingDate).getTime()))
     return 'plantingDate must be a valid ISO-8601 date';
 
@@ -48,9 +51,12 @@ function validateRequest(body: unknown): string | null {
   if (!climate || typeof climate !== 'object') return 'climate object is required';
   if (typeof climate.annualRainfallMm !== 'number' || climate.annualRainfallMm < 0)
     return 'climate.annualRainfallMm must be a non-negative number';
-  if (typeof climate.meanTemperatureC !== 'number')
-    return 'climate.meanTemperatureC is required';
-  if (typeof climate.drySeasonMonths !== 'number' || climate.drySeasonMonths < 0 || climate.drySeasonMonths > 12)
+  if (typeof climate.meanTemperatureC !== 'number') return 'climate.meanTemperatureC is required';
+  if (
+    typeof climate.drySeasonMonths !== 'number' ||
+    climate.drySeasonMonths < 0 ||
+    climate.drySeasonMonths > 12
+  )
     return 'climate.drySeasonMonths must be between 0 and 12';
 
   // soil

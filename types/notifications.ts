@@ -1,5 +1,12 @@
 export type NotificationType =
-  'account_alert' | 'payout' | 'verification' | 'info' | 'warning' | 'error' | 'success';
+  | 'account_alert'
+  | 'payout'
+  | 'verification'
+  | 'info'
+  | 'warning'
+  | 'error'
+  | 'success'
+  | 'newsletter';
 
 export type NotificationPriority = 'low' | 'medium' | 'high' | 'urgent';
 
@@ -36,6 +43,8 @@ export interface NotificationState {
   toasts: ToastNotification[];
   unreadCount: number;
   isDrawerOpen: boolean;
+  /** Whether the sponsor has opted in to the monthly forest health newsletter. */
+  newsletterOptIn: boolean;
 }
 
 export interface NotificationActions {
@@ -53,6 +62,10 @@ export interface NotificationActions {
   toggleDrawer: () => void;
   clearAll: () => void;
   clearRead: () => void;
+  /** Update and persist the sponsor's newsletter subscription preference. */
+  setNewsletterOptIn: (optIn: boolean) => void;
+  /** Toggle the sponsor's newsletter subscription preference. */
+  toggleNewsletterOptIn: () => void;
 }
 
 export type NotificationContextValue = NotificationState & NotificationActions;

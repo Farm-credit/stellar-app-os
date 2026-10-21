@@ -57,6 +57,163 @@ export function getDisplayName(
   return data.userName?.trim() || data.walletAddress;
 }
 
+export interface ImpactStats {
+  sponsorName: string | null;
+  walletAddress: string;
+  treesFunded: number;
+  co2Absorbed: number;
+  speciesCount: number;
+  milestones: string[];
+  year: number;
+  isAnonymous?: boolean;
+}
+
+export interface GenerateImpactImageOptions {
+  stats: ImpactStats;
+  format?: 'svg' | 'png';
+  width?: number;
+  height?: number;
+}
+
+const IMPACT_DEFAULT_W = 1200;
+const IMPACT_DEFAULT_H = 630;
+
+function escapeXml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+}
+
+function validateImpactStats(stats: ImpactStats): void {
+  if (!stats.walletAddress) {
+    throw new CertificateError('Wallet address is required', 'MISSING_WALLET_ADDRESS');
+  }
+  if (stats.treesFunded < 0) {
+    throw new CertificateError('Trees funded must be non-negative', 'INVALID_TREE_COUNT');
+  }
+  if (stats.co2Absorbed < 0) {
+    throw new CertificateError('CO2 absorbed must be non-negative', 'INVALID_CO2_OFFSET');
+  }
+  if (stats.speciesCount < 0) {
+    throw new CertificateError('Species count must be non-negative', 'INVALID_SPECIES_COUNT');
+  }
+}
+
+function buildImpactSvg(stats: ImpactStats, width: number, height: number): string {
+  const displayName = getDisplayName({
+    userName: stats.sponsorName,
+    walletAddress: stats.walletAddress,
+    isAnonymous: stats.isAnonymous,
+  });
+
+  const pad = Math.round(width * 0.06);
+  const headerH = Math.round(height * 0.22);
+  const statCardW = Math.round((width - pad * 2 - 40) / 3);
+  const statCardH = Math.round(height * 0.26);
+  const statCardY = headerH + Math.round(height * 0.08);
+  const statFontSize = Math.round(height * 0.075);
+  const labelFontSize = Math.round(height * 0.028);
+  const milestoneFontSize = Math.round(height * 0.026);
+
+  const statCards = [
+    { value: stats.treesFunded.toLocaleString(), label: 'Trees Funded' },
+    { value: `${stats.co2Absorbed.toLocaleString()} t`, label: 'CO2 Absorbed' },
+    { value: stats.speciesCount.toLocaleString(), label: 'Species Supported' },
+  ];
+
+  const cardsSvg = statCards
+    .map((card, i) => {
+      const x = pad + i * (statCardW + 20);
+      return `
+    <g>
+      <rect x="${x}" y="${statCardY}" width="${statCardW}" height="${statCardH}" rx="16" fill="${LIGHT_GRAY}" />
+      <text x="${x + statCardW / 2}" y="${statCardY + statCardH * 0.55}" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-weight="bold" font-size="${statFontSize}" fill="${STELLAR_NAVY}">${escapeXml(card.value)}</text>
+      <text x="${x + statCardW / 2}" y="${statCardY + statCardH * 0.82}" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="${labelFontSize}" fill="${MID_GRAY}">${escapeXml(card.label)}</text>
+    </g>`;
+    })
+    .join('');
+
+  const milestoneStartY = statCardY + statCardH + Math.round(height * 0.09);
+  const visibleMilestones = stats.milestones.slice(0, 3);
+  const milestonesSvg = visibleMilestones
+    .map((milestone, i) => {
+      const y = milestoneStartY + i * (milestoneFontSize + 10);
+      return `
+    <text x="${pad}" y="${y}" font-family="Helvetica, Arial, sans-serif" font-size="${milestoneFontSize}" fill="${WHITE}">• ${escapeXml(truncate(milestone, 70))}</text>`;
+    })
+    .join('');
+
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
+  <rect width="${width}" height="${height}" fill="${STELLAR_NAVY}" />
+  <rect x="0" y="${headerH - 6}" width="${width}" height="6" fill="${STELLAR_BLUE}" />
+  <text x="${pad}" y="${Math.round(headerH * 0.42)}" font-family="Helvetica, Arial, sans-serif" font-weight="bold" font-size="${Math.round(height * 0.05)}" fill="${WHITE}">${escapeXml(stats.year)} IMPACT SUMMARY</text>
+  <text x="${pad}" y="${Math.round(headerH * 0.72)}" font-family="Helvetica, Arial, sans-serif" font-size="${Math.round(height * 0.035)}" fill="${STELLAR_BLUE}">${escapeXml(truncate(displayName, 50))}</text>
+  <g>
+    <rect x="${width - pad - 120}" y="${Math.round(headerH * 0.22)}" width="120" height="30" rx="6" fill="${STELLAR_GREEN}" />
+    <text x="${width - pad - 60}" y="${Math.round(headerH * 0.22) + 20}" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-weight="bold" font-size="14" fill="${WHITE}">✓ VERIFIED</text>
+  </g>${cardsSvg}${milestonesSvg}
+  <rect x="0" y="${height - 40}" width="${width}" height="40" fill="${STELLAR_NAVY}" />
+  <rect x="0" y="${height - 40}" width="${width}" height="3" fill="${STELLAR_BLUE}" />
+  <text x="${width / 2}" y="${height - 16}" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="14" fill="${WHITE}">Powered by Stellar Network · Immutable · Verifiable · Permanent</text>
+</svg>`;
+}
+
+function svgToPngDataUrl(svg: string, width: number, height: number): Promise<string> {
+  return new Promise((resolve, reject) => {
+    if (typeof document === 'undefined' || typeof Image === 'undefined') {
+      reject(new CertificateError('Canvas rendering is unavailable', 'IMAGE_RENDERING_UNAVAILABLE'));
+      return;
+    }
+    const svgBlob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' });
+    const url = URL.createObjectURL(svgBlob);
+    const img = new Image();
+    img.onload = () => {
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          throw new CertificateError('Canvas context unavailable', 'IMAGE_RENDERING_UNAVAILABLE');
+        }
+        ctx.drawImage(img, 0, 0, width, height);
+        URL.revokeObjectURL(url);
+        resolve(canvas.toDataURL('image/png'));
+      } catch (error) {
+        URL.revokeObjectURL(url);
+        reject(error);
+      }
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new CertificateError('Failed to render impact image', 'IMAGE_RENDERING_FAILED'));
+    };
+    img.src = url;
+  });
+}
+
+export async function generateImpactImage(
+  options: GenerateImpactImageOptions
+): Promise<string> {
+  const { stats, format = 'png', width = IMPACT_DEFAULT_W, height = IMPACT_DEFAULT_H } = options;
+  validateImpactStats(stats);
+
+  try {
+    const svg = buildImpactSvg(stats, width, height);
+    if (format === 'svg') {
+      return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+    }
+    return await svgToPngDataUrl(svg, width, height);
+  } catch (error) {
+    if (error instanceof CertificateError) throw error;
+    const message = error instanceof Error ? error.message : 'Unknown error during image generation';
+    throw new CertificateError(message, 'IMAGE_GENERATION_FAILED');
+  }
+}
+
 export class CertificateError extends Error {
   constructor(
     message: string,

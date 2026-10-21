@@ -41,7 +41,7 @@ export class MemoryRateLimiter {
         retryAfter: Math.ceil((blocked - now) / 1000),
       };
     }
-    let ts = (this.hits.get(key) || []).filter((t) => t > now - c.windowMs);
+    const ts = (this.hits.get(key) || []).filter((t) => t > now - c.windowMs);
     if (ts.length >= c.maxRequests) {
       const v = (this.violations.get(key) || 0) + 1;
       this.violations.set(key, v);

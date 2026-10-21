@@ -23,6 +23,12 @@ interface UseSubscriptionReturn {
     payment_method_id?: string;
   }) => Promise<SponsorshipSubscription | null>;
   cancelSubscription: (subscriptionId: number) => Promise<boolean>;
+  pauseSubscription: (subscriptionId: number, durationMonths: number) => Promise<boolean>;
+  resumeSubscription: (subscriptionId: number) => Promise<boolean>;
+  updateSpeciesPreference: (
+    subscriptionId: number,
+    speciesPreference: string | null
+  ) => Promise<boolean>;
 }
 
 export function useSubscription(): UseSubscriptionReturn {
@@ -140,6 +146,57 @@ export function useSubscription(): UseSubscriptionReturn {
     [wallet?.publicKey]
   );
 
+  const updateSubscription = useCallback(
+    async (
+      subscriptionId: number,
+      path: string,
+      body: Record<string, unknown>
+    ): Promise<boolean> => {
+      if (!wallet?.publicKey) return false;
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await fetch(`/api/subscriptions/${subscriptionId}/${path}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ wallet: wallet.publicKey, ...body }),
+        });
+        const payload = await res.json();
+        if (!res.ok) throw new Error(payload.error || 'Failed to update subscription');
+        setSubscriptions((prev) =>
+          prev.map((s) => (s.id === subscriptionId ? payload.subscription : s))
+        );
+        showToast('Subscription updated', 'success');
+        return true;
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Failed to update subscription';
+        setError(message);
+        showToast(message, 'error');
+        return false;
+      } finally {
+        setLoading(false);
+      }
+    },
+    [wallet?.publicKey]
+  );
+
+  const pauseSubscription = useCallback(
+    (subscriptionId: number, durationMonths: number) =>
+      updateSubscription(subscriptionId, 'pause', { duration_months: durationMonths }),
+    [updateSubscription]
+  );
+
+  const resumeSubscription = useCallback(
+    (subscriptionId: number) => updateSubscription(subscriptionId, 'resume', {}),
+    [updateSubscription]
+  );
+
+  const updateSpeciesPreference = useCallback(
+    (subscriptionId: number, speciesPreference: string | null) =>
+      updateSubscription(subscriptionId, 'species', { species_preference: speciesPreference }),
+    [updateSubscription]
+  );
+
   return {
     subscriptions,
     total,
@@ -148,5 +205,8 @@ export function useSubscription(): UseSubscriptionReturn {
     fetchSubscriptions,
     createSubscription,
     cancelSubscription,
+    pauseSubscription,
+    resumeSubscription,
+    updateSpeciesPreference,
   };
 }

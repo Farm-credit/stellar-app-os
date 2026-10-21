@@ -10,7 +10,12 @@ import {
   resetFinancingStore,
 } from '@/lib/api/farmer-financing';
 
-const base = { farmerId: 'f1', projectId: 'proj-001', purpose: 'clearing' as const, amountUsd: 500 };
+const base = {
+  farmerId: 'f1',
+  projectId: 'proj-001',
+  purpose: 'clearing' as const,
+  amountUsd: 500,
+};
 
 function disbursed() {
   const line = applyForCreditLine(base);
@@ -61,10 +66,14 @@ describe('farmer financing', () => {
 
   it('rejects duplicate sales and sales on non-disbursed lines', () => {
     const pending = applyForCreditLine(base);
-    expect(() => recordCarbonSale(pending.id, { saleId: 's', proceedsUsd: 1 })).toThrow(FinancingError);
+    expect(() => recordCarbonSale(pending.id, { saleId: 's', proceedsUsd: 1 })).toThrow(
+      FinancingError
+    );
     resetFinancingStore();
     const line = disbursed();
     recordCarbonSale(line.id, { saleId: 's1', proceedsUsd: 10 });
-    expect(() => recordCarbonSale(line.id, { saleId: 's1', proceedsUsd: 10 })).toThrow(/already applied/);
+    expect(() => recordCarbonSale(line.id, { saleId: 's1', proceedsUsd: 10 })).toThrow(
+      /already applied/
+    );
   });
 });

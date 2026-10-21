@@ -13,11 +13,7 @@ import { MAX_TOTAL_MARGIN_PERCENT, validateFees } from '@/lib/whiteLabel';
  * Partner-admin form to configure the platform fee and partner margin, and the
  * brand palette, persisted through PATCH /api/partners/:id/config. (#1713)
  */
-export function WhiteLabelSettingsForm({
-  config,
-}: {
-  config: WhiteLabelConfig;
-}) {
+export function WhiteLabelSettingsForm({ config }: { config: WhiteLabelConfig }) {
   const router = useRouter();
   const [fees, setFees] = React.useState<WhiteLabelFees>(config.fees);
   const [colors, setColors] = React.useState({
@@ -51,7 +47,10 @@ export function WhiteLabelSettingsForm({
   };
 
   return (
-    <div className="space-y-6 rounded-xl border border-border bg-card p-6" data-testid="wl-settings">
+    <div
+      className="space-y-6 rounded-xl border border-border bg-card p-6"
+      data-testid="wl-settings"
+    >
       <div>
         <h3 className="font-semibold">Fees & margin</h3>
         <p className="text-sm text-muted-foreground">
@@ -119,9 +118,7 @@ export function WhiteLabelSettingsForm({
             <Input
               type="color"
               value={colors.backgroundColor}
-              onChange={(e) =>
-                setColors((prev) => ({ ...prev, backgroundColor: e.target.value }))
-              }
+              onChange={(e) => setColors((prev) => ({ ...prev, backgroundColor: e.target.value }))}
               className="w-20 p-0.5"
             />
           </label>

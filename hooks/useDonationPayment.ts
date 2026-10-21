@@ -9,12 +9,14 @@ import { generateIdempotencyKey } from '@/lib/constants/donation';
 import { processDonationPayment } from '@/lib/stellar/donation';
 import type { TransactionStatus } from '@/lib/types/payment';
 import type { DonationPaymentMethod, DonationPaymentState } from '@/lib/types/donation-payment';
+import { useCurrency } from '@/contexts/CurrencyContext';
 
 export function useDonationPayment() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { state: donationState } = useDonationContext();
   const { wallet } = useWalletContext();
+  const { currentCurrency, xlmPerUsd, formatPrice } = useCurrency();
   const referralCode = searchParams.get('ref');
 
   const [paymentState, setPaymentState] = useState<DonationPaymentState>({
@@ -81,6 +83,12 @@ export function useDonationPayment() {
       );
 
       const totalAmount = donationState.amount * donationState.treeCount;
+      const xlmEquivalent =
+        result.asset === 'XLM'
+          ? Number(result.estimatedSourceAmount)
+          : xlmPerUsd
+            ? totalAmount * xlmPerUsd
+            : null;
       if (referralCode && wallet.publicKey) {
         void fetch('/api/referrals/attribute', {
           method: 'POST',
@@ -99,7 +107,7 @@ export function useDonationPayment() {
       }));
       showToast('Payment successful!', 'success');
       router.push(
-        `/donate/confirmation?txHash=${result.transactionHash}&method=stellar&amount=${totalAmount}&trees=${donationState.treeCount}`
+        `/donate/confirmation?txHash=${result.transactionHash}&method=stellar&amount=${totalAmount}&trees=${donationState.treeCount}&currency=${currentCurrency}&localAmount=${encodeURIComponent(formatPrice(totalAmount))}${xlmEquivalent ? `&xlmAmount=${xlmEquivalent}` : ''}`
       );
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Payment failed';
@@ -120,6 +128,9 @@ export function useDonationPayment() {
     paymentState.idempotencyKey,
     router,
     referralCode,
+    currentCurrency,
+    xlmPerUsd,
+    formatPrice,
   ]);
 
   // Stripe callbacks — coordinated with StripePaymentForm
@@ -136,6 +147,7 @@ export function useDonationPayment() {
       }));
       showToast('Payment successful!', 'success');
       const totalAmount = donationState.amount * donationState.treeCount;
+      const xlmEquivalent = xlmPerUsd ? totalAmount * xlmPerUsd : null;
       if (referralCode) {
         void fetch('/api/referrals/attribute', {
           method: 'POST',
@@ -148,10 +160,18 @@ export function useDonationPayment() {
         });
       }
       router.push(
-        `/donate/confirmation?txId=${paymentIntentId}&method=card&amount=${totalAmount}&trees=${donationState.treeCount}`
+        `/donate/confirmation?txId=${paymentIntentId}&method=card&amount=${totalAmount}&trees=${donationState.treeCount}&currency=${currentCurrency}&localAmount=${encodeURIComponent(formatPrice(totalAmount))}${xlmEquivalent ? `&xlmAmount=${xlmEquivalent}` : ''}`
       );
     },
-    [router, donationState.amount, donationState.treeCount, referralCode]
+    [
+      router,
+      donationState.amount,
+      donationState.treeCount,
+      referralCode,
+      currentCurrency,
+      xlmPerUsd,
+      formatPrice,
+    ]
   );
 
   const onStripeError = useCallback((message: string) => {

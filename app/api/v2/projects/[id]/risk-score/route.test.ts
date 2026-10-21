@@ -10,7 +10,7 @@
  * 5. Response shape validation
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { GET } from './route';
 import {
   projectRiskScoreResponseSchema,
@@ -19,7 +19,10 @@ import {
 
 const URL_BASE = 'http://localhost:3000/api/v2/projects';
 
-function createRequest(projectId: string, options?: { useCache?: string; force?: string }): Request {
+function createRequest(
+  projectId: string,
+  options?: { useCache?: string; force?: string }
+): Request {
   const url = new URL(`${URL_BASE}/${projectId}/risk-score`);
   if (options?.useCache !== undefined) {
     url.searchParams.set('useCache', options.useCache);
@@ -133,8 +136,8 @@ describe('GET /api/v2/projects/:id/risk-score', () => {
         const weights = body.riskScore.weights;
 
         expect(weights.verifierReputation).toBe(0.25);
-        expect(weights.methodologyStrength).toBe(0.20);
-        expect(weights.regionalStability).toBe(0.20);
+        expect(weights.methodologyStrength).toBe(0.2);
+        expect(weights.regionalStability).toBe(0.2);
         expect(weights.farmerTrackRecord).toBe(0.35);
 
         // Verify weights sum to 1.0

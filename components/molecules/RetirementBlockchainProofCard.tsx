@@ -2,7 +2,7 @@
 
 import type { JSX } from 'react';
 import type { BlockchainProofReceipt } from '@/lib/retirement/receipt';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/atoms/Card';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/molecules/Card';
 import { Badge } from '@/components/atoms/Badge';
 import { Text } from '@/components/atoms/Text';
 
@@ -55,7 +55,10 @@ export function RetirementBlockchainProofCard({
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <Badge variant="outline" className="border-emerald-500 text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30">
+            <Badge
+              variant="outline"
+              className="border-emerald-500 text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30"
+            >
               ✓ Immutable Proof
             </Badge>
             <Badge variant="secondary" className="font-mono text-xs">
@@ -71,7 +74,8 @@ export function RetirementBlockchainProofCard({
           <div className="p-3 rounded-lg bg-muted/40 border border-border/40">
             <span className="text-xs text-muted-foreground block">Credits Retired</span>
             <span className="text-xl font-bold text-foreground">
-              {receipt.creditsRetired} <span className="text-xs font-normal text-muted-foreground">tonnes CO₂</span>
+              {receipt.creditsRetired}{' '}
+              <span className="text-xs font-normal text-muted-foreground">tonnes CO₂</span>
             </span>
           </div>
 
@@ -99,7 +103,11 @@ export function RetirementBlockchainProofCard({
 
         {/* Project Details */}
         <div className="p-4 rounded-xl bg-muted/30 border border-border/50">
-          <Text variant="small" as="span" className="font-bold text-xs uppercase tracking-wider text-muted-foreground block mb-2">
+          <Text
+            variant="small"
+            as="span"
+            className="font-bold text-xs uppercase tracking-wider text-muted-foreground block mb-2"
+          >
             Project Details
           </Text>
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
@@ -117,7 +125,11 @@ export function RetirementBlockchainProofCard({
 
         {/* Co-Benefits Achieved */}
         <div>
-          <Text variant="small" as="span" className="font-bold text-xs uppercase tracking-wider text-muted-foreground block mb-3">
+          <Text
+            variant="small"
+            as="span"
+            className="font-bold text-xs uppercase tracking-wider text-muted-foreground block mb-3"
+          >
             Co-Benefits Achieved Through This Retirement
           </Text>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -129,13 +141,14 @@ export function RetirementBlockchainProofCard({
                 <div>
                   <div className="flex items-center gap-2 mb-1.5">
                     <span>{getCategoryIcon(benefit.category)}</span>
-                    <Badge variant="outline" className={`text-[11px] capitalize ${getCategoryBadgeClass(benefit.category)}`}>
+                    <Badge
+                      variant="outline"
+                      className={`text-[11px] capitalize ${getCategoryBadgeClass(benefit.category)}`}
+                    >
                       {benefit.category}
                     </Badge>
                   </div>
-                  <h5 className="font-semibold text-xs text-foreground mb-1">
-                    {benefit.name}
-                  </h5>
+                  <h5 className="font-semibold text-xs text-foreground mb-1">{benefit.name}</h5>
                   <p className="text-xs text-muted-foreground line-clamp-2">
                     {benefit.description}
                   </p>

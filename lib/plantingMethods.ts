@@ -44,8 +44,7 @@ export interface PlantingMethod {
   rationaleSummary: string;
 }
 
-const PHOTO = (id: string) =>
-  `https://images.unsplash.com/${id}?auto=format&fit=crop&q=80&w=800`;
+const PHOTO = (id: string) => `https://images.unsplash.com/${id}?auto=format&fit=crop&q=80&w=800`;
 
 export const MOCK_PLANTING_METHODS: PlantingMethod[] = [
   {
@@ -74,7 +73,8 @@ export const MOCK_PLANTING_METHODS: PlantingMethod[] = [
         caption: 'Germination flush eight weeks after monsoon broadcasting',
       },
     ],
-    rationaleUrl: 'https://www.worldforestresearch.org/news/detail/article/seed-bombing-for-reforestation.html',
+    rationaleUrl:
+      'https://www.worldforestresearch.org/news/detail/article/seed-bombing-for-reforestation.html',
     rationaleSummary:
       'Broadcasting pelleted seed establishes dense, genetically diverse pioneer canopy at a fraction of sapling-planting cost on accessible degraded land.',
   },

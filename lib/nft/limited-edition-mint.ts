@@ -15,7 +15,10 @@
 
 import { createHash } from 'crypto';
 import { createClient } from 'redis';
-import { buildMintCertificateTransaction, getMintingContractAddress } from '@/lib/stellar/nft-certificate';
+import {
+  buildMintCertificateTransaction,
+  getMintingContractAddress,
+} from '@/lib/stellar/nft-certificate';
 import { withWalletLock } from '@/lib/cache/redlock';
 import { getRareSpeciesBySlug } from './rare-species-catalogue';
 import type {
@@ -65,7 +68,18 @@ function buildNftMetadata(
   tokenId: string,
   metadataBaseUrl: string
 ): LimitedEditionNftMetadata {
-  const { speciesSlug, plantingDate, region, maxSupply, rarity, commonName, scientificName, iucnStatus, lore, imageUri } = {
+  const {
+    speciesSlug,
+    plantingDate,
+    region,
+    maxSupply,
+    rarity,
+    commonName,
+    scientificName,
+    iucnStatus,
+    lore,
+    imageUri,
+  } = {
     ...species,
     ...req,
   };
@@ -80,7 +94,11 @@ function buildNftMetadata(
     { trait_type: 'Edition Number', value: editionNumber, display_type: 'number' },
     { trait_type: 'Max Supply', value: species.maxSupply, display_type: 'number' },
     { trait_type: 'Region', value: region },
-    { trait_type: 'Planting Date', value: Math.floor(new Date(plantingDate).getTime() / 1000), display_type: 'date' },
+    {
+      trait_type: 'Planting Date',
+      value: Math.floor(new Date(plantingDate).getTime() / 1000),
+      display_type: 'date',
+    },
     { trait_type: 'Platform', value: 'Harvesta' },
     { trait_type: 'Blockchain', value: 'Stellar' },
     { trait_type: 'Token ID', value: tokenId.slice(0, 16) + '...' },

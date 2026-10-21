@@ -33,11 +33,11 @@ export async function GET(request: Request) {
     if (cachedPoints) {
       return NextResponse.json(
         { points: cachedPoints },
-        { 
-          headers: { 
+        {
+          headers: {
             'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=300',
             'CDN-Cache-Control': 'max-age=300',
-          } 
+          },
         }
       );
     }
@@ -62,11 +62,11 @@ export async function GET(request: Request) {
 
     return NextResponse.json(
       { points },
-      { 
-        headers: { 
+      {
+        headers: {
           'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=300',
           'CDN-Cache-Control': 'max-age=300',
-        } 
+        },
       }
     );
   } catch (error) {

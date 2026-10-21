@@ -46,49 +46,47 @@ export interface BulkPurchaseQuote {
 export class VolumeDiscountError extends Error {
   constructor(message: string) {
     super(message);
-    this.name = "VolumeDiscountError";
+    this.name = 'VolumeDiscountError';
   }
 }
 
 const MINIMUM_BULK_TONS = 100;
 
 function assertPositiveNumber(value: number, name: string): void {
-  if (!number.isFinite(value) || value <= 0) {
+  if (!Number.isFinite(value) || value <= 0) {
     throw new VolumeDiscountError(`${name} must be a positive finite number`);
   }
 }
 
 function assertDiscountRate(rate: number): void {
-  if (!number.isFinite(rate) || rate < 0 || rate >= 1) {
-    throw new VolumeDiscountError("discountRate must be in the range [0, 1)");
+  if (!Number.isFinite(rate) || rate < 0 || rate >= 1) {
+    throw new VolumeDiscountError('discountRate must be in the range [0, 1)');
   }
 }
 
-function validateTies(tiers: VolumeTier[]): void {
+function validateTiers(tiers: VolumeTier[]): void {
   if (!Array.isArray(tiers) || tiers.length === 0) {
-    throw new VolumeDiscountError("agreement must define at least one volume tier");
+    throw new VolumeDiscountError('agreement must define at least one volume tier');
   }
 
   const sorted = [...tiers].sort((a, b) => a.minTons - b.minTons);
 
   for (let i = 0; i < sorted.length; i++) {
     const tier = sorted[i];
-    assertPositiveNumber(tier.minTons, "tier.minTons");
+    assertPositiveNumber(tier.minTons, 'tier.minTons');
     assertDiscountRate(tier.discountRate);
 
     if (tier.maxTons !== null) {
-      assertPositiveNumber(tier.maxTons, "tier.maxTons");
+      assertPositiveNumber(tier.maxTons, 'tier.maxTons');
       if (tier.maxTons < tier.minTons) {
-        throw new VolumeDiscountError(
-          "tier.maxTons must be greater than or equal to tier.minTons",
-        );
+        throw new VolumeDiscountError('tier.maxTons must be greater than or equal to tier.minTons');
       }
     }
 
     if (i > 0) {
       const previous = sorted[i - 1];
       if (previous.maxTons !== null && tier.minTons <= previous.maxTons) {
-        throw new VolumeDiscountError("volume tiers must not overlap");
+        throw new VolumeDiscountError('volume tiers must not overlap');
       }
     }
   }
@@ -96,32 +94,30 @@ function validateTies(tiers: VolumeTier[]): void {
 
 export function validateBulkPurchaseAgreement(agreement: BulkPurchaseAgreement): void {
   if (!agreement.id) {
-    throw new VolumeDiscountError("agreement.id is required");
+    throw new VolumeDiscountError('agreement.id is required');
   }
   if (!agreement.buyerId) {
-    throw new VolumeDiscountError("agreement.buyerId is required");
+    throw new VolumeDiscountError('agreement.buyerId is required');
   }
   if (!agreement.farmerId) {
-    throw new VolumeDiscountError("agreement.farmerId is required");
+    throw new VolumeDiscountError('agreement.farmerId is required');
   }
   if (!agreement.currency) {
-    throw new VolumeDiscountError("agreement.currency is required");
+    throw new VolumeDiscountError('agreement.currency is required');
   }
 
-  assertPositiveNumber(agreement.basePricePerTon, "agreement.basePricePerTon");
-  assertPositiveNumber(agreement.minimumTons, "agreement.minimumTons");
+  assertPositiveNumber(agreement.basePricePerTon, 'agreement.basePricePerTon');
+  assertPositiveNumber(agreement.minimumTons, 'agreement.minimumTons');
 
   if (agreement.minimumTons < MINIMUM_BULK_TONS) {
-    throw new VolumeDiscountError(
-      `bulk agreements require a minimum of ${MINIMUM_BULK_TONS} tons`,
-    );
+    throw new VolumeDiscountError(`bulk agreements require a minimum of ${MINIMUM_BULK_TONS} tons`);
   }
 
   if (agreement.maximumTons !== null) {
-    assertPositiveNumber(agreement.maximumTons, "agreement.maximumTons");
-    if (agreeement.maximumTons < agreement.minimumTons) {
+    assertPositiveNumber(agreement.maximumTons, 'agreement.maximumTons');
+    if (agreement.maximumTons < agreement.minimumTons) {
       throw new VolumeDiscountError(
-        "agreement.maximumTons must be greater than or equal to agreement.minimumTons",
+        'agreement.maximumTons must be greater than or equal to agreement.minimumTons'
       );
     }
   }
@@ -130,7 +126,7 @@ export function validateBulkPurchaseAgreement(agreement: BulkPurchaseAgreement):
 }
 
 export function findApplicableTier(tiers: VolumeTier[], tons: number): VolumeTier | null {
-  if (!Array.isArray(tiers) || tiers.length == 0) {
+  if (!Array.isArray(tiers) || tiers.length === 0) {
     return null;
   }
 
@@ -150,38 +146,34 @@ export function findApplicableTier(tiers: VolumeTier[], tons: number): VolumeTie
 
 export function calculateBulkQuote(
   agreement: BulkPurchaseAgreement,
-  tons: number,
+  tons: number
 ): BulkPurchaseQuote {
   validateBulkPurchaseAgreement(agreement);
-  assertPositiveNumber(tons, "tons");
+  assertPositiveNumber(tons, 'tons');
 
   if (!agreement.active) {
-    throw new VolumeDiscountError("agreement is not active");
+    throw new VolumeDiscountError('agreement is not active');
   }
 
   if (tons < MINIMUM_BULK_TONS) {
-    throw new VolumeDiscountError(
-      `bulk purchases require a minimum of ${MINIMUM_BULK_TONS} tons`,
-    );
+    throw new VolumeDiscountError(`bulk purchases require a minimum of ${MINIMUM_BULK_TONS} tons`);
   }
 
   if (tons < agreement.minimumTons) {
     throw new VolumeDiscountError(
-      `tons is below the agreement minimum of ${agreement.minimumTons} tons`,
+      `tons is below the agreement minimum of ${agreement.minimumTons} tons`
     );
   }
 
   if (agreement.maximumTons !== null && tons > agreement.maximumTons) {
     throw new VolumeDiscountError(
-      `tons exceeds the agreement maximum of ${agreement.maximumTons} tons`,
+      `tons exceeds the agreement maximum of ${agreement.maximumTons} tons`
     );
   }
 
   const tier = findApplicableTier(agreement.tiers, tons);
   const appliedDiscountRate = tier ? tier.discountRate : 0;
-  const unitPricePerTon = roundCurrency(
-    agreement.basePricePerTon * (1 - appliedDiscountRate),
-  );
+  const unitPricePerTon = roundCurrency(agreement.basePricePerTon * (1 - appliedDiscountRate));
   const totalPrice = roundCurrency(unitPricePerTon * tons);
 
   return {
@@ -196,7 +188,7 @@ export function calculateBulkQuote(
 }
 
 export function createBulkPurchaseAgreement(
-  input: Omit<BulkPurchaseAgreement, "id"> & { id?: string },
+  input: Omit<BulkPurchaseAgreement, 'id'> & { id?: string }
 ): BulkPurchaseAgreement {
   const agreement: BulkPurchaseAgreement = {
     id: input.id ?? generateAgreementId(),
@@ -215,7 +207,7 @@ export function createBulkPurchaseAgreement(
 }
 
 export function deactivateBulkPurchaseAgreement(
-  agreement: BulkPurchaseAgreement,
+  agreement: BulkPurchaseAgreement
 ): BulkPurchaseAgreement {
   return { ...agreement, active: false };
 }

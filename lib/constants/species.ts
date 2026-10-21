@@ -39,7 +39,7 @@ export interface SpeciesInfo {
 function buildGrowthCurve(
   co2KgPerYear: number,
   maturityYears: number,
-  climateFactor: number,
+  climateFactor: number
 ): GrowthCurve {
   const canopyAt = (years: number): number => {
     const progress = Math.min(1, years / maturityYears);
@@ -64,7 +64,7 @@ function buildGrowthCurve(
   };
 }
 
-const CLIMATE_FACTORS: Record<ClimateZone, number> = {
+export const CLIMATE_FACTORS: Record<ClimateZone, number> = {
   tropical: 1.0,
   subtropical: 0.9,
   temperate: 0.8,
@@ -75,7 +75,7 @@ const CLIMATE_FACTORS: Record<ClimateZone, number> = {
 function growthFor(
   co2KgPerYear: number,
   maturityYears: number,
-  zones: ClimateZone[],
+  zones: ClimateZone[]
 ): Partial<Record<ClimateZone, GrowthCurve>> {
   const result: Partial<Record<ClimateZone, GrowthCurve>> = {};
   for (const zone of zones) {
@@ -199,10 +199,7 @@ export const TREE_SPECIES_NAMES = TREE_SPECIES.map((s) => s.name);
  * Falls back to the species' first available climate zone if the requested
  * zone is not defined, and returns `undefined` if the species is unknown.
  */
-export function getGrowthCurve(
-  slug: string,
-  climateZone: ClimateZone,
-): GrowthCurve | undefined {
+export function getGrowthCurve(slug: string, climateZone: ClimateZone): GrowthCurve | undefined {
   const species = TREE_SPECIES.find((s) => s.slug === slug);
   if (!species) return undefined;
 
@@ -222,7 +219,7 @@ export function getGrowthCurve(
 export function getGrowthAtHorizon(
   slug: string,
   climateZone: ClimateZone,
-  years: number,
+  years: number
 ): GrowthPoint | undefined {
   const curve = getGrowthCurve(slug, climateZone);
   if (!curve) return undefined;

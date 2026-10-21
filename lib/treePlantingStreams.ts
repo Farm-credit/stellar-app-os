@@ -129,8 +129,8 @@ export const MOCK_BATCH_SPONSORSHIPS: BatchSponsorship[] = [
 ];
 
 export function getPlantingEventsForProject(projectId: string): PlantingEvent[] {
-  return MOCK_PLANTING_EVENTS.filter((event) => event.projectId === projectId).sort(
-    (a, b) => b.scheduledAt.localeCompare(a.scheduledAt)
+  return MOCK_PLANTING_EVENTS.filter((event) => event.projectId === projectId).sort((a, b) =>
+    b.scheduledAt.localeCompare(a.scheduledAt)
   );
 }
 
@@ -212,9 +212,7 @@ export interface TreeRecordingLink {
  * After a broadcast ends the recording is linked to every tree profile in the
  * batch. Returns the links to persist, or an empty list while not recorded.
  */
-export function linkRecordingToTrees(
-  event: PlantingEvent
-): TreeRecordingLink[] {
+export function linkRecordingToTrees(event: PlantingEvent): TreeRecordingLink[] {
   if (event.status !== 'ended' || !event.recordingUrl) return [];
   return event.treeIds.map((treeId) => ({
     treeId,

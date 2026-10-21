@@ -13,44 +13,19 @@
 
 export type CryptoAsset = 'XLM' | 'USDC' | 'EURC' | 'NGNT';
 
-export type FiatCurrency =
-  | 'USD'
-  | 'EUR'
-  | 'GBP'
-  | 'NGN'
-  | 'KES'
-  | 'GHS'
-  | 'BRL'
-  | 'INR'
-  | 'PHP';
+export type FiatCurrency = 'USD' | 'EUR' | 'GBP' | 'NGN' | 'KES' | 'GHS' | 'BRL' | 'INR' | 'PHP';
 
 export type PayoutCurrency = CryptoAsset | FiatCurrency;
 
 export type PayoutChannel = 'crypto_wallet' | 'bank_transfer' | 'payment_app';
 
 export type PayoutStatus =
-  | 'pending'
-  | 'quoted'
-  | 'processing'
-  | 'completed'
-  | 'failed'
-  | 'refunded';
+  'pending' | 'quoted' | 'processing' | 'completed' | 'failed' | 'refunded';
 
 export type PaymentAppProvider =
-  | 'm_pesa'
-  | 'chipper_cash'
-  | 'flutterwave'
-  | 'paystack'
-  | 'paypal'
-  | 'venmo'
-  | 'revolut';
+  'm_pesa' | 'chipper_cash' | 'flutterwave' | 'paystack' | 'paypal' | 'venmo' | 'revolut';
 
-export type BankTransferRail =
-  | 'ach'
-  | 'sepa'
-  | 'faster_payments'
-  | 'nuban'
-  | 'swift';
+export type BankTransferRail = 'ach' | 'sepa' | 'faster_payments' | 'nuban' | 'swift';
 
 export interface CryptoWalletDetails {
   stellarAddress: string;
@@ -392,7 +367,8 @@ export function processFarmerPayout(request: InitiatePayoutRequest): FarmerPayou
 
   if (request.destination.channel === 'crypto_wallet') {
     const addr = request.destination.crypto?.stellarAddress || '';
-    const masked = addr.length > 10 ? `${addr.substring(0, 4)}...${addr.substring(addr.length - 4)}` : addr;
+    const masked =
+      addr.length > 10 ? `${addr.substring(0, 4)}...${addr.substring(addr.length - 4)}` : addr;
     destinationSummary = `Stellar (${masked})`;
     txHash = `stellar-tx-${Date.now()}-${Math.random().toString(16).substring(2, 10)}`;
   } else if (request.destination.channel === 'bank_transfer') {

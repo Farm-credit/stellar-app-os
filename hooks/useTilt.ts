@@ -13,7 +13,11 @@ interface TiltState {
 export function useTilt() {
   const ref = useRef<HTMLDivElement>(null);
   const [state, setState] = useState<TiltState>({
-    rotateX: 0, rotateY: 0, glareX: 50, glareY: 50, active: false,
+    rotateX: 0,
+    rotateY: 0,
+    glareX: 50,
+    glareY: 50,
+    active: false,
   });
 
   const onMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {

@@ -60,7 +60,11 @@ const DIMENSION_UNITS: Record<ProjectImpactDimension, string> = {
  * dimension has no reported observations yet.
  */
 export const PROJECT_IMPACT_DIMENSIONS: readonly ProjectImpactDimensionMeta[] = [
-  { dimension: 'emissionsReduced', label: 'Emissions reduced', unit: DIMENSION_UNITS.emissionsReduced },
+  {
+    dimension: 'emissionsReduced',
+    label: 'Emissions reduced',
+    unit: DIMENSION_UNITS.emissionsReduced,
+  },
   { dimension: 'jobsCreated', label: 'Jobs created', unit: DIMENSION_UNITS.jobsCreated },
   {
     dimension: 'soilCarbonSequestered',

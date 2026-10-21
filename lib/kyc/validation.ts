@@ -191,10 +191,16 @@ export function validateKycSubmission(
     });
   } else {
     if (latitude < -90 || latitude > 90) {
-      errors.push({ field: 'land.gpsCoordinates.latitude', message: 'Latitude must be between -90 and 90.' });
+      errors.push({
+        field: 'land.gpsCoordinates.latitude',
+        message: 'Latitude must be between -90 and 90.',
+      });
     }
     if (longitude < -180 || longitude > 180) {
-      errors.push({ field: 'land.gpsCoordinates.longitude', message: 'Longitude must be between -180 and 180.' });
+      errors.push({
+        field: 'land.gpsCoordinates.longitude',
+        message: 'Longitude must be between -180 and 180.',
+      });
     }
   }
 
@@ -241,7 +247,10 @@ export function validateKycSubmission(
 
   const consentGranted = body.consentGranted;
   if (typeof consentGranted !== 'boolean') {
-    errors.push({ field: 'consentGranted', message: 'Consent must be explicitly granted or withheld.' });
+    errors.push({
+      field: 'consentGranted',
+      message: 'Consent must be explicitly granted or withheld.',
+    });
   }
 
   if (errors.length > 0) {
@@ -268,9 +277,7 @@ export function validateKycSubmission(
     },
     land: {
       ownershipType: ownershipType as LandOwnershipType,
-      documentReference: isNonEmptyString(documentReference)
-        ? documentReference.trim()
-        : undefined,
+      documentReference: isNonEmptyString(documentReference) ? documentReference.trim() : undefined,
       plotSizeHectares: plotSizeHectares as number,
       gpsCoordinates,
       region: (region as string).trim(),

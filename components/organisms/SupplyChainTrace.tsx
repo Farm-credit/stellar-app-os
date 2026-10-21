@@ -13,6 +13,7 @@ import {
   Sprout,
   User,
 } from 'lucide-react';
+import type { SeedProvenance } from '@/lib/marketplace/seedDistribution';
 import { Badge } from '@/components/atoms/Badge';
 import { Text } from '@/components/atoms/Text';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/molecules/Card';
@@ -63,9 +64,16 @@ interface SupplyChainTraceProps {
   verification: VerificationResult;
   summary: TraceSummary;
   found: FoundTrace;
+  seedProvenance?: SeedProvenance | null;
 }
 
-export function SupplyChainTrace({ trace, verification, summary, found }: SupplyChainTraceProps) {
+export function SupplyChainTrace({
+  trace,
+  verification,
+  summary,
+  found,
+  seedProvenance,
+}: SupplyChainTraceProps) {
   const { farm, farmer } = trace;
   const mapUrl = `https://www.openstreetmap.org/?mlat=${farm.location.lat}&mlon=${farm.location.lng}#map=14/${farm.location.lat}/${farm.location.lng}`;
 
@@ -186,6 +194,48 @@ export function SupplyChainTrace({ trace, verification, summary, found }: Supply
           </CardContent>
         </Card>
       </div>
+
+      {seedProvenance && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-stellar-blue">
+              <Sprout className="size-5" aria-hidden /> Seed provenance
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3 text-sm">
+            <div>
+              <p className="text-lg font-semibold">{seedProvenance.batchId}</p>
+              <p className="text-muted-foreground">
+                {seedProvenance.species.join(', ')}
+              </p>
+            </div>
+            <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div>
+                <dt className="text-muted-foreground">Seed bank</dt>
+                <dd className="font-medium">{seedProvenance.seedBank.name}</dd>
+              </div>
+              <div>
+                <dt className="text-muted-foreground">Collection site</dt>
+                <dd className="font-medium">{seedProvenance.collectionSite.name}</dd>
+              </div>
+              <div>
+                <dt className="text-muted-foreground">Nursery</dt>
+                <dd className="font-medium">{seedProvenance.nursery.name}</dd>
+              </div>
+              <div>
+                <dt className="text-muted-foreground">Planting site</dt>
+                <dd className="font-medium">{seedProvenance.plantingSite.name}</dd>
+              </div>
+            </dl>
+            <p className="text-xs text-muted-foreground">
+              Collected {formatDate(seedProvenance.collectedAt)}
+              {seedProvenance.distributedAt
+                ? ` · Distributed ${formatDate(seedProvenance.distributedAt)}`
+                : ''}
+            </p>
+          </CardContent>
+        </Card>
+      )}
 
       <section aria-labelledby="photos-heading">
         <Text

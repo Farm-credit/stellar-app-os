@@ -46,7 +46,7 @@ export async function uploadImageToS3(
 
 /**
  * Get signed URL for private S3 access (fallback when CDN is not available)
- * 
+ *
  * Prefer using getCdnPhotoUrl() from lib/cdn/cdn-url.ts for public photos
  * as it provides global edge caching with <100ms TTFB
  */

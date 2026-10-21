@@ -7,13 +7,19 @@ export const runtime = 'nodejs';
 const SUPPORTED_CURRENCIES = ['XLM', 'USDC', 'FIAT'] as const;
 const SUPPORTED_METHODS = ['bank_transfer', 'crypto_wallet', 'payment_app'] as const;
 
-const CURRENCY_METHOD_MAP: Record<(typeof SUPPORTED_CURRENCIES)[number], readonly (typeof SUPPORTED_METHODS)[number][]> = {
+const CURRENCY_METHOD_MAP: Record<
+  (typeof SUPPORTED_CURRENCIES)[number],
+  readonly (typeof SUPPORTED_METHODS)[number][]
+> = {
   XLM: ['crypto_wallet'],
   USDC: ['crypto_wallet'],
   FIAT: ['bank_transfer', 'payment_app'],
 };
 
-const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS ?? '').split(',').map(s => s.trim()).filter(Boolean);
+const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS ?? '')
+  .split(',')
+  .map((s) => s.trim())
+  .filter(Boolean);
 
 function getCorsHeaders(request: Request) {
   const origin = request.headers.get('origin');
@@ -46,10 +52,7 @@ export async function POST(request: Request) {
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json(
-      { error: 'Invalid JSON body' },
-      { status: 400, headers: corsHeaders },
-    );
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400, headers: corsHeaders });
   }
 
   const payload = body as Partial<FarmerPaymentRequest>;
@@ -57,7 +60,7 @@ export async function POST(request: Request) {
   if (!payload || typeof payload !== 'object') {
     return NextResponse.json(
       { error: 'Request body must be an object' },
-      { status: 400, headers: corsHeaders },
+      { status: 400, headers: corsHeaders }
     );
   }
 
@@ -66,35 +69,38 @@ export async function POST(request: Request) {
   if (!farmerId || typeof farmerId !== 'string') {
     return NextResponse.json(
       { error: 'farmerId is required' },
-      { status: 400, headers: corsHeaders },
+      { status: 400, headers: corsHeaders }
     );
   }
 
   if (typeof amount !== 'number' || !Number.isFinite(amount) || amount <= 0) {
     return NextResponse.json(
       { error: 'amount must be a positive number' },
-      { status: 400, headers: corsHeaders },
+      { status: 400, headers: corsHeaders }
     );
   }
 
-  if (!currency || !SUPPORTED_CURRENCIES.includes(currency as (typeof SUPPORTED_CURRENCIES)[number])) {
+  if (
+    !currency ||
+    !SUPPORTED_CURRENCIES.includes(currency as (typeof SUPPORTED_CURRENCIES)[number])
+  ) {
     return NextResponse.json(
       { error: `currency must be one of: ${SUPPORTED_CURRENCIES.join(', ')}` },
-      { status: 400, headers: corsHeaders },
+      { status: 400, headers: corsHeaders }
     );
   }
 
   if (!method || !SUPPORTED_METHODS.includes(method as (typeof SUPPORTED_METHODS)[number])) {
     return NextResponse.json(
       { error: `method must be one of: ${SUPPORTED_METHODS.join(', ')}` },
-      { status: 400, headers: corsHeaders },
+      { status: 400, headers: corsHeaders }
     );
   }
 
   if (!destination || typeof destination !== 'string') {
     return NextResponse.json(
       { error: 'destination is required' },
-      { status: 400, headers: corsHeaders },
+      { status: 400, headers: corsHeaders }
     );
   }
 
@@ -104,7 +110,7 @@ export async function POST(request: Request) {
       {
         error: `method '${method}' is not supported for currency '${currency}'. Allowed methods: ${allowedMethods.join(', ')}`,
       },
-      { status: 400, headers: corsHeaders },
+      { status: 400, headers: corsHeaders }
     );
   }
 

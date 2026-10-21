@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { type NextRequest, NextResponse } from 'next/server';
 import { getEmbedPurchaseStatus, validateApiKey } from '@/backend/src/services/carbonOffsetApi';
 import { isAllowedOrigin } from '@/backend/src/services/carbonOffsetSecurity';
 
@@ -13,16 +13,23 @@ export async function GET(request: NextRequest, context: RouteContext): Promise<
 
     const origin = request.headers.get('origin');
     if (!isAllowedOrigin(origin, config.allowedDomains)) {
-      return NextResponse.json({ error: 'Origin is not allowed for this API key' }, { status: 403 });
+      return NextResponse.json(
+        { error: 'Origin is not allowed for this API key' },
+        { status: 403 }
+      );
     }
 
     const { sessionId } = await context.params;
     const session = await getEmbedPurchaseStatus(sessionId, config.companyId, apiKey);
-    if (!session) return NextResponse.json({ error: 'Purchase session not found' }, { status: 404 });
+    if (!session)
+      return NextResponse.json({ error: 'Purchase session not found' }, { status: 404 });
 
-    return NextResponse.json({ session }, {
-      headers: { 'Access-Control-Allow-Origin': origin!, Vary: 'Origin' },
-    });
+    return NextResponse.json(
+      { session },
+      {
+        headers: { 'Access-Control-Allow-Origin': origin!, Vary: 'Origin' },
+      }
+    );
   } catch (error) {
     console.error('Get embed purchase status error:', error);
     return NextResponse.json(

@@ -69,7 +69,9 @@ export function CelebrationModal({
   };
 
   const handleShareWhatsApp = () => {
-    const text = encodeURIComponent(`${milestone.shareText} ${typeof window !== 'undefined' ? window.location.href : ''}`);
+    const text = encodeURIComponent(
+      `${milestone.shareText} ${typeof window !== 'undefined' ? window.location.href : ''}`
+    );
     window.open(`https://wa.me/?text=${text}`, '_blank');
   };
 
@@ -101,7 +103,10 @@ export function CelebrationModal({
             <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
               <Sparkles className="h-3.5 w-3.5" /> Milestone Unlocked
             </span>
-            <h2 id="celebration-title" className="mt-3 text-2xl font-bold text-slate-900 dark:text-white">
+            <h2
+              id="celebration-title"
+              className="mt-3 text-2xl font-bold text-slate-900 dark:text-white"
+            >
               {milestone.title}
             </h2>
             <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
@@ -134,7 +139,10 @@ export function CelebrationModal({
           {/* Social post prefill section */}
           <div className="mt-5 rounded-xl border border-slate-200 bg-slate-50 p-3.5 dark:border-slate-800 dark:bg-slate-800/60">
             <div className="flex items-center justify-between mb-1.5">
-              <label htmlFor="share-text" className="text-xs font-medium text-slate-500 dark:text-slate-400">
+              <label
+                htmlFor="share-text"
+                className="text-xs font-medium text-slate-500 dark:text-slate-400"
+              >
                 Pre-filled social post
               </label>
               <button

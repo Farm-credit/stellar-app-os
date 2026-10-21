@@ -106,7 +106,11 @@ export class TickerService extends EventEmitter {
     return trade;
   }
 
-  updateTradeStatus(tradeId: string, status: TradeStatus, txHash?: string): CarbonCreditTradeFill | null {
+  updateTradeStatus(
+    tradeId: string,
+    status: TradeStatus,
+    txHash?: string
+  ): CarbonCreditTradeFill | null {
     const trade = this.trades.get(tradeId);
     if (!trade) {
       logger.warn('updateTradeStatus: trade not found', { tradeId });

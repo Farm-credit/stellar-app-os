@@ -73,10 +73,7 @@ export async function generateTaxDocuments(params: {
     getCarbonCreditSales({ planterId: planter.id, taxYear }),
   ]);
 
-  const { records, excluded } = convertIncomeSources(
-    [...payouts, ...carbonSales],
-    getFxRates(env)
-  );
+  const { records, excluded } = convertIncomeSources([...payouts, ...carbonSales], getFxRates(env));
 
   const recipient: RecipientIdentity = {
     planterId: planter.id,

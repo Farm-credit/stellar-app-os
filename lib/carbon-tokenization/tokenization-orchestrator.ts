@@ -5,18 +5,13 @@ import {
 } from './credit-metadata';
 import type {
   MintedCreditRecord,
-  RegistryClient,
-  RegistryProtocol,
   TokenizationRequest,
   TokenizationValidationResult,
 } from '../certification/types';
-import { CreditValidator } from './credit-validator';
+import { type CreditValidator } from './credit-validator';
 import type { MintedCreditRepository } from './minted-repository';
-import type {
-  BlockchainMintClient,
-  MintResult,
-} from './evm-client';
-import { CreditTokenizationError, ValidationInternalError } from './errors';
+import type { BlockchainMintClient, MintResult } from './evm-client';
+import { ValidationInternalError } from './errors';
 import logger from '../logger';
 
 export interface TokenizeCreditResult {
@@ -94,8 +89,7 @@ export class TokenizationOrchestrator {
       };
     }
 
-    const vintage =
-      validation.retirement.vintage ?? validation.project.vintage ?? 1970;
+    const vintage = validation.retirement.vintage ?? validation.project.vintage ?? 1970;
     const tonnage = validation.retirement.tonnage;
 
     let metadataUpload: MetadataUploadResult;
@@ -123,9 +117,7 @@ export class TokenizationOrchestrator {
         validation,
         errors: [
           new ValidationInternalError(
-            `Failed to store metadata: ${
-              error instanceof Error ? error.message : String(error)
-            }`
+            `Failed to store metadata: ${error instanceof Error ? error.message : String(error)}`
           ).toValidationError(),
         ],
       };
@@ -155,9 +147,7 @@ export class TokenizationOrchestrator {
         metadataUri: metadataUpload.metadataUri,
         errors: [
           new ValidationInternalError(
-            `Mint execution failed: ${
-              error instanceof Error ? error.message : String(error)
-            }`
+            `Mint execution failed: ${error instanceof Error ? error.message : String(error)}`
           ).toValidationError(),
         ],
       };
@@ -191,15 +181,12 @@ export class TokenizationOrchestrator {
     try {
       await this.deps.mintedRepository.save(mintResult.record);
     } catch (error) {
-      logger.error(
-        '[TokenizationOrchestrator] Minted record persistence failed',
-        {
-          protocol,
-          serialNumber,
-          txHash: mintResult.txHash,
-          error: error instanceof Error ? error.message : String(error),
-        }
-      );
+      logger.error('[TokenizationOrchestrator] Minted record persistence failed', {
+        protocol,
+        serialNumber,
+        txHash: mintResult.txHash,
+        error: error instanceof Error ? error.message : String(error),
+      });
     }
 
     logger.info('[TokenizationOrchestrator] Tokenization complete', {

@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { StarRating } from './StarRating';
-import { ReviewFormValues } from '@/lib/review-types';
+import { type ReviewFormValues } from '@/lib/review-types';
 
 interface ReviewFormProps {
   planterId: string;
@@ -44,9 +44,7 @@ export const ReviewForm: React.FC<ReviewFormProps> = ({
 
       {/* Overall Rating */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          Overall Rating *
-        </label>
+        <label className="block text-sm font-medium text-gray-700 mb-2">Overall Rating *</label>
         <StarRating
           rating={formData.rating}
           interactive
@@ -57,9 +55,7 @@ export const ReviewForm: React.FC<ReviewFormProps> = ({
 
       {/* Quality */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          Quality of Work *
-        </label>
+        <label className="block text-sm font-medium text-gray-700 mb-2">Quality of Work *</label>
         <StarRating
           rating={formData.quality}
           interactive
@@ -70,9 +66,7 @@ export const ReviewForm: React.FC<ReviewFormProps> = ({
 
       {/* Responsiveness */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          Responsiveness *
-        </label>
+        <label className="block text-sm font-medium text-gray-700 mb-2">Responsiveness *</label>
         <StarRating
           rating={formData.responsiveness}
           interactive
@@ -96,10 +90,7 @@ export const ReviewForm: React.FC<ReviewFormProps> = ({
 
       {/* Comment */}
       <div>
-        <label
-          htmlFor="comment"
-          className="block text-sm font-medium text-gray-700 mb-2"
-        >
+        <label htmlFor="comment" className="block text-sm font-medium text-gray-700 mb-2">
           Additional Comments
         </label>
         <textarea

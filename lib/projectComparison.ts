@@ -29,12 +29,7 @@ export type RiskRating = 'low' | 'medium' | 'high';
 export type ProjectCurrency = 'USD' | 'EUR' | 'GBP';
 
 export type CoBenefitCategory =
-  | 'biodiversity'
-  | 'community'
-  | 'water'
-  | 'soil'
-  | 'climate_resilience'
-  | 'gender_equality';
+  'biodiversity' | 'community' | 'water' | 'soil' | 'climate_resilience' | 'gender_equality';
 
 /** Icon descriptor — the UI maps these to lucide components. */
 export type RiskIconName = 'check' | 'alert' | 'cross';
@@ -112,14 +107,7 @@ export type ComparisonCriterionId =
   | 'coBenefits'
   | 'buyerReviews';
 
-export type CriterionKind =
-  | 'text'
-  | 'price'
-  | 'risk'
-  | 'tags'
-  | 'benefits'
-  | 'reviews'
-  | 'credits';
+export type CriterionKind = 'text' | 'price' | 'risk' | 'tags' | 'benefits' | 'reviews' | 'credits';
 
 export interface ComparisonCriteria {
   id: ComparisonCriterionId;
@@ -162,18 +150,49 @@ export const COMPARISON_CRITERIA: readonly ComparisonCriteria[] = [
   { id: 'projectType', label: 'Type', kind: 'text', sortable: true, defaultVisible: true },
   { id: 'methodology', label: 'Methodology', kind: 'text', sortable: false, defaultVisible: true },
   { id: 'verifier', label: 'Verifier', kind: 'text', sortable: true, defaultVisible: true },
-  { id: 'certification', label: 'Certifications', kind: 'tags', sortable: false, defaultVisible: true },
+  {
+    id: 'certification',
+    label: 'Certifications',
+    kind: 'tags',
+    sortable: false,
+    defaultVisible: true,
+  },
   { id: 'pricePerTon', label: 'Price / Ton', kind: 'price', sortable: true, defaultVisible: true },
   { id: 'vintage', label: 'Vintage', kind: 'text', sortable: true, defaultVisible: false },
-  { id: 'totalCredits', label: 'Total Credits', kind: 'credits', sortable: true, defaultVisible: false },
-  { id: 'availableCredits', label: 'Available', kind: 'credits', sortable: true, defaultVisible: true },
+  {
+    id: 'totalCredits',
+    label: 'Total Credits',
+    kind: 'credits',
+    sortable: true,
+    defaultVisible: false,
+  },
+  {
+    id: 'availableCredits',
+    label: 'Available',
+    kind: 'credits',
+    sortable: true,
+    defaultVisible: true,
+  },
   { id: 'riskRating', label: 'Risk Rating', kind: 'risk', sortable: true, defaultVisible: true },
-  { id: 'coBenefits', label: 'Co-Benefits', kind: 'benefits', sortable: false, defaultVisible: true },
-  { id: 'buyerReviews', label: 'Buyer Reviews', kind: 'reviews', sortable: false, defaultVisible: true },
+  {
+    id: 'coBenefits',
+    label: 'Co-Benefits',
+    kind: 'benefits',
+    sortable: false,
+    defaultVisible: true,
+  },
+  {
+    id: 'buyerReviews',
+    label: 'Buyer Reviews',
+    kind: 'reviews',
+    sortable: false,
+    defaultVisible: true,
+  },
 ];
 
-export const COMPARISON_CRITERION_IDS: readonly ComparisonCriterionId[] =
-  COMPARISON_CRITERIA.map((criterion) => criterion.id);
+export const COMPARISON_CRITERION_IDS: readonly ComparisonCriterionId[] = COMPARISON_CRITERIA.map(
+  (criterion) => criterion.id
+);
 
 /** Columns shown before the user changes anything. */
 export const DEFAULT_COMPARISON_CRITERIA: readonly ComparisonCriterionId[] =
@@ -183,14 +202,11 @@ export const DEFAULT_COMPARISON_CRITERIA: readonly ComparisonCriterionId[] =
 
 export function isComparisonCriterionId(value: unknown): value is ComparisonCriterionId {
   return (
-    typeof value === 'string' &&
-    (COMPARISON_CRITERION_IDS as readonly string[]).includes(value)
+    typeof value === 'string' && (COMPARISON_CRITERION_IDS as readonly string[]).includes(value)
   );
 }
 
-export function getComparisonCriterion(
-  id: ComparisonCriterionId
-): ComparisonCriteria | undefined {
+export function getComparisonCriterion(id: ComparisonCriterionId): ComparisonCriteria | undefined {
   return COMPARISON_CRITERIA.find((criterion) => criterion.id === id);
 }
 
@@ -407,7 +423,8 @@ export function applyProjectFilters(
 
   return projects.filter((project) => {
     if (search) {
-      const haystack = `${project.name} ${project.location} ${project.country} ${project.methodology} ${project.verifier}`.toLowerCase();
+      const haystack =
+        `${project.name} ${project.location} ${project.country} ${project.methodology} ${project.verifier}`.toLowerCase();
       if (!haystack.includes(search)) return false;
     }
     if (filters.projectType && project.projectType !== filters.projectType) return false;
@@ -497,10 +514,7 @@ export function getComparisonProjects(ids: readonly string[]): Project[] {
 
 // ── Cell descriptions (rendered by the UI, serialised by the CSV export) ──────
 
-export function describeCriterionValue(
-  project: Project,
-  id: ComparisonCriterionId
-): CriterionCell {
+export function describeCriterionValue(project: Project, id: ComparisonCriterionId): CriterionCell {
   switch (id) {
     case 'pricePerTon':
       return { kind: 'price', amount: project.pricePerTon, currency: project.currency };

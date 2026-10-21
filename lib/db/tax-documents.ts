@@ -266,9 +266,7 @@ const UPSERT_DOCUMENT_SQL = `
  * (planter, tax year, form type), so re-running generation is idempotent and
  * always reflects the current ledger data.
  */
-export async function saveTaxDocument(
-  params: SaveTaxDocumentParams
-): Promise<TaxDocumentRow> {
+export async function saveTaxDocument(params: SaveTaxDocumentParams): Promise<TaxDocumentRow> {
   const pool = getPool();
   const result = await pool.query<TaxDocumentRow>(UPSERT_DOCUMENT_SQL, [
     params.planterId,

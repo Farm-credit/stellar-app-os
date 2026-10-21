@@ -17,11 +17,7 @@
 import { enqueueDigestEvent, type DigestEvent } from '@/lib/notifications';
 
 export type RestorationPhaseKind =
-  | 'land-preparation'
-  | 'nursery'
-  | 'planting'
-  | 'maintenance'
-  | 'monitoring';
+  'land-preparation' | 'nursery' | 'planting' | 'maintenance' | 'monitoring';
 
 export type RestorationPhaseStatus = 'completed' | 'in-progress' | 'upcoming';
 

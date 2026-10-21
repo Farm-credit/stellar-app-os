@@ -378,7 +378,9 @@ describe('CSV serialisation', () => {
   });
 
   it('lists carbon credit sales with a totals row', () => {
-    const { records } = convertIncomeSources([carbonSale('sale1', '2024-02-01T00:00:00Z', 300, 12)]);
+    const { records } = convertIncomeSources([
+      carbonSale('sale1', '2024-02-01T00:00:00Z', 300, 12),
+    ]);
     const csv = carbonCreditSalesToCsv(buildCarbonCreditSaleReport(records, 2024));
 
     expect(csv).toContain('credits_tons');

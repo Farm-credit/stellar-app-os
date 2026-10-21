@@ -9,12 +9,7 @@ import { Text } from '@/components/atoms/Text';
 import { getActiveFilterCount } from '@/lib/utils/filterUtils';
 import type { FilterSidebarProps } from '@/lib/types/filters';
 
-const DEFAULT_STANDARDS = [
-  'Gold Standard',
-  'Verra (VCS)',
-  'Climate Action Reserve',
-  'Plan Vivo',
-];
+const DEFAULT_STANDARDS = ['Gold Standard', 'Verra (VCS)', 'Climate Action Reserve', 'Plan Vivo'];
 
 export function FilterSidebar({
   filters,

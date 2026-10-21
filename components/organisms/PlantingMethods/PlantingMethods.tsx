@@ -7,10 +7,7 @@ import { BookOpen, Sprout, Video } from 'lucide-react';
 import { Badge } from '@/components/atoms/Badge';
 import { Card } from '@/components/molecules/Card';
 import { Text } from '@/components/atoms/Text';
-import {
-  getPlantingMethodsForProject,
-  type PlantingMethod,
-} from '@/lib/plantingMethods';
+import { getPlantingMethodsForProject, type PlantingMethod } from '@/lib/plantingMethods';
 
 interface PlantingMethodsProps {
   projectId: string;

@@ -1,3 +1,4 @@
+import { SponsorBadgeNotifier } from '@/components/molecules/SponsorBadges/SponsorBadgeNotifier';
 import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
@@ -126,6 +127,7 @@ export default function RootLayout({
                     <Footer />
                     <NotificationCenterDrawer />
                     <ToastContainer />
+                    <SponsorBadgeNotifier />
                   </NotificationProvider>
                 </QueryProvider>
               </ToastProvider>

@@ -136,7 +136,9 @@ describe('GET /api/v2/cross-chain-bridge', () => {
   });
 
   it('maps client errors to 502', async () => {
-    mocks.getBridgeConfig.mockRejectedValue(new Error('NEXT_PUBLIC_CONTRACT_XLM_BRIDGE is not set'));
+    mocks.getBridgeConfig.mockRejectedValue(
+      new Error('NEXT_PUBLIC_CONTRACT_XLM_BRIDGE is not set')
+    );
     const res = await GET(get());
     expect(res.status).toBe(502);
     const body = await res.json();

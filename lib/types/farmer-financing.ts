@@ -3,12 +3,7 @@
 export type CreditLineStatus = 'pending' | 'approved' | 'disbursed' | 'repaid' | 'rejected';
 
 export type LandPrepPurpose =
-  | 'clearing'
-  | 'soil_preparation'
-  | 'seedlings'
-  | 'fencing'
-  | 'irrigation'
-  | 'other';
+  'clearing' | 'soil_preparation' | 'seedlings' | 'fencing' | 'irrigation' | 'other';
 
 export interface Repayment {
   id: string;

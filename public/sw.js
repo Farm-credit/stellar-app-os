@@ -1,6 +1,10 @@
 // Service Worker for FarmCredit PWA
-const CACHE_NAME = 'farmcredit-v1';
-const RUNTIME_CACHE = 'farmcredit-runtime-v1';
+const CACHE_NAME = 'farmcredit-v2';
+const RUNTIME_CACHE = 'farmcredit-runtime-v2';
+const SYNC_TAG = 'sync-data';
+const DB = 'farmcredit-offline';
+const STORE = 'pending-records';
+const SYNC_ENDPOINT = '/api/field-records';
 
 // Assets to cache on install
 const PRECACHE_ASSETS = [
@@ -49,7 +53,7 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(request.url);
 
   // Skip cross-origin requests
-  if (url.origin !== location.origin) {
+  if (url.origin !== self.location.origin) {
     return;
   }
 
@@ -136,47 +140,196 @@ self.addEventListener('fetch', (event) => {
 
 // Background sync for offline actions
 self.addEventListener('sync', (event) => {
-  if (event.tag === 'sync-data') {
+  if (event.tag === SYNC_TAG) {
     event.waitUntil(syncData());
   }
 });
 
-async function syncData() {
-  // Implement background sync logic here
-  console.log('Background sync triggered');
+// Open (or create) the IndexedDBused by the app for offline storage
+function openDb() {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(DB, 1);
+    request.onupgradeneeded = () => {
+      const db = request.result;
+      if (!db.objectStoreNames.contains(STORE)) {
+        const store = db.createObjectStore(STORE, { keyPath: 'id', autoIncrement: true });
+        store.createIndex('status', 'status', { unique: false });
+        store.createIndex('createdAt', 'createdAt', { unique: false });
+      }
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
 }
 
+// Read all pending records from IndexedDB
+function getPendingRecords() {
+  return openDb().then((db) => {
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE, 'readonly');
+      const store = tx.objectStore(STORE);
+      const request = store.getAll();
+      request.onsuccess = () => {
+        const records = (request.result || []).filter(
+          (r) => r.status !== 'synced'
+        );
+        resolve(records);
+      };
+      request.onerror = () => reject(request.error);
+    });
+  });
+}
+
+// Update the status of a syngle record in IndexedDB
+function updateRecordStatus(id, status, extra) {
+  return openDb().then((db) => {
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE, 'readwrite');
+      const store = tx.objectStore(STORE);
+      const getReq = store.get(id);
+      getReq.onsuccess = () => {
+        const record = getReq.result;
+        if (!record) {
+          resolve(null);
+          return;
+        }
+        record.status = status;
+        record.updatedAt = Date.now();
+        if (extra) {
+          Object.assign(record, extra);
+        }
+        const putReq = store.put(record);
+        putReq.onsuccess = () => resolve(record);
+        putReq.onerror = () => reject(putReq.error);
+      };
+      getReq.onerror = () => reject(getReq.error);
+    });
+  });
+}
+
+// Send a single record to the server
+function uploadRecord(record) {
+  const payload = {
+    clientId: record.clientId,
+    treeId: record.treeId,
+    healthStatus: record.healthStatus,
+    notes: record.notes,
+    latitude: record.latitude,
+    longitude: record.longitude,
+    photos: record.photos || [],
+    capturedAt: record.createdAt,
+  };
+
+  return fetch(SYNC_ENDPOINT, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  }).then((response) => {
+    if (!response.ok) {
+      throw new Error(`Upload failed with status ${response.status}`);
+    }
+    return response.json().catch(() => ({}));
+  });
+}
+
+// Notify connected clients about sync progress
+function notifyClients(message) {
+  return self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
+    clients.forEach((client) => {
+      client.postMessage(message);
+    });
+  });
+}
+
+// Background sync implementation: upload pending records one by one
+async function syncData() {
+  const records = await getPendingRecords();
+  if (!records.length) {
+    await notifyClients({ type: 'SYNC_COMPLETE', count: 0 });
+    return;
+  }
+
+  await notifyClients({ type: 'SYNC_STARTED', count: records.length });
+
+  let synced = 0;
+  for (const record of records) {
+    try {
+      await updateRecordStatus(record.id, 'syncing');
+      const result = await uploadRecord(record);
+      await updateRecordStatus(record.id, 'synced', {
+        serverId: result && result.id ? result.id : null,
+      });
+      synced += 1;
+    } catch (error) {
+      // Mark as failed but keep it for a future retry
+      await updateRecordStatus(record.id, 'failed', {
+        error: error && error.message ? error.message : 'Unknown error',
+      });
+    }
+  }
+
+  await notifyClients({ type: 'SYNC_COMPLETE', count: synced });
+
+  // If some records failed, rethrow so the browser retries the sync event
+  if (synced < records.length) {
+    throw new Error(`Synced ${synced} of ${records.length} records`);
+  }
+}
+
+// Message handler - allow the app to trigger a manual sync
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SYNC_NOW') {
+    event.waitUntil(
+      syncData().catch(() => {
+        // Failures are recorded per-record and retried on the next sync
+      })
+    );
+  }
+});
+
 // Push notification handler
+// Payloads are JSON: { title, body, url, tag, actions: [{ action, title, url }] }.
+// Plain-text payloads from older senders still display as a basic notification.
 self.addEventListener('push', (event) => {
+  let payload = {};
+  if (event.data) {
+    try {
+      payload = event.data.json();
+    } catch {
+      payload = { body: event.data.text() };
+    }
+  }
+
+  const actions = Array.isArray(payload.actions) ? payload.actions.slice(0, 2) : [];
   const options = {
-    body: event.data ? event.data.text() : 'New update available',
+    body: payload.body || 'New update available',
     icon: '/icons/icon-192x192.png',
     badge: '/icons/icon-72x72.png',
     vibrate: [200, 100, 200],
+    tag: payload.tag,
     data: {
       dateOfArrival: Date.now(),
-      primaryKey: 1,
+      url: payload.url || '/',
+      actionUrls: Object.fromEntries(actions.map((a) => [a.action, a.url])),
     },
-    actions: [
-      {
-        action: 'explore',
-        title: 'View',
-      },
-      {
-        action: 'close',
-        title: 'Close',
-      },
-    ],
+    actions: actions.length
+      ? actions.map((a) => ({ action: a.action, title: a.title }))
+      : [
+          { action: 'explore', title: 'View' },
+          { action: 'close', title: 'Close' },
+        ],
   };
 
-  event.waitUntil(self.registration.showNotification('FarmCredit', options));
+  event.waitUntil(self.registration.showNotification(payload.title || 'FarmCredit', options));
 });
 
 // Notification click handler
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
+  if (event.action === 'close') return;
 
-  if (event.action === 'explore') {
-    event.waitUntil(clients.openWindow('/'));
-  }
+  const data = event.notification.data || {};
+  const target =
+    (event.action && data.actionUrls && data.actionUrls[event.action]) || data.url || '/';
+  event.waitUntil(clients.openWindow(target));
 });

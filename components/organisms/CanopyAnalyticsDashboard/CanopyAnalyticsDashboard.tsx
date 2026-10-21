@@ -53,7 +53,9 @@ export function CanopyAnalyticsDashboard({
   const filtered = useMemo(() => filterBySource(surveys, source), [surveys, source]);
   const summary = useMemo(() => summarize(filtered), [filtered]);
   const coverage = useMemo(() => buildCoverageSeries(filtered), [filtered]);
-  const latest = coverage.length ? filtered.find((s) => s.date === coverage.at(-1)?.date) : undefined;
+  const latest = coverage.length
+    ? filtered.find((s) => s.date === coverage.at(-1)?.date)
+    : undefined;
   const species = useMemo(() => buildSpeciesMix(latest), [latest]);
   const histogram = useMemo(() => buildHeightHistogram(latest?.treeHeightsM ?? []), [latest]);
 

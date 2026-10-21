@@ -77,9 +77,7 @@ export function ProfileStep({
           ) : (
             <WifiOff className="h-4 w-4 text-destructive" />
           )}
-          <span className="text-sm font-medium">
-            {isOnline ? 'Online' : 'Offline'}
-          </span>
+          <span className="text-sm font-medium">{isOnline ? 'Online' : 'Offline'}</span>
         </div>
         {!isOnline && pendingUploads > 0 && (
           <span className="text-xs text-muted-foreground">

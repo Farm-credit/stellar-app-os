@@ -1,4 +1,4 @@
-import type { PhotoMetadata } from "./types";
+import type { PhotoMetadata } from './types';
 
 /**
  * Minimal, dependency-free EXIF reader for JPEG files.
@@ -12,7 +12,7 @@ import type { PhotoMetadata } from "./types";
 
 const JPEG_SOI = 0xffd8;
 const APP1_MARKER = 0xffe1;
-const EXIF_HEADER = "Exif\0\0";
+const EXIF_HEADER = 'Exif\0\0';
 
 const TAG_MAKE = 0x010f;
 const TAG_MODEL = 0x0110;
@@ -154,7 +154,7 @@ export async function parseJpegExif(file: File): Promise<PhotoMetadata> {
     capturedAt = parseExifDate(reader.readAscii(ifd0.get(TAG_DATETIME)!));
   }
 
-  let gps: PhotoMetadata["gps"] = null;
+  let gps: PhotoMetadata['gps'] = null;
   if (ifd0.has(TAG_GPS_IFD_POINTER)) {
     const gpsIfd = reader.readIfd(reader.u32(ifd0.get(TAG_GPS_IFD_POINTER)!.valueOffset));
     const latEntry = gpsIfd.get(TAG_GPS_LAT);
@@ -163,13 +163,13 @@ export async function parseJpegExif(file: File): Promise<PhotoMetadata> {
     if (latEntry && lonEntry) {
       const latRef = gpsIfd.has(TAG_GPS_LAT_REF)
         ? reader.readAscii({ count: 2, valueOffset: gpsIfd.get(TAG_GPS_LAT_REF)!.valueOffset })
-        : "N";
+        : 'N';
       const lonRef = gpsIfd.has(TAG_GPS_LON_REF)
         ? reader.readAscii({ count: 2, valueOffset: gpsIfd.get(TAG_GPS_LON_REF)!.valueOffset })
-        : "E";
+        : 'E';
 
-      const latitude = reader.readGpsCoordinate(latEntry) * (latRef === "S" ? -1 : 1);
-      const longitude = reader.readGpsCoordinate(lonEntry) * (lonRef === "W" ? -1 : 1);
+      const latitude = reader.readGpsCoordinate(latEntry) * (latRef === 'S' ? -1 : 1);
+      const longitude = reader.readGpsCoordinate(lonEntry) * (lonRef === 'W' ? -1 : 1);
 
       let altitude: number | undefined;
       if (gpsIfd.has(TAG_GPS_ALTITUDE)) {

@@ -76,15 +76,15 @@ export default function AdminWebhooksPage(): ReactNode {
   const handleProcessPayment = async (paymentId: string): Promise<void> => {
     setPayments((prev) =>
       prev.map((payment) =>
-        payment.id === paymentId ? { ...payment, status: 'processing' } : payment,
-      ),
+        payment.id === paymentId ? { ...payment, status: 'processing' } : payment
+      )
     );
     // TODO: Implement API call to process farmer payment
     await new Promise((resolve) => setTimeout(resolve, 1000));
     setPayments((prev) =>
       prev.map((payment) =>
-        payment.id === paymentId ? { ...payment, status: 'completed' } : payment,
-      ),
+        payment.id === paymentId ? { ...payment, status: 'completed' } : payment
+      )
     );
   };
 
@@ -104,8 +104,8 @@ export default function AdminWebhooksPage(): ReactNode {
           Farmer Payment Processing
         </Text>
         <Text as="p" variant="muted" className="mb-4">
-          Process farmer payments in XLM, USDC, and fiat currency options via bank
-          transfers, crypto wallets, and payment apps.
+          Process farmer payments in XLM, USDC, and fiat currency options via bank transfers, crypto
+          wallets, and payment apps.
         </Text>
         <div className="overflow-x-auto rounded-lg border border-gray-200">
           <table className="min-w-full divide-y divide-gray-200 text-sm">
@@ -124,15 +124,9 @@ export default function AdminWebhooksPage(): ReactNode {
               {payments.map((payment) => (
                 <tr key={payment.id}>
                   <td className="px-4 py-3 text-gray-900">{payment.farmerName}</td>
-                  <td className="px-4 py-3 text-gray-900">
-                    {payment.amount.toLocaleString()}
-                  </td>
-                  <td className="px-4 py-3 text-gray-700">
-                    {currencyLabels[payment.currency]}
-                  </td>
-                  <td className="px-4 py-3 text-gray-700">
-                    {methodLabels[payment.method]}
-                  </td>
+                  <td className="px-4 py-3 text-gray-900">{payment.amount.toLocaleString()}</td>
+                  <td className="px-4 py-3 text-gray-700">{currencyLabels[payment.currency]}</td>
+                  <td className="px-4 py-3 text-gray-700">{methodLabels[payment.method]}</td>
                   <td className="px-4 py-3 text-gray-700">{payment.destination}</td>
                   <td className="px-4 py-3 capitalize text-gray-700">{payment.status}</td>
                   <td className="px-4 py-3">

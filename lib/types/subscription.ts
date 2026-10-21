@@ -15,6 +15,8 @@ export interface SponsorshipSubscription {
   stripe_subscription_id: string | null;
   stripe_customer_id: string | null;
   status: SubscriptionStatus;
+  pause_until: Date | null;
+  species_preference: string | null;
   next_billing_date: Date | null;
   last_billing_date: Date | null;
   created_at: Date;
@@ -33,6 +35,23 @@ export interface CreateSubscriptionRequest {
 export interface CancelSubscriptionRequest {
   subscription_id: number;
   wallet: string; // must match owner
+}
+
+export interface PauseSubscriptionRequest {
+  subscription_id: number;
+  wallet: string;
+  duration_months: number;
+}
+
+export interface ResumeSubscriptionRequest {
+  subscription_id: number;
+  wallet: string;
+}
+
+export interface UpdateSpeciesPreferenceRequest {
+  subscription_id: number;
+  wallet: string;
+  species_preference: string | null;
 }
 
 export interface SubscriptionListFilters {

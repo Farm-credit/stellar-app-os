@@ -18,10 +18,10 @@
 import type { EcosystemRecoverySnapshot, RecoveryStatus } from '@/lib/types/biodiversity';
 
 // ── Weight constants (must sum to 1.0) ───────────────────────────────────────
-const W_ACI = 0.30;
+const W_ACI = 0.3;
 const W_CANOPY = 0.25;
 const W_NDVI = 0.25;
-const W_RICHNESS = 0.20;
+const W_RICHNESS = 0.2;
 
 // ── Recovery-status thresholds ───────────────────────────────────────────────
 const THRESHOLDS: Array<[number, RecoveryStatus]> = [
