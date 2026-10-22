@@ -155,6 +155,20 @@ export function CorporateDashboard() {
             <Download className="h-4 w-4" />
             Export Excel
           </Button>
+          <a
+            href="/api/v2/buyer-esg-report?buyerId=corporate-dashboard&companyName=Acme%20Corp&dataSource=ledger&format=gri"
+            className="inline-flex items-center gap-2 rounded-md border border-white/10 px-4 py-2 text-sm font-medium hover:bg-white/5"
+          >
+            <Download className="h-4 w-4" />
+            GRI export
+          </a>
+          <a
+            href="/api/v2/buyer-esg-report?buyerId=corporate-dashboard&companyName=Acme%20Corp&dataSource=ledger&format=tcfd"
+            className="inline-flex items-center gap-2 rounded-md border border-white/10 px-4 py-2 text-sm font-medium hover:bg-white/5"
+          >
+            <Download className="h-4 w-4" />
+            TCFD export
+          </a>
           <Button className="gap-2 bg-stellar-blue hover:bg-stellar-blue/90 shadow-lg shadow-stellar-blue/20">
             <PlusCircle className="h-4 w-4" />
             Bulk Purchase

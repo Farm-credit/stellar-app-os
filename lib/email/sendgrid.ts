@@ -123,6 +123,18 @@ export async function sendJobAcceptedEmail(params: JobAcceptedParams): Promise<v
   });
 }
 
+export interface FieldReportEmailParams {
+  to: string;
+  subject: string;
+  text: string;
+  html: string;
+}
+
+export async function sendFieldReportEmail(params: FieldReportEmailParams): Promise<void> {
+  if (!isEmailConfigured()) return;
+  await sgMail.send({ ...params, from: FROM });
+}
+
 export async function sendPhotoUploadedEmail(params: PhotoUploadedParams): Promise<void> {
   if (!isEmailConfigured()) return;
   const { sponsorEmail, sponsorName, treeId, photoUrl } = params;

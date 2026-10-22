@@ -2,6 +2,8 @@ import { notFound } from 'next/navigation';
 import type { ReactNode } from 'react';
 
 import { WhiteLabelFrame } from '@/components/organisms/WhiteLabel/WhiteLabelFrame';
+import { PartnerCertificationBadge } from '@/components/molecules/PartnerCertificationBadge/PartnerCertificationBadge';
+import { getActiveCertification } from '@/lib/partner-certification';
 import { getWhiteLabelConfig, splitSponsorshipPrice } from '@/lib/whiteLabel';
 import { MOCK_TREE_SPONSORSHIP_OFFERINGS } from '@/lib/treeSponsorshipComparison';
 
@@ -22,6 +24,7 @@ export default async function PartnerStorefrontPage({ params }: Props): Promise<
     return null;
   }
 
+  const certification = getActiveCertification(partnerId);
   const offerings = MOCK_TREE_SPONSORSHIP_OFFERINGS.filter((offering) =>
     config.projectIds.includes(offering.projectId)
   );
@@ -33,6 +36,9 @@ export default async function PartnerStorefrontPage({ params }: Props): Promise<
           <h1 className="text-3xl font-bold" style={{ color: 'var(--wl-primary)' }}>
             Sponsor a tree with {config.branding.partnerName}
           </h1>
+          {certification ? (
+            <PartnerCertificationBadge expiresAt={certification.expiresAt} className="mt-2" />
+          ) : null}
           <p className="mt-2 text-muted-foreground">
             Every sponsorship funds verified planting projects. Hosted at{' '}
             {config.branding.customDomain}.
@@ -49,6 +55,9 @@ export default async function PartnerStorefrontPage({ params }: Props): Promise<
                 data-testid={`wl-offering-${offering.projectId}`}
               >
                 <h2 className="text-lg font-semibold">{offering.projectName}</h2>
+                {certification ? (
+                  <PartnerCertificationBadge expiresAt={certification.expiresAt} className="mt-1" />
+                ) : null}
                 <p className="text-sm text-muted-foreground">{offering.location}</p>
                 <p className="mt-3 text-2xl font-bold" style={{ color: 'var(--wl-accent)' }}>
                   ${breakdown.totalUsd.toFixed(2)}

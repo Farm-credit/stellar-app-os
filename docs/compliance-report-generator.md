@@ -339,6 +339,18 @@ To add a new report type:
 5. Add the case in `fetchReportData` switch statement
 6. Update API documentation
 
+## Corporate CSR report exports
+
+The corporate dashboard provides downloadable GRI-oriented and TCFD-oriented JSON templates through `GET /api/v2/buyer-esg-report`. Add `buyerId`, `dataSource=ledger`, and `format=gri` or `format=tcfd` to the query. Signed exports require ledger-backed buyer data; the endpoint rejects synthetic report data. Exports include reporting-period timestamps, explicit data gaps, and an Ed25519 signature over the UTF-8 encoding of `JSON.stringify({ generatedAt, report })`. The response includes the matching public key so consumers can verify the signature independently.
+
+Configure `CSR_REPORT_SIGNING_PRIVATE_KEY_HEX` as a 32-byte (64 hex character) Ed25519 seed in the deployment's secret manager. Generate a seed with:
+
+```sh
+node -p "require('node:crypto').randomBytes(32).toString('hex')"
+```
+
+Never commit the generated key. The endpoint returns `503` if signing is not configured. The templates distinguish offset purchases and retirements from gross emissions and do not claim GRI/TCFD compliance or independent assurance.
+
 ## License
 
 Part of stellar-app-os. See LICENSE for details.

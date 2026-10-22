@@ -82,6 +82,7 @@ function parseInput(input: {
   cause?: unknown;
   remediation?: unknown;
   note?: unknown;
+  photoUrls?: unknown;
 }) {
   const treeId = typeof input.treeId === 'string' ? input.treeId.trim() : '';
   if (!treeId) throw new TreeHealthError('Tree id is required');
@@ -106,8 +107,18 @@ function parseInput(input: {
     }
     remediation = (input.remediation as string[]).map((s) => s.trim());
   }
+  let photoUrls: string[] = [];
+  if (input.photoUrls !== undefined) {
+    if (
+      !Array.isArray(input.photoUrls) ||
+      input.photoUrls.some((u) => typeof u !== 'string' || !/^https?:\/\//.test(u))
+    ) {
+      throw new TreeHealthError('photoUrls must be a list of http(s) URLs');
+    }
+    photoUrls = input.photoUrls as string[];
+  }
   const note = typeof input.note === 'string' && input.note.trim() ? input.note.trim() : null;
-  return { treeId, score, cause, remediation, note };
+  return { treeId, score, cause, remediation, note, photoUrls };
 }
 
 async function deliver(sponsorId: string, payload: PushPayload): Promise<PushDeliveryResult> {
@@ -189,6 +200,11 @@ export async function recordHealthObservation(
 
 export function listHealthAlerts(sponsorId: string): TreeHealthAlert[] {
   return alerts.filter((a) => a.sponsorId === sponsorId);
+}
+
+/** Every recorded observation, oldest first within each tree. */
+export function listAllHealthObservations(): TreeHealthObservation[] {
+  return [...observations.values()].flat();
 }
 
 export function resetTreeHealthForTest(): void {

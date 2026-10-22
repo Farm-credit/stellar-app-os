@@ -15,12 +15,14 @@ export function MarketplaceFilters({
   selectedType,
   selectedLocation,
   selectedFundingStatus,
+  selectedListingKind,
   sortBy,
   searchQuery,
   activeFilterCount,
   onTypeChange,
   onLocationChange,
   onFundingStatusChange,
+  onListingKindChange,
   onSortChange,
   onSearchChange,
   onClearAllFilters,
@@ -47,6 +49,14 @@ export function MarketplaceFilters({
       onFundingStatusChange(value === '' ? null : (value as FundingStatus));
     },
     [onFundingStatusChange]
+  );
+
+  const handleListingKindChange = useCallback(
+    (e: React.ChangeEvent<HTMLSelectElement>) => {
+      const value = e.target.value;
+      onListingKindChange(value === '' ? null : (value as typeof selectedListingKind));
+    },
+    [onListingKindChange]
   );
 
   const handleSortChange = useCallback(
@@ -193,6 +203,27 @@ export function MarketplaceFilters({
             as="p"
             className="mb-2 text-xs uppercase tracking-wide text-muted-foreground"
           >
+            Listing type
+          </Text>
+          <Select
+            id="listing-kind-filter"
+            variant="primary"
+            value={selectedListingKind || ''}
+            onChange={handleListingKindChange}
+            aria-label="Filter by listing type"
+          >
+            <option value="">All Listings</option>
+            <option value="fixed-price">Fixed price</option>
+            <option value="auction">Auction</option>
+          </Select>
+        </div>
+
+        <div>
+          <Text
+            variant="label"
+            as="p"
+            className="mb-2 text-xs uppercase tracking-wide text-muted-foreground"
+          >
             Sort by
           </Text>
           <Select
@@ -205,12 +236,17 @@ export function MarketplaceFilters({
             <option value="date-newest">Newest</option>
             <option value="funded">Most Funded</option>
             <option value="ending-soon">Ending Soon</option>
+            <option value="auction-ending-soon">Auctions Ending Soon</option>
             <option value="alphabetical">Alphabetical</option>
           </Select>
         </div>
       </div>
 
-      {(selectedType || selectedLocation || selectedFundingStatus || searchQuery) && (
+      {(selectedType ||
+        selectedLocation ||
+        selectedFundingStatus ||
+        selectedListingKind ||
+        searchQuery) && (
         <div className="flex flex-col gap-3 rounded-2xl border border-border bg-muted/10 p-4">
           <div className="flex items-center justify-between gap-3">
             <Text variant="small" className="font-semibold">
@@ -260,6 +296,18 @@ export function MarketplaceFilters({
                 aria-label={`Remove ${selectedFundingStatus} funding status filter`}
               >
                 {selectedFundingStatus}
+                <X className="ml-1 h-3 w-3" />
+              </Button>
+            )}
+            {selectedListingKind && (
+              <Button
+                onClick={() => onListingKindChange(null)}
+                stellar="primary-outline"
+                size="sm"
+                className="h-8 text-xs"
+                aria-label={`Remove ${selectedListingKind} listing type filter`}
+              >
+                {selectedListingKind === 'auction' ? 'Auction' : 'Fixed price'}
                 <X className="ml-1 h-3 w-3" />
               </Button>
             )}

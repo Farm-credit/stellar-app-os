@@ -31,43 +31,31 @@ import {
   type Milestone,
 } from '@/components/organisms/ProjectTimeline/ProjectTimeline';
 import { ProjectCarousel } from '@/components/organisms/ProjectCarousel/ProjectCarousel';
+import { DroneImageryViewer } from '@/components/organisms/DroneImageryViewer/DroneImageryViewer';
 import { BiodiversityIndex } from '@/components/organisms/BiodiversityIndex/BiodiversityIndex';
-import { ForestCoverageTracker } from '@/components/organisms/ForestCoverageTracker/ForestCoverageTracker';
 import { ProjectPlanters } from '@/components/organisms/ProjectPlanters';
-import { ProjectSuccessStories } from '@/components/organisms/FarmerSuccessStories/ProjectSuccessStories';
+import { SoilHealthSection } from '@/components/organisms/ProjectDetailView/SoilHealthSection';
 import { FundAllocationTransparency } from '@/components/organisms/FundAllocationTransparency';
 import { NativeSpeciesTransparency } from '@/components/organisms/NativeSpeciesTransparency';
-import dynamic from 'next/dynamic';
-import '@/components/organisms/PlantingMethods/PlantingMethods';
-import '@/components/organisms/RestorationTimeline/RestorationTimelineGantt';
-import '@/components/organisms/LivePlantingStream/LivePlantingStream';
+import { ProjectProtectionImpact } from '@/components/organisms/SponsorImpact/ProjectProtectionImpact';
+import { PlantingMethods } from '@/components/organisms/PlantingMethods/PlantingMethods';
+import { RestorationTimelineGantt } from '@/components/organisms/RestorationTimeline/RestorationTimelineGantt';
+import { LivePlantingStream } from '@/components/organisms/LivePlantingStream/LivePlantingStream';
+import { PlantingCalendar } from '@/components/organisms/PlantingCalendar/PlantingCalendar';
+import { WaterImpactSection } from '@/components/organisms/WaterImpactSection/WaterImpactSection';
 
 import { mockCarbonProjects } from '@/lib/api/mock/carbonProjects';
+import { getDroneImagesByProject } from '@/lib/data/drone-imagery';
 import { toast } from 'sonner';
 import type { AdminProjectDetail } from '@/lib/types/adminProject';
 import type { CarbonProject } from '@/lib/types/carbon';
-import type { ProjectCoverageRecord } from '@/lib/canopy/project-coverage';
-
-const ProjectProtectionImpact = dynamic(
-  () =>
-    import('@/components/organisms/SponsorImpact/ProjectProtectionImpact').then(
-      (module) => module.ProjectProtectionImpact
-    ),
-  { ssr: false }
-);
 
 interface ProjectDetailViewProps {
   adminProject: AdminProjectDetail;
   carbonProject: CarbonProject;
-  /** Forest coverage + target for this project (#1653). Omitted for non-forest projects. */
-  coverage?: ProjectCoverageRecord;
 }
 
-export function ProjectDetailView({
-  adminProject,
-  carbonProject,
-  coverage,
-}: ProjectDetailViewProps) {
+export function ProjectDetailView({ adminProject, carbonProject }: ProjectDetailViewProps) {
   const router = useRouter();
 
   const handleShare = () => {
@@ -89,7 +77,6 @@ export function ProjectDetailView({
     { label: 'CO2 Removed', value: '25,480', unit: 'tons', icon: 'co2' },
     { label: 'Trees Planted', value: '1.2M', icon: 'tree' },
     { label: 'Energy Saved', value: '450', unit: 'MWh', icon: 'energy' },
-    { label: 'Water Conserved', value: '85K', unit: 'gal', icon: 'water' },
     { label: 'Jobs Created', value: '120', icon: 'community' },
     { label: 'Verified Status', value: 'Active', icon: 'verified' },
   ];
@@ -229,17 +216,7 @@ export function ProjectDetailView({
         <div className="flex flex-col lg:flex-row gap-12">
           {/* Main Content */}
           <div className="flex-1 space-y-12">
-            {/* Issue #1653: Forest coverage tracker */}
-            {coverage && (
-              <section id="forest-coverage">
-                <Text variant="h3" className="mb-6 font-bold flex items-center gap-2">
-                  Forest Coverage
-                  <div className="h-px bg-stellar-blue/20 flex-1 ml-4" />
-                </Text>
-                <ForestCoverageTracker coverage={coverage} />
-              </section>
-            )}
-
+            <SoilHealthSection projectId={adminProject.id} />
             <section id="about">
               <Text variant="h3" className="mb-6 font-bold flex items-center gap-2">
                 About the Project
@@ -268,12 +245,61 @@ export function ProjectDetailView({
               />
             </section>
 
+            <WaterImpactSection projectId={adminProject.id} projectName={adminProject.name} />
+
+            {/* Issue #1675: documented planting methods per project */}
+            <section id="planting-methods">
+              <Text variant="h3" className="mb-6 font-bold flex items-center gap-2">
+                Planting Methods
+                <div className="h-px bg-stellar-blue/20 flex-1 ml-4" />
+              </Text>
+              <PlantingMethods projectId={adminProject.id} />
+            </section>
+
             <section id="timeline">
               <Text variant="h3" className="mb-8 font-bold flex items-center gap-2">
                 Project Roadmap
                 <div className="h-px bg-stellar-blue/20 flex-1 ml-4" />
               </Text>
               <ProjectTimeline milestones={milestones} />
+            </section>
+
+            {/* Issue #1680: Drone Imagery Viewer */}
+            <section id="drone-imagery">
+              <Text variant="h3" className="mb-6 font-bold flex items-center gap-2">
+                Drone Imagery
+                <div className="h-px bg-stellar-blue/20 flex-1 ml-4" />
+              </Text>
+              <DroneImageryViewer
+                images={getDroneImagesByProject(adminProject.id)}
+                projectId={adminProject.id}
+              />
+            </section>
+            {/* Issue #1678: Gantt-style restoration phase timeline */}
+            <section id="restoration-timeline">
+              <Text variant="h3" className="mb-6 font-bold flex items-center gap-2">
+                Restoration Timeline
+                <div className="h-px bg-stellar-blue/20 flex-1 ml-4" />
+              </Text>
+              <RestorationTimelineGantt projectId={adminProject.id} />
+            </section>
+
+            {/* Issue #1659: public planting schedule calendar */}
+            <section id="planting-calendar">
+              <Text variant="h3" className="mb-6 font-bold flex items-center gap-2">
+                Planting Schedule
+                <div className="h-px bg-stellar-blue/20 flex-1 ml-4" />
+              </Text>
+              <PlantingCalendar projectId={adminProject.id} />
+            </section>
+
+            {/* Issue #1708: live planting-event streaming for sponsors */}
+            <section id="live-events">
+              <Text variant="h3" className="mb-6 font-bold flex items-center gap-2">
+                Live Planting Events
+                <div className="h-px bg-stellar-blue/20 flex-1 ml-4" />
+              </Text>
+              <LivePlantingStream projectId={adminProject.id} />
             </section>
 
             {/* Issue #1150: Meet the people planting this project's trees */}
@@ -378,7 +404,7 @@ export function ProjectDetailView({
                       <div>
                         <div className="text-sm font-medium line-clamp-1">{doc.fileName}</div>
                         <div className="text-xs text-muted-foreground">
-                          {(doc.sizeBytes / 1024 / 1024).toFixed(2)} MB â€¢ {doc.version}
+                          {(doc.sizeBytes / 1024 / 1024).toFixed(2)} MB • {doc.version}
                         </div>
                       </div>
                     </div>

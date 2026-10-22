@@ -33,6 +33,8 @@ export interface Tree {
   /** On-chain collectible ID and current owner for sponsored trees. */
   nftTokenId?: string;
   nftOwner?: string;
+  /** Public-facing sponsor display name used on milestone sharing cards. */
+  sponsorName?: string;
   /** Optional evidence image shown on the tree detail page. */
   imageUrl?: string;
   /** Identifier of the seed batch this tree was grown from. */

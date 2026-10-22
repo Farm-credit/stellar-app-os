@@ -15,6 +15,7 @@ import {
 import { Co2MethodologyLink } from '@/components/molecules/Co2MethodologyLink';
 import type { TreeSequestration } from '@/lib/carbon/ipcc-tier1';
 import type { Tree } from '@/lib/types/tree';
+import { speciesPathForName } from '@/lib/species/education';
 import { TreeCo2Calculation } from './TreeCo2Calculation';
 import { TreeImage } from './TreeImage';
 import { TreeHealthPanel } from './TreeHealthPanel';
@@ -70,6 +71,14 @@ export function TreeDetail({ tree, sequestration }: TreeDetailProps) {
           </CardHeader>
           <CardContent>
             <Text className="text-lg font-semibold">{tree.species}</Text>
+            {speciesPathForName(tree.species) ? (
+              <Link
+                href={speciesPathForName(tree.species) as string}
+                className="mt-1 inline-block text-sm text-stellar-blue hover:underline"
+              >
+                Learn about {tree.species}
+              </Link>
+            ) : null}
           </CardContent>
         </Card>
 

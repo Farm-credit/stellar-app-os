@@ -14,13 +14,11 @@ import {
   CardTitle,
 } from '@/components/molecules/Card';
 import { hasCompletedOnboardingTour, requestOnboardingTourRestart } from '@/lib/onboardingTour';
-import '@/lib/utils';
+import { cn } from '@/lib/utils';
 import { PreferencesSection } from '@/components/organisms/settings/PreferencesSection';
-import { Switch } from '@/components/atoms/Switch';
-import { useNotifications } from '@/contexts/NotificationContext';
-import { notificationsSchema } from '@/lib/validation/notifications';
+import { RecognitionSection } from '@/components/organisms/settings/RecognitionSection';
 
-type TabId = 'profile' | 'notifications' | 'preferences' | 'danger';
+type TabId = 'profile' | 'notifications' | 'preferences' | 'recognition' | 'danger';
 
 interface NavItem {
   id: TabId;
@@ -32,6 +30,7 @@ const NAV_ITEMS: NavItem[] = [
   { id: 'profile', label: 'Profile', icon: '👤' },
   { id: 'notifications', label: 'Notifications', icon: '🔔' },
   { id: 'preferences', label: 'Preferences', icon: '⚙️' },
+  { id: 'recognition', label: 'Recognition', icon: '🌳' },
   { id: 'danger', label: 'Danger Zone', icon: '⚠️' },
 ];
 
@@ -39,6 +38,7 @@ const SECTION_TITLES: Record<TabId, string> = {
   profile: 'Profile',
   notifications: 'Notifications',
   preferences: 'Preferences',
+  recognition: 'Recognition',
   danger: 'Danger Zone',
 };
 
@@ -51,130 +51,9 @@ function ProfileSection() {
 }
 
 function NotificationSection() {
-  const { preferences, setNewsletterOptIn, updatePreferences } = useNotifications();
-  const [errors, setErrors] = useState<Record<string, string>>({});
-
-  const validate = (next: typeof preferences): boolean => {
-    const result = notificationsSchema.safeParse(next);
-    if (!result.success) {
-      const fieldErrors: Record<string, string> = {};
-      for (const issue of result.error.issues) {
-        const key = issue.path[0];
-        if (typeof key === 'string' && !fieldErrors[key]) {
-          fieldErrors[key] = issue.message;
-        }
-      }
-      setErrors(fieldErrors);
-      return false;
-    }
-    setErrors({});
-    return true;
-  };
-
-  const handleToggle = (key: 'email' | 'push' | 'sms', value: boolean) => {
-    const next = { ...preferences, [key]: value };
-    if (validate(next)) {
-      updatePreferences({ [key]: value });
-    }
-  };
-
-  const handleNewsletterToggle = (value: boolean) => {
-    const next = { ...preferences, newsletter: value };
-    if (validate(next)) {
-      setNewsletterOptIn(value);
-    }
-  };
-
   return (
-    <div className="space-y-6">
-      <div className="space-y-4">
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <Text as="p" className="font-medium">
-              Email notifications
-            </Text>
-            <Text variant="muted" as="p" className="text-sm">
-              Receive updates about your trees and account by email.
-            </Text>
-            {errors.email && (
-              <Text variant="small" as="p" className="text-destructive">
-                {errors.email}
-              </Text>
-            )}
-          </div>
-          <Switch
-            checked={preferences.email}
-            onCheckedChange={(value) => handleToggle('email', value)}
-            aria-label="Email notifications"
-          />
-        </div>
-
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <Text as="p" className="font-medium">
-              Push notifications
-            </Text>
-            <Text variant="muted" as="p" className="text-sm">
-              Get real-time alerts in your browser.
-            </Text>
-            {errors.push && (
-              <Text variant="small" as="p" className="text-destructive">
-                {errors.push}
-              </Text>
-            )}
-          </div>
-          <Switch
-            checked={preferences.push}
-            onCheckedChange={(value) => handleToggle('push', value)}
-            aria-label="Push notifications"
-          />
-        </div>
-
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <Text as="p" className="font-medium">
-              SMS notifications
-            </Text>
-            <Text variant="muted" as="p" className="text-sm">
-              Receive important updates via text message.
-            </Text>
-            {errors.sms && (
-              <Text variant="small" as="p" className="text-destructive">
-                {errors.sms}
-              </Text>
-            )}
-          </div>
-          <Switch
-            checked={preferences.sms}
-            onCheckedChange={(value) => handleToggle('sms', value)}
-            aria-label="SMS notifications"
-          />
-        </div>
-      </div>
-
-      <div className="border-t pt-4">
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <Text as="p" className="font-medium">
-              Monthly forest health newsletter
-            </Text>
-            <Text variant="muted" as="p" className="text-sm">
-              Curated platform news, reforestation stories, species spotlights, conservation tips,
-              and updates on your own trees.
-            </Text>
-            {errors.newsletter && (
-              <Text variant="small" as="p" className="text-destructive">
-                {errors.newsletter}
-              </Text>
-            )}
-          </div>
-          <Switch
-            checked={preferences.newsletter}
-            onCheckedChange={handleNewsletterToggle}
-            aria-label="Monthly forest health newsletter"
-          />
-        </div>
-      </div>
+    <div>
+      <Text variant="muted">Notification settings coming soon.</Text>
     </div>
   );
 }
@@ -216,11 +95,7 @@ export default function SettingsPage(): ReactNode {
       <div className="rounded-lg border bg-background p-6">
         <div className="flex flex-col gap-6 sm:flex-row sm:gap-8">
           <aside className="w-full shrink-0 sm:w-48 lg:w-52">
-            <nav
-              className="flex flex-row gap-1 sm:flex-col"
-              role="tablist"
-              aria-label="Settings sections"
-            >
+            <nav className="flex flex-row gap-1 sm:flex-col" role="tablist" aria-label="Settings sections">
               {NAV_ITEMS.map((item) => (
                 <button
                   key={item.id}
@@ -245,12 +120,11 @@ export default function SettingsPage(): ReactNode {
           </aside>
 
           <div className="flex-1 min-w-0" role="tabpanel">
-            <h2 className="mb-6 text-lg font-semibold text-foreground">
-              {SECTION_TITLES[activeTab]}
-            </h2>
+            <h2 className="mb-6 text-lg font-semibold text-foreground">{SECTION_TITLES[activeTab]}</h2>
             {activeTab === 'profile' && <ProfileSection />}
             {activeTab === 'notifications' && <NotificationSection />}
             {activeTab === 'preferences' && <PreferencesSection />}
+            {activeTab === 'recognition' && <RecognitionSection />}
             {activeTab === 'danger' && <DeleteAccountSection />}
           </div>
         </div>

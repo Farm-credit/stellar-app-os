@@ -5,9 +5,16 @@ import { ArrowRight, Smartphone } from 'lucide-react';
 import { TreeDetail } from '@/components/organisms/TreeDetail/TreeDetail';
 import { ConnectedTreeHealthAlertToggle } from '@/components/molecules/ConnectedTreeHealthAlertToggle';
 import { ConnectedTreeMessagePanel } from '@/components/organisms/TreeMessagePanel/ConnectedTreeMessagePanel';
+import { TreeQRLabel } from '@/components/organisms/TreeQRLabel';
+import { TreeMilestoneShareCards } from '@/components/organisms/TreeMilestoneShareCards';
 import { getMockTrees } from '@/lib/api/mock/trees';
 import { getTreeById } from '@/lib/api/tree-registry';
-import { estimateTreeSequestration, inferClimateZone } from '@/lib/carbon/ipcc-tier1';
+import {
+  cumulativeCo2Kg,
+  estimateTreeSequestration,
+  inferClimateZone,
+} from '@/lib/carbon/ipcc-tier1';
+import { getReachedTreeMilestones } from '@/lib/trees/milestones';
 
 /** Re-render daily so the age-based CO₂ figures keep up as the tree grows. */
 export const revalidate = 86400;
@@ -73,10 +80,27 @@ export default async function TreeDetailPage({ params }: { params: Promise<{ id:
     climateZone: tree.climateZone ?? inferClimateZone(tree.species, tree.lat),
     plantedAt: tree.plantedAt,
   });
+  const climateZone = tree.climateZone ?? inferClimateZone(tree.species, tree.lat);
+  const reachedMilestones = getReachedTreeMilestones(tree.plantedAt).map((milestone) => ({
+    ...milestone,
+    co2Kg: cumulativeCo2Kg(tree.species, climateZone, milestone.ageYears),
+  }));
+  const publicTreePath = `/trees/${encodeURIComponent(tree.id)}`;
 
   return (
     <>
       <TreeDetail tree={tree} sequestration={sequestration} />
+
+      <div className="mx-auto max-w-3xl space-y-6 px-4 pb-8">
+        <TreeQRLabel tree={tree} />
+        <TreeMilestoneShareCards
+          treePublicUrl={publicTreePath}
+          treeIdLabel={tree.treeId}
+          species={tree.species}
+          sponsorName={tree.sponsorName?.trim() || 'Tree Sponsor'}
+          milestones={reachedMilestones}
+        />
+      </div>
 
       {/* Sponsor ↔ field team messaging (Issue #1686) */}
       <div className="mx-auto max-w-3xl px-4 pb-6">

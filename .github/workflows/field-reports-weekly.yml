@@ -1,0 +1,19 @@
+name: Weekly Field Reports
+
+on:
+  schedule:
+    # 06:00 UTC every Monday — compiles the week that just ended
+    - cron: '0 6 * * 1'
+  workflow_dispatch: {}
+
+jobs:
+  generate:
+    name: Generate weekly field reports
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Trigger report generation
+        run: |
+          curl --fail --silent --show-error -X POST \
+            -H "Authorization: Bearer ${{ secrets.FIELD_REPORT_CRON_SECRET }}" \
+            "${{ secrets.APP_BASE_URL }}/api/field-reports/generate"

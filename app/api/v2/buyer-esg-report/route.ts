@@ -39,14 +39,10 @@ import {
   generateBuyerComplianceReportExcel,
   getExcelFilename,
 } from '@/lib/esg-reporting/excel-export-v2';
+import { buildCsrReportTemplate, signCsrReport } from '@/lib/csr-reporting';
 
-const formatSchema = z.enum(['json', 'pdf', 'xlsx']).default('json');
+const formatSchema = z.enum(['json', 'pdf', 'xlsx', 'gri', 'tcfd']).default('json');
 const companyNameSchema = z.string().max(256).optional();
-
-interface QueryParams {
-  format?: string;
-  companyName?: string;
-}
 
 export async function GET(request: NextRequest) {
   try {
@@ -64,6 +60,12 @@ export async function GET(request: NextRequest) {
     // Parse additional report parameters
     const format = formatSchema.parse(request.nextUrl.searchParams.get('format'));
     const companyName = companyNameSchema.parse(request.nextUrl.searchParams.get('companyName'));
+    if ((format === 'gri' || format === 'tcfd') && analyticsRequest.dataSource !== 'ledger') {
+      return NextResponse.json(
+        { error: 'Signed CSR exports require dataSource=ledger.' },
+        { status: 400 }
+      );
+    }
 
     // Generate buyer analytics
     const analytics = await aggregateBuyerAnalytics(analyticsRequest);
@@ -78,6 +80,25 @@ export async function GET(request: NextRequest) {
       companyName || analytics.buyerId,
       periodType
     );
+
+    if (format === 'gri' || format === 'tcfd') {
+      const signingPrivateKey = process.env.CSR_REPORT_SIGNING_PRIVATE_KEY_HEX;
+      if (!signingPrivateKey) {
+        return NextResponse.json(
+          { error: 'CSR report signing is not configured on this platform.' },
+          { status: 503, headers: { 'Cache-Control': 'no-store' } }
+        );
+      }
+
+      const signedReport = signCsrReport(buildCsrReportTemplate(report, format), signingPrivateKey);
+      return NextResponse.json(signedReport, {
+        status: 200,
+        headers: {
+          'Content-Disposition': `attachment; filename="${format}-csr-${report.reportId}.json"`,
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+        },
+      });
+    }
 
     // Return based on requested format
     if (format === 'pdf') {
