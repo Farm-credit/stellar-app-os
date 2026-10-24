@@ -22,7 +22,9 @@ export async function PATCH(request: NextRequest, context: RouteContext): Promis
   } catch (error) {
     if (error instanceof ForumError || error instanceof ZodError || error instanceof SyntaxError) {
       return NextResponse.json(
-        { error: error instanceof ForumError ? error.message : 'Please check the submitted fields' },
+        {
+          error: error instanceof ForumError ? error.message : 'Please check the submitted fields',
+        },
         { status: error instanceof ForumError ? error.status : 400 }
       );
     }

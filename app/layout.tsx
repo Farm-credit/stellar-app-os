@@ -1,4 +1,5 @@
 import { SponsorBadgeNotifier } from '@/components/molecules/SponsorBadges/SponsorBadgeNotifier';
+import { SpeciesConservationNotifier } from '@/components/molecules/SpeciesAlerts/SpeciesConservationNotifier';
 import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
@@ -129,6 +130,7 @@ export default function RootLayout({
                     <NotificationCenterDrawer />
                     <ToastContainer />
                     <SponsorBadgeNotifier />
+                    <SpeciesConservationNotifier />
                     <DeforestationAlertNotifier />
                   </NotificationProvider>
                 </QueryProvider>

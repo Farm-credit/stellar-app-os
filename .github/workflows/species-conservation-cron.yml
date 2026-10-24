@@ -1,0 +1,32 @@
+name: Quarterly IUCN Conservation Check
+
+on:
+  schedule:
+    # 03:00 UTC on the 1st of January, April, July and October — once a quarter.
+    - cron: '0 3 1 1,4,7,10 *'
+  workflow_dispatch: {} # allow manual re-runs from the Actions tab
+
+concurrency:
+  group: species-conservation-cron
+  cancel-in-progress: false # never cancel a run partway through a DB write
+
+jobs:
+  check:
+    name: Check species status against the IUCN Red List
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm species:conservation-check
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          IUCN_RED_LIST_API_TOKEN: ${{ secrets.IUCN_RED_LIST_API_TOKEN }}
+          SPECIES_CONSERVATION_CRON_SECRET: ${{ secrets.SPECIES_CONSERVATION_CRON_SECRET }}
+          SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
+          SENDGRID_FROM_EMAIL: ${{ secrets.SENDGRID_FROM_EMAIL }}
+          NEXT_PUBLIC_APP_URL: ${{ secrets.NEXT_PUBLIC_APP_URL }}
