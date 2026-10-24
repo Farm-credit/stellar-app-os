@@ -47,6 +47,18 @@ export const farmerSuccessStories: FarmerSuccessStory[] = [
     },
     quote:
       'The first payout paid my children’s school fees. The trees are the reason we can stay on this land.',
+    projectId: 'proj-009',
+    sponsorName: 'Maya Okafor, TerraForward Collective',
+    sponsorQuote:
+      'Aminu’s verified survival rate shows what patient, farmer-led restoration can achieve.',
+    sponsorPhotoUrl: '/assets/success-stories/sponsor-avatar.svg',
+    sponsorPhotoAlt: 'Illustrated profile of Maya Okafor',
+    beforeImageUrl: '/assets/success-stories/land-before.svg',
+    beforeImageAlt: 'Illustration of wind-scoured, degraded farmland before restoration',
+    afterImageUrl: '/assets/success-stories/land-after.svg',
+    afterImageAlt: 'Illustration of a restored woodland sheltering a family plot',
+    curatedQuarter: 'Q1 2026',
+    editorialState: 'published',
   },
   {
     id: 'story-sokoto-fatima',
@@ -120,6 +132,18 @@ export const farmerSuccessStories: FarmerSuccessStory[] = [
     },
     quote:
       'When the mangroves came back, the fish came back too. That is income no one can take away.',
+    projectId: 'proj-014',
+    sponsorName: 'Coastline Futures Fund',
+    sponsorQuote:
+      'Kwame connects shoreline protection, fisheries and family income in one measurable outcome.',
+    sponsorPhotoUrl: '/assets/success-stories/sponsor-avatar.svg',
+    sponsorPhotoAlt: 'Illustrated profile of the Coastline Futures Fund sponsor',
+    beforeImageUrl: '/assets/success-stories/land-before.svg',
+    beforeImageAlt: 'Illustration of an eroded shoreline before mangrove restoration',
+    afterImageUrl: '/assets/success-stories/land-after.svg',
+    afterImageAlt: 'Illustration of a green coastal restoration landscape after planting',
+    curatedQuarter: 'Q1 2026',
+    editorialState: 'published',
   },
   {
     id: 'story-nakuru-grace',
@@ -157,6 +181,16 @@ export const farmerSuccessStories: FarmerSuccessStory[] = [
     },
     quote:
       'The river runs clear now and my cattle drink without wading through mud. The buffer pays for itself.',
+    projectId: 'proj-005',
+    sponsorName: 'Rift Valley Dairy Network',
+    sponsorQuote:
+      'Grace proves that a healthy river edge is also good infrastructure for a working farm.',
+    beforeImageUrl: '/assets/success-stories/land-before.svg',
+    beforeImageAlt: 'Illustration of a collapsing riverbank before restoration',
+    afterImageUrl: '/assets/success-stories/land-after.svg',
+    afterImageAlt: 'Illustration of a shaded, stable riverbank after restoration',
+    curatedQuarter: 'Q4 2025',
+    editorialState: 'published',
   },
   {
     id: 'story-zamfara-ibrahim',
@@ -227,18 +261,30 @@ export const farmerSuccessStories: FarmerSuccessStory[] = [
       nativeSpeciesCount: 4,
     },
     quote: 'My first season gave me both a garden and a reason to keep planting.',
+    projectId: 'proj-009',
+    sponsorName: 'Northern Growers Alliance',
+    sponsorQuote:
+      'Aisha’s first season is a reminder that early, transparent support helps new farmers stay the course.',
+    beforeImageUrl: '/assets/success-stories/land-before.svg',
+    beforeImageAlt: 'Illustration of bare, compacted soil before the shelterbelt was planted',
+    afterImageUrl: '/assets/success-stories/land-after.svg',
+    afterImageAlt: 'Illustration of a young shelterbelt protecting a vegetable plot',
+    curatedQuarter: 'Q4 2025',
+    editorialState: 'published',
   },
 ];
 
 /** Simulate the async access pattern used by the other `lib/api/mock` helpers. */
 export async function fetchFarmerSuccessStories(): Promise<FarmerSuccessStory[]> {
   await new Promise((resolve) => setTimeout(resolve, 400));
-  return farmerSuccessStories.map((story) => ({
-    ...story,
-    incomeEarned: { ...story.incomeEarned },
-    landTransformation: { ...story.landTransformation },
-    environmentalImpact: { ...story.environmentalImpact },
-  }));
+  return farmerSuccessStories
+    .filter((story) => story.editorialState === undefined || story.editorialState === 'published')
+    .map((story) => ({
+      ...story,
+      incomeEarned: { ...story.incomeEarned },
+      landTransformation: { ...story.landTransformation },
+      environmentalImpact: { ...story.environmentalImpact },
+    }));
 }
 
 /** Look up a single case study by its slug (used for future detail routes). */

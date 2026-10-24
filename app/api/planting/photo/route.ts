@@ -11,6 +11,8 @@ import { encodeGeohash } from '@/lib/geo/geohash';
 import { buildRegionHash } from '@/lib/geo/regionHash';
 import { computePHash } from '@/lib/image/phash';
 import { findDuplicate, recordPhotoHash } from '@/lib/db/photo-hashes';
+import { analyzeTreeHealthImage } from '@/lib/tree-health/analyze';
+import { saveTreeHealthPrediction } from '@/lib/tree-health/repository';
 
 const MAX_DISTANCE_METERS = 500;
 
@@ -93,6 +95,25 @@ export async function POST(request: Request) {
     const ipfsResult = await uploadToIpfs(buffer, `${farmerId}-${Date.now()}.jpg`, photo.type);
 
     const storageRef = s3Key ?? ipfsResult.cid ?? `${farmerId}-${Date.now()}`;
+    // Run screening on every accepted field photo. Inference and persistence
+    // failures must not block evidence uploads; a missing tree reference still
+    // receives an inference result in the upload response.
+    let healthPrediction: Awaited<ReturnType<typeof analyzeTreeHealthImage>>['prediction'] | null =
+      null;
+    try {
+      const analysis = await analyzeTreeHealthImage(buffer);
+      healthPrediction = analysis.prediction;
+      if (treeId) {
+        await saveTreeHealthPrediction({
+          treeRef: treeId,
+          photoRef: storageRef,
+          features: analysis.features,
+          prediction: analysis.prediction,
+        });
+      }
+    } catch (healthError) {
+      console.error('[planting/photo] tree-health screening failed:', healthError);
+    }
     try {
       await recordPhotoHash({
         entityType: 'tree',
@@ -171,6 +192,7 @@ export async function POST(request: Request) {
         cdnUrl: cdnPhotoUrl,
         encryptedGps,
         hash: phash.hex,
+        healthPrediction,
       },
       { status: 201 }
     );

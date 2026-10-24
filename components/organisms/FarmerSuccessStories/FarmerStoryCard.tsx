@@ -1,3 +1,4 @@
+import Image from 'next/image';
 import Link from 'next/link';
 import {
   ArrowRight,
@@ -71,6 +72,12 @@ export function FarmerStoryCard({ story, className }: FarmerStoryCardProps) {
   const { incomeEarned, landTransformation, environmentalImpact } = story;
   const titleId = `farmer-story-${story.id}-title`;
   const growthPercent = computeIncomeGrowthPercent(story);
+  const beforeImageUrl = story.beforeImageUrl ?? story.imagery?.beforeImageUrl;
+  const beforeImageAlt =
+    story.beforeImageAlt ?? story.imagery?.beforeImageAlt ?? 'Land before restoration';
+  const afterImageUrl = story.afterImageUrl ?? story.imagery?.afterImageUrl;
+  const afterImageAlt =
+    story.afterImageAlt ?? story.imagery?.afterImageAlt ?? 'Land after restoration';
 
   return (
     <article
@@ -95,6 +102,9 @@ export function FarmerStoryCard({ story, className }: FarmerStoryCardProps) {
             </Text>
             {story.featured && <Badge variant="success">Featured</Badge>}
             {story.status === 'pending' && <Badge variant="outline">Verification pending</Badge>}
+            {story.curatedQuarter && (
+              <Badge variant="outline">Curated {story.curatedQuarter}</Badge>
+            )}
           </div>
           <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
             <MapPin className="h-3.5 w-3.5" aria-hidden="true" />
@@ -105,6 +115,43 @@ export function FarmerStoryCard({ story, className }: FarmerStoryCardProps) {
           </p>
         </div>
       </header>
+
+      {(beforeImageUrl || afterImageUrl) && (
+        <div className="grid gap-3 sm:grid-cols-2" aria-label="Land transformation imagery">
+          {beforeImageUrl && (
+            <figure className="overflow-hidden rounded-xl border bg-muted/20">
+              <div className="relative aspect-[4/3]">
+                <Image
+                  src={beforeImageUrl}
+                  alt={beforeImageAlt}
+                  fill
+                  sizes="(min-width: 1024px) 280px, (min-width: 640px) 50vw, 100vw"
+                  className="object-cover"
+                />
+              </div>
+              <figcaption className="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Before restoration
+              </figcaption>
+            </figure>
+          )}
+          {afterImageUrl && (
+            <figure className="overflow-hidden rounded-xl border border-stellar-green/30 bg-stellar-green/5">
+              <div className="relative aspect-[4/3]">
+                <Image
+                  src={afterImageUrl}
+                  alt={afterImageAlt}
+                  fill
+                  sizes="(min-width: 1024px) 280px, (min-width: 640px) 50vw, 100vw"
+                  className="object-cover"
+                />
+              </div>
+              <figcaption className="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-stellar-green">
+                After restoration
+              </figcaption>
+            </figure>
+          )}
+        </div>
+      )}
 
       <div>
         <p className="text-base font-semibold leading-6 text-foreground">{story.headline}</p>
@@ -190,13 +237,61 @@ export function FarmerStoryCard({ story, className }: FarmerStoryCardProps) {
         </div>
       </details>
 
-      <Link
-        href={`/success-stories/${story.slug}`}
-        className="mt-auto inline-flex items-center gap-2 text-sm font-semibold text-stellar-blue underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stellar-blue focus-visible:ring-offset-2"
-      >
-        View full case study
-        <ArrowRight className="h-4 w-4" aria-hidden="true" />
-      </Link>
+      {(story.sponsorName || story.sponsorQuote) && (
+        <aside className="rounded-xl border border-stellar-blue/20 bg-stellar-blue/5 p-4">
+          <p className="text-xs font-semibold uppercase tracking-wide text-stellar-blue">
+            Sponsor perspective
+          </p>
+          <div className="mt-3 flex items-start gap-3">
+            {story.sponsorPhotoUrl ? (
+              <Image
+                src={story.sponsorPhotoUrl}
+                alt={story.sponsorPhotoAlt ?? `${story.sponsorName ?? 'Sponsor'} profile`}
+                width={40}
+                height={40}
+                className="h-10 w-10 rounded-full object-cover"
+              />
+            ) : (
+              <span
+                aria-hidden="true"
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-stellar-blue/10 text-sm font-bold text-stellar-blue"
+              >
+                {getInitials(story.sponsorName ?? 'Sponsor')}
+              </span>
+            )}
+            <div className="min-w-0">
+              {story.sponsorQuote && (
+                <blockquote className="text-sm leading-6 text-foreground">
+                  “{story.sponsorQuote}”
+                </blockquote>
+              )}
+              {story.sponsorName && (
+                <p className="mt-1 text-xs font-semibold text-muted-foreground">
+                  {story.sponsorName}
+                </p>
+              )}
+            </div>
+          </div>
+        </aside>
+      )}
+
+      <div className="mt-auto flex flex-wrap items-center gap-x-5 gap-y-2">
+        <Link
+          href={`/success-stories/${story.slug}`}
+          className="inline-flex items-center gap-2 text-sm font-semibold text-stellar-blue underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stellar-blue focus-visible:ring-offset-2"
+        >
+          View full case study
+          <ArrowRight className="h-4 w-4" aria-hidden="true" />
+        </Link>
+        {story.projectId && (
+          <Link
+            href={`/projects/${story.projectId}`}
+            className="text-sm font-semibold text-foreground underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stellar-blue focus-visible:ring-offset-2"
+          >
+            View project
+          </Link>
+        )}
+      </div>
     </article>
   );
 }
