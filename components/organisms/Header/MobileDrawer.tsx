@@ -33,6 +33,7 @@ import {
   History,
   Users,
   MessageCircle,
+  Banknote,
 } from 'lucide-react';
 import { Button } from '@/components/atoms/Button';
 import { Text } from '@/components/atoms/Text';
@@ -59,6 +60,7 @@ const NAV_LINKS = [
   { href: '/cooperatives', labelKey: 'nav.cooperatives', icon: Users },
   { href: '/community/forum', labelKey: 'nav.community', icon: MessageCircle },
   { href: '/transactions', labelKey: 'nav.transactions', icon: History },
+  { href: '/offramp', labelKey: 'nav.offramp', icon: Banknote },
   { href: '/dashboard', labelKey: 'nav.dashboard', icon: LayoutDashboard },
 ] as const;
 

@@ -7,7 +7,9 @@
  */
 
 import type { Metadata } from 'next';
+import { ExternalLink } from 'lucide-react';
 import { MultiChainWalletPanel } from '@/components/organisms/MultiChainWalletPanel/MultiChainWalletPanel';
+import { FUNDABLE_OFFRAMP_URL } from '@/lib/config/fundable';
 import type { CreditQuote, MultiChainWalletSnapshot } from '@/lib/types/multichain-wallet';
 import { CHAIN_REGISTRY, SUPPORTED_CHAINS } from '@/lib/wallet/multichain';
 
@@ -163,6 +165,26 @@ export default function FarmerWalletPage() {
                   Routes are ranked cheapest first. Expand any route to see the cost breakdown.
                 </li>
               </ol>
+            </div>
+
+            {/* Fundable off-ramp */}
+            <div className="rounded-xl border border-stellar-blue/20 bg-stellar-blue/5 p-4">
+              <h2 className="text-sm font-semibold text-stellar-blue mb-1.5">
+                Off-ramp with Fundable
+              </h2>
+              <p className="text-xs text-muted-foreground mb-3">
+                Convert your Stellar USDC into local currency via bank transfer or mobile money.
+                You&apos;ll be redirected to Fundable&apos;s secure off-ramp.
+              </p>
+              <a
+                href={FUNDABLE_OFFRAMP_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 rounded-lg bg-stellar-blue px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-stellar-blue/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stellar-blue focus-visible:ring-offset-2"
+              >
+                Off-ramp with Fundable
+                <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
+              </a>
             </div>
 
             {/* API access note */}
