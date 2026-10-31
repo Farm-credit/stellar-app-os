@@ -182,7 +182,7 @@ function logAudit(action: string, details: Record<string, unknown>): void {
     action,
     ...details,
   };
-  console.log(`[audit] ${JSON.stringify(entry)}`);
+  console.info(`[audit] ${JSON.stringify(entry)}`);
 }
 
 // Carbon credit fractionalization - retail access

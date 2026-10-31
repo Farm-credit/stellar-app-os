@@ -9,7 +9,7 @@ import { Button } from '@/components/atoms/Button';
 import { Badge } from '@/components/atoms/Badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
-type NotificationType = 'payout' | 'account_alert' | 'verification';
+type NotificationType = 'payout' | 'account_alert' | 'verification' | 'species_conservation_alert';
 type NotificationPriority = 'high' | 'medium' | 'low';
 
 interface NotificationAction {
@@ -31,7 +31,14 @@ interface Notification {
   metadata?: Record<string, string | number | boolean>;
 }
 
-type FilterType = 'all' | 'unread' | 'archived' | 'payout' | 'account_alert' | 'verification';
+type FilterType =
+  | 'all'
+  | 'unread'
+  | 'archived'
+  | 'payout'
+  | 'account_alert'
+  | 'verification'
+  | 'species_conservation_alert';
 
 const typeIcons: Record<NotificationType, React.ReactNode> = {
   payout: (
@@ -70,12 +77,26 @@ const typeIcons: Record<NotificationType, React.ReactNode> = {
       </svg>
     </div>
   ),
+  species_conservation_alert: (
+    <div className="w-5 h-5 text-emerald-600" aria-hidden="true">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M12 3c-4 3-6 6-6 9a6 6 0 0012 0c0-3-2-6-6-9z"
+        />
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 21V11" />
+      </svg>
+    </div>
+  ),
 };
 
 const typeLabels: Record<NotificationType, string> = {
   payout: 'Payout',
   account_alert: 'Account Alert',
   verification: 'Verification',
+  species_conservation_alert: 'Conservation',
 };
 
 const priorityColors: Record<NotificationPriority, string> = {
@@ -97,6 +118,7 @@ const filterOptions: { value: FilterType; label: string }[] = [
   { value: 'payout', label: 'Payouts' },
   { value: 'account_alert', label: 'Alerts' },
   { value: 'verification', label: 'Verification' },
+  { value: 'species_conservation_alert', label: 'Conservation' },
 ];
 
 export function NotificationCenterDrawer(): React.ReactElement {
@@ -166,6 +188,8 @@ export function NotificationCenterDrawer(): React.ReactElement {
       if (filter === 'payout') return notification.type === 'payout';
       if (filter === 'account_alert') return notification.type === 'account_alert';
       if (filter === 'verification') return notification.type === 'verification';
+      if (filter === 'species_conservation_alert')
+        return notification.type === 'species_conservation_alert';
       return true;
     });
   }, [notifications, filter]);
@@ -410,7 +434,9 @@ function NotificationItem({
             'flex h-10 w-10 items-center justify-center rounded-lg flex-shrink-0',
             notification.type === 'payout' && 'bg-green-100 dark:bg-green-900/30',
             notification.type === 'account_alert' && 'bg-yellow-100 dark:bg-yellow-900/30',
-            notification.type === 'verification' && 'bg-blue-100 dark:bg-blue-900/30'
+            notification.type === 'verification' && 'bg-blue-100 dark:bg-blue-900/30',
+            notification.type === 'species_conservation_alert' &&
+              'bg-emerald-100 dark:bg-emerald-900/30'
           )}
           aria-hidden="true"
         >

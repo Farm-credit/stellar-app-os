@@ -19,7 +19,13 @@ export const createForumPostSchema = z.object({
   title: z.string().trim().min(8).max(120),
   body: z.string().trim().min(20).max(5000),
   tags: z
-    .array(z.string().trim().toLowerCase().regex(/^[a-z0-9-]{1,24}$/))
+    .array(
+      z
+        .string()
+        .trim()
+        .toLowerCase()
+        .regex(/^[a-z0-9-]{1,24}$/)
+    )
     .max(5)
     .default([])
     .transform((tags) => [...new Set(tags)]),

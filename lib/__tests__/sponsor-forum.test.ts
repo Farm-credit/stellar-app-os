@@ -31,8 +31,9 @@ describe('sponsor forum validation', () => {
       tags: ['not a valid tag'],
     };
     expect(createForumPostSchema.safeParse(input).success).toBe(false);
-    expect(createForumPostSchema.safeParse({ ...input, wallet: 'not-a-wallet', tags: [] }).success)
-      .toBe(false);
+    expect(
+      createForumPostSchema.safeParse({ ...input, wallet: 'not-a-wallet', tags: [] }).success
+    ).toBe(false);
   });
 });
 
