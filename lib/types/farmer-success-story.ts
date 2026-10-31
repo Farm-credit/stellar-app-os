@@ -7,6 +7,9 @@
 
 export type FarmerStoryVerificationStatus = 'verified' | 'pending';
 
+/** Editorial lifecycle for a story that is curated for the public showcase. */
+export type FarmerStoryEditorialState = 'draft' | 'in-review' | 'published' | 'archived';
+
 /** Income the farmer earned from a carbon project over a reporting period. */
 export interface FarmerIncomeEarned {
   /** Total USDC paid out to the farmer over the reporting period. */
@@ -45,6 +48,14 @@ export interface EnvironmentalImpact {
   soilHealthImprovementPercent?: number;
 }
 
+/** Before/after visual evidence attached to a public story. */
+export interface FarmerStoryLandImagery {
+  beforeImageUrl: string;
+  beforeImageAlt: string;
+  afterImageUrl: string;
+  afterImageAlt: string;
+}
+
 /** A single farmer case study rendered on the success stories page. */
 export interface FarmerSuccessStory {
   id: string;
@@ -66,6 +77,26 @@ export interface FarmerSuccessStory {
   environmentalImpact: EnvironmentalImpact;
   /** Optional first-person quote from the farmer. */
   quote?: string;
+  /** Canonical project identifier used to link readers to the project page. */
+  projectId?: string;
+  /** Sponsor attribution shown alongside the farmer's outcome. */
+  sponsorName?: string;
+  /** Optional sponsor testimonial about supporting the project. */
+  sponsorQuote?: string;
+  /** Optional sponsor profile image and its accessible description. */
+  sponsorPhotoUrl?: string;
+  sponsorPhotoAlt?: string;
+  /** Visual evidence of land before and after restoration. */
+  imagery?: FarmerStoryLandImagery;
+  /** Quarter in which the editorial team selected this story for the showcase. */
+  curatedQuarter?: string;
+  /** Public editorial state; only published stories should be shown publicly. */
+  editorialState?: FarmerStoryEditorialState;
+  /** Legacy-friendly flat imagery fields for API fixtures and integrations. */
+  beforeImageUrl?: string;
+  beforeImageAlt?: string;
+  afterImageUrl?: string;
+  afterImageAlt?: string;
 }
 
 /** Aggregate figures shown above the case-study grid. */

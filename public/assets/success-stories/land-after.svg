@@ -1,0 +1,19 @@
+<svg width="1200" height="800" viewBox="0 0 1200 800" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">Restored land after reforestation</title>
+  <desc id="desc">A green, illustrated landscape with native trees, a healthy stream and layered hills.</desc>
+  <defs>
+    <linearGradient id="sky" x1="600" y1="0" x2="600" y2="800" gradientUnits="userSpaceOnUse"><stop stop-color="#BDEBEE"/><stop offset="1" stop-color="#E4F5D8"/></linearGradient>
+    <linearGradient id="hill" x1="600" y1="300" x2="600" y2="800" gradientUnits="userSpaceOnUse"><stop stop-color="#83C98C"/><stop offset="1" stop-color="#2E7D57"/></linearGradient>
+  </defs>
+  <rect width="1200" height="800" fill="url(#sky)"/>
+  <circle cx="945" cy="145" r="62" fill="#FFE49A" opacity=".9"/>
+  <path d="M0 430C150 330 300 380 445 330C600 277 720 365 860 315C1010 262 1080 330 1200 285V800H0V430Z" fill="#5DAA70"/>
+  <path d="M0 500C155 410 300 470 455 425C610 382 790 455 925 400C1040 354 1110 408 1200 365V800H0V500Z" fill="url(#hill)"/>
+  <path d="M560 800C585 690 585 635 615 580C640 535 652 490 645 430C684 498 680 548 700 585C730 640 760 702 785 800H560Z" fill="#8AD3E2" opacity=".9"/>
+  <g fill="#236B4A">
+    <path d="M170 540L220 310L270 540H170Z"/><path d="M150 470L220 365L290 470H150Z"/><path d="M145 405L220 285L295 405H145Z"/>
+    <path d="M885 560L935 300L985 560H885Z"/><path d="M865 480L935 355L1005 480H865Z"/><path d="M860 410L935 270L1010 410H860Z"/>
+    <path d="M1010 600L1050 400L1090 600H1010Z"/><path d="M995 530L1050 445L1105 530H995Z"/>
+  </g>
+  <g fill="#76B95A"><circle cx="325" cy="545" r="28"/><circle cx="365" cy="520" r="34"/><circle cx="410" cy="550" r="27"/><circle cx="805" cy="545" r="30"/><circle cx="845" cy="518" r="36"/></g>
+</svg>

@@ -190,4 +190,19 @@ export const mockCarbonProjects: CarbonProject[] = [
     coBenefits: ['Glacial Runoff Regulation', 'Quechua Community Stewardship'],
     verificationStatus: 'Gold Standard',
   },
+  {
+    id: 'proj-014',
+    name: 'Volta Delta Mangrove Shield',
+    description:
+      'Community-led mangrove restoration along Ghana’s Volta delta, strengthening coastal protection and local fisheries.',
+    vintageYear: 2024,
+    pricePerTon: 51.0,
+    availableSupply: 920.0,
+    isOutOfStock: false,
+    type: 'Mangrove Restoration',
+    location: 'Volta Delta, Ghana',
+    coordinates: { latitude: 5.771, longitude: 0.635 },
+    coBenefits: ['Coastal Protection', 'Fisheries', 'Community Livelihoods'],
+    verificationStatus: 'Plan Vivo',
+  },
 ];
