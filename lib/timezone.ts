@@ -239,12 +239,16 @@ export function loadTimeZonePreference(): TimeZonePreference {
   if (typeof window === 'undefined') {
     return { timeZone: 'UTC', mode: 'auto' };
   }
-  const mode = window.localStorage.getItem(TIMEZONE_MODE_STORAGE_KEY) as TimeZoneMode | null;
-  const stored = window.localStorage.getItem(TIMEZONE_STORAGE_KEY);
   const detected = detectTimeZone();
+  try {
+    const mode = window.localStorage.getItem(TIMEZONE_MODE_STORAGE_KEY) as TimeZoneMode | null;
+    const stored = window.localStorage.getItem(TIMEZONE_STORAGE_KEY);
 
-  if (mode === 'manual' && stored) {
-    return { timeZone: stored, mode: 'manual' };
+    if (mode === 'manual' && stored && isValidTimeZone(stored)) {
+      return { timeZone: stored, mode: 'manual' };
+    }
+  } catch {
+    // localStorage may be unavailable (private mode / storage disabled)
   }
   return { timeZone: detected, mode: 'auto' };
 }
