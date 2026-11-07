@@ -486,3 +486,12 @@ export function speciesPathForName(name: string, kids = false): string | null {
 export function speciesPathForSlug(slug: string, kids = false): string {
   return kids ? `/species/${slug}/kids` : `/species/${slug}`;
 }
+
+/**
+ * Scientific name for a species slug, used to build IUCN Red List links in
+ * conservation alerts — Issue #1657. Falls back to the slug when a species has
+ * no catalogue entry.
+ */
+export function scientificNameFor(slug: string): string {
+  return BY_SLUG.get(slug)?.scientificName ?? slug;
+}

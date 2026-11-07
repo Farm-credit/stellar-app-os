@@ -35,6 +35,7 @@ Migrations are numbered sequentially and should be named in the format: `XXX_des
 - `019_create_farmer_kyc.sql` - Stores farmer KYC applications: identity verification, land ownership proof, agricultural experience, and certification eligibility screening (#1397)
 - `020_create_sponsor_email_campaigns.sql` - Stores segmented newsletter campaigns and delivery attempts (#1117), plus digest-generation indexes (#1110)
 - `025_create_carbon_methodologies.sql` - Stores the carbon methodology library (Verra/CDM/Gold Standard/IPCC methodology summaries in 5 categories); seeded by `pnpm seed:methodologies` (see `docs/carbon-methodologies.md`)
+- `028_create_species_conservation_alerts.sql` - Stores the cached IUCN Red List assessment per catalogue species and the per-sponsor conservation alerts deduplicated per quarter (#1657, see `docs/endangered-species-alerts.md`)
 
 ## Running Migrations
 

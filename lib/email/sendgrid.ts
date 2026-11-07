@@ -318,7 +318,6 @@ export interface GiftCertificateEmailParams {
   html: string;
   pdf: { fileName: string; content: ArrayBuffer };
 }
-
 /** Sends a gift sponsorship certificate (Issue #1107) with the PDF attached. */
 export async function sendGiftCertificateEmail(
   params: GiftCertificateEmailParams
@@ -340,4 +339,88 @@ export async function sendGiftCertificateEmail(
     ],
   });
   return true;
+}
+
+export interface SpeciesConservationAlertParams {
+  to: string;
+  sponsorName: string | null;
+  subject: string;
+  summary: string;
+  body: string;
+  speciesCommonName: string;
+  scientificName: string;
+  statusCode: string;
+  statusLabel: string;
+  populationTrend: string | null;
+  changeKind: 'newly_listed' | 'upgraded';
+  treeCount: number;
+  checkQuarter: string;
+  educationUrl: string;
+  iucnUrl: string | null;
+}
+
+function escapeHtmlConservation(value: string): string {
+  return value.replace(
+    /[&<>'"]/g,
+    (character) =>
+      ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[character] ??
+      character
+  );
+}
+
+/**
+ * Notifies a sponsor that a species they have sponsored trees of is newly
+ * listed or upgraded on the IUCN Red List (Issue #1657). The email carries the
+ * conservation context and links to the platform's educational page for the
+ * species.
+ */
+export async function sendSpeciesConservationAlertEmail(
+  params: SpeciesConservationAlertParams
+): Promise<void> {
+  if (!isEmailConfigured()) return;
+
+  const commonName = escapeHtmlConservation(params.speciesCommonName);
+  const scientificName = escapeHtmlConservation(params.scientificName);
+  const statusLabel = escapeHtmlConservation(params.statusLabel);
+  const bodyParagraphs = params.body
+    .split('\n\n')
+    .map((paragraph) => `<p>${escapeHtmlConservation(paragraph)}</p>`)
+    .join('');
+  const trendLine = params.populationTrend
+    ? `<p><strong>Population trend:</strong> ${escapeHtmlConservation(params.populationTrend)}</p>`
+    : '';
+  const iucnLink = params.iucnUrl
+    ? `<p><a href="${escapeHtmlConservation(params.iucnUrl)}">Read the full IUCN assessment</a></p>`
+    : '';
+
+  const badgeColor =
+    params.statusCode === 'VU' ? '#D97706' : params.statusCode === 'LC' ? '#059669' : '#DC2626';
+
+  await sgMail.send({
+    to: params.to,
+    from: FROM,
+    subject: params.subject,
+    text: `Hi ${params.sponsorName || 'Sponsor'},\n\n${params.body}\n\nThanks for helping protect threatened species.\nThe Harvesta Team`,
+    html: `<!DOCTYPE html><html><body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#111;line-height:1.6;margin:0;padding:24px;background:#f5f5f5;">
+      <div style="max-width:600px;margin:0 auto;background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #e5e7eb;">
+        <div style="background:linear-gradient(135deg,#00B36B,#14B6E7);padding:24px 32px;">
+          <p style="color:#ffffff;margin:0;font-size:12px;letter-spacing:0.5px;text-transform:uppercase;">Conservation status update &middot; ${escapeHtmlConservation(params.checkQuarter)}</p>
+          <h1 style="color:#ffffff;margin:8px 0 0;font-size:22px;">${commonName} is now ${statusLabel}</h1>
+        </div>
+        <div style="padding:24px 32px;">
+          <p style="margin:0 0 16px;"><em>${scientificName}</em></p>
+          <p style="margin:0 0 16px;"><span style="display:inline-block;background:${badgeColor};color:#ffffff;border-radius:9999px;padding:4px 12px;font-size:12px;font-weight:600;">${statusLabel} (${escapeHtmlConservation(params.statusCode)})</span></p>
+          ${trendLine}
+          <p style="margin:0 0 16px;">${escapeHtmlConservation(params.summary)}</p>
+          ${bodyParagraphs}
+          <p style="margin:24px 0;"><a href="${escapeHtmlConservation(params.educationUrl)}" style="background:#00B36B;color:#ffffff;text-decoration:none;border-radius:8px;padding:12px 20px;font-weight:600;display:inline-block;">Learn about ${commonName}</a></p>
+          ${iucnLink}
+        </div>
+        <div style="padding:16px 32px;border-top:1px solid #e5e7eb;color:#6b7280;font-size:12px;">
+          <p style="margin:0;">You received this because you sponsor ${params.treeCount} ${params.treeCount === 1 ? 'tree' : 'trees'} of this species.</p>
+          <p style="margin:4px 0 0;">Harvesta &mdash; Plant Trees. Track Impact. Offset Carbon.</p>
+        </div>
+      </div>
+    </body></html>`,
+  });
 }

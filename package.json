@@ -36,6 +36,7 @@
     "email:volunteers": "tsx lib/workers/volunteer-briefings.ts",
     "email:volunteers:once": "tsx lib/workers/volunteer-briefings.ts --once",
     "seed:species": "node scripts/seed-species.mjs",
+    "species:conservation-check": "tsx scripts/check-species-conservation.ts",
     "seed:methodologies": "tsx scripts/seed-carbon-methodologies.ts",
     "db:backup": "node scripts/db-backup.mjs",
     "compliance:export": "tsx scripts/compliance-export.ts",

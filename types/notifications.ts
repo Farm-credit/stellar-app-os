@@ -6,7 +6,9 @@ export type NotificationType =
   | 'warning'
   | 'error'
   | 'success'
-  | 'newsletter';
+  | 'newsletter'
+  /** IUCN Red List status change for a species the sponsor has trees of (#1657). */
+  | 'species_conservation_alert';
 
 export type NotificationPriority = 'low' | 'medium' | 'high' | 'urgent';
 

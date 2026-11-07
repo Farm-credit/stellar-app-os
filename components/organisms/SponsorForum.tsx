@@ -138,7 +138,8 @@ export function SponsorForum() {
         body: JSON.stringify({ wallet: walletAddress, category: postCategory, title, body, tags }),
       });
       const result = (await response.json()) as { post?: ForumPost; error?: string };
-      if (!response.ok || !result.post) throw new Error(result.error ?? 'Unable to publish your post');
+      if (!response.ok || !result.post)
+        throw new Error(result.error ?? 'Unable to publish your post');
       setTitle('');
       setBody('');
       setTagsInput('');
@@ -177,7 +178,11 @@ export function SponsorForum() {
       setPosts((current) =>
         current.map((item) =>
           item.id === post.id
-            ? { ...item, hasVoted: Boolean(result.hasVoted), voteCount: result.voteCount ?? item.voteCount }
+            ? {
+                ...item,
+                hasVoted: Boolean(result.hasVoted),
+                voteCount: result.voteCount ?? item.voteCount,
+              }
             : item
         )
       );
