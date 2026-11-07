@@ -1,0 +1,35 @@
+name: Quarterly tree-health model retraining
+
+on:
+  schedule:
+    # 02:00 UTC on the first day of each calendar quarter.
+    - cron: '0 2 1 1,4,7,10 *'
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  retrain:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate required repository secrets
+        env:
+          SITE_URL: ${{ secrets.TREE_HEALTH_SITE_URL }}
+          CRON_SECRET: ${{ secrets.TREE_HEALTH_CRON_SECRET }}
+        run: |
+          if [ -z "$SITE_URL" ] || [ -z "$CRON_SECRET" ]; then
+            echo "Configure TREE_HEALTH_SITE_URL and TREE_HEALTH_CRON_SECRET repository secrets." >&2
+            exit 1
+          fi
+      - name: Run quarterly retraining
+        env:
+          SITE_URL: ${{ secrets.TREE_HEALTH_SITE_URL }}
+          CRON_SECRET: ${{ secrets.TREE_HEALTH_CRON_SECRET }}
+        run: |
+          curl --fail --silent --show-error \
+            --retry 2 --retry-delay 10 \
+            --request POST \
+            --header "Authorization: Bearer ${CRON_SECRET}" \
+            --header "Accept: application/json" \
+            "${SITE_URL%/}/api/admin/tree-health"

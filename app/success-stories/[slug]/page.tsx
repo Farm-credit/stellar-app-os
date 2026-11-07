@@ -13,7 +13,9 @@ interface FarmerStoryPageProps {
 }
 
 export function generateStaticParams() {
-  return farmerSuccessStories.map((story) => ({ slug: story.slug }));
+  return farmerSuccessStories
+    .filter((story) => story.editorialState === undefined || story.editorialState === 'published')
+    .map((story) => ({ slug: story.slug }));
 }
 
 export async function generateMetadata({ params }: FarmerStoryPageProps): Promise<Metadata> {

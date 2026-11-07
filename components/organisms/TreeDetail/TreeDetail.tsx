@@ -18,6 +18,7 @@ import type { Tree } from '@/lib/types/tree';
 import { speciesPathForName } from '@/lib/species/education';
 import { TreeCo2Calculation } from './TreeCo2Calculation';
 import { TreeImage } from './TreeImage';
+import { TreeHealthPanel } from './TreeHealthPanel';
 
 interface TreeDetailProps {
   tree: Tree;
@@ -55,6 +56,10 @@ export function TreeDetail({ tree, sequestration }: TreeDetailProps) {
           <TreeImage src={tree.imageUrl} alt={`Evidence photo for ${tree.treeId}`} />
         </div>
       ) : null}
+
+      <div className="mb-4">
+        <TreeHealthPanel treeId={tree.treeId} />
+      </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
         <Card>

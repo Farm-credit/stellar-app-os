@@ -308,6 +308,10 @@ export function ProjectDetailView({ adminProject, carbonProject }: ProjectDetail
               <ProjectPlanters projectId={adminProject.id} projectName={adminProject.name} />
             </section>
 
+            <section id="success-stories">
+              <ProjectSuccessStories projectId={adminProject.id} />
+            </section>
+
             {/* Issue #1693: Forest Biodiversity Index */}
             <section id="biodiversity">
               <Text variant="h3" className="mb-6 font-bold flex items-center gap-2">

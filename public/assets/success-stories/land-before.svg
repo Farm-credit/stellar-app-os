@@ -1,0 +1,15 @@
+<svg width="1200" height="800" viewBox="0 0 1200 800" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">Degraded land before restoration</title>
+  <desc id="desc">A warm, illustrated landscape with bare soil, wind lines and a dry gully.</desc>
+  <defs>
+    <linearGradient id="sky" x1="600" y1="0" x2="600" y2="800" gradientUnits="userSpaceOnUse"><stop stop-color="#F4D9B0"/><stop offset="1" stop-color="#F8E8CF"/></linearGradient>
+    <linearGradient id="ground" x1="600" y1="360" x2="600" y2="800" gradientUnits="userSpaceOnUse"><stop stop-color="#C89561"/><stop offset="1" stop-color="#8B5E3C"/></linearGradient>
+  </defs>
+  <rect width="1200" height="800" fill="url(#sky)"/>
+  <circle cx="930" cy="150" r="62" fill="#F6B960" opacity=".65"/>
+  <path d="M0 395C150 350 260 385 390 365C520 345 620 385 760 360C920 332 1050 360 1200 330V800H0V395Z" fill="url(#ground)"/>
+  <path d="M605 390C570 470 615 505 570 555C525 605 565 670 495 800H720C675 685 728 613 684 560C642 510 680 455 650 390H605Z" fill="#69452F" opacity=".82"/>
+  <path d="M155 275C250 242 335 260 420 235M170 315C255 290 335 300 405 285" stroke="#A97853" stroke-width="12" stroke-linecap="round" opacity=".65"/>
+  <path d="M860 310C920 284 1000 292 1060 270M830 348C900 325 980 332 1045 315" stroke="#A97853" stroke-width="12" stroke-linecap="round" opacity=".65"/>
+  <path d="M115 535L260 505M230 625L350 600M845 585L1010 550M790 690L930 660" stroke="#D3A271" stroke-width="10" stroke-linecap="round" opacity=".55"/>
+</svg>

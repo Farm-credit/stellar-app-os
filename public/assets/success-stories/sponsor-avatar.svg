@@ -1,0 +1,8 @@
+<svg width="160" height="160" viewBox="0 0 160 160" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">Sponsor profile illustration</title>
+  <desc id="desc">A simple illustrated profile avatar.</desc>
+  <rect width="160" height="160" rx="80" fill="#E2F5E8"/>
+  <circle cx="80" cy="61" r="28" fill="#16815A"/>
+  <path d="M35 139C38.5 108.5 56.5 91 80 91C103.5 91 121.5 108.5 125 139H35Z" fill="#16815A"/>
+  <path d="M22 127C33 116 43 112 52 112M138 127C127 116 117 112 108 112" stroke="#75C997" stroke-width="8" stroke-linecap="round"/>
+</svg>
