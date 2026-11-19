@@ -42,6 +42,20 @@ async function postJoinWaitlist(region: string, treeId?: string): Promise<Waitli
   return (await response.json()) as WaitlistEntry;
 }
 
+export interface TreeUpdate {
+  id: string;
+  species: TreeSpecies;
+  region: string;
+  plantedAt?: string;
+  status: TreeStatus;
+}
+
+export interface NewsletterSummary {
+  treesPlanted: number;
+  co2OffsetKg: number;
+  regionsSupported: number;
+}
+
 const DEFAULT_FILTERS: TreeFilterState = {
   search: '',
   species: 'all',
@@ -103,6 +117,32 @@ export function useSponsorTrees(initialFilters: Partial<TreeFilterState> = {}) {
     };
   }, [trees]);
 
+  const treeUpdates = useMemo<TreeUpdate[]>(() => {
+    return trees
+      .filter((tree) => tree.status === 'planted' || tree.status === 'verified')
+      .map((tree) => ({
+        id: tree.id,
+        species: tree.species,
+        region: tree.region,
+        plantedAt: tree.plantedAt,
+        status: tree.status,
+      }))
+      .sort((a, b) => {
+        const aTime = a.plantedAt ? new Date(a.plantedAt).getTime() : 0;
+        const bTime = b.plantedAt ? new Date(b.plantedAt).getTime() : 0;
+        return bTime - aTime;
+      });
+  }, [trees]);
+
+  const newsletterSummary = useMemo<NewsletterSummary>(
+    () => ({
+      treesPlanted: annualImpact.treesPlanted,
+      co2OffsetKg: annualImpact.co2OffsetKg,
+      regionsSupported: annualImpact.regionsSupported,
+    }),
+    [annualImpact],
+  );
+
   return {
     trees,
     filters,
@@ -116,6 +156,8 @@ export function useSponsorTrees(initialFilters: Partial<TreeFilterState> = {}) {
     setFilters,
     isAtCapacity,
     annualImpact,
+    treeUpdates,
+    newsletterSummary,
     waitlist,
     waitlistEntries: waitlist.entries,
     waitlistPosition: waitlist.position,

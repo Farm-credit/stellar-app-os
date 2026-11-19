@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { Leaf, ShieldCheck, Sprout } from 'lucide-react';
 import { Badge } from '@/components/atoms/Badge';
 import {
@@ -13,6 +14,10 @@ export interface SeedProvenanceSummary {
   seedBank: string;
   collectionSite: string;
   distributionChain: string[];
+  /** Unique identifier of the seed batch this tree was grown from. */
+  batchCode?: string;
+  /** Optional link to the seed batch detail page. */
+  batchHref?: string;
 }
 
 interface NativeSpeciesTransparencyProps {
@@ -24,7 +29,7 @@ interface NativeSpeciesTransparencyProps {
 const DEFAULT_PROVENANCE: SeedProvenanceSummary = {
   seedBank: 'Regional Native Seed Bank',
   collectionSite: 'Restoration corridor, plot A-12',
-  distributionChain: ['Seed bank', 'Partner nursery', 'Planting site'],
+  distributionChain: ['Collection', 'Seed bank storage', 'Partner nursery', 'Planting site'],
 };
 
 export function NativeSpeciesTransparency({
@@ -102,10 +107,30 @@ export function NativeSpeciesTransparency({
               <dt className="text-xs text-muted-foreground">Collection site</dt>
               <dd className="font-medium">{provenance.collectionSite}</dd>
             </div>
+            {provenance.batchCode && (
+              <div className="sm:col-span-2">
+                <dt className="text-xs text-muted-foreground">Seed batch</dt>
+                <dd className="font-medium">
+                  {provenance.batchHref ? (
+                    <Link
+                      href={provenance.batchHref}
+                      className="text-stellar-green underline-offset-2 hover:underline"
+                    >
+                      {provenance.batchCode}
+                    </Link>
+                  ) : (
+                    provenance.batchCode
+                  )}
+                </dd>
+              </div>
+            )}
           </dl>
           <div>
             <p className="text-xs text-muted-foreground">Distribution chain</p>
-            <ol className="mt-1 flex flex-wrap items-center gap-1 text-xs">
+            <ol
+              className="mt-1 flex flex-wrap items-center gap-1 text-xs"
+              aria-label="Seed distribution chain from collection to planting"
+            >
               {provenance.distributionChain.map((step, index) => (
                 <li key={`${step}-${index}`} className="flex items-center gap-1">
                   {index > 0 && (

@@ -258,6 +258,95 @@ export function seedLifecycleEvents(batch: SeedBatch): SeedLifecycleEvent[] {
   return events;
 }
 
+/** A single hand-off in a batch's distribution chain, from seed bank to planting site. */
+export interface SeedDistributionStep {
+  stage: SeedBatchStage;
+  /** ISO timestamp of the transition. */
+  at: string;
+  /** Nursery the batch moved to, when the step is a distribution. */
+  nurseryId?: string;
+  /** Planting site the batch was planted at, when the step is a planting. */
+  plantingSiteId?: string;
+  /** Tree profile created from the batch, when the step is a planting. */
+  treeProfileId?: string;
+}
+
+/** Provenance summary linking a seed batch back to its origin and forward to its planting. */
+export interface SeedProvenanceSummary {
+  batchId: string;
+  speciesSlug: string;
+  seedBankId: string;
+  collectionSite: string;
+  collectedBy: string;
+  collectedAt: string;
+  parentTreeId?: string;
+  /** Ordered distribution chain from collection through to the current stage. */
+  chain: SeedDistributionStep[];
+  /** Tree profile created from this batch, if it has been planted. */
+  treeProfileId?: string;
+}
+
+/** Builds a provenance summary, including the ordered distribution chain, for a batch. */
+export function buildSeedProvenanceSummary(batch: SeedBatch): SeedProvenanceSummary {
+  const chain: SeedDistributionStep[] = [
+    { stage: 'collected', at: batch.provenance.collectedAt },
+  ];
+  if (STAGE_ORDER[batch.stage] >= STAGE_ORDER.stored) {
+    chain.push({ stage: 'stored', at: batch.updatedAt });
+  }
+  if (STAGE_ORDER[batch.stage] >= STAGE_ORDER.distributed) {
+    chain.push({ stage: 'distributed', at: batch.updatedAt, nurseryId: batch.nurseryId });
+  }
+  if (STAGE_ORDER[batch.stage] >= STAGE_ORDER.planted) {
+    chain.push({
+      stage: 'planted',
+      at: batch.updatedAt,
+      plantingSiteId: batch.plantingSiteId,
+      treeProfileId: batch.treeProfileId,
+    });
+  }
+  return {
+    batchId: batch.id,
+    speciesSlug: batch.speciesSlug,
+    seedBankId: batch.seedBankId,
+    collectionSite: batch.provenance.collectionSite,
+    collectedBy: batch.provenance.collectedBy,
+    collectedAt: batch.provenance.collectedAt,
+    parentTreeId: batch.provenance.parentTreeId,
+    chain,
+    treeProfileId: batch.treeProfileId,
+  };
+}
+
+/** Returns the stage that must follow the given stage, or undefined for the terminal stage. */
+export function nextSeedBatchStage(stage: SeedBatchStage): SeedBatchStage | undefined {
+  const index = SEED_BATCH_STAGES.indexOf(stage);
+  return index >= 0 && index < SEED_BATCH_STAGES.length - 1
+    ? SEED_BATCH_STAGES[index + 1]
+    : undefined;
+}
+
+/** Validates that a batch may transition from its current stage to the target stage. */
+export function validateSeedBatchTransition(
+  batch: SeedBatch,
+  target: SeedBatchStage
+): { valid: boolean; error?: string } {
+  const expected = nextSeedBatchStage(batch.stage);
+  if (!expected) {
+    return {
+      valid: false,
+      error: `Seed batch ${batch.id} is already in the terminal stage "${batch.stage}".`,
+    };
+  }
+  if (target !== expected) {
+    return {
+      valid: false,
+      error: `Seed batch ${batch.id} must transition from "${batch.stage}" to "${expected}" but received "${target}".`,
+    };
+  }
+  return { valid: true };
+}
+
 export interface SeedBankInventory {
   seedBankId: string;
   totalBatches: number;

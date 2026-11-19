@@ -46,13 +46,27 @@ export interface WaitlistAssignment {
   assignedAt: string;
 }
 
+export interface SponsorNewsletterPreference {
+  sponsorId: string;
+  optIn: boolean;
+  updatedAt: string;
+}
+
+export interface PersonalisedNewsletterSection {
+  sponsorId: string;
+  treeUpdates: Tree[];
+  totalTrees: number;
+}
+
 const ANNUAL_IMPACT_EMAILS_ENDPOINT = '/api/sponsors/annual-impact-emails';
 const WAITLIST_ENDPOINT = '/api/sponsors/waitlist';
+const NEWSLETTER_PREFERENCES_ENDPOINT = '/api/sponsors/newsletter-preferences';
 
 // In-memory fallback stores used when the API is unavailable (e.g. tests / offline).
 const annualImpactEmailsStore: AnnualImpactEmailRow[] = [];
 const annualImpactSummariesStore: AnnualImpactSummary[] = [];
 const waitlistStore: WaitlistEntry[] = [];
+const newsletterPreferencesStore: SponsorNewsletterPreference[] = [];
 
 function normalizeAddress(address: string): string {
   return address.toLowerCase();
@@ -246,6 +260,68 @@ export async function runAnnualImpactSummaryJob(
  */
 export function isAnnualImpactSendDay(date: Date = new Date()): boolean {
   return date.getUTCMonth() === 11 && date.getUTCDate() === 20;
+}
+
+/**
+ * Returns the sponsor's monthly newsletter preference.
+ * Sponsors are opted in by default until they explicitly opt out.
+ */
+export function getNewsletterPreference(
+  sponsorId: string
+): SponsorNewsletterPreference {
+  const normalized = normalizeAddress(sponsorId);
+  const existing = newsletterPreferencesStore.find(
+    (entry) => normalizeAddress(entry.sponsorId) === normalized
+  );
+  if (existing) return existing;
+
+  return {
+    sponsorId,
+    optIn: true,
+    updatedAt: new Date(0).toISOString(),
+  };
+}
+
+/**
+ * Updates the sponsor's monthly newsletter opt-in/out preference.
+ */
+export function updateNewsletterPreference(
+  sponsorId: string,
+  optIn: boolean
+): SponsorNewsletterPreference {
+  const normalized = normalizeAddress(sponsorId);
+  const existing = newsletterPreferencesStore.find(
+    (entry) => normalizeAddress(entry.sponsorId) === normalized
+  );
+
+  if (existing) {
+    existing.optIn = optIn;
+    existing.updatedAt = new Date().toISOString();
+    return existing;
+  }
+
+  const preference: SponsorNewsletterPreference = {
+    sponsorId,
+    optIn,
+    updatedAt: new Date().toISOString(),
+  };
+  newsletterPreferencesStore.push(preference);
+  return preference;
+}
+
+/**
+ * Builds the personalised section of the monthly forest health newsletter,
+ * showing the subscriber's own tree updates.
+ */
+export async function getPersonalisedNewsletterSection(
+  sponsorId: string
+): Promise<PersonalisedNewsletterSection> {
+  const treeUpdates = await getSponsorTreeUpdates(sponsorId);
+  return {
+    sponsorId,
+    treeUpdates,
+    totalTrees: treeUpdates.length,
+  };
 }
 
 function getWaitlistForRegion(region: string): WaitlistEntry[] {
