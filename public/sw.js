@@ -288,8 +288,37 @@ self.addEventListener('message', (event) => {
 });
 
 // Push notification handler
-// Payloads are JSON: { title, body, url, tag, actions: [{ action, title, url }] }.
+// Payloads are JSON: { type, title, body, url, tag, treeId, achievementId,
+// actions: [{ action, title, url }] }.
 // Plain-text payloads from older senders still display as a basic notification.
+const MILESTONE_TYPES = {
+  tree_planted: {
+    title: 'Tree planted',
+    url: (p) => (p.treeId ? `/trees/${p.treeId}` : '/trees'),
+  },
+  tree_survival_1y: {
+    title: '1-year survival milestone',
+    url: (p) => (p.treeId ? `/trees/${p.treeId}?milestone=1y` : '/trees'),
+  },
+  tree_milestone_5y: {
+    title: '5-year milestone reached',
+    url: (p) => (p.treeId ? `/trees/${p.treeId}?milestone=5y` : '/trees'),
+  },
+  achievement_unlocked: {
+    title: 'Achievement unlocked',
+    url: (p) => (p.achievementId ? `/achievements/${p.achievementId}` : '/achievements'),
+  },
+};
+
+// Resolve the in-app URL for a push payload based on its type
+function resolvePushUrl(payload) {
+  const milestone = MILESTONE_TYPES[payload.type];
+  if (milestone) {
+    return milestone.url(payload);
+  }
+  return payload.url || '/';
+}
+
 self.addEventListener('push', (event) => {
   let payload = {};
   if (event.data) {
@@ -300,16 +329,20 @@ self.addEventListener('push', (event) => {
     }
   }
 
+  const milestone = MILESTONE_TYPES[payload.type];
   const actions = Array.isArray(payload.actions) ? payload.actions.slice(0, 2) : [];
   const options = {
     body: payload.body || 'New update available',
     icon: '/icons/icon-192x192.png',
     badge: '/icons/icon-72x72.png',
     vibrate: [200, 100, 200],
-    tag: payload.tag,
+    tag: payload.tag || payload.type,
     data: {
       dateOfArrival: Date.now(),
-      url: payload.url || '/',
+      type: payload.type || null,
+      treeId: payload.treeId || null,
+      achievementId: payload.achievementId || null,
+      url: resolvePushUrl(payload),
       actionUrls: Object.fromEntries(actions.map((a) => [a.action, a.url])),
     },
     actions: actions.length
@@ -320,7 +353,8 @@ self.addEventListener('push', (event) => {
         ],
   };
 
-  event.waitUntil(self.registration.showNotification(payload.title || 'FarmCredit', options));
+  const title = payload.title || (milestone && milestone.title) || 'FarmCredit';
+  event.waitUntil(self.registration.showNotification(title, options));
 });
 
 // Notification click handler
@@ -330,6 +364,8 @@ self.addEventListener('notificationclick', (event) => {
 
   const data = event.notification.data || {};
   const target =
-    (event.action && data.actionUrls && data.actionUrls[event.action]) || data.url || '/';
+    (event.action && data.actionUrls && data.actionUrls[event.action]) ||
+    resolvePushUrl(data) ||
+    '/';
   event.waitUntil(clients.openWindow(target));
 });

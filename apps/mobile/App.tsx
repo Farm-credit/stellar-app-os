@@ -3,6 +3,10 @@ import { SafeAreaView, ScrollView, Text, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
 import { registerForPushNotifications } from './src/notifications/registerForPushNotifications';
+import {
+  NotificationProvider,
+  useNotificationContext,
+} from './src/notifications/NotificationContext';
 
 type Snapshot = {
   trees: number;
@@ -12,13 +16,21 @@ type Snapshot = {
 };
 const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'https://farmcredit.app';
 export default function App() {
+  return (
+    <NotificationProvider apiUrl={API_URL}>
+      <SponsorHome />
+    </NotificationProvider>
+  );
+}
+function SponsorHome() {
   const [snapshot, setSnapshot] = useState<Snapshot>({
     trees: 4840,
     co2Tonnes: 305.3,
     protectedHectares: 134.1,
     lastSyncedAt: 'cached',
   });
-  
+  const { lastEvent, routeToScreen } = useNotificationContext();
+
   useEffect(() => {
     void (async () => {
       const cached = await AsyncStorage.getItem('sponsor-portfolio');
@@ -41,11 +53,11 @@ export default function App() {
       const screen = data?.screen ?? routeForNotificationType(data?.type);
       if (screen) {
         // Navigation is wired up by the root navigator; this listener only resolves the target.
-        console.log(`[push] route to ${screen}`);
+        routeToScreen(screen);
       }
     });
     return () => subscription.remove();
-  }, []);
+  }, [routeToScreen]);
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#0d0b21' }}>
       <ScrollView contentContainerStyle={{ padding: 24, gap: 20 }}>
@@ -54,6 +66,19 @@ export default function App() {
         <Text style={{ color: '#cbd5e1' }}>
           Health alerts and milestones, even when you are offline.
         </Text>
+        {lastEvent ? (
+          <View style={{ backgroundColor: '#141230', borderRadius: 16, padding: 18 }}>
+            <Text style={{ color: '#14b6e7', fontSize: 12, fontWeight: '700' }}>
+              {lastEvent.type.replace(/_/g, ' ').toUpperCase()}
+            </Text>
+            <Text style={{ color: '#fff', fontSize: 18, fontWeight: '700', marginTop: 6 }}>
+              {lastEvent.title}
+            </Text>
+            {lastEvent.body ? (
+              <Text style={{ color: '#cbd5e1', marginTop: 4 }}>{lastEvent.body}</Text>
+            ) : null}
+          </View>
+        ) : null}
         <View style={{ gap: 12 }}>
           <Metric label="Trees sponsored" value={snapshot.trees.toLocaleString()} />
           <Metric label="CO₂ captured" value={`${snapshot.co2Tonnes.toFixed(1)} t`} />

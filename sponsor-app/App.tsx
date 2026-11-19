@@ -1,4 +1,4 @@
-import { StatusBar } from 'expo-bar';
+import { StatusBar } from 'expo-status-bar';
 import { useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View, FlatList } from 'react-native';
 import * as Notifications from 'expo-notifications';
@@ -13,6 +13,7 @@ import {
   type BiometricAvailability,
 } from './src/lib/biometrics';
 import { registerForPushNotifications } from './src/lib/notifications';
+import { subscribeToTreeEvents } from './src/lib/treeEvents';
 import { notify } from './src/lib/toast';
 
 type Tab = 'home' | 'trees' | 'ar' | 'profile' | 'tax-deduction';
@@ -30,6 +31,8 @@ export default function App() {
   const [unbalanced, setUnbalanced] = useState(false);
   const [tab, setTab] = useState<Tab>('home');
   const notificationListener = useRef<Notifications.Subscription | null>(null);
+  const responseListener = useRef<Notifications.Subscription | null>(null);
+  const treeEventsUnsubscribe = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     void (async () => {
@@ -56,22 +59,56 @@ export default function App() {
 
     void registerForPushNotifications();
 
-    notificationListener.current = Notifications.addNotificationReceivedListener(
-      (notification) => {
-        const data = notification.request.content.data ?? {};
-        const title = notification.request.content.title ?? 'FarmCredit Sponsor';
-        const body = notification.request.content.body ?? '';
-        notify(body ? `${title}: ${body}` : title);
+    const handleNotification = (notification: Notifications.Notification) => {
+      const data = notification.request.content.data ?? {};
+      const title = notification.request.content.title ?? 'FarmCredit Sponsor';
+      const body = notification.request.content.body ?? '';
+      notify(body ? `${title}: ${body}` : title);
 
-        if (typeof dataId === 'string' && dataId.length > 0) {
-          setTab('trees');
-        }
+      const dataId = data.treeId ?? data.id;
+      const kind = typeof data.kind === 'string' ? data.kind : undefined;
+
+      if (kind === 'achievement') {
+        setTab('profile');
+        return;
+      }
+
+      if (typeof dataId === 'string' && dataId.length > 0) {
+        setTab('trees');
+      }
+    };
+
+    notificationListener.current = Notifications.addNotificationReceivedListener(
+      handleNotification,
+    );
+
+    responseListener.current = Notifications.addNotificationResponseReceivedListener(
+      (response) => {
+        handleNotification(response.notification);
       },
     );
+
+    // Subscribe to real-time tree milestone / achievement events so they
+    // surface as in-app notifications (and are routed to the right screen).
+    treeEventsUnsubscribe.current = subscribeToTreeEvents((event) => {
+      const title = event.title ?? 'FarmCredit Sponsor';
+      const body = event.body ?? '';
+      notify(body ? `${title}: ${body}` : title);
+
+      if (event.kind === 'achievement') {
+        setTab('profile');
+      } else if (event.treeId) {
+        setTab('trees');
+      }
+    });
 
     return () => {
       notificationListener.current?.remove();
       notificationListener.current = null;
+      responseListener.current?.remove();
+      responseListener.current = null;
+      treeEventsUnsubscribe.current?.();
+      treeEventsUnsubscribe.current = null;
     };
   }, [unbalanced]);
 
@@ -95,7 +132,7 @@ export default function App() {
 
   return (
     <View style={styles.root}>
-      <View style={styles.bx}>
+      <View style={styles.screen}>
         {tab === 'home' && <HomeScreen />}
         {tab === 'trees' && <MyTreesScreen />}
         {tab === 'ar' && <ARTreeViewerScreen />}
@@ -104,7 +141,7 @@ export default function App() {
       </View>
 
       <View style={styles.tabBar} accessibilityRole="tablist" accessibilityLabel="Main navigation">
-        {TABS.map({ id, label }) => {
+        {TABS.map(({ id, label }) => {
           const selected = tab === id;
           return (
             <Pressable
@@ -116,7 +153,7 @@ export default function App() {
               android_ripple={{ color: '#e0e0e0' }}
               style={({ pressed }) => [styles.tab, selected && styles.tabSelected]}
             >
-              <Text style={styles.tabText, selected && styles.tabTextSelected}>
+              <Text style={[styles.tabText, selected && styles.tabTextSelected]}>
                 {label}
               </Text>
             </Pressable>

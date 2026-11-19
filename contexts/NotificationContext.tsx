@@ -6,6 +6,8 @@ import {
   useState,
   useCallback,
   useMemo,
+  useEffect,
+  useRef,
   type ReactNode,
   type ReactElement,
 } from 'react';
@@ -162,6 +164,15 @@ export interface TreeLifecycleNotificationEvent {
   metadata?: Record<string, unknown>;
 }
 
+/**
+ * Listener invoked whenever a tree lifecycle event is received and converted
+ * into an in-app notification. Receives the event and the created notification id.
+ */
+export type TreeLifecycleEventListener = (
+  event: TreeLifecycleNotificationEvent,
+  notificationId: string
+) => void;
+
 interface TreeEventMapping {
   type: Notification['type'];
   priority: Notification['priority'];
@@ -233,6 +244,8 @@ export function NotificationProvider({ children }: { children: ReactNode }): Rea
   const [toasts, setToasts] = useState<ToastNotification[]>([]);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [newsletterOptIn, setNewsletterOptInState] = useState<boolean>(readStoredNewsletterOptIn);
+
+  const treeEventListenersRef = useRef<Set<TreeLifecycleEventListener>>(new Set());
 
   const unreadCount = useMemo(
     () => notifications.filter((n) => !n.read && !n.archived).length,
@@ -310,10 +323,35 @@ export function NotificationProvider({ children }: { children: ReactNode }): Rea
       };
 
       setNotifications((prev) => [newNotification, ...prev]);
+
+      treeEventListenersRef.current.forEach((listener) => {
+        try {
+          listener(event, id);
+        } catch {
+          // Ignore listener failures so one bad subscriber cannot break others.
+        }
+      });
+
       return id;
     },
     []
   );
+
+  const subscribeToTreeEvents = useCallback(
+    (listener: TreeLifecycleEventListener): (() => void) => {
+      treeEventListenersRef.current.add(listener);
+      return () => {
+        treeEventListenersRef.current.delete(listener);
+      };
+    },
+    []
+  );
+
+  useEffect(() => {
+    return () => {
+      treeEventListenersRef.current.clear();
+    };
+  }, []);
 
   const markAsRead = useCallback((id: string) => {
     setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
@@ -393,6 +431,7 @@ export function NotificationProvider({ children }: { children: ReactNode }): Rea
       addNotification,
       addToast,
       notifyTreeEvent,
+      subscribeToTreeEvents,
       markAsRead,
       markAllAsRead,
       archiveNotification,
@@ -415,6 +454,7 @@ export function NotificationProvider({ children }: { children: ReactNode }): Rea
       addNotification,
       addToast,
       notifyTreeEvent,
+      subscribeToTreeEvents,
       markAsRead,
       markAllAsRead,
       archiveNotification,
@@ -441,3 +481,6 @@ export function useNotification(): NotificationContextValue {
   }
   return context;
 }
+</｜｜DSML｜｜ parameter>
+</｜｜DSML｜｜ invoke>
+</｜｜DSML｜｜ calls>
