@@ -13,8 +13,8 @@
 // Related SQL migrations:
 //   db/migrations/026_biome_campaigns_buffer_zones.sql
 //     (biome_campaigns, corporate_match_pledges, project_buffer_zones)
-//   db/migrations/027_waitlist_annual_impact_summary.sql
-//     (tree_sponsorship_waitlist, annual_impact_summaries)
+//   db/migrations/027_charity_ngo_partner_portal.sql
+//     (partner_applications, partner_onboardings)
 
 generator client {
   provider = "prisma-client-js"
@@ -233,6 +233,57 @@ model CorporateMatchPledge {
   @@map("corporate_match_pledges")
 }
 
+// ── PartnerApplication ──────────────────────────────────────────────────────
+//
+// Charity / NGO partnership applications (Issue #1705). Captures the
+// organisation's details, primary contact, registration number, mission
+// statement and logo, plus the review status of the application.
+//
+// Schema is for documentation; production uses raw SQL migrations (see note above).
+// Related SQL migration: db/migrations/027_charity_ngo_partner_portal.sql
+model PartnerApplication {
+  id                 String   @id @default(cuid())
+  organisationName   String   @map("organisation_name") @db.VarChar(200)
+  registrationNumber String   @map("registration_number") @db.VarChar(100)
+  contactName        String   @map("contact_name") @db.VarChar(200)
+  contactEmail       String   @map("contact_email") @db.VarChar(320)
+  contactPhone       String?  @map("contact_phone") @db.VarChar(50)
+  websiteUrl         String?  @map("website_url") @db.VarChar(500)
+  mission            String   @db.Text
+  logoUrl            String?  @map("logo_url") @db.VarChar(500)
+  status             String   @default("pending") @db.VarChar(20) // pending | approved | rejected | withdrawn
+  reviewNotes        String?  @map("review_notes") @db.Text
+  reviewedAt         DateTime? @map("reviewed_at")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  onboarding         PartnerOnboarding?
+
+  @@unique([registrationNumber])
+  @@index([status])
+  @@index([contactEmail])
+  @@map("partner_applications")
+}
+
+// ── PartnerOnboarding ───────────────────────────────────────────────────────
+//
+// Onboarding progress for an approved partner application (Issue #1705).
+// Tracks the current onboarding step and completion of the flow.
+model PartnerOnboarding {
+  id            String   @id @default(cuid())
+  applicationId String   @unique @map("application_id")
+  currentStep   String   @default("organisation_details") @map("current_step") @db.VarChar(50)
+  completedSteps String[] @default([]) @map("completed_steps")
+  completedAt   DateTime? @map("completed_at")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  application   PartnerApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  @@index([currentStep])
+  @@map("partner_onboardings")
+}
+
 // ── ProjectBufferZone ───────────────────────────────────────────────────────
 //
 // Designated forest protection buffer zones around reforestation projects
@@ -250,57 +301,4 @@ model ProjectBufferZone {
   @@index([projectId])
   @@index([deforestationAlert])
   @@map("project_buffer_zones")
-}
-
-// ── TreeSponsorshipWaitlist ─────────────────────────────────────────────────
-//
-// Waitlist entries for oversubscribed planting zones (Issue #1718). When a
-// zone reaches capacity, sponsors can join the waitlist and are automatically
-// assigned a tree (in position order) when the next planting batch opens.
-//
-// Schema is for documentation; production uses raw SQL migrations (see note above).
-// Related SQL migration: db/migrations/027_waitlist_annual_impact_summary.sql
-model TreeSponsorshipWaitlist {
-  id              String    @id @default(cuid())
-  sponsorId       String    @map("sponsor_id")
-  region          String    @db.VarChar(100) // planting zone / region, e.g. "North America"
-  position        Int       // 1-based waitlist position within the region
-  status          String    @default("waiting") @db.VarChar(20) // waiting | assigned | cancelled
-  joinedAt        DateTime  @default(now()) @map("joined_at")
-  assignedAt      DateTime? @map("assigned_at")
-  assignedTreeId  String?   @map("assigned_tree_id")
-  createdAt       DateTime  @default(now()) @map("created_at")
-  updatedAt       DateTime  @updatedAt @map("updated_at")
-
-  @@index([region, status])
-  @@index([sponsorId])
-  @@index([status])
-  @@map("tree_sponsorship_waitlist")
-}
-
-// ── AnnualImpactSummary ─────────────────────────────────────────────────────
-//
-// Year-in-review impact summary emails sent to sponsors each December 20
-// (Issue #1712). Stores the per-sponsor, per-year stats snapshot used to
-// personalise the email and the shareable impact image.
-//
-// Schema is for documentation; production uses raw SQL migrations (see note above).
-// Related SQL migration: db/migrations/027_waitlist_annual_impact_summary.sql
-model AnnualImpactSummary {
-  id          String    @id @default(cuid())
-  sponsorId   String    @map("sponsor_id")
-  year        Int
-  status      String    @default("pending") @db.VarChar(20) // pending | sent | failed
-  sentAt      DateTime? @map("sent_at")
-  // Snapshot of the year's stats: trees funded, CO2 absorbed, species
-  // diversity, milestones, shareable image URL, etc.
-  stats       Json      @default("{}")
-  createdAt   DateTime  @default(now()) @map("created_at")
-  updatedAt   DateTime  @updatedAt @map("updated_at")
-
-  @@unique([sponsorId, year])
-  @@index([sponsorId, year])
-  @@index([status])
-  @@index([year])
-  @@map("annual_impact_summaries")
 }

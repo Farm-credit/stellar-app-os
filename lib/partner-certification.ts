@@ -250,3 +250,192 @@ export function resetPartnerCertificationsForTest(): void {
   applications.length = 0;
   counter = 0;
 }
+
+/* ------------------------------------------------------------------------- *
+ * Charity / NGO partnership portal — Issue #1705.
+ *
+ * A separate onboarding flow for charities and NGOs that want to partner with
+ * the platform (co-branded campaigns, charity-code fundraising pages, joint
+ * impact reporting). Applications move through a fixed sequence of onboarding
+ * steps; the platform admin advances them as each step is completed.
+ * ------------------------------------------------------------------------- */
+
+export const ONBOARDING_STEPS = [
+  'application_submitted',
+  'documents_verified',
+  'agreement_signed',
+  'portal_enabled',
+] as const;
+
+export type OnboardingStep = (typeof ONBOARDING_STEPS)[number];
+
+export type PartnerApplicationStatus = 'in_progress' | 'completed' | 'rejected';
+
+export type PartnerOrganisationType = 'charity' | 'ngo';
+
+export interface PartnerApplicationInput {
+  organisationName: string;
+  organisationType: PartnerOrganisationType;
+  registrationNumber: string;
+  contactName: string;
+  contactEmail: string;
+  websiteUrl: string;
+  /** Short description of the organisation's mission. */
+  mission: string;
+  /** URL to the organisation's logo, used on co-branded campaign pages. */
+  logoUrl: string;
+  attested: boolean;
+}
+
+export interface PartnerApplication extends PartnerApplicationInput {
+  id: string;
+  status: PartnerApplicationStatus;
+  currentStep: OnboardingStep;
+  completedSteps: OnboardingStep[];
+  submittedAt: string;
+  updatedAt: string;
+  reviewerNote: string | null;
+}
+
+export class PartnerApplicationError extends Error {
+  status: number;
+  constructor(message: string, status = 400) {
+    super(message);
+    this.name = 'PartnerApplicationError';
+    this.status = status;
+  }
+}
+
+function isHttpUrl(value: string): boolean {
+  return /^https?:\/\//.test(value);
+}
+
+export function parsePartnerApplicationInput(
+  body: Record<string, unknown>
+): PartnerApplicationInput {
+  const organisationType = nonEmptyString(body.organisationType, 'organisationType');
+  if (organisationType !== 'charity' && organisationType !== 'ngo') {
+    throw new PartnerApplicationError("organisationType must be 'charity' or 'ngo'");
+  }
+  const contactEmail = nonEmptyString(body.contactEmail, 'contactEmail');
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactEmail)) {
+    throw new PartnerApplicationError('contactEmail must be a valid email address');
+  }
+  const websiteUrl = nonEmptyString(body.websiteUrl, 'websiteUrl');
+  if (!isHttpUrl(websiteUrl)) {
+    throw new PartnerApplicationError('websiteUrl must be an http(s) URL');
+  }
+  const logoUrl = nonEmptyString(body.logoUrl, 'logoUrl');
+  if (!isHttpUrl(logoUrl)) {
+    throw new PartnerApplicationError('logoUrl must be an http(s) URL');
+  }
+  if (body.attested !== true) {
+    throw new PartnerApplicationError('The accuracy attestation must be accepted');
+  }
+  return {
+    organisationName: nonEmptyString(body.organisationName, 'organisationName'),
+    organisationType,
+    registrationNumber: nonEmptyString(body.registrationNumber, 'registrationNumber'),
+    contactName: nonEmptyString(body.contactName, 'contactName'),
+    contactEmail,
+    websiteUrl,
+    mission: nonEmptyString(body.mission, 'mission'),
+    logoUrl,
+    attested: true,
+  };
+}
+
+const partnerApplications: PartnerApplication[] = [];
+let partnerCounter = 0;
+
+export function submitPartnerApplication(
+  input: PartnerApplicationInput,
+  now: Date = new Date()
+): PartnerApplication {
+  const open = partnerApplications.find(
+    (a) =>
+      a.registrationNumber === input.registrationNumber && a.status === 'in_progress'
+  );
+  if (open) {
+    throw new PartnerApplicationError(
+      'An application for this organisation is already in progress',
+      409
+    );
+  }
+  const timestamp = now.toISOString();
+  const application: PartnerApplication = {
+    ...input,
+    id: `partner-${++partnerCounter}`,
+    status: 'in_progress',
+    currentStep: ONBOARDING_STEPS[0],
+    completedSteps: [ONBOARDING_STEPS[0]],
+    submittedAt: timestamp,
+    updatedAt: timestamp,
+    reviewerNote: null,
+  };
+  partnerApplications.push(application);
+  return application;
+}
+
+export function listPartnerApplications(
+  filter: { status?: PartnerApplicationStatus } = {}
+): PartnerApplication[] {
+  return partnerApplications.filter((a) => !filter.status || a.status === filter.status);
+}
+
+export function getPartnerApplication(id: string): PartnerApplication | undefined {
+  return partnerApplications.find((a) => a.id === id);
+}
+
+/**
+ * Moves an application to the next onboarding step. Advancing past the final
+ * step completes onboarding and enables the partnership portal.
+ */
+export function advanceOnboardingStep(
+  id: string,
+  now: Date = new Date()
+): PartnerApplication {
+  const application = getPartnerApplication(id);
+  if (!application) throw new PartnerApplicationError('Application not found', 404);
+  if (application.status !== 'in_progress') {
+    throw new PartnerApplicationError('Application is no longer in progress', 409);
+  }
+  const index = ONBOARDING_STEPS.indexOf(application.currentStep);
+  const next = ONBOARDING_STEPS[index + 1];
+  if (!next) {
+    throw new PartnerApplicationError('Application has already completed onboarding', 409);
+  }
+  application.currentStep = next;
+  if (!application.completedSteps.includes(next)) {
+    application.completedSteps.push(next);
+  }
+  if (next === ONBOARDING_STEPS[ONBOARDING_STEPS.length - 1]) {
+    application.status = 'completed';
+  }
+  application.updatedAt = now.toISOString();
+  return application;
+}
+
+export function rejectPartnerApplication(
+  id: string,
+  note: string,
+  now: Date = new Date()
+): PartnerApplication {
+  const application = getPartnerApplication(id);
+  if (!application) throw new PartnerApplicationError('Application not found', 404);
+  if (application.status !== 'in_progress') {
+    throw new PartnerApplicationError('Application is no longer in progress', 409);
+  }
+  if (!note.trim()) {
+    throw new PartnerApplicationError('A note is required when rejecting an application');
+  }
+  application.status = 'rejected';
+  application.reviewerNote = note.trim();
+  application.updatedAt = now.toISOString();
+  return application;
+}
+
+export function resetPartnerApplicationsForTest(): void {
+  partnerApplications.length = 0;
+  partnerCounter = 0;
+}

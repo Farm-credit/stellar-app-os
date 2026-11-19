@@ -3,7 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import SocialShareButtons from './SocialShareButtons';
-import { generateShareText } from '../lib/sharing';
+import { generateShareText, generateShareUrl } from '../lib/sharing';
 
 export interface QuizSpeciesRecommendation {
   id: string;
@@ -13,6 +13,7 @@ export interface QuizSpeciesRecommendation {
   co2PerYearKg?: number;
   maturityYears?: number;
   imageUrl?: string;
+  sponsorUrl?: string;
 }
 
 export interface QuizResult {
@@ -66,6 +67,11 @@ export default function QuizResultCard({
 
   const resolvedShareUrl =
     shareUrl ??
+    generateShareUrl({
+      path: '/quiz',
+      title: shareTitle,
+      description: shareDescription,
+    }) ??
     (typeof window !== 'undefined' ? window.location.href : undefined);
 
   return (
@@ -108,7 +114,7 @@ export default function QuizResultCard({
                       loading="lazy"
                     />
                   )}
-                  <div className="min-w-0">
+                  <div className="min-w-0 flex-1">
                     <p className="font-semibold text-gray-900">{species.name}</p>
                     {species.scientificName && (
                       <p className="text-sm italic text-gray-500">
@@ -132,6 +138,15 @@ export default function QuizResultCard({
                         </span>
                       )}
                     </div>
+                    <Link
+                      href={species.sponsorUrl ?? sponsorUrl}
+                      className="mt-3 inline-flex items-center text-sm font-semibold text-green-700 hover:text-green-800 hover:underline"
+                    >
+                      Sponsor {species.name}
+                      <span aria-hidden="true" className="ml-1">
+                        →
+                      </span>
+                    </Link>
                   </div>
                 </li>
               );

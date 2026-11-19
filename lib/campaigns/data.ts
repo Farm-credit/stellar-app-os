@@ -37,6 +37,14 @@ export interface Campaign {
   isEndangeredBiome?: boolean;
   /** Campaign quarter label, e.g. "Q1 2027". */
   quarter?: string;
+  /** Charity partner code used for fundraising pages (issue #1705). */
+  charityCode?: string;
+  /** Display name of the charity/NGO partner (issue #1705). */
+  charityName?: string;
+  /** URL of the charity partner logo for co-branding (issue #1705). */
+  charityLogoUrl?: string;
+  /** Co-branded campaign title shown alongside the charity logo (issue #1705). */
+  coBrandedTitle?: string;
 }
 
 export const CAMPAIGNS: Campaign[] = [
@@ -68,6 +76,10 @@ export const CAMPAIGNS: Campaign[] = [
     treesPlanted: 96800,
     isEndangeredBiome: true,
     quarter: 'Q1 2027',
+    charityCode: 'MANGROVE-01',
+    charityName: 'Niger Delta Coastal Trust',
+    charityLogoUrl: '/charities/niger-delta-coastal-trust.svg',
+    coBrandedTitle: 'Save the Mangrove Coast with Niger Delta Coastal Trust',
   },
   {
     slug: 'protect-the-cloud-forest',
@@ -100,6 +112,10 @@ export const CAMPAIGNS: Campaign[] = [
     treesPlanted: 38250,
     isEndangeredBiome: true,
     quarter: 'Q2 2027',
+    charityCode: 'CLOUD-02',
+    charityName: 'Mount Cameroon Forest Alliance',
+    charityLogoUrl: '/charities/mount-cameroon-forest-alliance.svg',
+    coBrandedTitle: 'Protect the Cloud Forest with Mount Cameroon Forest Alliance',
   },
   {
     slug: 'atlantic-forest-restoration',
@@ -129,6 +145,10 @@ export const CAMPAIGNS: Campaign[] = [
     treesPlanted: 18600,
     isEndangeredBiome: true,
     quarter: 'Q3 2027',
+    charityCode: 'ATLANTIC-03',
+    charityName: 'Mata Atlântica Restoration Network',
+    charityLogoUrl: '/charities/mata-atlantica-restoration-network.svg',
+    coBrandedTitle: 'Atlantic Forest Restoration with Mata Atlântica Restoration Network',
   },
 ];
 
