@@ -37,6 +37,54 @@ contract CarbonSredit {
     /// @param reason Human-readable reason describing why the project was rejected.
     event CreditsRejected(uint256 indexed projectId, string reason);
 
+    /// @notice Details of an on-chain auction for carbon credits.
+    /// @dev `highestBidder` is the zero address until the first valid bid.
+    struct Auction {
+        uint256 projectId;
+        uint256 tons;
+        uint256 reservePrice;
+        address seller;
+        address highestBidder;
+        uint256 highestBid;
+        uint256 highestBidTime;
+        uint256 endTime;
+        bool settled;
+    }
+
+    /// @notice Auto-incrementing ID for the next auction to be created.
+    uint256 public nextAuctionId;
+
+    /// @notice Auctions keyed by auction ID.
+    mapping(uint256 => Auction) public auctions;
+
+    /// @notice Emitted when a new auction is created.
+    /// @param auctionId The ID of the newly created auction.
+    /// @param projectId The afforestation project whose credits are auctioned.
+    /// @param tons The number of credits (in tons) being auctioned.
+    /// @param reservePrice The minimum acceptable bid (per auction, in wei).
+    /// @param seller The address offering the credits for sale.
+    /// @param endTime The timestamp at which bidding closes.
+    event AuctionCreated(
+        uint256 indexed auctionId,
+        uint256 indexed projectId,
+        uint256 tons,
+        uint256 reservePrice,
+        address indexed seller,
+        uint256 endTime
+    );
+
+    /// @notice Emitted when a bid is placed on an auction.
+    /// @param auctionId The ID of the auction receiving the bid.
+    /// @param bidder The address placing the bid.
+    /// @param amount The bid amount (in wei).
+    event BidPlaced(uint256 indexed auctionId, address indexed bidder, uint256 amount);
+
+    /// @notice Emitted when an auction is settled.
+    /// @param auctionId The ID of the auction that was settled.
+    /// @param winner The winning bidder (zero address if no valid bid).
+    /// @param winningBid The winning bid amount (in wei).
+    event AuctionSettled(uint256 indexed auctionId, address indexed winner, uint256 winningBid);
+
     /// @notice Deploys the carbon credit contract.
     /// @dev Reverts if either `_project` or `_admin` is the zero address.
     /// @param _project The afforestation project registry used to check eligibility.
@@ -87,5 +135,81 @@ contract CarbonSredit {
     function isProjectEligible(uint256 projectId) external view returns (bool) {
         (bool secured, ) = afforestationProject.isSequestrationSecured(projectId);
         return secured;
+    }
+
+    /// @notice Create an auction to sell carbon credits to multiple buyers.
+    /// @dev Reverts if `tons` is zero, if `reservePrice` is zero, if `duration`
+    /// is zero, or if the seller does not hold enough issued credits for the
+    /// project. Emits {AuctionCreated}.
+    /// @param projectId The afforestation project whose credits are auctioned.
+    /// @param tons The number of credits (in tons) to auction.
+    /// @param reservePrice The minimum acceptable bid (in wei).
+    /// @param duration The length of the bidding window in seconds.
+    /// @return auctionId The ID of the newly created auction.
+    function createAuction(
+        uint256 projectId,
+        uint256 tons,
+        uint256 reservePrice,
+        uint256 duration
+    ) external returns (uint256 auctionId) {
+        require(tons > 0, "tons must be positive");
+        require(reservePrice > 0, "reserve price required");
+        require(duration > 0, "duration required");
+        require(creditsIssued[projectId] >= tons, "insufficient credits");
+
+        auctionId = nextAuctionId++;
+        uint256 endTime = block.timestamp + duration;
+
+        auctions[auctionId] = Auction({
+            projectId: projectId,
+            tons: tons,
+            reservePrice: reservePrice,
+            seller: msg.sender,
+            highestBidder: address(0),
+            highestBid: 0,
+            highestBidTime: 0,
+            endTime: endTime,
+            settled: false
+        });
+
+        emit AuctionCreated(auctionId, projectId, tons, reservePrice, msg.sender, endTime);
+    }
+
+    /// @notice Place a bid on an active auction.
+    /// @dev Reverts if the auction is settled or expired, if the seller bids,
+    /// if the bid is below the reserve price, or if the bid does not strictly
+    /// exceed the current highest bid. Ties are broken in favour of the
+    /// earliest bid, so a matching bid is rejected. Emits {BidPlaced}.
+    /// @param auctionId The ID of the auction to bid on.
+    function placeBid(uint256 auctionId) external payable {
+        Auction storage auction = auctions[auctionId];
+        require(auction.seller != address(0), "auction not found");
+        require(!auction.settled, "auction settled");
+        require(block.timestamp < auction.endTime, "auction ended");
+        require(msg.sender != auction.seller, "seller cannot bid");
+        require(msg.value >= auction.reservePrice, "below reserve price");
+        require(msg.value > auction.highestBid, "bid too low");
+
+        auction.highestBidder = msg.sender;
+        auction.highestBid = msg.value;
+        auction.highestBidTime = block.timestamp;
+
+        emit BidPlaced(auctionId, msg.sender, msg.value);
+    }
+
+    /// @notice Settle an auction after its bidding window has closed.
+    /// @dev Highest bidder wins; ties are resolved by earliest bid (enforced in
+    /// {placeBid}). Reverts if the auction does not exist, is already settled,
+    /// or bidding is still open. Emits {AuctionSettled}.
+    /// @param auctionId The ID of the auction to settle.
+    function settleAuction(uint256 auctionId) external {
+        Auction storage auction = auctions[auctionId];
+        require(auction.seller != address(0), "auction not found");
+        require(!auction.settled, "auction settled");
+        require(block.timestamp >= auction.endTime, "auction still active");
+
+        auction.settled = true;
+
+        emit AuctionSettled(auctionId, auction.highestBidder, auction.highestBid);
     }
 }

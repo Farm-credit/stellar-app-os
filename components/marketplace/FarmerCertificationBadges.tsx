@@ -11,6 +11,13 @@ interface ProviderVerification {
   renewalDueAt?: string | null;
 }
 
+interface CertificationRecord {
+  provider?: 'verra' | 'gold_standard';
+  status?: ProviderVerificationStatus;
+  lastVerifiedAt?: string | null;
+  renewalDueAt?: string | null;
+}
+
 const PROVIDER_LABELS: Record<ProviderVerification['provider'], string> = {
   verra: 'Verra',
   gold_standard: 'Gold Standard',
@@ -48,9 +55,32 @@ function buildTooltip(verification: ProviderVerification): string {
   return parts.join(' • ');
 }
 
+function normalizeVerification(record: CertificationRecord): ProviderVerification | null {
+  if (!record || (record.provider !== 'verra' && record.provider !== 'gold_standard')) {
+    return null;
+  }
+  const status: ProviderVerificationStatus =
+    record.status === 'verified' || record.status === 'pending' || record.status === 'renewal_due'
+      ? record.status
+      : 'pending';
+  return {
+    provider: record.provider,
+    status,
+    lastVerifiedAt: record.lastVerifiedAt ?? null,
+    renewalDueAt: record.renewalDueAt ?? null,
+  };
+}
+
 function providerVerificationsFor(farmer: {
   providerVerifications?: ProviderVerification[];
+  certificationRecords?: CertificationRecord[];
 }): ProviderVerification[] {
+  const fromRecords = Array.isArray(farmer.certificationRecords)
+    ? farmer.certificationRecords
+        .map(normalizeVerification)
+        .filter((verification): verification is ProviderVerification => verification !== null)
+    : [];
+  if (fromRecords.length > 0) return fromRecords;
   return Array.isArray(farmer.providerVerifications) ? farmer.providerVerifications : [];
 }
 
