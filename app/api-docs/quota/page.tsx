@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRateLimit } from '@/hooks/useRateLimit';
 import RateLimitBanner from '@/components/RateLimitBanner';
+import { useApiQuota } from '@/hooks/useApiQuota';
 
 interface QuotaTier {
   name: string;
@@ -80,6 +81,12 @@ function formatCountdown(iso: string, now: number): string {
 
 export default function ApiQuotaPage() {
   const { rateLimit, isLoading, error, refetch } = useRateLimit();
+  const {
+    quota,
+    isLoading: isQuotaLoading,
+    error: quotaError,
+    refetch: refetchQuota,
+  } = useApiQuota();
   const [now, setNow] = useState<number>(() => Date.now());
 
   useEffect(() => {
@@ -88,6 +95,22 @@ export default function ApiQuotaPage() {
   }, []);
 
   const recentRequests = useMemo<RecentRequestCount[]>(() => {
+    if (quota) {
+      return [
+        {
+          window: 'Per minute',
+          count: quota.perMinute.used,
+          limit: quota.perMinute.limit,
+          resetAt: quota.perMinute.resetAt,
+        },
+        {
+          window: 'Per day',
+          count: quota.perDay.used,
+          limit: quota.perDay.limit,
+          resetAt: quota.perDay.resetAt,
+        },
+      ];
+    }
     if (!rateLimit) {
       return [];
     }
@@ -107,7 +130,16 @@ export default function ApiQuotaPage() {
         resetAt: rateLimit.dailyResetAt ?? '',
       },
     ];
-  }, [rateLimit]);
+  }, [quota, rateLimit]);
+
+  const activeTier = useMemo<QuotaTier | undefined>(() => {
+    if (!quota?.tier) {
+      return undefined;
+    }
+    return QUOTA_TIERS.find(
+      (tier) => tier.name.toLowerCase() === quota.tier.toLowerCase()
+    );
+  }, [quota]);
 
   return (
     <main className="mx-auto max-w-5xl px-4 py-10 sm:px-6 lg:px-8">
@@ -136,14 +168,17 @@ export default function ApiQuotaPage() {
           <h2 className="text-xl font-semibold text-gray-900">Current Usage</h2>
           <button
             type="button"
-            onClick={() => refetch()}
+            onClick={() => {
+              refetch();
+              refetchQuota();
+            }}
             className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
           >
             Refresh
           </button>
         </div>
 
-        {isLoading && (
+        {(isLoading || isQuotaLoading) && (
           <p className="text-sm text-gray-500">Loading current usage…</p>
         )}
 
@@ -156,7 +191,54 @@ export default function ApiQuotaPage() {
           </div>
         )}
 
-        {!isLoading && !error && rateLimit && (
+        {quotaError && (
+          <div
+            role="alert"
+            className="mt-4 rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-700"
+          >
+            Unable to load live quota data: {quotaError.message ?? 'Unknown error'}.
+            Showing cached rate-limit information instead.
+          </div>
+        )}
+
+        {!isLoading && !isQuotaLoading && !error && quota && (
+          <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="rounded-lg border border-gray-200 bg-white p-4">
+              <dt className="text-sm font-medium text-gray-500">Tier</dt>
+              <dd className="mt-1 text-2xl font-semibold text-gray-900">
+                {quota.tier ?? '—'}
+              </dd>
+            </div>
+            <div className="rounded-lg border border-gray-200 bg-white p-4">
+              <dt className="text-sm font-medium text-gray-500">Per-minute usage</dt>
+              <dd className="mt-1 text-2xl font-semibold text-gray-900">
+                {formatNumber(quota.perMinute.used)} /{' '}
+                {formatNumber(quota.perMinute.limit)}
+              </dd>
+              <dd className="mt-1 text-xs text-gray-500">
+                Resets in{' '}
+                {quota.perMinute.resetAt
+                  ? formatCountdown(quota.perMinute.resetAt, now)
+                  : '—'}
+              </dd>
+            </div>
+            <div className="rounded-lg border border-gray-200 bg-white p-4">
+              <dt className="text-sm font-medium text-gray-500">Per-day usage</dt>
+              <dd className="mt-1 text-2xl font-semibold text-gray-900">
+                {formatNumber(quota.perDay.used)} /{' '}
+                {formatNumber(quota.perDay.limit)}
+              </dd>
+              <dd className="mt-1 text-xs text-gray-500">
+                Resets in{' '}
+                {quota.perDay.resetAt
+                  ? formatCountdown(quota.perDay.resetAt, now)
+                  : '—'}
+              </dd>
+            </div>
+          </dl>
+        )}
+
+        {!isLoading && !isQuotaLoading && !error && !quota && rateLimit && (
           <dl className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <div className="rounded-lg border border-gray-200 bg-white p-4">
               <dt className="text-sm font-medium text-gray-500">Limit</dt>
@@ -179,7 +261,7 @@ export default function ApiQuotaPage() {
           </dl>
         )}
 
-        {!isLoading && !error && !rateLimit && (
+        {!isLoading && !isQuotaLoading && !error && !quota && !rateLimit && (
           <p className="text-sm text-gray-500">
             No rate-limit information available for this client.
           </p>
@@ -252,9 +334,20 @@ export default function ApiQuotaPage() {
           {QUOTA_TIERS.map((tier) => (
             <div
               key={tier.name}
-              className="rounded-lg border border-gray-200 bg-white p-5"
+              className={`rounded-lg border bg-white p-5 ${
+                activeTier?.name === tier.name
+                  ? 'border-blue-500 ring-1 ring-blue-500'
+                  : 'border-gray-200'
+              }`}
             >
-              <h3 className="text-lg font-semibold text-gray-900">{tier.name}</h3>
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold text-gray-900">{tier.name}</h3>
+                {activeTier?.name === tier.name && (
+                  <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
+                    Current tier
+                  </span>
+                )}
+              </div>
               <p className="mt-1 text-sm text-gray-600">{tier.description}</p>
               <dl className="mt-4 space-y-2 text-sm">
                 <div className="flex justify-between">

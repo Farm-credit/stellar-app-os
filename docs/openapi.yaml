@@ -80,7 +80,9 @@ tags:
     description: >
       Versioned public REST API for third-party integrations. Query tree data,
       create tree sponsorships, and manage webhook subscriptions. Authenticate
-      with an OAuth2 bearer token or an API key.
+      with an OAuth2 bearer token (authorization code or client credentials) or
+      an API key. All responses carry rate-limit headers; quota usage can be
+      inspected via GET /api/v1/quota.
 
 paths:
   # ──────────────────────────────────────────────
@@ -3306,6 +3308,109 @@ paths:
         "500":
           $ref: "#/components/responses/InternalServerError"
 
+  /api/v1/quota:
+    get:
+      operationId: getPublicQuota
+      tags: [Public API]
+      summary: Get rate-limit quota usage
+      description: >
+        Returns the authenticated client's rate-limit quota for the current
+        window, the configured limit, and usage broken down by endpoint group.
+        Intended to back a quota dashboard for third-party integrations.
+      security:
+        - oauth2: [quota:read]
+        - apiKeyAuth: []
+      responses:
+        "200":
+          description: Quota usage
+          headers:
+            X-API-Version:
+              $ref: "#/components/headers/XApiVersion"
+            X-RateLimit-Limit:
+              $ref: "#/components/headers/XRateLimitLimit"
+            X-RateLimit-Remaining:
+              $ref: "#/components/headers/XRateLimitRemaining"
+            X-RateLimit-Reset:
+              $ref: "#/components/headers/XRateLimitReset"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QuotaUsage"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/v1/oauth/token:
+    post:
+      operationId: postPublicOAuthToken
+      tags: [Public API]
+      summary: Obtain an OAuth2 access token
+      description: >
+        OAuth2 token endpoint. Supports the `client_credentials` grant for
+        server-to-server integrations and the `authorization_code` grant for
+        user-delegated access. Public clients must send `client_id` in the body;
+        confidential clients authenticate with HTTP Basic.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required: [grant_type]
+              properties:
+                grant_type:
+                  type: string
+                  enum: [client_credentials, authorization_code, refresh_token]
+                scope:
+                  type: string
+                  description: Space-delimited list of requested scopes
+                  example: trees:read sponsorships:write
+                code:
+                  type: string
+                  description: Authorization code (authorization_code grant only)
+                redirect_uri:
+                  type: string
+                  format: uri
+                  description: Must match the URI used in the authorization request
+                code_verifier:
+                  type: string
+                  description: PKCE verifier (authorization_code grant only)
+                refresh_token:
+                  type: string
+                  description: Refresh token (refresh_token grant only)
+                client_id:
+                  type: string
+      responses:
+        "200":
+          description: Access token issued
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                example: no-store
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OAuthTokenResponse"
+        "400":
+          description: Invalid grant or malformed request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OAuthError"
+        "401":
+          description: Client authentication failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OAuthError"
+
   /api/v1/webhooks/{id}:
     delete:
       operationId: deletePublicWebhookSubscription
@@ -3450,17 +3555,32 @@ components:
     oauth2:
       type: oauth2
       description: >
-        OAuth2 client-credentials flow for third-party integrations. Request
-        scopes explicitly; tokens are short-lived bearer tokens.
+        OAuth2 for third-party integrations. Use the client-credentials flow for
+        server-to-server access, or the authorization-code flow (with PKCE) for
+        user-delegated access. Request scopes explicitly; tokens are short-lived
+        bearer tokens.
       flows:
         clientCredentials:
           tokenUrl: /api/v1/oauth/token
+          refreshUrl: /api/v1/oauth/token
           scopes:
             trees:read: Read tree inventory and details
             sponsorships:read: Read sponsorship records
             sponsorships:write: Create sponsorships
             webhooks:read: List webhook subscriptions
             webhooks:write: Create and delete webhook subscriptions
+            quota:read: Read rate-limit quota usage
+        authorizationCode:
+          authorizationUrl: /api/v1/oauth/authorize
+          tokenUrl: /api/v1/oauth/token
+          refreshUrl: /api/v1/oauth/token
+          scopes:
+            trees:read: Read tree inventory and details
+            sponsorships:read: Read sponsorship records
+            sponsorships:write: Create sponsorships
+            webhooks:read: List webhook subscriptions
+            webhooks:write: Create and delete webhook subscriptions
+            quota:read: Read rate-limit quota usage
 
   schemas:
     ErrorResponse:
@@ -4358,6 +4478,76 @@ components:
               type: string
               description: HMAC signing secret; shown only once at creation
 
+    OAuthTokenResponse:
+      type: object
+      required: [access_token, token_type, expires_in]
+      properties:
+        access_token:
+          type: string
+        token_type:
+          type: string
+          enum: [Bearer]
+        expires_in:
+          type: integer
+          description: Token lifetime in seconds
+          example: 3600
+        refresh_token:
+          type: string
+          description: Present when the offline_access scope is granted
+        scope:
+          type: string
+          description: Space-delimited list of granted scopes
+
+    OAuthError:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+          enum:
+            - invalid_request
+            - invalid_client
+            - invalid_grant
+            - unauthorized_client
+            - unsupported_grant_type
+            - invalid_scope
+        error_description:
+          type: string
+
+    QuotaUsage:
+      type: object
+      required: [limit, remaining, reset, windowSeconds]
+      properties:
+        limit:
+          type: integer
+          description: Requests permitted per window for this client's tier
+        remaining:
+          type: integer
+          description: Requests remaining in the current window
+        reset:
+          type: integer
+          description: Seconds until the current window resets
+        windowSeconds:
+          type: integer
+          description: Length of the rate-limit window in seconds
+          example: 60
+        tier:
+          type: string
+          enum: [free, standard, premium]
+        usage:
+          type: array
+          description: Per-endpoint-group usage within the current window
+          items:
+            type: object
+            properties:
+              group:
+                type: string
+                example: trees
+              used:
+                type: integer
+              limit:
+                type: integer
+
     GraphQLError:
       type: object
       properties:
@@ -4444,6 +4634,13 @@ components:
         X-RateLimit-Reset:
           schema:
             type: integer
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+    Conflict:
+      description: Duplicate idempotency key or conflicting resource state
       content:
         application/json:
           schema:

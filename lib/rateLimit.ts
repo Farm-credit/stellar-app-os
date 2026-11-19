@@ -128,6 +128,188 @@ export type SlidingRateLimitResult =
       reset: number;
     };
 
+// ── Public API authentication and quota enforcement ─────────────────────────
+// Supports API keys (prefix "pk_") and OAuth2 bearer tokens (prefix "oat_").
+// Each credential is tracked against a per-scope quota with daily counters
+// that back the quota dashboard.
+
+const PUBLIC_API_WINDOW_MS = 60_000; // 1-minute window for burst limiting
+const PUBLIC_API_DEFAULT_LIMIT = 60; // requests per window per credential
+const PUBLIC_API_DAILY_LIMIT = 10_000; // requests per day per credential
+
+export interface PublicApiCredential {
+  id: string;
+  kind: 'api_key' | 'oauth2';
+  scopes: string[];
+}
+
+export interface PublicApiQuotaResult {
+  allowed: boolean;
+  limit: number;
+  remaining: number;
+  resetAt: number;
+  daily: {
+    limit: number;
+    used: number;
+    remaining: number;
+    resetAt: number;
+  };
+  reason?: 'invalid_credential' | 'insufficient_scope' | 'rate_limit' | 'daily_quota';
+}
+
+interface QuotaEntry {
+  windowCount: number;
+  windowResetAt: number;
+  dailyCount: number;
+  dailyResetAt: number;
+}
+
+const quotaEntries = new Map<string, QuotaEntry>();
+
+function startOfNextUtcDay(now: number): number {
+  const d = new Date(now);
+  return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 1);
+}
+
+/**
+ * Verify an API key or OAuth2 bearer token and return the associated
+ * credential. Returns null when the credential is missing or malformed.
+ *
+ * Real deployments should validate against a persisted credential store;
+ * this implementation validates format and resolves scopes deterministically.
+ */
+export function verifyPublicApiCredential(
+  authorization: string | undefined,
+  apiKey: string | undefined,
+): PublicApiCredential | null {
+  const token = apiKey?.trim() || extractBearerToken(authorization);
+  if (!token) return null;
+
+  if (token.startsWith('pk_') && token.length > 3) {
+    return { id: token, kind: 'api_key', scopes: ['trees:read', 'sponsorships:write'] };
+  }
+
+  if (token.startsWith('oat_') && token.length > 4) {
+    return { id: token, kind: 'oauth2', scopes: ['trees:read', 'sponsorships:write', 'webhooks:manage'] };
+  }
+
+  return null;
+}
+
+function extractBearerToken(authorization: string | undefined): string | undefined {
+  if (!authorization) return undefined;
+  const match = /^Bearer\s+(.+)$/i.exec(authorization.trim());
+  return match ? match[1].trim() : undefined;
+}
+
+/**
+ * Enforce per-credential quota for a public API scope.
+ *
+ * Applies a per-minute burst limit and a daily quota, returning the counters
+ * needed to render the quota dashboard.
+ */
+export async function checkPublicApiQuota(
+  apiKey: string | undefined,
+  scope: string,
+  authorization?: string,
+): Promise<PublicApiQuotaResult> {
+  const now = Date.now();
+  const credential = verifyPublicApiCredential(authorization, apiKey);
+
+  if (!credential) {
+    return {
+      allowed: false,
+      limit: PUBLIC_API_DEFAULT_LIMIT,
+      remaining: 0,
+      resetAt: now + PUBLIC_API_WINDOW_MS,
+      daily: { limit: PUBLIC_API_DAILY_LIMIT, used: 0, remaining: 0, resetAt: startOfNextUtcDay(now) },
+      reason: 'invalid_credential',
+    };
+  }
+
+  if (!credential.scopes.includes(scope)) {
+    return {
+      allowed: false,
+      limit: PUBLIC_API_DEFAULT_LIMIT,
+      remaining: 0,
+      resetAt: now + PUBLIC_API_WINDOW_MS,
+      daily: { limit: PUBLIC_API_DAILY_LIMIT, used: 0, remaining: 0, resetAt: startOfNextUtcDay(now) },
+      reason: 'insufficient_scope',
+    };
+  }
+
+  const key = `publicapi:${credential.kind}:${credential.id}:${scope}`;
+  const entry = quotaEntries.get(key) ?? {
+    windowCount: 0,
+    windowResetAt: now + PUBLIC_API_WINDOW_MS,
+    dailyCount: 0,
+    dailyResetAt: startOfNextUtcDay(now),
+  };
+
+  if (now >= entry.windowResetAt) {
+    entry.windowCount = 0;
+    entry.windowResetAt = now + PUBLIC_API_WINDOW_MS;
+  }
+  if (now >= entry.dailyResetAt) {
+    entry.dailyCount = 0;
+    entry.dailyResetAt = startOfNextUtcDay(now);
+  }
+
+  const dailyRemaining = Math.max(0, PUBLIC_API_DAILY_LIMIT - entry.dailyCount);
+  const windowRemaining = Math.max(0, PUBLIC_API_DEFAULT_LIMIT - entry.windowCount);
+
+  if (entry.dailyCount >= PUBLIC_API_DAILY_LIMIT) {
+    quotaEntries.set(key, entry);
+    return {
+      allowed: false,
+      limit: PUBLIC_API_DEFAULT_LIMIT,
+      remaining: windowRemaining,
+      resetAt: entry.windowResetAt,
+      daily: {
+        limit: PUBLIC_API_DAILY_LIMIT,
+        used: entry.dailyCount,
+        remaining: 0,
+        resetAt: entry.dailyResetAt,
+      },
+      reason: 'daily_quota',
+    };
+  }
+
+  if (entry.windowCount >= PUBLIC_API_DEFAULT_LIMIT) {
+    quotaEntries.set(key, entry);
+    return {
+      allowed: false,
+      limit: PUBLIC_API_DEFAULT_LIMIT,
+      remaining: 0,
+      resetAt: entry.windowResetAt,
+      daily: {
+        limit: PUBLIC_API_DAILY_LIMIT,
+        used: entry.dailyCount,
+        remaining: dailyRemaining,
+        resetAt: entry.dailyResetAt,
+      },
+      reason: 'rate_limit',
+    };
+  }
+
+  entry.windowCount += 1;
+  entry.dailyCount += 1;
+  quotaEntries.set(key, entry);
+
+  return {
+    allowed: true,
+    limit: PUBLIC_API_DEFAULT_LIMIT,
+    remaining: Math.max(0, PUBLIC_API_DEFAULT_LIMIT - entry.windowCount),
+    resetAt: entry.windowResetAt,
+    daily: {
+      limit: PUBLIC_API_DAILY_LIMIT,
+      used: entry.dailyCount,
+      remaining: Math.max(0, PUBLIC_API_DAILY_LIMIT - entry.dailyCount),
+      resetAt: entry.dailyResetAt,
+    },
+  };
+}
+
 export async function checkSubmitAnonRateLimit(ip: string): Promise<SlidingRateLimitResult> {
   if (BLOCKLIST.has(ip)) {
     return { allowed: false, reason: 'blocklist', remaining: 0, reset: 0 };

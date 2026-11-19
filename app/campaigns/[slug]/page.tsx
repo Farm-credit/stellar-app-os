@@ -178,6 +178,9 @@ export default async function CampaignPage({ params }: { params: Promise<{ slug:
               <div>
                 <p className="text-xs uppercase tracking-wide text-gray-500">In partnership with</p>
                 <p className="text-sm font-semibold text-gray-900">{charity.name}</p>
+                <p className="text-xs text-gray-600">
+                  Co-branded campaign: {charity.name} × {campaign.title}
+                </p>
               </div>
             </div>
             <Link

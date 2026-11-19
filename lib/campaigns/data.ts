@@ -25,6 +25,14 @@ export interface Campaign {
   isEndangeredBiome: boolean;
   educationContent: EducationSection[];
   corporateMatches: CorporateMatchPledge[];
+  /** Charity partner code used for fundraising pages (issue #1705). */
+  charityCode?: string;
+  /** Display name of the charity/NGO partner (issue #1705). */
+  charityName?: string;
+  /** URL of the charity partner logo for co-branding (issue #1705). */
+  charityLogoUrl?: string;
+  /** Co-branded campaign title shown alongside the charity logo (issue #1705). */
+  coBrandedTitle?: string;
 }
 
 export const CAMPAIGNS: Campaign[] = [
@@ -70,6 +78,10 @@ export const CAMPAIGNS: Campaign[] = [
         currency: 'USD',
       },
     ],
+    charityCode: 'MANGROVE-01',
+    charityName: 'Niger Delta Coastal Trust',
+    charityLogoUrl: '/charities/niger-delta-coastal-trust.svg',
+    coBrandedTitle: 'Save the Mangrove Coast with Niger Delta Coastal Trust',
   },
   {
     slug: 'cloud-forest-rescue-q4',
@@ -106,6 +118,10 @@ export const CAMPAIGNS: Campaign[] = [
         currency: 'USD',
       },
     ],
+    charityCode: 'CLOUD-02',
+    charityName: 'Mount Cameroon Forest Alliance',
+    charityLogoUrl: '/charities/mount-cameroon-forest-alliance.svg',
+    coBrandedTitle: 'Protect the Cloud Forest with Mount Cameroon Forest Alliance',
   },
 ];
 

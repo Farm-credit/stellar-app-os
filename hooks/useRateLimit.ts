@@ -10,9 +10,34 @@ export interface RateLimitInfo {
   limit: number;
   remaining: number;
   resetAt: string; // ISO timestamp
+  /** Requests made today (public API quota endpoint) */
+  dailyCount?: number;
+  /** Daily request quota (public API quota endpoint) */
+  dailyLimit?: number;
+  /** ISO timestamp when the daily quota resets */
+  dailyResetAt?: string;
 }
 
-export interface RateLimitState {
+export interface DailyUsageState {
+  /** Requests made today; null if not provided */
+  dailyCount: number | null;
+  /** Daily quota; null if not provided */
+  dailyLimit: number | null;
+  /** Requests remaining today; null if not provided */
+  dailyRemaining: number | null;
+  /** 0–100 */
+  dailyPercentUsed: number;
+  /** true when dailyPercentUsed >= 80 */
+  isDailyWarning: boolean;
+  /** true when dailyRemaining === 0 */
+  isDailyExhausted: boolean;
+  /** seconds until the daily quota resets; null if no dailyResetAt */
+  dailyTimeRemaining: number | null;
+  /** formatted "mm:ss" string, or null */
+  dailyTimeRemainingFormatted: string | null;
+}
+
+export interface RateLimitState extends DailyUsageState {
   /** 0–100 */
   percentUsed: number;
   /** true when percentUsed >= 80 */
@@ -64,6 +89,11 @@ export function useRateLimit(info: RateLimitInfo | null): RateLimitState {
     return calcSecondsRemaining(info.resetAt);
   });
 
+  const [dailyTimeRemaining, setDailyTimeRemaining] = useState<number | null>(() => {
+    if (!info?.dailyResetAt) return null;
+    return calcSecondsRemaining(info.dailyResetAt);
+  });
+
   // Recalculate whenever the info changes (e.g. new API response)
   useEffect(() => {
     if (!info) {
@@ -71,6 +101,15 @@ export function useRateLimit(info: RateLimitInfo | null): RateLimitState {
       return;
     }
     setTimeRemaining(calcSecondsRemaining(info.resetAt));
+  }, [info]);
+
+  // Recalculate daily countdown whenever the info changes
+  useEffect(() => {
+    if (!info?.dailyResetAt) {
+      setDailyTimeRemaining(null);
+      return;
+    }
+    setDailyTimeRemaining(calcSecondsRemaining(info.dailyResetAt));
   }, [info]);
 
   // Tick every second
@@ -84,6 +123,9 @@ export function useRateLimit(info: RateLimitInfo | null): RateLimitState {
 
     intervalRef.current = setInterval(() => {
       setTimeRemaining(calcSecondsRemaining(info.resetAt));
+      if (info.dailyResetAt) {
+        setDailyTimeRemaining(calcSecondsRemaining(info.dailyResetAt));
+      }
     }, 1_000);
 
     return () => {
@@ -110,6 +152,14 @@ export function useRateLimit(info: RateLimitInfo | null): RateLimitState {
       isBlocked: false,
       timeRemaining: null,
       timeRemainingFormatted: null,
+      dailyCount: null,
+      dailyLimit: null,
+      dailyRemaining: null,
+      dailyPercentUsed: 0,
+      isDailyWarning: false,
+      isDailyExhausted: false,
+      dailyTimeRemaining: null,
+      dailyTimeRemainingFormatted: null,
     };
   }
 
@@ -121,11 +171,34 @@ export function useRateLimit(info: RateLimitInfo | null): RateLimitState {
   const isBlocked = info.remaining === 0;
   const isWarning = !isBlocked && percentUsed >= 80;
 
+  // Daily usage derived values
+  const dailyCount = info.dailyCount ?? null;
+  const dailyLimit = info.dailyLimit ?? null;
+  const dailyRemaining =
+    dailyCount !== null && dailyLimit !== null ? Math.max(0, dailyLimit - dailyCount) : null;
+
+  const dailyPercentUsed =
+    dailyCount !== null && dailyLimit !== null && dailyLimit > 0
+      ? Math.min(100, Math.round((dailyCount / dailyLimit) * 100))
+      : 0;
+
+  const isDailyExhausted = dailyRemaining === 0;
+  const isDailyWarning = !isDailyExhausted && dailyPercentUsed >= 80;
+
   return {
     percentUsed,
     isWarning,
     isBlocked,
     timeRemaining,
     timeRemainingFormatted: timeRemaining !== null ? formatMmSs(timeRemaining) : null,
+    dailyCount,
+    dailyLimit,
+    dailyRemaining,
+    dailyPercentUsed,
+    isDailyWarning,
+    isDailyExhausted,
+    dailyTimeRemaining,
+    dailyTimeRemainingFormatted:
+      dailyTimeRemaining !== null ? formatMmSs(dailyTimeRemaining) : null,
   };
 }
