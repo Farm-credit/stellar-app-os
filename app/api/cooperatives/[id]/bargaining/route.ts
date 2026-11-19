@@ -40,10 +40,7 @@ interface BargainingRequestBody {
  *
  * Lists every bargaining round plus the cooperative's current terms.
  */
-export async function GET(
-  _request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
     return NextResponse.json({
@@ -65,10 +62,7 @@ export async function GET(
  *  - `vote`          → records a member vote (quorum resolves the round)
  *  - `finalize`      → tallies votes once quorum is reached
  */
-export async function POST(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
     const body = await readJsonBody<BargainingRequestBody>(request);
@@ -89,7 +83,10 @@ export async function POST(
 
       case 'submit_offer': {
         if (!body.roundId) {
-          return NextResponse.json({ success: false, error: 'roundId is required' }, { status: 400 });
+          return NextResponse.json(
+            { success: false, error: 'roundId is required' },
+            { status: 400 }
+          );
         }
         const input: SubmitBuyerOfferInput = {
           buyerId: body.buyerId ?? '',
@@ -104,7 +101,10 @@ export async function POST(
 
       case 'vote': {
         if (!body.roundId) {
-          return NextResponse.json({ success: false, error: 'roundId is required' }, { status: 400 });
+          return NextResponse.json(
+            { success: false, error: 'roundId is required' },
+            { status: 400 }
+          );
         }
         const input: VoteOnOfferInput = {
           memberId: body.memberId ?? '',
@@ -116,7 +116,10 @@ export async function POST(
 
       case 'finalize': {
         if (!body.roundId) {
-          return NextResponse.json({ success: false, error: 'roundId is required' }, { status: 400 });
+          return NextResponse.json(
+            { success: false, error: 'roundId is required' },
+            { status: 400 }
+          );
         }
         const round = finalizeBargainingRound(id, body.roundId);
         return NextResponse.json({ success: true, round });

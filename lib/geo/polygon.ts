@@ -103,3 +103,135 @@ export function checkRegionCoverage(input: RegionPolygonCheckInput): boolean {
 
   return containsPointInPolygon(latitude, longitude, polygon);
 }
+
+const EARTH_RADIUS_M = 6371008.8;
+const METERS_PER_DEGREE_LAT = (Math.PI / 180) * EARTH_RADIUS_M;
+
+/**
+ * Approximate the area of a polygon in hectares using an equirectangular
+ * projection scaled by the mean latitude of the polygon. Longitudes are
+ * unwrapped relative to the first vertex so polygons crossing the date line
+ * are measured correctly.
+ */
+export function computePolygonAreaHectares(polygon: [number, number][]): number {
+  if (polygon.length < 3) {
+    return 0;
+  }
+
+  const baseLng = polygon[0][1];
+  const points: [number, number][] = polygon.map(([lat, lng]) => [
+    lat,
+    baseLng + lngDelta(lng, baseLng),
+  ]);
+
+  let sumLat = 0;
+  for (const [lat] of points) {
+    sumLat += lat;
+  }
+  const meanLat = sumLat / points.length;
+  const metersPerDegreeLng =
+    METERS_PER_DEGREE_LAT * Math.max(Math.cos((meanLat * Math.PI) / 180), 0);
+
+  // Shoelace formula in local meter coordinates.
+  let doubleArea = 0;
+  for (let i = 0, j = points.length - 1; i < points.length; j = i++) {
+    const [lat1, lng1] = points[j];
+    const [lat2, lng2] = points[i];
+    const x1 = lng1 * metersPerDegreeLng;
+    const y1 = lat1 * METERS_PER_DEGREE_LAT;
+    const x2 = lng2 * metersPerDegreeLng;
+    const y2 = lat2 * METERS_PER_DEGREE_LAT;
+    doubleArea += x1 * y2 - x2 * y1;
+  }
+
+  const areaSquareMeters = Math.abs(doubleArea) / 2;
+  return areaSquareMeters / 10000;
+}
+
+/**
+ * Returns true if the point lies inside any of the provided polygons.
+ */
+export function pointInAnyPolygon(
+  latitude: number,
+  longitude: number,
+  polygons: [number, number][][]
+): boolean {
+  for (const polygon of polygons) {
+    if (containsPointInPolygon(latitude, longitude, polygon)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function segmentIntersects(
+  a1: [number, number],
+  a2: [number, number],
+  b1: [number, number],
+  b2: [number, number]
+): boolean {
+  const orient = (p: [number, number], q: [number, number], r: [number, number]): number => {
+    const value = (q[1] - p[1]) * (r[0] - p[0]) - (q[0] - p[0]) * (r[1] - p[1]);
+    if (Math.abs(value) < 1e-12) return 0;
+    return value > 0 ? 1 : -1;
+  };
+
+  const o1 = orient(a1, a2, b1);
+  const o2 = orient(a1, a2, b2);
+  const o3 = orient(b1, b2, a1);
+  const o4 = orient(b1, b2, a2);
+
+  if (o1 !== o2 && o3 !== o4) {
+    return true;
+  }
+
+  const onSegment = (p: [number, number], q: [number, number], r: [number, number]): boolean =>
+    Math.min(p[0], r[0]) <= q[0] &&
+    q[0] <= Math.max(p[0], r[0]) &&
+    Math.min(p[1], r[1]) <= q[1] &&
+    q[1] <= Math.max(p[1], r[1]);
+
+  if (o1 === 0 && onSegment(a1, b1, a2)) return true;
+  if (o2 === 0 && onSegment(a1, b2, a2)) return true;
+  if (o3 === 0 && onSegment(b1, a1, b2)) return true;
+  if (o4 === 0 && onSegment(b1, a2, b2)) return true;
+
+  return false;
+}
+
+/**
+ * Returns true if two polygons overlap (edge intersection, containment,
+ * or shared vertices). Longitudes are unwrapped relative to the first
+ * polygon's first vertex to remain date-line safe.
+ */
+export function polygonIntersectsPolygon(a: [number, number][], b: [number, number][]): boolean {
+  if (a.length < 3 || b.length < 3) {
+    return false;
+  }
+
+  const baseLng = a[0][1];
+  const unwrap = (polygon: [number, number][]): [number, number][] =>
+    polygon.map(([lat, lng]) => [lat, baseLng + lngDelta(lng, baseLng)]);
+
+  const polyA = unwrap(a);
+  const polyB = unwrap(b);
+
+  // Any vertex of one polygon inside the other implies overlap.
+  if (pointInAnyPolygon(polyA[0][0], polyA[0][1], [polyB])) {
+    return true;
+  }
+  if (pointInAnyPolygon(polyB[0][0], polyB[0][1], [polyA])) {
+    return true;
+  }
+
+  // Otherwise check for edge intersections.
+  for (let i = 0, j = polyA.length - 1; i < polyA.length; j = i++) {
+    for (let k = 0, l = polyB.length - 1; k < polyB.length; l = k++) {
+      if (segmentIntersects(polyA[j], polyA[i], polyB[l], polyB[k])) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}

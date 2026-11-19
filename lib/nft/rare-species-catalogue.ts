@@ -63,23 +63,23 @@ export const RARE_SPECIES_CATALOGUE: RareSpeciesEntry[] = [
   },
   {
     speciesSlug: 'bois-dentelle',
-    commonName: "Bois Dentelle",
+    commonName: 'Bois Dentelle',
     scientificName: 'Elaeocarpus bojeri',
     iucnStatus: 'CR' as IucnStatus,
     rarity: 'epic',
     maxSupply: 50,
-    lore: 'One of the rarest trees on Earth — only two known wild specimens remain on Mauritius\'s Black River Gorges ridge. Lace-like white blossoms belie the urgency of its survival story.',
+    lore: "One of the rarest trees on Earth — only two known wild specimens remain on Mauritius's Black River Gorges ridge. Lace-like white blossoms belie the urgency of its survival story.",
     imageUri: 'ipfs://QmBoisDentellePlaceholder',
     addedAt: '2026-01-01T00:00:00Z',
   },
   {
     speciesSlug: 'century-baobab',
-    commonName: 'Grandidier\'s Baobab',
+    commonName: "Grandidier's Baobab",
     scientificName: 'Adansonia grandidieri',
     iucnStatus: 'EN' as IucnStatus,
     rarity: 'epic',
     maxSupply: 50,
-    lore: 'Madagascar\'s cathedral tree — towering, barrel-trunked, and endemic to a narrow coastal strip. Climate-driven droughts and land conversion have pushed this ancient species to the edge.',
+    lore: "Madagascar's cathedral tree — towering, barrel-trunked, and endemic to a narrow coastal strip. Climate-driven droughts and land conversion have pushed this ancient species to the edge.",
     imageUri: 'ipfs://QmGrandidierBaobabPlaceholder',
     addedAt: '2026-01-01T00:00:00Z',
   },
@@ -92,7 +92,7 @@ export const RARE_SPECIES_CATALOGUE: RareSpeciesEntry[] = [
     iucnStatus: 'EN' as IucnStatus,
     rarity: 'rare',
     maxSupply: 250,
-    lore: 'West Africa\'s most trafficked tree — stripped from forests at an industrial scale to feed Chinese furniture markets. Its recovery is a test of whether trade policy can outrun the chainsaw.',
+    lore: "West Africa's most trafficked tree — stripped from forests at an industrial scale to feed Chinese furniture markets. Its recovery is a test of whether trade policy can outrun the chainsaw.",
     imageUri: 'ipfs://QmAfricanRosewoodPlaceholder',
     addedAt: '2026-01-15T00:00:00Z',
   },
@@ -103,7 +103,7 @@ export const RARE_SPECIES_CATALOGUE: RareSpeciesEntry[] = [
     iucnStatus: 'VU' as IucnStatus,
     rarity: 'rare',
     maxSupply: 250,
-    lore: 'Sacred to Yoruba culture and famed by craftsmen worldwide, Iroko\'s slow growth and premium timber value make it a prime target. Planting one is an act of intergenerational trust.',
+    lore: "Sacred to Yoruba culture and famed by craftsmen worldwide, Iroko's slow growth and premium timber value make it a prime target. Planting one is an act of intergenerational trust.",
     imageUri: 'ipfs://QmIrokoPlaceholder',
     addedAt: '2026-01-15T00:00:00Z',
   },
@@ -146,9 +146,7 @@ export const RARE_SPECIES_CATALOGUE: RareSpeciesEntry[] = [
 
 // ── Lookup helpers ────────────────────────────────────────────────────────────
 
-const CATALOGUE_INDEX = new Map(
-  RARE_SPECIES_CATALOGUE.map((s) => [s.speciesSlug, s])
-);
+const CATALOGUE_INDEX = new Map(RARE_SPECIES_CATALOGUE.map((s) => [s.speciesSlug, s]));
 
 export function getRareSpeciesBySlug(slug: string): RareSpeciesEntry | undefined {
   return CATALOGUE_INDEX.get(slug);

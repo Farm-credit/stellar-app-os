@@ -26,18 +26,8 @@ export const subScoresSchema = z.object({
     .min(0)
     .max(100)
     .describe('Methodology strength score (0-100)'),
-  regionalStability: z
-    .number()
-    .int()
-    .min(0)
-    .max(100)
-    .describe('Regional stability score (0-100)'),
-  farmerTrackRecord: z
-    .number()
-    .int()
-    .min(0)
-    .max(100)
-    .describe('Farmer track record score (0-100)'),
+  regionalStability: z.number().int().min(0).max(100).describe('Regional stability score (0-100)'),
+  farmerTrackRecord: z.number().int().min(0).max(100).describe('Farmer track record score (0-100)'),
 });
 
 /**
@@ -71,9 +61,7 @@ export const projectRiskScoreResponseSchema = z.object({
   subScores: subScoresSchema,
   weights: weightsSchema,
   calculatedAt: z.string().datetime().describe('When the score was calculated'),
-  dataGaps: z
-    .array(z.string())
-    .describe('List of data limitations affecting this score'),
+  dataGaps: z.array(z.string()).describe('List of data limitations affecting this score'),
 });
 
 /**
@@ -106,9 +94,7 @@ export type RecalculateRiskScoreBody = z.infer<typeof recalculateRiskScoreBodySc
  * GET /api/v2/projects/risk-scores — query parameters for listing
  */
 export const listRiskScoresParamsSchema = z.object({
-  rating: riskRatingSchema
-    .optional()
-    .describe('Filter by risk rating (Low, Medium, High)'),
+  rating: riskRatingSchema.optional().describe('Filter by risk rating (Low, Medium, High)'),
   limit: z
     .number()
     .int()
@@ -117,23 +103,13 @@ export const listRiskScoresParamsSchema = z.object({
     .optional()
     .default(20)
     .describe('Number of results to return'),
-  offset: z
-    .number()
-    .int()
-    .min(0)
-    .optional()
-    .default(0)
-    .describe('Number of results to skip'),
+  offset: z.number().int().min(0).optional().default(0).describe('Number of results to skip'),
   sortBy: z
     .enum(['score', 'rating', 'calculatedAt'])
     .optional()
     .default('score')
     .describe('Field to sort by'),
-  sortOrder: z
-    .enum(['asc', 'desc'])
-    .optional()
-    .default('asc')
-    .describe('Sort order'),
+  sortOrder: z.enum(['asc', 'desc']).optional().default('asc').describe('Sort order'),
 });
 
 export type ListRiskScoresParams = z.infer<typeof listRiskScoresParamsSchema>;
@@ -154,10 +130,7 @@ export const listRiskScoresResponseSchema = z.object({
  */
 export const errorResponseSchema = z.object({
   error: z.string().describe('Error message'),
-  details: z
-    .array(z.string())
-    .optional()
-    .describe('Detailed error information'),
+  details: z.array(z.string()).optional().describe('Detailed error information'),
 });
 
 /**

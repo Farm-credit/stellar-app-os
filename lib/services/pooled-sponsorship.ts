@@ -96,9 +96,8 @@ export function createPool(req: CreatePoolRequest): PooledSponsorship {
 
   const totalFunded = req.contributionUsdc;
   const remaining = Math.max(0, req.targetUsdc - totalFunded);
-  const fillPercent = req.targetUsdc > 0
-    ? parseFloat(((totalFunded / req.targetUsdc) * 100).toFixed(2))
-    : 0;
+  const fillPercent =
+    req.targetUsdc > 0 ? parseFloat(((totalFunded / req.targetUsdc) * 100).toFixed(2)) : 0;
 
   const pool: PooledSponsorship = {
     poolId,

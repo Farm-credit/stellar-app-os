@@ -206,7 +206,11 @@ describe('buildProjectMetadata', () => {
 
   it('prefers the most recent receipt snapshot over earlier ones', () => {
     const metadata = buildProjectMetadata([
-      retirement({ retirementId: 'ret-1', projectName: 'Original name', projectType: 'Reforestation' }),
+      retirement({
+        retirementId: 'ret-1',
+        projectName: 'Original name',
+        projectType: 'Reforestation',
+      }),
       retirement({
         retirementId: 'ret-2',
         retiredAt: '2026-03-01T00:00:00.000Z',
@@ -362,7 +366,10 @@ describe('allocateRetirements', () => {
   it('ignores zero and negative receipt quantities', () => {
     const { unallocatedTonnes } = allocateRetirements(
       [purchase()],
-      [retirement({ retirementId: 'ret-0', tonnes: 0 }), retirement({ retirementId: 'ret-neg', tonnes: -5 })]
+      [
+        retirement({ retirementId: 'ret-0', tonnes: 0 }),
+        retirement({ retirementId: 'ret-neg', tonnes: -5 }),
+      ]
     );
 
     expect(unallocatedTonnes).toBe(0);
@@ -417,7 +424,10 @@ describe('mapPurchaseToPosition', () => {
   it('keeps a partly retired lot active and reports the real retired tonnage', () => {
     const position = mapPurchaseToPosition(
       purchase(),
-      { retiredTonnes: 30, retirement: { retirementId: 'ret-1', retiredAt: '2026-01-20T00:00:00.000Z' } },
+      {
+        retiredTonnes: 30,
+        retirement: { retirementId: 'ret-1', retiredAt: '2026-01-20T00:00:00.000Z' },
+      },
       metadata
     );
 
@@ -429,7 +439,10 @@ describe('mapPurchaseToPosition', () => {
   it('marks a fully retired lot retired', () => {
     const position = mapPurchaseToPosition(
       purchase(),
-      { retiredTonnes: 100, retirement: { retirementId: 'ret-1', retiredAt: '2026-01-20T00:00:00.000Z' } },
+      {
+        retiredTonnes: 100,
+        retirement: { retirementId: 'ret-1', retiredAt: '2026-01-20T00:00:00.000Z' },
+      },
       metadata
     );
 
@@ -458,7 +471,11 @@ describe('mapPurchaseToPosition', () => {
 
   it('resolves catalogue metadata for a never-retired lot', () => {
     const metadata = buildProjectMetadata([], ['proj-002']);
-    const position = mapPurchaseToPosition(purchase({ projectId: 'proj-002' }), undefined, metadata);
+    const position = mapPurchaseToPosition(
+      purchase({ projectId: 'proj-002' }),
+      undefined,
+      metadata
+    );
 
     expect(position).toMatchObject({
       platform: 'verra',
@@ -475,7 +492,11 @@ describe('mapPurchaseToPosition', () => {
 
 describe('ledger source id', () => {
   it('tags positions so they can be attributed back to the ledger', () => {
-    const position = mapPurchaseToPosition(purchase(), undefined, buildProjectMetadata([retirement()]));
+    const position = mapPurchaseToPosition(
+      purchase(),
+      undefined,
+      buildProjectMetadata([retirement()])
+    );
     expect(position.sourceId).toBe('buyer-ledger');
   });
 });
@@ -497,10 +518,9 @@ describe('resolveBuyerWallet', () => {
     query.mockResolvedValueOnce({ rows: [{ wallet_address: WALLET }] });
 
     await expect(resolveBuyerWallet(PROGRAM_ID)).resolves.toBe(WALLET);
-    expect(query).toHaveBeenCalledWith(
-      expect.stringContaining('corporate_offset_programs'),
-      [PROGRAM_ID]
-    );
+    expect(query).toHaveBeenCalledWith(expect.stringContaining('corporate_offset_programs'), [
+      PROGRAM_ID,
+    ]);
   });
 
   it('returns null when the program has no enrolled wallet', async () => {
@@ -560,8 +580,16 @@ describe('loadBuyerLedger', () => {
     query
       .mockResolvedValueOnce({
         rows: [
-          purchaseRow({ id: 'lot-old', purchase_date: '2025-12-01T00:00:00.000Z', quantity_tco2e: '60.0000' }),
-          purchaseRow({ id: 'lot-new', purchase_date: '2026-01-20T00:00:00.000Z', quantity_tco2e: '40.0000' }),
+          purchaseRow({
+            id: 'lot-old',
+            purchase_date: '2025-12-01T00:00:00.000Z',
+            quantity_tco2e: '60.0000',
+          }),
+          purchaseRow({
+            id: 'lot-new',
+            purchase_date: '2026-01-20T00:00:00.000Z',
+            quantity_tco2e: '40.0000',
+          }),
         ],
       })
       .mockResolvedValueOnce({ rows: [retirementRow({ credit_amount: '80.0000' })] });

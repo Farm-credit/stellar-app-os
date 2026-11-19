@@ -163,11 +163,11 @@ describe('classifyVegetationHealth', () => {
   });
 
   it('classifies NDVI 0.40 as moderate_vegetation', () => {
-    expect(classifyVegetationHealth(0.40)).toBe('moderate_vegetation');
+    expect(classifyVegetationHealth(0.4)).toBe('moderate_vegetation');
   });
 
   it('classifies NDVI 0.60 as healthy_vegetation', () => {
-    expect(classifyVegetationHealth(0.60)).toBe('healthy_vegetation');
+    expect(classifyVegetationHealth(0.6)).toBe('healthy_vegetation');
   });
 
   it('classifies NDVI 0.75 as dense_canopy', () => {

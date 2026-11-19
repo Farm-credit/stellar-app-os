@@ -17,7 +17,8 @@ export default function PublishListingPage() {
             Publish Verified Carbon Credits
           </Text>
           <Text variant="muted" as="p">
-            List credits from verified projects with verified audit standards (Verra, Gold Standard, ROC).
+            List credits from verified projects with verified audit standards (Verra, Gold Standard,
+            ROC).
           </Text>
         </div>
 

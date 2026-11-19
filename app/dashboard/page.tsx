@@ -1,5 +1,7 @@
 import { type Metadata } from 'next';
 import { DashboardOverview } from '@/components/organisms/DashboardOverview';
+import { SponsorImpactHub } from '@/components/organisms/SponsorImpact/SponsorImpactHub';
+import { SubscriptionDashboard } from '@/components/organisms/SubscriptionDashboard/SubscriptionDashboard';
 
 export const metadata: Metadata = {
   title: 'Dashboard | Stellar App OS',
@@ -10,6 +12,12 @@ export default function DashboardPage() {
   return (
     <main className="min-h-screen bg-background pt-24 pb-16 px-4 md:px-8 lg:px-12">
       <div className="max-w-7xl mx-auto">
+        <div className="mb-16">
+          <SponsorImpactHub />
+        </div>
+        <div className="mb-16">
+          <SubscriptionDashboard />
+        </div>
         <DashboardOverview />
       </div>
     </main>

@@ -20,7 +20,10 @@ export function SponsorBadges({ totalTrees }: SponsorBadgesProps) {
     <section aria-labelledby="sponsor-badges-heading">
       <div className="mb-4 flex items-end justify-between gap-4">
         <div>
-          <h2 id="sponsor-badges-heading" className="text-2xl font-semibold text-slate-900 dark:text-white">
+          <h2
+            id="sponsor-badges-heading"
+            className="text-2xl font-semibold text-slate-900 dark:text-white"
+          >
             Sponsor badges
           </h2>
           <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
@@ -38,7 +41,9 @@ export function SponsorBadges({ totalTrees }: SponsorBadgesProps) {
             <div
               key={badge.id}
               className={`rounded-2xl border p-4 ${
-                earned ? TIER_STYLES[badge.id] : 'border-slate-200 bg-slate-50 text-slate-400 dark:border-slate-800 dark:bg-slate-900/50 dark:text-slate-500'
+                earned
+                  ? TIER_STYLES[badge.id]
+                  : 'border-slate-200 bg-slate-50 text-slate-400 dark:border-slate-800 dark:bg-slate-900/50 dark:text-slate-500'
               }`}
               aria-label={`${badge.name}: ${earned ? 'earned' : 'not yet earned'}`}
             >

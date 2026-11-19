@@ -92,9 +92,7 @@ function mockTotals(overrides: Partial<BuyerOffsetTotals> = {}): BuyerOffsetTota
   };
 }
 
-function mockBuyerAnalytics(
-  overrides: Partial<BuyerAnalyticsSummary> = {}
-): BuyerAnalyticsSummary {
+function mockBuyerAnalytics(overrides: Partial<BuyerAnalyticsSummary> = {}): BuyerAnalyticsSummary {
   return {
     buyerId: 'buyer-001',
     account: null,
@@ -369,10 +367,12 @@ describe('Report data integrity', () => {
     });
 
     const report = buildBuyerComplianceReport(analytics, 'Test', 'month');
-    
+
     // Should be rounded to 4 decimals for tonnes
-    expect(report.carbonOffsets.totalTonnes.toString().split('.')[1]?.length || 0).toBeLessThanOrEqual(4);
-    
+    expect(
+      report.carbonOffsets.totalTonnes.toString().split('.')[1]?.length || 0
+    ).toBeLessThanOrEqual(4);
+
     // Should be rounded to 2 decimals for USD
     const costStr = report.carbonOffsets.totalCostUsd.toString();
     expect(costStr.split('.')[1]?.length || 0).toBeLessThanOrEqual(2);

@@ -87,7 +87,10 @@ export async function POST(req: Request) {
     const { transactionXdr, networkPassphrase } = await withWalletLock(
       recipientAddress,
       async () => {
-        logger.info('[api:nft:mint] Building mint tx with wallet lock', { recipientAddress, tokenId });
+        logger.info('[api:nft:mint] Building mint tx with wallet lock', {
+          recipientAddress,
+          tokenId,
+        });
         return buildMintCertificateTransaction(recipientAddress, tokenId, metadataUri, network);
       },
       { ttlMs: 15_000, retryCount: 10 }

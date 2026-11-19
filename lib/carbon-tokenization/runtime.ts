@@ -1,24 +1,13 @@
-import {
-  getCertificationProviderConfig,
-} from '../certification/config';
+import { getCertificationProviderConfig } from '../certification/config';
 import { ProviderHttpClient } from '../certification/http-client';
 import { VerraClient as VerraAdapter } from '../certification/providers/verra';
 import { GoldStandardClient as GoldStandardAdapter } from '../certification/providers/gold-standard';
 import { VerraRegistryClient } from './verra-registry-client';
 import { GoldStandardRegistryClient } from './gold-standard-registry-client';
-import type {
-  RegistryClient,
-  RegistryProtocol,
-} from '../certification/types';
-import {
-  InMemoryMintedCreditRepository,
-  type MintedCreditRepository,
-} from './minted-repository';
+import type { RegistryClient, RegistryProtocol } from '../certification/types';
+import { InMemoryMintedCreditRepository, type MintedCreditRepository } from './minted-repository';
 import { CreditValidator } from './credit-validator';
-import {
-  EvmCarbonCreditClient,
-  type BlockchainMintClient,
-} from './evm-client';
+import { EvmCarbonCreditClient, type BlockchainMintClient } from './evm-client';
 import { TokenizationOrchestrator } from './tokenization-orchestrator';
 
 const mintedRepository = new InMemoryMintedCreditRepository();
@@ -48,9 +37,7 @@ export function getMintedCreditRepository(): MintedCreditRepository {
   return mintedRepository;
 }
 
-export function getDefaultNetwork(
-  env: NodeJS.ProcessEnv = process.env
-): 'testnet' | 'mainnet' {
+export function getDefaultNetwork(env: NodeJS.ProcessEnv = process.env): 'testnet' | 'mainnet' {
   if (networkSingleton) return networkSingleton;
   const fromEnv =
     (env.NEXT_PUBLIC_STELLAR_NETWORK as 'testnet' | 'mainnet' | undefined) ??
@@ -80,10 +67,8 @@ export function createCreditValidator(
   stellar?: StellarFallbackOptions
 ): CreditValidator {
   const factory =
-    options?.registryClientFactoryOverride ??
-    ((p: RegistryProtocol) => registryClientFactory(p));
-  const repo =
-    options?.mintedRepositoryOverride ?? getMintedCreditRepository();
+    options?.registryClientFactoryOverride ?? ((p: RegistryProtocol) => registryClientFactory(p));
+  const repo = options?.mintedRepositoryOverride ?? getMintedCreditRepository();
   return new CreditValidator({
     registryClientFactory: factory,
     mintedRepository: repo,
@@ -117,14 +102,9 @@ export function createTokenizationOrchestrator(
   });
 }
 
-export function getTokenizationOrchestrator(
-  requestOrigin?: string
-): TokenizationOrchestrator {
+export function getTokenizationOrchestrator(requestOrigin?: string): TokenizationOrchestrator {
   if (!orchestratorSingleton) {
-    orchestratorSingleton = createTokenizationOrchestrator(
-      undefined,
-      requestOrigin
-    );
+    orchestratorSingleton = createTokenizationOrchestrator(undefined, requestOrigin);
   }
   return orchestratorSingleton;
 }

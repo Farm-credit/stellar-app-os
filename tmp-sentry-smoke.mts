@@ -53,9 +53,8 @@ console.log(`[fake-sentry] listening on 127.0.0.1:${PORT}`);
 process.env.SENTRY_DSN = `http://publickey@127.0.0.1:${PORT}/1`;
 process.env.SENTRY_ENVIRONMENT = 'smoke-test';
 
-const { initSentry, isSentryEnabled, captureRequestError, flushSentry } = await import(
-  './lib/sentry.ts'
-);
+const { initSentry, isSentryEnabled, captureRequestError, flushSentry } =
+  await import('./lib/sentry.ts');
 
 console.log(`[smoke] initSentry() -> ${initSentry()}`);
 console.log(`[smoke] isSentryEnabled() -> ${isSentryEnabled()}`);

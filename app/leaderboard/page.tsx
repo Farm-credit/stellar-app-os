@@ -8,7 +8,6 @@ import {
   type LeaderboardPlanter,
   type LeaderboardPeriod,
   type LeaderboardCategory,
-  type BonusReward,
 } from '@/lib/types/leaderboard';
 import {
   fetchLeaderboard as fetchSponsorLeaderboard,
@@ -16,32 +15,20 @@ import {
 } from '@/lib/api/mock/leaderboard';
 import { Button } from '@/components/atoms/Button';
 import { Text } from '@/components/atoms/Text';
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-  CardContent,
-} from '@/components/molecules/Card';
+import { Card, CardContent } from '@/components/molecules/Card';
 import {
   Table,
   TableBody,
   TableHeader,
   TableHead,
   TableRow,
-  TableBody,
   TableCell,
 } from '@/components/ui/table';
 import {
   TreePine,
-  TrendingUp,
   Trophy,
-  Medal,
   Loader2,
-  ArrowUp,
-  ArrowDown,
   Minus,
-  Crown,
   Sparkles,
   Gift,
   Leaf,
@@ -650,7 +637,9 @@ function LeaderboardContent() {
                   </div>
 
                   <Button asChild stellar="primary" size="sm">
-                    <Link href={category === 'sponsors' ? '/credits/purchase' : '/planters/register'}>
+                    <Link
+                      href={category === 'sponsors' ? '/credits/purchase' : '/planters/register'}
+                    >
                       {category === 'sponsors' ? 'Increase Impact' : 'Register as Planter'}
                     </Link>
                   </Button>

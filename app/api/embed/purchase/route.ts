@@ -6,11 +6,11 @@
  * Issue #1415: Carbon offset API - embed on websites
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { type NextRequest, NextResponse } from 'next/server';
 import {
   validateApiKey,
   createOffsetPurchaseSession,
-  OffsetPurchaseRequest,
+  type OffsetPurchaseRequest,
 } from '@/backend/src/services/carbonOffsetApi';
 import { isAllowedOrigin, isAllowedRedirectUrl } from '@/backend/src/services/carbonOffsetSecurity';
 
@@ -34,15 +34,15 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const config = await validateApiKey(apiKey);
 
     if (!config) {
-      return NextResponse.json(
-        { error: 'Invalid or inactive API key' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Invalid or inactive API key' }, { status: 401 });
     }
 
     const origin = request.headers.get('origin');
     if (!isAllowedOrigin(origin, config.allowedDomains)) {
-      return NextResponse.json({ error: 'Origin is not allowed for this API key' }, { status: 403 });
+      return NextResponse.json(
+        { error: 'Origin is not allowed for this API key' },
+        { status: 403 }
+      );
     }
 
     let body: Record<string, unknown>;
@@ -54,9 +54,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     if (
       typeof body.projectId !== 'string' ||
-      typeof body.amount !== 'number' || !Number.isFinite(body.amount) || body.amount <= 0 ||
+      typeof body.amount !== 'number' ||
+      !Number.isFinite(body.amount) ||
+      body.amount <= 0 ||
       typeof body.currency !== 'string' ||
-      typeof body.customerEmail !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.customerEmail)
+      typeof body.customerEmail !== 'string' ||
+      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.customerEmail)
     ) {
       return NextResponse.json(
         { error: 'projectId, a positive amount, currency, and valid customerEmail are required' },
@@ -65,7 +68,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
 
     for (const field of ['returnUrl', 'cancelUrl'] as const) {
-      if (body[field] !== undefined && (typeof body[field] !== 'string' || !isAllowedRedirectUrl(body[field], config.allowedDomains))) {
+      if (
+        body[field] !== undefined &&
+        (typeof body[field] !== 'string' ||
+          !isAllowedRedirectUrl(body[field], config.allowedDomains))
+      ) {
         return NextResponse.json(
           { error: `${field} must use an allowed website origin` },
           { status: 400 }
@@ -75,15 +82,19 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     if (body.metadata !== undefined) {
       const metadataIsValid =
-        typeof body.metadata === 'object' && body.metadata !== null &&
+        typeof body.metadata === 'object' &&
+        body.metadata !== null &&
         !Array.isArray(body.metadata) &&
         Object.entries(body.metadata).length <= 20 &&
-        Object.entries(body.metadata).every(([key, value]) =>
-          key.length <= 40 && typeof value === 'string' && value.length <= 500
+        Object.entries(body.metadata).every(
+          ([key, value]) => key.length <= 40 && typeof value === 'string' && value.length <= 500
         );
       if (!metadataIsValid) {
         return NextResponse.json(
-          { error: 'metadata must contain at most 20 string fields (keys up to 40 and values up to 500 characters)' },
+          {
+            error:
+              'metadata must contain at most 20 string fields (keys up to 40 and values up to 500 characters)',
+          },
           { status: 400 }
         );
       }
@@ -95,15 +106,16 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       currency: body.currency as OffsetPurchaseRequest['currency'],
       customerEmail: body.customerEmail,
       customerName: typeof body.customerName === 'string' ? body.customerName : undefined,
-      metadata: typeof body.metadata === 'object' && body.metadata !== null && !Array.isArray(body.metadata)
-        ? body.metadata as Record<string, string>
-        : undefined,
-      returnUrl: typeof body.returnUrl === 'string'
-        ? body.returnUrl
-        : `${origin}/?carbon_offset=success&session_id={CHECKOUT_SESSION_ID}`,
-      cancelUrl: typeof body.cancelUrl === 'string'
-        ? body.cancelUrl
-        : `${origin}/?carbon_offset=cancelled`,
+      metadata:
+        typeof body.metadata === 'object' && body.metadata !== null && !Array.isArray(body.metadata)
+          ? (body.metadata as Record<string, string>)
+          : undefined,
+      returnUrl:
+        typeof body.returnUrl === 'string'
+          ? body.returnUrl
+          : `${origin}/?carbon_offset=success&session_id={CHECKOUT_SESSION_ID}`,
+      cancelUrl:
+        typeof body.cancelUrl === 'string' ? body.cancelUrl : `${origin}/?carbon_offset=cancelled`,
     };
 
     const response = await createOffsetPurchaseSession(config, purchaseRequest);
@@ -112,7 +124,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       status: 201,
       headers: { 'Access-Control-Allow-Origin': origin, Vary: 'Origin' },
     });
-
   } catch (error) {
     console.error('Create purchase session error:', error);
     return NextResponse.json(

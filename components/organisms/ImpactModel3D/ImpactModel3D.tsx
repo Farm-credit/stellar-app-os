@@ -211,8 +211,7 @@ function ReductionChart({ snapshots, year }: { snapshots: YearSnapshot[]; year: 
   );
 }
 
-
-  export function ImpactModel3D({
+export function ImpactModel3D({
   projects,
   horizonYears = 30,
   initialProjectId,

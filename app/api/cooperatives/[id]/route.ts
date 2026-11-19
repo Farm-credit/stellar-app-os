@@ -10,10 +10,7 @@ export const runtime = 'nodejs';
  * Full cooperative detail (members, pooled projects, bargaining rounds) plus
  * the current collective bargaining position.
  */
-export async function GET(
-  _request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
     const cooperative = getCooperative(id);

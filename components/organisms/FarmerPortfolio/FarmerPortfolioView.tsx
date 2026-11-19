@@ -32,7 +32,11 @@ export function FarmerPortfolioView({ portfolio }: FarmerPortfolioViewProps) {
               </div>
               <div className="space-y-1">
                 <div className="flex flex-wrap items-center gap-3">
-                  <Text variant="h2" as="h1" className="text-2xl sm:text-3xl font-bold tracking-tight">
+                  <Text
+                    variant="h2"
+                    as="h1"
+                    className="text-2xl sm:text-3xl font-bold tracking-tight"
+                  >
                     {farmer.name}
                   </Text>
                   {farmer.verified && (
@@ -50,14 +54,25 @@ export function FarmerPortfolioView({ portfolio }: FarmerPortfolioViewProps) {
                 </div>
                 {farmer.organization && (
                   <p className="text-sm font-medium text-muted-foreground flex items-center gap-1.5">
-                    <svg className="w-4 h-4 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                    <svg
+                      className="w-4 h-4 text-emerald-600"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
+                      />
                     </svg>
                     {farmer.organization}
                   </p>
                 )}
                 <p className="text-xs text-muted-foreground font-mono">
-                  {farmer.address.slice(0, 10)}...{farmer.address.slice(-10)} • {farmer.location}, {farmer.country}
+                  {farmer.address.slice(0, 10)}...{farmer.address.slice(-10)} • {farmer.location},{' '}
+                  {farmer.country}
                 </p>
               </div>
             </div>
@@ -87,9 +102,13 @@ export function FarmerPortfolioView({ portfolio }: FarmerPortfolioViewProps) {
         {/* Total Acres */}
         <Card className="border border-border/50 bg-card hover:shadow-md transition-shadow">
           <CardContent className="p-5">
-            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Total Acres</span>
+            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Total Acres
+            </span>
             <div className="mt-2 flex items-baseline gap-2">
-              <span className="text-3xl font-extrabold text-foreground">{summary.totalAcres.toLocaleString()}</span>
+              <span className="text-3xl font-extrabold text-foreground">
+                {summary.totalAcres.toLocaleString()}
+              </span>
               <span className="text-xs text-muted-foreground font-medium">acres managed</span>
             </div>
             <p className="mt-1 text-xs text-emerald-600 dark:text-emerald-400 font-medium">
@@ -101,7 +120,9 @@ export function FarmerPortfolioView({ portfolio }: FarmerPortfolioViewProps) {
         {/* Total Credits Available */}
         <Card className="border border-border/50 bg-card hover:shadow-md transition-shadow">
           <CardContent className="p-5">
-            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Credits Available</span>
+            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Credits Available
+            </span>
             <div className="mt-2 flex items-baseline gap-2">
               <span className="text-3xl font-extrabold text-emerald-600 dark:text-emerald-400">
                 {summary.totalCreditsAvailable.toLocaleString()}
@@ -117,9 +138,13 @@ export function FarmerPortfolioView({ portfolio }: FarmerPortfolioViewProps) {
         {/* Average Price */}
         <Card className="border border-border/50 bg-card hover:shadow-md transition-shadow">
           <CardContent className="p-5">
-            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Average Price</span>
+            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Average Price
+            </span>
             <div className="mt-2 flex items-baseline gap-2">
-              <span className="text-3xl font-extrabold text-foreground">${summary.averagePrice.toFixed(2)}</span>
+              <span className="text-3xl font-extrabold text-foreground">
+                ${summary.averagePrice.toFixed(2)}
+              </span>
               <span className="text-xs text-muted-foreground font-medium">/ ton</span>
             </div>
             <p className="mt-1 text-xs text-muted-foreground">Weighted across active inventory</p>
@@ -129,9 +154,13 @@ export function FarmerPortfolioView({ portfolio }: FarmerPortfolioViewProps) {
         {/* Buyer Reviews & Rating */}
         <Card className="border border-border/50 bg-card hover:shadow-md transition-shadow">
           <CardContent className="p-5">
-            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Buyer Reviews</span>
+            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Buyer Reviews
+            </span>
             <div className="mt-2 flex items-baseline gap-2">
-              <span className="text-3xl font-extrabold text-amber-500">★ {summary.overallRating}</span>
+              <span className="text-3xl font-extrabold text-amber-500">
+                ★ {summary.overallRating}
+              </span>
               <span className="text-xs text-muted-foreground font-medium">/ 5.0</span>
             </div>
             <p className="mt-1 text-xs text-muted-foreground">
@@ -143,7 +172,9 @@ export function FarmerPortfolioView({ portfolio }: FarmerPortfolioViewProps) {
         {/* Certification Status */}
         <Card className="border border-border/50 bg-card hover:shadow-md transition-shadow">
           <CardContent className="p-5">
-            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Certification Status</span>
+            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Certification Status
+            </span>
             <div className="mt-2 flex flex-wrap gap-1.5">
               {summary.certificationStatuses.slice(0, 2).map((cert) => (
                 <span
@@ -209,7 +240,10 @@ export function FarmerPortfolioView({ portfolio }: FarmerPortfolioViewProps) {
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {projects.map((project) => (
-              <Card key={project.id} className="border border-border/70 hover:border-emerald-500/50 transition-all flex flex-col justify-between">
+              <Card
+                key={project.id}
+                className="border border-border/70 hover:border-emerald-500/50 transition-all flex flex-col justify-between"
+              >
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between gap-2">
                     <span className="px-2.5 py-1 rounded-md text-xs font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
@@ -219,17 +253,31 @@ export function FarmerPortfolioView({ portfolio }: FarmerPortfolioViewProps) {
                       ★ {project.averageRating} ({project.reviewCount})
                     </span>
                   </div>
-                  <CardTitle className="text-lg font-bold mt-2 line-clamp-1">{project.name}</CardTitle>
+                  <CardTitle className="text-lg font-bold mt-2 line-clamp-1">
+                    {project.name}
+                  </CardTitle>
                   <p className="text-xs text-muted-foreground flex items-center gap-1">
-                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                    <svg
+                      className="w-3.5 h-3.5"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
+                      />
                     </svg>
                     {project.location}, {project.country}
                   </p>
                 </CardHeader>
 
                 <CardContent className="space-y-4 pt-0">
-                  <p className="text-xs text-muted-foreground line-clamp-2">{project.description}</p>
+                  <p className="text-xs text-muted-foreground line-clamp-2">
+                    {project.description}
+                  </p>
 
                   <div className="grid grid-cols-2 gap-2 p-3 bg-muted/40 rounded-xl text-xs">
                     <div>
@@ -244,7 +292,9 @@ export function FarmerPortfolioView({ portfolio }: FarmerPortfolioViewProps) {
                     </div>
                     <div className="mt-1">
                       <span className="text-muted-foreground block">Price per Ton</span>
-                      <span className="font-bold text-foreground">${project.pricePerTon.toFixed(2)} USD</span>
+                      <span className="font-bold text-foreground">
+                        ${project.pricePerTon.toFixed(2)} USD
+                      </span>
                     </div>
                     <div className="mt-1">
                       <span className="text-muted-foreground block">Vintage</span>
@@ -253,7 +303,9 @@ export function FarmerPortfolioView({ portfolio }: FarmerPortfolioViewProps) {
                   </div>
 
                   <div className="space-y-1.5">
-                    <span className="text-xs font-medium text-muted-foreground">Certification Status:</span>
+                    <span className="text-xs font-medium text-muted-foreground">
+                      Certification Status:
+                    </span>
                     <div className="flex flex-wrap gap-1">
                       {project.certifications.map((cert) => (
                         <span
@@ -289,8 +341,12 @@ export function FarmerPortfolioView({ portfolio }: FarmerPortfolioViewProps) {
               </p>
             </div>
             <div className="text-right">
-              <span className="text-2xl font-extrabold text-amber-500">★ {summary.overallRating}</span>
-              <span className="text-xs text-muted-foreground block">from {buyerReviews.length} buyers</span>
+              <span className="text-2xl font-extrabold text-amber-500">
+                ★ {summary.overallRating}
+              </span>
+              <span className="text-xs text-muted-foreground block">
+                from {buyerReviews.length} buyers
+              </span>
             </div>
           </div>
 
@@ -301,7 +357,9 @@ export function FarmerPortfolioView({ portfolio }: FarmerPortfolioViewProps) {
                   <div className="flex items-start justify-between">
                     <div>
                       <div className="flex items-center gap-2">
-                        <span className="font-semibold text-sm text-foreground">{review.buyerName}</span>
+                        <span className="font-semibold text-sm text-foreground">
+                          {review.buyerName}
+                        </span>
                         {review.verified && (
                           <span className="inline-flex items-center text-[10px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300 font-medium">
                             Verified Buyer
@@ -320,7 +378,9 @@ export function FarmerPortfolioView({ portfolio }: FarmerPortfolioViewProps) {
 
                   <div className="space-y-1">
                     <p className="text-sm font-semibold text-foreground">{review.title}</p>
-                    <p className="text-xs text-muted-foreground leading-relaxed">{review.comment}</p>
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                      {review.comment}
+                    </p>
                   </div>
 
                   <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-2 border-t border-border/40">

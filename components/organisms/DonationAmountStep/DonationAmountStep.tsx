@@ -24,9 +24,11 @@ import { MAX_BATCH_TREES } from '@/lib/stellar/transaction';
 import { IMPACT_DATA } from '@/lib/api/impactData';
 import type { RegionAllocation } from '@/lib/types/donor';
 import { TREE_SPECIES } from '@/lib/constants/species';
+import { isNativeSpecies } from '@/lib/native-species';
 
 const DonationRegionMap = dynamic(
-  () => import('@/components/organisms/DonationRegionMap').then((module) => module.DonationRegionMap),
+  () =>
+    import('@/components/organisms/DonationRegionMap').then((module) => module.DonationRegionMap),
   { ssr: false }
 );
 
@@ -84,7 +86,9 @@ export function DonationAmountStep() {
 
   const [treeCount, setTreeCount] = useState<number>(1);
   const [selectedSpeciesSlug, setSelectedSpeciesSlug] = useState(state.speciesSlug);
-  const [selectedRegionId, setSelectedRegionId] = useState(state.regionId || IMPACT_DATA.regions[0].id);
+  const [selectedRegionId, setSelectedRegionId] = useState(
+    state.regionId || IMPACT_DATA.regions[0].id
+  );
   const [donationMode, setDonationMode] = useState<'tracked' | 'anonymous'>(
     state.donorInfo.anonymous ? 'anonymous' : 'tracked'
   );
@@ -98,8 +102,10 @@ export function DonationAmountStep() {
 
   const currentAmount = isCustom ? parseFloat(customAmount) || 0 : selectedAmount || 0;
   const isValidAmount = currentAmount >= MINIMUM_DONATION;
-  const selectedSpecies = TREE_SPECIES.find((species) => species.slug === selectedSpeciesSlug) ?? TREE_SPECIES[0];
-  const selectedRegion = IMPACT_DATA.regions.find((region) => region.id === selectedRegionId) ?? IMPACT_DATA.regions[0];
+  const selectedSpecies =
+    TREE_SPECIES.find((species) => species.slug === selectedSpeciesSlug) ?? TREE_SPECIES[0];
+  const selectedRegion =
+    IMPACT_DATA.regions.find((region) => region.id === selectedRegionId) ?? IMPACT_DATA.regions[0];
 
   // Handle extremely large amounts (cap display at reasonable values)
   const safeAmount = Math.min(currentAmount, 1000000);
@@ -111,12 +117,13 @@ export function DonationAmountStep() {
   const totalAllocatedTrees = useMemo(() => {
     return regionAllocations.reduce((sum, alloc) => sum + alloc.treeCount, 0);
   }, [regionAllocations]);
+  const singleRegionId = regionAllocations.length === 1 ? regionAllocations[0].regionId : null;
 
   useEffect(() => {
-    if (regionAllocations.length === 1 && regionAllocations[0].regionId === selectedRegionId) {
+    if (singleRegionId === selectedRegionId) {
       setLocalRegionAllocations([{ regionId: selectedRegionId, treeCount }]);
     }
-  }, [selectedRegionId, treeCount]);
+  }, [selectedRegionId, singleRegionId, treeCount]);
 
   // Helper to update region tree counts
   const updateRegionAllocation = (regionId: string, newTreeCount: number) => {
@@ -181,7 +188,10 @@ export function DonationAmountStep() {
       setSpecies(selectedSpecies.slug);
       setRegion(selectedRegion.id);
       setRegionAllocations(regionAllocations);
-      setDonorInfo({ anonymous: donationMode === 'anonymous', privacyAccepted: donationMode === 'anonymous' });
+      setDonorInfo({
+        anonymous: donationMode === 'anonymous',
+        privacyAccepted: donationMode === 'anonymous',
+      });
       router.push(donationMode === 'anonymous' ? '/donate/payment' : '/donate/info');
     }
   };
@@ -234,8 +244,17 @@ export function DonationAmountStep() {
                     aria-pressed={selected}
                     className={`rounded-xl border p-3 text-left transition ${selected ? 'border-stellar-green bg-stellar-green/10 ring-2 ring-stellar-green/20' : 'border-gray-200 bg-white hover:border-stellar-green/50'}`}
                   >
-                    <span className="block font-semibold text-gray-900">{species.name}</span>
-                    <span className="mt-1 block text-xs text-gray-500">{species.maturityYears} year maturity</span>
+                    <span className="flex items-center justify-between gap-2 font-semibold text-gray-900">
+                      {species.name}
+                      {isNativeSpecies(species.slug) && (
+                        <Badge variant="success" className="px-1.5 py-0 text-[10px]">
+                          Native
+                        </Badge>
+                      )}
+                    </span>
+                    <span className="mt-1 block text-xs text-gray-500">
+                      {species.maturityYears} year maturity
+                    </span>
                   </button>
                 );
               })}
@@ -283,10 +302,17 @@ export function DonationAmountStep() {
           <fieldset className="space-y-3">
             <legend className="font-semibold text-gray-900">How should this gift appear?</legend>
             <div className="grid gap-3 sm:grid-cols-2">
-              {([
-                ['tracked', 'Tracked impact', 'Receive updates and follow your trees.', UserRound],
-                ['anonymous', 'Anonymous gift', 'Donate without a public donor profile.', EyeOff],
-              ] as const).map(([mode, label, description, Icon]) => (
+              {(
+                [
+                  [
+                    'tracked',
+                    'Tracked impact',
+                    'Receive updates and follow your trees.',
+                    UserRound,
+                  ],
+                  ['anonymous', 'Anonymous gift', 'Donate without a public donor profile.', EyeOff],
+                ] as const
+              ).map(([mode, label, description, Icon]) => (
                 <button
                   key={mode}
                   type="button"
@@ -295,7 +321,10 @@ export function DonationAmountStep() {
                   className={`flex items-start gap-3 rounded-xl border p-4 text-left ${donationMode === mode ? 'border-stellar-blue bg-stellar-blue/10 ring-2 ring-stellar-blue/20' : 'border-gray-200 hover:border-stellar-blue/50'}`}
                 >
                   <Icon className="mt-0.5 h-5 w-5 shrink-0 text-stellar-blue" aria-hidden />
-                  <span><span className="block font-medium">{label}</span><span className="mt-1 block text-xs text-muted-foreground">{description}</span></span>
+                  <span>
+                    <span className="block font-medium">{label}</span>
+                    <span className="mt-1 block text-xs text-muted-foreground">{description}</span>
+                  </span>
                 </button>
               ))}
             </div>

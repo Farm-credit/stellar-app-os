@@ -24,8 +24,8 @@ export default function AdminCertificationsPage(): ReactNode {
           Buyer compliance reporting
         </Text>
         <Text as="p" variant="muted">
-          Generate SEC, EPA, and carbon tax compliance reports with automatic
-          offset-vs-emissions calculations for regulatory filings.
+          Generate SEC, EPA, and carbon tax compliance reports with automatic offset-vs-emissions
+          calculations for regulatory filings.
         </Text>
       </div>
 

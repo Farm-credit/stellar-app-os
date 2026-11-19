@@ -233,9 +233,21 @@ const SEED_PROGRAMS: CorporateProgramRecord[] = [
           },
         ],
         sdgImpactMetrics: [
-          { sdg: 13, title: 'Climate Action', impactSummary: '100.0 metric tonnes CO2e neutralized on Stellar ledger' },
-          { sdg: 15, title: 'Life on Land', impactSummary: 'Protected 4.2 hectares of native Amazon canopy' },
-          { sdg: 8, title: 'Decent Work', impactSummary: 'Supported living wages for 12 local indigenous rangers' },
+          {
+            sdg: 13,
+            title: 'Climate Action',
+            impactSummary: '100.0 metric tonnes CO2e neutralized on Stellar ledger',
+          },
+          {
+            sdg: 15,
+            title: 'Life on Land',
+            impactSummary: 'Protected 4.2 hectares of native Amazon canopy',
+          },
+          {
+            sdg: 8,
+            title: 'Decent Work',
+            impactSummary: 'Supported living wages for 12 local indigenous rangers',
+          },
         ],
         stellarLedgerSequence: 52410982,
         verificationDigest: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
@@ -397,7 +409,10 @@ export function executeAutomatedOffsetRun(programId: string): {
         program.rules.preferredTypologies.includes(p.type))
   );
 
-  const fallbackProjects = eligibleProjects.length > 0 ? eligibleProjects : mockCarbonProjects.filter((p) => !p.isOutOfStock);
+  const fallbackProjects =
+    eligibleProjects.length > 0
+      ? eligibleProjects
+      : mockCarbonProjects.filter((p) => !p.isOutOfStock);
   const selected = fallbackProjects[0] || mockCarbonProjects[0];
 
   const pricePerTon = selected.pricePerTon;
@@ -446,7 +461,9 @@ export function executeAutomatedOffsetRun(programId: string): {
   // Generate Monthly ESG Report & Documentation
   const newCumulativeTonnes = program.cumulativeTonnesOffset + targetTons;
   const newCumulativeSpend = program.cumulativeSpendUsd + totalSpendUsd;
-  const pctGoal = Number(((newCumulativeTonnes / program.target.annualTargetTonnes) * 100).toFixed(1));
+  const pctGoal = Number(
+    ((newCumulativeTonnes / program.target.annualTargetTonnes) * 100).toFixed(1)
+  );
 
   const reportId = `esg-rep-${Date.now().toString(36)}`;
   const monthlyReport: MonthlyEsgReport = {
@@ -463,9 +480,21 @@ export function executeAutomatedOffsetRun(programId: string): {
     totalSpendUsd,
     supportedProjects: [allocation],
     sdgImpactMetrics: [
-      { sdg: 13, title: 'Climate Action', impactSummary: `${targetTons} tonnes CO2e retired with on-chain cryptographic proof` },
-      { sdg: 15, title: 'Life on Land', impactSummary: `Protected biodiverse ecosystems in ${selected.location}` },
-      { sdg: 8, title: 'Decent Work', impactSummary: 'Direct revenue routed to certified project developers' },
+      {
+        sdg: 13,
+        title: 'Climate Action',
+        impactSummary: `${targetTons} tonnes CO2e retired with on-chain cryptographic proof`,
+      },
+      {
+        sdg: 15,
+        title: 'Life on Land',
+        impactSummary: `Protected biodiverse ecosystems in ${selected.location}`,
+      },
+      {
+        sdg: 8,
+        title: 'Decent Work',
+        impactSummary: 'Direct revenue routed to certified project developers',
+      },
     ],
     stellarLedgerSequence: 53100000 + Math.floor(Math.random() * 50000),
     verificationDigest: txHash,

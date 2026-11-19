@@ -6,13 +6,10 @@
  * Issue #1415: Carbon offset API - embed on websites
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { type NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import {
-  createEmbedApiKey,
-  listEmbedApiKeys,
-} from '@/backend/src/services/carbonOffsetApi';
+import { createEmbedApiKey, listEmbedApiKeys } from '@/backend/src/services/carbonOffsetApi';
 import { isValidAllowedDomain } from '@/backend/src/services/carbonOffsetSecurity';
 
 /**
@@ -27,21 +24,39 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
 
     const body = await request.json();
-    
+
     // Validate required fields
-    if (!body.name || !body.allowedDomains || !Array.isArray(body.allowedDomains) || body.allowedDomains.length === 0) {
+    if (
+      !body.name ||
+      !body.allowedDomains ||
+      !Array.isArray(body.allowedDomains) ||
+      body.allowedDomains.length === 0
+    ) {
       return NextResponse.json(
         { error: 'Name and allowedDomains (array) are required' },
         { status: 400 }
       );
     }
 
-    if (body.allowedDomains.some((domain: unknown) => typeof domain !== 'string' || !isValidAllowedDomain(domain))) {
-      return NextResponse.json({ error: 'allowedDomains must contain valid hostnames' }, { status: 400 });
+    if (
+      body.allowedDomains.some(
+        (domain: unknown) => typeof domain !== 'string' || !isValidAllowedDomain(domain)
+      )
+    ) {
+      return NextResponse.json(
+        { error: 'allowedDomains must contain valid hostnames' },
+        { status: 400 }
+      );
     }
 
-    if (body.primaryColor && (typeof body.primaryColor !== 'string' || !/^#[0-9a-fA-F]{6}$/.test(body.primaryColor))) {
-      return NextResponse.json({ error: 'primaryColor must be a 6-digit hex color' }, { status: 400 });
+    if (
+      body.primaryColor &&
+      (typeof body.primaryColor !== 'string' || !/^#[0-9a-fA-F]{6}$/.test(body.primaryColor))
+    ) {
+      return NextResponse.json(
+        { error: 'primaryColor must be a 6-digit hex color' },
+        { status: 400 }
+      );
     }
 
     if (body.theme !== undefined && !['light', 'dark', 'auto'].includes(body.theme)) {
@@ -74,12 +89,14 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       showBranding: body.showBranding,
     });
 
-    return NextResponse.json({
-      apiKey: result.apiKey,
-      config: result.config,
-      message: 'API key created successfully. Save the key - it won\'t be shown again.',
-    }, { status: 201 });
-
+    return NextResponse.json(
+      {
+        apiKey: result.apiKey,
+        config: result.config,
+        message: "API key created successfully. Save the key - it won't be shown again.",
+      },
+      { status: 201 }
+    );
   } catch (error) {
     console.error('Create embed API key error:', error);
     return NextResponse.json(
@@ -102,7 +119,6 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
     const keys = await listEmbedApiKeys(session.user.companyId);
     return NextResponse.json({ keys });
-
   } catch (error) {
     console.error('List embed API keys error:', error);
     return NextResponse.json(

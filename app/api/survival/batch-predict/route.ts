@@ -37,10 +37,7 @@ export async function POST(request: Request): Promise<Response> {
   const { predictions } = body as SurvivalBatchPredictRequest;
 
   if (!Array.isArray(predictions) || predictions.length === 0) {
-    return NextResponse.json(
-      { error: 'predictions must be a non-empty array' },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: 'predictions must be a non-empty array' }, { status: 400 });
   }
 
   if (predictions.length > MAX_BATCH_SIZE) {
@@ -56,7 +53,9 @@ export async function POST(request: Request): Promise<Response> {
         throw new Error(`predictions[${idx}] must be an object`);
       }
       if (!input.speciesSlug || !input.biome || !input.regionKey) {
-        throw new Error(`predictions[${idx}] missing required fields: speciesSlug, biome, regionKey`);
+        throw new Error(
+          `predictions[${idx}] missing required fields: speciesSlug, biome, regionKey`
+        );
       }
 
       const prediction = predictSurvivalProbability(input);

@@ -208,7 +208,8 @@ describe('parseBuyerAnalyticsQuery', () => {
     if (parsed.ok) expect(parsed.data.dataSource).toBe('ledger');
 
     expect(
-      parseBuyerAnalyticsQuery(new URLSearchParams({ buyerId: 'buyer-demo', dataSource: 'bank' })).ok
+      parseBuyerAnalyticsQuery(new URLSearchParams({ buyerId: 'buyer-demo', dataSource: 'bank' }))
+        .ok
     ).toBe(false);
   });
 });
@@ -592,7 +593,11 @@ describe('aggregateBuyerAnalytics — robustness', () => {
       'Coastal Protection',
       'Fisheries',
     ]);
-    expect(summary.coBenefits[0]).toMatchObject({ projectCount: 1, tonnes: 60, sharePercentage: 100 });
+    expect(summary.coBenefits[0]).toMatchObject({
+      projectCount: 1,
+      tonnes: 60,
+      sharePercentage: 100,
+    });
 
     const [project] = summary.supplyChain;
     expect(project.projectType).toBe('Mangrove Restoration');

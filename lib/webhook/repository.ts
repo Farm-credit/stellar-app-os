@@ -62,13 +62,7 @@ export async function insertSubscription(
        (planter_id, url, secret, event_types, is_active)
      VALUES ($1, $2, $3, $4, $5)
      RETURNING *`,
-    [
-      params.planterId,
-      params.url,
-      params.secret,
-      params.eventTypes,
-      params.isActive ?? true,
-    ]
+    [params.planterId, params.url, params.secret, params.eventTypes, params.isActive ?? true]
   );
   return rows[0];
 }

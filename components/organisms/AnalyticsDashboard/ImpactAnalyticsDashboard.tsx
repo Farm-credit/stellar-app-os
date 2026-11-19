@@ -65,16 +65,13 @@ export function ImpactAnalyticsDashboard({
         setError(null);
 
         if (projectId) {
-          const response = await fetch(
-            `/api/projects/${encodeURIComponent(projectId)}/impact`,
-            { cache: 'no-store' }
-          );
+          const response = await fetch(`/api/projects/${encodeURIComponent(projectId)}/impact`, {
+            cache: 'no-store',
+          });
 
           if (!response.ok) {
             const payload = await response.json().catch(() => null);
-            throw new Error(
-              payload?.error ?? `Failed to load project impact (${response.status})`
-            );
+            throw new Error(payload?.error ?? `Failed to load project impact (${response.status})`);
           }
 
           const payload: ProjectImpactResponse = await response.json();
@@ -156,8 +153,8 @@ export function ImpactAnalyticsDashboard({
             {projectName ? `${projectName} impact` : 'Project impact'}
           </h1>
           <p className="text-muted-foreground">
-            Real-time environmental and community outcomes for this offset project. Updated every
-            30 seconds.
+            Real-time environmental and community outcomes for this offset project. Updated every 30
+            seconds.
           </p>
         </div>
 

@@ -19,7 +19,7 @@
  * - format=xlsx: Binary Excel file
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import {
   aggregateBuyerAnalytics,
@@ -28,12 +28,17 @@ import {
 } from '@/lib/api/buyer-analytics';
 import {
   buildBuyerComplianceReport,
-  buildPeriodLabel,
   type ReportPeriodType,
   type BuyerComplianceReportResponse,
 } from '@/lib/esg-reporting-v2';
-import { generateBuyerComplianceReportPdf, getPdfFilename } from '@/lib/esg-reporting/pdf-export-v2';
-import { generateBuyerComplianceReportExcel, getExcelFilename } from '@/lib/esg-reporting/excel-export-v2';
+import {
+  generateBuyerComplianceReportPdf,
+  getPdfFilename,
+} from '@/lib/esg-reporting/pdf-export-v2';
+import {
+  generateBuyerComplianceReportExcel,
+  getExcelFilename,
+} from '@/lib/esg-reporting/excel-export-v2';
 
 const formatSchema = z.enum(['json', 'pdf', 'xlsx']).default('json');
 const companyNameSchema = z.string().max(256).optional();
@@ -92,8 +97,7 @@ export async function GET(request: NextRequest) {
       return new NextResponse(excelBytes, {
         status: 200,
         headers: {
-          'Content-Type':
-            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
           'Content-Disposition': `attachment; filename="${getExcelFilename(report)}"`,
           'Cache-Control': 'no-cache, no-store, must-revalidate',
         },

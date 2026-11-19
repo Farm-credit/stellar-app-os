@@ -138,7 +138,8 @@ export async function createDatabaseBackup(options: BackupOptions = {}): Promise
 
   const s3Region = options.s3Region || process.env.AWS_REGION || 'us-east-1';
   const prefix = options.s3Prefix || process.env.BACKUP_S3_PREFIX || 'db-backups/';
-  const retentionDays = options.retentionDays || parseInt(process.env.BACKUP_RETENTION_DAYS || '30', 10);
+  const retentionDays =
+    options.retentionDays || parseInt(process.env.BACKUP_RETENTION_DAYS || '30', 10);
 
   console.log('[Backup] Starting database dump...');
   const dumpBuffer = await runPgDump(databaseUrl);

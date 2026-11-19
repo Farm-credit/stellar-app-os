@@ -180,7 +180,8 @@ type RekognitionModule = {
 
 async function loadRekognition(): Promise<RekognitionModule | null> {
   try {
-    const mod = await import('@aws-sdk/client-rekognition');
+    const pkg = '@aws-sdk/client-rekognition';
+    const mod = await import(/* @vite-ignore */ pkg);
     return mod as unknown as RekognitionModule;
   } catch {
     return null;

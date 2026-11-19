@@ -82,42 +82,45 @@ export function useOfflineSync() {
     }
   }, []);
 
-  const retrySync = useCallback(async (processItem?: (item: OfflineQueueItem) => Promise<boolean>) => {
-    if (!isOnline || queue.length === 0 || isSyncing) return;
+  const retrySync = useCallback(
+    async (processItem?: (item: OfflineQueueItem) => Promise<boolean>) => {
+      if (!isOnline || queue.length === 0 || isSyncing) return;
 
-    setIsSyncing(true);
-    setSyncError(null);
+      setIsSyncing(true);
+      setSyncError(null);
 
-    let itemsToProcess = [...queue];
-    let hasError = false;
+      const itemsToProcess = [...queue];
+      let hasError = false;
 
-    for (const item of itemsToProcess) {
-      try {
-        // If a processor function is provided, use it. Otherwise, simulate sync.
-        let success = true;
-        if (processItem) {
-          success = await processItem(item);
-        } else {
-          // Default behavior: just simulate a network request if no handler provided
-          await new Promise(resolve => setTimeout(resolve, 800));
-        }
+      for (const item of itemsToProcess) {
+        try {
+          // If a processor function is provided, use it. Otherwise, simulate sync.
+          let success = true;
+          if (processItem) {
+            success = await processItem(item);
+          } else {
+            // Default behavior: just simulate a network request if no handler provided
+            await new Promise((resolve) => setTimeout(resolve, 800));
+          }
 
-        if (success) {
-          removeFromQueue(item.id);
-        } else {
+          if (success) {
+            removeFromQueue(item.id);
+          } else {
+            hasError = true;
+            break; // Stop syncing on first failure
+          }
+        } catch (err) {
+          console.error(`Failed to sync item ${item.id}:`, err);
+          setSyncError('Sync failed. Will retry later.');
           hasError = true;
-          break; // Stop syncing on first failure
+          break; // Stop syncing on error
         }
-      } catch (err) {
-        console.error(`Failed to sync item ${item.id}:`, err);
-        setSyncError('Sync failed. Will retry later.');
-        hasError = true;
-        break; // Stop syncing on error
       }
-    }
 
-    setIsSyncing(false);
-  }, [isOnline, queue, isSyncing, removeFromQueue]);
+      setIsSyncing(false);
+    },
+    [isOnline, queue, isSyncing, removeFromQueue]
+  );
 
   return {
     isOnline,

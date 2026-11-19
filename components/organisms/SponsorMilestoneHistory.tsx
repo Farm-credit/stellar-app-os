@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Award, Calendar, PartyPopper, Share2, Sparkles } from 'lucide-react';
+import { Award, Calendar, PartyPopper, Sparkles } from 'lucide-react';
 import type { SponsorMilestone } from '@/lib/gamification/sponsor-milestones';
 import { CelebrationModal } from '@/components/molecules/CelebrationModal';
 
@@ -10,20 +10,24 @@ interface SponsorMilestoneHistoryProps {
   sponsorName?: string;
 }
 
-export function SponsorMilestoneHistory({
-  milestones,
-  sponsorName,
-}: SponsorMilestoneHistoryProps) {
+export function SponsorMilestoneHistory({ milestones, sponsorName }: SponsorMilestoneHistoryProps) {
   const [selectedMilestone, setSelectedMilestone] = useState<SponsorMilestone | null>(null);
 
   if (!milestones || milestones.length === 0) {
     return (
-      <section aria-labelledby="milestone-history-heading" className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-950">
-        <h2 id="milestone-history-heading" className="text-2xl font-semibold text-slate-900 dark:text-white">
+      <section
+        aria-labelledby="milestone-history-heading"
+        className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-950"
+      >
+        <h2
+          id="milestone-history-heading"
+          className="text-2xl font-semibold text-slate-900 dark:text-white"
+        >
           Milestone history
         </h2>
         <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
-          No milestones unlocked yet. Sponsor trees to unlock milestone celebrations and shareable achievements!
+          No milestones unlocked yet. Sponsor trees to unlock milestone celebrations and shareable
+          achievements!
         </p>
       </section>
     );
@@ -33,7 +37,10 @@ export function SponsorMilestoneHistory({
     <section aria-labelledby="milestone-history-heading">
       <div className="mb-4 flex items-end justify-between gap-4">
         <div>
-          <h2 id="milestone-history-heading" className="text-2xl font-semibold text-slate-900 dark:text-white">
+          <h2
+            id="milestone-history-heading"
+            className="text-2xl font-semibold text-slate-900 dark:text-white"
+          >
             Milestone history
           </h2>
           <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">

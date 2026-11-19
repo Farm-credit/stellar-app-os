@@ -1,8 +1,5 @@
-import type {
-  MintedCreditRecord,
-  RegistryProtocol,
-} from '../certification/types';
-import type { CreditMetadata } from './credit-metadata';
+import type { MintedCreditRecord, RegistryProtocol } from '../certification/types';
+
 import { makeMintedCreditRecord, makeTokenId } from './registry-client';
 import logger from '../logger';
 
@@ -45,10 +42,7 @@ export interface BlockchainMintClient {
     validationId: string;
   }): Promise<MintResult>;
 
-  checkSerialMinted(
-    protocol: RegistryProtocol,
-    serialNumber: string
-  ): Promise<boolean>;
+  checkSerialMinted(protocol: RegistryProtocol, serialNumber: string): Promise<boolean>;
 }
 
 export function protocolToEnum(protocol: RegistryProtocol): 0 | 1 {
@@ -64,16 +58,13 @@ export function toBytes32(hexLike: string): string {
 
 function isEvmContractConfigured(network: 'testnet' | 'mainnet'): boolean {
   const key =
-    network === 'mainnet'
-      ? 'EVM_CARBON_CREDIT_NFT_MAINNET'
-      : 'EVM_CARBON_CREDIT_NFT_TESTNET';
+    network === 'mainnet' ? 'EVM_CARBON_CREDIT_NFT_MAINNET' : 'EVM_CARBON_CREDIT_NFT_TESTNET';
   const pk =
-    network === 'mainnet'
-      ? 'EVM_MINTER_PRIVATE_KEY_MAINNET'
-      : 'EVM_MINTER_PRIVATE_KEY_TESTNET';
-  const rpc =
-    network === 'mainnet' ? 'EVM_RPC_URL_MAINNET' : 'EVM_RPC_URL_TESTNET';
-  return Boolean(process.env[key] && (process.env[pk] || process.env.EVM_MINTER_SIGNER_URL) && process.env[rpc]);
+    network === 'mainnet' ? 'EVM_MINTER_PRIVATE_KEY_MAINNET' : 'EVM_MINTER_PRIVATE_KEY_TESTNET';
+  const rpc = network === 'mainnet' ? 'EVM_RPC_URL_MAINNET' : 'EVM_RPC_URL_TESTNET';
+  return Boolean(
+    process.env[key] && (process.env[pk] || process.env.EVM_MINTER_SIGNER_URL) && process.env[rpc]
+  );
 }
 
 export class EvmCarbonCreditClient implements BlockchainMintClient {
@@ -110,9 +101,7 @@ export class EvmCarbonCreditClient implements BlockchainMintClient {
         ? process.env.EVM_CARBON_CREDIT_NFT_MAINNET!
         : process.env.EVM_CARBON_CREDIT_NFT_TESTNET!;
     const rpcUrl =
-      network === 'mainnet'
-        ? process.env.EVM_RPC_URL_MAINNET!
-        : process.env.EVM_RPC_URL_TESTNET!;
+      network === 'mainnet' ? process.env.EVM_RPC_URL_MAINNET! : process.env.EVM_RPC_URL_TESTNET!;
     const privateKey =
       network === 'mainnet'
         ? process.env.EVM_MINTER_PRIVATE_KEY_MAINNET
@@ -213,18 +202,14 @@ export class EvmCarbonCreditClient implements BlockchainMintClient {
         record: {} as MintedCreditRecord,
         error: {
           code: 'MINT_TRANSACTION_FAILED',
-          message:
-            error instanceof Error ? error.message : 'Mint transaction failed',
+          message: error instanceof Error ? error.message : 'Mint transaction failed',
           retryable: this.isRetryableMintError(error),
         },
       };
     }
   }
 
-  async checkSerialMinted(
-    protocol: RegistryProtocol,
-    serialNumber: string
-  ): Promise<boolean> {
+  async checkSerialMinted(protocol: RegistryProtocol, serialNumber: string): Promise<boolean> {
     try {
       const { keccak_256 } = await import('@noble/hashes/sha3');
       const functionSignature = 'isSerialMinted(uint8,string)';
@@ -242,10 +227,7 @@ export class EvmCarbonCreditClient implements BlockchainMintClient {
       tailOffset = this.pushString(head, tail, tailOffset, serialNumber);
 
       const data = selector + head.join('') + tail.join('');
-      const result = await this.rpcCall('eth_call', [
-        { to: this.contractAddress, data },
-        'latest',
-      ]);
+      const result = await this.rpcCall('eth_call', [{ to: this.contractAddress, data }, 'latest']);
       if (typeof result !== 'string' || result.length < 3) return false;
       return result.replace(/^0x/, '').slice(-1) === '1';
     } catch {
@@ -253,9 +235,7 @@ export class EvmCarbonCreditClient implements BlockchainMintClient {
     }
   }
 
-  private async submitMintTransaction(
-    params: EvmMintParameters
-  ): Promise<string> {
+  private async submitMintTransaction(params: EvmMintParameters): Promise<string> {
     const data = await this.encodeMintCalldata(params);
 
     if (this.signerUrl) {
@@ -275,7 +255,10 @@ export class EvmCarbonCreditClient implements BlockchainMintClient {
           ],
         }),
       });
-      const body = (await response.json()) as { result?: string; error?: { message: string; code: number } };
+      const body = (await response.json()) as {
+        result?: string;
+        error?: { message: string; code: number };
+      };
       if (body.error) {
         throw new Error(`Signer error: ${body.error.message} (${body.error.code})`);
       }
@@ -347,7 +330,10 @@ export class EvmCarbonCreditClient implements BlockchainMintClient {
       'mintVerifiedCredit(address,uint8,string,uint256,uint256,string,string,bytes32)';
     const { keccak_256 } = await import('@noble/hashes/sha3');
     const selector =
-      '0x' + Buffer.from(keccak_256(Buffer.from(functionSignature))).slice(0, 4).toString('hex');
+      '0x' +
+      Buffer.from(keccak_256(Buffer.from(functionSignature)))
+        .slice(0, 4)
+        .toString('hex');
 
     const head: string[] = [];
     const tail: string[] = [];
@@ -366,12 +352,7 @@ export class EvmCarbonCreditClient implements BlockchainMintClient {
     return selector + head.join('') + tail.join('');
   }
 
-  private pushString(
-    head: string[],
-    tail: string[],
-    tailOffset: number,
-    value: string
-  ): number {
+  private pushString(head: string[], tail: string[], tailOffset: number, value: string): number {
     head.push(this.abiEncodeUint(256, tailOffset));
     const bytes = Buffer.from(value, 'utf8');
     const byteLen = bytes.length;
@@ -430,10 +411,7 @@ export class EvmCarbonCreditClient implements BlockchainMintClient {
     return false;
   }
 
-  private async rpcCall(
-    method: string,
-    params: unknown[]
-  ): Promise<unknown> {
+  private async rpcCall(method: string, params: unknown[]): Promise<unknown> {
     const payload = {
       jsonrpc: '2.0',
       id: 1,

@@ -2,8 +2,6 @@ import type {
   TreeNFTListing,
   NFTFilterOptions,
   RoyaltyBreakdown,
-  NFTMarketplaceOffer,
-  NFTTradeHistory,
 } from '@/lib/types/nft-marketplace';
 
 export const DEFAULT_PLATFORM_ROYALTY_PERCENT = 2.5;
@@ -22,7 +20,8 @@ export const MOCK_TREE_NFT_LISTINGS: TreeNFTListing[] = [
       region: 'East Africa',
       co2OffsetKgPerYear: 150,
       plantedDate: '2024-03-15',
-      imageUrl: 'https://images.unsplash.com/photo-1542273917363-3b1817f69a2d?auto=format&fit=crop&w=600&q=80',
+      imageUrl:
+        'https://images.unsplash.com/photo-1542273917363-3b1817f69a2d?auto=format&fit=crop&w=600&q=80',
       rarity: 'Legendary',
       verifier: 'Verra VCS Standard',
       certificateUri: 'ipfs://QmTreeCertAberdare001092',
@@ -79,7 +78,8 @@ export const MOCK_TREE_NFT_LISTINGS: TreeNFTListing[] = [
       region: 'South America',
       co2OffsetKgPerYear: 320,
       plantedDate: '2023-08-10',
-      imageUrl: 'https://images.unsplash.com/photo-1511497584788-876761c119ef?auto=format&fit=crop&w=600&q=80',
+      imageUrl:
+        'https://images.unsplash.com/photo-1511497584788-876761c119ef?auto=format&fit=crop&w=600&q=80',
       rarity: 'Epic',
       verifier: 'Gold Standard',
       certificateUri: 'ipfs://QmTreeCertAmazon003481',
@@ -112,7 +112,8 @@ export const MOCK_TREE_NFT_LISTINGS: TreeNFTListing[] = [
       region: 'South Asia',
       co2OffsetKgPerYear: 180,
       plantedDate: '2024-01-20',
-      imageUrl: 'https://images.unsplash.com/photo-1448375240586-882707db888b?auto=format&fit=crop&w=600&q=80',
+      imageUrl:
+        'https://images.unsplash.com/photo-1448375240586-882707db888b?auto=format&fit=crop&w=600&q=80',
       rarity: 'Rare',
       verifier: 'Plan Vivo Standard',
       certificateUri: 'ipfs://QmTreeCertIndia005119',
@@ -144,7 +145,8 @@ export const MOCK_TREE_NFT_LISTINGS: TreeNFTListing[] = [
       region: 'Southeast Asia',
       co2OffsetKgPerYear: 250,
       plantedDate: '2024-05-02',
-      imageUrl: 'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=600&q=80',
+      imageUrl:
+        'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=600&q=80',
       rarity: 'Common',
       verifier: 'Verra VCS Standard',
       certificateUri: 'ipfs://QmTreeCertSumatra008910',
@@ -181,12 +183,8 @@ export function calculateRoyaltyBreakdown(
   const creatorRoyaltyXlm = Number(((priceXlm * creatorPercent) / 100).toFixed(2));
   const creatorRoyaltyUsd = Number(((priceUsd * creatorPercent) / 100).toFixed(2));
 
-  const sellerNetProceedsXlm = Number(
-    (priceXlm - platformFeeXlm - creatorRoyaltyXlm).toFixed(2)
-  );
-  const sellerNetProceedsUsd = Number(
-    (priceUsd - platformFeeUsd - creatorRoyaltyUsd).toFixed(2)
-  );
+  const sellerNetProceedsXlm = Number((priceXlm - platformFeeXlm - creatorRoyaltyXlm).toFixed(2));
+  const sellerNetProceedsUsd = Number((priceUsd - platformFeeUsd - creatorRoyaltyUsd).toFixed(2));
 
   return {
     listingPriceXlm: priceXlm,

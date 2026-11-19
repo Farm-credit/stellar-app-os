@@ -16,6 +16,7 @@ All contracts are deployed on the Stellar network (Soroban). Invoke them via the
 | `nullifier-registry` | SHA-256 commitment registry — prevents double-counting |
 | `species-voting` | On-chain governance for adding new tree species to the catalogue |
 | `soil-health` | Soil health scoring for regenerative farming practices + soil carbon sequestration bonus credits |
+| `tree-ownership` | Immutable tree sponsorship and ownership-transfer records on Stellar (transaction hash, ownership ledger, on-chain transfers) |
 
 ---
 
@@ -65,6 +66,14 @@ Contracts panic with a descriptive string on invalid input. The Stellar SDK surf
 | `"cannot release sequestration bond before 30 years"` — Attempting to release bond early |
 | `"harvest detected during sequestration period"` — Tree harvest detected before 30 years — bond forfeited |
 | `"sequestration bond amount must be positive` — `bond_amount ≤ 0` |
+| `"tree id must be positive"` — `tree_id = 0` passed to `tree-ownership` |
+| `"transaction hash must not be empty"` — Empty transaction hash passed to `tree-ownership` |
+| `"owner address must not be the zero address"` — Invalid owner address |
+| `"no ownership record for this tree"` — No ownership record found for tree |
+| `"ownership record already exists for this tree"` — Duplicate registration attempt |
+| `"only the current owner can transfer ownership"` — Non-owner attempting to transfer |
+| `"new owner must differ from current owner"` — Self-transfer attempt |
+| `"transfer transaction hash must not be empty"` — Empty transaction hash passed to `transfer_ownership` |
 
 ---
 
@@ -73,8 +82,8 @@ Contracts panic with a descriptive string on invalid input. The Stellar SDK surf
 Manages single-tree sponsorships with optional **1-Year Survival Insurance Guarantee (#1021)** and **Platform Fee on Release (#467)**.
 
 ### Sponsor Insurance Overview
-- **Optional Guarantee:** Sponsors can pay a **+2.00% fee** (200 bps) at deposit time (`deposit_with_insurance`) or add it to a pending deposit (`purchase_insurance`).
-- **1-Year Survival Guarantee:** Protects the sponsor for 365 days (`31_536_000` seconds).
+- **Optional Guarantee:** Sponsors can pay a *+2.00% fee** (200 bps) at deposit time (`deposit_with_insurance`) or add it to a pending deposit (`purchase_insurance`).
+- **1-Year Survival Guarantee:** Protects the sponsor for 365 days (31_536_000 seconds).
 - **Full Refund on Death:** If the tree dies within 1 year, the sponsor receives a **100% full refund** of their deposit via `claim_insurance_refund` or verifier `report_tree_dead`.
 
 ### Sequestration Bond Overview (#Leakage Prevention)
@@ -91,7 +100,7 @@ Sponsor deposits funds for a tree with the 1-year survival guarantee. Transfers 
 |---|---|---|
 | `sponsor` | `Address` | Sponsor paying for tree + 2% insurance guarantee |
 | `planter` | `Address` | Planter planting the tree |
-| `tree_id` | `u64` x Target tree ID |
+| `tree_id` | `u64` | Target tree ID |
 | `token` | `Address` | SAC token contract address |
 | `amount` | `i128` | Tree deposit amount |
 
@@ -212,7 +221,6 @@ Returns `(has_bond: bool, bond_amount: i128, locked_until: u64, is_active: bool,
 ---
 
 ### `initialize`
-
 One-time setup. Must be called before any other function.
 
 **Auth:** deployer (anyone, once)
@@ -274,9 +282,9 @@ Donor deposits funds into escrow for a specific farmer. Transfers `amount` of `t
 **Events emitted:** `DonationReceived(donor, farmer) → (amount, token)`**
 **Errors:**
 -  `"amount must be positive"` — `amount ≤ 0`
--  `"active escrow already exists for this farmer"` — farmer already has an open escrow
--  `"planting density below minimum for job size"` — Job area meets threshold but density is too low
--  `"area hectares must be positive"` — `area_hectares ≤ 0`
+-  `"active escrow already exists for this farmer"` — farmer already has an open escrow |
+-  `"planting density below minimum for job size"` — Job area meets threshold but density is too low |
+-  `"area hectares must be positive"` — `area_hectares ≤ 0` |
 
 ```bash
 stellar contract invoke \
@@ -284,10 +292,10 @@ stellar contract invoke \
   -- deposit \
     --donor GDONOR... \
     --farmer GFARMER... \
-    --token GUSDC... \
-    --amount 10000000 \
-    --tree_count 5000 \
-    --area_hectares 5
+    --token USDC... \
+    --amount 100000000 \
+    --tree_count 100 \
+    --area_hectares 1
 ```
 
 ```ts
@@ -295,191 +303,180 @@ await client.deposit({
   donor: donorAddress,
   farmer: farmerAddress,
   token: usdcAddress,
-  amount: BigInt(10_000_000), // 1 USDC (decimals)
-  tree_count: BigInt(5_000),
-  area_hectares: BigInt(5),
+  amount: BigInt(100_000_000),
+  tree_count: BigInt(100),
+  area_hectares: BigInt(1),
 });
 ```
 
 ---
 
-### `verify_planting`
-Admin confirms GPS + photo proof of planting. Releases **Tranche 1 (30%)** of escrowed funds to the farmer immediately and mints TREE tokens.
+## tree-ownership (Blockchain Tree Ownership Records)
 
-**Auth:** admin-only
+Records tree sponsorship and ownership transfers on the Stellar blockchain for immutable, auditable provenance.
+
+Each tree has an associated ownership record that stores the current owner, the transaction hash of the most recent on-chain action, and an append-only ledger of all ownership events. The ledger is viewable via `get_ownership_history`, which returns the full ownership chain including the blockchain transaction hash for each event.
+
+### Overview
+- **Immutable records:** Once an ownership event is recorded, it cannot be modified or deleted.
+- **Transaction hash on profile:** The latest transaction hash is stored on the tree profile and returned by `get_ownership_record`.
+- **On-chain transfers:** Ownership transfers between users are recorded on-chain with the transfer transaction hash.
+- **Auditable ledger:** `get_ownership_history` returns the complete ownership chain for a tree.
+
+### `initialize`
+One-time setup. Must be called before any other function.
+
+**Auth:** deployer (anyone, once)
 
 | Parameter | Type | Description |
 |---|---|---|
-| `farmer` | `Address` | Farmer whose escrow to update |
-| `proof_hash` | `BytesN32>` | SHA-256 of the GPS + photo proof payload |
+| `admin` | `Address` | Administrator address authorized to record ownership events |
 
 **Returns:** `void`
 
-**Events emitted:** `PlantingVerified(farmer) → (tranche1_amount, proof_hash)`
-
-**Errors:**
--  `"planting already verified or escrow not active"` — status is not `Funded`
--  `"no escrow for farmer"` — no escrow record found
+**Errors:** panics with `"already initialized"` if called again.
 
 ```bash
 stellar contract invoke \
-  --id $CONTRACT_ID --network testnet --source admin \
-  -- verify_planting \
-    --farmer GFARMER... \
-    --proof_hash aabbbc...  # 32-byte hex
-```
-
-```ts
-const proofHash = Buffer.from(sha256(proofPayload));
-await client.verify_planting({
-  farmer: farmerAddress,
-  proof_hash: proofHash,
-});
-```
-
----
-
-### `verify_survival`
-Admin confirms 6-month survival check. Releases **Tranche 2 (40%)** to the farmer. Enforces that at least 6 months (≈ 26 weeks) have elapsed since `verify_planting` and survival rate meets threshold.
-
-**Auth:** admin-only
-
-| Parameter | Type | Description |
-|---|---|---|
-| `farmer` | `Address` | Farmer whose escrow to update |
-| `proof_hash` | `BytesN32>` | SHA-256 of the survival proof payload |
-| `survival_rate_percent` | `u32` | Survival rate (0..=100) |
-
-**Returns:** `void`
-
-**Events emitted:** `SurvivalVerified(farmer) → (tranche2_amount, proof_hash)`
-
-**Errors:**
--  `"planting not yet verified"` — status is not `Planted`
--  `"6-month survival period not yet elapsed"` — called too early
--  `"survival rate below minimum"` — survival rate below configured threshold
--  `"nothing left to release"` — released amount already equals total
-
-```ts
-await client.verify_survival({
-  farmer: farmerAddress,
-  proof_hash: survivalProofHash,
-  survival_rate_percent: 70,
-});
-```
-
----
-
-### `verify_year_milestone`
-Admin confirms 1-milestone. Releases **Tranche 3 (30%)** to the farmer. Enforces that at least 1 year (≈ 52 weeks) has elapsed since `verify_planting`.
-
-**Auth:** admin-only
-
-| Parameter | Type | Description |
-|---|---|---|
-| `farmer` | `Address` | Farmer whose escrow to complete |
-| `proof_hash` | `BytesN32>` | SHA-256 of the year milestone proof payload |
-
-**Returns:** `void`
-
-**Events emitted:** `YearMilestone(farmer) → (tranche3_amount, proof_hash)`**
-**Errors:**
--  `"survival not yet verified"` — status is not `Survived`
--  `"1-year milestone period not yet elapsed"` — called too early
--  `"nothing left to release"` — released amount already equals total
-
-```ts
-await client.verify_year_milestone({
-  farmer: farmerAddress,
-  proof_hash: yearMilestoneProofHash,
-});
-```
-
----
-
-### `refund`
-Returns the full escrowed amount to the donor. Only callable before planting is verified.
-
-**Auth:** admin-only
-
-| Parameter | Type | Description |
-|---|---|---|
-| `farmer` | `Address` | Farmer whose escrow to refund |
-
-**Returns:** `void`
-
-**Events emitted:** `DonationRefunded(farmer) → (amount, token)`
-
-**Errors:**
--  `"cannot refund after planting verified"` — status is not `Funded`
--  `"no escrow for farmer"` — no escrow record found
-
----
-
-## tree-escrow
-
-State machine: `Funded → Planted → Survived → Completed` (or `Funded → Refunded`)
-
-stellar contract invoke \
   --id $CONTRACT_ID --network testnet --source deployer \
   -- initialize \
-    --admin GADMIN... \
-    --tree_token GTREE... \
-    --oracle GORACLE... \
-    --survival_threshold_percent 70 \
-    --min_density 1000 \
-    --job_size_threshold 10
+    --admin GADMIN...
+```
 
-### `register_project`
-
-**Errors:**
-- `"co2_scaled must be positive"` — `co2_scaled ≤ 0`
-- `"maturity_years must be > 0"` — `maturity_years = 0`
-
-**Errors:**
-- `"planting not yet verified"` — status is not `Planted`
-- `"6-month survival period not yet elapsed"` — called too early
-- `"survival rate below minimum"` — survival rate below configured threshold
-- `"nothing left to release"` — released amount already equals total
-
-await client.verify_survival({
-  farmer: farmerAddress,
-  proof_hash: survivalProofHash,
-  survival_rate_percent: 70,
+```ts
+await client.initialize({
+  admin: adminAddress,
 });
+```
+
+---
+
+### `record_sponsorship`
+Records the initial sponsorship of a tree on-chain. Stores the owner address and the transaction hash of the sponsorship transaction on the tree profile.
 
 **Auth:** admin-only
 
 | Parameter | Type | Description |
 |---|---|---|
-| `farmer` | `Address` | Farmer whose escrow to complete |
-| `proof_hash` | `BytesN32>` | SHA-256 of the year milestone proof payload |
-| `project_id` | `u64` | Unique project identifier |
-| `total_tons` | `i128` | Total CO2-e tonnage available (must be > 0) |
-| `fractional_enabled` | `bool` | Whether retail 1-ton purchases are allowed |
-
-### `purchase_credits`
-
-await client.verify_year_milestone({
-  farmer: farmerAddress,
-  proof_hash: yearMilestoneProofHash,
-});
-
-| Parameter | Type | Description |
-|---|---|---|
-| `buyer` | `Address` | Address paying for the credits |
-| `project_id` | `u64` | Project to purchase from |
-| `tons` | `i128` | Number of tons to buy (must be ≥ 1) |
-| `token` | `Address` | SAC token contract for payment |
-| `farmer` | `Address` | Farmer whose escrow to refund |
+| `tree_id` | `u64` | Target tree ID (must be > 0) |
+| `owner` | `Address` | Sponsor who owns the tree |
+| `tx_hash` | `String` | Stellar transaction hash of the sponsorship transaction |
 
 **Returns:** `void`
 
-**Events emitted:** `DonationRefunded(farmer) → (amount, token)`
-**Errors:**
-await client.purchase_credits({
-  buyer: buyerAddress,
-  project_id: BigInt(1),
-  tons: BigInt(1),
-  token: usdcAddress,
+**Events emitted:** `SponsorshipRecorded(tree_id) → (owner, tx_hash,```bash
+stellar contract invoke \
+  --id $CONTRACT_ID --network testnet --source admin \
+  -- record_sponsorship \
+    --tree_id 1234 \
+    --owner GSPONSOR... \
+    --tx_hash 4a1b2c3d4e5f607a8b9c0d1e2f3a4b5c6d7e8f90a1b2c3d4e5f607a8b
+```
+
+```ts
+await client.record_sponsorship({
+  tree_id: BigInt(1234),
+  owner: sponsorAddress,
+  tx_hash: stellarTxHash,
 });
+```
+
+---
+
+### `transfer_ownership`
+Records an ownership transfer between users on-chain. The current owner must authorize the transfer. Appends a new entry to the ownership ledger and updates the tree profile with the new owner and transaction hash.
+
+**Auth:** current owner (caller-auth)
+
+| Parameter | Type | Description |
+|---|---|---|
+| `tree_id` | `u64` | Target tree ID|
+| `current_owner` | `Address` | Current owner of the tree (caller-auth) |
+| `new_owner` | `Address` | Address receiving ownership |
+| `tx_hash` | `String` | Stellar transaction hash of the transfer transaction |
+
+**Returns:** `void`
+
+**Events emitted:** `OwnershipTransferred(tree_id) → (from, to, tx_hash)`
+
+**Errors:**
+-  `"no ownership record for this tree"` — No ownership record found
+-  `"only the current owner can transfer ownership"` — Non-owner attempting to transfer
+-  `"new owner must differ from current owner"` — Self-transfer attempt
+-  `"transfer transaction hash must not be empty"` — Empty transaction hash passed
+
+```bash
+stellar contract invoke \
+  --id $CONTRACT_ID --network testnet --source current-owner \
+  -- transfer_ownership \
+    --tree_id 1234 \
+    --current_owner GCURRENT... \
+    --new_owner GNEW... \
+    --tx_hash 4f5e6d7c8b9a0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e
+```
+
+```ts
+await client.transfer_ownership({
+  tree_id: BigInt(1234),
+  current_owner: currentOwnerAddress,
+  new_owner: newOwnerAddress,
+  tx_hash: transferTxHash,
+});
+```
+
+---
+
+### `get_ownership_record`
+Returns the current ownership record for a tree, including the transaction hash of the latest on-chain action.
+
+**Auth:** none (read-only)
+
+| Parameter | Type | Description |
+|---|---|---|
+| `tree_id` | `u64` | Target tree ID |
+
+**Returns:** `(owner: Address, tx_hash: String, recorded_at: u64, updated_at: u64)`
+
+**Errors:**
+-  `"no ownership record for this tree"` — No ownership record found
+
+```bash
+stellar contract invoke \
+  --id $CONTRACT_ID --network testnet \
+  -- get_ownership_record \
+    --tree_id 1234
+```
+
+```ts
+const record = await client.get_ownership_record({ tree_id: BigInt(1234) });
+```
+
+---
+
+### `get_ownership_history`
+Returns the full ownership ledger for a tree as an ordered list of blockchain events. Each entry contains the event type (`Sponsorship` or `Transfer`), the from and to addresses, the transaction hash, and the ledger timestamp.
+
+**Auth:** none (read-only)
+
+| Parameter | Type | Description |
+|---|---|---|
+| `tree_id` | `u64` | Target tree ID |
+
+**Returns:** `Vec<OwnershipEvent>` where `OwnershipEvent` is `(event_type: Symbol, from: Option<Address>, to: Address, tx_hash: String, timestamp: u64)`. The first entry is the initial sponsorship (`to` is the sponsor, `from` is `None`); subsequent entries are transfers.
+
+**Errors:**
+-  `"no ownership record for this tree"` — No ownership record found
+
+```bash
+stellar contract invoke \
+  --id $CONTRACT_ID --network testnet \
+  -- get_ownership_history \
+    --tree_id 1234
+```
+
+```ts
+const history = await client.get_ownership_history({ tree_id: BigInt(1234) });
+for (const event of history) {
+  console.log(event.event_type, event.from, event.to, event.tx_hash, event.timestamp);
+}
+```

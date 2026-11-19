@@ -103,13 +103,15 @@ export function computeNdre(nir: number, redEdge1: number | undefined): number |
 export function computeVegetationIndices(bands: SpectralBands): VegetationIndices {
   return {
     ndvi: round(computeNdvi(bands.nir, bands.red), 4),
-    evi: computeEvi(bands.nir, bands.red, bands.blue) !== null
-      ? round(computeEvi(bands.nir, bands.red, bands.blue) as number, 4)
-      : null,
+    evi:
+      computeEvi(bands.nir, bands.red, bands.blue) !== null
+        ? round(computeEvi(bands.nir, bands.red, bands.blue) as number, 4)
+        : null,
     savi: round(computeSavi(bands.nir, bands.red), 4),
-    ndre: round(computeNdre(bands.nir, bands.redEdge1) ?? 0, 4) !== 0
-      ? round(computeNdre(bands.nir, bands.redEdge1) as number, 4)
-      : null,
+    ndre:
+      round(computeNdre(bands.nir, bands.redEdge1) ?? 0, 4) !== 0
+        ? round(computeNdre(bands.nir, bands.redEdge1) as number, 4)
+        : null,
   };
 }
 
@@ -159,18 +161,13 @@ const HEALTH_CLASS_LABELS: Record<VegetationHealthClass, string> = {
 
 /** Human-readable summaries by health class. */
 const HEALTH_CLASS_SUMMARIES: Record<VegetationHealthClass, string> = {
-  water_or_cloud:
-    'Pixel represents water, cloud, or deep shadow. Tree health cannot be assessed.',
-  bare_soil:
-    'Very low vegetation signal. Soil is exposed; trees may be newly planted or absent.',
-  sparse_vegetation:
-    'Low vegetation signal. Early-stage or stressed vegetation detected.',
+  water_or_cloud: 'Pixel represents water, cloud, or deep shadow. Tree health cannot be assessed.',
+  bare_soil: 'Very low vegetation signal. Soil is exposed; trees may be newly planted or absent.',
+  sparse_vegetation: 'Low vegetation signal. Early-stage or stressed vegetation detected.',
   moderate_vegetation:
     'Moderate vegetation density. Trees are establishing but not yet at full canopy.',
-  healthy_vegetation:
-    'Good vegetation health. Established canopy with strong chlorophyll signal.',
-  dense_canopy:
-    'Dense, mature forest canopy detected. Excellent vegetation health signal.',
+  healthy_vegetation: 'Good vegetation health. Established canopy with strong chlorophyll signal.',
+  dense_canopy: 'Dense, mature forest canopy detected. Excellent vegetation health signal.',
 };
 
 // ── Full analysis ────────────────────────────────────────────────────────────
@@ -196,8 +193,7 @@ export function analyseVegetation(
   const ndviStr = indices.ndvi.toFixed(3);
   const scoreStr = healthScore.toString();
 
-  const summary =
-    `${label} (NDVI ${ndviStr}, score ${scoreStr}/100). ${detailSummary}`;
+  const summary = `${label} (NDVI ${ndviStr}, score ${scoreStr}/100). ${detailSummary}`;
 
   return {
     indices,

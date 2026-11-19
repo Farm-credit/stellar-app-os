@@ -56,9 +56,7 @@ describe('OffsetProjectMap with Climate Layer', () => {
 
     expect(toggle.textContent).toContain('Climate Layer: ON');
     // Open meteorological API note is displayed
-    expect(
-      screen.getByText(/Sourced from open meteorological APIs/i)
-    ).toBeDefined();
+    expect(screen.getByText(/Sourced from open meteorological APIs/i)).toBeDefined();
 
     // Metric selectors are visible
     expect(screen.getByRole('button', { name: /Rainfall \(mm\)/i })).toBeDefined();
@@ -80,7 +78,8 @@ describe('OffsetProjectMap with Climate Layer', () => {
     // Click planting conditions
     const condBtn = screen.getByRole('button', { name: /Planting Conditions/i });
     fireEvent.click(condBtn);
-    expect(screen.getByText(/Planting Conditions/i)).toBeDefined();
+    expect(screen.getByText('Planting Conditions', { selector: 'span' })).toBeDefined();
+    expect(screen.queryByText('Temperature Scale')).toBeNull();
   });
 
   it('renders historical vs current comparison data in popups', () => {

@@ -30,7 +30,9 @@ describe('GET /api/climate/comparison', () => {
   });
 
   it('returns 404 for unknown projectId', async () => {
-    const req = new Request('http://localhost:3000/api/climate/comparison?projectId=non-existent-id');
+    const req = new Request(
+      'http://localhost:3000/api/climate/comparison?projectId=non-existent-id'
+    );
     const res = await GET(req);
     expect(res.status).toBe(404);
 

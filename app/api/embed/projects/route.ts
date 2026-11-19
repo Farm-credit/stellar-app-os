@@ -6,7 +6,7 @@
  * Issue #1415: Carbon offset API - embed on websites
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { type NextRequest, NextResponse } from 'next/server';
 import { getEmbeddableProjects, validateApiKey } from '@/backend/src/services/carbonOffsetApi';
 import { isAllowedOrigin } from '@/backend/src/services/carbonOffsetSecurity';
 
@@ -26,7 +26,10 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
     const origin = request.headers.get('origin');
     if (!isAllowedOrigin(origin, config.allowedDomains)) {
-      return NextResponse.json({ error: 'Origin is not allowed for this API key' }, { status: 403 });
+      return NextResponse.json(
+        { error: 'Origin is not allowed for this API key' },
+        { status: 403 }
+      );
     }
 
     const projects = await getEmbeddableProjects(config.companyId);
@@ -49,7 +52,6 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       },
       { headers: { 'Access-Control-Allow-Origin': origin!, Vary: 'Origin' } }
     );
-
   } catch (error) {
     console.error('List embeddable projects error:', error);
     return NextResponse.json(

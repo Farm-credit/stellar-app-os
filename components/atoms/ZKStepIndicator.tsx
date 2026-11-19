@@ -52,8 +52,7 @@ const iconContainerVariants = cva(
 );
 
 export interface ZKStepIndicatorProps
-  extends HTMLAttributes<HTMLDivElement>,
-    VariantProps<typeof stepContainerVariants> {
+  extends HTMLAttributes<HTMLDivElement>, VariantProps<typeof stepContainerVariants> {
   /** Icon to display when pending */
   icon: React.ReactNode;
   label: string;
@@ -120,7 +119,9 @@ const ZKStepIndicator = forwardRef<HTMLDivElement, ZKStepIndicatorProps>(
             className="flex items-center gap-1 rounded-full bg-stellar-green/20 px-2 py-0.5 text-[10px] font-mono text-stellar-green"
           >
             <Clock className="h-2.5 w-2.5" aria-hidden="true" />
-            <span>{durationMs < 1000 ? `${durationMs}ms` : `${(durationMs / 1000).toFixed(1)}s`}</span>
+            <span>
+              {durationMs < 1000 ? `${durationMs}ms` : `${(durationMs / 1000).toFixed(1)}s`}
+            </span>
           </motion.div>
         )}
 

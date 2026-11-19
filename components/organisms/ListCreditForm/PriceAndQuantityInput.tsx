@@ -66,8 +66,7 @@ export function PriceAndQuantityInput({
       {/* ── Quantity ── */}
       <div className="space-y-1.5">
         <label htmlFor={quantityId} className="block text-sm font-semibold text-foreground">
-          Quantity{' '}
-          <span className="font-normal text-muted-foreground">(metric tons of CO₂e)</span>
+          Quantity <span className="font-normal text-muted-foreground">(metric tons of CO₂e)</span>
         </label>
         <div className="relative">
           <input
@@ -83,7 +82,7 @@ export function PriceAndQuantityInput({
             aria-describedby={quantityError ? `${quantityId}-error` : undefined}
             className={cn(
               inputBase,
-              quantityError ? 'border-red-400 focus:ring-red-400/50' : 'border-border',
+              quantityError ? 'border-red-400 focus:ring-red-400/50' : 'border-border'
             )}
           />
           {maxQuantity > 0 && (
@@ -93,7 +92,11 @@ export function PriceAndQuantityInput({
           )}
         </div>
         {quantityError ? (
-          <p id={`${quantityId}-error`} role="alert" className="text-xs text-red-600 dark:text-red-400">
+          <p
+            id={`${quantityId}-error`}
+            role="alert"
+            className="text-xs text-red-600 dark:text-red-400"
+          >
             {quantityError}
           </p>
         ) : (
@@ -106,8 +109,7 @@ export function PriceAndQuantityInput({
       {/* ── Price per ton ── */}
       <div className="space-y-1.5">
         <label htmlFor={priceId} className="block text-sm font-semibold text-foreground">
-          Price per ton{' '}
-          <span className="font-normal text-muted-foreground">({currency})</span>
+          Price per ton <span className="font-normal text-muted-foreground">({currency})</span>
         </label>
         <div className="relative">
           <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground select-none">
@@ -126,12 +128,16 @@ export function PriceAndQuantityInput({
             className={cn(
               inputBase,
               'pl-7',
-              priceError ? 'border-red-400 focus:ring-red-400/50' : 'border-border',
+              priceError ? 'border-red-400 focus:ring-red-400/50' : 'border-border'
             )}
           />
         </div>
         {priceError ? (
-          <p id={`${priceId}-error`} role="alert" className="text-xs text-red-600 dark:text-red-400">
+          <p
+            id={`${priceId}-error`}
+            role="alert"
+            className="text-xs text-red-600 dark:text-red-400"
+          >
             {priceError}
           </p>
         ) : (

@@ -1,13 +1,14 @@
 // Copyright 2024 Farm-credit Contributors
 // Licensed under the Apache License, Version 2.0
 
-import { Metadata } from 'next';
+import { type Metadata } from 'next';
 import { getFarmerPortfolio } from '@/lib/api/farmer-portfolio';
 import { FarmerPortfolioView } from '@/components/organisms/FarmerPortfolio/FarmerPortfolioView';
 
 export const metadata: Metadata = {
   title: 'Farmer Project Portfolio | Stellar Farm Credit',
-  description: 'Farmer profile showing all listed projects: total acres, total credits available, average price, buyer reviews, and certification status.',
+  description:
+    'Farmer profile showing all listed projects: total acres, total credits available, average price, buyer reviews, and certification status.',
 };
 
 // Default featured farmer address

@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { AdminProjectDetailView } from '@/components/organisms/AdminProjectDetail/AdminProjectDetailView';
 import { getMockAdminProjectDetailById } from '@/lib/api/mock/adminProjectDetails';
 import { getMockOffsetProjects } from '@/lib/api/mock/offsetProjects';
+import { getTreeOwnershipLedger } from '@/lib/api/stellar/treeOwnership';
 
 interface AdminProjectDetailSearchParams {
   projectType?: string;
@@ -34,7 +35,10 @@ export default async function AdminProjectDetailPage({
   }
 
   const coBenefits = filters?.coBenefits
-    ? filters.coBenefits.split(',').map((benefit) => benefit.trim()).filter(Boolean)
+    ? filters.coBenefits
+        .split(',')
+        .map((benefit) => benefit.trim())
+        .filter(Boolean)
     : undefined;
 
   const minPrice = filters?.minPrice ? Number(filters.minPrice) : undefined;
@@ -49,7 +53,10 @@ export default async function AdminProjectDetailPage({
       return false;
     }
 
-    if (filters?.certificationStandard && offsetProject.certificationStandard !== filters.certificationStandard) {
+    if (
+      filters?.certificationStandard &&
+      offsetProject.certificationStandard !== filters.certificationStandard
+    ) {
       return false;
     }
 
@@ -73,10 +80,13 @@ export default async function AdminProjectDetailPage({
     return true;
   });
 
+  const treeOwnershipLedger = await getTreeOwnershipLedger(projectId);
+
   return (
     <AdminProjectDetailView
       initialProject={project}
       initialProjects={filteredProjects}
+      initialTreeOwnershipLedger={treeOwnershipLedger}
       initialFilters={{
         projectType: filters?.projectType,
         location: filters?.location,

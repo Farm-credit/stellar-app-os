@@ -15,14 +15,14 @@ import {
   Keypair,
   Address,
   nativeToScVal,
-} from "@stellar/stellar-sdk";
+} from '@stellar/stellar-sdk';
 
 export interface OnChainLogOpts {
   contractId: string;
   providerId: bigint;
   callerSecret: string;
   sorobanUrl?: string;
-  network?: "testnet" | "public";
+  network?: 'testnet' | 'public';
   /** Max getTransaction polls while status is NOT_FOUND (default 15). */
   maxGetTransactionAttempts?: number;
   /** Delay between getTransaction polls in ms (default 1000). */
@@ -37,15 +37,14 @@ const DEFAULT_CONFIRMATION_TIMEOUT_MS = 30_000;
 
 export async function logPaymentOnChain(
   opts: OnChainLogOpts,
-  payment: { txHash: string; payer: string; amount: string },
+  payment: { txHash: string; payer: string; amount: string }
 ): Promise<void> {
   const sorobanUrl =
     opts.sorobanUrl ??
-    (opts.network === "public"
-      ? "https://soroban.stellar.org"
-      : "https://soroban-testnet.stellar.org");
-  const networkPassphrase =
-    opts.network === "public" ? Networks.PUBLIC : Networks.TESTNET;
+    (opts.network === 'public'
+      ? 'https://soroban.stellar.org'
+      : 'https://soroban-testnet.stellar.org');
+  const networkPassphrase = opts.network === 'public' ? Networks.PUBLIC : Networks.TESTNET;
 
   const server = new rpc.Server(sorobanUrl);
   const caller = Keypair.fromSecret(opts.callerSecret);
@@ -53,7 +52,7 @@ export async function logPaymentOnChain(
 
   const account = await server.getAccount(caller.publicKey());
   const amountStroops = BigInt(Math.round(Number(payment.amount) * 10_000_000));
-  const txHashBytes = Buffer.from(payment.txHash, "hex");
+  const txHashBytes = Buffer.from(payment.txHash, 'hex');
 
   const tx = new TransactionBuilder(account, {
     fee: BASE_FEE,
@@ -61,12 +60,12 @@ export async function logPaymentOnChain(
   })
     .addOperation(
       contract.call(
-        "log_payment",
-        nativeToScVal(opts.providerId, { type: "u64" }),
-        nativeToScVal(Address.fromString(payment.payer), { type: "address" }),
-        nativeToScVal(amountStroops, { type: "u64" }),
-        nativeToScVal(txHashBytes, { type: "bytes" }),
-      ),
+        'log_payment',
+        nativeToScVal(opts.providerId, { type: 'u64' }),
+        nativeToScVal(Address.fromString(payment.payer), { type: 'address' }),
+        nativeToScVal(amountStroops, { type: 'u64' }),
+        nativeToScVal(txHashBytes, { type: 'bytes' })
+      )
     )
     .setTimeout(60)
     .build();
@@ -75,10 +74,8 @@ export async function logPaymentOnChain(
   prepared.sign(caller);
 
   const sendRes = await server.sendTransaction(prepared);
-  if (sendRes.status === "ERROR") {
-    throw new Error(
-      `log_payment sendTransaction failed: ${JSON.stringify(sendRes.errorResult)}`,
-    );
+  if (sendRes.status === 'ERROR') {
+    throw new Error(`log_payment sendTransaction failed: ${JSON.stringify(sendRes.errorResult)}`);
   }
 
   const maxAttempts = opts.maxGetTransactionAttempts ?? DEFAULT_MAX_ATTEMPTS;
@@ -89,24 +86,20 @@ export async function logPaymentOnChain(
   let getRes = await server.getTransaction(sendRes.hash);
   let attempts = 1;
 
-  while (
-    getRes.status === "NOT_FOUND" &&
-    attempts < maxAttempts &&
-    Date.now() < deadline
-  ) {
+  while (getRes.status === 'NOT_FOUND' && attempts < maxAttempts && Date.now() < deadline) {
     await new Promise((r) => setTimeout(r, pollIntervalMs));
     getRes = await server.getTransaction(sendRes.hash);
     attempts += 1;
   }
 
-  if (getRes.status === "NOT_FOUND") {
+  if (getRes.status === 'NOT_FOUND') {
     throw new Error(
       `log_payment confirmation timed out after ${attempts} getTransaction attempt(s) ` +
-        `(maxAttempts=\( {maxAttempts}, timeoutMs= \){timeoutMs}, hash=${sendRes.hash})`,
+        `(maxAttempts=\( {maxAttempts}, timeoutMs= \){timeoutMs}, hash=${sendRes.hash})`
     );
   }
 
-  if (getRes.status !== "SUCCESS") {
+  if (getRes.status !== 'SUCCESS') {
     throw new Error(`log_payment tx failed: ${JSON.stringify(getRes)}`);
   }
-    }
+}

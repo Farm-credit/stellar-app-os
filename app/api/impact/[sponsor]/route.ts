@@ -66,16 +66,12 @@ function isValidLongitude(lon: number | null): lon is number {
   return lon !== null && !Number.isNaN(lon) && lon >= -180 && lon <= 180;
 }
 
-function haversineDistance(
-  lat1: number,
-  lon1: number,
-  lat2: number,
-  lon2: number): number {
+function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const dLat = toRad(lat2 - lat1);
   const dLon = toRad(lon2 - lon1);
   const a =
-    Math.sin(dLat / 2) **2 +
-    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) **2;
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return EARTH_RADIUS_KM * c;
 }
@@ -118,7 +114,10 @@ export async function GET(
     const lat = latParam === null ? null : Number(latParam);
     const lon = lonParam === null ? null : Number(lonParam);
 
-    if ((latParam !== null || lonParam !== null) && (!isValidLatitude(lat) || !isValidLongitude(lon))) {
+    if (
+      (latParam !== null || lonParam !== null) &&
+      (!isValidLatitude(lat) || !isValidLongitude(lon))
+    ) {
       return NextResponse.json(
         { error: 'Invalid coordinates — lat must be in [-90, 90] and lon in [-180, 180]' },
         { status: 400 }
@@ -130,7 +129,9 @@ export async function GET(
     const allowedStatuses = new Set(['all', 'pending', 'planted', 'verified', 'failed']);
     if (rawStatus && !allowedStatuses.has(rawStatus.toLowerCase())) {
       return NextResponse.json(
-        { error: 'Invalid status filter — must be one of: All, Pending, Planted, Verified, Failed' },
+        {
+          error: 'Invalid status filter — must be one of: All, Pending, Planted, Verified, Failed',
+        },
         { status: 400 }
       );
     }
@@ -209,10 +210,7 @@ export async function POST(
     const sponsor = rawSponsor?.trim() || '';
 
     if (!sponsor || !isValidStellarAddress(sponsor)) {
-      return NextResponse.json(
-        { error: 'Invalid Stellar address' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Invalid Stellar address' }, { status: 400 });
     }
 
     const body = await request.json();
@@ -226,10 +224,7 @@ export async function POST(
     }
 
     if (!paymentMethodId || typeof paymentMethodId !== 'string') {
-      return NextResponse.json(
-        { error: 'Invalid paymentMethodId' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Invalid paymentMethodId' }, { status: 400 });
     }
 
     const xlmPriceUsd = await getXlmPriceInUsd();
@@ -251,16 +246,19 @@ export async function POST(
     // with the XLM amount. This is a stub for the integration.
     console.log(
       `Payment ${paymentIntent.id} for sponsor ${sponsor} succeeded. ` +
-      `Would send ${xlmAmount.toFixed(7)} XLM to contract.`
+        `Would send ${xlmAmount.toFixed(7)} XLM to contract.`
     );
 
-    return NextResponse.json({
-      success: true,
-      paymentIntentId: paymentIntent.id,
-      sponsor,
-      xlmAmount,
-      xlmPriceUsd,
-    }, { status: 201 });
+    return NextResponse.json(
+      {
+        success: true,
+        paymentIntentId: paymentIntent.id,
+        sponsor,
+        xlmAmount,
+        xlmPriceUsd,
+      },
+      { status: 201 }
+    );
   } catch (error) {
     console.error('[api/impact/:sponsor] payment error:', error);
     return NextResponse.json(

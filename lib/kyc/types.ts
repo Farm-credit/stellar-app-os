@@ -18,11 +18,7 @@ export type OnChainKycStatus = 'pending' | 'verified' | 'rejected' | 'expired';
 
 /** Where an application sits in the off-chain review pipeline. */
 export type KycApplicationStatus =
-  | 'submitted'
-  | 'under_review'
-  | 'approved'
-  | 'rejected'
-  | 'expired';
+  'submitted' | 'under_review' | 'approved' | 'rejected' | 'expired';
 
 /**
  * Map an off-chain application state onto the on-chain status vocabulary.
@@ -31,9 +27,7 @@ export type KycApplicationStatus =
  * working the case and the farmer must not read as rejected on-chain while it
  * is open.
  */
-export function toOnChainKycStatus(
-  status: KycApplicationStatus
-): OnChainKycStatus {
+export function toOnChainKycStatus(status: KycApplicationStatus): OnChainKycStatus {
   switch (status) {
     case 'approved':
       return 'verified';
@@ -48,11 +42,7 @@ export function toOnChainKycStatus(
 }
 
 /** Identity document kinds accepted for farmer KYC. */
-export type IdentityDocumentType =
-  | 'nin'
-  | 'voter_card'
-  | 'passport'
-  | 'drivers_licence';
+export type IdentityDocumentType = 'nin' | 'voter_card' | 'passport' | 'drivers_licence';
 
 /**
  * Land tenure as the farmer declares it.
@@ -63,11 +53,7 @@ export type IdentityDocumentType =
  * require verifier sign-off before they count as proved.
  */
 export type LandOwnershipType =
-  | 'title_deed'
-  | 'lease'
-  | 'customary'
-  | 'communal'
-  | 'family_inheritance';
+  'title_deed' | 'lease' | 'customary' | 'communal' | 'family_inheritance';
 
 /** Tenures that cannot be expected to produce a formal document. */
 export const INFORMAL_TENURE_TYPES: readonly LandOwnershipType[] = [
@@ -77,10 +63,7 @@ export const INFORMAL_TENURE_TYPES: readonly LandOwnershipType[] = [
 ];
 
 /** Tenures that must produce a document reference to be considered present. */
-export const DOCUMENTARY_TENURE_TYPES: readonly LandOwnershipType[] = [
-  'title_deed',
-  'lease',
-];
+export const DOCUMENTARY_TENURE_TYPES: readonly LandOwnershipType[] = ['title_deed', 'lease'];
 
 export interface GpsCoordinates {
   latitude: number;

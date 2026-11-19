@@ -8,10 +8,7 @@
  * Specify credit type, quantity, price per ton, verification method.
  */
 
-import type {
-  PublishedListing,
-  PublishListingRequest,
-} from '@/lib/types/carbon-listing-publish';
+import type { PublishedListing, PublishListingRequest } from '@/lib/types/carbon-listing-publish';
 
 const PUBLISHED_LISTINGS: PublishedListing[] = [];
 
@@ -56,7 +53,8 @@ export async function createAndPublishListing(
     currency: request.currency || 'USD',
     verificationMethod: request.verificationMethod,
     registryReferenceId:
-      request.registryReferenceId || `${request.verificationMethod.replace(/[^A-Z0-9]/g, '')}-${request.projectId}`,
+      request.registryReferenceId ||
+      `${request.verificationMethod.replace(/[^A-Z0-9]/g, '')}-${request.projectId}`,
     vintageYear: request.vintageYear || new Date().getFullYear(),
     status: 'published',
     publishedAt: new Date().toISOString(),

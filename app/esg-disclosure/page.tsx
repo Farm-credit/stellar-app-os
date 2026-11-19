@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Suspense } from 'react';
+import Link from 'next/link';
 import { generateEsgExcel, generateEsgReport } from '@/lib/corporate';
 import type { BuyerAnalyticsSummary } from '@/lib/api/buyer-analytics';
 import {
@@ -114,6 +115,12 @@ function EsgDisclosureTool() {
             Create a disclosure from your carbon offset purchases and share it with investors and
             stakeholders. Figures can be exported as a PDF or sent as a link.
           </p>
+          <Link
+            href="/transparency"
+            className="mt-4 inline-flex font-semibold text-stellar-blue hover:underline"
+          >
+            View platform fund allocation and native species transparency →
+          </Link>
         </div>
 
         <div className="mt-10 grid gap-8 lg:grid-cols-2">

@@ -3,8 +3,14 @@
 import { Download } from 'lucide-react';
 import { useState } from 'react';
 import type { BuyerComplianceReport } from '@/lib/esg-reporting-v2';
-import { generateBuyerComplianceReportPdf, getPdfFilename } from '@/lib/esg-reporting/pdf-export-v2';
-import { generateBuyerComplianceReportExcel, getExcelFilename } from '@/lib/esg-reporting/excel-export-v2';
+import {
+  generateBuyerComplianceReportPdf,
+  getPdfFilename,
+} from '@/lib/esg-reporting/pdf-export-v2';
+import {
+  generateBuyerComplianceReportExcel,
+  getExcelFilename,
+} from '@/lib/esg-reporting/excel-export-v2';
 
 interface ExportButtonsProps {
   report: BuyerComplianceReport;

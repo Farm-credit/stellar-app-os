@@ -113,7 +113,10 @@ const KNOWN_PROJECT_CLIMATE: Record<
  * Synthesizes plausible meteorological data based on latitude and longitude
  * if the project ID is not pre-registered in the known database.
  */
-function estimateClimateFromCoordinates(lat: number, lon: number): {
+function estimateClimateFromCoordinates(
+  lat: number,
+  lon: number
+): {
   historical: ProjectClimateMetrics;
   current: ProjectClimateMetrics;
 } {
@@ -128,12 +131,12 @@ function estimateClimateFromCoordinates(lat: number, lon: number): {
   else baseRainfall = 1100;
 
   // Add geographic hash variation
-  const geoVariation = ((Math.sin(lat) + Math.cos(lon)) * 120);
+  const geoVariation = (Math.sin(lat) + Math.cos(lon)) * 120;
   const histRain = Math.round(Math.max(200, baseRainfall + geoVariation));
-  const histTemp = Number((baseTemp + (Math.sin(lon) * 1.5)).toFixed(1));
+  const histTemp = Number((baseTemp + Math.sin(lon) * 1.5).toFixed(1));
 
   // Current year trend (+0.8C warming, ±5% rainfall anomaly)
-  const currentRain = Math.round(histRain * (0.95 + (Math.cos(lat * lon) * 0.1)));
+  const currentRain = Math.round(histRain * (0.95 + Math.cos(lat * lon) * 0.1));
   const currentTemp = Number((histTemp + 0.8).toFixed(1));
 
   return {
@@ -152,7 +155,8 @@ export function assessPlantingConditions(
 ): PlantingConditionAssessment {
   const rainDiffPct =
     historical.annualRainfallMm > 0
-      ? ((current.annualRainfallMm - historical.annualRainfallMm) / historical.annualRainfallMm) * 100
+      ? ((current.annualRainfallMm - historical.annualRainfallMm) / historical.annualRainfallMm) *
+        100
       : 0;
   const tempDiff = current.meanTemperatureC - historical.meanTemperatureC;
 
@@ -225,8 +229,8 @@ export function assessPlantingConditions(
     projectType === 'Mangrove Restoration'
       ? 'Tidal transition window (Quarter 2 - Quarter 3)'
       : projectType === 'Reforestation'
-      ? 'Onset of wet monsoon / spring emergence'
-      : 'Early growing season preceding peak solar irradiance';
+        ? 'Onset of wet monsoon / spring emergence'
+        : 'Early growing season preceding peak solar irradiance';
 
   return {
     overallCondition,
@@ -260,7 +264,9 @@ export function getProjectClimateComparison(
     historical.annualRainfallMm > 0
       ? Number(((rainfallDeltaMm / historical.annualRainfallMm) * 100).toFixed(1))
       : 0;
-  const temperatureDeltaC = Number((current.meanTemperatureC - historical.meanTemperatureC).toFixed(1));
+  const temperatureDeltaC = Number(
+    (current.meanTemperatureC - historical.meanTemperatureC).toFixed(1)
+  );
 
   const plantingConditions = assessPlantingConditions(historical, current, project.type);
 

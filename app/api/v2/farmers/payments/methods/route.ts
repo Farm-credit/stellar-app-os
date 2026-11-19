@@ -1,8 +1,5 @@
 import { NextResponse } from 'next/server';
-import {
-  getSupportedPaymentChannels,
-  BASE_EXCHANGE_RATES,
-} from '@/lib/farmers/paymentProcessing';
+import { getSupportedPaymentChannels, BASE_EXCHANGE_RATES } from '@/lib/farmers/paymentProcessing';
 
 export async function GET() {
   try {

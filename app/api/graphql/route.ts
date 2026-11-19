@@ -52,7 +52,9 @@ export async function executeGraphQLRequest(request: NextRequest): Promise<Respo
 
       if (!amount || !currency || !paymentMethodId) {
         return NextResponse.json(
-          { errors: [{ message: 'Missing required parameters: amount, currency, paymentMethodId' }] },
+          {
+            errors: [{ message: 'Missing required parameters: amount, currency, paymentMethodId' }],
+          },
           { status: 400 }
         );
       }
@@ -87,10 +89,7 @@ export async function executeGraphQLRequest(request: NextRequest): Promise<Respo
       } catch (error) {
         const errorMsg = error instanceof Error ? error.message : 'Payment processing failed';
         console.error('[GraphQL API] Payment error:', error);
-        return NextResponse.json(
-          { errors: [{ message: errorMsg }] },
-          { status: 400 }
-        );
+        return NextResponse.json({ errors: [{ message: errorMsg }] }, { status: 400 });
       }
     }
   }
@@ -123,7 +122,7 @@ export async function executeGraphQLRequest(request: NextRequest): Promise<Respo
     const userId = variables?.userId as string;
     if (!userId) {
       return NextResponse.json(
-        { errors: [ { message: 'userId is required for exportUserData.' } ] },
+        { errors: [{ message: 'userId is required for exportUserData.' }] },
         { status: 400 }
       );
     }
@@ -136,7 +135,7 @@ export async function executeGraphQLRequest(request: NextRequest): Promise<Respo
     const userId = variables?.userId as string;
     if (!userId) {
       return NextResponse.json(
-        { errors: [ { message: 'userId is required for deleteUserData.' } ] },
+        { errors: [{ message: 'userId is required for deleteUserData.' }] },
         { status: 400 }
       );
     }

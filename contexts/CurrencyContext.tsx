@@ -2,18 +2,18 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import {
-  CurrencyCode,
   SUPPORTED_CURRENCIES,
   FALLBACK_EXCHANGE_RATES,
   convertUsdToCurrency,
   formatRegionalCurrency,
-  CurrencyConfig,
 } from '@/lib/currency/exchange-rates';
+import type { CurrencyCode, CurrencyConfig } from '@/lib/currency/exchange-rates';
 
 interface CurrencyContextType {
   currentCurrency: CurrencyCode;
   currencyConfig: CurrencyConfig;
   rates: Record<CurrencyCode, number>;
+  xlmPerUsd: number | null;
   isLoadingRates: boolean;
   setCurrency: (code: CurrencyCode) => void;
   convertPrice: (amountInUsd: number) => number;
@@ -26,6 +26,7 @@ const CurrencyContext = createContext<CurrencyContextType | undefined>(undefined
 export function CurrencyProvider({ children }: { children: React.ReactNode }) {
   const [currentCurrency, setCurrentCurrencyState] = useState<CurrencyCode>('USD');
   const [rates, setRates] = useState<Record<CurrencyCode, number>>(FALLBACK_EXCHANGE_RATES);
+  const [xlmPerUsd, setXlmPerUsd] = useState<number | null>(null);
   const [isLoadingRates, setIsLoadingRates] = useState<boolean>(true);
 
   // Load user saved currency preference from localStorage
@@ -35,7 +36,7 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
       if (saved && SUPPORTED_CURRENCIES[saved]) {
         setCurrentCurrencyState(saved);
       }
-    } catch (e) {
+    } catch {
       // Storage access error fallback
     }
   }, []);
@@ -50,9 +51,10 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
           const data = await res.json();
           if (data.success && data.rates && isMounted) {
             setRates(data.rates);
+            setXlmPerUsd(typeof data.xlmPerUsd === 'number' ? data.xlmPerUsd : null);
           }
         }
-      } catch (error) {
+      } catch {
         // Silent fallback to static rates
       } finally {
         if (isMounted) setIsLoadingRates(false);
@@ -69,7 +71,7 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
       setCurrentCurrencyState(code);
       try {
         localStorage.setItem('user_regional_currency', code);
-      } catch (e) {
+      } catch {
         // Storage access error fallback
       }
     }
@@ -99,6 +101,7 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
         currentCurrency,
         currencyConfig,
         rates,
+        xlmPerUsd,
         isLoadingRates,
         setCurrency,
         convertPrice,

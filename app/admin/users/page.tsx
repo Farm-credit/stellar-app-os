@@ -10,7 +10,10 @@ export default function AdminUsersPage(): ReactNode {
       return fetch(`/api/admin/users/${userId}/export`, { method: 'POST' });
     }
     if (action === 'delete') {
-      return fetch(`/api/admin/users/${userId}`, { method: 'DELETE', body: JSON.stringify({ reason }) });
+      return fetch(`/api/admin/users/${userId}`, {
+        method: 'DELETE',
+        body: JSON.stringify({ reason }),
+      });
     }
     return Promise.resolve();
   };

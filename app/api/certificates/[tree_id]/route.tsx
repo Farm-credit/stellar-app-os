@@ -11,7 +11,7 @@ const ALLOWED_ORIGINS = new Set(
   (process.env.CORS_ORIGINS || process.env.ALLOWED_ORIGINS || '')
     .split(',')
     .map((origin) => origin.trim())
-    .filter(Boolean),
+    .filter(Boolean)
 );
 
 function isWhitelistedOrigin(origin: string | null): boolean {
@@ -22,9 +22,15 @@ function isWhitelistedOrigin(origin: string | null): boolean {
 const gdprDeletedTreeIds = new Set<string>();
 
 // ── Audit logging ─────────────────────────────────────────────────────────────
-function logAuditEvent(event: string, details: Record<string, unknown>, request?: NextRequest): void {
+function logAuditEvent(
+  event: string,
+  details: Record<string, unknown>,
+  request?: NextRequest
+): void {
   const ip = request?.headers.get('x-forwarded-for') ?? request?.headers.get('x-real-ip') ?? null;
-  console.log(JSON.stringify({ audit: true, timestamp: new Date().toISOString(), event, ...details, ip }));
+  console.log(
+    JSON.stringify({ audit: true, timestamp: new Date().toISOString(), event, ...details, ip })
+  );
 }
 
 // ── Styles ────────────────────────────────────────────────────────────────────
@@ -292,9 +298,7 @@ function haversineDistanceKm(lat1: number, lon1: number, lat2: number, lon2: num
   const dLon = ((lon2 - lon1) * Math.PI) / 180;
   const a =
     Math.sin(dLat / 2) ** 2 +
-    Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLon / 2) ** 2;
+    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLon / 2) ** 2;
   return earthRadiusKm * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
@@ -312,7 +316,8 @@ export async function OPTIONS(request: NextRequest): Promise<NextResponse> {
     headers: {
       'Access-Control-Allow-Origin': origin,
       'Access-Control-Allow-Methods': 'GET, DELETE, OPTIONS',
-      'Access-Control-Allow-Headers': request.headers.get('access-control-request-headers') ?? 'Content-Type, Authorization',
+      'Access-Control-Allow-Headers':
+        request.headers.get('access-control-request-headers') ?? 'Content-Type, Authorization',
       'Access-Control-Max-Age': '86400',
       Vary: 'Origin',
     },
@@ -354,13 +359,17 @@ export async function GET(
       ? `${haversineDistanceKm(Number(sponsorLat), Number(sponsorLng), Number(treeLat), Number(treeLng)).toFixed(1)} km`
       : undefined;
 
-  logAuditEvent('sensitive.certificate.access', {
-    treeId: tree.treeId,
-    queriedCoordinates: {
-      latitude: sponsorLat ?? null,
-      longitude: sponsorLng ?? null,
+  logAuditEvent(
+    'sensitive.certificate.access',
+    {
+      treeId: tree.treeId,
+      queriedCoordinates: {
+        latitude: sponsorLat ?? null,
+        longitude: sponsorLng ?? null,
+      },
     },
-  }, _request);
+    _request
+  );
 
   const qrDataUrl = await QRCode.toDataURL(treeUrl, { margin: 1, width: 200, type: 'image/png' });
 
@@ -380,8 +389,8 @@ export async function GET(
 
   const wantsJsonExport = Boolean(
     _request.nextUrl.searchParams.get('export') === 'json' ||
-      _request.nextUrl.searchParams.get('format') === 'json' ||
-      _request.headers.get('accept')?.includes('application/json')
+    _request.nextUrl.searchParams.get('format') === 'json' ||
+    _request.headers.get('accept')?.includes('application/json')
   );
 
   if (wantsJsonExport) {

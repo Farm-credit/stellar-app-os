@@ -31,7 +31,9 @@ export function CarbonOffsetsSection({ report }: CarbonOffsetsSectionProps) {
           <p className="text-xs uppercase text-muted-foreground">Active / Retired</p>
           <p className="mt-2 text-xl font-bold text-foreground">
             {carbonOffsets.activeTonnes.toLocaleString()} /{' '}
-            <span className="text-stellar-blue">{carbonOffsets.retiredTonnes.toLocaleString()}</span>
+            <span className="text-stellar-blue">
+              {carbonOffsets.retiredTonnes.toLocaleString()}
+            </span>
           </p>
           <p className="text-xs text-muted-foreground">tonnes</p>
         </div>
@@ -44,9 +46,7 @@ export function CarbonOffsetsSection({ report }: CarbonOffsetsSectionProps) {
         </div>
         <div className="rounded-lg border border-border bg-card p-4">
           <p className="text-xs uppercase text-muted-foreground">Cost per Tonne</p>
-          <p className="mt-2 text-2xl font-bold text-foreground">
-            ${carbonOffsets.costPerTonUsd}
-          </p>
+          <p className="mt-2 text-2xl font-bold text-foreground">${carbonOffsets.costPerTonUsd}</p>
           <p className="text-xs text-muted-foreground">USD</p>
         </div>
       </div>
@@ -71,7 +71,10 @@ export function CarbonOffsetsSection({ report }: CarbonOffsetsSectionProps) {
             </thead>
             <tbody>
               {carbonOffsets.lineItems.map((item, idx) => (
-                <tr key={`${item.projectId}-${idx}`} className="border-b border-border hover:bg-muted/30">
+                <tr
+                  key={`${item.projectId}-${idx}`}
+                  className="border-b border-border hover:bg-muted/30"
+                >
                   <td className="px-4 py-3 text-foreground">{item.projectName}</td>
                   <td className="px-4 py-3 text-right font-medium text-foreground">
                     {item.tonnes.toLocaleString()}

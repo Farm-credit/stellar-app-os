@@ -7,7 +7,7 @@ export const redis = redisUrl ? createClient({ url: redisUrl }) : null;
 
 if (redis) {
   redis.on('error', (err) => console.error('Redis Client Error:', err));
-  
+
   // Connect eagerly if URL is provided
   redis.connect().catch(console.error);
 }

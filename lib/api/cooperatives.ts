@@ -192,7 +192,10 @@ export function getQuorumRequired(cooperative: Cooperative): number {
 
 // ── Bargaining term maths ─────────────────────────────────────────────────────
 
-function buildTerms(cooperative: Cooperative, targetQuantityTons?: number): CollectiveBargainingTerms {
+function buildTerms(
+  cooperative: Cooperative,
+  targetQuantityTons?: number
+): CollectiveBargainingTerms {
   const pooled = pooledQuantityTons(cooperative);
   const pricedTotal = cooperative.pooledProjects.reduce(
     (sum, item) => sum + item.quantityTons * item.pricePerTon,
@@ -302,7 +305,8 @@ export function listCooperatives(filter: ListCooperativesFilter = {}): Cooperati
       if (region && cooperative.region.toLowerCase() !== region) return false;
       if (filter.memberId && !findMember(cooperative, filter.memberId)) return false;
       if (search) {
-        const haystack = `${cooperative.name} ${cooperative.description} ${cooperative.region}`.toLowerCase();
+        const haystack =
+          `${cooperative.name} ${cooperative.description} ${cooperative.region}`.toLowerCase();
         if (!haystack.includes(search)) return false;
       }
       return true;
@@ -361,7 +365,8 @@ export function removeMember(cooperativeId: string, memberId: string): Cooperati
   const cooperative = requireCooperative(cooperativeId);
   const member = findMember(cooperative, memberId);
   if (!member) throw notFound(`Member ${memberId} not found in this cooperative`);
-  if (member.role === 'founder') throw conflict('The founder cannot be removed from the cooperative');
+  if (member.role === 'founder')
+    throw conflict('The founder cannot be removed from the cooperative');
 
   const contributed = cooperative.pooledProjects.filter((item) => item.contributedBy === memberId);
   if (contributed.length > 0) {
@@ -477,7 +482,9 @@ export function createBargainingRound(
   if (inFlight) throw conflict(`Bargaining round ${inFlight.id} is already in progress`);
 
   const target =
-    input.targetQuantityTons === undefined ? terms.pooledQuantityTons : Number(input.targetQuantityTons);
+    input.targetQuantityTons === undefined
+      ? terms.pooledQuantityTons
+      : Number(input.targetQuantityTons);
   if (!Number.isFinite(target) || target <= 0) {
     throw invalid('targetQuantityTons must be greater than zero');
   }

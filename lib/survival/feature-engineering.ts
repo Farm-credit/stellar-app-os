@@ -70,7 +70,7 @@ export function computeHistoricalSurvivalRate(
   for (const record of matching) {
     const ageYears = (now - new Date(record.plantedAt).getTime()) / (365.25 * 86400 * 1000);
     // Exponential decay: half-life ~3 years
-    const weight = Math.exp(-ageYears * Math.log(2) / 3);
+    const weight = Math.exp((-ageYears * Math.log(2)) / 3);
     weightedSurvived += record.treesSurvived * weight;
     weightedPlanted += record.treesPlanted * weight;
   }
@@ -86,33 +86,80 @@ export function computeHistoricalSurvivalRate(
  */
 const BIOME_ENVELOPES: Record<
   string,
-  { rainfallMin: number; rainfallMax: number; tempMin: number; tempMax: number; drySeasonMax: number }
+  {
+    rainfallMin: number;
+    rainfallMax: number;
+    tempMin: number;
+    tempMax: number;
+    drySeasonMax: number;
+  }
 > = {
-  'Tropical moist forest':    { rainfallMin: 2000, rainfallMax: 4000, tempMin: 24, tempMax: 28, drySeasonMax: 3 },
-  'Tropical dry forest':      { rainfallMin: 1000, rainfallMax: 1500, tempMin: 24, tempMax: 30, drySeasonMax: 6 },
-  'Tropical savanna':         { rainfallMin: 500,  rainfallMax: 1200, tempMin: 22, tempMax: 32, drySeasonMax: 8 },
-  'Mangrove':                 { rainfallMin: 1500, rainfallMax: 3000, tempMin: 24, tempMax: 30, drySeasonMax: 2 },
-  'Mediterranean shrubland':  { rainfallMin: 400,  rainfallMax: 900,  tempMin: 15, tempMax: 22, drySeasonMax: 5 },
-  'Subtropical forest':       { rainfallMin: 1000, rainfallMax: 2000, tempMin: 15, tempMax: 22, drySeasonMax: 4 },
-  'Subtropical highland':     { rainfallMin: 800,  rainfallMax: 1800, tempMin: 12, tempMax: 20, drySeasonMax: 4 },
+  'Tropical moist forest': {
+    rainfallMin: 2000,
+    rainfallMax: 4000,
+    tempMin: 24,
+    tempMax: 28,
+    drySeasonMax: 3,
+  },
+  'Tropical dry forest': {
+    rainfallMin: 1000,
+    rainfallMax: 1500,
+    tempMin: 24,
+    tempMax: 30,
+    drySeasonMax: 6,
+  },
+  'Tropical savanna': {
+    rainfallMin: 500,
+    rainfallMax: 1200,
+    tempMin: 22,
+    tempMax: 32,
+    drySeasonMax: 8,
+  },
+  Mangrove: { rainfallMin: 1500, rainfallMax: 3000, tempMin: 24, tempMax: 30, drySeasonMax: 2 },
+  'Mediterranean shrubland': {
+    rainfallMin: 400,
+    rainfallMax: 900,
+    tempMin: 15,
+    tempMax: 22,
+    drySeasonMax: 5,
+  },
+  'Subtropical forest': {
+    rainfallMin: 1000,
+    rainfallMax: 2000,
+    tempMin: 15,
+    tempMax: 22,
+    drySeasonMax: 4,
+  },
+  'Subtropical highland': {
+    rainfallMin: 800,
+    rainfallMax: 1800,
+    tempMin: 12,
+    tempMax: 20,
+    drySeasonMax: 4,
+  },
 };
 
 /** Fallback envelope when biome is not recognised */
-const DEFAULT_ENVELOPE = { rainfallMin: 600, rainfallMax: 3000, tempMin: 10, tempMax: 35, drySeasonMax: 7 };
+const DEFAULT_ENVELOPE = {
+  rainfallMin: 600,
+  rainfallMax: 3000,
+  tempMin: 10,
+  tempMax: 35,
+  drySeasonMax: 7,
+};
 
-export function computeClimateSuitability(
-  biome: string,
-  climate: PlantingSiteClimate
-): number {
+export function computeClimateSuitability(biome: string, climate: PlantingSiteClimate): number {
   const env = BIOME_ENVELOPES[biome] ?? DEFAULT_ENVELOPE;
 
   // Rainfall: full score inside [min, max], penalised outside
   const rainfallScore = (() => {
-    if (climate.annualRainfallMm >= env.rainfallMin && climate.annualRainfallMm <= env.rainfallMax) return 1;
+    if (climate.annualRainfallMm >= env.rainfallMin && climate.annualRainfallMm <= env.rainfallMax)
+      return 1;
     const margin = (env.rainfallMax - env.rainfallMin) * 0.4 || 200;
-    const dist = climate.annualRainfallMm < env.rainfallMin
-      ? env.rainfallMin - climate.annualRainfallMm
-      : climate.annualRainfallMm - env.rainfallMax;
+    const dist =
+      climate.annualRainfallMm < env.rainfallMin
+        ? env.rainfallMin - climate.annualRainfallMm
+        : climate.annualRainfallMm - env.rainfallMax;
     return Math.max(0, 1 - dist / margin);
   })();
 
@@ -122,7 +169,10 @@ export function computeClimateSuitability(
   const temperatureScore = peakScore(climate.meanTemperatureC, tempMid, tempMargin);
 
   // Dry season length: longer dry seasons are penalising
-  const drySeasonScore = Math.max(0, 1 - Math.max(0, climate.drySeasonMonths - env.drySeasonMax) / 4);
+  const drySeasonScore = Math.max(
+    0,
+    1 - Math.max(0, climate.drySeasonMonths - env.drySeasonMax) / 4
+  );
 
   // Combined: geometric mean of the three signals
   return round4(Math.cbrt(rainfallScore * temperatureScore * drySeasonScore));
@@ -132,14 +182,14 @@ export function computeClimateSuitability(
 
 /** Water holding capacity scores per texture class */
 const TEXTURE_WHC_SCORE: Record<SoilTexture, number> = {
-  'silty-clay':  0.85,
-  'clay-loam':   0.9,
-  'loam':        1.0,   // optimal
-  'silt-loam':   0.95,
-  'clay':        0.7,   // drainage issues
-  'sandy-loam':  0.75,
-  'loamy-sand':  0.55,
-  'sand':        0.3,   // poor retention
+  'silty-clay': 0.85,
+  'clay-loam': 0.9,
+  loam: 1.0, // optimal
+  'silt-loam': 0.95,
+  clay: 0.7, // drainage issues
+  'sandy-loam': 0.75,
+  'loamy-sand': 0.55,
+  sand: 0.3, // poor retention
 };
 
 export function computeSoilQuality(soil: SoilCharacteristics): number {
@@ -156,7 +206,7 @@ export function computeSoilQuality(soil: SoilCharacteristics): number {
   const textureScore = TEXTURE_WHC_SCORE[soil.texture] ?? 0.6;
 
   // Weighted combination
-  return round4(0.25 * phScore + 0.30 * omScore + 0.25 * whcScore + 0.20 * textureScore);
+  return round4(0.25 * phScore + 0.3 * omScore + 0.25 * whcScore + 0.2 * textureScore);
 }
 
 // ── 4. Planting season ────────────────────────────────────────────────────────
@@ -185,16 +235,16 @@ export function computePlantingSeasonScore(plantingDateIso: string): number {
  * is native or well-adapted to. Expand as the species catalogue grows.
  */
 const SPECIES_NATIVE_BIOMES: Record<string, string[]> = {
-  teak:          ['Tropical moist forest', 'Tropical dry forest'],
-  moringa:       ['Tropical savanna', 'Tropical dry forest'],
-  eucalyptus:    ['Subtropical forest', 'Tropical savanna'],
-  mangrove:      ['Mangrove'],
-  mahogany:      ['Tropical moist forest'],
-  acacia:        ['Tropical savanna', 'Tropical dry forest'],
-  bamboo:        ['Tropical moist forest', 'Subtropical forest', 'Subtropical highland'],
-  cedar:         ['Subtropical highland', 'Mediterranean shrubland'],
-  casuarina:     ['Tropical savanna', 'Tropical dry forest'],
-  neem:          ['Tropical dry forest', 'Tropical savanna'],
+  teak: ['Tropical moist forest', 'Tropical dry forest'],
+  moringa: ['Tropical savanna', 'Tropical dry forest'],
+  eucalyptus: ['Subtropical forest', 'Tropical savanna'],
+  mangrove: ['Mangrove'],
+  mahogany: ['Tropical moist forest'],
+  acacia: ['Tropical savanna', 'Tropical dry forest'],
+  bamboo: ['Tropical moist forest', 'Subtropical forest', 'Subtropical highland'],
+  cedar: ['Subtropical highland', 'Mediterranean shrubland'],
+  casuarina: ['Tropical savanna', 'Tropical dry forest'],
+  neem: ['Tropical dry forest', 'Tropical savanna'],
 };
 
 export function computeBiomeMatchScore(speciesSlug: string, biome: string): number {
@@ -206,12 +256,12 @@ export function computeBiomeMatchScore(speciesSlug: string, biome: string): numb
   // Partial credit: related biomes (e.g. tropical moist ↔ tropical dry)
   const related: Record<string, string[]> = {
     'Tropical moist forest': ['Tropical dry forest', 'Subtropical forest'],
-    'Tropical dry forest':   ['Tropical moist forest', 'Tropical savanna'],
-    'Tropical savanna':      ['Tropical dry forest'],
-    'Subtropical forest':    ['Subtropical highland', 'Tropical moist forest'],
-    'Subtropical highland':  ['Subtropical forest', 'Mediterranean shrubland'],
+    'Tropical dry forest': ['Tropical moist forest', 'Tropical savanna'],
+    'Tropical savanna': ['Tropical dry forest'],
+    'Subtropical forest': ['Subtropical highland', 'Tropical moist forest'],
+    'Subtropical highland': ['Subtropical forest', 'Mediterranean shrubland'],
     'Mediterranean shrubland': ['Subtropical highland'],
-    'Mangrove':              [],
+    Mangrove: [],
   };
 
   const relatedBiomes = related[biome] ?? [];

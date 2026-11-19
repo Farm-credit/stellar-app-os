@@ -6,17 +6,17 @@ import type { SatelliteVerificationRequest } from '../types';
 
 /** Healthy vegetation bands (Sentinel-2-style reflectance values). */
 const HEALTHY_BANDS = {
-  red:      0.09,
-  nir:      0.45,
-  blue:     0.04,
-  green:    0.10,
-  swir1:    0.12,
+  red: 0.09,
+  nir: 0.45,
+  blue: 0.04,
+  green: 0.1,
+  swir1: 0.12,
 };
 
 /** Bare-soil / deforested bands. */
 const BARE_BANDS = {
-  red:  0.28,
-  nir:  0.15,
+  red: 0.28,
+  nir: 0.15,
   blue: 0.06,
   green: 0.14,
 };
@@ -126,8 +126,12 @@ describe('SatelliteVerifier.verify', () => {
     const result = verifier.verify(makeRequest());
     expect(result.treeCount).toBeDefined();
     expect(result.treeCount.estimatedCount).toBeGreaterThan(0);
-    expect(result.treeCount.confidenceInterval.low).toBeLessThanOrEqual(result.treeCount.estimatedCount);
-    expect(result.treeCount.confidenceInterval.high).toBeGreaterThanOrEqual(result.treeCount.estimatedCount);
+    expect(result.treeCount.confidenceInterval.low).toBeLessThanOrEqual(
+      result.treeCount.estimatedCount
+    );
+    expect(result.treeCount.confidenceInterval.high).toBeGreaterThanOrEqual(
+      result.treeCount.estimatedCount
+    );
   });
 
   it('confidence score is in [0, 100]', () => {
@@ -139,9 +143,9 @@ describe('SatelliteVerifier.verify', () => {
   it('uses provided speciesSlug for crown diameter', () => {
     // Mangrove crown is 3m vs default 6m → higher tree count estimate
     const reqMangrove = makeRequest({ speciesSlug: 'mangrove' });
-    const reqDefault  = makeRequest();
+    const reqDefault = makeRequest();
     const mangroveCount = verifier.verify(reqMangrove).treeCount.estimatedCount;
-    const defaultCount  = verifier.verify(reqDefault).treeCount.estimatedCount;
+    const defaultCount = verifier.verify(reqDefault).treeCount.estimatedCount;
     // Smaller crown → more trees fit
     expect(mangroveCount).toBeGreaterThan(defaultCount);
   });
@@ -152,8 +156,8 @@ describe('SatelliteVerifier.verify', () => {
 describe('verifySatelliteData', () => {
   it('returns the same result as new SatelliteVerifier().verify()', () => {
     const req = makeRequest({ plotId: 'convenience-test' });
-    const fromFn     = verifySatelliteData(req);
-    const fromClass  = new SatelliteVerifier().verify(req);
+    const fromFn = verifySatelliteData(req);
+    const fromClass = new SatelliteVerifier().verify(req);
 
     // The verdict and scores should be identical (timestamps differ by ms at most)
     expect(fromFn.verdict).toBe(fromClass.verdict);

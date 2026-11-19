@@ -59,10 +59,7 @@ export class SatelliteVerifier {
     }
 
     // ── 2. Vegetation health (NDVI) ────────────────────────────────────────
-    const vegetation = analyseVegetation(
-      request.currentBands,
-      request.imageryDate ?? null
-    );
+    const vegetation = analyseVegetation(request.currentBands, request.imageryDate ?? null);
     this.collectVegetationFlags(vegetation, flags);
 
     // ── 3. Tree count estimation ───────────────────────────────────────────
@@ -89,8 +86,7 @@ export class SatelliteVerifier {
       flags.push({
         code: 'NO_BASELINE',
         severity: 'info',
-        message:
-          'No baseline imagery provided. Land-cover change detection was skipped.',
+        message: 'No baseline imagery provided. Land-cover change detection was skipped.',
       });
     }
 
@@ -163,10 +159,7 @@ export class SatelliteVerifier {
     };
   }
 
-  private collectVegetationFlags(
-    vegetation: NdviAnalysisResult,
-    flags: VerificationFlag[]
-  ): void {
+  private collectVegetationFlags(vegetation: NdviAnalysisResult, flags: VerificationFlag[]): void {
     if (vegetation.healthClass === 'water_or_cloud') {
       flags.push({
         code: 'CLOUD_OR_WATER',
@@ -185,7 +178,10 @@ export class SatelliteVerifier {
       });
     }
 
-    if (vegetation.healthClass === 'dense_canopy' || vegetation.healthClass === 'healthy_vegetation') {
+    if (
+      vegetation.healthClass === 'dense_canopy' ||
+      vegetation.healthClass === 'healthy_vegetation'
+    ) {
       flags.push({
         code: 'HEALTHY_CANOPY',
         severity: 'info',
@@ -196,10 +192,7 @@ export class SatelliteVerifier {
     }
   }
 
-  private collectTreeCountFlags(
-    treeCount: TreeCountResult,
-    flags: VerificationFlag[]
-  ): void {
+  private collectTreeCountFlags(treeCount: TreeCountResult, flags: VerificationFlag[]): void {
     if (treeCount.verificationStatus === 'fail') {
       flags.push({
         code: 'TREE_COUNT_MISMATCH',
@@ -238,10 +231,7 @@ export class SatelliteVerifier {
     }
   }
 
-  private collectLandCoverFlags(
-    change: LandCoverChange,
-    flags: VerificationFlag[]
-  ): void {
+  private collectLandCoverFlags(change: LandCoverChange, flags: VerificationFlag[]): void {
     if (change.deforestationDetected) {
       flags.push({
         code: 'DEFORESTATION_DETECTED',
@@ -264,7 +254,11 @@ export class SatelliteVerifier {
       });
     }
 
-    if (change.changeMagnitude === 'significant' && !change.deforestationDetected && !change.reforestationConfirmed) {
+    if (
+      change.changeMagnitude === 'significant' &&
+      !change.deforestationDetected &&
+      !change.reforestationConfirmed
+    ) {
       flags.push({
         code: 'SIGNIFICANT_LAND_CHANGE',
         severity: 'warning',

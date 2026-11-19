@@ -17,7 +17,8 @@ export default function App() {
       try {
         const permission = await Location.requestForegroundPermissionsAsync();
         if (!permission.granted) {
-          if (isMounted) setGpsStatus('Location permission was denied. Enter coordinates manually.');
+          if (isMounted)
+            setGpsStatus('Location permission was denied. Enter coordinates manually.');
           return;
         }
 

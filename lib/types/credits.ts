@@ -14,6 +14,14 @@ export interface CreditHolding {
   retirementDate?: string | null;
   /** Co-benefits attributed to the originating project. */
   coBenefits?: string[];
+  /** Certification registry that verified the originating project. */
+  certificationProvider?: 'verra' | 'gold-standard';
+  /** Current verification state of the credits against the registry. */
+  certificationStatus?: 'verified' | 'pending' | 'expired' | 'unverified';
+  /** ISO-8601 timestamp of the last successful registry verification. */
+  verificationCheckedAt?: string | null;
+  /** ISO-8601 date when renewal documentation is due, if applicable. */
+  renewalDueAt?: string | null;
 }
 
 /**

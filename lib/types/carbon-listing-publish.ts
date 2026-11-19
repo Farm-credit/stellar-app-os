@@ -59,12 +59,18 @@ export const publishListingSchema = z.object({
   landManagerName: z.string().min(2, 'Land manager name is required').max(200),
   creditType: z.enum(CREDIT_TYPE_OPTIONS as [CreditTypeCategory, ...CreditTypeCategory[]]),
   quantityTonnes: z
-    .number({ required_error: 'Quantity is required', invalid_type_error: 'Quantity must be a number' })
+    .number({
+      required_error: 'Quantity is required',
+      invalid_type_error: 'Quantity must be a number',
+    })
     .int('Quantity must be a whole number')
     .positive('Quantity must be greater than 0')
     .max(10_000_000, 'Quantity cannot exceed 10,000,000 metric tons'),
   pricePerTon: z
-    .number({ required_error: 'Price per ton is required', invalid_type_error: 'Price must be a number' })
+    .number({
+      required_error: 'Price per ton is required',
+      invalid_type_error: 'Price must be a number',
+    })
     .positive('Price must be greater than 0')
     .max(10_000, 'Price per ton cannot exceed $10,000'),
   currency: z.string().min(3).max(10).default('USD'),
@@ -88,10 +94,7 @@ export const publishListingSchema = z.object({
    * Narrative description / methodology notes about the project.
    * Displayed in the marketplace listing detail page.
    */
-  description: z
-    .string()
-    .max(2000, 'Description cannot exceed 2000 characters')
-    .optional(),
+  description: z.string().max(2000, 'Description cannot exceed 2000 characters').optional(),
   evidenceDocumentUrls: z.array(z.string().url()).max(10).optional(),
 });
 
@@ -99,7 +102,7 @@ export const publishListingSchema = z.object({
 export type PublishListingFormData = z.infer<typeof publishListingSchema>;
 
 /** Alias kept for backward compatibility with the API route and service layer */
-export interface PublishListingRequest extends PublishListingFormData {}
+export type PublishListingRequest = PublishListingFormData;
 
 export interface PublishedListing {
   id: string;

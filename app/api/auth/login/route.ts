@@ -37,13 +37,21 @@ function getCorsHeaders(origin: string | null): Record<string, string> {
 
 function getRequestMeta(request: NextRequest) {
   return {
-    ip: request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? request.headers.get('x-real-ip') ?? 'unknown',
+    ip:
+      request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ??
+      request.headers.get('x-real-ip') ??
+      'unknown',
     userAgent: request.headers.get('user-agent') ?? 'unknown',
     origin: request.headers.get('origin') ?? 'unknown',
   };
 }
 
-function logAudit(request: NextRequest, action: string, walletAddress?: string, details: Record<string, unknown> = {}) {
+function logAudit(
+  request: NextRequest,
+  action: string,
+  walletAddress?: string,
+  details: Record<string, unknown> = {}
+) {
   logger.info(`[api:auth:login] audit`, {
     audit: true,
     action,
@@ -100,7 +108,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const consumed = await consumeNonce(walletAddress, nonce);
     if (!consumed) {
       logAudit(request, 'login_failed', walletAddress, { reason: 'invalid_or_expired_nonce' });
-      return NextResponse.json({ error: 'Invalid or expired nonce' }, { status: 401, headers: corsHeaders });
+      return NextResponse.json(
+        { error: 'Invalid or expired nonce' },
+        { status: 401, headers: corsHeaders }
+      );
     }
 
     // Verify the Ed25519 signature produced by the planter's Stellar keypair.
@@ -110,12 +121,20 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       const sigBytes = Buffer.from(signature, 'base64');
 
       if (!keypair.verify(message, sigBytes)) {
-        logAudit(request, 'login_failed', walletAddress, { reason: 'signature_verification_failed' });
-        return NextResponse.json({ error: 'Signature verification failed' }, { status: 401, headers: corsHeaders });
+        logAudit(request, 'login_failed', walletAddress, {
+          reason: 'signature_verification_failed',
+        });
+        return NextResponse.json(
+          { error: 'Signature verification failed' },
+          { status: 401, headers: corsHeaders }
+        );
       }
     } catch {
       logAudit(request, 'login_failed', walletAddress, { reason: 'invalid_wallet_or_signature' });
-      return NextResponse.json({ error: 'Invalid wallet address or signature' }, { status: 400, headers: corsHeaders });
+      return NextResponse.json(
+        { error: 'Invalid wallet address or signature' },
+        { status: 400, headers: corsHeaders }
+      );
     }
 
     const token = await signPlanterJwt(walletAddress);
@@ -124,7 +143,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     return NextResponse.json({ token, expiresIn: '8h' }, { headers: corsHeaders });
   } catch (err) {
-    logAudit(request, 'login_error', walletAddress, { error: err instanceof Error ? err.message : String(err) });
+    logAudit(request, 'login_error', walletAddress, {
+      error: err instanceof Error ? err.message : String(err),
+    });
     const msg = err instanceof Error ? err.message : 'Login failed';
     return NextResponse.json({ error: msg }, { status: 500, headers: corsHeaders });
   }
@@ -140,7 +161,10 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
   const walletAddress = await getWalletFromRequest(request);
   if (!walletAddress) {
-    logAudit(request, 'unauthorized_access', undefined, { path: request.nextUrl.pathname, method: request.method });
+    logAudit(request, 'unauthorized_access', undefined, {
+      path: request.nextUrl.pathname,
+      method: request.method,
+    });
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401, headers: corsHeaders });
   }
 
@@ -149,7 +173,9 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     logAudit(request, 'data_export', walletAddress);
     return NextResponse.json({ walletAddress, data: userData ?? null }, { headers: corsHeaders });
   } catch (err) {
-    logAudit(request, 'data_export_error', walletAddress, { error: err instanceof Error ? err.message : String(err) });
+    logAudit(request, 'data_export_error', walletAddress, {
+      error: err instanceof Error ? err.message : String(err),
+    });
     const msg = err instanceof Error ? err.message : 'Data export failed';
     return NextResponse.json({ error: msg }, { status: 500, headers: corsHeaders });
   }
@@ -165,7 +191,10 @@ export async function DELETE(request: NextRequest): Promise<NextResponse> {
 
   const walletAddress = await getWalletFromRequest(request);
   if (!walletAddress) {
-    logAudit(request, 'unauthorized_access', undefined, { path: request.nextUrl.pathname, method: request.method });
+    logAudit(request, 'unauthorized_access', undefined, {
+      path: request.nextUrl.pathname,
+      method: request.method,
+    });
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401, headers: corsHeaders });
   }
 
@@ -174,7 +203,9 @@ export async function DELETE(request: NextRequest): Promise<NextResponse> {
     logAudit(request, 'data_deletion', walletAddress);
     return NextResponse.json({ success: true }, { headers: corsHeaders });
   } catch (err) {
-    logAudit(request, 'data_deletion_error', walletAddress, { error: err instanceof Error ? err.message : String(err) });
+    logAudit(request, 'data_deletion_error', walletAddress, {
+      error: err instanceof Error ? err.message : String(err),
+    });
     const msg = err instanceof Error ? err.message : 'Data deletion failed';
     return NextResponse.json({ error: msg }, { status: 500, headers: corsHeaders });
   }

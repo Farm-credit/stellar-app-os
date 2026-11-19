@@ -1,15 +1,10 @@
-import { getPool } from '@/lib/db/client';
+import { type getPool } from '@/lib/db/client';
 import {
   resolveVolumeDiscount,
   type VolumeDiscountResolved,
 } from '@/lib/marketplace/volume-discount';
 
-export type BulkPurchaseStatus =
-  | 'pending'
-  | 'active'
-  | 'fulfilled'
-  | 'cancelled'
-  | 'expired';
+export type BulkPurchaseStatus = 'pending' | 'active' | 'fulfilled' | 'cancelled' | 'expired';
 
 export interface BulkPurchaseAgreement {
   id: string;
@@ -126,16 +121,24 @@ export function parseBulkPurchaseInput(input: unknown): BulkPurchaseInput {
   if (unitPrice <= 0) {
     throw new Error('unit_price must be greater than zero');
   }
-  const currency = typeof raw.currency === 'string' && raw.currency.trim() !== '' ? raw.currency.trim().toUpperCase() : 'XLM';
+  const currency =
+    typeof raw.currency === 'string' && raw.currency.trim() !== ''
+      ? raw.currency.trim().toUpperCase()
+      : 'XLM';
   if (!/^[A-Za-z0-9]{2,10}$/.test(currency)) {
     throw new Error('currency must be a valid token or currency code');
   }
-  const effectiveFrom = raw.effective_from == null ? new Date().toISOString() : normalizeDate(raw.effective_from, 'effective_from');
-  const effectiveTo = raw.effective_to == null ? null : normalizeDate(raw.effective_to, 'effective_to');
+  const effectiveFrom =
+    raw.effective_from == null
+      ? new Date().toISOString()
+      : normalizeDate(raw.effective_from, 'effective_from');
+  const effectiveTo =
+    raw.effective_to == null ? null : normalizeDate(raw.effective_to, 'effective_to');
   if (effectiveTo && new Date(effectiveTo).getTime() <= new Date(effectiveFrom).getTime()) {
     throw new Error('effective_to must be after effective_from');
   }
-  const notes = raw.notes == null ? null : String(raw.notes).trim() === '' ? null : String(raw.notes);
+  const notes =
+    raw.notes == null ? null : String(raw.notes).trim() === '' ? null : String(raw.notes);
   const as = typeof raw.as === 'string' && raw.as.trim() !== '' ? raw.as.trim() : undefined;
   if (as) {
     const parsed = new Date(as);
@@ -146,8 +149,7 @@ export function parseBulkPurchaseInput(input: unknown): BulkPurchaseInput {
   return {
     buyer_id: buyerId,
     farmer_id: farmerId,
-    tons:
-      tons,
+    tons: tons,
     unit_price: unitPrice,
     currency,
     effective_from: effectiveFrom,
@@ -190,9 +192,9 @@ export function parseBulkPurchaseFilters(params: URLSearchParams): BulkPurchaseF
 }
 
 export async function createBulkPurchaseAgreement(
-  pool: returnType<typeof getPool>,
+  pool: ReturnType<typeof getPool>,
   input: BulkPurchaseInput
-{): Promise<BulkPurchaseAgreement> {
+): Promise<BulkPurchaseAgreement> {
   const discount: VolumeDiscountResolved = await resolveVolumeDiscount(pool, {
     tons: input.tons,
     unit_price: input.unit_price,
@@ -228,7 +230,11 @@ export async function createBulkPurchaseAgreement(
     await client.query(
       `INSERT INTO bulk_purchase_events (agreement_id, event_type, actor_id, details, created_at)
        VALUES ($1, 'created', $2, $3::jsonb, NOW())`,
-      [agreement.id, input.buyer_id, JSON.stringify({ tons: input.tons, discount_rate: discount.discount_rate })]
+      [
+        agreement.id,
+        input.buyer_id,
+        JSON.stringify({ tons: input.tons, discount_rate: discount.discount_rate }),
+      ]
     );
     await client.query('COMMIT');
     return agreement;
@@ -241,21 +247,18 @@ export async function createBulkPurchaseAgreement(
 }
 
 export async function getBulkPurchaseAgreement(
-  pool: returnType<typeof getPool>,
+  pool: ReturnType<typeof getPool>,
   id: string
-{): Promise<BulkPurchaseAgreement | null> {
-  const result = await pool.query(
-    `SELECT * FROM bulk_purchase_agreements WHERE id = $1`,
-    [id]
-  );
+): Promise<BulkPurchaseAgreement | null> {
+  const result = await pool.query(`SELECT * FROM bulk_purchase_agreements WHERE id = $1`, [id]);
   if (result.rows.length === 0) return null;
   return normalizeAgreement(result.rows[0]);
 }
 
 export async function listBulkPurchaseAgreements(
-  pool: returnType<typeof getPool>,
+  pool: ReturnType<typeof getPool>,
   filters: BulkPurchaseFilters
-{): Promise<BulkPurchaseAgreement[]> {
+): Promise<BulkPurchaseAgreement[]> {
   const clauses: string[] = [];
   const values: unknown[] = [];
   if (filters.buyer_id) {
@@ -288,14 +291,17 @@ export async function listBulkPurchaseAgreements(
 }
 
 export async function activateBulkPurchaseAgreement(
-  pool: returnType<typeof getPool>,
+  pool: ReturnType<typeof getPool>,
   id: string,
   actor?: string
-{): Promise<BulkPurchaseAgreement> {
+): Promise<BulkPurchaseAgreement> {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    const existing = await client.query(`SELECT * FROM bulk_purchase_agreements WHERE id = $1 FOR UPDATE`, [id]);
+    const existing = await client.query(
+      `SELECT * FROM bulk_purchase_agreements WHERE id = $1 FOR UPDATE`,
+      [id]
+    );
     if (existing.rows.length === 0) {
       throw new Error('Bulk purchase agreement not found');
     }
@@ -326,15 +332,18 @@ export async function activateBulkPurchaseAgreement(
 }
 
 export async function cancelBulkPurchaseAgreement(
-  pool: returnType<typeof getPool>,
+  pool: ReturnType<typeof getPool>,
   id: string,
   actor?: string,
   reason?: string
-{): Promise<BulkPurchaseAgreement> {
+): Promise<BulkPurchaseAgreement> {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    const existing = await client.query(`SELECT * FROM bulk_purchase_agreements WHERE id = $1 FOR UPDATE`, [id]);
+    const existing = await client.query(
+      `SELECT * FROM bulk_purchase_agreements WHERE id = $1 FOR UPDATE`,
+      [id]
+    );
     if (existing.rows.length === 0) {
       throw new Error('Bulk purchase agreement not found');
     }
@@ -352,7 +361,11 @@ export async function cancelBulkPurchaseAgreement(
     await client.query(
       `INSERT INTO bulk_purchase_events (agreement_id, event_type, actor_id, details, created_at)
        VALUES ($1, 'cancelled', $2, $3::jsonb, NOW())`,
-      [id, actor ?? 'system', JSON.stringify({ reason: reason ?? null, previous_status: current.status })]
+      [
+        id,
+        actor ?? 'system',
+        JSON.stringify({ reason: reason ?? null, previous_status: current.status }),
+      ]
     );
     await client.query('COMMIT');
     return normalizeAgreement(updated.rows[0]);
@@ -365,14 +378,17 @@ export async function cancelBulkPurchaseAgreement(
 }
 
 export async function fulfillBulkPurchaseAgreement(
-  pool: returnType<typeof getPool>,
+  pool: ReturnType<typeof getPool>,
   id: string,
   actor?: string
-{): Promise<BulkPurchaseAgreement> {
+): Promise<BulkPurchaseAgreement> {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    const existing = await client.query(`SELECT * FROM bulk_purchase_agreements WHERE id = $1 FOR UPDATE`, [id]);
+    const existing = await client.query(
+      `SELECT * FROM bulk_purchase_agreements WHERE id = $1 FOR UPDATE`,
+      [id]
+    );
     if (existing.rows.length === 0) {
       throw new Error('Bulk purchase agreement not found');
     }

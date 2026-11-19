@@ -4,7 +4,8 @@ export const mockCarbonProjects: CarbonProject[] = [
   {
     id: 'proj-001',
     name: 'Amazon Rainforest Reforestation',
-    description: 'Large-scale reforestation and biodiversity protection in the Brazilian Amazon Basin',
+    description:
+      'Large-scale reforestation and biodiversity protection in the Brazilian Amazon Basin',
     vintageYear: 2023,
     pricePerTon: 45.5,
     availableSupply: 1250.75,
@@ -60,7 +61,8 @@ export const mockCarbonProjects: CarbonProject[] = [
   {
     id: 'proj-005',
     name: 'Sustainable Agriculture - Kenya',
-    description: 'Regenerative farming practices, biochar soil carbon, and tree planting in East Africa',
+    description:
+      'Regenerative farming practices, biochar soil carbon, and tree planting in East Africa',
     vintageYear: 2022,
     pricePerTon: 35.0,
     availableSupply: 450.2,
@@ -102,7 +104,8 @@ export const mockCarbonProjects: CarbonProject[] = [
   {
     id: 'proj-008',
     name: 'Geothermal Clean Energy - Iceland',
-    description: 'Harnessing volcanic geothermal power for zero-emission district power and heating',
+    description:
+      'Harnessing volcanic geothermal power for zero-emission district power and heating',
     vintageYear: 2024,
     pricePerTon: 32.5,
     availableSupply: 1540.0,
@@ -116,7 +119,8 @@ export const mockCarbonProjects: CarbonProject[] = [
   {
     id: 'proj-009',
     name: 'Northern Nigeria Savannah Agro-Forestry',
-    description: 'Smallholder indigenous acacia and shea tree planting with verified on-chain tracking',
+    description:
+      'Smallholder indigenous acacia and shea tree planting with verified on-chain tracking',
     vintageYear: 2023,
     pricePerTon: 36.5,
     availableSupply: 1850.0,
@@ -144,7 +148,8 @@ export const mockCarbonProjects: CarbonProject[] = [
   {
     id: 'proj-011',
     name: 'Regenerative Rangelands - Australia',
-    description: 'Adaptive multi-paddock rotational grazing revitalizing soil organic carbon in Queensland',
+    description:
+      'Adaptive multi-paddock rotational grazing revitalizing soil organic carbon in Queensland',
     vintageYear: 2023,
     pricePerTon: 39.0,
     availableSupply: 0,
@@ -158,7 +163,8 @@ export const mockCarbonProjects: CarbonProject[] = [
   {
     id: 'proj-012',
     name: 'Sundarbans Mangrove Protection - Bangladesh',
-    description: 'Protecting the worlds largest continuous mangrove forest and Bengal tiger sanctuary',
+    description:
+      'Protecting the worlds largest continuous mangrove forest and Bengal tiger sanctuary',
     vintageYear: 2024,
     pricePerTon: 58.0,
     availableSupply: 1670.0,
@@ -172,7 +178,8 @@ export const mockCarbonProjects: CarbonProject[] = [
   {
     id: 'proj-013',
     name: 'Andean Cloud Forest Restoration - Peru',
-    description: 'High-elevation Polylepis forest restoration protecting water catchments above Machu Picchu',
+    description:
+      'High-elevation Polylepis forest restoration protecting water catchments above Machu Picchu',
     vintageYear: 2023,
     pricePerTon: 46.5,
     availableSupply: 720.0,

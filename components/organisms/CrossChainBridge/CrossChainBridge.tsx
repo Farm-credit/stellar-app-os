@@ -16,11 +16,11 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { ArrowRight, Lock, CheckCircle, AlertCircle, Loader2, Info } from 'lucide-react';
+import { ArrowRight, Lock, AlertCircle, Loader2, Info } from 'lucide-react';
 import { Button } from '@/components/atoms/Button';
 import { Text } from '@/components/atoms/Text';
 import { Badge } from '@/components/atoms/Badge';
-import { LoadingSpinner } from '@/components/atoms/LoadingSpinner/LoadingSpinner';
+import '@/components/atoms/LoadingSpinner/LoadingSpinner';
 import { useWalletContext } from '@/contexts/WalletContext';
 import {
   lockForPurchase,

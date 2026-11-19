@@ -17,12 +17,28 @@ import {
 import { createDefaultFilters } from '@/lib/types/filters';
 import type { ProjectFilters } from '@/lib/types/filters';
 import { ProjectCard } from '@/components/molecules/ProjectCard/ProjectCard';
+import { ProjectCompareModal } from '@/components/molecules/ProjectCompareModal/ProjectCompareModal';
 import { OffsetProjectMapWrapper } from '@/components/organisms/OffsetProjectMap/OffsetProjectMapWrapper';
+import {
+  MAX_COMPARE_MODAL_PROJECTS,
+  MIN_COMPARE_MODAL_PROJECTS,
+  buildCompareUrl,
+  isComparable,
+  parseCompareParams,
+  resolveCompareOfferings,
+  toggleCompareId,
+} from '@/lib/projectCompareSelection';
 import Link from 'next/link';
 
 function ProjectsContent(): JSX.Element {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const [compareIds, setCompareIds] = useState<string[]>(
+    () => parseCompareParams(searchParams).ids
+  );
+  const [isCompareOpen, setIsCompareOpen] = useState<boolean>(
+    () => parseCompareParams(searchParams).open
+  );
   const [filters, setFilters] = useState<ProjectFilters>(createDefaultFilters());
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
   const [searchInput, setSearchInput] = useState('');
@@ -121,6 +137,28 @@ function ProjectsContent(): JSX.Element {
     setFilters(createDefaultFilters(priceRange));
     router.push('/projects', { scroll: false });
   }, [router, priceRange]);
+
+  const compareOfferings = useMemo(() => resolveCompareOfferings(compareIds), [compareIds]);
+  const compareShareUrl = useMemo(() => buildCompareUrl(compareIds), [compareIds]);
+  const canCompare = compareOfferings.length >= MIN_COMPARE_MODAL_PROJECTS;
+
+  const handleToggleCompare = useCallback((projectId: string) => {
+    setCompareIds((prev) => toggleCompareId(prev, projectId));
+  }, []);
+
+  const handleRemoveFromCompare = useCallback(
+    (projectId: string) => {
+      const next = compareIds.filter((id) => id !== projectId);
+      setCompareIds(next);
+      if (next.length < MIN_COMPARE_MODAL_PROJECTS) setIsCompareOpen(false);
+    },
+    [compareIds]
+  );
+
+  const handleClearCompare = useCallback(() => {
+    setCompareIds([]);
+    setIsCompareOpen(false);
+  }, []);
 
   const CORE_CO_BENEFITS = [
     { key: 'Biodiversity', label: '🌱 Biodiversity' },
@@ -318,7 +356,13 @@ function ProjectsContent(): JSX.Element {
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {filteredProjects.map((project) => (
-                    <ProjectCard key={project.id} project={project} />
+                    <ProjectCard
+                      key={project.id}
+                      project={project}
+                      isComparing={compareIds.includes(project.id)}
+                      onToggleCompare={isComparable(project.id) ? handleToggleCompare : undefined}
+                      compareDisabled={compareIds.length >= MAX_COMPARE_MODAL_PROJECTS}
+                    />
                   ))}
                 </div>
               )}
@@ -326,6 +370,43 @@ function ProjectsContent(): JSX.Element {
           </div>
         )}
       </div>
+
+      {compareIds.length > 0 && (
+        <div
+          role="region"
+          aria-label="Project comparison"
+          className="fixed inset-x-0 bottom-0 z-40 border-t bg-background/95 p-3 shadow-lg backdrop-blur"
+        >
+          <div className="container mx-auto flex flex-wrap items-center justify-between gap-2 px-4">
+            <span className="text-sm" aria-live="polite" data-testid="compare-bar-status">
+              {compareIds.length} of {MAX_COMPARE_MODAL_PROJECTS} projects selected
+              {canCompare ? '' : ' — select at least 2 to compare'}
+            </span>
+            <div className="flex items-center gap-2">
+              <Button type="button" variant="ghost" size="sm" onClick={handleClearCompare}>
+                Clear
+              </Button>
+              <Button
+                type="button"
+                stellar="primary"
+                size="sm"
+                disabled={!canCompare}
+                onClick={() => setIsCompareOpen(true)}
+              >
+                Compare ({compareIds.length})
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <ProjectCompareModal
+        offerings={compareOfferings}
+        open={isCompareOpen && canCompare}
+        onOpenChange={setIsCompareOpen}
+        onRemove={handleRemoveFromCompare}
+        shareUrl={compareShareUrl}
+      />
     </div>
   );
 }

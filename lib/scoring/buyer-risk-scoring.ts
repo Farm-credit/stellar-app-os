@@ -36,8 +36,8 @@ import type {
  */
 export const RISK_SCORE_WEIGHTS = Object.freeze({
   verifierReputation: 0.25,
-  methodologyStrength: 0.20,
-  regionalStability: 0.20,
+  methodologyStrength: 0.2,
+  regionalStability: 0.2,
   farmerTrackRecord: 0.35,
 } as const);
 
@@ -70,7 +70,7 @@ const REGIONAL_STABILITY_TIERS = Object.freeze({
   'Latin America': 75,
   'West Africa': 60,
   'Sub-Saharan Africa': 60,
-  'Other': 50,
+  Other: 50,
 } as const);
 
 type RegionKey = keyof typeof REGIONAL_STABILITY_TIERS;

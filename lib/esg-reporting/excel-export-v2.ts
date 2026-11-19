@@ -56,11 +56,20 @@ function buildSummarySheet(report: BuyerComplianceReport): XLSX.WorkSheet {
     { Metric: 'Number of Projects', Value: report.supplyChain.projectCount },
     { Metric: 'Retirement Rate (%)', Value: report.supplyChain.retirementRate },
     { Metric: 'Avg Days to Retirement', Value: report.supplyChain.avgDaysToRetirement ?? 'N/A' },
-    { Metric: 'Origination Complete (%)', Value: report.supplyChain.stageCompletionSummary.origination },
-    { Metric: 'Verification Complete (%)', Value: report.supplyChain.stageCompletionSummary.verification },
+    {
+      Metric: 'Origination Complete (%)',
+      Value: report.supplyChain.stageCompletionSummary.origination,
+    },
+    {
+      Metric: 'Verification Complete (%)',
+      Value: report.supplyChain.stageCompletionSummary.verification,
+    },
     { Metric: 'Issuance Complete (%)', Value: report.supplyChain.stageCompletionSummary.issuance },
     { Metric: 'Purchase Complete (%)', Value: report.supplyChain.stageCompletionSummary.purchase },
-    { Metric: 'Retirement Complete (%)', Value: report.supplyChain.stageCompletionSummary.retirement },
+    {
+      Metric: 'Retirement Complete (%)',
+      Value: report.supplyChain.stageCompletionSummary.retirement,
+    },
   ];
 
   const ws = XLSX.utils.json_to_sheet(data);
@@ -154,7 +163,7 @@ interface SupplyChainRow {
   'First Purchased': string;
   'Last Purchased': string;
   'Co-Benefits': string;
-  'Origination': string;
+  Origination: string;
   Verification: string;
   Issuance: string;
   Purchase: string;
@@ -179,7 +188,7 @@ function buildSupplyChainSheet(report: BuyerComplianceReport): XLSX.WorkSheet {
       'First Purchased': project.firstPurchasedAt.split('T')[0],
       'Last Purchased': project.lastPurchasedAt.split('T')[0],
       'Co-Benefits': project.coBenefits.join('; '),
-      'Origination': originationStage?.detail || 'Unknown',
+      Origination: originationStage?.detail || 'Unknown',
       Verification: verificationStage?.detail || 'Unknown',
       Issuance: issuanceStage?.detail || 'Unknown',
       Purchase: purchaseStage?.detail || 'Unknown',

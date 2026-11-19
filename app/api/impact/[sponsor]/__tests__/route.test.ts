@@ -25,8 +25,10 @@ describe('GET /api/impact/[sponsor] edge cases', () => {
       .mockResolvedOnce({ trees: page1, cursor: 'page-2' })
       .mockResolvedOnce({ trees: page2, cursor: null });
 
-    const response = await GET(new Request(`http://localhost/api/impact/${VALID_SPONSOR}`), { params: Promise.resolve({ sponsor: VALID_SPONSOR }) });
-      
+    const response = await GET(new Request(`http://localhost/api/impact/${VALID_SPONSOR}`), {
+      params: Promise.resolve({ sponsor: VALID_SPONSOR }),
+    });
+
     expect(response.status).toBe(200);
     const impact = await response.json();
     expect(impact.treeCount).toBe(1500);

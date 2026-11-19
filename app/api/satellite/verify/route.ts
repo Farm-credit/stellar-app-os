@@ -14,7 +14,7 @@
  * Response:     SatelliteVerificationResult
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { type NextRequest, NextResponse } from 'next/server';
 
 import { verifySatelliteData } from '@/lib/satellite/verifier';
 import type { SatelliteVerificationRequest } from '@/lib/satellite/types';
@@ -107,7 +107,10 @@ function validateRequest(body: unknown): {
   if (!meta || typeof meta !== 'object') {
     errors.push({ field: 'imageryMetadata', message: 'imageryMetadata object is required.' });
   } else {
-    if (!isValidNumber(meta.resolutionMetersPerPixel) || (meta.resolutionMetersPerPixel as number) <= 0) {
+    if (
+      !isValidNumber(meta.resolutionMetersPerPixel) ||
+      (meta.resolutionMetersPerPixel as number) <= 0
+    ) {
       errors.push({
         field: 'imageryMetadata.resolutionMetersPerPixel',
         message: 'resolutionMetersPerPixel must be a positive number.',

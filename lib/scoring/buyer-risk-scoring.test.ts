@@ -572,8 +572,8 @@ describe('Configuration and constants', () => {
   it('getWeights should return configured weights', () => {
     const weights = getWeights();
     expect(weights.verifierReputation).toBe(0.25);
-    expect(weights.methodologyStrength).toBe(0.20);
-    expect(weights.regionalStability).toBe(0.20);
+    expect(weights.methodologyStrength).toBe(0.2);
+    expect(weights.regionalStability).toBe(0.2);
     expect(weights.farmerTrackRecord).toBe(0.35);
   });
 

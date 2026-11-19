@@ -44,11 +44,7 @@ export const MAX_DEAL_NOTES_LENGTH = 500;
 export const MAX_SUBJECT_LENGTH = 160;
 
 /** Statuses in which a new or revised offer may be made. */
-const OFFERABLE_STATUSES: readonly ConversationStatus[] = [
-  'open',
-  'negotiating',
-  'declined',
-];
+const OFFERABLE_STATUSES: readonly ConversationStatus[] = ['open', 'negotiating', 'declined'];
 
 // ── Errors ────────────────────────────────────────────────────────────────────
 
@@ -148,8 +144,9 @@ export function normalizeDealTerms(input: DealTermsInput): DealTerms {
     throw invalid('deliveryStart must be on or before deliveryEnd');
   }
 
-  const currency = ((input.currency ?? DEFAULT_MESSAGE_CURRENCY).trim() || DEFAULT_MESSAGE_CURRENCY)
-    .toUpperCase();
+  const currency = (
+    (input.currency ?? DEFAULT_MESSAGE_CURRENCY).trim() || DEFAULT_MESSAGE_CURRENCY
+  ).toUpperCase();
   if (currency.length > 12) throw invalid('currency must be 12 characters or fewer');
 
   const notes = (input.notes ?? '').trim();
@@ -502,10 +499,7 @@ export function listMessages(
   return limit >= messages.length ? messages : messages.slice(messages.length - limit);
 }
 
-export function sendMessage(
-  conversationId: string,
-  input: SendMessageInput
-): NegotiationMessage {
+export function sendMessage(conversationId: string, input: SendMessageInput): NegotiationMessage {
   const conversation = requireConversation(conversationId);
   const senderId = requireActorId(input.senderId, 'senderId');
   requireParticipant(conversation, senderId);
@@ -654,13 +648,7 @@ export function handleDealAction(conversationId: string, input: DealActionInput)
     }
     case 'counter': {
       if (!input.terms) throw invalid('terms are required when action is "counter"');
-      return counterDeal(
-        conversationId,
-        input.actorId,
-        input.terms,
-        input.note,
-        input.proposalId
-      );
+      return counterDeal(conversationId, input.actorId, input.terms, input.note, input.proposalId);
     }
     case 'accept':
       return acceptDeal(conversationId, input.actorId, input.proposalId);

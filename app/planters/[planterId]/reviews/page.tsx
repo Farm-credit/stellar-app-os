@@ -2,9 +2,9 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { Review, ReviewFormValues } from '@/lib/review-types';
-import { ReviewList } from '@/components/reviews/ReviewList';
-import { ReviewForm } from '@/components/reviews/ReviewForm';
+import { type Review, type ReviewFormValues } from '@/lib/review-types';
+import { ReviewList } from '@/app/components/reviews/ReviewList';
+import { ReviewForm } from '@/app/components/reviews/ReviewForm';
 
 export default function PlanterReviewsPage() {
   const params = useParams();
@@ -70,12 +70,8 @@ export default function PlanterReviewsPage() {
     <div className="max-w-4xl mx-auto p-6">
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">
-            Reviews for Planter #{planterId}
-          </h1>
-          <p className="text-gray-600 mt-1">
-            Transparent rating system for planting teams
-          </p>
+          <h1 className="text-2xl font-bold text-gray-900">Reviews for Planter #{planterId}</h1>
+          <p className="text-gray-600 mt-1">Transparent rating system for planting teams</p>
         </div>
         <div className="flex gap-3">
           <button
@@ -110,11 +106,7 @@ export default function PlanterReviewsPage() {
         </div>
       )}
 
-      <ReviewList
-        reviews={reviews}
-        isLoading={isLoading}
-        error={error}
-      />
+      <ReviewList reviews={reviews} isLoading={isLoading} error={error} />
     </div>
   );
 }

@@ -626,7 +626,12 @@ export class ComplianceReportGenerator {
   }
 
   private csvEscape(value: string): string {
-    if (value.includes(',') || value.includes('"') || value.includes('\n') || value.includes('\r')) {
+    if (
+      value.includes(',') ||
+      value.includes('"') ||
+      value.includes('\n') ||
+      value.includes('\r')
+    ) {
       return '"' + value.replace(/"/g, '""') + '"';
     }
     return value;
@@ -645,7 +650,9 @@ export class ComplianceReportGenerator {
       this.recordToCSVRow(record, reportType, headers).map((v) => this.csvEscape(v))
     );
 
-    return [headers.map((h) => this.csvEscape(h)).join(','), ...rows.map((r) => r.join(','))].join('\n');
+    return [headers.map((h) => this.csvEscape(h)).join(','), ...rows.map((r) => r.join(','))].join(
+      '\n'
+    );
   }
 
   private getCSVHeadersForType(reportType: ComplianceReportType): string[] {

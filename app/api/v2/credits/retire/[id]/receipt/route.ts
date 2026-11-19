@@ -3,10 +3,7 @@ import { getBlockchainReceiptById } from '@/lib/retirement/receipt';
 
 export const runtime = 'nodejs';
 
-export async function GET(
-  _request: Request,
-  context: { params: Promise<{ id: string }> }
-) {
+export async function GET(_request: Request, context: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await context.params;
 

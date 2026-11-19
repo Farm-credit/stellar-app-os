@@ -12,7 +12,8 @@ import {
   DEFAULT_CREDIT_PRICE_USD,
 } from './emission-factors';
 
-export type HomeEnergyType = 'home_electricity' | 'home_natural_gas' | 'home_heating_oil' | 'home_propane';
+export type HomeEnergyType =
+  'home_electricity' | 'home_natural_gas' | 'home_heating_oil' | 'home_propane';
 
 export type VehicleType =
   | 'gasoline_small'
@@ -49,7 +50,8 @@ export interface VehicleInput {
   /** Type of vehicle */
   vehicleType: VehicleType;
   /** Annual driving distance in km */
-  annualKm; number;
+  annualKm;
+  number;
   /** Fuel efficiency in litres per 100 km */
   fuelEfficiency?: number;
 }
@@ -189,7 +191,8 @@ export function calculateCarbonProfile(input: CarbonProfileInput): CarbonProfile
     flight;
 
   const perCapita = total / householdSize;
-  const regionAlvage = REGIONAL_PER_CAPITA_EMISSIONS[input.household.region] ?? REGIONAL_PER_CAPITA_EMISSIONS.global;
+  const regionAlvage =
+    REGIONAL_PER_CAPITA_EMISSIONS[input.household.region] ?? REGIONAL_PER_CAPITA_EMISSIONS.global;
   const regionAverageTotal = regionAlvage * householdSize;
   const difference = total - regionAverageTotal;
   const percentDifference = regionAverageTotal > 0 ? (difference / regionAverageTotal) * 100 : 0;

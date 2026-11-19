@@ -27,12 +27,24 @@ export interface Tree {
   lat: number;
   lng: number;
   co2OffsetKgPerYear: number;
+  /** Climate zone used for CO₂ estimates; inferred from latitude when absent. */
+  climateZone?: 'tropical' | 'subtropical' | 'temperate' | 'arid' | 'coastal';
   projectName: string;
   /** On-chain collectible ID and current owner for sponsored trees. */
   nftTokenId?: string;
   nftOwner?: string;
+  /** Public-facing sponsor display name used on milestone sharing cards. */
+  sponsorName?: string;
   /** Optional evidence image shown on the tree detail page. */
   imageUrl?: string;
+  /** Identifier of the seed batch this tree was grown from. */
+  seedBatchId?: string;
+  /** Name of the seed bank that supplied the seed batch. */
+  seedBankName?: string;
+  /** Free-form provenance notes describing the seed's origin and handling. */
+  provenanceNotes?: string;
+  /** Collection site where the seed was originally gathered. */
+  collectionSite?: string;
 }
 
 export interface TreeFilterState {

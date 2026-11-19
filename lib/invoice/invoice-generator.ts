@@ -148,11 +148,7 @@ function drawHeader(doc: jsPDF, invoiceNumber: string, issueDate: string): numbe
   return 58; // y position after header
 }
 
-function drawParties(
-  doc: jsPDF,
-  y: number,
-  req: InvoiceGenerateRequest
-): number {
+function drawParties(doc: jsPDF, y: number, req: InvoiceGenerateRequest): number {
   const { sponsor } = req;
   const dueDate = getDueDateFromTerms(req.issueDate, req.paymentTerms);
 
@@ -231,9 +227,24 @@ function drawLineItemsTable(
 
   const cols = [
     { label: 'DESCRIPTION', x: MARGIN + 3, w: COL_WIDTHS.description },
-    { label: 'QTY', x: MARGIN + COL_WIDTHS.description + 3, w: COL_WIDTHS.qty, align: 'right' as const },
-    { label: 'UNIT PRICE', x: MARGIN + COL_WIDTHS.description + COL_WIDTHS.qty + 3, w: COL_WIDTHS.unitPrice, align: 'right' as const },
-    { label: 'SUBTOTAL', x: MARGIN + CONTENT_W - 3, w: COL_WIDTHS.subtotal, align: 'right' as const },
+    {
+      label: 'QTY',
+      x: MARGIN + COL_WIDTHS.description + 3,
+      w: COL_WIDTHS.qty,
+      align: 'right' as const,
+    },
+    {
+      label: 'UNIT PRICE',
+      x: MARGIN + COL_WIDTHS.description + COL_WIDTHS.qty + 3,
+      w: COL_WIDTHS.unitPrice,
+      align: 'right' as const,
+    },
+    {
+      label: 'SUBTOTAL',
+      x: MARGIN + CONTENT_W - 3,
+      w: COL_WIDTHS.subtotal,
+      align: 'right' as const,
+    },
   ];
 
   for (const col of cols) {

@@ -51,7 +51,7 @@ export async function checkRateLimit(ip: string, limit = DEFAULT_LIMIT): Promise
         number,
         string[] | Array<{ value: string; score: number }>,
         number,
-        boolean
+        boolean,
       ];
 
       if (count > limit) {
@@ -62,11 +62,11 @@ export async function checkRateLimit(ip: string, limit = DEFAULT_LIMIT): Promise
           if (typeof first === 'object' && 'score' in first) {
             oldestScore = first.score;
           } else if (typeof first === 'string' && firstElem.length > 1) {
-             // If withScores returned flat array [value, score, value, score]
-             oldestScore = parseFloat(firstElem[1] as string);
+            // If withScores returned flat array [value, score, value, score]
+            oldestScore = parseFloat(firstElem[1] as string);
           }
         }
-        
+
         return {
           allowed: false,
           reason: 'rate_limit',
@@ -152,7 +152,7 @@ export async function checkSubmitAnonRateLimit(ip: string): Promise<SlidingRateL
         number,
         Array<{ value: string; score: number }>,
         number,
-        boolean
+        boolean,
       ];
 
       if (count > SUBMIT_ANON_LIMIT) {

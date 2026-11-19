@@ -124,7 +124,9 @@ export function filterBySource(
   return source === 'all' ? surveys : surveys.filter((s) => s.source === source);
 }
 
-export function coveragePercent(survey: CanopySurvey): number {
+export function coveragePercent(
+  survey: Pick<CanopySurvey, 'projectAreaHa' | 'canopyAreaHa'>
+): number {
   if (survey.projectAreaHa <= 0) return 0;
   return round((survey.canopyAreaHa / survey.projectAreaHa) * 100);
 }
@@ -224,9 +226,5 @@ export function surveysToCsv(surveys: CanopySurvey[]): string {
 }
 
 export function surveysToJson(surveys: CanopySurvey[]): string {
-  return JSON.stringify(
-    { summary: summarize(surveys), surveys: sortByDate(surveys) },
-    null,
-    2
-  );
+  return JSON.stringify({ summary: summarize(surveys), surveys: sortByDate(surveys) }, null, 2);
 }

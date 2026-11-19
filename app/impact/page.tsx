@@ -11,8 +11,8 @@ export default function ImpactPage(): JSX.Element {
             3D project impact model
           </h2>
           <p className="mt-1 text-sm text-emerald-800 dark:text-emerald-200">
-            Explore forest growth over time, soil sequestration depth, and emissions
-            reduction rate in an interactive 3D view.
+            Explore forest growth over time, soil sequestration depth, and emissions reduction rate
+            in an interactive 3D view.
           </p>
           <Link
             href="/impact/3d"

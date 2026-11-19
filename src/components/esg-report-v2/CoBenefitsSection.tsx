@@ -22,7 +22,8 @@ export function CoBenefitsSection({ report }: CoBenefitsSectionProps) {
       <div className="rounded-lg border border-border bg-card p-4">
         <p className="text-sm font-semibold text-foreground">
           {coBenefits.allBenefits.length} unique co-benefits across{' '}
-          <span className="text-stellar-blue">{coBenefits.totalBenefitInstances}</span> project instances
+          <span className="text-stellar-blue">{coBenefits.totalBenefitInstances}</span> project
+          instances
         </p>
       </div>
 
@@ -33,20 +34,24 @@ export function CoBenefitsSection({ report }: CoBenefitsSectionProps) {
         </div>
       ) : (
         <div className="space-y-3">
-          <h3 className="text-sm font-semibold uppercase text-muted-foreground">Top 5 Co-Benefits</h3>
+          <h3 className="text-sm font-semibold uppercase text-muted-foreground">
+            Top 5 Co-Benefits
+          </h3>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
             {coBenefits.topBenefits.map((benefit) => (
               <div
                 key={benefit.name}
                 className="rounded-lg border border-border bg-card p-3 hover:shadow-sm"
               >
-                <p className="text-xs uppercase text-muted-foreground">
-                  {benefit.name}
-                </p>
+                <p className="text-xs uppercase text-muted-foreground">{benefit.name}</p>
                 <div className="mt-2 space-y-1">
-                  <p className="text-lg font-bold text-foreground">{benefit.tonnes.toLocaleString()}</p>
+                  <p className="text-lg font-bold text-foreground">
+                    {benefit.tonnes.toLocaleString()}
+                  </p>
                   <p className="text-xs text-muted-foreground">t CO₂e equivalent</p>
-                  <p className="text-xs font-medium text-stellar-blue">{benefit.sharePercentage}% of total</p>
+                  <p className="text-xs font-medium text-stellar-blue">
+                    {benefit.sharePercentage}% of total
+                  </p>
                   <p className="text-xs text-muted-foreground">{benefit.projectCount} project(s)</p>
                 </div>
               </div>
@@ -77,7 +82,9 @@ export function CoBenefitsSection({ report }: CoBenefitsSectionProps) {
                     <td className="px-4 py-3 text-right text-foreground">
                       {benefit.tonnes.toLocaleString()}
                     </td>
-                    <td className="px-4 py-3 text-right text-foreground">{benefit.sharePercentage}%</td>
+                    <td className="px-4 py-3 text-right text-foreground">
+                      {benefit.sharePercentage}%
+                    </td>
                   </tr>
                 ))}
               </tbody>

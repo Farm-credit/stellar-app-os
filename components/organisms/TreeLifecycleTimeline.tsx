@@ -86,7 +86,13 @@ export function TreeLifecycleTimeline({ tree }: TreeLifecycleTimelineProps) {
               }`}
               aria-hidden
             >
-              {milestone.complete ? <Check className="h-4 w-4" /> : index === 0 ? <Circle className="h-3 w-3" /> : <Clock3 className="h-3.5 w-3.5" />}
+              {milestone.complete ? (
+                <Check className="h-4 w-4" />
+              ) : index === 0 ? (
+                <Circle className="h-3 w-3" />
+              ) : (
+                <Clock3 className="h-3.5 w-3.5" />
+              )}
             </span>
             <span className="min-w-0 flex-1">
               <span className="flex flex-wrap items-center justify-between gap-2">
@@ -95,7 +101,9 @@ export function TreeLifecycleTimeline({ tree }: TreeLifecycleTimelineProps) {
                   {milestone.date ?? (milestone.complete ? 'Completed' : 'Upcoming')}
                 </span>
               </span>
-              <span className="mt-1 block text-sm text-muted-foreground">{milestone.description}</span>
+              <span className="mt-1 block text-sm text-muted-foreground">
+                {milestone.description}
+              </span>
             </span>
           </summary>
         </details>

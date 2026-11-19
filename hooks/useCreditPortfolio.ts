@@ -1,10 +1,23 @@
 'use client';
 
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { enrichHolding } from '@/lib/credits/portfolio';
 import type { OwnedCredit, PortfolioStats, PriceCache } from '@/lib/types/credits';
 
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+// Renewal window (in days) within which a certification renewal is considered "due soon"
+const RENEWAL_DUE_SOON_DAYS = 90;
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+export interface CertificationSummary {
+  verifiedCount: number;
+  pendingCount: number;
+  unverifiedCount: number;
+  renewalsDueSoon: number;
+  renewalsOverdue: number;
+  lastVerifiedAt: number | null;
+}
 
 export function useCreditPortfolio(publicKey: string | null) {
   const [credits, setCredits] = useState<OwnedCredit[]>([]);
@@ -152,12 +165,64 @@ export function useCreditPortfolio(publicKey: string | null) {
     await fetchCreditBalances();
   }, [fetchCreditBalances]);
 
+  // Derived certification summary for the portfolio UI
+  const certificationSummary = useMemo<CertificationSummary>(() => {
+    const now = Date.now();
+    const dueSoonThreshold = now + RENEWAL_DUE_SOON_DAYS * MS_PER_DAY;
+
+    let verifiedCount = 0;
+    let pendingCount = 0;
+    let unverifiedCount = 0;
+    let renewalsDueSoon = 0;
+    let renewalsOverdue = 0;
+    let lastVerifiedAt: number | null = null;
+
+    for (const credit of credits) {
+      switch (credit.certificationStatus) {
+        case 'verified':
+          verifiedCount++;
+          break;
+        case 'pending':
+          pendingCount++;
+          break;
+        default:
+          unverifiedCount++;
+          break;
+      }
+
+      if (credit.certificationVerifiedAt) {
+        if (lastVerifiedAt === null || credit.certificationVerifiedAt > lastVerifiedAt) {
+          lastVerifiedAt = credit.certificationVerifiedAt;
+        }
+      }
+
+      const renewalAt = credit.certificationRenewalAt;
+      if (typeof renewalAt === 'number' && renewalAt > 0) {
+        if (renewalAt < now) {
+          renewalsOverdue++;
+        } else if (renewalAt <= dueSoonThreshold) {
+          renewalsDueSoon++;
+        }
+      }
+    }
+
+    return {
+      verifiedCount,
+      pendingCount,
+      unverifiedCount,
+      renewalsDueSoon,
+      renewalsOverdue,
+      lastVerifiedAt,
+    };
+  }, [credits]);
+
   return {
     credits,
     stats,
     isLoading,
     error,
     refreshPortfolio,
+    certificationSummary,
   };
 }
 

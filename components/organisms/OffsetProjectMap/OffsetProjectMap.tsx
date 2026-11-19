@@ -1,15 +1,20 @@
 'use client';
 
 import { useState, useMemo, useEffect, type JSX } from 'react';
-import { MapContainer, TileLayer, CircleMarker, Circle, Tooltip, Popup, useMap } from 'react-leaflet';
+import {
+  MapContainer,
+  TileLayer,
+  CircleMarker,
+  Circle,
+  Tooltip,
+  Popup,
+  useMap,
+} from 'react-leaflet';
 import Link from 'next/link';
 import { Badge } from '@/components/atoms/Badge';
 import { Button } from '@/components/atoms/Button';
 import type { CarbonProject, ProjectType } from '@/lib/types/carbon';
-import {
-  getProjectClimateComparison,
-  METEOROLOGICAL_API_SOURCE,
-} from '@/lib/climate/climateComparisonService';
+import { getProjectClimateComparison } from '@/lib/climate/climateComparisonService';
 import type {
   ClimateLayerMetric,
   ClimateLayerTimeframe,
@@ -149,16 +154,27 @@ function getClimateOverlayColor(
 
     if (timeframe === 'comparison') {
       const deltaPct = climate.comparison.rainfallDeltaPercent;
-      if (deltaPct >= 10) return { fill: '#0284c7', stroke: '#0369a1', label: `Surplus (+${deltaPct}%)` };
-      if (deltaPct >= -10) return { fill: '#10b981', stroke: '#059669', label: `Stable (${deltaPct >= 0 ? '+' : ''}${deltaPct}%)` };
-      if (deltaPct >= -25) return { fill: '#f59e0b', stroke: '#d97706', label: `Deficit (${deltaPct}%)` };
+      if (deltaPct >= 10)
+        return { fill: '#0284c7', stroke: '#0369a1', label: `Surplus (+${deltaPct}%)` };
+      if (deltaPct >= -10)
+        return {
+          fill: '#10b981',
+          stroke: '#059669',
+          label: `Stable (${deltaPct >= 0 ? '+' : ''}${deltaPct}%)`,
+        };
+      if (deltaPct >= -25)
+        return { fill: '#f59e0b', stroke: '#d97706', label: `Deficit (${deltaPct}%)` };
       return { fill: '#ef4444', stroke: '#b91c1c', label: `Severe Drought (${deltaPct}%)` };
     }
 
-    if (rainfallMm >= 2200) return { fill: '#1d4ed8', stroke: '#1e40af', label: `${rainfallMm} mm (Very High)` };
-    if (rainfallMm >= 1400) return { fill: '#0891b2', stroke: '#0e7490', label: `${rainfallMm} mm (High)` };
-    if (rainfallMm >= 800) return { fill: '#16a34a', stroke: '#15803d', label: `${rainfallMm} mm (Moderate)` };
-    if (rainfallMm >= 500) return { fill: '#d97706', stroke: '#b45309', label: `${rainfallMm} mm (Low)` };
+    if (rainfallMm >= 2200)
+      return { fill: '#1d4ed8', stroke: '#1e40af', label: `${rainfallMm} mm (Very High)` };
+    if (rainfallMm >= 1400)
+      return { fill: '#0891b2', stroke: '#0e7490', label: `${rainfallMm} mm (High)` };
+    if (rainfallMm >= 800)
+      return { fill: '#16a34a', stroke: '#15803d', label: `${rainfallMm} mm (Moderate)` };
+    if (rainfallMm >= 500)
+      return { fill: '#d97706', stroke: '#b45309', label: `${rainfallMm} mm (Low)` };
     return { fill: '#dc2626', stroke: '#991b1b', label: `${rainfallMm} mm (Arid)` };
   }
 
@@ -170,16 +186,27 @@ function getClimateOverlayColor(
 
     if (timeframe === 'comparison') {
       const deltaC = climate.comparison.temperatureDeltaC;
-      if (deltaC >= 1.5) return { fill: '#ef4444', stroke: '#b91c1c', label: `Elevated Warming (+${deltaC}°C)` };
-      if (deltaC >= 0.5) return { fill: '#f59e0b', stroke: '#d97706', label: `Moderate Warming (+${deltaC}°C)` };
-      if (deltaC >= -0.5) return { fill: '#10b981', stroke: '#059669', label: `Baseline Baseline (${deltaC >= 0 ? '+' : ''}${deltaC}°C)` };
+      if (deltaC >= 1.5)
+        return { fill: '#ef4444', stroke: '#b91c1c', label: `Elevated Warming (+${deltaC}°C)` };
+      if (deltaC >= 0.5)
+        return { fill: '#f59e0b', stroke: '#d97706', label: `Moderate Warming (+${deltaC}°C)` };
+      if (deltaC >= -0.5)
+        return {
+          fill: '#10b981',
+          stroke: '#059669',
+          label: `Baseline Baseline (${deltaC >= 0 ? '+' : ''}${deltaC}°C)`,
+        };
       return { fill: '#3b82f6', stroke: '#1d4ed8', label: `Cooler Anomaly (${deltaC}°C)` };
     }
 
-    if (tempC >= 26) return { fill: '#ef4444', stroke: '#dc2626', label: `${tempC.toFixed(1)}°C (Hot/Tropical)` };
-    if (tempC >= 20) return { fill: '#f59e0b', stroke: '#d97706', label: `${tempC.toFixed(1)}°C (Warm)` };
-    if (tempC >= 14) return { fill: '#10b981', stroke: '#059669', label: `${tempC.toFixed(1)}°C (Temperate)` };
-    if (tempC >= 8) return { fill: '#06b6d4', stroke: '#0891b2', label: `${tempC.toFixed(1)}°C (Mild-Cool)` };
+    if (tempC >= 26)
+      return { fill: '#ef4444', stroke: '#dc2626', label: `${tempC.toFixed(1)}°C (Hot/Tropical)` };
+    if (tempC >= 20)
+      return { fill: '#f59e0b', stroke: '#d97706', label: `${tempC.toFixed(1)}°C (Warm)` };
+    if (tempC >= 14)
+      return { fill: '#10b981', stroke: '#059669', label: `${tempC.toFixed(1)}°C (Temperate)` };
+    if (tempC >= 8)
+      return { fill: '#06b6d4', stroke: '#0891b2', label: `${tempC.toFixed(1)}°C (Mild-Cool)` };
     return { fill: '#3b82f6', stroke: '#2563eb', label: `${tempC.toFixed(1)}°C (Cold)` };
   }
 
@@ -187,7 +214,8 @@ function getClimateOverlayColor(
   const score = climate.plantingConditions.suitabilityScore;
   if (score >= 85) return { fill: '#10b981', stroke: '#059669', label: `Optimal (${score}/100)` };
   if (score >= 70) return { fill: '#84cc16', stroke: '#65a30d', label: `Favorable (${score}/100)` };
-  if (score >= 55) return { fill: '#eab308', stroke: '#ca8a04', label: `Moderate Risk (${score}/100)` };
+  if (score >= 55)
+    return { fill: '#eab308', stroke: '#ca8a04', label: `Moderate Risk (${score}/100)` };
   return { fill: '#ef4444', stroke: '#dc2626', label: `Challenging (${score}/100)` };
 }
 
@@ -204,9 +232,7 @@ export function OffsetProjectMap({
   initialRegion = 'All',
   initialType = 'all',
   initialAvailability = 'all',
-  filters: externalFilters,
   height = '620px',
-  className = '',
   showFilters = true,
   filters: externalFilters,
   className = '',
@@ -219,7 +245,9 @@ export function OffsetProjectMap({
   const [activeProjectHover, setActiveProjectHover] = useState<CarbonProject | null>(null);
 
   // ── Climate Layer States ──────────────────────────────────────────────────
-  const [climateLayerActive, setClimateLayerActive] = useState<boolean>(enableClimateLayerByDefault);
+  const [climateLayerActive, setClimateLayerActive] = useState<boolean>(
+    enableClimateLayerByDefault
+  );
   const [climateMetric, setClimateMetric] = useState<ClimateLayerMetric>('rainfall');
   const [climateTimeframe, setClimateTimeframe] = useState<ClimateLayerTimeframe>('comparison');
   const [modalProject, setModalProject] = useState<ProjectClimateComparison | null>(null);
@@ -250,8 +278,10 @@ export function OffsetProjectMap({
   const filteredProjects = useMemo(() => {
     return projects.filter((p) => {
       if (externalFilters) {
-        if (externalFilters.types.length > 0 && !externalFilters.types.includes(p.type)) return false;
-        if (externalFilters.regions.length > 0 && !externalFilters.regions.includes(p.location)) return false;
+        if (externalFilters.types.length > 0 && !externalFilters.types.includes(p.type))
+          return false;
+        if (externalFilters.regions.length > 0 && !externalFilters.regions.includes(p.location))
+          return false;
         if (externalFilters.availableOnly && p.isOutOfStock) return false;
         return true;
       }
@@ -291,7 +321,10 @@ export function OffsetProjectMap({
   const mapConfig = REGION_CENTERS[selectedRegion] || REGION_CENTERS.All;
 
   return (
-    <div className={`flex flex-col gap-4 w-full ${className}`} data-testid="offset-project-map-container">
+    <div
+      className={`flex flex-col gap-4 w-full ${className}`}
+      data-testid="offset-project-map-container"
+    >
       {showFilters && (
         <div className="bg-card border border-border/80 rounded-2xl p-4 shadow-sm backdrop-blur-md">
           {/* Quick Stats Bar */}
@@ -323,8 +356,12 @@ export function OffsetProjectMap({
               <span className="text-xl font-bold text-primary">${avgPrice}</span>
             </div>
             <div className="flex flex-col">
-              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Climate Layer</span>
-              <span className={`text-xl font-bold ${climateLayerActive ? 'text-emerald-500' : 'text-muted-foreground'}`}>
+              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                Climate Layer
+              </span>
+              <span
+                className={`text-xl font-bold ${climateLayerActive ? 'text-emerald-500' : 'text-muted-foreground'}`}
+              >
                 {climateLayerActive ? 'Active' : 'Disabled'}
               </span>
             </div>
@@ -541,7 +578,8 @@ export function OffsetProjectMap({
               ? 7
               : Math.min(18, 9 + Math.log10(Math.max(10, project.availableSupply)) * 2.5);
 
-            const climate = climateMap.get(project.id) ?? getProjectClimateComparison(project, 2026);
+            const climate =
+              climateMap.get(project.id) ?? getProjectClimateComparison(project, 2026);
             const climateColor = getClimateOverlayColor(climate, climateMetric, climateTimeframe);
 
             return (
@@ -566,9 +604,17 @@ export function OffsetProjectMap({
                   center={[project.coordinates.latitude, project.coordinates.longitude]}
                   radius={climateLayerActive ? markerRadius + 3 : markerRadius}
                   pathOptions={{
-                    fillColor: climateLayerActive ? climateColor.fill : (isOutOfStock ? '#94a3b8' : colors.fill),
+                    fillColor: climateLayerActive
+                      ? climateColor.fill
+                      : isOutOfStock
+                        ? '#94a3b8'
+                        : colors.fill,
                     fillOpacity: isOutOfStock ? 0.4 : 0.88,
-                    color: climateLayerActive ? '#ffffff' : (isOutOfStock ? '#64748b' : colors.stroke),
+                    color: climateLayerActive
+                      ? '#ffffff'
+                      : isOutOfStock
+                        ? '#64748b'
+                        : colors.stroke,
                     weight: climateLayerActive ? 2.5 : 2,
                   }}
                   eventHandlers={{
@@ -577,7 +623,12 @@ export function OffsetProjectMap({
                   }}
                 >
                   {/* On-Hover Interactive Tooltip */}
-                  <Tooltip direction="top" offset={[0, -10]} opacity={1} className="offset-project-tooltip">
+                  <Tooltip
+                    direction="top"
+                    offset={[0, -10]}
+                    opacity={1}
+                    className="offset-project-tooltip"
+                  >
                     <div className="p-1 min-w-[240px] max-w-[300px]">
                       <div className="flex items-center justify-between gap-1 mb-1">
                         <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
@@ -585,14 +636,20 @@ export function OffsetProjectMap({
                         </span>
                         <span
                           className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
-                            isOutOfStock ? 'bg-red-500/10 text-red-500' : 'bg-emerald-500/10 text-emerald-600'
+                            isOutOfStock
+                              ? 'bg-red-500/10 text-red-500'
+                              : 'bg-emerald-500/10 text-emerald-600'
                           }`}
                         >
-                          {isOutOfStock ? 'Sold Out' : `${project.availableSupply.toLocaleString()} tCO2e`}
+                          {isOutOfStock
+                            ? 'Sold Out'
+                            : `${project.availableSupply.toLocaleString()} tCO2e`}
                         </span>
                       </div>
 
-                      <h4 className="font-semibold text-xs leading-tight mb-1 text-foreground">{project.name}</h4>
+                      <h4 className="font-semibold text-xs leading-tight mb-1 text-foreground">
+                        {project.name}
+                      </h4>
                       <p className="text-[11px] text-muted-foreground mb-1.5 flex items-center gap-1">
                         📍 {project.location}
                       </p>
@@ -609,21 +666,27 @@ export function OffsetProjectMap({
                           <div className="text-muted-foreground flex justify-between">
                             <span>Rainfall (Hist/Curr):</span>
                             <strong className="text-foreground">
-                              {climate.historical.annualRainfallMm} / {climate.current.annualRainfallMm} mm
+                              {climate.historical.annualRainfallMm} /{' '}
+                              {climate.current.annualRainfallMm} mm
                             </strong>
                           </div>
                           <div className="text-muted-foreground flex justify-between">
                             <span>Temp (Hist/Curr):</span>
                             <strong className="text-foreground">
-                              {climate.historical.meanTemperatureC}°C / {climate.current.meanTemperatureC}°C
+                              {climate.historical.meanTemperatureC}°C /{' '}
+                              {climate.current.meanTemperatureC}°C
                             </strong>
                           </div>
                         </div>
                       )}
 
                       <div className="flex items-center justify-between text-xs pt-1 border-t border-border/50">
-                        <span className="font-semibold text-primary">${project.pricePerTon.toFixed(2)} / ton</span>
-                        <span className="text-[10px] text-muted-foreground">{project.verificationStatus}</span>
+                        <span className="font-semibold text-primary">
+                          ${project.pricePerTon.toFixed(2)} / ton
+                        </span>
+                        <span className="text-[10px] text-muted-foreground">
+                          {project.verificationStatus}
+                        </span>
                       </div>
                     </div>
                   </Tooltip>
@@ -635,7 +698,10 @@ export function OffsetProjectMap({
                         <Badge variant="outline" className="text-[10px]">
                           {project.type}
                         </Badge>
-                        <Badge variant={isOutOfStock ? 'destructive' : 'default'} className="text-[10px]">
+                        <Badge
+                          variant={isOutOfStock ? 'destructive' : 'default'}
+                          className="text-[10px]"
+                        >
                           {isOutOfStock ? 'Out of Stock' : 'Active Listing'}
                         </Badge>
                       </div>
@@ -657,8 +723,12 @@ export function OffsetProjectMap({
                         {/* Comparison Table */}
                         <div className="grid grid-cols-3 gap-1 py-1 border-y border-border/50 text-[11px] mb-2">
                           <div className="font-medium text-muted-foreground">Metric</div>
-                          <div className="font-medium text-muted-foreground text-center">Historical</div>
-                          <div className="font-medium text-muted-foreground text-right">Current (2026)</div>
+                          <div className="font-medium text-muted-foreground text-center">
+                            Historical
+                          </div>
+                          <div className="font-medium text-muted-foreground text-right">
+                            Current (2026)
+                          </div>
 
                           <div className="text-foreground">Rainfall</div>
                           <div className="text-center font-semibold text-foreground">
@@ -681,8 +751,12 @@ export function OffsetProjectMap({
                         <div className="text-[11px] space-y-1 text-muted-foreground">
                           <div className="flex justify-between items-center">
                             <span>Planting Suitability:</span>
-                            <Badge variant="outline" className="text-[10px] bg-emerald-500/10 text-emerald-600 border-emerald-500/30">
-                              {climate.plantingConditions.overallCondition} ({climate.plantingConditions.suitabilityScore}/100)
+                            <Badge
+                              variant="outline"
+                              className="text-[10px] bg-emerald-500/10 text-emerald-600 border-emerald-500/30"
+                            >
+                              {climate.plantingConditions.overallCondition} (
+                              {climate.plantingConditions.suitabilityScore}/100)
                             </Badge>
                           </div>
                           <p className="text-[10px] italic text-muted-foreground leading-tight pt-1">
@@ -707,7 +781,9 @@ export function OffsetProjectMap({
                         </div>
                         <div className="flex justify-between">
                           <span className="text-muted-foreground">Standard:</span>
-                          <span className="font-medium text-foreground">{project.verificationStatus}</span>
+                          <span className="font-medium text-foreground">
+                            {project.verificationStatus}
+                          </span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-muted-foreground">Available Supply:</span>
@@ -717,7 +793,9 @@ export function OffsetProjectMap({
                         </div>
                         <div className="flex justify-between">
                           <span className="text-muted-foreground">Price per Ton:</span>
-                          <span className="font-bold text-primary">${project.pricePerTon.toFixed(2)} USDC</span>
+                          <span className="font-bold text-primary">
+                            ${project.pricePerTon.toFixed(2)} USDC
+                          </span>
                         </div>
                       </div>
 
@@ -746,10 +824,12 @@ export function OffsetProjectMap({
                   {climateMetric === 'rainfall'
                     ? 'Rainfall Scale'
                     : climateMetric === 'temperature'
-                    ? 'Temperature Scale'
-                    : 'Planting Conditions'}
+                      ? 'Temperature Scale'
+                      : 'Planting Conditions'}
                 </span>
-                <span className="text-[10px] text-muted-foreground uppercase">{climateTimeframe}</span>
+                <span className="text-[10px] text-muted-foreground uppercase">
+                  {climateTimeframe}
+                </span>
               </div>
               <p className="text-[10px] text-muted-foreground mb-2">
                 Open meteorological API overlay for ecologists & sponsors
@@ -872,13 +952,16 @@ export function OffsetProjectMap({
                   : activeProjectHover.verificationStatus}
               </Badge>
             </div>
-            <h4 className="font-bold text-sm text-foreground leading-tight mb-1">{activeProjectHover.name}</h4>
+            <h4 className="font-bold text-sm text-foreground leading-tight mb-1">
+              {activeProjectHover.name}
+            </h4>
             <p className="text-xs text-muted-foreground mb-1.5">📍 {activeProjectHover.location}</p>
 
             {climateLayerActive && (
               <div className="mb-2 p-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-[10px] space-y-0.5">
                 <div className="font-semibold text-emerald-700 dark:text-emerald-400">
-                  Planting Condition: {climateMap.get(activeProjectHover.id)?.plantingConditions.overallCondition}
+                  Planting Condition:{' '}
+                  {climateMap.get(activeProjectHover.id)?.plantingConditions.overallCondition}
                 </div>
                 <div className="text-muted-foreground">
                   Rain: {climateMap.get(activeProjectHover.id)?.current.annualRainfallMm} mm (Δ{' '}
@@ -889,7 +972,9 @@ export function OffsetProjectMap({
             )}
 
             <div className="flex items-center justify-between text-xs pt-1 border-t border-border/60">
-              <span className="font-semibold text-primary">${activeProjectHover.pricePerTon.toFixed(2)} / ton</span>
+              <span className="font-semibold text-primary">
+                ${activeProjectHover.pricePerTon.toFixed(2)} / ton
+              </span>
               <span className="font-medium text-emerald-600">
                 {activeProjectHover.availableSupply.toLocaleString()} tCO2e available
               </span>
@@ -912,10 +997,7 @@ export function OffsetProjectMap({
       </div>
 
       {/* Climate Comparison Deep Dive Modal for Ecologists & Sponsors */}
-      <ClimateComparisonModal
-        comparison={modalProject}
-        onClose={() => setModalProject(null)}
-      />
+      <ClimateComparisonModal comparison={modalProject} onClose={() => setModalProject(null)} />
     </div>
   );
 }

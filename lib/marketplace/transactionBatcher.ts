@@ -84,7 +84,10 @@ export function calculateBatchGasSavings(itemCount: number): BatchFeeComparison 
     Math.round(100 + BATCHED_OP_BASE_FEE_STROOPS * (itemCount * 0.9))
   );
 
-  const feesSavedStroops = Math.max(0, individualTransactionsFeeStroops - batchedTransactionFeeStroops);
+  const feesSavedStroops = Math.max(
+    0,
+    individualTransactionsFeeStroops - batchedTransactionFeeStroops
+  );
   const savingsPercentage = Number(
     ((feesSavedStroops / individualTransactionsFeeStroops) * 100).toFixed(1)
   );
@@ -129,7 +132,8 @@ export function getBatchExecutionMetrics() {
     totalFeesSavedStroops,
     averageSavingsPercent,
     targetSavingsAchieved: averageSavingsPercent >= 75.0,
-    description: 'Carbon credit transaction batching reduces gas and Stellar fees by ~80% by packing up to 100 operations in a single atomic transaction.',
+    description:
+      'Carbon credit transaction batching reduces gas and Stellar fees by ~80% by packing up to 100 operations in a single atomic transaction.',
   };
 }
 
@@ -175,9 +179,7 @@ export async function buildBatchedCarbonCreditPurchase(
   // Pack each purchase into an operation within the single transaction
   for (const item of items) {
     const paymentAsset =
-      item.assetCode && item.issuer
-        ? new Asset(item.assetCode, item.issuer)
-        : Asset.native();
+      item.assetCode && item.issuer ? new Asset(item.assetCode, item.issuer) : Asset.native();
 
     // Add payment operation from source to seller
     txBuilder.addOperation(

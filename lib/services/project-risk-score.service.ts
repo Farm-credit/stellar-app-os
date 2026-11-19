@@ -275,12 +275,7 @@ export async function calculateAndStoreProjectRiskScore(
     };
 
     // Calculate all sub-scores
-    const subScores = calculateAllSubScores(
-      project,
-      safeMethodology,
-      safeRegion,
-      safeFarmer
-    );
+    const subScores = calculateAllSubScores(project, safeMethodology, safeRegion, safeFarmer);
 
     // Combine into overall score
     const overallScore = combineSubScoresIntoOverallScore(subScores);

@@ -112,7 +112,7 @@ describe('webinar curriculum', () => {
     expect(findWebinarSessionBySlug('carbon-accounting-foundations')).toBeDefined();
     expect(findWebinarSessionBySlug('missing-slug')).toBeUndefined();
     expect(findWebinarSessionBySlug('compliance-records', FIXTURES)?.title).toBe(
-      'Compliance: keeping audit-ready records',
+      'Compliance: keeping audit-ready records'
     );
   });
 });
@@ -121,16 +121,16 @@ describe('webinar schedule formatting', () => {
   it('resolves the session start instant in the published timezone', () => {
     // Africa/Lagos is UTC+1 all year, so a 15:00 session starts at 14:00 UTC.
     expect(
-      getWebinarStart(buildSession({ date: '2026-02-12', startTime: '15:00' })).toISOString(),
+      getWebinarStart(buildSession({ date: '2026-02-12', startTime: '15:00' })).toISOString()
     ).toBe('2026-02-12T14:00:00.000Z');
     expect(
-      getWebinarStart(buildSession({ timeZone: 'UTC', startTime: '09:30' })).toISOString(),
+      getWebinarStart(buildSession({ timeZone: 'UTC', startTime: '09:30' })).toISOString()
     ).toBe('2026-04-09T09:30:00.000Z');
   });
 
   it('falls back to UTC for an unknown timezone instead of throwing', () => {
     expect(getWebinarStart(buildSession({ timeZone: 'Not/AZone' })).toISOString()).toBe(
-      '2026-04-09T15:00:00.000Z',
+      '2026-04-09T15:00:00.000Z'
     );
   });
 
@@ -141,8 +141,8 @@ describe('webinar schedule formatting', () => {
     expect(formatWebinarTimeRange({ startTime: '23:30', durationMinutes: 90 })).toBe('23:30–01:00');
     expect(
       formatWebinarSchedule(
-        buildSession({ date: '2026-07-09', startTime: '15:00', durationMinutes: 60 }),
-      ),
+        buildSession({ date: '2026-07-09', startTime: '15:00', durationMinutes: 60 })
+      )
     ).toBe('9 Jul 2026 · 15:00–16:00 (Africa/Lagos)');
   });
 });
@@ -198,7 +198,7 @@ describe('upcoming and past splits', () => {
       'sep',
     ]);
     expect(
-      getPastWebinarSessions(sessions, new Date('2026-12-01T00:00:00Z')).map((s) => s.slug),
+      getPastWebinarSessions(sessions, new Date('2026-12-01T00:00:00Z')).map((s) => s.slug)
     ).toEqual(['sep', 'aug', 'jul']);
   });
 
@@ -240,7 +240,7 @@ describe('summarizeWebinarSeries', () => {
   it('reports an open stream when no upcoming session is capped', () => {
     const summary = summarizeWebinarSeries(
       [buildSession({ capacity: null, registered: 0, date: '2026-07-09' })],
-      NOW,
+      NOW
     );
 
     expect(summary.seatsRemaining).toBeNull();

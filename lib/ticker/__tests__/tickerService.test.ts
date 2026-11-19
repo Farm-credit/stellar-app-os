@@ -5,7 +5,6 @@ import {
   getTickerService,
   type TickerServiceEvent,
 } from '@/lib/ticker/tickerService';
-import type { CarbonCreditTradeFill } from '@/lib/types/ticker';
 
 describe('lib/ticker/tickerService', () => {
   let service: TickerService;

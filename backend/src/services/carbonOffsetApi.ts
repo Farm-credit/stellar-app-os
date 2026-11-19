@@ -3,12 +3,12 @@
 
 /**
  * Carbon Offset Embeddable API
- * 
+ *
  * Issue #1415: Embeddable API allowing companies to offer carbon offset
  * purchasing directly on their e-commerce or website. White-label solution.
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import Stripe from 'stripe';
 import { generateApiKey, hashApiKey } from './carbonOffsetSecurity';
@@ -76,6 +76,7 @@ export interface EmbedScriptConfig {
 /**
  * Validate API key and return embed config
  */
+
 export async function validateApiKey(apiKey: string): Promise<EmbedConfig | null> {
   const { data, error } = await supabase
     .from('embed_api_keys')
@@ -146,28 +147,26 @@ export async function createEmbedApiKey(data: {
     showBranding: data.showBranding ?? false,
   };
 
-  const { error } = await supabase
-    .from('embed_api_keys')
-    .insert({
-      company_id: data.companyId,
-      name: data.name,
-      key_hash: keyHash,
-      allowed_domains: data.allowedDomains,
-      theme: config.theme,
-      primary_color: config.primaryColor,
-      show_project_selector: config.showProjectSelector,
-      default_project_id: config.defaultProjectId,
-      default_amount: config.defaultAmount,
-      currency: config.currency,
-      locale: config.locale,
-      webhook_url: config.webhookUrl,
-      metadata: config.metadata,
-      widget_title: config.widgetTitle,
-      brand_name: config.brandName,
-      show_branding: config.showBranding,
-      active: true,
-      created_at: new Date().toISOString(),
-    });
+  const { error } = await supabase.from('embed_api_keys').insert({
+    company_id: data.companyId,
+    name: data.name,
+    key_hash: keyHash,
+    allowed_domains: data.allowedDomains,
+    theme: config.theme,
+    primary_color: config.primaryColor,
+    show_project_selector: config.showProjectSelector,
+    default_project_id: config.defaultProjectId,
+    default_amount: config.defaultAmount,
+    currency: config.currency,
+    locale: config.locale,
+    webhook_url: config.webhookUrl,
+    metadata: config.metadata,
+    widget_title: config.widgetTitle,
+    brand_name: config.brandName,
+    show_branding: config.showBranding,
+    active: true,
+    created_at: new Date().toISOString(),
+  });
 
   if (error) {
     throw new Error(`Failed to create API key: ${error.message}`);
@@ -179,7 +178,9 @@ export async function createEmbedApiKey(data: {
 export async function listEmbedApiKeys(companyId: string): Promise<Record<string, unknown>[]> {
   const { data, error } = await supabase
     .from('embed_api_keys')
-    .select('id, name, allowed_domains, theme, primary_color, show_project_selector, default_project_id, default_amount, currency, locale, widget_title, brand_name, show_branding, active, created_at')
+    .select(
+      'id, name, allowed_domains, theme, primary_color, show_project_selector, default_project_id, default_amount, currency, locale, widget_title, brand_name, show_branding, active, created_at'
+    )
     .eq('company_id', companyId)
     .order('created_at', { ascending: false });
 
@@ -249,10 +250,13 @@ export async function createOffsetPurchaseSession(
   const appUrl = process.env.NEXT_PUBLIC_APP_URL;
   if (!appUrl) throw new Error('NEXT_PUBLIC_APP_URL is not configured');
   const defaultReturnUrl = new URL('/', appUrl).toString();
-  const { data: reserved, error: reserveError } = await supabase.rpc('reserve_embed_project_credits', {
-    p_project_id: request.projectId,
-    p_amount: request.amount,
-  });
+  const { data: reserved, error: reserveError } = await supabase.rpc(
+    'reserve_embed_project_credits',
+    {
+      p_project_id: request.projectId,
+      p_amount: request.amount,
+    }
+  );
   if (reserveError || reserved !== true) {
     throw new Error(reserveError?.message || 'Insufficient credits available');
   }
@@ -307,26 +311,24 @@ export async function createOffsetPurchaseSession(
     : new Date(Date.now() + 30 * 60 * 1000).toISOString();
 
   // Store session
-  const { error: sessionError } = await supabase
-    .from('embed_checkout_sessions')
-    .insert({
-      session_id: sessionId,
-      api_key_hash: hashApiKey(config.apiKey),
-      company_id: config.companyId,
-      project_id: request.projectId,
-      amount: request.amount,
-      currency: request.currency,
-      price_per_ton: pricePerTon,
-      total_price: totalPrice,
-      customer_email: request.customerEmail,
-      customer_name: request.customerName,
-      metadata: request.metadata,
-      return_url: request.returnUrl,
-      cancel_url: request.cancelUrl,
-      status: 'pending',
-      expires_at: expiresAt,
-      created_at: new Date().toISOString(),
-    });
+  const { error: sessionError } = await supabase.from('embed_checkout_sessions').insert({
+    session_id: sessionId,
+    api_key_hash: hashApiKey(config.apiKey),
+    company_id: config.companyId,
+    project_id: request.projectId,
+    amount: request.amount,
+    currency: request.currency,
+    price_per_ton: pricePerTon,
+    total_price: totalPrice,
+    customer_email: request.customerEmail,
+    customer_name: request.customerName,
+    metadata: request.metadata,
+    return_url: request.returnUrl,
+    cancel_url: request.cancelUrl,
+    status: 'pending',
+    expires_at: expiresAt,
+    created_at: new Date().toISOString(),
+  });
 
   if (sessionError) {
     await stripe.checkout.sessions.expire(sessionId).catch(() => undefined);
@@ -396,7 +398,9 @@ export async function getEmbedPurchaseStatus(
 ): Promise<Record<string, unknown> | null> {
   const { data, error } = await supabase
     .from('embed_checkout_sessions')
-    .select('session_id, project_id, amount, currency, total_price, status, created_at, completed_at')
+    .select(
+      'session_id, project_id, amount, currency, total_price, status, created_at, completed_at'
+    )
     .eq('session_id', sessionId)
     .eq('company_id', companyId)
     .eq('api_key_hash', hashApiKey(apiKey))
@@ -412,7 +416,9 @@ export async function getEmbedPurchaseStatus(
 export async function getEmbeddableProjects(companyId: string): Promise<any[]> {
   const { data, error } = await supabase
     .from('projects')
-    .select('id, name, description, location, country, project_type, price_per_ton, currency, available_credits, risk_rating, images')
+    .select(
+      'id, name, description, location, country, project_type, price_per_ton, currency, available_credits, risk_rating, images'
+    )
     .eq('company_id', companyId)
     .eq('status', 'active')
     .gt('available_credits', 0)
@@ -456,7 +462,7 @@ export function generateEmbedScript(config: EmbedScriptConfig): string {
 export function generateEmbedButton(config: EmbedScriptConfig): string {
   const primaryColor = config.primaryColor || '#22c55e';
   const textColor = getContrastColor(primaryColor);
-  
+
   return `
 <!-- Farm-credit Carbon Offset Button -->
 <div id="${config.containerId || 'farm-credit-offset-button'}"></div>

@@ -14,5 +14,4 @@ export interface ClimateNormals {
 export type ClimateFetchStatus = 'ok' | 'error';
 
 export type ClimateFetchResult =
-  | { status: 'ok'; normals: ClimateNormals }
-  | { status: 'error'; error: string };
+  { status: 'ok'; normals: ClimateNormals } | { status: 'error'; error: string };

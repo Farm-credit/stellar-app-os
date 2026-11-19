@@ -105,7 +105,6 @@ export async function POST(request: Request) {
     if (action === 'generate_1099') {
       const forms = await generate1099Forms(getPool());
       await logAuditEvent(request, action, {
-      await logAuditEvent(request, 'generate_1099', {
         forms_generated: forms.length,
         status: 'success',
       });
@@ -167,7 +166,6 @@ export async function POST(request: Request) {
 
     const result = await refreshCohortRetention(getPool());
     await logAuditEvent(request, action, {
-    await logAuditEvent(request, 'refresh_cohort_retention', {
       cohorts_processed: result.cohorts_processed,
       rows_upserted: result.rows_upserted,
       status: 'success',
@@ -180,7 +178,6 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     await logAuditEvent(request, action, { status: 'error', error: (error as Error).message });
-    await logAuditEvent(request, action ?? 'refresh_cohort_retention', { status: 'error', error: (error as Error).message });
     console.error('[sponsor-cohort] POST error', error);
     return NextResponse.json({ error: 'Failed to process request' }, { status: 500 });
   }
@@ -233,8 +230,6 @@ async function logAuditEvent(
     await pool.query(
       `INSERT INTO admin_audit_log (actor_id, action, resource, details, created_at)
        VALUES ($1, $2, 'sponsor-cohort-analytics', $3::jsonb, NOW())`,
-VALUES ($1, $2, 'sponsor-cohort-analytics', $3::jsonb, NOW())
-      `,
       [actor, action, JSON.stringify(details)]
     );
   } catch (err) {

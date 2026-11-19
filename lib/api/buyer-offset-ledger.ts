@@ -212,9 +212,12 @@ export function buildProjectMetadata(
 
   for (const projectId of projectIds) {
     const catalogue = CATALOGUE_BY_ID.get(projectId);
-    const receipts = (retirementsByProject.get(projectId) ?? []).slice().sort(
-      (a, b) => a.retiredAt.localeCompare(b.retiredAt) || a.retirementId.localeCompare(b.retirementId)
-    );
+    const receipts = (retirementsByProject.get(projectId) ?? [])
+      .slice()
+      .sort(
+        (a, b) =>
+          a.retiredAt.localeCompare(b.retiredAt) || a.retirementId.localeCompare(b.retirementId)
+      );
     const latest = receipts[receipts.length - 1];
 
     const coBenefits: string[] = [];
@@ -273,7 +276,10 @@ export function allocateRetirements(
     lotsByProject.set(purchase.projectId, lots);
   }
   for (const lots of lotsByProject.values()) {
-    lots.sort((a, b) => a.purchasedAt.localeCompare(b.purchasedAt) || a.positionId.localeCompare(b.positionId));
+    lots.sort(
+      (a, b) =>
+        a.purchasedAt.localeCompare(b.purchasedAt) || a.positionId.localeCompare(b.positionId)
+    );
   }
 
   const retirementsByProject = new Map<string, LedgerRetirement[]>();
@@ -284,7 +290,10 @@ export function allocateRetirements(
     retirementsByProject.set(retirement.projectId, list);
   }
   for (const list of retirementsByProject.values()) {
-    list.sort((a, b) => a.retiredAt.localeCompare(b.retiredAt) || a.retirementId.localeCompare(b.retirementId));
+    list.sort(
+      (a, b) =>
+        a.retiredAt.localeCompare(b.retiredAt) || a.retirementId.localeCompare(b.retirementId)
+    );
   }
 
   const byPositionId = new Map<string, RetirementAllocation>();
@@ -382,7 +391,10 @@ export function mapPurchaseToPosition(
  * UUID `portfolioId` is looked up as a corporate program id. Anything else
  * cannot be tied to a ledger row, so it yields `null`.
  */
-export async function resolveBuyerWallet(portfolioId: string, account?: string): Promise<string | null> {
+export async function resolveBuyerWallet(
+  portfolioId: string,
+  account?: string
+): Promise<string | null> {
   if (account) return account;
   if (STELLAR_PUBLIC_KEY_REGEX.test(portfolioId)) return portfolioId;
   if (!UUID_REGEX.test(portfolioId)) return null;

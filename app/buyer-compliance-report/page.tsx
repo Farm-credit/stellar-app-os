@@ -3,7 +3,10 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { BuyerReportForm, type BuyerReportFormData } from '@/src/components/esg-report-v2/BuyerReportForm';
+import {
+  BuyerReportForm,
+  type BuyerReportFormData,
+} from '@/src/components/esg-report-v2/BuyerReportForm';
 
 export default function BuyerComplianceReportPage() {
   const router = useRouter();
@@ -34,7 +37,9 @@ export default function BuyerComplianceReportPage() {
       const { report } = result;
 
       // Redirect to report detail page
-      router.push(`/buyer-compliance-report/${report.reportId}?buyerId=${encodeURIComponent(data.buyerId)}&company=${encodeURIComponent(data.companyName)}`);
+      router.push(
+        `/buyer-compliance-report/${report.reportId}?buyerId=${encodeURIComponent(data.buyerId)}&company=${encodeURIComponent(data.companyName)}`
+      );
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to generate report');
       setIsLoading(false);
@@ -83,8 +88,8 @@ export default function BuyerComplianceReportPage() {
                 <li>✓ PDF and Excel export formats</li>
               </ul>
               <p className="mt-4 text-xs text-muted-foreground">
-                This report shows sustainability data from your verified carbon offset
-                purchases. No compliance standard has been validated for this report.
+                This report shows sustainability data from your verified carbon offset purchases. No
+                compliance standard has been validated for this report.
               </p>
             </div>
           </div>
@@ -97,22 +102,22 @@ export default function BuyerComplianceReportPage() {
                 <div>
                   <h3 className="font-semibold text-foreground">Carbon Offset Purchases</h3>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    View all carbon credits purchased during your selected period, including
-                    project names, tonnes, costs, and verification status.
+                    View all carbon credits purchased during your selected period, including project
+                    names, tonnes, costs, and verification status.
                   </p>
                 </div>
                 <div>
                   <h3 className="font-semibold text-foreground">Co-Benefits Achieved</h3>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    Beyond carbon reduction, see the additional social and environmental impact
-                    of your purchases: biodiversity, community impact, and more.
+                    Beyond carbon reduction, see the additional social and environmental impact of
+                    your purchases: biodiversity, community impact, and more.
                   </p>
                 </div>
                 <div>
                   <h3 className="font-semibold text-foreground">Supply Chain Impact</h3>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    Track each project's lifecycle from origination through verification,
-                    issuance, purchase, and retirement.
+                    Track each project's lifecycle from origination through verification, issuance,
+                    purchase, and retirement.
                   </p>
                 </div>
               </div>

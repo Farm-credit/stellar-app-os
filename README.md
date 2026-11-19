@@ -154,6 +154,20 @@ Example:
 
 ---
 
+## Blockchain-Based Tree Ownership Records
+
+Every tree sponsorship and ownership transfer is recorded on the **Stellar** network for immutable, auditable provenance. Each tree profile links to the Stellar transaction that created or last transferred it, and the full ownership history is readable as a blockchain ledger.
+
+### Acceptance Criteria
+
+- **Transaction hash on tree profile** — each tree record stores the `transactionHash` of the Stellar transaction that minted or last transferred it, viewable on the tree profile page.
+- **Ownership history as a ledger** — the tree profile exposes a chronological ledger of ownership events (sponsorship, transfer, retirement), each with its Stellar transaction hash, ledger sequence, timestamp, and the from/to wallet addresses.
+- **On-chain sponsorship transfers** — transferring sponsorship of a tree from one user to another submits a Soroban contract invocation on Stellar; the resulting transaction hash is persisted to the tree profile and appended to the ownership ledger.
+
+### Data Model
+
+
+
 ## For Planters
 
 1. Register your wallet and identity on-chain.

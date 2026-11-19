@@ -37,7 +37,7 @@ export function calculateShannonIndex(speciesData: SpeciesCount[]): Biodiversity
   }
 
   const totalIndividuals = speciesData.reduce((sum, s) => sum + s.count, 0);
-  
+
   if (totalIndividuals === 0) {
     return {
       shannonIndex: 0,
@@ -49,7 +49,7 @@ export function calculateShannonIndex(speciesData: SpeciesCount[]): Biodiversity
   }
 
   const speciesRichness = speciesData.length;
-  
+
   // Calculate Shannon Index: H' = -Σ(pi * ln(pi))
   let shannonIndex = 0;
   for (const species of speciesData) {
@@ -100,11 +100,12 @@ export interface BiodiversityComparison {
 
 export function compareBiodiversity(
   current: BiodiversityIndexResult,
-  baseline: BiodiversityIndexResult,
+  baseline: BiodiversityIndexResult
 ): BiodiversityComparison {
-  const change = baseline.shannonIndex > 0 
-    ? ((current.shannonIndex - baseline.shannonIndex) / baseline.shannonIndex) * 100 
-    : 0;
+  const change =
+    baseline.shannonIndex > 0
+      ? ((current.shannonIndex - baseline.shannonIndex) / baseline.shannonIndex) * 100
+      : 0;
 
   let trend: 'improving' | 'declining' | 'stable';
   if (Math.abs(change) < 5) {
@@ -115,7 +116,12 @@ export function compareBiodiversity(
     trend = 'declining';
   }
 
-  const summary = generateComparisonSummary(trend, change, current.speciesRichness, baseline.speciesRichness);
+  const summary = generateComparisonSummary(
+    trend,
+    change,
+    current.speciesRichness,
+    baseline.speciesRichness
+  );
 
   return {
     current,
@@ -130,10 +136,10 @@ function generateComparisonSummary(
   trend: 'improving' | 'declining' | 'stable',
   change: number,
   currentSpecies: number,
-  baselineSpecies: number,
+  baselineSpecies: number
 ): string {
   const speciesChange = currentSpecies - baselineSpecies;
-  
+
   if (trend === 'improving') {
     return `Biodiversity has improved by ${change.toFixed(1)}% since project start. ${speciesChange > 0 ? `Species richness increased from ${baselineSpecies} to ${currentSpecies}.` : 'Species count maintained.'}`;
   } else if (trend === 'declining') {
@@ -162,16 +168,16 @@ export interface BiodiversityTrend {
 export function calculateBiodiversityTrend(censusData: AnnualCensusData[]): BiodiversityTrend {
   if (censusData.length < 2) {
     return {
-      years: censusData.map(d => d.year),
-      indices: censusData.map(d => calculateShannonIndex(d.speciesData).shannonIndex),
+      years: censusData.map((d) => d.year),
+      indices: censusData.map((d) => calculateShannonIndex(d.speciesData).shannonIndex),
       trend: 'stable',
       averageChange: 0,
     };
   }
 
   const sortedData = [...censusData].sort((a, b) => a.year - b.year);
-  const indices = sortedData.map(d => calculateShannonIndex(d.speciesData).shannonIndex);
-  const years = sortedData.map(d => d.year);
+  const indices = sortedData.map((d) => calculateShannonIndex(d.speciesData).shannonIndex);
+  const years = sortedData.map((d) => d.year);
 
   // Calculate average annual change
   const changes: number[] = [];
@@ -181,9 +187,8 @@ export function calculateBiodiversityTrend(censusData: AnnualCensusData[]): Biod
     }
   }
 
-  const averageChange = changes.length > 0 
-    ? changes.reduce((sum, c) => sum + c, 0) / changes.length 
-    : 0;
+  const averageChange =
+    changes.length > 0 ? changes.reduce((sum, c) => sum + c, 0) / changes.length : 0;
 
   let trend: 'increasing' | 'decreasing' | 'stable';
   if (Math.abs(averageChange) < 2) {
