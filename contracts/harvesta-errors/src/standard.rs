@@ -157,6 +157,7 @@ pub const CRATE_NAMES: &[&str] = &[
     "zk-location-verifier",
     "zk-verifier",
     "impact-certificate-fractionalization",
+    "planter-reputation",
 ];
 
 /// Number of crates covered by the standard.
@@ -235,6 +236,7 @@ pub const CRATE_ERROR_RANGES: &[(&str, ErrorRange)] = &[
     ("zk-location-verifier", crate_range(54)),
     ("zk-verifier", crate_range(55)),
     ("impact-certificate-fractionalization", crate_range(56)),
+    ("planter-reputation", crate_range(57)),
 ];
 
 /// Builds a globally unique `u32` error code for `crate_index` and its local code.
@@ -387,6 +389,10 @@ mod tests {
             crate_range_by_name("impact-certificate-fractionalization"),
             Some(crate_range(56))
         );
+        assert_eq!(
+            crate_range_by_name("planter-reputation"),
+            Some(crate_range(57))
+        );
         assert_eq!(crate_range_by_name("does-not-exist"), None);
     }
 
@@ -405,6 +411,10 @@ mod tests {
         assert_eq!(
             origin_of(global_code(56, 1)),
             ErrorOrigin::Contract("impact-certificate-fractionalization")
+        );
+        assert_eq!(
+            origin_of(global_code(57, 1)),
+            ErrorOrigin::Contract("planter-reputation")
         );
     }
 }
