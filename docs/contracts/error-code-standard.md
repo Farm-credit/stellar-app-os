@@ -200,7 +200,7 @@ each one should be replaced by values from its assigned block above:
   `zk-verifier::ZkError`, `zk-verifier::RangeProofError`.
 
 Legacy enums that already chose a high range (`nft-certificate::NftCertError`
-300-308, `tree-retirement::RetirementError` 500-505, `tree-token::TreeTokenError`
+300-310, `tree-retirement::RetirementError` 500-505, `tree-token::TreeTokenError`
 14/83-94, `donation-escrow::DonationEscrowError` 82-98, `tree-registry::TreeRegistryError`
 85-95, `verifier-staking::VerifierStakingError` 91-102, `species-catalog` 95-106,
 `platform-governance::GovernanceError` 200-203, `marketplace::MarketplaceError`
