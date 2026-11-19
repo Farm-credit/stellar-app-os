@@ -54,6 +54,7 @@ members = [
     "atomic-swap",
     "farmer-bonus-pool",
     "carbon-fractionalization",
+    "impact-certificate-fractionalization",
 ]
 resolver = "2"
 
