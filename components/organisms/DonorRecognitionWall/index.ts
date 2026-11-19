@@ -1,1 +1,0 @@
-export { DonorRecognitionWall } from './DonorRecognitionWall';

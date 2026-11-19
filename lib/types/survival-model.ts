@@ -8,7 +8,14 @@
 
 /** Soil texture classification following USDA taxonomy */
 export type SoilTexture =
-  'clay' | 'silty-clay' | 'clay-loam' | 'silt-loam' | 'loam' | 'sandy-loam' | 'loamy-sand' | 'sand';
+  | 'clay'
+  | 'silty-clay'
+  | 'clay-loam'
+  | 'silt-loam'
+  | 'loam'
+  | 'sandy-loam'
+  | 'loamy-sand'
+  | 'sand';
 
 /** Topographic position of the planting site */
 export type TopoPosition = 'lowland' | 'mid-slope' | 'ridge' | 'riparian' | 'flat';
@@ -108,7 +115,7 @@ export interface SurvivalPredictionResult {
 
 // ── API shapes ────────────────────────────────────────────────────────────────
 
-export type SurvivalPredictRequest = SurvivalPredictionInput;
+export interface SurvivalPredictRequest extends SurvivalPredictionInput {}
 
 export interface SurvivalPredictResponse extends SurvivalPredictionResult {
   speciesSlug: string;

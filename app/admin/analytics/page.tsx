@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { Coins, Download, HandCoins, Leaf, Receipt, Trees, Users, Wallet } from 'lucide-react';
+import { Coins, Download, HandCoins, Receipt, Trees, Users, Wallet } from 'lucide-react';
 import { Button } from '@/components/atoms/Button';
 import { Select } from '@/components/atoms/Select';
 import {
@@ -14,7 +14,6 @@ import {
 import { useAdminAnalytics } from '@/hooks/useAdminAnalytics';
 import type { AnalyticsTimeRange } from '@/lib/types/adminAnalytics';
 import type { ComplianceReport, ComplianceStandard } from '@/lib/types/compliance';
-import { buildComplianceCsv } from '@/lib/utils/complianceCsv';
 
 const RANGE_LABELS: Record<AnalyticsTimeRange, string> = {
   '7d': 'Last 7 days',
@@ -33,14 +32,6 @@ function formatXlm(value: number): string {
 function buildCsv(range: AnalyticsTimeRange, metrics: Record<string, number>): string {
   const rows: string[] = ['metric,value', `time_range,${range}`];
   for (const [key, value] of Object.entries(metrics)) {
-    rows.push(`${key},${value}`);
-  }
-  return rows.join('\n');
-}
-
-function buildComplianceCsv(report: ComplianceReport): string {
-  const rows: string[] = ['metric,value', `standard,${report.standard}`, `generated_at,${report.generatedAt}`];
-  for (const [key, value] of Object.entries(report.metrics)) {
     rows.push(`${key},${value}`);
   }
   return rows.join('\n');
@@ -106,20 +97,6 @@ export default function AdminAnalyticsPage() {
         icon: Coins,
         detail: 'Naira payouts successfully released.',
       },
-      {
-        key: 'co2SequesteredKg',
-        label: 'CO2 sequestered',
-        value: `${formatNumber(metrics.co2SequesteredKg)} kg`,
-        icon: Leaf,
-        detail: 'Estimated CO2 sequestered by funded trees in selected window.',
-      },
-      {
-        key: 'biodiversityScore',
-        label: 'Biodiversity contribution',
-        value: formatNumber(metrics.biodiversityScore),
-        icon: Trees,
-        detail: 'Aggregate biodiversity score across funded planting sites.',
-      },
     ];
   }, [data]);
 
@@ -154,19 +131,6 @@ export default function AdminAnalyticsPage() {
     } finally {
       setIsGeneratingForms(false);
     }
-  };
-
-  const handleExportEsg = () => {
-    if (!data) return;
-    const esgMetrics: Record<string, number> = {
-      trees_funded: data.metrics.treesFunded,
-      co2_sequestered_kg: data.metrics.co2SequesteredKg,
-      biodiversity_score: data.metrics.biodiversityScore,
-      employee_engagement: data.metrics.totalFarmers,
-      total_donations_xlm: data.metrics.totalDonationsXlm,
-    };
-    const csv = buildCsv(data.range, esgMetrics);
-    downloadCsv(`esg-impact-${data.range}-${data.generatedAt.slice(0, 10)}.csv`, csv);
   };
 
   const handleGenerateCompliance = async () => {
@@ -234,17 +198,6 @@ export default function AdminAnalyticsPage() {
           >
             <Download className="mr-2 h-4 w-4" aria-hidden="true" />
             Export CSV
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant="secondary"
-            onClick={handleExportEsg}
-            disabled={!data}
-            aria-label="Export ESG impact data for BI tools"
-          >
-            <Download className="mr-2 h-4 w-4" aria-hidden="true" />
-            Export ESG data
           </Button>
           <Button
             type="button"
@@ -326,7 +279,7 @@ export default function AdminAnalyticsPage() {
                     <CardTitle className="mt-2 h-8 w-24 animate-pulse rounded bg-muted" />
                   </CardHeader>
                   <CardContent>
-                    <div className="h4 w-full animate-pulse rounded bg-muted" />
+                    <div className="h-4 w-full animate-pulse rounded bg-muted" />
                   </CardContent>
                 </Card>
               ))

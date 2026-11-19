@@ -1,4 +1,4 @@
-import { type NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getAchievementBadgeProgress } from '@/lib/gamification/achievement-badges';
 import type { SponsorshipMilestones } from '@/lib/types/sponsor-badge';
 

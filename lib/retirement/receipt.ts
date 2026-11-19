@@ -168,7 +168,9 @@ export function computeReceiptDigest(data: {
   return crypto.createHash('sha256').update(canonicalPayload).digest('hex');
 }
 
-export function createBlockchainReceipt(input: CreateRetirementProofInput): BlockchainProofReceipt {
+export function createBlockchainReceipt(
+  input: CreateRetirementProofInput
+): BlockchainProofReceipt {
   const network = input.network || 'testnet';
   const now = new Date();
   const timestamp = now.toISOString();
@@ -183,9 +185,10 @@ export function createBlockchainReceipt(input: CreateRetirementProofInput): Bloc
       .digest('hex');
 
   const receiptId = `ret_rcpt_${txHash.slice(0, 16)}`;
-  const ledgerSequence = input.ledgerSequence || Math.floor(45000000 + Math.random() * 500000);
+  const ledgerSequence =
+    input.ledgerSequence || Math.floor(45000000 + Math.random() * 500000);
 
-  const gramsRetired = BigInt(Math.round(input.quantityRetiredTons * 1_000_000)).toString();
+  const gramsRetired = (BigInt(Math.round(input.quantityRetiredTons * 1_000_000))).toString();
 
   const rawCoBenefits =
     input.coBenefits && input.coBenefits.length > 0
@@ -292,9 +295,7 @@ export function verifyBlockchainReceipt(receipt: BlockchainProofReceipt): {
     computedDigest: receipt.cryptographicDigest,
     expectedDigest,
     verifiedFields: {
-      transactionHashPresent: Boolean(
-        receipt.transactionHash && receipt.transactionHash.length >= 16
-      ),
+      transactionHashPresent: Boolean(receipt.transactionHash && receipt.transactionHash.length >= 16),
       creditsBurnedValid: receipt.creditsRetired > 0 && Boolean(receipt.gramsRetired),
       projectDetailsAttached: Boolean(receipt.project.id && receipt.project.name),
       coBenefitsDocumented: Array.isArray(receipt.coBenefits) && receipt.coBenefits.length > 0,

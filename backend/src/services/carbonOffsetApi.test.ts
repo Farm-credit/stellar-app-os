@@ -7,10 +7,10 @@
  */
 
 import {
-  type EmbedConfig,
-  type OffsetPurchaseRequest,
-  type OffsetPurchaseResponse,
-  type EmbedScriptConfig,
+  EmbedConfig,
+  OffsetPurchaseRequest,
+  OffsetPurchaseResponse,
+  EmbedScriptConfig,
 } from './carbonOffsetApi';
 import {
   generateApiKey,
@@ -42,12 +42,8 @@ describe('Carbon offset embed security', () => {
     expect(isValidAllowedDomain('shop.example.com')).toBe(true);
     expect(isValidAllowedDomain('*.example.com')).toBe(false);
     expect(isValidAllowedDomain('https://example.com/path')).toBe(false);
-    expect(isAllowedRedirectUrl('https://shop.example.com/complete', ['shop.example.com'])).toBe(
-      true
-    );
-    expect(isAllowedRedirectUrl('https://attacker.example/complete', ['shop.example.com'])).toBe(
-      false
-    );
+    expect(isAllowedRedirectUrl('https://shop.example.com/complete', ['shop.example.com'])).toBe(true);
+    expect(isAllowedRedirectUrl('https://attacker.example/complete', ['shop.example.com'])).toBe(false);
   });
 });
 
@@ -95,7 +91,7 @@ describe('Carbon Offset Embeddable API Types', () => {
       currency: 'USD',
       projectId: 'proj-1',
       projectName: 'Amazon Reforestation',
-      pricePerTon: 15.5,
+      pricePerTon: 15.50,
       totalPrice: 38.75,
     };
     expect(response.sessionId).toContain('cs_');

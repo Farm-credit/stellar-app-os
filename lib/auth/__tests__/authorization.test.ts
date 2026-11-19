@@ -9,7 +9,7 @@ vi.mock('next/navigation', () => ({
 }));
 
 // Mock next/headers cookies
-const mockCookieStore: Map<string, string> = new Map();
+let mockCookieStore: Map<string, string> = new Map();
 vi.mock('next/headers', () => ({
   cookies: async () => ({
     get: (name: string) => {

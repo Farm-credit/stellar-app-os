@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { useCurrency } from '@/contexts/CurrencyContext';
-import { type CurrencyCode } from '@/lib/currency/exchange-rates';
+import { CurrencyCode } from '@/lib/currency/exchange-rates';
 
 export function CurrencySelector({ className = '' }: { className?: string }) {
   const { currentCurrency, setCurrency, supportedCurrencies, isLoadingRates } = useCurrency();

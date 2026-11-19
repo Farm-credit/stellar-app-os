@@ -5,6 +5,7 @@ import {
   queryAcrossRegions,
   resetRegionalPools,
   resolveDataRegion,
+  type DataRegion,
 } from '../data-residency';
 
 // Mock pg so no real connections are opened.

@@ -49,7 +49,12 @@ export interface MarketTickerUpdate {
 }
 
 export type TickerEventName =
-  'trade:new' | 'trade:update' | 'ticker:update' | 'listing:ticker' | 'market:ticker' | 'error';
+  | 'trade:new'
+  | 'trade:update'
+  | 'ticker:update'
+  | 'listing:ticker'
+  | 'market:ticker'
+  | 'error';
 
 export interface TickerClientToServerEvents {
   'listing:subscribe': (listingId: string) => void;

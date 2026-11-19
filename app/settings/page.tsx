@@ -16,9 +16,8 @@ import {
 import { hasCompletedOnboardingTour, requestOnboardingTourRestart } from '@/lib/onboardingTour';
 import { cn } from '@/lib/utils';
 import { PreferencesSection } from '@/components/organisms/settings/PreferencesSection';
-import { RecognitionSection } from '@/components/organisms/settings/RecognitionSection';
 
-type TabId = 'profile' | 'notifications' | 'preferences' | 'recognition' | 'danger';
+type TabId = 'profile' | 'notifications' | 'preferences' | 'danger';
 
 interface NavItem {
   id: TabId;
@@ -30,7 +29,6 @@ const NAV_ITEMS: NavItem[] = [
   { id: 'profile', label: 'Profile', icon: '👤' },
   { id: 'notifications', label: 'Notifications', icon: '🔔' },
   { id: 'preferences', label: 'Preferences', icon: '⚙️' },
-  { id: 'recognition', label: 'Recognition', icon: '🌳' },
   { id: 'danger', label: 'Danger Zone', icon: '⚠️' },
 ];
 
@@ -38,7 +36,6 @@ const SECTION_TITLES: Record<TabId, string> = {
   profile: 'Profile',
   notifications: 'Notifications',
   preferences: 'Preferences',
-  recognition: 'Recognition',
   danger: 'Danger Zone',
 };
 
@@ -124,7 +121,6 @@ export default function SettingsPage(): ReactNode {
             {activeTab === 'profile' && <ProfileSection />}
             {activeTab === 'notifications' && <NotificationSection />}
             {activeTab === 'preferences' && <PreferencesSection />}
-            {activeTab === 'recognition' && <RecognitionSection />}
             {activeTab === 'danger' && <DeleteAccountSection />}
           </div>
         </div>

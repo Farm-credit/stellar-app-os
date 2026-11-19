@@ -31,11 +31,7 @@ const COLORS = [
   '#14B8A6', // teal
 ];
 
-export function ConfettiBurst({
-  active = true,
-  durationMs = 3500,
-  className = '',
-}: ConfettiBurstProps) {
+export function ConfettiBurst({ active = true, durationMs = 3500, className = '' }: ConfettiBurstProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   useEffect(() => {

@@ -3,7 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { NewsletterForm } from '@/components/organisms/Footer/NewsletterForm';
-import '@/components/organisms/Header/LanguageSelector';
+import { LanguageSelector } from '@/components/organisms/Header/LanguageSelector';
 import { FaXTwitter, FaGithub, FaDiscord } from 'react-icons/fa6';
 import { useAppTranslation } from '@/hooks/useTranslation';
 import type { TFunction } from 'i18next';
@@ -41,7 +41,6 @@ function buildFooterSections(t: TFunction): FooterSection[] {
         { label: t('footer.apiDocs'), href: '#api-docs' },
         { label: t('footer.devGuide'), href: '#dev-guide' },
         { label: t('footer.community'), href: '#community' },
-        { label: t('footer.plantingEvents', 'Planting events'), href: '/planting/events' },
       ],
     },
     {

@@ -12,8 +12,6 @@ import type {
   RenewalStatus,
 } from '../types';
 
-export const VERRA_PROVIDER_NAME = 'verra' as const;
-
 const nullableDate = z.string().datetime({ offset: true }).nullable().optional();
 const documentSchema = z.object({
   id: z.string().min(1),
@@ -136,14 +134,14 @@ function validated<T>(
 }
 
 export class VerraClient implements CertificationProviderAdapter {
-  readonly provider = VERRA_PROVIDER_NAME;
+  readonly provider = 'verra' as const;
 
   constructor(private readonly http: ProviderHttpClient) {}
 
   async getProject(projectId: string): Promise<CertificationProject> {
     const response = await this.http.getJson(`projects/${encodeURIComponent(projectId)}`);
     return validated(projectSchema, response, (project) => ({
-      provider: VERRA_PROVIDER_NAME,
+      provider: 'verra',
       projectId: project.id,
       name: project.name,
       status: projectStatus(project.status),
@@ -165,7 +163,7 @@ export class VerraClient implements CertificationProviderAdapter {
   async getCredit(serialNumber: string): Promise<ProviderCredit> {
     const response = await this.http.getJson(`credits/${encodeURIComponent(serialNumber)}`);
     return validated(creditSchema, response, (credit) => ({
-      provider: VERRA_PROVIDER_NAME,
+      provider: 'verra',
       projectId: credit.projectId,
       serialNumber: credit.serialNumber,
       status: creditStatus(credit.status),
@@ -180,7 +178,7 @@ export class VerraClient implements CertificationProviderAdapter {
   async getRenewal(projectId: string): Promise<ProviderRenewal> {
     const response = await this.http.getJson(`projects/${encodeURIComponent(projectId)}/renewal`);
     return validated(renewalSchema, response, (renewal) => ({
-      provider: VERRA_PROVIDER_NAME,
+      provider: 'verra',
       projectId: renewal.projectId,
       status: renewalStatus(renewal.status),
       dueAt: renewal.dueAt ?? null,

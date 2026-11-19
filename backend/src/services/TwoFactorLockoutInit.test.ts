@@ -6,6 +6,7 @@ import {
   InMemoryLockoutStore,
   RedisLockoutStore,
   type TwoFactorService,
+  type LockoutStore,
 } from './TwoFactorLockoutInit';
 
 // ---------------------------------------------------------------------------

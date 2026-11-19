@@ -11,7 +11,11 @@ import { useCooperative } from '@/hooks/useCooperative';
  * pooling + negotiation actions: add members, pool projects, open a bargaining
  * round, record a buyer offer and vote on it.
  */
-export default function CooperativeDetailPage({ params }: { params: Promise<{ id: string }> }) {
+export default function CooperativeDetailPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
   const { id } = use(params);
   const {
     cooperative,
@@ -90,7 +94,9 @@ export default function CooperativeDetailPage({ params }: { params: Promise<{ id
         </div>
         <div>
           <p className="text-sm text-gray-500">Effective price</p>
-          <p className="text-2xl font-semibold text-gray-900">${terms.effectivePricePerTon}/t</p>
+          <p className="text-2xl font-semibold text-gray-900">
+            ${terms.effectivePricePerTon}/t
+          </p>
         </div>
         <div>
           <p className="text-sm text-gray-500">Next tier</p>
@@ -155,9 +161,7 @@ export default function CooperativeDetailPage({ params }: { params: Promise<{ id
           <form className="mt-4 flex gap-2" onSubmit={handlePool}>
             <input
               value={project.projectId}
-              onChange={(event: ChangeEvent<HTMLInputElement>) =>
-                setProject({ ...project, projectId: event.target.value })
-              }
+              onChange={(event: ChangeEvent<HTMLInputElement>) => setProject({ ...project, projectId: event.target.value })}
               placeholder="project id (e.g. proj-001)"
               className="flex-1 rounded border border-gray-300 px-3 py-2 text-sm"
             />
@@ -166,9 +170,7 @@ export default function CooperativeDetailPage({ params }: { params: Promise<{ id
               min="0.01"
               step="0.01"
               value={project.quantityTons}
-              onChange={(event: ChangeEvent<HTMLInputElement>) =>
-                setProject({ ...project, quantityTons: event.target.value })
-              }
+              onChange={(event: ChangeEvent<HTMLInputElement>) => setProject({ ...project, quantityTons: event.target.value })}
               placeholder="tonnes"
               className="w-24 rounded border border-gray-300 px-3 py-2 text-sm"
             />
@@ -217,15 +219,11 @@ export default function CooperativeDetailPage({ params }: { params: Promise<{ id
               ) : (
                 <form
                   className="mt-3 flex flex-wrap gap-2"
-                  onSubmit={(event: FormEvent<HTMLFormElement>) =>
-                    void handleOffer(event, round.id)
-                  }
+                  onSubmit={(event: FormEvent<HTMLFormElement>) => void handleOffer(event, round.id)}
                 >
                   <input
                     value={offer.buyerId}
-                    onChange={(event: ChangeEvent<HTMLInputElement>) =>
-                      setOffer({ ...offer, buyerId: event.target.value })
-                    }
+                    onChange={(event: ChangeEvent<HTMLInputElement>) => setOffer({ ...offer, buyerId: event.target.value })}
                     placeholder="buyer ID"
                     className="rounded border border-gray-300 px-3 py-2 text-sm"
                   />
@@ -234,9 +232,7 @@ export default function CooperativeDetailPage({ params }: { params: Promise<{ id
                     min="0.01"
                     step="0.01"
                     value={offer.pricePerTon}
-                    onChange={(event: ChangeEvent<HTMLInputElement>) =>
-                      setOffer({ ...offer, pricePerTon: event.target.value })
-                    }
+                    onChange={(event: ChangeEvent<HTMLInputElement>) => setOffer({ ...offer, pricePerTon: event.target.value })}
                     placeholder="$ / t"
                     className="w-24 rounded border border-gray-300 px-3 py-2 text-sm"
                   />
@@ -245,16 +241,11 @@ export default function CooperativeDetailPage({ params }: { params: Promise<{ id
                     min="0.01"
                     step="0.01"
                     value={offer.quantityTons}
-                    onChange={(event: ChangeEvent<HTMLInputElement>) =>
-                      setOffer({ ...offer, quantityTons: event.target.value })
-                    }
+                    onChange={(event: ChangeEvent<HTMLInputElement>) => setOffer({ ...offer, quantityTons: event.target.value })}
                     placeholder="tonnes"
                     className="w-24 rounded border border-gray-300 px-3 py-2 text-sm"
                   />
-                  <button
-                    type="submit"
-                    className="rounded bg-green-700 px-3 py-2 text-sm text-white"
-                  >
+                  <button type="submit" className="rounded bg-green-700 px-3 py-2 text-sm text-white">
                     Record offer
                   </button>
                 </form>
@@ -264,9 +255,7 @@ export default function CooperativeDetailPage({ params }: { params: Promise<{ id
                 <div className="mt-3 flex flex-wrap items-center gap-2">
                   <input
                     value={voterId}
-                    onChange={(event: ChangeEvent<HTMLInputElement>) =>
-                      setVoterId(event.target.value)
-                    }
+                    onChange={(event: ChangeEvent<HTMLInputElement>) => setVoterId(event.target.value)}
                     placeholder="your farmer ID"
                     className="rounded border border-gray-300 px-3 py-2 text-sm"
                   />

@@ -113,12 +113,7 @@ function optionalString(value: unknown, field: string, maxLength = 500): string 
   return trimmed === '' ? null : trimmed.slice(0, maxLength);
 }
 
-function requireNumber(
-  value: unknown,
-  field: string,
-  min: number,
-  max = Number.MAX_SAFE_INTEGER
-): number {
+function requireNumber(value: unknown, field: string, min: number, max = Number.MAX_SAFE_INTEGER): number {
   const parsed = typeof value === 'number' ? value : Number(value);
   if (typeof value === 'boolean' || value === '' || !Number.isFinite(parsed)) {
     throw new OffsetVerificationEventError(`${field} must be a finite number`, [field]);
@@ -143,9 +138,10 @@ function requirePositiveNumber(value: unknown, field: string): number {
 function requireStellarAccount(value: unknown, field: string): string {
   const account = requireString(value, field);
   if (!STELLAR_ACCOUNT_RE.test(account)) {
-    throw new OffsetVerificationEventError(`${field} must be a 56-character Stellar account (G…)`, [
-      field,
-    ]);
+    throw new OffsetVerificationEventError(
+      `${field} must be a 56-character Stellar account (G…)`,
+      [field]
+    );
   }
   return account;
 }
@@ -176,7 +172,10 @@ function round2(value: number): number {
 
 // ── Normalisers (shared by the builders and by `parse`) ───────────────────────
 
-function normalizeCreditVerified(raw: Record<string, unknown>, now: Date): CreditVerifiedPayload {
+function normalizeCreditVerified(
+  raw: Record<string, unknown>,
+  now: Date
+): CreditVerifiedPayload {
   return {
     creditId: requireString(raw.creditId, 'creditId'),
     assetCode: requireString(raw.assetCode, 'assetCode'),
@@ -194,7 +193,10 @@ function normalizeCreditVerified(raw: Record<string, unknown>, now: Date): Credi
   };
 }
 
-function normalizeProjectApproved(raw: Record<string, unknown>, now: Date): ProjectApprovedPayload {
+function normalizeProjectApproved(
+  raw: Record<string, unknown>,
+  now: Date
+): ProjectApprovedPayload {
   return {
     projectId: requireString(raw.projectId, 'projectId'),
     projectName: requireString(raw.projectName, 'projectName'),
@@ -231,7 +233,10 @@ function normalizeCreditRetired(raw: Record<string, unknown>, now: Date): Credit
 }
 
 function normalizePriceChanged(raw: Record<string, unknown>, now: Date): PriceChangedPayload {
-  const previousPricePerTon = requirePositiveNumber(raw.previousPricePerTon, 'previousPricePerTon');
+  const previousPricePerTon = requirePositiveNumber(
+    raw.previousPricePerTon,
+    'previousPricePerTon'
+  );
   const pricePerTon = requirePositiveNumber(raw.pricePerTon, 'pricePerTon');
 
   return {
@@ -256,9 +261,10 @@ function normalizeProjectStatusChanged(
   const previousStatus = requireString(raw.previousStatus, 'previousStatus', { maxLength: 60 });
   const newStatus = requireString(raw.newStatus, 'newStatus', { maxLength: 60 });
   if (previousStatus === newStatus) {
-    throw new OffsetVerificationEventError('newStatus must differ from previousStatus', [
-      'newStatus',
-    ]);
+    throw new OffsetVerificationEventError(
+      'newStatus must differ from previousStatus',
+      ['newStatus']
+    );
   }
 
   return {
@@ -565,7 +571,12 @@ export const OFFSET_VERIFICATION_EVENT_CATALOG: readonly OffsetVerificationEvent
       'transactionHash',
       'explorerUrl',
     ],
-    optionalFields: ['retirementPurpose', 'beneficiary', 'retirementCertificateUrl', 'retiredAt'],
+    optionalFields: [
+      'retirementPurpose',
+      'beneficiary',
+      'retirementCertificateUrl',
+      'retiredAt',
+    ],
     sample: buildCreditRetiredEvent(
       {
         creditId: 'credit_01HQZK8WJ4',

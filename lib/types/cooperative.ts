@@ -77,7 +77,12 @@ export interface BuyerOffer {
   submittedAt: string;
 }
 
-export type BargainingRoundStatus = 'open' | 'offer_received' | 'accepted' | 'rejected' | 'expired';
+export type BargainingRoundStatus =
+  | 'open'
+  | 'offer_received'
+  | 'accepted'
+  | 'rejected'
+  | 'expired';
 
 export type BargainingVoteChoice = 'accept' | 'reject';
 

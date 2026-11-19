@@ -24,7 +24,6 @@ export const notificationsSchema = z.object({
   notifications: z.object({
     emailBookings: z.boolean(),
     emailMarketing: z.boolean(),
-    emailNewsletter: z.boolean(),
     pushPayments: z.boolean(),
     pushUpdates: z.boolean(),
     smsAlerts: z.boolean(),

@@ -120,7 +120,8 @@ export const offsetAggregationRequestSchema = z.object({
 export type OffsetAggregationRequest = z.infer<typeof offsetAggregationRequestSchema>;
 
 export type OffsetAggregationParseResult =
-  { ok: true; data: OffsetAggregationRequest } | { ok: false; errors: string[] };
+  | { ok: true; data: OffsetAggregationRequest }
+  | { ok: false; errors: string[] };
 
 /**
  * Validates an already-parsed request object (POST bodies, internal callers).
@@ -614,7 +615,9 @@ function buildRetirements(positions: SourcePosition[]): AggregatedRetirement[] {
       projectName: position.projectName,
       quantityTonnes: roundTonnes(position.quantityTonnes),
       retiredAt: position.retirement?.retiredAt ?? position.recordedAt,
-      ...(position.retirement?.beneficiary ? { beneficiary: position.retirement.beneficiary } : {}),
+      ...(position.retirement?.beneficiary
+        ? { beneficiary: position.retirement.beneficiary }
+        : {}),
       ...(position.retirement?.transactionHash
         ? { transactionHash: position.retirement.transactionHash }
         : {}),

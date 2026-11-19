@@ -10,7 +10,7 @@ import {
   calculateAreaHectares,
   estimateJobCost,
   getSupportedProviders,
-  type VerificationRequest,
+  VerificationRequest,
 } from './satelliteVerification';
 
 describe('Satellite Verification Service', () => {

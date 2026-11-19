@@ -30,11 +30,7 @@ export function ToastProvider({ children }: ToastProviderProps): React.ReactElem
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
   const addToast = useCallback(
-    (
-      message: string,
-      type: 'success' | 'error' | 'info' = 'info',
-      duration: number = DEFAULT_TOAST_DURATION
-    ) => {
+    (message: string, type: 'success' | 'error' | 'info' = 'info', duration: number = DEFAULT_TOAST_DURATION) => {
       const id = `toast-${Date.now()}-${Math.random()}`;
       const newToast: ToastMessage = {
         id,

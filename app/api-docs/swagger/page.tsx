@@ -12,7 +12,7 @@ export const metadata: Metadata = {
 export default function SwaggerDocsPage() {
   return (
     <>
-      <SwaggerUIClient />
+      <SwaggerUILient />
       <FarmerIncomePredictionClient />
       <BuyerComplianceReportingClient />
     </>

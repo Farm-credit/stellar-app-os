@@ -85,7 +85,7 @@ export async function GET(request: Request): Promise<NextResponse> {
   } catch (err) {
     return json(
       { error: 'bridge query failed', detail: err instanceof Error ? err.message : String(err) },
-      502
+      502,
     );
   }
 }
@@ -150,11 +150,8 @@ export async function POST(request: Request): Promise<NextResponse> {
     }
   } catch (err) {
     return json(
-      {
-        error: 'bridge operation failed',
-        detail: err instanceof Error ? err.message : String(err),
-      },
-      502
+      { error: 'bridge operation failed', detail: err instanceof Error ? err.message : String(err) },
+      502,
     );
   }
 }

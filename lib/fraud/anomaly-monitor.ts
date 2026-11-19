@@ -6,7 +6,10 @@
  */
 
 export type FraudSignalType =
-  'double_selling' | 'fake_farmer' | 'project_inflation' | 'manipulated_metrics';
+  | 'double_selling'
+  | 'fake_farmer'
+  | 'project_inflation'
+  | 'manipulated_metrics';
 
 export type FraudSeverity = 'low' | 'medium' | 'high';
 
@@ -46,7 +49,12 @@ function severityFor(score: number): FraudSeverity {
   return 'low';
 }
 
-function flag(eventId: string, type: FraudSignalType, score: number, reason: string): FraudFlag {
+function flag(
+  eventId: string,
+  type: FraudSignalType,
+  score: number,
+  reason: string
+): FraudFlag {
   return {
     eventId,
     type,

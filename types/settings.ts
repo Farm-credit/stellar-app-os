@@ -7,7 +7,6 @@ export type Currency = 'USD' | 'EUR' | 'GBP' | 'NGN' | 'GHS';
 export type NotificationPreferences = {
   emailBookings: boolean;
   emailMarketing: boolean;
-  emailNewsletter: boolean;
   pushPayments: boolean;
   pushUpdates: boolean;
   smsAlerts: boolean;

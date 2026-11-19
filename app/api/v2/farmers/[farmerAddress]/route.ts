@@ -5,7 +5,7 @@
  * and project portfolio overview.
  */
 
-import { type NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { apiVersionHeaders } from '@/lib/api/versioning';
 import {
   FarmerNotFoundError,
@@ -25,14 +25,18 @@ function responseHeaders(): Record<string, string> {
   };
 }
 
-export async function GET(_request: NextRequest, context: RouteContext): Promise<NextResponse> {
+export async function GET(
+  _request: NextRequest,
+  context: RouteContext
+): Promise<NextResponse> {
   try {
     const { farmerAddress } = await context.params;
 
     if (!farmerAddress || !isStellarAddress(farmerAddress.trim())) {
       return NextResponse.json(
         {
-          error: 'farmerAddress must be a 56-character Stellar public key starting with G.',
+          error:
+            'farmerAddress must be a 56-character Stellar public key starting with G.',
           code: 'invalid_address',
         },
         { status: 400, headers: responseHeaders() }

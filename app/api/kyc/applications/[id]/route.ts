@@ -28,7 +28,10 @@ function isNonEmptyString(value: unknown): value is string {
   return typeof value === 'string' && value.trim().length > 0;
 }
 
-export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(
+  _request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   const { id } = await params;
 
   try {
@@ -36,7 +39,10 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
     const application = await service.getApplication(id);
 
     if (!application) {
-      return NextResponse.json({ error: 'KYC application not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'KYC application not found' },
+        { status: 404 }
+      );
     }
 
     return NextResponse.json({
@@ -52,18 +58,27 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
   }
 }
 
-export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   const { id } = await params;
 
   let body: unknown;
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json({ error: 'Request body must be valid JSON.' }, { status: 400 });
+    return NextResponse.json(
+      { error: 'Request body must be valid JSON.' },
+      { status: 400 }
+    );
   }
 
   if (typeof body !== 'object' || body === null) {
-    return NextResponse.json({ error: 'Request body must be a JSON object.' }, { status: 400 });
+    return NextResponse.json(
+      { error: 'Request body must be a JSON object.' },
+      { status: 400 }
+    );
   }
 
   const { decision, reviewer, reason } = body as Record<string, unknown>;
@@ -76,11 +91,17 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   }
 
   if (!isNonEmptyString(reviewer)) {
-    return NextResponse.json({ error: 'reviewer is required' }, { status: 400 });
+    return NextResponse.json(
+      { error: 'reviewer is required' },
+      { status: 400 }
+    );
   }
 
   if (reason !== undefined && typeof reason !== 'string') {
-    return NextResponse.json({ error: 'reason must be a string when provided' }, { status: 400 });
+    return NextResponse.json(
+      { error: 'reason must be a string when provided' },
+      { status: 400 }
+    );
   }
 
   const record: KycDecision = {

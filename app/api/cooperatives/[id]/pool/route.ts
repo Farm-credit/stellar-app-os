@@ -19,7 +19,10 @@ export const runtime = 'nodejs';
  *
  * Returns the cooperative's pooled projects and the discount tier reached.
  */
-export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(
+  _request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
     const { id } = await params;
     const cooperative = getCooperative(id);
@@ -42,7 +45,10 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
  *
  * Contributes a marketplace project (or part of it) to the shared pool.
  */
-export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function POST(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
     const { id } = await params;
     const body = await readJsonBody<AddPooledProjectInput>(request);
@@ -68,7 +74,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
  * Withdraws a pooled contribution. Only the contributor or a cooperative
  * admin may remove a pooled project.
  */
-export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function DELETE(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
     const { id } = await params;
     const { searchParams } = new URL(request.url);

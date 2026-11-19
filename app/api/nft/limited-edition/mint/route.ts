@@ -15,11 +15,7 @@
 
 import { NextResponse } from 'next/server';
 import path from 'path';
-import {
-  mintLimitedEditionNft,
-  SupplyExhaustedError,
-  UnknownRareSpeciesError,
-} from '@/lib/nft/limited-edition-mint';
+import { mintLimitedEditionNft, SupplyExhaustedError, UnknownRareSpeciesError } from '@/lib/nft/limited-edition-mint';
 import type { MintLimitedEditionRequest } from '@/lib/types/limited-edition-nft';
 import logger from '@/lib/logger';
 
@@ -63,10 +59,7 @@ export async function POST(req: Request): Promise<Response> {
   }
 
   if (isNaN(new Date(body.plantingDate).getTime())) {
-    return NextResponse.json(
-      { error: 'plantingDate must be a valid ISO-8601 date' },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: 'plantingDate must be a valid ISO-8601 date' }, { status: 400 });
   }
 
   // ── Mint ────────────────────────────────────────────────────────────────────

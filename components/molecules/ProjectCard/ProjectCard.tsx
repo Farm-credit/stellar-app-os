@@ -2,17 +2,11 @@ import { Badge } from '@/components/atoms/Badge';
 import { Button } from '@/components/atoms/Button';
 import { Text } from '@/components/atoms/Text';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/molecules/Card';
-import { MapPin, ImageOff, Scale } from 'lucide-react';
+import { MapPin, ImageOff } from 'lucide-react';
 import type { CarbonProject } from '@/lib/types/carbon';
 
 export interface ProjectCardProps {
   project: CarbonProject;
-  /** Whether this project is currently selected for comparison. */
-  isComparing?: boolean;
-  /** When provided, the card shows a Compare toggle that calls this with the project id. */
-  onToggleCompare?: (projectId: string) => void;
-  /** Disables adding more projects (e.g. the comparison already holds the maximum). */
-  compareDisabled?: boolean;
 }
 
 const typeConfig: Record<string, { label: string; colorClass: string }> = {
@@ -29,12 +23,7 @@ const typeConfig: Record<string, { label: string; colorClass: string }> = {
   Conservation: { label: 'Conservation', colorClass: 'bg-stellar-purple' },
 };
 
-export function ProjectCard({
-  project,
-  isComparing = false,
-  onToggleCompare,
-  compareDisabled = false,
-}: ProjectCardProps) {
+export function ProjectCard({ project }: ProjectCardProps) {
   const badgeConfig = typeConfig[project.type] ?? {
     label: project.type,
     colorClass: 'bg-stellar-purple',
@@ -128,24 +117,6 @@ export function ProjectCard({
           {isSoldOut ? 'Sold Out' : 'Donate'}
         </Button>
       </CardFooter>
-
-      {onToggleCompare && (
-        <div className="border-t px-5 py-3">
-          <Button
-            type="button"
-            variant={isComparing ? 'default' : 'outline'}
-            size="sm"
-            aria-pressed={isComparing}
-            disabled={compareDisabled && !isComparing}
-            onClick={() => onToggleCompare(project.id)}
-            className="w-full"
-          >
-            <Scale className="mr-1.5 h-4 w-4" aria-hidden="true" />
-            {isComparing ? 'Remove from compare' : 'Compare'}
-            <span className="sr-only"> {project.name}</span>
-          </Button>
-        </div>
-      )}
     </Card>
   );
 }

@@ -6,14 +6,14 @@
  * Issue #1429: Environmental impact verification - satellite imagery
  */
 
-import { type NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import {
   submitVerificationJob,
   getVerificationJob,
   listVerificationJobs,
   estimateJobCost,
   getSupportedProviders,
-  type VerificationRequest,
+  VerificationRequest,
 } from '@/backend/src/services/satelliteVerification';
 
 /**
@@ -23,12 +23,15 @@ import {
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
     const body = await request.json();
-
+    
     // Validate required fields
     const requiredFields = ['projectId', 'bounds', 'verificationType', 'startDate', 'endDate'];
     for (const field of requiredFields) {
       if (!body[field]) {
-        return NextResponse.json({ error: `Missing required field: ${field}` }, { status: 400 });
+        return NextResponse.json(
+          { error: `Missing required field: ${field}` },
+          { status: 400 }
+        );
       }
     }
 
@@ -52,14 +55,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const job = await submitVerificationJob(requestData);
     const costEstimate = estimateJobCost(requestData);
 
-    return NextResponse.json(
-      {
-        job,
-        costEstimate,
-        message: 'Verification job submitted successfully',
-      },
-      { status: 201 }
-    );
+    return NextResponse.json({
+      job,
+      costEstimate,
+      message: 'Verification job submitted successfully',
+    }, { status: 201 });
+
   } catch (error) {
     console.error('Satellite verification POST error:', error);
     return NextResponse.json(
@@ -83,7 +84,10 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     if (jobId) {
       const job = await getVerificationJob(jobId);
       if (!job) {
-        return NextResponse.json({ error: 'Verification job not found' }, { status: 404 });
+        return NextResponse.json(
+          { error: 'Verification job not found' },
+          { status: 404 }
+        );
       }
       return NextResponse.json({ job });
     }
@@ -97,6 +101,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       { error: 'Either jobId or projectId query parameter is required' },
       { status: 400 }
     );
+
   } catch (error) {
     console.error('Satellite verification GET error:', error);
     return NextResponse.json(
@@ -113,7 +118,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 export async function PUT(request: NextRequest): Promise<NextResponse> {
   try {
     const { searchParams } = new URL(request.url);
-
+    
     if (searchParams.get('action') === 'estimate-cost') {
       const body = await request.json();
       const requestData: VerificationRequest = {
@@ -129,6 +134,7 @@ export async function PUT(request: NextRequest): Promise<NextResponse> {
 
     const providers = getSupportedProviders();
     return NextResponse.json({ providers });
+
   } catch (error) {
     console.error('Satellite verification providers error:', error);
     return NextResponse.json(

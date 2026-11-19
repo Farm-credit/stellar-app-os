@@ -7,7 +7,7 @@
  * Enhancement: Export comparison to CSV/PDF and shareable links
  */
 
-import { type NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 

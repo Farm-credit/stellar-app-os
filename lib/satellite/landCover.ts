@@ -19,7 +19,7 @@
  *   Copernicus CGLS NDVI thresholds (CLMS bulletin).
  */
 
-import { computeEvi, computeNdvi } from './ndvi';
+import { computeEvi, computeNdvi, computeSavi } from './ndvi';
 import type {
   LandCoverChange,
   LandCoverClass,
@@ -153,11 +153,13 @@ export function computeForestFraction(distribution: LandCoverDistribution): numb
  *
  * @param delta - Absolute fractional change value.
  */
-function classifyChangeMagnitude(delta: number): LandCoverChange['changeMagnitude'] {
+function classifyChangeMagnitude(
+  delta: number
+): LandCoverChange['changeMagnitude'] {
   const abs = Math.abs(delta);
   if (abs < 0.05) return 'none';
   if (abs < 0.15) return 'minor';
-  if (abs < 0.3) return 'moderate';
+  if (abs < 0.30) return 'moderate';
   return 'significant';
 }
 
@@ -181,7 +183,9 @@ export function detectLandCoverChange(
   const changeMagnitude = classifyChangeMagnitude(forestDelta);
 
   const forestAreaChangePercent =
-    fromForest > 0 ? round((forestDelta / fromForest) * 100, 1) : null;
+    fromForest > 0
+      ? round((forestDelta / fromForest) * 100, 1)
+      : null;
 
   // Dominant class transitions
   const fromDominant = dominantClass(from.distribution);

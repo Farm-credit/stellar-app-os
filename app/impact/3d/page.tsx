@@ -15,11 +15,16 @@ type PageProps = {
 export default async function ImpactModel3DPage({ searchParams }: PageProps) {
   const params = await Promise.resolve(searchParams ?? {});
   const initialProjectId =
-    typeof params.project === 'string' && params.project.length > 0 ? params.project : undefined;
+    typeof params.project === 'string' && params.project.length > 0
+      ? params.project
+      : undefined;
 
   return (
     <main className="container mx-auto px-4 py-8">
-      <ImpactModel3D projects={mockCarbonProjects} initialProjectId={initialProjectId} />
+      <ImpactModel3D
+        projects={mockCarbonProjects}
+        initialProjectId={initialProjectId}
+      />
     </main>
   );
 }

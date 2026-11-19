@@ -38,7 +38,9 @@ describe('parseComparisonParams', () => {
   });
 
   it('trims, de-duplicates and caps ids', () => {
-    const result = parseComparisonParams('ids= a , b ,a,,c,d,e,f&cols=name');
+    const result = parseComparisonParams(
+      'ids= a , b ,a,,c,d,e,f&cols=name'
+    );
     expect(result.ids).toEqual(['a', 'b', 'c', 'd', 'e']);
     expect(result.ids).toHaveLength(MAX_COMPARE_PROJECTS);
   });
@@ -88,10 +90,7 @@ describe('buildComparisonSearch', () => {
 describe('buildComparisonUrl', () => {
   it('builds an absolute shareable link', () => {
     expect(
-      buildComparisonUrl(
-        { ids: ['proj-001', 'proj-002'], criteria: ['name'] },
-        'https://example.org'
-      )
+      buildComparisonUrl({ ids: ['proj-001', 'proj-002'], criteria: ['name'] }, 'https://example.org')
     ).toBe('https://example.org/projects/compare?ids=proj-001%2Cproj-002&cols=name');
   });
 
@@ -107,12 +106,8 @@ describe('toComparisonCsv', () => {
     const csv = toComparisonCsv(selection, ['name', 'pricePerTon', 'riskRating']);
     const rows = csv.split('\r\n');
     expect(rows).toHaveLength(4);
-    expect(rows[0]).toBe(
-      '"criteria","Amazon Rainforest Reforestation","Mangrove Restoration - Indonesia"'
-    );
-    expect(rows[1]).toBe(
-      '"Project Name","Amazon Rainforest Reforestation","Mangrove Restoration - Indonesia"'
-    );
+    expect(rows[0]).toBe('"criteria","Amazon Rainforest Reforestation","Mangrove Restoration - Indonesia"');
+    expect(rows[1]).toBe('"Project Name","Amazon Rainforest Reforestation","Mangrove Restoration - Indonesia"');
     expect(rows[2]).toBe('"Price / Ton","$45.50","$55.75"');
     expect(rows[3]).toBe('"Risk Rating","low","medium"');
   });

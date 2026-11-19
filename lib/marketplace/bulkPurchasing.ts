@@ -48,7 +48,12 @@ export interface BulkPricingResult {
 }
 
 export type AgreementStatus =
-  'draft' | 'proposed' | 'accepted' | 'active' | 'completed' | 'cancelled';
+  | 'draft'
+  | 'proposed'
+  | 'accepted'
+  | 'active'
+  | 'completed'
+  | 'cancelled';
 
 export interface AgreementFarmer {
   walletAddress: string;

@@ -18,6 +18,8 @@ import {
   compareBiodiversity,
   calculateBiodiversityTrend,
   type SpeciesCount,
+  type BiodiversityComparison,
+  type BiodiversityTrend,
   type AnnualCensusData,
 } from '@/lib/biodiversity/shannon-index';
 
@@ -77,7 +79,7 @@ export function BiodiversityIndex({
               {comparison.trend.charAt(0).toUpperCase() + comparison.trend.slice(1)}
             </Badge>
           </div>
-
+          
           <div className="flex items-baseline gap-2 mb-2">
             <Text variant="h2" className="text-3xl font-bold">
               {currentIndex.shannonIndex.toFixed(2)}
@@ -85,8 +87,7 @@ export function BiodiversityIndex({
             <div className="flex items-center gap-1">
               {getTrendIcon()}
               <Text variant="small" className={getTrendColor()}>
-                {comparison.change > 0 ? '+' : ''}
-                {comparison.change.toFixed(1)}% vs baseline
+                {comparison.change > 0 ? '+' : ''}{comparison.change.toFixed(1)}% vs baseline
               </Text>
             </div>
           </div>
@@ -197,28 +198,22 @@ export function BiodiversityIndex({
                 <Text variant="small" className="text-muted-foreground">
                   Average Annual Change
                 </Text>
-                <Badge
-                  variant={
-                    trend.trend === 'increasing'
-                      ? 'default'
-                      : trend.trend === 'decreasing'
-                        ? 'destructive'
-                        : 'outline'
-                  }
-                >
+                <Badge variant={trend.trend === 'increasing' ? 'default' : trend.trend === 'decreasing' ? 'destructive' : 'outline'}>
                   {trend.trend.charAt(0).toUpperCase() + trend.trend.slice(1)}
                 </Badge>
               </div>
               <Text variant="h4" className="text-2xl font-semibold mb-3">
-                {trend.averageChange > 0 ? '+' : ''}
-                {trend.averageChange.toFixed(2)}%
+                {trend.averageChange > 0 ? '+' : ''}{trend.averageChange.toFixed(2)}%
               </Text>
               <div className="flex items-end gap-1 h-16">
                 {trend.indices.map((index, i) => {
                   const maxIndex = Math.max(...trend.indices);
                   const height = maxIndex > 0 ? (index / maxIndex) * 100 : 0;
                   return (
-                    <div key={trend.years[i]} className="flex-1 flex flex-col items-center gap-1">
+                    <div
+                      key={trend.years[i]}
+                      className="flex-1 flex flex-col items-center gap-1"
+                    >
                       <div
                         className="w-full bg-green-600 rounded-t transition-all"
                         style={{ height: `${height}%` }}
@@ -240,10 +235,10 @@ export function BiodiversityIndex({
             What is the Shannon Diversity Index?
           </Text>
           <Text variant="small" className="text-muted-foreground leading-relaxed">
-            The Shannon Diversity Index measures both the number of species (richness) and how
-            evenly individuals are distributed among species (evenness). Higher values (typically
-            1.5-3.5 for forests) indicate greater biodiversity. This index is updated annually with
-            field census data to track ecosystem health over time.
+            The Shannon Diversity Index measures both the number of species (richness) and how evenly
+            individuals are distributed among species (evenness). Higher values (typically 1.5-3.5 for
+            forests) indicate greater biodiversity. This index is updated annually with field census data
+            to track ecosystem health over time.
           </Text>
         </div>
       </div>

@@ -4,7 +4,10 @@ import {
   getTokenizationOrchestrator,
   registryClientFactory,
 } from '@/lib/carbon-tokenization/runtime';
-import { creditVerificationRequestSchema, validationErrors } from '@/lib/certification/validation';
+import {
+  creditVerificationRequestSchema,
+  validationErrors,
+} from '@/lib/certification/validation';
 import logger from '@/lib/logger';
 import { MemoryRateLimiter } from '@/lib/rate-limit';
 
@@ -70,7 +73,10 @@ function deriveOrigin(request: Request): string | undefined {
   return `${proto}://${effectiveHost}`;
 }
 
-function withRetryAfter(response: NextResponse, retryAfterSeconds: number): NextResponse {
+function withRetryAfter(
+  response: NextResponse,
+  retryAfterSeconds: number
+): NextResponse {
   response.headers.set('Retry-After', String(Math.ceil(retryAfterSeconds)));
   return response;
 }
@@ -127,7 +133,9 @@ export async function POST(request: Request): Promise<NextResponse> {
 
   const req: TokenizeRequestBody = parsed.data;
 
-  const walletRate = await walletRateLimiter.limit(`tokenize-credit:wallet:${req.recipientWallet}`);
+  const walletRate = await walletRateLimiter.limit(
+    `tokenize-credit:wallet:${req.recipientWallet}`
+  );
   if (!walletRate.success) {
     return withRetryAfter(
       NextResponse.json(
@@ -150,7 +158,8 @@ export async function POST(request: Request): Promise<NextResponse> {
     return withRetryAfter(
       NextResponse.json(
         {
-          error: 'This serial number has been submitted too many times recently',
+          error:
+            'This serial number has been submitted too many times recently',
           code: 'SERIAL_RATE_LIMITED',
           limit: serialRate.limit,
           remaining: serialRate.remaining,
@@ -232,7 +241,8 @@ export async function POST(request: Request): Promise<NextResponse> {
                       vintage: result.validation.retirement.vintage,
                       tonnage: result.validation.retirement.tonnage,
                       retiredAt: result.validation.retirement.retiredAt,
-                      retirementStatus: result.validation.retirement.retirementStatus,
+                      retirementStatus:
+                        result.validation.retirement.retirementStatus,
                     }
                   : null,
               }

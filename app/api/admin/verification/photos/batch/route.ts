@@ -27,14 +27,7 @@ export async function POST(request: Request) {
 
   try {
     const body: BatchPaymentRequest = await request.json();
-    const {
-      paymentIds,
-      action,
-      currency,
-      paymentMethod,
-      reason,
-      resolveConflicts = 'keep_newest',
-    } = body;
+    const { paymentIds, action, currency, paymentMethod, reason, resolveConflicts = 'keep_newest' } = body;
 
     if (!paymentIds || paymentIds.length === 0) {
       return NextResponse.json({ error: 'No payment IDs provided' }, { status: 400 });
@@ -216,7 +209,7 @@ export async function POST(request: Request) {
             ]
           );
           // Webhook delivery is best-effort and persisted/retried independently
-          // of the verification transaction.
+// of the verification transaction.
           void emitTreeWebhookEvent('tree.verified', {
             treeId: tree.id,
             treeRef: tree.tree_ref,
@@ -241,10 +234,7 @@ export async function POST(request: Request) {
           SET metadata = metadata || $1::jsonb, status = 'cancelled'
           WHERE id = ANY($2::bigint[])
         `;
-        await client.query(updateCancelledQuery, [
-          JSON.stringify(cancellationMetadata),
-          paymentIds,
-        ]);
+        await client.query(updateCancelledQuery, [JSON.stringify(cancellationMetadata), paymentIds]);
       }
 
       await client.query('COMMIT');

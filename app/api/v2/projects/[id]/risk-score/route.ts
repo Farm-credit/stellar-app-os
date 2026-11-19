@@ -17,13 +17,18 @@
  */
 
 import { NextResponse } from 'next/server';
-import 'zod';
+import { z } from 'zod';
 import {
   calculateAndStoreProjectRiskScore,
   fetchCachedProjectRiskScore,
 } from '@/lib/services/project-risk-score.service';
 import { apiVersionHeaders } from '@/lib/api/versioning';
-import '@/lib/schemas/project-risk-score.schema';
+import {
+  getRiskScoreParamsSchema,
+  riskScoreSuccessResponseSchema,
+  errorResponseSchema,
+  projectRiskScoreResponseSchema,
+} from '@/lib/schemas/project-risk-score.schema';
 
 export const runtime = 'nodejs';
 

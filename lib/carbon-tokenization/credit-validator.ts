@@ -27,6 +27,7 @@ import {
   RegistryApiError,
   RegistryRateLimitedError,
   RegistryTimeoutError,
+  RetirementNotRetiredError,
   RetirementNotFoundError,
   RetirementSerialInvalidError,
   RetirementStatusInvalidError,
@@ -41,7 +42,10 @@ import logger from '../logger';
 const VALID_PROJECT_STATUSES = ['registered', 'active'] as const;
 const VALID_RETIREMENT_STATUSES = ['retired', 'active'] as const;
 
-function isValidSerialFormat(protocol: RegistryProtocol, serialNumber: string): boolean {
+function isValidSerialFormat(
+  protocol: RegistryProtocol,
+  serialNumber: string
+): boolean {
   if (!serialNumber || typeof serialNumber !== 'string') return false;
   const trimmed = serialNumber.trim();
   if (trimmed.length < 3 || trimmed.length > 500) return false;
@@ -72,7 +76,9 @@ export class CreditValidator {
     this.now = deps.now ?? (() => new Date());
   }
 
-  async validate(request: TokenizationRequest): Promise<TokenizationValidationResult> {
+  async validate(
+    request: TokenizationRequest
+  ): Promise<TokenizationValidationResult> {
     const validatedAt = this.now().toISOString();
     const validationId = makeValidationId(
       request.protocol,
@@ -124,14 +130,23 @@ export class CreditValidator {
       }
 
       if (project) {
-        errors.push(...this.validateProject(project, request.protocol, request.projectId));
+        errors.push(
+          ...this.validateProject(
+            project,
+            request.protocol,
+            request.projectId
+          )
+        );
       }
 
       try {
         retirement = await registry.fetchRetirement(request.serialNumber);
       } catch (error) {
         this.handleRegistryError(error, request.protocol, 'retirement');
-        throw new RetirementNotFoundError(request.protocol, request.serialNumber);
+        throw new RetirementNotFoundError(
+          request.protocol,
+          request.serialNumber
+        );
       }
 
       if (retirement) {
@@ -143,7 +158,11 @@ export class CreditValidator {
         request.serialNumber
       );
       if (existing) {
-        throw new AlreadyMintedError(request.protocol, request.serialNumber, existing.tokenId);
+        throw new AlreadyMintedError(
+          request.protocol,
+          request.serialNumber,
+          existing.tokenId
+        );
       }
     } catch (error) {
       if (error instanceof CreditTokenizationError) {
@@ -174,7 +193,9 @@ export class CreditValidator {
     };
   }
 
-  private validateRequestShape(request: TokenizationRequest): CreditValidationError[] {
+  private validateRequestShape(
+    request: TokenizationRequest
+  ): CreditValidationError[] {
     const errors: CreditValidationError[] = [];
 
     if (!request.protocol || typeof request.protocol !== 'string') {
@@ -184,8 +205,13 @@ export class CreditValidator {
         field: 'protocol',
         retryable: false,
       });
-    } else if (request.protocol !== 'verra' && request.protocol !== 'gold-standard') {
-      errors.push(new ProtocolNotSupportedError(request.protocol).toValidationError());
+    } else if (
+      request.protocol !== 'verra' &&
+      request.protocol !== 'gold-standard'
+    ) {
+      errors.push(
+        new ProtocolNotSupportedError(request.protocol).toValidationError()
+      );
     }
 
     if (
@@ -212,9 +238,15 @@ export class CreditValidator {
         field: 'serialNumber',
         retryable: false,
       });
-    } else if (request.protocol && !isValidSerialFormat(request.protocol, request.serialNumber)) {
+    } else if (
+      request.protocol &&
+      !isValidSerialFormat(request.protocol, request.serialNumber)
+    ) {
       errors.push(
-        new RetirementSerialInvalidError(request.protocol, request.serialNumber).toValidationError()
+        new RetirementSerialInvalidError(
+          request.protocol,
+          request.serialNumber
+        ).toValidationError()
       );
     }
 
@@ -237,7 +269,10 @@ export class CreditValidator {
     }
 
     if (request.expectedTonnage !== undefined) {
-      if (typeof request.expectedTonnage !== 'number' || request.expectedTonnage <= 0) {
+      if (
+        typeof request.expectedTonnage !== 'number' ||
+        request.expectedTonnage <= 0
+      ) {
         errors.push({
           code: 'TONNAGE_MISMATCH',
           message: 'expectedTonnage must be a positive number',
@@ -272,11 +307,18 @@ export class CreditValidator {
     const status = project.projectStatus;
     if (status === 'unknown') {
       errors.push(
-        new ProjectStatusUnknownError(project.protocol, project.projectId).toValidationError()
+        new ProjectStatusUnknownError(
+          project.protocol,
+          project.projectId
+        ).toValidationError()
       );
     } else if (!(VALID_PROJECT_STATUSES as readonly string[]).includes(status as any)) {
       errors.push(
-        new ProjectNotActiveError(project.protocol, project.projectId, status).toValidationError()
+        new ProjectNotActiveError(
+          project.protocol,
+          project.projectId,
+          status
+        ).toValidationError()
       );
     }
 
@@ -332,7 +374,10 @@ export class CreditValidator {
       );
     }
 
-    if (request.expectedTonnage !== undefined && retirement.tonnage !== request.expectedTonnage) {
+    if (
+      request.expectedTonnage !== undefined &&
+      retirement.tonnage !== request.expectedTonnage
+    ) {
       errors.push(
         new TonnageMismatchError(
           request.serialNumber,
@@ -368,7 +413,10 @@ export class CreditValidator {
       }
       throw new RegistryApiError(protocol, error.message, error.retryable);
     }
-    if (error instanceof ProviderNetworkError || error instanceof ProviderResponseError) {
+    if (
+      error instanceof ProviderNetworkError ||
+      error instanceof ProviderResponseError
+    ) {
       throw new RegistryApiError(protocol, error.message, true);
     }
     if (error instanceof CertificationIntegrationError) {

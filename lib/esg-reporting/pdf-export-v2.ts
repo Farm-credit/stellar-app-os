@@ -99,11 +99,7 @@ function drawMetadataBar(doc: jsPDF, report: BuyerComplianceReport, y: number): 
 // Carbon Offsets Section
 // ─────────────────────────────────────────────────────────────────────────────
 
-function drawCarbonOffsetsSection(
-  doc: jsPDF,
-  report: BuyerComplianceReport,
-  startY: number
-): number {
+function drawCarbonOffsetsSection(doc: jsPDF, report: BuyerComplianceReport, startY: number): number {
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   const bottomMargin = 30;
@@ -140,7 +136,11 @@ function drawCarbonOffsetsSection(
   doc.setFont('helvetica', 'bold');
   doc.text('Total Cost:', margin + 5, y + 22);
   doc.setFont('helvetica', 'normal');
-  doc.text(`$${report.carbonOffsets.totalCostUsd.toLocaleString()} USD`, margin + 40, y + 22);
+  doc.text(
+    `$${report.carbonOffsets.totalCostUsd.toLocaleString()} USD`,
+    margin + 40,
+    y + 22
+  );
 
   y += 35;
 
@@ -177,7 +177,11 @@ function drawCarbonOffsetsSection(
   if (report.carbonOffsets.lineItems.length > 10) {
     doc.setFont('helvetica', 'italic');
     setTextCol(doc, MID_GRAY);
-    doc.text(`... and ${report.carbonOffsets.lineItems.length - 10} more projects`, margin + 3, y);
+    doc.text(
+      `... and ${report.carbonOffsets.lineItems.length - 10} more projects`,
+      margin + 3,
+      y
+    );
     y += 5;
   }
 
@@ -341,7 +345,7 @@ function drawFooter(doc: jsPDF) {
   const disclaimerText = REPORT_EXPORT_DISCLAIMER;
   const disclaimerLines = doc.splitTextToSize(disclaimerText, pageWidth - 2 * margin);
 
-  const disclaimerY = pageHeight - 25 - disclaimerLines.length * 3;
+  let disclaimerY = pageHeight - 25 - disclaimerLines.length * 3;
   doc.text(disclaimerLines, margin, disclaimerY);
 
   // Bottom border

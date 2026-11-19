@@ -17,7 +17,6 @@ import {
   getTimeZoneAbbreviation,
   getTimeZoneOffsetLabel,
   loadTimeZonePreference,
-  nextNineAmInTimeZone,
   resetTimeZonePreference,
   saveTimeZonePreference,
   type TimeZoneMode,
@@ -46,11 +45,6 @@ interface TimeZoneContextValue {
   abbreviation: (input?: string | number | Date) => string;
   /** Offset label, e.g. "UTC+1". */
   offsetLabel: (input?: string | number | Date) => string;
-  /**
-   * The next 9 AM in the active timezone, used to schedule the daily
-   * email digest (#992). Returns a Date in absolute (UTC) time.
-   */
-  nextDigestSendTime: (from?: string | number | Date) => Date;
 }
 
 const TimeZoneContext = createContext<TimeZoneContextValue | null>(null);
@@ -106,12 +100,6 @@ export function TimeZoneProvider({ children }: { children: ReactNode }) {
     [preference.timeZone]
   );
 
-  const nextDigestSendTime = useCallback(
-    (from?: string | number | Date) =>
-      nextNineAmInTimeZone(from ?? new Date(), preference.timeZone),
-    [preference.timeZone]
-  );
-
   const value = useMemo<TimeZoneContextValue>(
     () => ({
       timeZone: preference.timeZone,
@@ -125,7 +113,6 @@ export function TimeZoneProvider({ children }: { children: ReactNode }) {
       formatRelative,
       abbreviation,
       offsetLabel,
-      nextDigestSendTime,
     }),
     [
       preference.timeZone,
@@ -138,7 +125,6 @@ export function TimeZoneProvider({ children }: { children: ReactNode }) {
       formatRelative,
       abbreviation,
       offsetLabel,
-      nextDigestSendTime,
     ]
   );
 

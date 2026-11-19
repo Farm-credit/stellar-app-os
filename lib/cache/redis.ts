@@ -121,7 +121,9 @@ export async function closeRedisClients(): Promise<void> {
     primaryConnection = null;
 
     if (multiClients) {
-      await Promise.all(multiClients.map((c) => c.quit().catch(() => c.disconnect())));
+      await Promise.all(
+        multiClients.map((c) => c.quit().catch(() => c.disconnect()))
+      );
       multiClients = null;
     }
     multiConnections = null;

@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { StarRating } from './StarRating';
-import { type Review } from '@/lib/types/review';
+import { Review } from '@/lib/types/review';
 
 interface ReviewCardProps {
   review: Review;

@@ -1,1 +1,8 @@
-export const pages = ['/', '/login', '/register', '/about', '/privacy', '/terms'];
+export const pages = [
+  '/',
+  '/login',
+  '/register',
+  '/about',
+  '/privacy',
+  '/terms',
+];

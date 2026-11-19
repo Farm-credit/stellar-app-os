@@ -8,11 +8,7 @@ export type WebhookEventType =
   | 'transaction.failed'
   | 'wallet.created'
   | 'payment.received'
-  | 'payment.failed'
-  | 'sponsorship.created'
-  | 'sponsorship.updated'
-  | 'tree.planted'
-  | 'tree.verified';
+  | 'payment.failed';
 
 export type WebhookEventStatus = 'success' | 'failed' | 'pending' | 'retrying';
 
@@ -41,14 +37,4 @@ export interface WebhookFilterState {
   eventType: WebhookEventType | 'all';
   sortBy: 'timestamp' | 'eventType' | 'status';
   sortOrder: 'asc' | 'desc';
-}
-
-export interface WebhookSubscription {
-  id: string;
-  clientId: string;
-  url: string;
-  eventTypes: WebhookEventType[];
-  secret: string;
-  active: boolean;
-  createdAt: string;
 }

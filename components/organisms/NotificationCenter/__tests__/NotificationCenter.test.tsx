@@ -1,9 +1,6 @@
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { NotificationCenterDrawer } from '@/components/organisms/NotificationCenter/NotificationCenterDrawer';
-import {
-  NotificationBell,
-  ToastContainer,
-} from '@/components/organisms/NotificationCenter/NotificationBell';
+import { NotificationBell, ToastContainer } from '@/components/organisms/NotificationCenter/NotificationBell';
 import { NotificationProvider, useNotification } from '@/contexts/NotificationContext';
 
 const renderWithProvider = (ui: React.ReactElement) => {
@@ -16,9 +13,7 @@ describe('NotificationCenterDrawer', () => {
       const { openDrawer } = useNotification();
       return (
         <div>
-          <button onClick={openDrawer} data-testid="open">
-            Open
-          </button>
+          <button onClick={openDrawer} data-testid="open">Open</button>
           <NotificationCenterDrawer />
         </div>
       );
@@ -41,9 +36,7 @@ describe('NotificationCenterDrawer', () => {
       const { openDrawer } = useNotification();
       return (
         <div>
-          <button onClick={openDrawer} data-testid="open">
-            Open
-          </button>
+          <button onClick={openDrawer} data-testid="open">Open</button>
           <NotificationCenterDrawer />
         </div>
       );
@@ -60,9 +53,7 @@ describe('NotificationCenterDrawer', () => {
       const { openDrawer } = useNotification();
       return (
         <div>
-          <button onClick={openDrawer} data-testid="open">
-            Open
-          </button>
+          <button onClick={openDrawer} data-testid="open">Open</button>
           <NotificationCenterDrawer />
         </div>
       );
@@ -86,9 +77,7 @@ describe('NotificationCenterDrawer', () => {
       const { openDrawer } = useNotification();
       return (
         <div>
-          <button onClick={openDrawer} data-testid="open">
-            Open
-          </button>
+          <button onClick={openDrawer} data-testid="open">Open</button>
           <NotificationCenterDrawer />
         </div>
       );
@@ -110,9 +99,7 @@ describe('NotificationCenterDrawer', () => {
       return (
         <div>
           <span data-testid="unread-count">{unreadCount}</span>
-          <button onClick={() => markAsRead(notifications[0]?.id || '')} data-testid="mark-read">
-            Mark Read
-          </button>
+          <button onClick={() => markAsRead(notifications[0]?.id || '')} data-testid="mark-read">Mark Read</button>
         </div>
       );
     };
@@ -131,12 +118,7 @@ describe('NotificationCenterDrawer', () => {
       return (
         <div>
           <span data-testid="unread-count">{unreadCount}</span>
-          <button
-            onClick={() => archiveNotification(notifications[0]?.id || '')}
-            data-testid="archive"
-          >
-            Archive
-          </button>
+          <button onClick={() => archiveNotification(notifications[0]?.id || '')} data-testid="archive">Archive</button>
         </div>
       );
     };
@@ -154,9 +136,7 @@ describe('NotificationCenterDrawer', () => {
       const { openDrawer } = useNotification();
       return (
         <div>
-          <button onClick={openDrawer} data-testid="open">
-            Open
-          </button>
+          <button onClick={openDrawer} data-testid="open">Open</button>
           <NotificationCenterDrawer />
         </div>
       );
@@ -173,9 +153,7 @@ describe('NotificationCenterDrawer', () => {
       const { openDrawer } = useNotification();
       return (
         <div>
-          <button onClick={openDrawer} data-testid="open">
-            Open
-          </button>
+          <button onClick={openDrawer} data-testid="open">Open</button>
           <NotificationCenterDrawer />
         </div>
       );
@@ -193,9 +171,7 @@ describe('NotificationCenterDrawer', () => {
       const { openDrawer } = useNotification();
       return (
         <div>
-          <button onClick={openDrawer} data-testid="open">
-            Open
-          </button>
+          <button onClick={openDrawer} data-testid="open">Open</button>
           <NotificationCenterDrawer />
         </div>
       );
@@ -214,9 +190,7 @@ describe('NotificationCenterDrawer', () => {
       return (
         <div>
           <span data-testid="unread-count">{unreadCount}</span>
-          <button onClick={openDrawer} data-testid="open">
-            Open
-          </button>
+          <button onClick={openDrawer} data-testid="open">Open</button>
           <NotificationCenterDrawer />
         </div>
       );
@@ -237,9 +211,7 @@ describe('NotificationCenterDrawer', () => {
       const { openDrawer } = useNotification();
       return (
         <div>
-          <button onClick={openDrawer} data-testid="open">
-            Open
-          </button>
+          <button onClick={openDrawer} data-testid="open">Open</button>
           <NotificationCenterDrawer />
         </div>
       );
@@ -258,9 +230,7 @@ describe('NotificationCenterDrawer', () => {
       const { openDrawer } = useNotification();
       return (
         <div>
-          <button onClick={openDrawer} data-testid="open">
-            Open
-          </button>
+          <button onClick={openDrawer} data-testid="open">Open</button>
           <NotificationCenterDrawer />
         </div>
       );
@@ -277,9 +247,7 @@ describe('NotificationCenterDrawer', () => {
       const { openDrawer } = useNotification();
       return (
         <div>
-          <button onClick={openDrawer} data-testid="open">
-            Open
-          </button>
+          <button onClick={openDrawer} data-testid="open">Open</button>
           <NotificationCenterDrawer />
         </div>
       );
@@ -296,9 +264,7 @@ describe('NotificationCenterDrawer', () => {
       const { openDrawer } = useNotification();
       return (
         <div>
-          <button onClick={openDrawer} data-testid="open">
-            Open
-          </button>
+          <button onClick={openDrawer} data-testid="open">Open</button>
           <NotificationCenterDrawer />
         </div>
       );
@@ -354,9 +320,7 @@ describe('NotificationBell', () => {
     };
 
     renderWithProvider(<TestComponent />);
-    fireEvent.keyDown(screen.getByRole('button', { name: /unread notifications/i }), {
-      key: 'Enter',
-    });
+    fireEvent.keyDown(screen.getByRole('button', { name: /unread notifications/i }), { key: 'Enter' });
     expect(screen.getByTestId('drawer-state')).toHaveTextContent('true');
   });
 
@@ -412,16 +376,11 @@ describe('NotificationBell', () => {
       return (
         <div>
           <NotificationBell />
-          <button
-            onClick={() => {
-              for (let i = 0; i < 10; i++) {
-                addNotification({ title: `Notif ${i}`, type: 'payout', priority: 'high' });
-              }
-            }}
-            data-testid="add-many"
-          >
-            Add Many
-          </button>
+          <button onClick={() => {
+            for (let i = 0; i < 10; i++) {
+              addNotification({ title: `Notif ${i}`, type: 'payout', priority: 'high' });
+            }
+          }} data-testid="add-many">Add Many</button>
         </div>
       );
     };
@@ -443,12 +402,7 @@ describe('ToastContainer', () => {
       const { addToast } = useNotification();
       return (
         <div>
-          <button
-            onClick={() => addToast({ title: 'Test Toast', type: 'success' })}
-            data-testid="add"
-          >
-            Add Toast
-          </button>
+          <button onClick={() => addToast({ title: 'Test Toast', type: 'success' })} data-testid="add">Add Toast</button>
           <ToastContainer />
         </div>
       );
@@ -464,14 +418,7 @@ describe('ToastContainer', () => {
       const { addToast } = useNotification();
       return (
         <div>
-          <button
-            onClick={() =>
-              addToast({ title: 'Test', description: 'Description text', type: 'info' })
-            }
-            data-testid="add"
-          >
-            Add
-          </button>
+          <button onClick={() => addToast({ title: 'Test', description: 'Description text', type: 'info' })} data-testid="add">Add</button>
           <ToastContainer />
         </div>
       );
@@ -487,12 +434,7 @@ describe('ToastContainer', () => {
       const { addToast } = useNotification();
       return (
         <div>
-          <button
-            onClick={() => addToast({ title: 'Dismiss Me', type: 'warning' })}
-            data-testid="add"
-          >
-            Add
-          </button>
+          <button onClick={() => addToast({ title: 'Dismiss Me', type: 'warning' })} data-testid="add">Add</button>
           <ToastContainer />
         </div>
       );
@@ -512,21 +454,11 @@ describe('ToastContainer', () => {
       const { toast } = useNotification();
       return (
         <div>
-          <button onClick={() => toast.success('Success!')} data-testid="success">
-            Success
-          </button>
-          <button onClick={() => toast.error('Error!')} data-testid="error">
-            Error
-          </button>
-          <button onClick={() => toast.warning('Warning!')} data-testid="warning">
-            Warning
-          </button>
-          <button onClick={() => toast.info('Info!')} data-testid="info">
-            Info
-          </button>
-          <button onClick={() => toast.contract('Contract!')} data-testid="contract">
-            Contract
-          </button>
+          <button onClick={() => toast.success('Success!')} data-testid="success">Success</button>
+          <button onClick={() => toast.error('Error!')} data-testid="error">Error</button>
+          <button onClick={() => toast.warning('Warning!')} data-testid="warning">Warning</button>
+          <button onClick={() => toast.info('Info!')} data-testid="info">Info</button>
+          <button onClick={() => toast.contract('Contract!')} data-testid="contract">Contract</button>
           <ToastContainer />
         </div>
       );
@@ -554,12 +486,7 @@ describe('ToastContainer', () => {
       const { addToast } = useNotification();
       return (
         <div>
-          <button
-            onClick={() => addToast({ title: 'A11y Toast', type: 'error' })}
-            data-testid="add"
-          >
-            Add
-          </button>
+          <button onClick={() => addToast({ title: 'A11y Toast', type: 'error' })} data-testid="add">Add</button>
           <ToastContainer />
         </div>
       );
@@ -583,12 +510,7 @@ describe('ToastContainer', () => {
       const { addToast } = useNotification();
       return (
         <div>
-          <button
-            onClick={() => addToast({ title: 'Action Toast', action: mockAction, type: 'info' })}
-            data-testid="add"
-          >
-            Add
-          </button>
+          <button onClick={() => addToast({ title: 'Action Toast', action: mockAction, type: 'info' })} data-testid="add">Add</button>
           <ToastContainer />
         </div>
       );
@@ -609,16 +531,11 @@ describe('ToastContainer', () => {
       const { addToast } = useNotification();
       return (
         <div>
-          <button
-            onClick={() => {
-              addToast({ title: 'Toast 1', type: 'info' });
-              addToast({ title: 'Toast 2', type: 'success' });
-              addToast({ title: 'Toast 3', type: 'error' });
-            }}
-            data-testid="add-multi"
-          >
-            Add
-          </button>
+          <button onClick={() => {
+            addToast({ title: 'Toast 1', type: 'info' });
+            addToast({ title: 'Toast 2', type: 'success' });
+            addToast({ title: 'Toast 3', type: 'error' });
+          }} data-testid="add-multi">Add</button>
           <ToastContainer />
         </div>
       );
@@ -637,15 +554,10 @@ describe('ToastContainer', () => {
       const { addToast } = useNotification();
       return (
         <div>
-          <button
-            onClick={() => {
-              addToast({ title: 'Keep Me', type: 'info' });
-              addToast({ title: 'Remove Me', type: 'warning' });
-            }}
-            data-testid="add"
-          >
-            Add
-          </button>
+          <button onClick={() => {
+            addToast({ title: 'Keep Me', type: 'info' });
+            addToast({ title: 'Remove Me', type: 'warning' });
+          }} data-testid="add">Add</button>
           <ToastContainer />
         </div>
       );
@@ -669,12 +581,7 @@ describe('ToastContext', () => {
       const { addToast } = useNotification();
       return (
         <div>
-          <button
-            onClick={() => addToast({ title: 'Sticky', type: 'info', duration: 0 })}
-            data-testid="add"
-          >
-            Add
-          </button>
+          <button onClick={() => addToast({ title: 'Sticky', type: 'info', duration: 0 })} data-testid="add">Add</button>
           <ToastContainer />
         </div>
       );
@@ -684,9 +591,7 @@ describe('ToastContext', () => {
     fireEvent.click(screen.getByTestId('add'));
     expect(screen.getByText('Sticky')).toBeInTheDocument();
 
-    act(() => {
-      vi.advanceTimersByTime(10000);
-    });
+    act(() => { vi.advanceTimersByTime(10000); });
     expect(screen.getByText('Sticky')).toBeInTheDocument();
     vi.useRealTimers();
   });
@@ -697,12 +602,7 @@ describe('ToastContext', () => {
       const { addToast } = useNotification();
       return (
         <div>
-          <button
-            onClick={() => addToast({ title: 'Temp', type: 'success', duration: 100 })}
-            data-testid="add"
-          >
-            Add
-          </button>
+          <button onClick={() => addToast({ title: 'Temp', type: 'success', duration: 100 })} data-testid="add">Add</button>
           <ToastContainer />
         </div>
       );
@@ -712,9 +612,7 @@ describe('ToastContext', () => {
     fireEvent.click(screen.getByTestId('add'));
     expect(screen.getByText('Temp')).toBeInTheDocument();
 
-    act(() => {
-      vi.advanceTimersByTime(200);
-    });
+    act(() => { vi.advanceTimersByTime(200); });
     expect(screen.queryByText('Temp')).not.toBeInTheDocument();
     vi.useRealTimers();
   });

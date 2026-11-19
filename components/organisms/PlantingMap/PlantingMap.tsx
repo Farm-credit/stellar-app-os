@@ -1,7 +1,14 @@
 'use client';
 
 import { useEffect, useMemo, type JSX } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, CircleMarker, useMap } from 'react-leaflet';
+import {
+  MapContainer,
+  TileLayer,
+  Marker,
+  Popup,
+  CircleMarker,
+  useMap,
+} from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { MapPin, Trees, ThermometerSun, Globe2, Sprout, X } from 'lucide-react';
@@ -56,13 +63,7 @@ function climateIconBg(climate: string): string {
   }
 }
 
-function LocationFlyTo({
-  locationId,
-  locations,
-}: {
-  locationId: number | null;
-  locations: PlantingLocation[];
-}) {
+function LocationFlyTo({ locationId, locations }: { locationId: number | null; locations: PlantingLocation[] }) {
   const map = useMap();
   useEffect(() => {
     if (locationId == null) return;
@@ -170,12 +171,14 @@ export function PlantingMap({
           );
         })}
 
-        {bounds && locations.length > 1 && <AutoFitBounds bounds={bounds} />}
+        {bounds && locations.length > 1 && (
+          <AutoFitBounds bounds={bounds} />
+        )}
       </MapContainer>
 
       <span id="planting-map-description" className="sr-only">
-        Click any marker to view details about a planting location. Use the filters to narrow
-        results by region, climate, or tree species.
+        Click any marker to view details about a planting location. Use the filters
+        to narrow results by region, climate, or tree species.
       </span>
 
       {selectedLocation && (
@@ -210,7 +213,10 @@ export function PlantingMap({
               </p>
 
               <div className="flex flex-wrap gap-2">
-                <Badge variant="secondary" className={climateIconBg(selectedLocation.climate)}>
+                <Badge
+                  variant="secondary"
+                  className={climateIconBg(selectedLocation.climate)}
+                >
                   <ThermometerSun className="size-3" aria-hidden="true" />
                   {selectedLocation.climate}
                 </Badge>
@@ -227,11 +233,7 @@ export function PlantingMap({
                 </div>
                 <div className="flex flex-wrap gap-1.5">
                   {selectedLocation.species.map((slug) => (
-                    <Badge
-                      key={slug}
-                      variant="secondary"
-                      className="bg-stellar-green/10 text-stellar-green dark:bg-stellar-green/20"
-                    >
+                    <Badge key={slug} variant="secondary" className="bg-stellar-green/10 text-stellar-green dark:bg-stellar-green/20">
                       {resolveSpeciesName(slug)}
                     </Badge>
                   ))}

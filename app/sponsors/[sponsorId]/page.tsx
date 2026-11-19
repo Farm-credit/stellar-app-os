@@ -1,9 +1,7 @@
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
-import { SponsorAchievementGallery } from '@/components/molecules/SponsorBadges/SponsorAchievementGallery';
 import { SponsorBadges } from '@/components/molecules/SponsorBadges/SponsorBadges';
 import { SponsorMilestoneHistory } from '@/components/organisms/SponsorMilestoneHistory';
-import { evaluateSponsorAchievements } from '@/lib/gamification/sponsor-achievements';
 import { getSponsorMilestones } from '@/lib/gamification/sponsor-milestones';
 import { getSponsorProfile } from '@/lib/api/sponsors';
 import { getSponsorPortfolio } from '@/lib/api/sponsor-portfolio';
@@ -57,7 +55,6 @@ export default async function SponsorProfilePage({
     .reduce((sum, entry) => sum + entry.count, 0);
 
   const milestones = getSponsorMilestones(plantingHistory);
-  const achievements = evaluateSponsorAchievements(plantingHistory);
   const sponsorDisplayName = profile.name ?? formatAddress(profile.address);
 
   return (
@@ -144,8 +141,6 @@ export default async function SponsorProfilePage({
           />
         </div>
       </section>
-
-      <SponsorAchievementGallery achievements={achievements} sponsorAddress={profile.address} />
 
       <SponsorBadges totalTrees={profile.totalTrees} />
 

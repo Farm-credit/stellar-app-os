@@ -49,7 +49,10 @@ export function PortfolioSelector({
           Your Credit Portfolio
         </Text>
         {[1, 2].map((i) => (
-          <div key={i} className="h-24 rounded-xl border border-border bg-muted/30 animate-pulse" />
+          <div
+            key={i}
+            className="h-24 rounded-xl border border-border bg-muted/30 animate-pulse"
+          />
         ))}
       </div>
     );
@@ -86,8 +89,8 @@ export function PortfolioSelector({
           No credits in portfolio
         </Text>
         <Text variant="muted" as="p" className="text-xs">
-          You have no verified carbon credits available to list. Credits appear here once they have
-          been issued and verified to your wallet.
+          You have no verified carbon credits available to list. Credits appear here once they
+          have been issued and verified to your wallet.
         </Text>
       </div>
     );
@@ -115,7 +118,7 @@ export function PortfolioSelector({
                 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stellar-green/50',
                 isSelected
                   ? 'border-stellar-green bg-stellar-green/5 shadow-sm'
-                  : 'border-border bg-card'
+                  : 'border-border bg-card',
               )}
             >
               <div className="flex items-start justify-between gap-3">
@@ -124,7 +127,10 @@ export function PortfolioSelector({
                     <span className="text-sm font-semibold text-foreground truncate">
                       {credit.type}
                     </span>
-                    <Badge variant="secondary" className="text-xs shrink-0">
+                    <Badge
+                      variant="secondary"
+                      className="text-xs shrink-0"
+                    >
                       Vintage {credit.vintage}
                     </Badge>
                   </div>
@@ -152,7 +158,7 @@ export function PortfolioSelector({
                     'mt-0.5 h-5 w-5 shrink-0 rounded-full border-2 flex items-center justify-center transition-colors',
                     isSelected
                       ? 'border-stellar-green bg-stellar-green'
-                      : 'border-border group-hover:border-stellar-green/60'
+                      : 'border-border group-hover:border-stellar-green/60',
                   )}
                   aria-hidden="true"
                 >

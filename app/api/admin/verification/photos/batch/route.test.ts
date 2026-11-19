@@ -57,7 +57,9 @@ function makeRequest(body: unknown): Request {
 }
 
 function callsFor(pattern: RegExp): unknown[][] {
-  return queryMock.mock.calls.filter((call) => pattern.test(String(call[0]).replace(/\s+/g, ' ')));
+  return queryMock.mock.calls.filter((call) =>
+    pattern.test(String(call[0]).replace(/\s+/g, ' '))
+  );
 }
 
 describe('admin batch verification photos route', () => {
@@ -113,7 +115,9 @@ describe('admin batch verification photos route', () => {
   });
 
   it('approves a single planted tree, verifies it and emits a lifecycle event', async () => {
-    fixtures.photos = [{ id: 1, tree_id: 10, tree_ref: 'TREE-1', status: 'planted' }];
+    fixtures.photos = [
+      { id: 1, tree_id: 10, tree_ref: 'TREE-1', status: 'planted' },
+    ];
     fixtures.treeIds = [{ tree_id: 10 }];
     fixtures.updatedTrees = [{ id: 10, tree_ref: 'TREE-1' }];
 
@@ -145,7 +149,9 @@ describe('admin batch verification photos route', () => {
   });
 
   it('records a status_mismatch conflict and skips processing when a tree is already verified', async () => {
-    fixtures.photos = [{ id: 2, tree_id: 20, tree_ref: 'TREE-2', status: 'verified' }];
+    fixtures.photos = [
+      { id: 2, tree_id: 20, tree_ref: 'TREE-2', status: 'verified' },
+    ];
 
     const response = await POST(makeRequest({ photoIds: [2], action: 'approve' }));
 
@@ -240,9 +246,13 @@ describe('admin batch verification photos route', () => {
   });
 
   it('reject writes rejection metadata with the provided reason and emits no event', async () => {
-    fixtures.photos = [{ id: 1, tree_id: 10, tree_ref: 'TREE-1', status: 'planted' }];
+    fixtures.photos = [
+      { id: 1, tree_id: 10, tree_ref: 'TREE-1', status: 'planted' },
+    ];
 
-    const response = await POST(makeRequest({ photoIds: [1], action: 'reject', reason: 'blurry' }));
+    const response = await POST(
+      makeRequest({ photoIds: [1], action: 'reject', reason: 'blurry' })
+    );
 
     const data = await response.json();
     expect(data.action).toBe('reject');
@@ -261,7 +271,9 @@ describe('admin batch verification photos route', () => {
   });
 
   it('returns 500 and rolls back when the tree update throws', async () => {
-    fixtures.photos = [{ id: 1, tree_id: 10, tree_ref: 'TREE-1', status: 'planted' }];
+    fixtures.photos = [
+      { id: 1, tree_id: 10, tree_ref: 'TREE-1', status: 'planted' },
+    ];
     fixtures.treeIds = [{ tree_id: 10 }];
     queryMock.mockImplementation((sql: string) => {
       if (/UPDATE trees/i.test(String(sql).replace(/\s+/g, ' '))) {

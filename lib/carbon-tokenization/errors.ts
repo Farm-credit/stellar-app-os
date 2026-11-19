@@ -45,7 +45,11 @@ export class ProjectNotFoundError extends CreditTokenizationError {
 }
 
 export class ProjectNotActiveError extends CreditTokenizationError {
-  constructor(protocol: RegistryProtocol, projectId: string, actualStatus: string) {
+  constructor(
+    protocol: RegistryProtocol,
+    projectId: string,
+    actualStatus: string
+  ) {
     super(
       `Project ${projectId} in ${protocol} registry is not active (status: ${actualStatus})`,
       'PROJECT_NOT_ACTIVE',
@@ -73,7 +77,10 @@ export class ProjectStatusUnknownError extends CreditTokenizationError {
 }
 
 export class RetirementNotFoundError extends CreditTokenizationError {
-  constructor(protocol: RegistryProtocol, serialNumber: string) {
+  constructor(
+    protocol: RegistryProtocol,
+    serialNumber: string
+  ) {
     super(
       `Retirement serial ${serialNumber} not found in ${protocol} registry`,
       'RETIREMENT_NOT_FOUND',
@@ -87,7 +94,10 @@ export class RetirementNotFoundError extends CreditTokenizationError {
 }
 
 export class RetirementSerialInvalidError extends CreditTokenizationError {
-  constructor(protocol: RegistryProtocol, serialNumber: string) {
+  constructor(
+    protocol: RegistryProtocol,
+    serialNumber: string
+  ) {
     super(
       `Retirement serial ${serialNumber} is not a valid format for ${protocol}`,
       'RETIREMENT_SERIAL_INVALID',
@@ -101,7 +111,11 @@ export class RetirementSerialInvalidError extends CreditTokenizationError {
 }
 
 export class RetirementNotRetiredError extends CreditTokenizationError {
-  constructor(protocol: RegistryProtocol, serialNumber: string, actualStatus: string) {
+  constructor(
+    protocol: RegistryProtocol,
+    serialNumber: string,
+    actualStatus: string
+  ) {
     super(
       `Credit ${serialNumber} in ${protocol} registry is not retired (status: ${actualStatus})`,
       'RETIREMENT_NOT_RETIRED',
@@ -115,7 +129,11 @@ export class RetirementNotRetiredError extends CreditTokenizationError {
 }
 
 export class RetirementStatusInvalidError extends CreditTokenizationError {
-  constructor(protocol: RegistryProtocol, serialNumber: string, actualStatus: string) {
+  constructor(
+    protocol: RegistryProtocol,
+    serialNumber: string,
+    actualStatus: string
+  ) {
     super(
       `Credit ${serialNumber} in ${protocol} registry has invalid status for tokenization (status: ${actualStatus})`,
       'RETIREMENT_STATUS_INVALID',
@@ -129,7 +147,11 @@ export class RetirementStatusInvalidError extends CreditTokenizationError {
 }
 
 export class VintageMismatchError extends CreditTokenizationError {
-  constructor(serialNumber: string, expected: number, actual: number | null) {
+  constructor(
+    serialNumber: string,
+    expected: number,
+    actual: number | null
+  ) {
     super(
       `Vintage mismatch for serial ${serialNumber}`,
       'VINTAGE_MISMATCH',
@@ -143,7 +165,11 @@ export class VintageMismatchError extends CreditTokenizationError {
 }
 
 export class TonnageMismatchError extends CreditTokenizationError {
-  constructor(serialNumber: string, expected: number, actual: number) {
+  constructor(
+    serialNumber: string,
+    expected: number,
+    actual: number
+  ) {
     super(
       `Tonnage mismatch for serial ${serialNumber}`,
       'TONNAGE_MISMATCH',
@@ -157,7 +183,11 @@ export class TonnageMismatchError extends CreditTokenizationError {
 }
 
 export class ProjectIdMismatchError extends CreditTokenizationError {
-  constructor(serialNumber: string, expected: string, actual: string) {
+  constructor(
+    serialNumber: string,
+    expected: string,
+    actual: string
+  ) {
     super(
       `Project ID mismatch for serial ${serialNumber}`,
       'PROJECT_ID_MISMATCH',
@@ -171,7 +201,11 @@ export class ProjectIdMismatchError extends CreditTokenizationError {
 }
 
 export class AlreadyMintedError extends CreditTokenizationError {
-  constructor(protocol: RegistryProtocol, serialNumber: string, existingTokenId: string) {
+  constructor(
+    protocol: RegistryProtocol,
+    serialNumber: string,
+    existingTokenId: string
+  ) {
     super(
       `Serial ${serialNumber} from ${protocol} has already been minted as token ${existingTokenId}`,
       'ALREADY_MINTED',
@@ -199,8 +233,17 @@ export class ProtocolNotSupportedError extends CreditTokenizationError {
 }
 
 export class RegistryApiError extends CreditTokenizationError {
-  constructor(protocol: RegistryProtocol, innerMessage: string, retryable: boolean = true) {
-    super(`${protocol} registry API error: ${innerMessage}`, 'REGISTRY_API_ERROR', 502, retryable);
+  constructor(
+    protocol: RegistryProtocol,
+    innerMessage: string,
+    retryable: boolean = true
+  ) {
+    super(
+      `${protocol} registry API error: ${innerMessage}`,
+      'REGISTRY_API_ERROR',
+      502,
+      retryable
+    );
   }
 }
 
@@ -217,12 +260,22 @@ export class RegistryRateLimitedError extends CreditTokenizationError {
 
 export class RegistryTimeoutError extends CreditTokenizationError {
   constructor(protocol: RegistryProtocol) {
-    super(`${protocol} registry request timed out`, 'REGISTRY_TIMEOUT', 504, true);
+    super(
+      `${protocol} registry request timed out`,
+      'REGISTRY_TIMEOUT',
+      504,
+      true
+    );
   }
 }
 
 export class ValidationInternalError extends CreditTokenizationError {
   constructor(innerMessage: string) {
-    super(`Internal validation error: ${innerMessage}`, 'VALIDATION_INTERNAL_ERROR', 500, true);
+    super(
+      `Internal validation error: ${innerMessage}`,
+      'VALIDATION_INTERNAL_ERROR',
+      500,
+      true
+    );
   }
 }

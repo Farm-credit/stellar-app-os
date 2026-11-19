@@ -17,6 +17,7 @@ import {
   Contract,
   Keypair,
   Networks,
+  Operation,
   SorobanRpc,
   TransactionBuilder,
   nativeToScVal,
@@ -95,7 +96,7 @@ function addr(v: string): xdr.ScVal {
 function statusToScVal(status: BridgeLockStatus): xdr.ScVal {
   const variant = xdr.ScVal.scvVec([
     xdr.ScVal.scvSymbol(
-      status === 'Locked' ? 'Locked' : status === 'Executed' ? 'Executed' : 'Cancelled'
+      status === 'Locked' ? 'Locked' : status === 'Executed' ? 'Executed' : 'Cancelled',
     ),
   ]);
   return variant;
@@ -123,7 +124,7 @@ async function simulateCall<T>(
   method: string,
   args: xdr.ScVal[],
   network: NetworkType,
-  decode: (result: xdr.ScVal) => T
+  decode: (result: xdr.ScVal) => T,
 ): Promise<T> {
   const server = new SorobanRpc.Server(SOROBAN_RPC[network], { allowHttp: false });
   const source = Keypair.random().publicKey();
@@ -147,7 +148,7 @@ async function submitSigned(
   method: string,
   args: xdr.ScVal[],
   network: NetworkType,
-  signAndSend: (xdr: string) => Promise<string>
+  signAndSend: (xdr: string) => Promise<string>,
 ): Promise<string> {
   const server = new SorobanRpc.Server(SOROBAN_RPC[network], { allowHttp: false });
   const contract = new Contract(getBridgeContractId(network));
@@ -170,7 +171,7 @@ async function submitSigned(
   const signedXdr = await signAndSend(prepared.toXDR());
 
   const result = await server.sendTransaction(
-    SorobanRpc.TransactionBuilder.fromXDR(signedXdr, getNetworkPassphrase(network))
+    SorobanRpc.TransactionBuilder.fromXDR(signedXdr, getNetworkPassphrase(network)),
   );
   if (result.status === 'ERROR') {
     throw new Error(`Bridge ${method} submission failed: ${JSON.stringify(result.errorResult)}`);
@@ -181,7 +182,7 @@ async function submitSigned(
 async function submitAdmin(
   method: string,
   args: xdr.ScVal[],
-  network: NetworkType
+  network: NetworkType,
 ): Promise<string> {
   const secret = process.env.STELLAR_FEE_PAYER_SECRET;
   if (!secret) throw new Error('STELLAR_FEE_PAYER_SECRET is not set');
@@ -213,7 +214,7 @@ async function submitAdmin(
  */
 export async function lockForPurchase(
   params: LockForPurchaseParams,
-  network: NetworkType
+  network: NetworkType,
 ): Promise<string> {
   const args = [
     addr(params.senderAddress),
@@ -282,20 +283,28 @@ export async function getBridgeConfig(network: NetworkType): Promise<BridgeConfi
 /** Returns a lock by id, or null when it does not exist. */
 export async function getBridgeLock(
   lockId: number,
-  network: NetworkType
+  network: NetworkType,
 ): Promise<BridgeLock | null> {
-  return simulateCall('get_lock', [nativeToScVal(lockId, { type: 'u64' })], network, (scv) => {
-    const v = scValToNative(scv);
-    // The contract returns None → empty vec → null.
-    if (v === null || v === undefined) return null;
-    return lockFromScVal(v);
-  });
+  return simulateCall(
+    'get_lock',
+    [nativeToScVal(lockId, { type: 'u64' })],
+    network,
+    (scv) => {
+      const v = scValToNative(scv);
+      // The contract returns None → empty vec → null.
+      if (v === null || v === undefined) return null;
+      return lockFromScVal(v);
+    },
+  );
 }
 
 /** Returns all lock ids created by the given sender. */
-export async function getLocksForSender(sender: string, network: NetworkType): Promise<number[]> {
+export async function getLocksForSender(
+  sender: string,
+  network: NetworkType,
+): Promise<number[]> {
   return simulateCall('get_locks_for_sender', [addr(sender)], network, (scv) =>
-    (scValToNative(scv) as unknown[]).map(Number)
+    (scValToNative(scv) as unknown[]).map(Number),
   );
 }
 
@@ -305,7 +314,7 @@ export function quoteBridgeFee(amount: string, network: NetworkType): Promise<st
     'quote_fee',
     [nativeToScVal(BigInt(amount), { type: 'i128' })],
     network,
-    (scv) => String(scValToNative(scv))
+    (scv) => String(scValToNative(scv)),
   );
 }
 

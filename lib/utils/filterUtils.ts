@@ -79,16 +79,10 @@ export function projectMatchesCoBenefit(project: CarbonProject, benefitFilter: s
     if (existing === query) return true;
 
     // Canonical category matchers for Biodiversity, Water, Soil
-    if (
-      query === 'biodiversity' &&
-      (existing.includes('biodiversity') || existing.includes('wildlife'))
-    ) {
+    if (query === 'biodiversity' && (existing.includes('biodiversity') || existing.includes('wildlife'))) {
       return true;
     }
-    if (
-      query === 'water' &&
-      (existing.includes('water') || existing.includes('watershed') || existing.includes('aquifer'))
-    ) {
+    if (query === 'water' && (existing.includes('water') || existing.includes('watershed') || existing.includes('aquifer'))) {
       return true;
     }
     if (query === 'soil' && (existing.includes('soil') || existing.includes('organic carbon'))) {

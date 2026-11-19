@@ -247,9 +247,7 @@ describe('dispatchEvent', () => {
     ]);
     mockedRepo.insertDelivery.mockImplementation(
       (_pool: Pool, params: Parameters<typeof repository.insertDelivery>[1]) =>
-        Promise.resolve(
-          makeDelivery({ subscription_id: params.subscriptionId, event_type: params.eventType })
-        )
+        Promise.resolve(makeDelivery({ subscription_id: params.subscriptionId, event_type: params.eventType }))
     );
 
     const rows = await dispatchEvent(fakePool, 'tree.status.changed', {

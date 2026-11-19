@@ -4,7 +4,6 @@ import type { BuyerComplianceReport } from '@/lib/esg-reporting-v2';
 
 interface ReportHeaderProps {
   report: BuyerComplianceReport;
-  
 }
 
 export function ReportHeader({ report }: ReportHeaderProps) {
@@ -26,9 +25,7 @@ export function ReportHeader({ report }: ReportHeaderProps) {
         <div className="mt-4 grid gap-4 sm:grid-cols-2 md:grid-cols-4">
           <div>
             <p className="text-xs uppercase text-muted-foreground">Report ID</p>
-            <p className="mt-1 font-mono text-sm font-semibold text-foreground">
-              {report.reportId}
-            </p>
+            <p className="mt-1 font-mono text-sm font-semibold text-foreground">{report.reportId}</p>
           </div>
           <div>
             <p className="text-xs uppercase text-muted-foreground">Period</p>

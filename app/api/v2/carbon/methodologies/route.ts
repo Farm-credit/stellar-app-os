@@ -1,4 +1,4 @@
-import { type NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import {
   listMethodologies,
   calculateMethodologyCredits,
@@ -44,16 +44,11 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { methodologyId, baselineEmissionsTonnes, projectEmissionsTonnes, leakageTonnes } = body;
 
-    if (
-      !methodologyId ||
-      baselineEmissionsTonnes === undefined ||
-      projectEmissionsTonnes === undefined
-    ) {
+    if (!methodologyId || baselineEmissionsTonnes === undefined || projectEmissionsTonnes === undefined) {
       return NextResponse.json(
         {
           success: false,
-          error:
-            'Missing required fields: methodologyId, baselineEmissionsTonnes, projectEmissionsTonnes',
+          error: 'Missing required fields: methodologyId, baselineEmissionsTonnes, projectEmissionsTonnes',
         },
         { status: 400 }
       );
