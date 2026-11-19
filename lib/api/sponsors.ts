@@ -52,6 +52,44 @@ export interface SponsorNewsletterPreference {
   updatedAt: string;
 }
 
+export type SponsorSegment = 'first_time' | 'vip' | 'lapsed' | 'regional';
+
+export interface SponsorDigestSettings {
+  sponsorId: string;
+  email?: string;
+  weeklyDigestEnabled: boolean;
+  updatedAt: string;
+}
+
+export interface WeeklyDigestTreeUpdate {
+  treeId: string;
+  speciesId?: string;
+  region?: string;
+  plantedAt?: string;
+  photoUrl?: string;
+}
+
+export interface WeeklySponsorDigestData {
+  sponsorId: string;
+  weekStart: string;
+  weekEnd: string;
+  treeUpdates: WeeklyDigestTreeUpdate[];
+  impactMetrics: {
+    treesFunded: number;
+    newTreesThisWeek: number;
+    co2Offset: number;
+  };
+  communityHighlights: {
+    milestonesReached: string[];
+    speciesDiversity: number;
+  };
+}
+
+export interface SponsorSegmentMember {
+  sponsorId: string;
+  email?: string;
+}
+
 export interface PersonalisedNewsletterSection {
   sponsorId: string;
   treeUpdates: Tree[];
@@ -62,11 +100,17 @@ const ANNUAL_IMPACT_EMAILS_ENDPOINT = '/api/sponsors/annual-impact-emails';
 const WAITLIST_ENDPOINT = '/api/sponsors/waitlist';
 const NEWSLETTER_PREFERENCES_ENDPOINT = '/api/sponsors/newsletter-preferences';
 
+// Threshold (in funded trees) at which a sponsor is considered a VIP.
+export const VIP_TREE_THRESHOLD = 50;
+// A sponsor with no tree activity within this window is considered lapsed.
+export const LAPSED_INACTIVITY_MONTHS = 12;
+
 // In-memory fallback stores used when the API is unavailable (e.g. tests / offline).
 const annualImpactEmailsStore: AnnualImpactEmailRow[] = [];
 const annualImpactSummariesStore: AnnualImpactSummary[] = [];
 const waitlistStore: WaitlistEntry[] = [];
 const newsletterPreferencesStore: SponsorNewsletterPreference[] = [];
+const digestSettingsStore: SponsorDigestSettings[] = [];
 
 function normalizeAddress(address: string): string {
   return address.toLowerCase();
@@ -282,6 +326,92 @@ export function getNewsletterPreference(
   };
 }
 
+function getTreeDate(tree: Tree): Date | undefined {
+  const dateValue = tree.plantedAt ?? tree.createdAt;
+  if (!dateValue) return undefined;
+  const parsed = new Date(dateValue);
+  if (Number.isNaN(parsed.getTime())) return undefined;
+  return parsed;
+}
+
+function getTreePhotoUrl(tree: Tree): string | undefined {
+  const candidate = tree as Tree & {
+    photoUrl?: string;
+    photo?: string;
+    imageUrl?: string;
+  };
+  return candidate.photoUrl ?? candidate.photo ?? candidate.imageUrl;
+}
+
+function getTreeRegion(tree: Tree): string | undefined {
+  const candidate = tree as Tree & { region?: string; zone?: string };
+  return candidate.region ?? candidate.zone;
+}
+
+/**
+ * Aggregates a sponsor's weekly digest data: this week's tree updates (with
+ * photo URLs when available), impact metrics, and community highlights.
+ */
+export async function getWeeklySponsorDigestData(
+  sponsorId: string,
+  weekStart: Date
+): Promise<WeeklySponsorDigestData> {
+  const start = new Date(weekStart);
+  const end = new Date(start.getTime() + 7 * 24 * 60 * 60 * 1000);
+
+  const trees = await getSponsorTreeUpdates(sponsorId);
+
+  const treeUpdates: WeeklyDigestTreeUpdate[] = [];
+  let newTreesThisWeek = 0;
+  const speciesSet = new Set<string>();
+
+  for (const tree of trees) {
+    const date = getTreeDate(tree);
+    if (!date) continue;
+
+    const speciesId = tree.speciesId ?? tree.species;
+    if (speciesId) speciesSet.add(speciesId);
+
+    if (date >= start && date < end) {
+      newTreesThisWeek += 1;
+      treeUpdates.push({
+        treeId: tree.id,
+        speciesId,
+        region: getTreeRegion(tree),
+        plantedAt: date.toISOString(),
+        photoUrl: getTreePhotoUrl(tree),
+      });
+    }
+  }
+
+  const treesFunded = trees.length;
+  const co2Offset = treesFunded * CO2_KG_PER_TREE;
+  const speciesDiversity = speciesSet.size;
+
+  const milestonesReached: string[] = [];
+  if (newTreesThisWeek >= 1) milestonesReached.push('New tree planted this week');
+  if (newTreesThisWeek >= 5) milestonesReached.push('5 trees planted this week');
+  if (treesFunded >= 10) milestonesReached.push('10 trees funded');
+  if (treesFunded >= 50) milestonesReached.push('50 trees funded');
+  if (speciesDiversity >= 5) milestonesReached.push('5+ species supported');
+
+  return {
+    sponsorId,
+    weekStart: start.toISOString(),
+    weekEnd: end.toISOString(),
+    treeUpdates,
+    impactMetrics: {
+      treesFunded,
+      newTreesThisWeek,
+      co2Offset,
+    },
+    communityHighlights: {
+      milestonesReached,
+      speciesDiversity,
+    },
+  };
+}
+
 /**
  * Updates the sponsor's monthly newsletter opt-in/out preference.
  */
@@ -296,6 +426,112 @@ export function updateNewsletterPreference(
 
   if (existing) {
     existing.optIn = optIn;
+    existing.updatedAt = new Date().toISOString();
+    return existing;
+  }
+
+  const created: SponsorNewsletterPreference = {
+    sponsorId,
+    optIn,
+    updatedAt: new Date().toISOString(),
+  };
+  newsletterPreferencesStore.push(created);
+  return created;
+}
+
+/**
+ * Computes the marketing segments a sponsor belongs to based on their
+ * sponsorship history and tree data.
+ */
+export async function computeSponsorSegments(
+  sponsorId: string
+): Promise<SponsorSegment[]> {
+  const segments: SponsorSegment[] = [];
+  const trees = await getSponsorTreeUpdates(sponsorId);
+  const totalTrees = trees.length;
+
+  if (totalTrees === 1) segments.push('first_time');
+  if (totalTrees >= VIP_TREE_THRESHOLD) segments.push('vip');
+
+  const now = Date.now();
+  const lapsedCutoff = new Date(now);
+  lapsedCutoff.setUTCMonth(
+    lapsedCutoff.getUTCMonth() - LAPSED_INACTIVITY_MONTHS
+  );
+
+  let lastActivity: Date | undefined;
+  for (const tree of trees) {
+    const date = getTreeDate(tree);
+    if (date && (!lastActivity || date > lastActivity)) lastActivity = date;
+  }
+
+  if (!lastActivity || lastActivity < lapsedCutoff) {
+    segments.push('lapsed');
+  }
+
+  if (trees.some((tree) => Boolean(getTreeRegion(tree)))) {
+    segments.push('regional');
+  }
+
+  return segments;
+}
+
+/**
+ * Returns the sponsors (id + email) that belong to the given segment,
+ * optionally filtered by region.
+ */
+export async function getSponsorsBySegment(
+  segment: SponsorSegment,
+  region?: string
+): Promise<SponsorSegmentMember[]> {
+  const normalizedRegion = region?.toLowerCase();
+  const members: SponsorSegmentMember[] = [];
+
+  for (const sponsor of mockAllTimeSponsors) {
+    const segments = await computeSponsorSegments(sponsor.address);
+    if (!segments.includes(segment)) continue;
+
+    if (normalizedRegion) {
+      const trees = await getSponsorTreeUpdates(sponsor.address);
+      const inRegion = trees.some(
+        (tree) => getTreeRegion(tree)?.toLowerCase() === normalizedRegion
+      );
+      if (!inRegion) continue;
+    }
+
+    members.push({
+      sponsorId: sponsor.address,
+      email: (sponsor as { email?: string }).email,
+    });
+  }
+
+  return members;
+}
+
+/**
+ * Returns the digest settings for a sponsor, if configured.
+ */
+export function getSponsorDigestSettings(
+  sponsorId: string
+): SponsorDigestSettings | undefined {
+  const normalized = normalizeAddress(sponsorId);
+  return digestSettingsStore.find(
+    (entry) => normalizeAddress(entry.sponsorId) === normalized
+  );
+}
+
+/**
+ * Persists a sponsor's weekly digest preference (upsert by sponsor).
+ */
+export function setSponsorDigestSettings(
+  sponsorId: string,
+  weeklyDigestEnabled: boolean,
+  email?: string
+): SponsorDigestSettings {
+  const existing = getSponsorDigestSettings(sponsorId);
+  if (existing) {
+    existing.weeklyDigestEnabled = weeklyDigestEnabled;
+    if (email !== undefined) existing.email = email;
     existing.updatedAt = new Date().toISOString();
     return existing;
   }
@@ -322,6 +558,23 @@ export async function getPersonalisedNewsletterSection(
     treeUpdates,
     totalTrees: treeUpdates.length,
   };
+}
+
+  const settings: SponsorDigestSettings = {
+    sponsorId,
+    email,
+    weeklyDigestEnabled,
+    updatedAt: new Date().toISOString(),
+  };
+  digestSettingsStore.push(settings);
+  return settings;
+}
+
+/**
+ * Returns the sponsors that have opted in to the weekly impact digest.
+ */
+export function getSponsorsWithWeeklyDigestEnabled(): SponsorDigestSettings[] {
+  return digestSettingsStore.filter((entry) => entry.weeklyDigestEnabled);
 }
 
 function getWaitlistForRegion(region: string): WaitlistEntry[] {

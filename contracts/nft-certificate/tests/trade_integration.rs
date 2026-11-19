@@ -8,11 +8,8 @@
 //!
 //! Run with: cargo test --test nft-certificate-trade-test
 
-use soroban_sdk::{
-    testutils::Address as _,
-    token, Address, Env, String, Vec,
-};
 use nft_certificate::{CertificateMetadata, NftCertificate, NftCertificateClient};
+use soroban_sdk::{testutils::Address as _, token, Address, Env, String, Vec};
 
 // ------------------------------------------------------------------
 // Helpers
@@ -45,6 +42,7 @@ fn metadata(env: &Env, tree_count: i128, co2_offset: i128) -> CertificateMetadat
 
 struct TestEnv {
     env: Env,
+    issuer: Address,
     client: NftCertificateClient<'static>,
     payment_token: Address,
 }
@@ -54,14 +52,17 @@ fn setup() -> TestEnv {
     env.mock_all_auths();
 
     let admin = Address::generate(&env);
+    let issuer = Address::generate(&env);
     let payment_token = deploy_token(&env, &admin);
 
     let contract_id = env.register_contract(None, NftCertificate);
     let client = NftCertificateClient::new(&env, &contract_id);
     client.initialize(&admin);
+    client.add_issuer(&issuer);
 
     TestEnv {
         env,
+        issuer,
         client,
         payment_token,
     }
@@ -87,8 +88,12 @@ fn test_full_secondary_market_lifecycle() {
 
     // ── Step 1: Mint certificate to planter ────────────────────────────
     println!("1️⃣ Mint certificate to original planter");
-    ctx.client
-        .mint(&planter, &token_id, &metadata(&ctx.env, 100, 4800));
+    ctx.client.mint(
+        &ctx.issuer,
+        &planter,
+        &token_id,
+        &metadata(&ctx.env, 100, 4800),
+    );
 
     let token = ctx.client.get_token(&token_id).unwrap();
     assert_eq!(token.owner, planter);
@@ -113,7 +118,10 @@ fn test_full_secondary_market_lifecycle() {
     let token = ctx.client.get_token(&token_id).unwrap();
     assert_eq!(token.owner, buyer1);
     assert_eq!(token.original_planter, planter); // unchanged
-    println!("   ✅ Ownership → Buyer 1, original planter stays {:?}", planter);
+    println!(
+        "   ✅ Ownership → Buyer 1, original planter stays {:?}",
+        planter
+    );
 
     // ── Step 3: Buyer1 sells to buyer2 (secondary — 5% royalty!) ───────
     println!("\n3️⃣ Buyer 1 sells to Buyer 2 (secondary market — 5% royalty!)");
@@ -150,7 +158,10 @@ fn test_full_secondary_market_lifecycle() {
 
     // Planter receives another 5%
     assert_eq!(planter_bal_after - planter_bal_before, expected_royalty);
-    println!("   ✅ Planter received another {} stroops royalty", expected_royalty);
+    println!(
+        "   ✅ Planter received another {} stroops royalty",
+        expected_royalty
+    );
 
     let token = ctx.client.get_token(&token_id).unwrap();
     assert_eq!(token.owner, buyer3);
@@ -159,13 +170,17 @@ fn test_full_secondary_market_lifecycle() {
 
     // ── Summary ────────────────────────────────────────────────────────
     println!("\n📊 Lifecycle Summary:");
-    println!("   Certificate: #{}, {} trees, {} kg CO₂",
-        token_id, token.metadata.tree_count, token.metadata.co2_offset_kg);
+    println!(
+        "   Certificate: #{}, {} trees, {} kg CO₂",
+        token_id, token.metadata.tree_count, token.metadata.co2_offset_kg
+    );
     println!("   Original planter: {:?}", planter);
     println!("   Current owner: {:?}", buyer3);
     println!("   Trades: 3 (1 primary + 2 secondary)");
-    println!("   Total royalty paid to planter: {} stroops",
-        expected_royalty * 2);
+    println!(
+        "   Total royalty paid to planter: {} stroops",
+        expected_royalty * 2
+    );
     println!("\n🎉 End-to-end integration test PASSED!\n");
 }
 
@@ -186,16 +201,15 @@ fn test_merge_then_trade_with_royalty() {
 
     // Mint two certificates to the planter
     ctx.client
-        .mint(&planter, &1, &metadata(&ctx.env, 50, 2400));
+        .mint(&ctx.issuer, &planter, &1, &metadata(&ctx.env, 50, 2400));
     ctx.client
-        .mint(&planter, &2, &metadata(&ctx.env, 75, 3600));
+        .mint(&ctx.issuer, &planter, &2, &metadata(&ctx.env, 75, 3600));
     assert_eq!(ctx.client.total_supply(), 2);
 
     // Merge them
     let merged_meta = metadata(&ctx.env, 125, 6000);
     let token_ids = Vec::from_array(&ctx.env, [1, 2]);
-    ctx.client
-        .merge(&planter, &token_ids, &3, &merged_meta);
+    ctx.client.merge(&planter, &token_ids, &3, &merged_meta);
 
     // Old tokens burned, new one created
     assert!(ctx.client.get_token(&1).is_none());
@@ -215,7 +229,10 @@ fn test_merge_then_trade_with_royalty() {
     let planter_bal_after = balance(&ctx.env, &ctx.payment_token, &planter);
 
     assert_eq!(planter_bal_after - planter_bal_before, price);
-    println!("   ✅ Merged certificate traded — planter got full {} stroops", price);
+    println!(
+        "   ✅ Merged certificate traded — planter got full {} stroops",
+        price
+    );
 
     let token = ctx.client.get_token(&3).unwrap();
     assert_eq!(token.owner, buyer);
@@ -245,8 +262,12 @@ fn test_multiple_secondary_trades_accumulate_royalty() {
     println!("==========================================\n");
 
     // Mint to planter
-    ctx.client
-        .mint(&planter, &token_id, &metadata(&ctx.env, 200, 9600));
+    ctx.client.mint(
+        &ctx.issuer,
+        &planter,
+        &token_id,
+        &metadata(&ctx.env, 200, 9600),
+    );
     println!("   0️⃣ Certificate minted to planter");
 
     let mut total_royalty_accumulated: i128 = 0;
@@ -254,8 +275,13 @@ fn test_multiple_secondary_trades_accumulate_royalty() {
 
     // Round 1: planter → buyer[0] (self-sale, no royalty)
     mint_token(&ctx.env, &ctx.payment_token, &buyers.get(0).unwrap(), price);
-    ctx.client
-        .trade(&planter, &buyers.get(0).unwrap(), &token_id, &ctx.payment_token, &price);
+    ctx.client.trade(
+        &planter,
+        &buyers.get(0).unwrap(),
+        &token_id,
+        &ctx.payment_token,
+        &price,
+    );
     println!("   1️⃣ Planter → Buyer A (no royalty)\n");
 
     // Rounds 2-5: secondary trades, each pays 5% royalty
@@ -276,8 +302,13 @@ fn test_multiple_secondary_trades_accumulate_royalty() {
 
         assert_eq!(royalty, expected_per_trade);
         total_royalty_accumulated += royalty;
-        println!("   {}️⃣ Buyer {} → Buyer {} (royalty {} stroops)",
-            i + 1, labels[(i - 1) as usize], labels[i as usize], royalty);
+        println!(
+            "   {}️⃣ Buyer {} → Buyer {} (royalty {} stroops)",
+            i + 1,
+            labels[(i - 1) as usize],
+            labels[i as usize],
+            royalty
+        );
     }
 
     // Verify final state
@@ -287,7 +318,10 @@ fn test_multiple_secondary_trades_accumulate_royalty() {
 
     println!("\n📊 Results:");
     println!("   Trades: 5 (1 primary + 4 secondary)");
-    println!("   Total royalty accumulated: {} stroops", total_royalty_accumulated);
+    println!(
+        "   Total royalty accumulated: {} stroops",
+        total_royalty_accumulated
+    );
     println!("   Expected total: {} stroops", expected_per_trade * 4);
     assert_eq!(total_royalty_accumulated, expected_per_trade * 4);
 
@@ -305,14 +339,23 @@ fn test_self_trade_rejected_with_payment_token() {
     let planter = Address::generate(&ctx.env);
     let token_id: u64 = 1;
 
-    ctx.client
-        .mint(&planter, &token_id, &metadata(&ctx.env, 100, 4800));
+    ctx.client.mint(
+        &ctx.issuer,
+        &planter,
+        &token_id,
+        &metadata(&ctx.env, 100, 4800),
+    );
 
     // Cannot trade to yourself
     mint_token(&ctx.env, &ctx.payment_token, &planter, 1_000);
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        ctx.client
-            .trade(&planter, &planter, &token_id, &ctx.payment_token, &1_000i128);
+        ctx.client.trade(
+            &planter,
+            &planter,
+            &token_id,
+            &ctx.payment_token,
+            &1_000i128,
+        );
     }));
 
     assert!(result.is_err(), "Self-trade should be rejected");
@@ -331,8 +374,12 @@ fn test_insufficient_payment_token_balance_rejected() {
     let buyer = Address::generate(&ctx.env);
     let token_id: u64 = 1;
 
-    ctx.client
-        .mint(&planter, &token_id, &metadata(&ctx.env, 100, 4800));
+    ctx.client.mint(
+        &ctx.issuer,
+        &planter,
+        &token_id,
+        &metadata(&ctx.env, 100, 4800),
+    );
 
     // Planter sells to buyer (self-sale, to make buyer the owner)
     mint_token(&ctx.env, &ctx.payment_token, &buyer, 1_000);
@@ -348,7 +395,10 @@ fn test_insufficient_payment_token_balance_rejected() {
             .trade(&buyer, &new_buyer, &token_id, &ctx.payment_token, &100i128);
     }));
 
-    assert!(result.is_err(), "Insufficient payment balance should be rejected");
+    assert!(
+        result.is_err(),
+        "Insufficient payment balance should be rejected"
+    );
     println!("✅ Insufficient payment correctly rejected in integration test");
 }
 
@@ -367,48 +417,110 @@ fn test_original_planter_immutable() {
     let token_id: u64 = 1;
     let price: i128 = 500;
 
-    ctx.client
-        .mint(&planter, &token_id, &metadata(&ctx.env, 50, 2400));
+    ctx.client.mint(
+        &ctx.issuer,
+        &planter,
+        &token_id,
+        &metadata(&ctx.env, 50, 2400),
+    );
 
     // Check initial
-    assert_eq!(
-        ctx.client.original_planter_of(&token_id).unwrap(),
-        planter
-    );
+    assert_eq!(ctx.client.original_planter_of(&token_id).unwrap(), planter);
 
     // Trade 1
     mint_token(&ctx.env, &ctx.payment_token, &a, price);
     ctx.client
         .trade(&planter, &a, &token_id, &ctx.payment_token, &price);
-    assert_eq!(
-        ctx.client.original_planter_of(&token_id).unwrap(),
-        planter
-    );
+    assert_eq!(ctx.client.original_planter_of(&token_id).unwrap(), planter);
 
     // Trade 2
     mint_token(&ctx.env, &ctx.payment_token, &b, price);
     ctx.client
         .trade(&a, &b, &token_id, &ctx.payment_token, &price);
-    assert_eq!(
-        ctx.client.original_planter_of(&token_id).unwrap(),
-        planter
-    );
+    assert_eq!(ctx.client.original_planter_of(&token_id).unwrap(), planter);
 
     // Trade 3
     mint_token(&ctx.env, &ctx.payment_token, &c, price);
     ctx.client
         .trade(&b, &c, &token_id, &ctx.payment_token, &price);
-    assert_eq!(
-        ctx.client.original_planter_of(&token_id).unwrap(),
-        planter
-    );
+    assert_eq!(ctx.client.original_planter_of(&token_id).unwrap(), planter);
 
     // Ownership changed but planter never did
     assert_eq!(ctx.client.owner_of(&token_id).unwrap(), c);
-    assert_eq!(
-        ctx.client.original_planter_of(&token_id).unwrap(),
-        planter
-    );
+    assert_eq!(ctx.client.original_planter_of(&token_id).unwrap(), planter);
 
     println!("✅ Original planter remained immutable through 3 trades");
+}
+
+// ------------------------------------------------------------------
+// Soulbound impact badges (#1815) — end-to-end
+// ------------------------------------------------------------------
+
+#[test]
+fn test_soulbound_badge_never_enters_secondary_market() {
+    let ctx = setup();
+
+    let steward = Address::generate(&ctx.env);
+    let buyer = Address::generate(&ctx.env);
+    let price: i128 = 2_000;
+    let token_id: u64 = 1;
+
+    ctx.client.mint_soulbound(
+        &ctx.issuer,
+        &steward,
+        &token_id,
+        &metadata(&ctx.env, 100, 4800),
+    );
+    mint_token(&ctx.env, &ctx.payment_token, &buyer, price);
+
+    assert!(ctx.client.is_soulbound(&token_id));
+
+    let buyer_before = balance(&ctx.env, &ctx.payment_token, &buyer);
+    let result = ctx
+        .client
+        .try_trade(&steward, &buyer, &token_id, &ctx.payment_token, &price);
+
+    assert!(result.is_err(), "a soulbound badge must not be tradeable");
+    assert_eq!(ctx.client.owner_of(&token_id).unwrap(), steward);
+    assert_eq!(ctx.client.original_planter_of(&token_id).unwrap(), steward);
+    assert_eq!(balance(&ctx.env, &ctx.payment_token, &buyer), buyer_before);
+
+    println!("✅ Soulbound badge trade rejected; no funds or ownership moved");
+}
+
+#[test]
+fn test_verified_certificate_can_be_bound_after_primary_sale() {
+    let ctx = setup();
+
+    let planter = Address::generate(&ctx.env);
+    let steward = Address::generate(&ctx.env);
+    let buyer = Address::generate(&ctx.env);
+    let price: i128 = 1_500;
+    let token_id: u64 = 7;
+
+    // Regular certificate can still be traded once.
+    ctx.client.mint(
+        &ctx.issuer,
+        &planter,
+        &token_id,
+        &metadata(&ctx.env, 100, 4800),
+    );
+    mint_token(&ctx.env, &ctx.payment_token, &steward, price);
+    ctx.client
+        .trade(&planter, &steward, &token_id, &ctx.payment_token, &price);
+    assert_eq!(ctx.client.owner_of(&token_id).unwrap(), steward);
+
+    // The issuer verifies the steward and permanently binds the badge.
+    ctx.client.make_soulbound(&ctx.issuer, &token_id);
+    assert!(ctx.client.is_soulbound(&token_id));
+
+    // Any subsequent resale is rejected.
+    mint_token(&ctx.env, &ctx.payment_token, &buyer, price);
+    let result = ctx
+        .client
+        .try_trade(&steward, &buyer, &token_id, &ctx.payment_token, &price);
+    assert!(result.is_err());
+    assert_eq!(ctx.client.owner_of(&token_id).unwrap(), steward);
+
+    println!("✅ Verified steward certificate became non-transferable");
 }

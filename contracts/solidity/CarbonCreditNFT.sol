@@ -129,6 +129,20 @@ contract CarbonCreditNFT is
 
     // ── Events ───────────────────────────────────────────────────────────────
 
+    /**
+     * @notice Emitted when a new carbon credit NFT is minted.
+     *
+     * @param recipient           Wallet that received the newly-minted NFT.
+     * @param tokenId             The newly-minted token id.
+     * @param protocolSerialHash  keccak256(protocol, serialNumber) identifier.
+     * @param protocol            Registry protocol bytes32 identifier.
+     * @param projectId           Registry project identifier.
+     * @param serialNumber        Retirement / issuance serial number.
+     * @param vintage             Credit vintage year.
+     * @param tonnage             Tonnes of CO2 represented by the credit.
+     * @param metadataUri         IPFS / HTTPS URI for extended metadata.
+     * @param validationId        Off-chain validation record identifier.
+     */
     event CreditMinted(
         address indexed recipient,
         uint256 indexed tokenId,
@@ -142,6 +156,14 @@ contract CarbonCreditNFT is
         bytes32 validationId
     );
 
+    /**
+     * @notice Emitted when a credit NFT is retired (burned).
+     *
+     * @param owner      Address that initiated the retirement.
+     * @param tokenId    The token id that was burned.
+     * @param reason     Free-form human-readable retirement reason.
+     * @param retiredAt  Unix timestamp of the retirement.
+     */
     event CreditRetired(
         address indexed owner,
         uint256 indexed tokenId,
@@ -149,12 +171,29 @@ contract CarbonCreditNFT is
         uint256 retiredAt
     );
 
+    /**
+     * @notice Emitted when a token's metadata URI is updated by an admin.
+     *
+     * @param tokenId  The token id whose URI changed.
+     * @param oldUri   The previous metadata URI.
+     * @param newUri   The new metadata URI.
+     */
     event MetadataUriUpdated(
         uint256 indexed tokenId,
         string oldUri,
         string newUri
     );
 
+    /**
+     * @notice Emitted when the oracle records a certification attestation for
+     *         a (protocol, serialNumber) pair.
+     *
+     * @param protocolSerialHash     keccak256(protocol, serialNumber) identifier.
+     * @param certificationProvider  keccak256 provider id (verra / gold-standard).
+     * @param status                 Attested certification status.
+     * @param expiry                 Unix timestamp at which certification expires.
+     * @param validationId           Off-chain validation record identifier.
+     */
     event CertificationAttested(
         bytes32 indexed protocolSerialHash,
         bytes32 indexed certificationProvider,
@@ -163,6 +202,15 @@ contract CarbonCreditNFT is
         bytes32 validationId
     );
 
+    /**
+     * @notice Emitted when the certification status of a minted credit is
+     *         updated by the oracle.
+     *
+     * @param tokenId    The token id whose certification changed.
+     * @param oldStatus  The previous certification status.
+     * @param newStatus  The new certification status.
+     * @param expiry     The new expiry timestamp (0 for no expiry).
+     */
     event CertificationStatusUpdated(
         uint256 indexed tokenId,
         CertificationStatus oldStatus,
@@ -170,6 +218,12 @@ contract CarbonCreditNFT is
         uint64 expiry
     );
 
+    /**
+     * @notice Emitted when a token is linked to (or unlinked from) an auction.
+     *
+     * @param tokenId    The token id that was linked.
+     * @param auctionId  The auction identifier (0 when unlinked).
+     */
     event AuctionLinked(
         uint256 indexed tokenId,
         uint256 indexed auctionId
@@ -273,7 +327,11 @@ contract CarbonCreditNFT is
      *
      * @return tokenId       The newly-minted token id.
      *
-     * Emits a {CreditMinted} event.
+     * @custom:event Emits a {CreditMinted} event on success.
+     * @custom:error "CarbonCreditNFT: certification not verified" if the
+     *               oracle has not attested the serial as Verified.
+     * @custom:error "CarbonCreditNFT: certification expired" if the attested
+     *               certification expiry has passed.
      */
     function mintVerifiedCredit(
         address recipient,
@@ -370,7 +428,13 @@ contract CarbonCreditNFT is
      *                               (0 for no expiry).
      * @param validationId           Off-chain validation record identifier.
      *
-     * Emits a {CertificationAttested} event.
+     * @custom:event Emits a {CertificationAttested} event.
+     * @custom:error "CarbonCreditNFT: empty serialNumber" if `serialNumber`
+     *               is empty.
+     * @custom:error "CarbonCreditNFT: unsupported certification provider" if
+     *               `certificationProvider` is neither Verra nor Gold Standard.
+     * @custom:error AccessControl "account is missing role" if the caller
+     *               lacks ORACLE_ROLE.
      */
     function attestCertification(
         RegistryProtocol protocol,
@@ -416,7 +480,11 @@ contract CarbonCreditNFT is
      * @param status   The new certification status.
      * @param expiry   The new expiry timestamp (0 for no expiry).
      *
-     * Emits a {CertificationStatusUpdated} event.
+     * @custom:event Emits a {CertificationStatusUpdated} event.
+     * @custom:error ERC721 "ERC721NonexistentToken" if `tokenId` does not
+     *               exist.
+     * @custom:error AccessControl "account is missing role" if the caller
+     *               lacks ORACLE_ROLE.
      */
     function updateCertificationStatus(
         uint256 tokenId,
@@ -441,6 +509,12 @@ contract CarbonCreditNFT is
      *         (status Verified and not expired).
      *
      * @param tokenId  The token id to query.
+     *
+     * @return True if the certification is Verified and not expired, false
+     *         otherwise.
+     *
+     * @custom:error ERC721 "ERC721NonexistentToken" if `tokenId` does not
+     *               exist.
      */
     function isCertificationValid(
         uint256 tokenId
@@ -462,7 +536,12 @@ contract CarbonCreditNFT is
      * @param tokenId    The token id to link.
      * @param auctionId  The auction identifier (0 to unlink).
      *
-     * Emits an {AuctionLinked} event.
+     * @custom:event Emits an {AuctionLinked} event.
+     * @custom:error ERC721 "ERC721NonexistentToken" if `tokenId` does not
+     *               exist.
+     * @custom:error "CarbonCreditNFT: not owner nor approved" if the caller
+     *               is neither the owner, an approved operator, nor approved
+     *               for the token.
      */
     function linkAuction(uint256 tokenId, uint256 auctionId) external {
         address owner = _requireOwned(tokenId);
@@ -511,6 +590,11 @@ contract CarbonCreditNFT is
      * @param serialNumber  Retirement / issuance serial number.
      *
      * @return The token id associated with the serial number.
+     *
+     * @custom:error "CarbonCreditNFT: serial not minted" if the serial hash
+     *               has never been recorded.
+     * @custom:error "CarbonCreditNFT: token not found for serial" if the
+     *               serial is marked minted but no matching live token exists.
      */
     function findTokenIdBySerial(
         RegistryProtocol protocol,
@@ -546,6 +630,9 @@ contract CarbonCreditNFT is
      * @param tokenId  The token id to query.
      *
      * @return The protocol name as a string.
+     *
+     * @custom:error ERC721 "ERC721NonexistentToken" if `tokenId` does not
+     *               exist.
      */
     function protocolString(uint256 tokenId) external view returns (string memory) {
         _requireOwned(tokenId);
@@ -570,7 +657,12 @@ contract CarbonCreditNFT is
      * @param tokenId  The token id to retire (burn).
      * @param reason   Free-form human-readable retirement reason.
      *
-     * Emits a {CreditRetired} event.
+     * @custom:event Emits a {CreditRetired} event.
+     * @custom:error ERC721 "ERC721NonexistentToken" if `tokenId` does not
+     *               exist.
+     * @custom:error "CarbonCreditNFT: not owner nor approved" if the caller
+     *               is neither the owner, an approved operator, nor approved
+     *               for the token.
      */
     function retireCredit(
         uint256 tokenId,
@@ -596,6 +688,9 @@ contract CarbonCreditNFT is
      *      "account is missing role".
      *
      * @param newBaseURI  The new base URI value.
+     *
+     * @custom:error AccessControl "account is missing role" if the caller
+     *               lacks ADMIN_ROLE.
      */
     function setContractBaseURI(
         string calldata newBaseURI
@@ -614,7 +709,12 @@ contract CarbonCreditNFT is
      * @param tokenId  The token id whose URI is updated.
      * @param newUri   The new metadata URI.
      *
-     * Emits a {MetadataUriUpdated} event with the previous and new URIs.
+     * @custom:event Emits a {MetadataUriUpdated} event with the previous and
+     *               new URIs.
+     * @custom:error ERC721 "ERC721NonexistentToken" if `tokenId` does not
+     *               exist.
+     * @custom:error AccessControl "account is missing role" if the caller
+     *               lacks ADMIN_ROLE.
      */
     function updateTokenURI(
         uint256 tokenId,
@@ -659,6 +759,9 @@ contract CarbonCreditNFT is
      * @param tokenId  The token id to query.
      *
      * @return The token's metadata URI.
+     *
+     * @custom:error ERC721 "ERC721NonexistentToken" if `tokenId` does not
+     *               exist.
      */
     function tokenURI(
         uint256 tokenId
@@ -666,10 +769,26 @@ contract CarbonCreditNFT is
         return super.tokenURI(tokenId);
     }
 
+    /**
+     * @notice Return the base URI prepended to token URIs.
+     *
+     * @dev Overrides the ERC721 default to return {contractBaseURI}, which is
+     *      managed by {setContractBaseURI}.
+     *
+     * @return The current contract-wide base URI.
+     */
     function _baseURI() internal view override returns (string memory) {
         return contractBaseURI;
     }
 
+    /**
+     * @notice Increase the balance of `account` by `value`.
+     *
+     * @dev Resolves the ERC721 / ERC721Enumerable override chain via `super`.
+     *
+     * @param account  The account whose balance is increased.
+     * @param value    The amount to add to the balance.
+     */
     function _increaseBalance(
         address account,
         uint128 value
@@ -677,6 +796,18 @@ contract CarbonCreditNFT is
         super._increaseBalance(account, value);
     }
 
+    /**
+     * @notice Transfer, mint or burn a token.
+     *
+     * @dev Resolves the ERC721 / ERC721Enumerable override chain via `super`.
+     *
+     * @param to       The recipient address (zero address for burns).
+     * @param tokenId  The token id being updated.
+     * @param auth     The authorised caller, or zero address to skip the
+     *                 authorisation check.
+     *
+     * @return The previous owner of the token.
+     */
     function _update(
         address to,
         uint256 tokenId,

@@ -8,7 +8,7 @@ import "./AfforestationProject.sol";
 /// projects. Credits may only be issued against a project that has posted a
 /// sequestration bond or insurance policy guaranteeing the trees will not be
 /// harvested for 30 years. This prevents carbon leakage.
-contract CarbonSredit {
+contract CarbonCredit {
     /// @notice Constant: 30 years in seconds.
     /// @dev The minimum no-harvest period a project must guarantee before credits
     /// may be issued against it.
@@ -106,6 +106,11 @@ contract CarbonSredit {
     /// when the project lacks sequestration cover.
     /// @param projectId The ID of the afforestation project to issue credits for.
     /// @param tons The number of credits (in tons) to issue; must be greater than zero.
+    /// @custom:error "only admin" Thrown when the caller is not the admin.
+    /// @custom:error "credits must be positive" Thrown when `tons` is zero.
+    /// @custom:error <registry reason> Thrown when the project is not sequestration-secured.
+    /// @custom:event CreditsIssued Emitted on successful issuance.
+    /// @custom:event CreditsRejected Emitted before reverting when the project lacks sequestration cover.
     function issueCredits(uint256 projectId, uint256 tons) external {
         require(msg.sender == admin, "only admin");
         require(tons > 0, "credits must be positive");
@@ -122,6 +127,7 @@ contract CarbonSredit {
     }
 
     /// @notice Returns the number of credits (tons) issued for a project.
+    /// @dev Reads the {creditsIssued} mapping; does not revert for unknown IDs.
     /// @param projectId The ID of the afforestation project to query.
     /// @return The total credits (in tons) issued for the project.
     function getCreditsIssued(uint256 projectId) external view returns (uint256) {
@@ -130,6 +136,8 @@ contract CarbonSredit {
 
     /// @notice Returns true if the project is covered by an active 30-year
     /// sequestration guarantee.
+    /// @dev Delegates to {AfforestationProject-isSequestrationSecured} and
+    /// discards the reason string.
     /// @param projectId The ID of the afforestation project to check.
     /// @return True if the project is sequestration-secured, false otherwise.
     function isProjectEligible(uint256 projectId) external view returns (bool) {
@@ -146,6 +154,11 @@ contract CarbonSredit {
     /// @param reservePrice The minimum acceptable bid (in wei).
     /// @param duration The length of the bidding window in seconds.
     /// @return auctionId The ID of the newly created auction.
+    /// @custom:error "tons must be positive" Thrown when `tons` is zero.
+    /// @custom:error "reserve price required" Thrown when `reservePrice` is zero.
+    /// @custom:error "duration required" Thrown when `duration` is zero.
+    /// @custom:error "insufficient credits" Thrown when issued credits for `projectId` are less than `tons`.
+    /// @custom:event AuctionCreated Emitted with the new auction's details.
     function createAuction(
         uint256 projectId,
         uint256 tons,
@@ -180,7 +193,15 @@ contract CarbonSredit {
     /// if the bid is below the reserve price, or if the bid does not strictly
     /// exceed the current highest bid. Ties are broken in favour of the
     /// earliest bid, so a matching bid is rejected. Emits {BidPlaced}.
+    /// The bid amount is sent as `msg.value` (in wei).
     /// @param auctionId The ID of the auction to bid on.
+    /// @custom:error "auction not found" Thrown when no auction exists for `auctionId`.
+    /// @custom:error "auction settled" Thrown when the auction has already been settled.
+    /// @custom:error "auction ended" Thrown when the bidding window has closed.
+    /// @custom:error "seller cannot bid" Thrown when the seller attempts to bid.
+    /// @custom:error "below reserve price" Thrown when `msg.value` is below the reserve price.
+    /// @custom:error "bid too low" Thrown when `msg.value` does not exceed the current highest bid.
+    /// @custom:event BidPlaced Emitted with the bidder and bid amount.
     function placeBid(uint256 auctionId) external payable {
         Auction storage auction = auctions[auctionId];
         require(auction.seller != address(0), "auction not found");
@@ -202,6 +223,10 @@ contract CarbonSredit {
     /// {placeBid}). Reverts if the auction does not exist, is already settled,
     /// or bidding is still open. Emits {AuctionSettled}.
     /// @param auctionId The ID of the auction to settle.
+    /// @custom:error "auction not found" Thrown when no auction exists for `auctionId`.
+    /// @custom:error "auction settled" Thrown when the auction has already been settled.
+    /// @custom:error "auction still active" Thrown when the bidding window has not yet closed.
+    /// @custom:event AuctionSettled Emitted with the winner and winning bid.
     function settleAuction(uint256 auctionId) external {
         Auction storage auction = auctions[auctionId];
         require(auction.seller != address(0), "auction not found");
