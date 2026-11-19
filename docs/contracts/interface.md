@@ -1446,6 +1446,10 @@ Custom error codes follow the workspace-wide allocation standard documented in
 | `batch_submit_commitments` | `fn batch_submit_commitments( env: Env, farmers: Vec<Address>, commitments: Vec<BytesN<32>>, region_indices: Vec<u32>, )` |
 | `batch_approve_locations` | `fn batch_approve_locations( env: Env, commitments: Vec<BytesN<32>>, proof_digests: Vec<BytesN<32>>, )` |
 | `batch_reject_locations` | `fn batch_reject_locations(env: Env, commitments: Vec<BytesN<32>>)` |
+| `verify_location_proof` | `fn verify_location_proof(env: Env, submitter: Address, proof: LocationProof, input: LocationProofInput) -> bool` |
+| `is_nullifier_spent` | `fn is_nullifier_spent(env: Env, nullifier: BytesN<32>) -> bool` |
+| `get_verification_key_hash` | `fn get_verification_key_hash(env: Env) -> BytesN<32>` |
+| `get_boundary_commitment` | `fn get_boundary_commitment(env: Env) -> BytesN<32>` |
 
 #### Public types
 
@@ -1453,6 +1457,9 @@ Custom error codes follow the workspace-wide allocation standard documented in
 |---|---|
 | `CachedProofResult` | `#[contracttype]` or public Rust type in `contracts/zk-location-verifier/src/lib.rs` |
 | `LocationVerification` | `#[contracttype]` or public Rust type in `contracts/zk-location-verifier/src/lib.rs` |
+| `LocationProof` | `#[contracttype]` in `contracts/zk-location-verifier/src/lib.rs` — BN254 Groth16 A/B/C points |
+| `LocationProofInput` | `#[contracttype]` in `contracts/zk-location-verifier/src/lib.rs` — boundary commitment + nullifier |
+| `SpentNullifier` | `#[contracttype]` in `contracts/zk-location-verifier/src/lib.rs` — replay audit record |
 | `VerificationStatus` | `#[contracttype]` or public Rust type in `contracts/zk-location-verifier/src/lib.rs` |
 | `ZkLocationError` | `#[contracttype]` or public Rust type in `contracts/zk-location-verifier/src/lib.rs` |
 | `ZkLocationVerifier` | `#[contracttype]` or public Rust type in `contracts/zk-location-verifier/src/lib.rs` |
@@ -1461,7 +1468,8 @@ Custom error codes follow the workspace-wide allocation standard documented in
 
 | Topic | Source |
 |---|---|
-| — | No inline `symbol_short!` event topics detected. |
+| `zkLocVer` | `env.events().publish` in `contracts/zk-location-verifier/src/lib.rs` (Circuit 2 verification) |
+| — | Other inline `symbol_short!` topics are declared in the contract source. |
 
 ### `zk-verifier`
 
