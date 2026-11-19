@@ -52,7 +52,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     body = await request.json();
   } catch {
     return NextResponse.json(
-      { error: 'Request body must be valid JSON.', details: [] },
+      { error: 'Request body must be valid JSON.', code: 'invalid_request', details: [] },
       { status: 400, headers: responseHeaders(auth.client.tier) }
     );
   }
@@ -62,6 +62,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json(
       {
         error: `addresses must be 1–${MAX_BATCH_ADDRESSES} well-formed Stellar public keys.`,
+        code: 'invalid_request',
         details: parsed.errors,
       },
       { status: 400, headers: responseHeaders(auth.client.tier) }
@@ -74,8 +75,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   } catch (error) {
     console.error('[api/v1/farmers/verification] batch error:', error);
     return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500, headers: responseHeaders(auth.client.tier) }
+      { error: 'Verification data is temporarily unavailable', code: 'service_unavailable' },
+      { status: 503, headers: responseHeaders(auth.client.tier) }
     );
   }
 }

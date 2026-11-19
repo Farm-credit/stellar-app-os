@@ -2679,11 +2679,12 @@ paths:
         documents are never returned.
       security:
         - apiKeyAuth: []
+        - apiKeyAuthorization: []
       parameters:
         - name: farmerAddress
           in: path
           required: true
-          description: Stellar public key of the farmer to verify.
+          description: Stellar public key with a valid StrKey checksum. Surrounding whitespace is trimmed.
           schema:
             type: string
             pattern: "^G[A-Z2-7]{55}$"
@@ -2728,7 +2729,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalServerError"
         "503":
-          description: API-key authentication is temporarily unavailable
+          description: API-key authentication or verification data is temporarily unavailable
           content:
             application/json:
               schema:
@@ -2740,25 +2741,25 @@ paths:
       tags: [Farmers]
       summary: Verify a portfolio of farmers
       description: >
-        Verifies 1–100 unique Stellar farmer addresses. Invalid entries reject
+        Verifies 1–100 Stellar farmer addresses with valid checksums. Duplicates
+        are collapsed after trimming; requested counts unique addresses. Invalid entries reject
         the complete request; missing and non-consenting records are returned
         in separate buckets.
       security:
         - apiKeyAuth: []
+        - apiKeyAuthorization: []
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              additionalProperties: false
               required: [addresses]
               properties:
                 addresses:
                   type: array
                   minItems: 1
                   maxItems: 100
-                  uniqueItems: true
                   items:
                     type: string
                     pattern: "^G[A-Z2-7]{55}$"
@@ -2791,7 +2792,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalServerError"
         "503":
-          description: API-key authentication is temporarily unavailable
+          description: API-key authentication or verification data is temporarily unavailable
           content:
             application/json:
               schema:
@@ -3428,6 +3429,11 @@ paths:
 # ════════════════════════════════════════════════
 components:
   securitySchemes:
+    apiKeyAuthorization:
+      type: apiKey
+      in: header
+      name: Authorization
+      description: 'Active public API key using the value ApiKey <key>. X-API-Key takes precedence when both are provided.'
     bearerAuth:
       type: http
       scheme: bearer
@@ -3477,7 +3483,7 @@ components:
           type: string
         code:
           type: string
-          enum: [invalid_address, consent_denied, not_found]
+          enum: [invalid_address, invalid_request, consent_denied, not_found, service_unavailable]
         details:
           type: array
           items:

@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { StrKey } from '@stellar/stellar-sdk';
 import { GET } from '../[farmerAddress]/verification/route';
 import { POST } from './route';
 
@@ -16,7 +17,7 @@ vi.mock('@/lib/api/farmer-verification-auth', () => ({
 }));
 
 const FARMER = 'GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF';
-const OTHER_FARMER = `G${'B'.repeat(55)}`;
+const OTHER_FARMER = StrKey.encodeEd25519PublicKey(Buffer.alloc(32, 1));
 const BASE_URL = 'http://localhost:3000/api/v1/farmers';
 
 function verificationRow(overrides: Record<string, unknown> = {}) {

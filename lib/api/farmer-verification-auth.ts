@@ -1,8 +1,8 @@
 /**
  * API-key authentication for the third-party farmer verification API
- * (Farm-credit/stellar-app-os#1403).
+ * (Farm-credit/stellar-app-os#1341 v1, #1403 v2).
  *
- * `proxy.ts` validates `x-api-key` and applies the tiered rate limit, but a
+ * `proxy.ts` validates API-key credentials and applies the tiered rate limit, but a
  * request that presents *no* key is not rejected there — it falls through to
  * the shared per-IP limiter. The verification routes therefore assert a key
  * themselves before disclosing farmer data, and reuse the resolved key to
@@ -14,6 +14,7 @@
 
 import type { ApiKeyRow, ApiKeyTier } from '@/lib/db/schema';
 import { findApiKeyByRawValue } from '@/lib/api/apiKeys';
+import { readApiKey } from '@/lib/api/api-key-header';
 
 export interface VerificationClient {
   id: number;
@@ -28,7 +29,7 @@ export type VerificationAuthResult =
 export type ApiKeyLookup = (rawKey: string) => Promise<ApiKeyRow | null>;
 
 /**
- * Resolve the `x-api-key` header to an active key.
+ * Resolve `X-API-Key` or `Authorization: ApiKey <key>` to an active key.
  *
  * A missing header and an unknown/revoked key both return `401`: the caller
  * must not be able to tell whether a key ever existed.
@@ -37,12 +38,13 @@ export async function authenticateFarmerVerificationRequest(
   request: Request,
   lookup: ApiKeyLookup = findApiKeyByRawValue
 ): Promise<VerificationAuthResult> {
-  const rawKey = request.headers.get('x-api-key')?.trim();
+  const rawKey = readApiKey(request);
   if (!rawKey) {
     return {
       ok: false,
       status: 401,
-      error: 'Missing x-api-key header. Request a key via POST /api/api-keys.',
+      error:
+        'Missing x-api-key or Authorization: ApiKey header. Request a key via POST /api/api-keys.',
     };
   }
 
