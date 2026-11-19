@@ -52,6 +52,7 @@
 //! > the constants in [`groth16`] with the real Circuit 2 proving-system output
 //! > before production deployment; no other code change is required.
 
+use contract_utils::storage::{self, StorageClass};
 use harvesta_errors::{standard, HarvestaError};
 use soroban_sdk::{
     contract, contracterror, contractimpl, contracttype,
@@ -606,7 +607,7 @@ impl ZkLocationVerifier {
             let proof_digest = proof_digests.get(i).unwrap();
             let cache_key = Self::cache_key(&env, &commitment, &proof_digest);
 
-            if env.storage().temporary().has(&cache_key) {
+            if storage::has(&env, StorageClass::Temporary, &cache_key) {
                 // Cache hit — this entry is idempotent, no write needed
                 needs_write.push_back(false);
                 continue;
@@ -633,10 +634,8 @@ impl ZkLocationVerifier {
             if !needs_write.get(i).unwrap() {
                 // Cache hit — emit prfHit event and continue
                 let cache_key = Self::cache_key(&env, &commitment, &proof_digest);
-                if let Some(cached) = env
-                    .storage()
-                    .temporary()
-                    .get::<BytesN<32>, CachedProofResult>(&cache_key)
+                if let Some(cached) =
+                    storage::get::<_, CachedProofResult>(&env, StorageClass::Temporary, &cache_key)
                 {
                     env.events()
                         .publish((symbol_short!("prfHit"), commitment), cached);
@@ -694,7 +693,7 @@ impl ZkLocationVerifier {
             let commitment = commitments.get(i).unwrap();
             let cache_key = Self::cache_key(&env, &commitment, &zero);
 
-            if env.storage().temporary().has(&cache_key) {
+            if storage::has(&env, StorageClass::Temporary, &cache_key) {
                 needs_write.push_back(false);
                 continue;
             }
@@ -717,10 +716,8 @@ impl ZkLocationVerifier {
             let cache_key = Self::cache_key(&env, &commitment, &zero);
 
             if !needs_write.get(i).unwrap() {
-                if let Some(cached) = env
-                    .storage()
-                    .temporary()
-                    .get::<BytesN<32>, CachedProofResult>(&cache_key)
+                if let Some(cached) =
+                    storage::get::<_, CachedProofResult>(&env, StorageClass::Temporary, &cache_key)
                 {
                     env.events()
                         .publish((symbol_short!("prfHit"), commitment), cached);
@@ -858,8 +855,7 @@ impl ZkLocationVerifier {
         if ttl == 0 {
             return;
         }
-        env.storage().temporary().set(cache_key, &result);
-        env.storage().temporary().extend_ttl(cache_key, ttl, ttl);
+        storage::set(env, StorageClass::Temporary, cache_key, &result, ttl);
     }
 
     /// Approved 2-character geohash prefixes covering Northern Nigeria

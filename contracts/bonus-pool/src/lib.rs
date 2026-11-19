@@ -30,6 +30,7 @@
 //! - Double distribution / double claim is impossible: ledger entries are
 //!   one-per-(farmer, period) and transition `Allocated → Claimed` only.
 
+use contract_utils::storage::{mark_replay_guard, replay_guard_active};
 use soroban_sdk::{
     contract, contracterror, contractimpl, contracttype, panic_with_error, symbol_short, Address,
     Env,
@@ -109,7 +110,10 @@ enum DataKey {
     PoolBalance,
     /// Total contributions received since inception.
     TotalContributions,
-    /// Sale id → true, prevents double-routing the same sale.
+    /// Sale id → true, prevents double-routing the same sale during the
+    /// settlement window. Held in temporary storage (see
+    /// [`mark_replay_guard`]) so stale markers leave the live ledger instead
+    /// of becoming permanent footprint.
     ProcessedSale(u64),
     /// (farmer, period) → Performance
     Performance(Address, u32),
@@ -222,7 +226,7 @@ impl BonusPool {
         if amount <= 0 {
             panic_with_error!(&env, BonusPoolError::InvalidAmount);
         }
-        if env.storage().persistent().has(&DataKey::ProcessedSale(sale_id)) {
+        if replay_guard_active(&env, &DataKey::ProcessedSale(sale_id)) {
             panic_with_error!(&env, BonusPoolError::InvalidPeriod);
         }
 
@@ -234,7 +238,7 @@ impl BonusPool {
 
         // Effects before interactions: mark the sale, bump balances, then
         // pull the tokens.
-        env.storage().persistent().set(&DataKey::ProcessedSale(sale_id), &true);
+        mark_replay_guard(&env, &DataKey::ProcessedSale(sale_id));
         let balance: i128 = env.storage().instance().get(&DataKey::PoolBalance).unwrap_or(0i128);
         env.storage().instance().set(&DataKey::PoolBalance, &(balance + amount));
 
