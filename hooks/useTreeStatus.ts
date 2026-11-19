@@ -39,7 +39,8 @@ export function useTreeStatus(options: UseTreeStatusOptions = {}): UseTreeStatus
         if (
           data.type === 'planted' ||
           data.type === 'survival' ||
-          data.type === 'milestone'
+          data.type === 'milestone' ||
+          data.type === 'achievement'
         ) {
           dispatchPushNotification(data.type, data);
         }

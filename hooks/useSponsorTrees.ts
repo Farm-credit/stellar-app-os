@@ -87,6 +87,22 @@ export function useSponsorTrees(initialFilters: Partial<TreeFilterState> = {}) {
 
   const totalCount = useMemo(() => trees.length, [trees]);
 
+  const waitlist = useWaitlist();
+
+  const isAtCapacity = useMemo(
+    () => trees.length > 0 && trees.every((tree) => tree.status === 'reserved' || tree.status === 'adopted'),
+    [trees],
+  );
+
+  const annualImpact = useMemo(() => {
+    const plantedTrees = trees.filter((tree) => tree.status === 'planted').length;
+    return {
+      treesPlanted: plantedTrees,
+      co2OffsetKg: plantedTrees * 21,
+      regionsSupported: new Set(trees.map((tree) => tree.region)).size,
+    };
+  }, [trees]);
+
   return {
     trees,
     filters,
@@ -98,6 +114,16 @@ export function useSponsorTrees(initialFilters: Partial<TreeFilterState> = {}) {
     error,
     updateFilters,
     setFilters,
+    isAtCapacity,
+    annualImpact,
+    waitlist,
+    waitlistEntries: waitlist.entries,
+    waitlistPosition: waitlist.position,
+    waitlistEstimatedWait: waitlist.estimatedWait,
+    waitlistStatus: waitlist.status,
+    isJoiningWaitlist: waitlist.isJoining,
+    joinWaitlist: waitlist.joinWaitlist,
+    refreshWaitlist: waitlist.refresh,
   };
 }
 

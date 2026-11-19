@@ -2,6 +2,7 @@ import { type Metadata } from 'next';
 import { DashboardOverview } from '@/components/organisms/DashboardOverview';
 import { SponsorImpactHub } from '@/components/organisms/SponsorImpact/SponsorImpactHub';
 import { SubscriptionDashboard } from '@/components/organisms/SubscriptionDashboard/SubscriptionDashboard';
+import { WaitlistPositionPanel } from '@/components/organisms/WaitlistPositionPanel/WaitlistPositionPanel';
 
 export const metadata: Metadata = {
   title: 'Dashboard | Stellar App OS',
@@ -14,6 +15,9 @@ export default function DashboardPage() {
       <div className="max-w-7xl mx-auto">
         <div className="mb-16">
           <SponsorImpactHub />
+        </div>
+        <div className="mb-16">
+          <WaitlistPositionPanel />
         </div>
         <div className="mb-16">
           <SubscriptionDashboard />

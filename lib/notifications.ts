@@ -318,3 +318,336 @@ export function getHourInTimezone(timezone: string, now: Date = new Date()): num
 export function isDigestSendTime(timezone: string, now: Date = new Date()): boolean {
   return getHourInTimezone(timezone, now) === 9;
 }
+
+// ---------------------------------------------------------------------------
+// Push notifications for tree milestones and sponsor achievements (#1121)
+//
+// Milestone and achievement events are dispatched to every registered device
+// for a sponsor. Devices may be web push subscriptions or Expo push tokens.
+// ---------------------------------------------------------------------------
+
+export type TreeMilestoneType = 'tree_planted' | 'survival_1_year' | 'milestone_5_year';
+
+export type SponsorAchievementType =
+  | 'first_tree'
+  | 'ten_trees'
+  | 'hundred_trees'
+  | 'co2_offset'
+  | 'species_diversity';
+
+export interface TreeMilestoneEvent {
+  kind: 'tree_milestone';
+  sponsorId: string;
+  milestone: TreeMilestoneType;
+  /** Optional tree identifier the milestone relates to. */
+  treeId?: string;
+  /** Optional species name, used to personalise the message. */
+  species?: string;
+  /** Optional planting zone name. */
+  zone?: string;
+}
+
+export interface SponsorAchievementEvent {
+  kind: 'sponsor_achievement';
+  sponsorId: string;
+  achievement: SponsorAchievementType;
+  /** Optional numeric value associated with the achievement (e.g. tree count). */
+  value?: number;
+}
+
+export type PushNotificationEvent = TreeMilestoneEvent | SponsorAchievementEvent;
+
+export interface WebPushSubscriptionRecord {
+  type: 'web';
+  endpoint: string;
+  keys: { p256dh: string; auth: string };
+}
+
+export interface ExpoPushTokenRecord {
+  type: 'expo';
+  token: string;
+}
+
+export type DeviceToken = WebPushSubscriptionRecord | ExpoPushTokenRecord;
+
+export interface PushPayload {
+  title: string;
+  body: string;
+  /** Arbitrary data delivered alongside the notification. */
+  data?: Record<string, unknown>;
+  /** Optional deep link opened when the notification is tapped. */
+  url?: string;
+}
+
+/** Builds the title/body for a push notification from a typed event. */
+export function buildPushPayload(event: PushNotificationEvent): PushPayload {
+  if (event.kind === 'tree_milestone') {
+    const species = event.species ? ` ${event.species}` : '';
+    const zone = event.zone ? ` in ${event.zone}` : '';
+    switch (event.milestone) {
+      case 'tree_planted':
+        return {
+          title: 'Your tree has been planted! 🌱',
+          body: `A${species} tree you sponsored was just planted${zone}.`,
+          data: { kind: event.kind, milestone: event.milestone, treeId: event.treeId },
+          url: event.treeId ? `/trees/${event.treeId}` : '/dashboard',
+        };
+      case 'survival_1_year':
+        return {
+          title: 'Your tree survived its first year! 🎉',
+          body: `A${species} tree you sponsored has reached its 1-year survival milestone${zone}.`,
+          data: { kind: event.kind, milestone: event.milestone, treeId: event.treeId },
+          url: event.treeId ? `/trees/${event.treeId}` : '/dashboard',
+        };
+      case 'milestone_5_year':
+        return {
+          title: '5-year milestone reached! 🌳',
+          body: `A${species} tree you sponsored has thrived for 5 years${zone}. Thank you for your lasting impact.`,
+          data: { kind: event.kind, milestone: event.milestone, treeId: event.treeId },
+          url: event.treeId ? `/trees/${event.treeId}` : '/dashboard',
+        };
+    }
+  }
+
+  const value = event.value;
+  switch (event.achievement) {
+    case 'first_tree':
+      return {
+        title: 'Achievement unlocked: First Tree! 🏆',
+        body: 'You planted your very first tree. Welcome to the forest!',
+        data: { kind: event.kind, achievement: event.achievement },
+        url: '/achievements',
+      };
+    case 'ten_trees':
+      return {
+        title: 'Achievement unlocked: Grove Grower! 🏆',
+        body: `You have funded ${value ?? 10} trees. Your grove is growing!`,
+        data: { kind: event.kind, achievement: event.achievement },
+        url: '/achievements',
+      };
+    case 'hundred_trees':
+      return {
+        title: 'Achievement unlocked: Forest Founder! 🏆',
+        body: `You have funded ${value ?? 100} trees. That is a whole forest!`,
+        data: { kind: event.kind, achievement: event.achievement },
+        url: '/achievements',
+      };
+    case 'co2_offset':
+      return {
+        title: 'Achievement unlocked: Carbon Crusher! 🏆',
+        body: `Your trees have offset ${value ?? 0} kg of CO2.`,
+        data: { kind: event.kind, achievement: event.achievement },
+        url: '/achievements',
+      };
+    case 'species_diversity':
+      return {
+        title: 'Achievement unlocked: Biodiversity Champion! 🏆',
+        body: `You have supported ${value ?? 0} different tree species.`,
+        data: { kind: event.kind, achievement: event.achievement },
+        url: '/achievements',
+      };
+  }
+}
+
+export interface PushDeliveryResult {
+  delivered: number;
+  failed: number;
+}
+
+/**
+ * Delivers a push notification to all of a sponsor's registered devices.
+ * The `sendWebPush` and `sendExpoPush` callbacks perform the actual network
+ * delivery so this module stays free of provider-specific dependencies.
+ */
+export async function dispatchPushNotification(
+  event: PushNotificationEvent,
+  devices: DeviceToken[],
+  sendWebPush: (subscription: WebPushSubscriptionRecord, payload: PushPayload) => Promise<void>,
+  sendExpoPush: (token: ExpoPushTokenRecord, payload: PushPayload) => Promise<void>
+): Promise<PushDeliveryResult> {
+  const payload = buildPushPayload(event);
+  const result: PushDeliveryResult = { delivered: 0, failed: 0 };
+
+  for (const device of devices) {
+    try {
+      if (device.type === 'web') {
+        await sendWebPush(device, payload);
+      } else {
+        await sendExpoPush(device, payload);
+      }
+      result.delivered += 1;
+    } catch (error) {
+      console.error('Failed to deliver push notification:', error);
+      result.failed += 1;
+    }
+  }
+
+  return result;
+}
+
+// ---------------------------------------------------------------------------
+// Annual impact summary email (#1712)
+//
+// Sent on December 20 each year to every sponsor, summarising their impact
+// over the year with a shareable impact image.
+// ---------------------------------------------------------------------------
+
+export interface AnnualImpactStats {
+  treesFunded: number;
+  co2AbsorbedKg: number;
+  speciesCount: number;
+  milestonesReached: string[];
+}
+
+export interface AnnualImpactEmailSettings {
+  sponsorId: string;
+  sponsorName: string;
+  email: string;
+  year: number;
+  stats: AnnualImpactStats;
+  /** URL of the generated shareable impact image. */
+  impactImageUrl: string;
+}
+
+export interface AnnualImpactEmail {
+  sponsorId: string;
+  to: string;
+  subject: string;
+  html: string;
+  text: string;
+}
+
+/** Whether the annual impact summary should be sent (December 20). */
+export function isAnnualImpactSendDate(now: Date = new Date()): boolean {
+  return now.getMonth() === 11 && now.getDate() === 20;
+}
+
+/** Compile the personalised year-in-review email for a sponsor. */
+export function buildAnnualImpactEmail(settings: AnnualImpactEmailSettings): AnnualImpactEmail {
+  const { sponsorName, year, stats, impactImageUrl } = settings;
+  const subject = `Your ${year} impact with us, ${sponsorName}`;
+
+  const milestoneLines =
+    stats.milestonesReached.length > 0
+      ? stats.milestonesReached.map((m) => `- ${m}`)
+      : ['- No milestones yet - your next tree could be the one!'];
+
+  const text = [
+    `Hi ${sponsorName},`,
+    '',
+    `Here is your ${year} impact summary:`,
+    `- Trees funded: ${stats.treesFunded}`,
+    `- CO2 absorbed: ${stats.co2AbsorbedKg} kg`,
+    `- Species supported: ${stats.speciesCount}`,
+    '',
+    'Milestones reached:',
+    ...milestoneLines,
+    '',
+    `View and share your impact image: ${impactImageUrl}`,
+    '',
+    'Thank you for making a difference!',
+  ].join('\n');
+
+  const htmlMilestones =
+    stats.milestonesReached.length > 0
+      ? `<ul>${stats.milestonesReached.map((m) => `<li>${escapeHtml(m)}</li>`).join('')}</ul>`
+      : '<p style="color:#555;">No milestones yet - your next tree could be the one!</p>';
+
+  const html = [
+    '<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">',
+    `<h2>Hi ${escapeHtml(sponsorName)},</h2>`,
+    `<p>Here is your ${year} impact summary:</p>`,
+    '<ul>',
+    `<li>Trees funded: <strong>${stats.treesFunded}</strong></li>`,
+    `<li>CO2 absorbed: <strong>${stats.co2AbsorbedKg} kg</strong></li>`,
+    `<li>Species supported: <strong>${stats.speciesCount}</strong></li>`,
+    '</ul>',
+    '<h3>Milestones reached</h3>',
+    htmlMilestones,
+    `<p><img src="${escapeHtml(impactImageUrl)}" alt="Your ${year} impact" style="max-width:100%;border-radius:8px;" /></p>`,
+    `<p><a href="${escapeHtml(impactImageUrl)}" style="color:#1a73e8;">View and share your impact image</a></p>`,
+    '<p>Thank you for making a difference!</p>',
+    '</div>',
+  ].join('');
+
+  return { sponsorId: settings.sponsorId, to: settings.email, subject, html, text };
+}
+
+/**
+ * Compile and send the annual impact summary email for a single sponsor.
+ * The `sendEmail` callback performs the actual delivery.
+ */
+export async function sendAnnualImpactEmail(
+  settings: AnnualImpactEmailSettings,
+  sendEmail: (email: AnnualImpactEmail) => Promise<void>
+): Promise<AnnualImpactEmail> {
+  const email = buildAnnualImpactEmail(settings);
+  await sendEmail(email);
+  return email;
+}
+
+// ---------------------------------------------------------------------------
+// Waitlist assignment email (#1718)
+//
+// Sent when a sponsor on a planting zone waitlist is automatically assigned a
+// tree from the next planting batch.
+// ---------------------------------------------------------------------------
+
+export interface WaitlistAssignmentEmailSettings {
+  sponsorId: string;
+  sponsorName: string;
+  email: string;
+  zoneName: string;
+  treeId: string;
+  species?: string;
+}
+
+export interface WaitlistAssignmentEmail {
+  sponsorId: string;
+  to: string;
+  subject: string;
+  html: string;
+  text: string;
+}
+
+/** Compile the waitlist assignment notification email. */
+export function buildWaitlistAssignmentEmail(
+  settings: WaitlistAssignmentEmailSettings
+): WaitlistAssignmentEmail {
+  const { sponsorName, zoneName, treeId, species } = settings;
+  const subject = `A tree has been assigned to you in ${zoneName}!`;
+  const speciesText = species ? ` (${species})` : '';
+
+  const text = [
+    `Hi ${sponsorName},`,
+    '',
+    `Great news! A tree${speciesText} has been assigned to you from the waitlist in ${zoneName}.`,
+    `Tree ID: ${treeId}`,
+    '',
+    'Thank you for your patience and support!',
+  ].join('\n');
+
+  const html = [
+    '<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">',
+    `<h2>Hi ${escapeHtml(sponsorName)},</h2>`,
+    `<p>Great news! A tree${escapeHtml(speciesText)} has been assigned to you from the waitlist in <strong>${escapeHtml(zoneName)}</strong>.</p>`,
+    `<p>Tree ID: <strong>${escapeHtml(treeId)}</strong></p>`,
+    '<p>Thank you for your patience and support!</p>',
+    '</div>',
+  ].join('');
+
+  return { sponsorId: settings.sponsorId, to: settings.email, subject, html, text };
+}
+
+/**
+ * Compile and send the waitlist assignment email for a single sponsor.
+ * The `sendEmail` callback performs the actual delivery.
+ */
+export async function sendWaitlistAssignmentEmail(
+  settings: WaitlistAssignmentEmailSettings,
+  sendEmail: (email: WaitlistAssignmentEmail) => Promise<void>
+): Promise<WaitlistAssignmentEmail> {
+  const email = buildWaitlistAssignmentEmail(settings);
+  await sendEmail(email);
+  return email;
+}
