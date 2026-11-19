@@ -49,6 +49,16 @@ export interface NotificationState {
   isDrawerOpen: boolean;
   /** Whether the sponsor has opted in to the monthly forest health newsletter. */
   newsletterOptIn: boolean;
+  /** Daily email digest preferences for the sponsor. */
+  digestPreferences: DigestPreferences;
+  /** Most recently generated digest summary, if any. */
+  digestSummary: DigestSummary | null;
+  /** Whether the farmer support chat panel is open. */
+  isChatOpen: boolean;
+  /** Active farmer support chat conversation, if any. */
+  chatConversation: ChatConversation | null;
+  /** Current availability of agricultural experts. */
+  expertAvailability: ExpertAvailability;
 }
 
 export interface NotificationActions {
@@ -70,6 +80,24 @@ export interface NotificationActions {
   setNewsletterOptIn: (optIn: boolean) => void;
   /** Toggle the sponsor's newsletter subscription preference. */
   toggleNewsletterOptIn: () => void;
+  /** Update and persist the sponsor's daily digest preferences. */
+  setDigestPreferences: (preferences: Partial<DigestPreferences>) => void;
+  /** Store the latest generated digest summary. */
+  setDigestSummary: (summary: DigestSummary | null) => void;
+  /** Open the farmer support chat panel. */
+  openChat: () => void;
+  /** Close the farmer support chat panel. */
+  closeChat: () => void;
+  /** Toggle the farmer support chat panel. */
+  toggleChat: () => void;
+  /** Start a new farmer support chat conversation for the given topic. */
+  startChatConversation: (topic: ChatTopic) => string;
+  /** Append a message to the active chat conversation. */
+  sendChatMessage: (
+    message: Omit<ChatMessage, 'id' | 'timestamp'>
+  ) => string;
+  /** Update the current expert availability status. */
+  setExpertAvailability: (availability: ExpertAvailability) => void;
 }
 
 export type NotificationContextValue = NotificationState & NotificationActions;
@@ -134,4 +162,98 @@ export interface PushNotificationDispatcher {
    * are no registered tokens.
    */
   dispatch: (payload: PushNotificationPayload) => PushNotificationMessage | null;
+}
+
+/**
+ * Preferences for the daily email digest. Instead of sending an email for
+ * every event, events are aggregated and a single digest is delivered at
+ * 9 AM in the sponsor's timezone.
+ */
+export interface DigestPreferences {
+  /** Whether the daily digest is enabled. */
+  enabled: boolean;
+  /** IANA timezone identifier used to schedule the 9 AM delivery. */
+  timezone: string;
+}
+
+/** A single aggregated event entry within a digest summary. */
+export interface DigestEntry {
+  type: NotificationType;
+  title: string;
+  description?: string;
+  /** ISO timestamp of when the underlying event occurred. */
+  occurredAt: string;
+}
+
+/** Aggregated daily summary of events delivered to sponsors. */
+export interface DigestSummary {
+  /** ISO date (YYYY-MM-DD) the digest covers. */
+  date: string;
+  /** IANA timezone the digest was generated for. */
+  timezone: string;
+  entries: DigestEntry[];
+  /** Total number of events aggregated into the digest. */
+  totalEvents: number;
+  /** ISO timestamp of when the digest was generated. */
+  generatedAt: string;
+}
+
+/** Topics a farmer can ask agricultural experts about. */
+export type ChatTopic =
+  | 'carbon-farming'
+  | 'soil-health'
+  | 'certification'
+  | 'market-prices';
+
+export type ChatMessageAuthor = 'farmer' | 'expert' | 'system';
+
+export interface ChatMessage {
+  id: string;
+  conversationId: string;
+  author: ChatMessageAuthor;
+  /** Display name of the message author. */
+  authorName?: string;
+  content: string;
+  /** ISO timestamp of when the message was sent. */
+  timestamp: string;
+  read?: boolean;
+}
+
+export interface ChatConversation {
+  id: string;
+  topic: ChatTopic;
+  messages: ChatMessage[];
+  /** ISO timestamp of when the conversation was started. */
+  createdAt: string;
+  /** Whether an expert has joined the conversation. */
+  expertJoined: boolean;
+  /** Display name of the assigned expert, if any. */
+  expertName?: string;
+}
+
+export type ExpertAvailabilityStatus =
+  | 'online'
+  | 'busy'
+  | 'offline'
+  | 'away';
+
+export interface ExpertAvailability {
+  status: ExpertAvailabilityStatus;
+  /** Number of experts currently available to chat. */
+  availableExperts: number;
+  /** Estimated wait time in minutes before an expert responds. */
+  estimatedWaitMinutes?: number;
+  /** ISO timestamp of when the availability was last updated. */
+  updatedAt: string;
+}
+
+/** Notification surfaced when an expert replies in the support chat. */
+export interface ExpertChatNotification {
+  type: 'expert_chat';
+  conversationId: string;
+  topic: ChatTopic;
+  expertName: string;
+  message: string;
+  /** ISO timestamp of when the expert message was sent. */
+  occurredAt: string;
 }

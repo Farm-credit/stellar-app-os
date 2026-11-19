@@ -102,10 +102,12 @@ export function showNotification(title: string, options?: NotificationOptions): 
 // ---------------------------------------------------------------------------
 // Daily email digest (#992)
 //
-// Instead of sending an email for every event, events are enqueued per sponsor
-// and compiled into a single summary email that is sent at 9 AM in the
-// sponsor's timezone.
+// Instead of sending an email for every event, events are persisted to the
+// `notification_events` table and compiled into a single summary email that is
+// sent at 9 AM in the sponsor's timezone.
 // ---------------------------------------------------------------------------
+
+import { getPool } from './db/client';
 
 export interface DigestEvent {
   /** Unique identifier for the event. */
@@ -138,32 +140,95 @@ export interface SponsorDigestSettings {
   timezone: string;
 }
 
-/** In-memory queue of pending digest events, keyed by sponsor id. */
-const digestQueue = new Map<string, DigestEvent[]>();
+/** An event that has not yet been included in a delivered digest. */
+export interface PendingDigestEvent extends DigestEvent {
+  /** Database row id of the persisted event. */
+  rowId: number;
+}
+
+interface NotificationEventRow {
+  id: number;
+  sponsor_id: string;
+  event_id: string;
+  title: string;
+  description: string | null;
+  occurred_at: Date | string;
+  url: string | null;
+}
+
+function rowToDigestEvent(row: NotificationEventRow): DigestEvent {
+  return {
+    id: row.event_id,
+    sponsorId: row.sponsor_id,
+    title: row.title,
+    description: row.description ?? undefined,
+    occurredAt: row.occurred_at instanceof Date ? row.occurred_at : new Date(row.occurred_at),
+    url: row.url ?? undefined,
+  };
+}
 
 /**
- * Record an event for a sponsor's daily digest instead of sending an email
+ * Persist an event for a sponsor's daily digest instead of sending an email
  * immediately. Events are aggregated and delivered by {@link sendDailyDigest}.
  */
-export function enqueueDigestEvent(event: DigestEvent): void {
-  const existing = digestQueue.get(event.sponsorId) ?? [];
-  existing.push(event);
-  digestQueue.set(event.sponsorId, existing);
+export async function enqueueDigestEvent(event: DigestEvent): Promise<void> {
+  const pool = getPool();
+  await pool.query(
+    `INSERT INTO notification_events
+       (sponsor_id, event_id, title, description, occurred_at, url)
+     VALUES ($1, $2, $3, $4, $5, $6)
+     ON CONFLICT (sponsor_id, event_id) DO NOTHING`,
+    [
+      event.sponsorId,
+      event.id,
+      event.title,
+      event.description ?? null,
+      event.occurredAt,
+      event.url ?? null,
+    ]
+  );
 }
 
-/** Returns the pending events for a sponsor (does not clear the queue). */
-export function getPendingDigestEvents(sponsorId: string): DigestEvent[] {
-  return [...(digestQueue.get(sponsorId) ?? [])];
+/**
+ * Returns the pending (not yet delivered) events for a sponsor, ordered by
+ * occurrence time. Does not mark them as delivered.
+ */
+export async function getPendingDigestEvents(sponsorId: string): Promise<DigestEvent[]> {
+  const pool = getPool();
+  const result = await pool.query<NotificationEventRow>(
+    `SELECT id, sponsor_id, event_id, title, description, occurred_at, url
+       FROM notification_events
+      WHERE sponsor_id = $1 AND delivered_at IS NULL
+      ORDER BY occurred_at ASC`,
+    [sponsorId]
+  );
+  return result.rows.map(rowToDigestEvent);
 }
 
-/** Clears the pending events for a sponsor. */
-export function clearDigestEvents(sponsorId: string): void {
-  digestQueue.delete(sponsorId);
+/**
+ * Mark the given events as delivered so they are not included in future
+ * digests. Events are identified by their `(sponsorId, eventId)` pair.
+ */
+export async function markDigestEventsDelivered(
+  sponsorId: string,
+  eventIds: string[],
+  deliveredAt: Date = new Date()
+): Promise<void> {
+  if (eventIds.length === 0) {
+    return;
+  }
+  const pool = getPool();
+  await pool.query(
+    `UPDATE notification_events
+        SET delivered_at = $1
+      WHERE sponsor_id = $2 AND event_id = ANY($3::text[]) AND delivered_at IS NULL`,
+    [deliveredAt, sponsorId, eventIds]
+  );
 }
 
 /**
  * Group a flat list of events by sponsor id. Useful when events are loaded
- * from a persistent store rather than the in-memory queue.
+ * from a persistent store rather than a single sponsor's queue.
  */
 export function groupEventsBySponsor(events: DigestEvent[]): Map<string, DigestEvent[]> {
   const grouped = new Map<string, DigestEvent[]>();
@@ -267,7 +332,7 @@ export async function sendDailyDigest(
   settings: SponsorDigestSettings,
   sendEmail: (email: DigestEmail) => Promise<void>
 ): Promise<DigestEmail | null> {
-  const events = getPendingDigestEvents(settings.sponsorId);
+  const events = await getPendingDigestEvents(settings.sponsorId);
   const email = buildDigestEmail(settings, events);
 
   if (!email) {
@@ -275,7 +340,10 @@ export async function sendDailyDigest(
   }
 
   await sendEmail(email);
-  clearDigestEvents(settings.sponsorId);
+  await markDigestEventsDelivered(
+    settings.sponsorId,
+    email.events.map((event) => event.id)
+  );
   return email;
 }
 

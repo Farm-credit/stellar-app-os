@@ -46,12 +46,15 @@ contract AfforestationProject {
     mapping(uint256 => Project) public projects;
 
     /// @notice Emitted when a project is registered.
+    /// @dev Emitted by {registerProject} after the project record is stored.
     /// @param projectId The newly assigned project ID.
     /// @param owner The address that registered the project.
     /// @param areaHectares The project area in hectares.
     event ProjectRegistered(uint256 indexed projectId, address indexed owner, uint256 areaHectares);
 
     /// @notice Emitted when 30-year sequestration cover is posted.
+    /// @dev Emitted by {postSequestrationBond} with `CoverType.Bond` and by
+    /// {postInsurancePolicy} with `CoverType.Insurance`.
     /// @param projectId The project that received cover.
     /// @param coverType The kind of cover posted (Bond or Insurance).
     /// @param coverageAmount The coverage amount in wei.
@@ -66,6 +69,8 @@ contract AfforestationProject {
     );
 
     /// @notice Emitted when a project is flagged for a 30-year harvest violation.
+    /// @dev Emitted by {reportHarvestViolation} after any bond is forfeited and
+    /// the project's cover is cleared.
     /// @param projectId The project that was flagged.
     /// @param reportedBy The admin that reported the violation.
     event HarvestViolation(uint256 indexed projectId, address reportedBy);
@@ -87,16 +92,19 @@ contract AfforestationProject {
 
     /// @notice Register a new afforestation project.
     /// @dev The project is initially uncovered and cannot generate carbon credits
-    /// until a 30-year sequestration bond or insurance policy is posted. Reverts
-    /// with "name required" if `name` is empty, "area hectares must be positive"
-    /// if `areaHectares` is zero, and "tree count must be positive" if
-    /// `treeCount` is zero. Emits {ProjectRegistered}.
+    /// until a 30-year sequestration bond or insurance policy is posted. The
+    /// caller becomes the project owner and the planting timestamp is set to
+    /// `block.timestamp`.
+    /// @custom:error "name required" if `name` is empty.
+    /// @custom:error "area hectares must be positive" if `areaHectares` is zero.
+    /// @custom:error "tree count must be positive" if `treeCount` is zero.
+    /// @custom:event ProjectRegistered emitted with the new ID, caller and area.
     /// @param name Human-readable project name; must be non-empty.
     /// @param areaHectares Project area in hectares; must be positive.
     /// @param treeCount Number of trees planted; must be positive.
     /// @return projectId The newly assigned project ID.
     function registerProject(
-        string caldata name,
+        string calldata name,
         uint256 areaHectares,
         uint256 treeCount
     ) external returns (uint256) {
@@ -121,12 +129,13 @@ contract AfforestationProject {
     /// @notice Post a 30-year sequestration bond for a project.
     /// @dev The bond must cover at least MIN_COVERAGE_PER_HECTARE per hectare and
     /// must extend at least 30 years from the planting date. The bond is held by
-    /// this contract and is forfeited if a harvest violation is reported. Reverts
-    /// with "project not found" if the project does not exist, "only owner or
-    /// admin" if the caller is neither, "bond below minimum coverage" if
-    /// `msg.value` is below the required amount, and "ncoverage must span 30
-    /// years" if the cover would not span the full period. Emits
-    /// {SequestrationCovered} with `CoverType.Bond`.
+    /// this contract and is forfeited if a harvest violation is reported. The
+    /// caller becomes the coverage provider.
+    /// @custom:error "project not found" if the project does not exist.
+    /// @custom:error "only owner or admin" if the caller is neither the owner nor the admin.
+    /// @custom:error "bond below minimum coverage" if `msg.value` is below the required amount.
+    /// @custom:error "ncoverage must span 30 years" if the cover would not span the full period.
+    /// @custom:event SequestrationCovered emitted with `CoverType.Bond`.
     /// @param projectId The project to cover; must exist.
     function postSequestrationBond(uint256 projectId) external payable {
         Project storage p = projects[projectId];
@@ -156,12 +165,14 @@ contract AfforestationProject {
     /// @notice Record an insurance policy covering the 30-year no-harvest
     /// guarantee. The premium is paid off-chain to the insurer and the policy
     /// is registered on-chain by the admin after verification.
-    /// @dev Restricted to the admin via `onlyAdmin` (reverts with "only admin").
-    /// Reverts with "project not found" if the project does not exist, "insurer
-    /// required" if `insurer` is the zero address, "insurance below minimum
-    /// coverage" if `coverageAmount` is below the required amount, and
-    /// "insurance must span 30 years" if `expiresAt` is too early. Emits
-    /// {SequestrationCovered} with `CoverType.Insurance`.
+    /// @dev Restricted to the admin via `onlyAdmin`. The insurer becomes the
+    /// coverage provider for the project.
+    /// @custom:error "only admin" if the caller is not the admin.
+    /// @custom:error "project not found" if the project does not exist.
+    /// @custom:error "insurer required" if `insurer` is the zero address.
+    /// @custom:error "insurance below minimum coverage" if `coverageAmount` is below the required amount.
+    /// @custom:error "insurance must span 30 years" if `expiresAt` is too early.
+    /// @custom:event SequestrationCovered emitted with `CoverType.Insurance`.
     /// @param projectId The project to cover; must exist.
     /// @param insurer The insurer backing the policy; must be non-zero.
     /// @param coverageAmount The coverage amount in wei.
@@ -200,9 +211,12 @@ contract AfforestationProject {
     /// @notice Report a harvest violation for a project. The sequestration bond
     /// is forfeited to the admin and the project loses its coverage, blocking
     /// further carbon credit issuance.
-    /// @dev Restricted to the admin via `onlyAdmin` (reverts with "only admin").
-    /// Reverts with "project not found" if the project does not exist and "no
-    /// coverage to forfeit" if no cover is posted. Emits {HarvestViolation}.
+    /// @dev Restricted to the admin via `onlyAdmin`. Any posted bond is
+    /// transferred to the admin; the project's cover fields are then cleared.
+    /// @custom:error "only admin" if the caller is not the admin.
+    /// @custom:error "project not found" if the project does not exist.
+    /// @custom:error "no coverage to forfeit" if no cover is posted.
+    /// @custom:event HarvestViolation emitted with the project ID and reporter.
     /// @param projectId The project to flag; must exist and have active cover.
     function reportHarvestViolation(uint256 projectId) external onlyAdmin {
         Project storage p = projects[projectId];
@@ -225,10 +239,12 @@ contract AfforestationProject {
     /// @notice Returns true when the project is covered by an active 30-year
     /// sequestration bond or insurance policy. This is the gate used by the
     /// CarbonCredit contract before issuing credits.
-    /// @dev Never reverts; failures are reported via the `reason` string. Reasons
-    /// include "project not found", "no sequestration cover posted",
-    /// "sequestration cover expires before 30 years", and "sequestration
-    /// coverage below minimum".
+    /// @dev Never reverts; failures are reported via the `reason` string.
+    /// @custom:error None; failures are returned via `reason` instead of reverting.
+    /// @custom:error "project not found" returned in `reason` if the project does not exist.
+    /// @custom:error "no sequestration cover posted" returned in `reason` if no cover exists.
+    /// @custom:error "sequestration cover expires before 30 years" returned in `reason` if cover expires too soon.
+    /// @custom:error "sequestration coverage below minimum" returned in `reason` if coverage is insufficient.
     /// @param projectId The project to check.
     /// @return secured True if the project has valid 30-year cover.
     /// @return reason Empty when secured; otherwise a human-readable reason.
@@ -255,7 +271,8 @@ contract AfforestationProject {
     }
 
     /// @notice Returns the stored project record.
-    /// @dev Reverts with "project not found" if the project does not exist.
+    /// @dev Reverts if the project does not exist.
+    /// @custom:error "project not found" if the project does not exist.
     /// @param projectId The project to fetch; must exist.
     /// @return The stored {Project} record.
     function getProject(uint256 projectId) external view returns (Project memory) {
