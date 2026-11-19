@@ -305,6 +305,36 @@ export interface BuyerTrendPoint {
 }
 
 /**
+ * Historical price series for a single region or project type
+ */
+export interface HistoricalPriceSeries {
+  /** Region or project type label the series applies to */
+  label: string;
+
+  /** Ordered price data points */
+  points: HistoricalPricePoint[];
+}
+
+/**
+ * Historical performance summary for a project
+ */
+export interface HistoricalProjectPerformance extends ProjectPerformancePoint {
+  /** ISO 8601 date string for the start of the reporting period */
+  periodStart: string;
+
+  /** ISO 8601 date string for the end of the reporting period */
+  periodEnd: string;
+}
+
+/**
+ * Historical buyer trend summary for a region
+ */
+export interface HistoricalBuyerTrend extends BuyerTrendPoint {
+  /** Project type the trend applies to (null means all types) */
+  projectType: ProjectType | null;
+}
+
+/**
  * API response structure for historical carbon data endpoint
  */
 export interface HistoricalCarbonResponse {
@@ -325,9 +355,49 @@ export interface HistoricalCarbonResponse {
 }
 
 /**
+ * API response structure for the historical carbon data endpoint
+ * (alias with richer series/performance/trend shapes)
+ */
+export interface HistoricalCarbonDataResponse {
+  /** Historical price series */
+  prices: HistoricalPricePoint[];
+
+  /** Price series grouped by region */
+  priceSeries: HistoricalPriceSeries[];
+
+  /** Per-project performance data */
+  projectPerformance: HistoricalProjectPerformance[];
+
+  /** Buyer trend data */
+  buyerTrends: HistoricalBuyerTrend[];
+
+  /** Price breakdown keyed by region */
+  byRegion: Record<string, HistoricalPricePoint[]>;
+
+  /** Price breakdown keyed by project type */
+  byProjectType: Record<ProjectType, HistoricalPricePoint[]>;
+}
+
+/**
  * Supported certification registry providers
  */
 export type CertificationProviderName = 'Verra' | 'Gold Standard';
+
+/**
+ * Certification registry provider identifier used by the marketplace UI
+ */
+export type CertificationProvider = CertificationProviderName;
+
+/**
+ * Certification status surfaced in the marketplace UI
+ */
+export type CertificationStatus =
+  | 'certified'
+  | 'pending'
+  | 'expiring-soon'
+  | 'expired'
+  | 'revoked'
+  | 'unverified';
 
 /**
  * Verification state of a certification record
@@ -428,6 +498,21 @@ export interface MarketplaceListing {
 
   /** Whether the reserve price has been met (auction listings only) */
   reserveMet?: boolean;
+
+  /** Auction details (auction listings only) */
+  auction?: {
+    /** Current highest bid per ton in USD (null if no bids) */
+    currentHighestBid: number | null;
+
+    /** Number of bids placed */
+    bidCount: number;
+
+    /** ISO 8601 date string when the auction ends */
+    endsAt: string;
+
+    /** Whether the reserve price has been met */
+    reserveMet: boolean;
+  };
 }
 
 /**

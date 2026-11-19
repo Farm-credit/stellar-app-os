@@ -8,6 +8,7 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 soroban-sdk = { version = "27.0.6", features = ["alloc"] }
+contract-utils = { path = "../contract-utils" }
 
 [dev-dependencies]
 soroban-sdk = { version = "27.0.6", features = ["testutils", "alloc"] }

@@ -1,7 +1,8 @@
 //! Unit tests for the Farmer Bonus Pool contract (#1355).
 
 use super::*;
-use soroban_sdk::testutils::Address as _;
+use contract_utils::storage::REPLAY_GUARD_TTL_LEDGERS;
+use soroban_sdk::{testutils::Address as _, testutils::Ledger, token::StellarAssetClient};
 
 fn setup_env() -> (Env, Address, Address, Address) {
     let env = Env::default();
@@ -100,6 +101,46 @@ fn test_claim_marks_ledger_entry() {
     // The pool snapshot is 0, so no allocation can happen here. The ledger
     // read must report nothing claimed.
     assert!(!client.has_claimed(&farmer, &period));
+}
+
+#[test]
+#[should_panic(expected = "Error(Contract, #5)")]
+fn test_contribute_rejects_duplicate_sale_id_within_ttl() {
+    let (env, admin, token, _farmer) = setup_env();
+    let contract_id = register(&env);
+    let client = BonusPoolClient::new(&env, &contract_id);
+    client.initialize(&admin, &token, &100_u32);
+
+    let payer = Address::generate(&env);
+    StellarAssetClient::new(&env, &token).mint(&payer, &10_000);
+
+    client.contribute(&payer, &7_u64, &1_000);
+    assert_eq!(client.get_pool_balance(), 1_000);
+    client.contribute(&payer, &7_u64, &1_000);
+}
+
+#[test]
+fn test_processed_sale_guard_leaves_ledger_after_ttl() {
+    let (env, admin, token, _farmer) = setup_env();
+    let contract_id = register(&env);
+    let client = BonusPoolClient::new(&env, &contract_id);
+    client.initialize(&admin, &token, &100_u32);
+
+    let payer = Address::generate(&env);
+    StellarAssetClient::new(&env, &token).mint(&payer, &10_000);
+
+    client.contribute(&payer, &42_u64, &1_000);
+
+    // The replay marker lives in temporary storage: once its TTL elapses the
+    // entry is reclaimed, so the live ledger footprint stops growing with the
+    // number of historical sales.
+    env.ledger().with_mut(|ledger| {
+        ledger.sequence_number += REPLAY_GUARD_TTL_LEDGERS + 1;
+    });
+
+    client.contribute(&payer, &42_u64, &1_000);
+    assert_eq!(client.get_pool_balance(), 2_000);
+    assert_eq!(client.get_total_contributions(), 2_000);
 }
 
 #[test]

@@ -302,3 +302,363 @@ model ProjectBufferZone {
   @@index([deforestationAlert])
   @@map("project_buffer_zones")
 }
+
+// ── Auction ─────────────────────────────────────────────────────────────────
+//
+// Carbon credit auctions (Issue #1280). Farmers list a batch of credits for
+// competitive bidding; the highest bid at closing wins. Transparent price
+// discovery via the full bid history.
+//
+// Related SQL migration: db/migrations/027_auctions_certifications_historical.sql
+model Auction {
+  id                 String    @id @default(cuid())
+  farmerId           String    @map("farmer_id")
+  projectId          String?   @map("project_id")
+  title              String    @db.VarChar(200)
+  description        String?   @db.Text
+  quantity           Float     @db.DoublePrecision
+  reservePricePerTon Float     @map("reserve_price_per_ton") @db.DoublePrecision
+  minBidIncrement    Float     @default(0.01) @map("min_bid_increment") @db.DoublePrecision
+  currency           String    @default("USD") @db.VarChar(3)
+  status             String    @default("draft") @db.VarChar(20) // draft | open | closed | settled | cancelled
+  startAt            DateTime? @map("start_at")
+  closingAt          DateTime? @map("closing_at")
+  settledAt          DateTime? @map("settled_at")
+  winnerBidId        String?   @unique @map("winner_bid_id")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+
+  bids               Bid[]
+
+  @@index([farmerId])
+  @@index([projectId])
+  @@index([status])
+  @@index([closingAt])
+  @@map("auctions")
+}
+
+// ── Bid ─────────────────────────────────────────────────────────────────────
+//
+// Individual bids placed on an Auction (Issue #1280). Bids must meet the
+// auction's reserve price and minimum increment over the current highest bid.
+model Bid {
+  id           String   @id @default(cuid())
+  auctionId    String   @map("auction_id")
+  bidderId     String   @map("bidder_id")
+  amountPerTon Float    @map("amount_per_ton") @db.DoublePrecision
+  quantity     Float    @db.DoublePrecision
+  status       String   @default("active") @db.VarChar(20) // active | outbid | won | withdrawn
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  auction      Auction  @relation(fields: [auctionId], references: [id], onDelete: Cascade)
+
+  @@index([auctionId])
+  @@index([bidderId])
+  @@index([auctionId, amountPerTon])
+  @@index([createdAt])
+  @@map("bids")
+}
+
+// ── CertificationRecord ─────────────────────────────────────────────────────
+//
+// Verified certification state for a project pulled from an external registry
+// such as Verra or Gold Standard (Issue #1286). Tracks verified credit volume,
+// renewal deadlines, and the latest synced documents.
+model CertificationRecord {
+  id              String    @id @default(cuid())
+  provider        String    @db.VarChar(50) // verra | gold_standard
+  projectId       String    @map("project_id")
+  externalId      String?   @map("external_id") @db.VarChar(200)
+  status          String    @default("pending") @db.VarChar(30) // pending | verified | expired | revoked
+  verifiedCredits Float?    @map("verified_credits") @db.DoublePrecision
+  renewalDueAt    DateTime? @map("renewal_due_at")
+  lastSyncedAt    DateTime? @map("last_synced_at")
+  documents       Json      @default("[]")
+  metadata        Json      @default("{}")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  @@unique([provider, projectId])
+  @@index([provider])
+  @@index([projectId])
+  @@index([status])
+  @@index([renewalDueAt])
+  @@map("certification_records")
+}
+
+// ── CertificationSyncJob ────────────────────────────────────────────────────
+//
+// Background sync job tracking for certification registry integrations
+// (Issue #1286). Records each pull/verify run, its outcome, and any error.
+model CertificationSyncJob {
+  id         String    @id @default(cuid())
+  provider   String    @db.VarChar(50) // verra | gold_standard
+  projectId  String?   @map("project_id")
+  status     String    @default("queued") @db.VarChar(20) // queued | running | succeeded | failed
+  startedAt  DateTime? @map("started_at")
+  finishedAt DateTime? @map("finished_at")
+  error      String?   @db.Text
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+
+  @@index([provider])
+  @@index([projectId])
+  @@index([status])
+  @@index([startedAt])
+  @@map("certification_sync_jobs")
+}
+
+// ── HistoricalCarbonData ────────────────────────────────────────────────────
+//
+// Denormalized historical carbon data points for analytics and forecasting
+// (Issue #1285). Stores price, project performance, and buyer trend snapshots
+// keyed by region and project type with composite indexes for fast range
+// queries over time.
+model HistoricalCarbonData {
+  id              String   @id @default(cuid())
+  region          String   @db.VarChar(100)
+  projectType     String   @map("project_type") @db.VarChar(100)
+  metric          String   @db.VarChar(50) // price | project_performance | buyer_trend
+  value           Float    @db.DoublePrecision
+  currency        String?  @db.VarChar(3)
+  recordedAt      DateTime @map("recorded_at")
+  metadata        Json     @default("{}")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  @@index([region, projectType, recordedAt])
+  @@index([projectType, recordedAt])
+  @@index([metric, recordedAt])
+  @@index([recordedAt])
+  @@map("historical_carbon_data")
+}
+
+// ── NotificationEvent ───────────────────────────────────────────────────────
+//
+// Individual sponsor notification events queued for delivery (Issue #992).
+// Instead of sending one email per event, events accumulate here and are
+// aggregated into a single daily EmailDigest at 9 AM in the sponsor's
+// timezone. `deliveredAt` is set once the event has been included in a
+// digest; `digestId` links it to that digest.
+//
+// Related SQL migration: db/migrations/017_create_digest_and_expert_chat.sql
+model NotificationEvent {
+  id          String    @id @default(cuid())
+  sponsorId   String    @map("sponsor_id")
+  type        String    @db.VarChar(50) // e.g. "donation", "match_pledge", "campaign_update"
+  payload     Json      @default("{}")
+  occurredAt  DateTime  @default(now()) @map("occurred_at")
+  deliveredAt DateTime? @map("delivered_at")
+  digestId    String?   @map("digest_id")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  digest      EmailDigest? @relation(fields: [digestId], references: [id], onDelete: SetNull)
+
+  @@index([sponsorId, deliveredAt])
+  @@index([digestId])
+  @@index([occurredAt])
+  @@map("notification_events")
+}
+
+// ── EmailDigest ─────────────────────────────────────────────────────────────
+//
+// Daily aggregated email digest sent to a sponsor (Issue #992). One row per
+// digest delivery attempt, recording how many events were included and the
+// delivery status.
+model EmailDigest {
+  id         String    @id @default(cuid())
+  sponsorId  String    @map("sponsor_id")
+  sentAt     DateTime? @map("sent_at")
+  eventCount Int       @default(0) @map("event_count")
+  status     String    @default("pending") @db.VarChar(20) // pending | sent | failed
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+
+  events     NotificationEvent[]
+
+  @@index([sponsorId, sentAt])
+  @@index([status])
+  @@map("email_digests")
+}
+
+// ── SponsorDigestPreference ─────────────────────────────────────────────────
+//
+// Per-sponsor email preferences for weekly impact digests and marketing
+// newsletters (Issues #1110, #1117). One row per sponsor; `timezone` drives
+// the send window for the weekly digest.
+//
+// Related SQL migration: db/migrations/028_sponsor_digests_newsletters.sql
+model SponsorDigestPreference {
+  id                   String    @id @default(cuid())
+  sponsorId            String    @unique @map("sponsor_id")
+  weeklyDigestEnabled  Boolean   @default(true) @map("weekly_digest_enabled")
+  newsletterOptIn      Boolean   @default(true) @map("newsletter_opt_in")
+  timezone             String    @default("UTC") @db.VarChar(64)
+  lastWeeklyDigestAt   DateTime? @map("last_weekly_digest_at")
+  createdAt            DateTime  @default(now()) @map("created_at")
+  updatedAt            DateTime  @updatedAt @map("updated_at")
+
+  @@index([weeklyDigestEnabled])
+  @@index([newsletterOptIn])
+  @@map("sponsor_digest_preferences")
+}
+
+// ── WeeklySponsorDigest ─────────────────────────────────────────────────────
+//
+// Weekly sponsor impact summary email (Issue #1110). Records the week covered,
+// delivery status, and the impact metrics (trees, CO2 offset) plus community
+// highlights rendered into the email.
+model WeeklySponsorDigest {
+  id                  String    @id @default(cuid())
+  sponsorId           String    @map("sponsor_id")
+  weekStart           DateTime  @map("week_start")
+  sentAt              DateTime? @map("sent_at")
+  status              String    @default("pending") @db.VarChar(20) // pending | sent | failed
+  treeCount           Int       @default(0) @map("tree_count")
+  co2Offset           Float     @default(0) @map("co2_offset") @db.DoublePrecision
+  communityHighlights Json      @default("[]") @map("community_highlights")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+
+  @@unique([sponsorId, weekStart])
+  @@index([sponsorId, sentAt])
+  @@index([status])
+  @@index([weekStart])
+  @@map("weekly_sponsor_digests")
+}
+
+// ── SponsorSegmentMembership ────────────────────────────────────────────────
+//
+// Computed segment membership for a sponsor (Issue #1117). Segments are
+// recomputed periodically; `computedAt` records the last evaluation.
+// `segment` is one of: first_time | vip | lapsed | regional.
+model SponsorSegmentMembership {
+  id         String   @id @default(cuid())
+  sponsorId  String   @map("sponsor_id")
+  segment    String   @db.VarChar(20) // first_time | vip | lapsed | regional
+  region     String?  @db.VarChar(100)
+  computedAt DateTime @default(now()) @map("computed_at")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@unique([sponsorId, segment])
+  @@index([segment])
+  @@index([region])
+  @@index([computedAt])
+  @@map("sponsor_segment_memberships")
+}
+
+// ── NewsletterCampaign ──────────────────────────────────────────────────────
+//
+// Segmented marketing newsletter (Issue #1117). Targets a sponsor segment with
+// customized subject/body content and tracks delivery progress.
+model NewsletterCampaign {
+  id             String    @id @default(cuid())
+  name           String    @db.VarChar(200)
+  segment        String    @db.VarChar(20) // first_time | vip | lapsed | regional
+  subject        String    @db.VarChar(300)
+  htmlBody       String    @map("html_body") @db.Text
+  textBody       String?   @map("text_body") @db.Text
+  status         String    @default("draft") @db.VarChar(20) // draft | sending | sent | failed
+  scheduledAt    DateTime? @map("scheduled_at")
+  sentAt         DateTime? @map("sent_at")
+  recipientCount Int       @default(0) @map("recipient_count")
+  createdBy      String    @map("created_by")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  recipients     NewsletterRecipient[]
+
+  @@index([segment])
+  @@index([status])
+  @@index([scheduledAt])
+  @@index([createdBy])
+  @@map("newsletter_campaigns")
+}
+
+// ── NewsletterRecipient ─────────────────────────────────────────────────────
+//
+// Per-recipient delivery record for a NewsletterCampaign (Issue #1117).
+model NewsletterRecipient {
+  id         String    @id @default(cuid())
+  campaignId String    @map("campaign_id")
+  sponsorId  String    @map("sponsor_id")
+  status     String    @default("pending") @db.VarChar(20) // pending | sent | failed | unsubscribed
+  sentAt     DateTime? @map("sent_at")
+  error      String?   @db.Text
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+
+  campaign   NewsletterCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@unique([campaignId, sponsorId])
+  @@index([campaignId])
+  @@index([sponsorId])
+  @@index([status])
+  @@map("newsletter_recipients")
+}
+
+// ── Expert ──────────────────────────────────────────────────────────────────
+//
+// Agricultural experts available for live farmer support chat (Issue #1411).
+// Tracks expertise areas, availability, and the timezone used for routing.
+model Expert {
+  id           String    @id @default(cuid())
+  name         String    @db.VarChar(200)
+  email        String    @unique @db.VarChar(320)
+  bio          String?   @db.Text
+  expertise    String[]  // e.g. ["carbon_farming", "soil_health", "certification", "market_prices"]
+  timezone     String    @default("UTC") @db.VarChar(64)
+  isAvailable  Boolean   @default(true) @map("is_available")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  conversations ChatConversation[]
+
+  @@index([isAvailable])
+  @@index([timezone])
+  @@map("experts")
+}
+
+// ── ChatConversation ────────────────────────────────────────────────────────
+//
+// A live support chat thread between a farmer and an agricultural expert
+// (Issue #1411). `topic` categorizes the question (carbon farming, soil
+// health, certification, market prices, etc.).
+model ChatConversation {
+  id         String    @id @default(cuid())
+  farmerId   String    @map("farmer_id")
+  expertId   String?   @map("expert_id")
+  topic      String    @db.VarChar(50) // carbon_farming | soil_health | certification | market_prices | other
+  status     String    @default("open") @db.VarChar(20) // open | assigned | closed
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+
+  expert     Expert?   @relation(fields: [expertId], references: [id], onDelete: SetNull)
+  messages   ChatMessage[]
+
+  @@index([farmerId])
+  @@index([expertId])
+  @@index([status])
+  @@map("chat_conversations")
+}
+
+// ── ChatMessage ─────────────────────────────────────────────────────────────
+//
+// Individual message within a ChatConversation (Issue #1411). `authorRole`
+// distinguishes farmer, expert, and system messages; `readAt` supports
+// unread-message badges.
+model ChatMessage {
+  id             String    @id @default(cuid())
+  conversationId String    @map("conversation_id")
+  authorId       String    @map("author_id")
+  authorRole     String    @map("author_role") @db.VarChar(20) // farmer | expert | system
+  content        String    @db.Text
+  createdAt      DateTime  @default(now()) @map("created_at")
+  readAt         DateTime? @map("read_at")
+
+  conversation   ChatConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
+  @@index([authorId])
+  @@map("chat_messages")
+}

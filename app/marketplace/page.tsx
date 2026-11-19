@@ -17,6 +17,12 @@ import type { SustainabilityCertification } from '@/lib/types/issue-1374-1377';
 import { HistoricalCarbonTrends } from '@/components/marketplace/HistoricalCarbonTrends';
 import { useHistoricalCarbonData } from '@/lib/hooks/useHistoricalCarbonData';
 import type { CertificationProvider } from '@/lib/types/certification-integration';
+import { AuctionCard } from '@/components/marketplace/AuctionCard';
+import { BidPlacementModal } from '@/components/marketplace/BidPlacementModal';
+import { usePlaceBid } from '@/lib/hooks/usePlaceBid';
+import { getMockAuctions } from '@/lib/api/mock/auctions';
+import type { Auction } from '@/lib/types/auction';
+import { useState } from 'react';
 
 type ListingKind = 'fixed' | 'auction';
 const LISTING_KIND_OPTIONS: ListingKind[] = ['fixed', 'auction'];
@@ -92,6 +98,39 @@ function MarketplacePageContent() {
     projectType: selectedType,
     region: selectedLocation,
   });
+
+  const [activeAuction, setActiveAuction] = useState<Auction | null>(null);
+  const { placeBid, isSubmitting, error: bidError } = usePlaceBid();
+
+  const auctions = useMemo(() => {
+    if (selectedListingKind === 'fixed') {
+      return [];
+    }
+
+    return getMockAuctions({
+      projectType: selectedType,
+      region: selectedLocation,
+    });
+  }, [selectedListingKind, selectedType, selectedLocation]);
+
+  const handleOpenBidModal = useCallback((auction: Auction) => {
+    setActiveAuction(auction);
+  }, []);
+
+  const handleCloseBidModal = useCallback(() => {
+    setActiveAuction(null);
+  }, []);
+
+  const handleSubmitBid = useCallback(
+    async (amount: number) => {
+      if (!activeAuction) return;
+      const result = await placeBid({ auctionId: activeAuction.id, amount });
+      if (result) {
+        setActiveAuction(null);
+      }
+    },
+    [activeAuction, placeBid]
+  );
 
   const data = useMemo(
     () =>
@@ -413,6 +452,23 @@ function MarketplacePageContent() {
             </Text>
           </div>
 
+          {auctions.length > 0 && (
+            <div className="space-y-4">
+              <Text variant="h3" as="h2">
+                Live Auctions
+              </Text>
+              <div className="grid gap-4 sm:grid-cols-2">
+                {auctions.map((auction) => (
+                  <AuctionCard
+                    key={auction.id}
+                    auction={auction}
+                    onPlaceBid={handleOpenBidModal}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
           <MarketplaceGrid listings={certificationFilteredListings} currentUserId={null} />
 
           <HistoricalCarbonTrends
@@ -435,6 +491,16 @@ function MarketplacePageContent() {
           )}
         </section>
       </div>
+
+      {activeAuction && (
+        <BidPlacementModal
+          auction={activeAuction}
+          isSubmitting={isSubmitting}
+          error={bidError}
+          onClose={handleCloseBidModal}
+          onSubmit={handleSubmitBid}
+        />
+      )}
     </main>
   );
 }
