@@ -719,3 +719,368 @@ export async function sendWaitlistAssignmentEmail(
   await sendEmail(email);
   return email;
 }
+
+// ---------------------------------------------------------------------------
+// Weekly sponsor impact digest (#1110)
+//
+// Automated weekly emails to sponsors showing tree growth updates (with tree
+// photos), impact metrics, and community highlights.
+// ---------------------------------------------------------------------------
+
+export interface WeeklyDigestTreeUpdate {
+  treeId: string;
+  species?: string;
+  /** Optional growth note, e.g. "Grew 12 cm this week". */
+  growthNote?: string;
+  /** Optional URL of a photo of the tree. */
+  photoUrl?: string;
+  /** Optional planting zone name. */
+  zone?: string;
+}
+
+export interface WeeklyDigestMetrics {
+  treesFunded: number;
+  co2AbsorbedKg: number;
+  speciesCount: number;
+  /** Optional number of trees that survived the period. */
+  treesSurvived?: number;
+}
+
+export interface WeeklySponsorDigestSettings {
+  sponsorId: string;
+  sponsorName: string;
+  email: string;
+}
+
+export interface WeeklySponsorDigestData {
+  treeUpdates: WeeklyDigestTreeUpdate[];
+  metrics: WeeklyDigestMetrics;
+  highlights: string[];
+}
+
+export interface WeeklySponsorDigestEmail {
+  sponsorId: string;
+  to: string;
+  subject: string;
+  html: string;
+  text: string;
+}
+
+/**
+ * Compile the weekly sponsor impact digest email. Returns `null` when there is
+ * nothing to report (no tree updates, no highlights, and no impact metrics).
+ */
+export function buildWeeklySponsorDigestEmail(
+  settings: WeeklySponsorDigestSettings,
+  treeUpdates: WeeklyDigestTreeUpdate[],
+  metrics: WeeklyDigestMetrics,
+  highlights: string[]
+): WeeklySponsorDigestEmail | null {
+  const hasMetrics =
+    metrics.treesFunded > 0 ||
+    metrics.co2AbsorbedKg > 0 ||
+    metrics.speciesCount > 0 ||
+    (metrics.treesSurvived ?? 0) > 0;
+
+  if (treeUpdates.length === 0 && highlights.length === 0 && !hasMetrics) {
+    return null;
+  }
+
+  const { sponsorName } = settings;
+  const subject = `Your weekly impact summary, ${sponsorName}`;
+
+  const textLines: string[] = [`Hi ${sponsorName},`, '', 'Here is your weekly impact summary:', ''];
+
+  textLines.push('Impact metrics:');
+  textLines.push(`- Trees funded: ${metrics.treesFunded}`);
+  textLines.push(`- CO2 absorbed: ${metrics.co2AbsorbedKg} kg`);
+  textLines.push(`- Species supported: ${metrics.speciesCount}`);
+  if (metrics.treesSurvived !== undefined) {
+    textLines.push(`- Trees survived: ${metrics.treesSurvived}`);
+  }
+
+  if (treeUpdates.length > 0) {
+    textLines.push('', 'Tree growth updates:');
+    for (const update of treeUpdates) {
+      const species = update.species ? ` ${update.species}` : '';
+      const zone = update.zone ? ` in ${update.zone}` : '';
+      const growth = update.growthNote ? ` - ${update.growthNote}` : '';
+      const photo = update.photoUrl ? ` (photo: ${update.photoUrl})` : '';
+      textLines.push(`- Tree ${update.treeId}${species}${zone}${growth}${photo}`);
+    }
+  }
+
+  if (highlights.length > 0) {
+    textLines.push('', 'Community highlights:');
+    for (const highlight of highlights) {
+      textLines.push(`- ${highlight}`);
+    }
+  }
+
+  textLines.push('', 'Thank you for making a difference!');
+
+  const text = textLines.join('\n');
+
+  const htmlTreeUpdates =
+    treeUpdates.length > 0
+      ? `<h3>Tree growth updates</h3><ul style="list-style:none;padding:0;margin:0;">${treeUpdates
+          .map((update) => {
+            const species = update.species ? ` ${escapeHtml(update.species)}` : '';
+            const zone = update.zone ? ` in ${escapeHtml(update.zone)}` : '';
+            const growth = update.growthNote
+              ? `<div style="color:#555;margin-top:2px;">${escapeHtml(update.growthNote)}</div>`
+              : '';
+            const photo = update.photoUrl
+              ? `<div style="margin-top:6px;"><img src="${escapeHtml(update.photoUrl)}" alt="Tree ${escapeHtml(update.treeId)}" style="max-width:100%;border-radius:8px;" /></div>`
+              : '';
+            return `<li style="margin-bottom:16px;"><div style="font-weight:600;">Tree ${escapeHtml(update.treeId)}${species}${zone}</div>${growth}${photo}</li>`;
+          })
+          .join('')}</ul>`
+      : '';
+
+  const htmlHighlights =
+    highlights.length > 0
+      ? `<h3>Community highlights</h3><ul>${highlights
+          .map((highlight) => `<li>${escapeHtml(highlight)}</li>`)
+          .join('')}</ul>`
+      : '';
+
+  const survivedHtml =
+    metrics.treesSurvived !== undefined
+      ? `<li>Trees survived: <strong>${metrics.treesSurvived}</strong></li>`
+      : '';
+
+  const html = [
+    '<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">',
+    `<h2>Hi ${escapeHtml(sponsorName)},</h2>`,
+    '<p>Here is your weekly impact summary:</p>',
+    '<h3>Impact metrics</h3>',
+    '<ul>',
+    `<li>Trees funded: <strong>${metrics.treesFunded}</strong></li>`,
+    `<li>CO2 absorbed: <strong>${metrics.co2AbsorbedKg} kg</strong></li>`,
+    `<li>Species supported: <strong>${metrics.speciesCount}</strong></li>`,
+    survivedHtml,
+    '</ul>',
+    htmlTreeUpdates,
+    htmlHighlights,
+    '<p>Thank you for making a difference!</p>',
+    '</div>',
+  ].join('');
+
+  return { sponsorId: settings.sponsorId, to: settings.email, subject, html, text };
+}
+
+/**
+ * Compile and send the weekly sponsor impact digest for a single sponsor. The
+ * `sendEmail` callback performs the actual delivery. Returns `null` when there
+ * is nothing to send.
+ */
+export async function sendWeeklySponsorDigest(
+  settings: WeeklySponsorDigestSettings,
+  data: WeeklySponsorDigestData,
+  sendEmail: (email: WeeklySponsorDigestEmail) => Promise<void>
+): Promise<WeeklySponsorDigestEmail | null> {
+  const email = buildWeeklySponsorDigestEmail(
+    settings,
+    data.treeUpdates,
+    data.metrics,
+    data.highlights
+  );
+
+  if (!email) {
+    return null;
+  }
+
+  await sendEmail(email);
+  return email;
+}
+
+/**
+ * Send weekly sponsor impact digests for all provided sponsors. Intended to be
+ * invoked by a weekly scheduler.
+ */
+export async function sendAllWeeklySponsorDigests(
+  sponsors: Array<{ settings: WeeklySponsorDigestSettings; data: WeeklySponsorDigestData }>,
+  sendEmail: (email: WeeklySponsorDigestEmail) => Promise<void>
+): Promise<WeeklySponsorDigestEmail[]> {
+  const sent: WeeklySponsorDigestEmail[] = [];
+  for (const sponsor of sponsors) {
+    const email = await sendWeeklySponsorDigest(sponsor.settings, sponsor.data, sendEmail);
+    if (email) {
+      sent.push(email);
+    }
+  }
+  return sent;
+}
+
+// ---------------------------------------------------------------------------
+// Batch newsletter sending (#1117)
+//
+// Marketing email interface for sending customized newsletters to segmented
+// sponsor groups (first-time, VIP, lapsed, regional).
+// ---------------------------------------------------------------------------
+
+export type SponsorSegment = 'first_time' | 'vip' | 'lapsed' | 'regional';
+
+export interface NewsletterTemplate {
+  /** Subject line; may contain `{{placeholder}}` tokens. */
+  subject: string;
+  /** HTML body; may contain `{{placeholder}}` tokens. */
+  html: string;
+  /** Optional plain-text body; may contain `{{placeholder}}` tokens. */
+  text?: string;
+}
+
+export interface NewsletterRecipient {
+  sponsorId: string;
+  email: string;
+  name?: string;
+  segment?: SponsorSegment;
+  /** Whether the recipient has opted out of marketing email. */
+  unsubscribed?: boolean;
+  /** Additional placeholder values available to the template. */
+  [key: string]: unknown;
+}
+
+export interface NewsletterCampaign {
+  id: string;
+  /** Optional segment this campaign targets. */
+  segment?: SponsorSegment;
+  template: NewsletterTemplate;
+}
+
+export interface RenderedNewsletterEmail {
+  sponsorId: string;
+  to: string;
+  subject: string;
+  html: string;
+  text: string;
+}
+
+export interface BatchSendResult {
+  sent: number;
+  failed: number;
+  skipped: number;
+  errors: Array<{ sponsorId: string; error: string }>;
+}
+
+/**
+ * Minimal rate limiter contract. Compatible with the limiter exported from
+ * `lib/rate-limit.ts`; kept structural so this module stays dependency-free.
+ */
+export interface NewsletterRateLimiter {
+  /** Returns true when a request is allowed, false when rate limited. */
+  check(key?: string): boolean | Promise<boolean>;
+}
+
+export interface BatchNewsletterOptions {
+  /** Optional rate limiter applied before each send. */
+  limiter?: NewsletterRateLimiter;
+  /** Optional key passed to the limiter (defaults to the campaign id). */
+  limiterKey?: string;
+  /** Optional delay in ms between sends. */
+  delayMs?: number;
+}
+
+function substitutePlaceholders(template: string, values: Record<string, string>): string {
+  return template.replace(/\{\{\s*([\w.]+)\s*\}\}/g, (match, key: string) => {
+    return Object.prototype.hasOwnProperty.call(values, key) ? values[key] : match;
+  });
+}
+
+function recipientPlaceholderValues(recipient: NewsletterRecipient): Record<string, string> {
+  const values: Record<string, string> = {};
+  for (const [key, value] of Object.entries(recipient)) {
+    if (value === undefined || value === null) {
+      continue;
+    }
+    if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+      values[key] = String(value);
+    }
+  }
+  if (recipient.name !== undefined) {
+    values.name = recipient.name;
+  }
+  return values;
+}
+
+/**
+ * Personalise a newsletter template for a single recipient by substituting
+ * `{{placeholder}}` tokens with recipient values.
+ */
+export function renderNewsletterEmail(
+  template: NewsletterTemplate,
+  recipient: NewsletterRecipient
+): RenderedNewsletterEmail {
+  const values = recipientPlaceholderValues(recipient);
+  const subject = substitutePlaceholders(template.subject, values);
+  const html = substitutePlaceholders(template.html, values);
+  const text = template.text
+    ? substitutePlaceholders(template.text, values)
+    : html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+
+  return {
+    sponsorId: recipient.sponsorId,
+    to: recipient.email,
+    subject,
+    html,
+    text,
+  };
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Send a newsletter campaign to a batch of recipients. Unsubscribed recipients
+ * are skipped, an optional rate limiter is applied before each send, and
+ * progress is logged. Returns a summary of the batch.
+ */
+export async function sendBatchNewsletter(
+  campaign: NewsletterCampaign,
+  recipients: NewsletterRecipient[],
+  sendEmail: (email: RenderedNewsletterEmail) => Promise<void>,
+  options: BatchNewsletterOptions = {}
+): Promise<BatchSendResult> {
+  const result: BatchSendResult = { sent: 0, failed: 0, skipped: 0, errors: [] };
+  const limiterKey = options.limiterKey ?? campaign.id;
+
+  for (const recipient of recipients) {
+    if (recipient.unsubscribed) {
+      result.skipped += 1;
+      continue;
+    }
+
+    if (campaign.segment && recipient.segment && recipient.segment !== campaign.segment) {
+      result.skipped += 1;
+      continue;
+    }
+
+    if (options.limiter) {
+      const allowed = await options.limiter.check(limiterKey);
+      if (!allowed) {
+        result.skipped += 1;
+        continue;
+      }
+    }
+
+    try {
+      const email = renderNewsletterEmail(campaign.template, recipient);
+      await sendEmail(email);
+      result.sent += 1;
+    } catch (error) {
+      result.failed += 1;
+      result.errors.push({
+        sponsorId: recipient.sponsorId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+
+    if (options.delayMs && options.delayMs > 0) {
+      await sleep(options.delayMs);
+    }
+  }
+
+  return result;
+}

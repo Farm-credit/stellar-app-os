@@ -7,6 +7,8 @@ export type NotificationType =
   | 'error'
   | 'success'
   | 'newsletter'
+  | 'weekly_digest'
+  | 'newsletter_campaign'
   | 'tree_planted'
   | 'tree_survival_1y'
   | 'tree_milestone_5y'
@@ -256,4 +258,121 @@ export interface ExpertChatNotification {
   message: string;
   /** ISO timestamp of when the expert message was sent. */
   occurredAt: string;
+}
+
+/**
+ * Preferences for the automated weekly sponsor impact digest email.
+ */
+export interface WeeklyDigestPreferences {
+  /** Whether the weekly digest email is enabled. */
+  enabled: boolean;
+  /** IANA timezone identifier used to schedule delivery. */
+  timezone: string;
+  /** ISO timestamp of when the last digest was sent, if any. */
+  lastSentAt?: string;
+}
+
+/** A single tree growth update included in a weekly digest. */
+export interface WeeklyDigestTreeUpdate {
+  treeId: string;
+  species: string;
+  /** URL of the tree photo to include in the digest. */
+  photoUrl?: string;
+  /** ISO timestamp of when the tree was planted. */
+  plantedAt: string;
+  /** Optional note describing the tree's growth over the week. */
+  growthNote?: string;
+}
+
+/** Impact metrics summarised in a weekly digest. */
+export interface WeeklyDigestImpactMetrics {
+  /** Total number of trees funded by the sponsor. */
+  treesFunded: number;
+  /** Estimated CO2 offset in kilograms. */
+  co2OffsetKg: number;
+  /** Number of new trees funded during the week. */
+  newTreesThisWeek: number;
+}
+
+/** A community highlight featured in a weekly digest. */
+export interface WeeklyDigestCommunityHighlight {
+  title: string;
+  description: string;
+  /** Optional URL linking to the full highlight. */
+  url?: string;
+}
+
+/** Rendered weekly sponsor impact digest email. */
+export interface WeeklySponsorDigestEmail {
+  sponsorId: string;
+  /** Recipient email address. */
+  to: string;
+  subject: string;
+  html: string;
+  text: string;
+  /** ISO date (YYYY-MM-DD) of the start of the covered week. */
+  weekStart: string;
+  treeUpdates: WeeklyDigestTreeUpdate[];
+  metrics: WeeklyDigestImpactMetrics;
+  highlights: WeeklyDigestCommunityHighlight[];
+}
+
+/** Segmented sponsor groups targeted by batch newsletter campaigns. */
+export type SponsorSegment = 'first_time' | 'vip' | 'lapsed' | 'regional';
+
+/** Reusable newsletter template for a sponsor segment. */
+export interface NewsletterTemplate {
+  subject: string;
+  htmlBody: string;
+  textBody: string;
+  segment: SponsorSegment;
+}
+
+export type NewsletterCampaignStatus =
+  | 'draft'
+  | 'scheduled'
+  | 'sending'
+  | 'sent'
+  | 'failed';
+
+/** A batch newsletter campaign targeting a sponsor segment. */
+export interface NewsletterCampaign {
+  id: string;
+  name: string;
+  segment: SponsorSegment;
+  subject: string;
+  htmlBody: string;
+  textBody: string;
+  status: NewsletterCampaignStatus;
+  /** ISO timestamp of when the campaign is scheduled to send. */
+  scheduledAt?: string;
+  /** ISO timestamp of when the campaign was sent. */
+  sentAt?: string;
+  /** Number of recipients targeted by the campaign. */
+  recipientCount: number;
+}
+
+export type NewsletterRecipientStatus =
+  | 'pending'
+  | 'sent'
+  | 'failed'
+  | 'skipped';
+
+/** Delivery record for a single recipient of a newsletter campaign. */
+export interface NewsletterRecipient {
+  campaignId: string;
+  sponsorId: string;
+  status: NewsletterRecipientStatus;
+  /** ISO timestamp of when the newsletter was sent. */
+  sentAt?: string;
+  /** Error message if delivery failed. */
+  error?: string;
+}
+
+/** Aggregate result of a batch newsletter send. */
+export interface BatchSendResult {
+  campaignId: string;
+  sent: number;
+  failed: number;
+  skipped: number;
 }

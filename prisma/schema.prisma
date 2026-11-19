@@ -426,6 +426,123 @@ model EmailDigest {
   @@map("email_digests")
 }
 
+// ── SponsorDigestPreference ─────────────────────────────────────────────────
+//
+// Per-sponsor email preferences for weekly impact digests and marketing
+// newsletters (Issues #1110, #1117). One row per sponsor; `timezone` drives
+// the send window for the weekly digest.
+//
+// Related SQL migration: db/migrations/028_sponsor_digests_newsletters.sql
+model SponsorDigestPreference {
+  id                   String    @id @default(cuid())
+  sponsorId            String    @unique @map("sponsor_id")
+  weeklyDigestEnabled  Boolean   @default(true) @map("weekly_digest_enabled")
+  newsletterOptIn      Boolean   @default(true) @map("newsletter_opt_in")
+  timezone             String    @default("UTC") @db.VarChar(64)
+  lastWeeklyDigestAt   DateTime? @map("last_weekly_digest_at")
+  createdAt            DateTime  @default(now()) @map("created_at")
+  updatedAt            DateTime  @updatedAt @map("updated_at")
+
+  @@index([weeklyDigestEnabled])
+  @@index([newsletterOptIn])
+  @@map("sponsor_digest_preferences")
+}
+
+// ── WeeklySponsorDigest ─────────────────────────────────────────────────────
+//
+// Weekly sponsor impact summary email (Issue #1110). Records the week covered,
+// delivery status, and the impact metrics (trees, CO2 offset) plus community
+// highlights rendered into the email.
+model WeeklySponsorDigest {
+  id                  String    @id @default(cuid())
+  sponsorId           String    @map("sponsor_id")
+  weekStart           DateTime  @map("week_start")
+  sentAt              DateTime? @map("sent_at")
+  status              String    @default("pending") @db.VarChar(20) // pending | sent | failed
+  treeCount           Int       @default(0) @map("tree_count")
+  co2Offset           Float     @default(0) @map("co2_offset") @db.DoublePrecision
+  communityHighlights Json      @default("[]") @map("community_highlights")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+
+  @@unique([sponsorId, weekStart])
+  @@index([sponsorId, sentAt])
+  @@index([status])
+  @@index([weekStart])
+  @@map("weekly_sponsor_digests")
+}
+
+// ── SponsorSegmentMembership ────────────────────────────────────────────────
+//
+// Computed segment membership for a sponsor (Issue #1117). Segments are
+// recomputed periodically; `computedAt` records the last evaluation.
+// `segment` is one of: first_time | vip | lapsed | regional.
+model SponsorSegmentMembership {
+  id         String   @id @default(cuid())
+  sponsorId  String   @map("sponsor_id")
+  segment    String   @db.VarChar(20) // first_time | vip | lapsed | regional
+  region     String?  @db.VarChar(100)
+  computedAt DateTime @default(now()) @map("computed_at")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@unique([sponsorId, segment])
+  @@index([segment])
+  @@index([region])
+  @@index([computedAt])
+  @@map("sponsor_segment_memberships")
+}
+
+// ── NewsletterCampaign ──────────────────────────────────────────────────────
+//
+// Segmented marketing newsletter (Issue #1117). Targets a sponsor segment with
+// customized subject/body content and tracks delivery progress.
+model NewsletterCampaign {
+  id             String    @id @default(cuid())
+  name           String    @db.VarChar(200)
+  segment        String    @db.VarChar(20) // first_time | vip | lapsed | regional
+  subject        String    @db.VarChar(300)
+  htmlBody       String    @map("html_body") @db.Text
+  textBody       String?   @map("text_body") @db.Text
+  status         String    @default("draft") @db.VarChar(20) // draft | sending | sent | failed
+  scheduledAt    DateTime? @map("scheduled_at")
+  sentAt         DateTime? @map("sent_at")
+  recipientCount Int       @default(0) @map("recipient_count")
+  createdBy      String    @map("created_by")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  recipients     NewsletterRecipient[]
+
+  @@index([segment])
+  @@index([status])
+  @@index([scheduledAt])
+  @@index([createdBy])
+  @@map("newsletter_campaigns")
+}
+
+// ── NewsletterRecipient ─────────────────────────────────────────────────────
+//
+// Per-recipient delivery record for a NewsletterCampaign (Issue #1117).
+model NewsletterRecipient {
+  id         String    @id @default(cuid())
+  campaignId String    @map("campaign_id")
+  sponsorId  String    @map("sponsor_id")
+  status     String    @default("pending") @db.VarChar(20) // pending | sent | failed | unsubscribed
+  sentAt     DateTime? @map("sent_at")
+  error      String?   @db.Text
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+
+  campaign   NewsletterCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@unique([campaignId, sponsorId])
+  @@index([campaignId])
+  @@index([sponsorId])
+  @@index([status])
+  @@map("newsletter_recipients")
+}
+
 // ── Expert ──────────────────────────────────────────────────────────────────
 //
 // Agricultural experts available for live farmer support chat (Issue #1411).
