@@ -242,7 +242,8 @@ export async function processDueDeliveries(
   now: Date = new Date()
 ): Promise<WebhookDeliveryRow[]> {
   const config = getDispatchConfig();
-  const due = await claimDueDeliveries(pool, config.batchSize, now);
+  const claimLeaseMs = Math.max(config.timeoutMs + 30_000, 60_000);
+  const due = await claimDueDeliveries(pool, config.batchSize, now, claimLeaseMs);
 
   const processed: WebhookDeliveryRow[] = [];
   for (const delivery of due) {

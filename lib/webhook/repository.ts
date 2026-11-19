@@ -125,19 +125,29 @@ export async function getSubscriptionById(
 export async function claimDueDeliveries(
   pool: Pool,
   limit: number,
-  now: Date = new Date()
+  now: Date = new Date(),
+  leaseMs = 60_000
 ): Promise<WebhookDeliveryRow[]> {
+  const leaseUntil = new Date(now.getTime() + leaseMs);
   const { rows } = await pool.query<WebhookDeliveryRow>(
-    `SELECT *
-       FROM webhook_deliveries
-      WHERE status = 'retrying'
-        AND next_attempt_at IS NOT NULL
-        AND next_attempt_at <= $1
-        AND attempt_count < max_attempts
-      ORDER BY next_attempt_at ASC
-      LIMIT $2
-      FOR UPDATE SKIP LOCKED`,
-    [now, limit]
+    `WITH due AS (
+       SELECT id
+         FROM webhook_deliveries
+        WHERE status = 'retrying'
+          AND next_attempt_at IS NOT NULL
+          AND next_attempt_at <= $1
+          AND attempt_count < max_attempts
+        ORDER BY next_attempt_at ASC
+        LIMIT $2
+        FOR UPDATE SKIP LOCKED
+     )
+     UPDATE webhook_deliveries AS delivery
+        SET next_attempt_at = $3,
+            updated_at = NOW()
+       FROM due
+      WHERE delivery.id = due.id
+      RETURNING delivery.*`,
+    [now, limit, leaseUntil]
   );
   return rows;
 }
