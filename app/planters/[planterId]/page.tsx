@@ -82,6 +82,9 @@ export default async function PlanterProfilePage({
             <p className="text-sm font-medium text-emerald-700">
               Earn 5 XLM when a new sponsor uses your link.
             </p>
+            <p className="text-xs text-slate-500">
+              Planters also earn 2 XLM per referred planter who completes their first job.
+            </p>
           </div>
         </div>
       </section>
