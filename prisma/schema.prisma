@@ -10,8 +10,11 @@
 //   npx prisma generate
 //   npx prisma migrate dev --name <description>
 //
-// Related SQL migration: db/migrations/026_biome_campaigns_buffer_zones.sql
-// (biome_campaigns, corporate_match_pledges, project_buffer_zones)
+// Related SQL migrations:
+//   db/migrations/026_biome_campaigns_buffer_zones.sql
+//     (biome_campaigns, corporate_match_pledges, project_buffer_zones)
+//   db/migrations/027_charity_ngo_partner_portal.sql
+//     (partner_applications, partner_onboardings)
 
 generator client {
   provider = "prisma-client-js"
@@ -228,6 +231,57 @@ model CorporateMatchPledge {
   @@index([campaignId])
   @@index([corporateName])
   @@map("corporate_match_pledges")
+}
+
+// ── PartnerApplication ──────────────────────────────────────────────────────
+//
+// Charity / NGO partnership applications (Issue #1705). Captures the
+// organisation's details, primary contact, registration number, mission
+// statement and logo, plus the review status of the application.
+//
+// Schema is for documentation; production uses raw SQL migrations (see note above).
+// Related SQL migration: db/migrations/027_charity_ngo_partner_portal.sql
+model PartnerApplication {
+  id                 String   @id @default(cuid())
+  organisationName   String   @map("organisation_name") @db.VarChar(200)
+  registrationNumber String   @map("registration_number") @db.VarChar(100)
+  contactName        String   @map("contact_name") @db.VarChar(200)
+  contactEmail       String   @map("contact_email") @db.VarChar(320)
+  contactPhone       String?  @map("contact_phone") @db.VarChar(50)
+  websiteUrl         String?  @map("website_url") @db.VarChar(500)
+  mission            String   @db.Text
+  logoUrl            String?  @map("logo_url") @db.VarChar(500)
+  status             String   @default("pending") @db.VarChar(20) // pending | approved | rejected | withdrawn
+  reviewNotes        String?  @map("review_notes") @db.Text
+  reviewedAt         DateTime? @map("reviewed_at")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  onboarding         PartnerOnboarding?
+
+  @@unique([registrationNumber])
+  @@index([status])
+  @@index([contactEmail])
+  @@map("partner_applications")
+}
+
+// ── PartnerOnboarding ───────────────────────────────────────────────────────
+//
+// Onboarding progress for an approved partner application (Issue #1705).
+// Tracks the current onboarding step and completion of the flow.
+model PartnerOnboarding {
+  id            String   @id @default(cuid())
+  applicationId String   @unique @map("application_id")
+  currentStep   String   @default("organisation_details") @map("current_step") @db.VarChar(50)
+  completedSteps String[] @default([]) @map("completed_steps")
+  completedAt   DateTime? @map("completed_at")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  application   PartnerApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  @@index([currentStep])
+  @@map("partner_onboardings")
 }
 
 // ── ProjectBufferZone ───────────────────────────────────────────────────────

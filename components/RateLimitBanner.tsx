@@ -35,18 +35,40 @@ interface RateLimitBannerProps {
 export function RateLimitBanner({ rateLimitState }: RateLimitBannerProps): JSX.Element | null {
   const [dismissed, setDismissed] = useState<boolean>(false);
 
-  const { isWarning, isBlocked, percentUsed, timeRemainingFormatted, timeRemaining } =
-    rateLimitState;
+  const {
+    isWarning,
+    isBlocked,
+    percentUsed,
+    timeRemainingFormatted,
+    timeRemaining,
+    isDailyWarning,
+    isDailyBlocked,
+    dailyPercentUsed,
+    dailyTimeRemainingFormatted,
+    dailyTimeRemaining,
+  } = rateLimitState;
 
-  if (!isWarning && !isBlocked) return null;
-  if (isWarning && dismissed) return null;
+  const hasMinuteWarning = isWarning || isBlocked;
+  const hasDailyWarning = isDailyWarning || isDailyBlocked;
+
+  if (!hasMinuteWarning && !hasDailyWarning) return null;
+  if (isWarning && !isBlocked && dismissed) return null;
 
   const hasCountdown =
     timeRemainingFormatted !== null && timeRemaining !== null && timeRemaining > 0;
 
-  // ── Blocked ─────────────────────────────────────────────────────────────
+  const hasDailyCountdown =
+    dailyTimeRemainingFormatted !== null &&
+    dailyTimeRemaining !== null &&
+    dailyTimeRemaining > 0;
 
-  if (isBlocked) {
+  // ── Blocked (per-minute or daily) ───────────────────────────────────────
+
+  if (isBlocked || isDailyBlocked) {
+    const blockedByDaily = isDailyBlocked;
+    const blockedCountdown = blockedByDaily ? hasDailyCountdown : hasCountdown;
+    const blockedTime = blockedByDaily ? dailyTimeRemainingFormatted : timeRemainingFormatted;
+
     return (
       <div
         role="alert"
@@ -56,13 +78,15 @@ export function RateLimitBanner({ rateLimitState }: RateLimitBannerProps): JSX.E
       >
         <PiProhibitBold aria-hidden="true" className="mt-0.5 h-5 w-5 shrink-0 text-red-500" />
         <p className="min-w-0 flex-1">
-          <strong className="font-semibold">Rate limit reached.</strong>
-          {hasCountdown ? (
+          <strong className="font-semibold">
+            {blockedByDaily ? 'Daily quota reached.' : 'Rate limit reached.'}
+          </strong>
+          {blockedCountdown ? (
             <>
               {' '}
               You can try again in{' '}
               <span aria-live="polite" aria-atomic="true" className="font-bold tabular-nums">
-                {timeRemainingFormatted}
+                {blockedTime}
               </span>
               .
             </>
@@ -74,37 +98,62 @@ export function RateLimitBanner({ rateLimitState }: RateLimitBannerProps): JSX.E
     );
   }
 
-  // ── Warning ──────────────────────────────────────────────────────────────
+  // ── Warning (per-minute and/or daily) ───────────────────────────────────
 
   return (
     <div
       role="status"
       aria-live="polite"
       aria-atomic="false"
-      className="flex items-start gap-3 rounded-lg border border-amber-400 bg-amber-50 px-4 py-3 text-sm text-amber-900"
+      className="flex flex-col gap-2 rounded-lg border border-amber-400 bg-amber-50 px-4 py-3 text-sm text-amber-900"
     >
-      <PiWarningBold aria-hidden="true" className="mt-0.5 h-5 w-5 shrink-0 text-amber-500" />
-      <p className="min-w-0 flex-1">
-        <strong className="font-semibold">{percentUsed}% of your request limit used.</strong>
-        {hasCountdown && (
-          <>
-            {' '}
-            Resets in{' '}
-            <span aria-live="polite" aria-atomic="true" className="font-bold tabular-nums">
-              {timeRemainingFormatted}
-            </span>
-            .
-          </>
-        )}
-      </p>
-      <button
-        type="button"
-        onClick={() => setDismissed(true)}
-        aria-label="Dismiss rate limit warning"
-        className="ml-auto flex min-h-[2.75rem] min-w-[2.75rem] shrink-0 items-center justify-center rounded p-1 text-amber-700 opacity-60 transition-opacity hover:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-700"
-      >
-        <PiXBold aria-hidden="true" className="h-4 w-4" />
-      </button>
+      <div className="flex items-start gap-3">
+        <PiWarningBold aria-hidden="true" className="mt-0.5 h-5 w-5 shrink-0 text-amber-500" />
+        <div className="min-w-0 flex-1 space-y-1">
+          {isWarning && (
+            <p>
+              <strong className="font-semibold">
+                {percentUsed}% of your request limit used.
+              </strong>
+              {hasCountdown && (
+                <>
+                  {' '}
+                  Resets in{' '}
+                  <span aria-live="polite" aria-atomic="true" className="font-bold tabular-nums">
+                    {timeRemainingFormatted}
+                  </span>
+                  .
+                </>
+              )}
+            </p>
+          )}
+          {isDailyWarning && (
+            <p>
+              <strong className="font-semibold">
+                {dailyPercentUsed}% of your daily quota used.
+              </strong>
+              {hasDailyCountdown && (
+                <>
+                  {' '}
+                  Resets in{' '}
+                  <span aria-live="polite" aria-atomic="true" className="font-bold tabular-nums">
+                    {dailyTimeRemainingFormatted}
+                  </span>
+                  .
+                </>
+              )}
+            </p>
+          )}
+        </div>
+        <button
+          type="button"
+          onClick={() => setDismissed(true)}
+          aria-label="Dismiss rate limit warning"
+          className="ml-auto flex min-h-[2.75rem] min-w-[2.75rem] shrink-0 items-center justify-center rounded p-1 text-amber-700 opacity-60 transition-opacity hover:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-700"
+        >
+          <PiXBold aria-hidden="true" className="h-4 w-4" />
+        </button>
+      </div>
     </div>
   );
 }

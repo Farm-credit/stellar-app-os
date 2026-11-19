@@ -195,6 +195,16 @@ export const TREE_SPECIES: SpeciesInfo[] = [
 export const TREE_SPECIES_NAMES = TREE_SPECIES.map((s) => s.name);
 
 /**
+ * Resolves a species slug to its sponsor page URL.
+ * Used by the tree species quiz result card to link sponsors to the
+ * recommended species. Unknown slugs still produce a valid sponsor URL
+ * so the link never breaks.
+ */
+export function getSponsorUrlForSpecies(slug: string): string {
+  return `/sponsor?species=${encodeURIComponent(slug)}`;
+}
+
+/**
  * Looks up the growth curve for a species (by slug) and climate zone.
  * Falls back to the species' first available climate zone if the requested
  * zone is not defined, and returns `undefined` if the species is unknown.

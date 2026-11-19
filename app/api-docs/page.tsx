@@ -35,7 +35,7 @@ export default function ApiDocumentationPage() {
   return (
     <>
       <nav aria-label="Public API resources" className="mx-auto max-w-5xl px-4 pt-8">
-        <ul className="grid gap-4 sm:grid-cols-3">
+        <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {publicApiLinks.map((link) => (
             <li key={link.href}>
               <Link

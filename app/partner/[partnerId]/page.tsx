@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import { WhiteLabelFrame } from '@/components/organisms/WhiteLabel/WhiteLabelFrame';
 import { PartnerCertificationBadge } from '@/components/molecules/PartnerCertificationBadge/PartnerCertificationBadge';
 import { getActiveCertification } from '@/lib/partner-certification';
+import { getCharityPartnership } from '@/lib/charityPartnership';
 import { getWhiteLabelConfig, splitSponsorshipPrice } from '@/lib/whiteLabel';
 import { MOCK_TREE_SPONSORSHIP_OFFERINGS } from '@/lib/treeSponsorshipComparison';
 
@@ -25,6 +26,7 @@ export default async function PartnerStorefrontPage({ params }: Props): Promise<
   }
 
   const certification = getActiveCertification(partnerId);
+  const charity = getCharityPartnership(partnerId);
   const offerings = MOCK_TREE_SPONSORSHIP_OFFERINGS.filter((offering) =>
     config.projectIds.includes(offering.projectId)
   );
@@ -43,6 +45,36 @@ export default async function PartnerStorefrontPage({ params }: Props): Promise<
             Every sponsorship funds verified planting projects. Hosted at{' '}
             {config.branding.customDomain}.
           </p>
+          {charity ? (
+            <div
+              className="mt-4 flex flex-wrap items-center gap-4 rounded-xl border border-black/10 bg-white p-4 shadow-sm dark:bg-card"
+              data-testid="charity-cobranding"
+            >
+              {charity.logoUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={charity.logoUrl}
+                  alt={`${charity.charityName} logo`}
+                  className="h-12 w-12 rounded-full object-contain"
+                  data-testid="charity-logo"
+                />
+              ) : null}
+              <div className="flex-1">
+                <p className="text-sm font-semibold">{charity.charityName}</p>
+                <p className="text-xs text-muted-foreground">
+                  In partnership with {config.branding.partnerName}
+                </p>
+              </div>
+              <a
+                href={`/partner/${partnerId}/impact-report`}
+                className="rounded-lg px-4 py-2 text-sm font-semibold text-white"
+                style={{ backgroundColor: 'var(--wl-primary)' }}
+                data-testid="impact-report-link"
+              >
+                Download shared impact report
+              </a>
+            </div>
+          ) : null}
         </div>
 
         <div className="grid gap-6 md:grid-cols-2">
