@@ -7,7 +7,8 @@
     "projects": "Proyectos",
     "marketplace": "Mercado",
     "transactions": "Transacciones",
-    "cooperatives": "Cooperativas"
+    "cooperatives": "Cooperativas",
+    "offramp": "Retiro"
   },
   "header": {
     "connectWallet": "Conectar Billetera",

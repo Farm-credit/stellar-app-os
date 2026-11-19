@@ -42,6 +42,8 @@
     "compliance:export:dry-run": "tsx scripts/compliance-export.ts --dry-run",
     "prepare": "husky",
     "monitor:fraud": "tsx lib/monitor/fraud-worker.ts",
+    "deforestation:pull": "tsx lib/workers/deforestation-alerts.ts --once",
+    "email:anniversaries:send": "tsx lib/workers/anniversary-reminders.ts --once",
     "test:load": "k6 run infra/load-tests/sponsor-load-test.js"
   },
   "dependencies": {

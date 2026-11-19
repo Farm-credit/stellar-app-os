@@ -2,6 +2,8 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { SPECIES_EDUCATION, getSpeciesPageData, speciesPathForSlug } from '@/lib/species/education';
+import { getSpeciesSurvivalStatistic } from '@/lib/census/survival';
+import { SurvivalRateStat } from '@/components/molecules/SurvivalRateStat';
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -69,6 +71,13 @@ export default async function SpeciesPage({ params }: Props) {
             {info.co2KgPerYear} kg of CO₂ per year.
           </p>
         </section>
+
+        {/* Survival rate per species (issue #1645) */}
+        <SurvivalRateStat
+          initial={getSpeciesSurvivalStatistic({ slug, name: info.name })}
+          refreshQuery={{ speciesSlug: slug, speciesName: info.name }}
+          heading={`${info.name} survival rate`}
+        />
 
         <section aria-labelledby="culture">
           <h2 id="culture" className="text-2xl font-semibold text-foreground">

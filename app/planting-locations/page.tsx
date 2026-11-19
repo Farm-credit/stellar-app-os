@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import { Trees, SlidersHorizontal, Map as MapIcon } from 'lucide-react';
 import { PlantingLocationsExplorer } from '@/components/organisms/PlantingMap/PlantingLocationsExplorer';
 import { WaitlistZoneList } from '@/components/organisms/PlantingMap/WaitlistZoneList';
+import { getWaitlistEntries } from '@/lib/api/waitlist';
 
 export const metadata: Metadata = {
   title: 'Planting Locations — Stellar Farm Credit',
@@ -21,7 +22,9 @@ function LoadingSkeleton() {
   );
 }
 
-export default function PlantingLocationsPage() {
+export default async function PlantingLocationsPage() {
+  const waitlistEntries = await getWaitlistEntries();
+
   return (
     <div className="min-h-[calc(100dvh-var(--header-height,0px))] bg-muted/30">
       <div className="mx-auto w-full max-w-[1800px] px-4 py-5 sm:px-6 sm:py-6 lg:px-8">
@@ -67,7 +70,7 @@ export default function PlantingLocationsPage() {
             </p>
           </div>
           <Suspense fallback={<LoadingSkeleton />}>
-            <WaitlistZoneList />
+            <WaitlistZoneList initialEntries={waitlistEntries} />
           </Suspense>
         </section>
       </div>

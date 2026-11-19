@@ -8,6 +8,7 @@ import { QueryProvider } from '@/components/providers/QueryProvider';
 import { ToastProvider } from '@/contexts/ToastContext';
 import { WalletProvider } from '@/contexts/WalletContext';
 import { NotificationProvider } from '@/contexts/NotificationContext';
+import { DeforestationAlertNotifier } from '@/components/organisms/NotificationCenter/DeforestationAlertNotifier';
 import { TimeZoneProvider } from '@/contexts/TimeZoneContext';
 import { I18nProvider } from '@/components/providers/I18nProvider';
 import { ThemeInitScript } from '@/components/providers/ThemeInitScript';
@@ -128,6 +129,7 @@ export default function RootLayout({
                     <NotificationCenterDrawer />
                     <ToastContainer />
                     <SponsorBadgeNotifier />
+                    <DeforestationAlertNotifier />
                   </NotificationProvider>
                 </QueryProvider>
               </ToastProvider>

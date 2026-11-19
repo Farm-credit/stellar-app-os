@@ -486,3 +486,412 @@ export function speciesPathForName(name: string, kids = false): string | null {
 export function speciesPathForSlug(slug: string, kids = false): string {
   return kids ? `/species/${slug}/kids` : `/species/${slug}`;
 }
+
+// ---------------------------------------------------------------------------
+// Interactive tree species quiz — Issue #1702
+// ---------------------------------------------------------------------------
+
+/** A single answer choice in the quiz. `scores` maps species slug → weight. */
+export interface QuizOption {
+  id: string;
+  label: string;
+  /** Short illustration hint (emoji or icon key) used by the quiz UI. */
+  illustration: string;
+  scores: Readonly<Record<string, number>>;
+}
+
+export interface QuizQuestion {
+  id: string;
+  prompt: string;
+  /** Illustration hint (emoji or icon key) shown with the question. */
+  illustration: string;
+  options: readonly QuizOption[];
+}
+
+export interface QuizResult {
+  /** Species slugs ordered from best to weakest match. */
+  speciesSlugs: string[];
+  /** Normalised match score (0–100) for each recommended slug. */
+  scores: Readonly<Record<string, number>>;
+  /** Sponsor page URL for each recommended slug. */
+  sponsorUrls: Readonly<Record<string, number | string>>;
+  /** Human-readable summary of the result. */
+  summary: string;
+}
+
+export const QUIZ_QUESTIONS: readonly QuizQuestion[] = [
+  {
+    id: 'climate',
+    prompt: 'What kind of climate do you dream of planting in?',
+    illustration: '🌤️',
+    options: [
+      {
+        id: 'dry',
+        label: 'Hot and dry savannah',
+        illustration: '🏜️',
+        scores: { acacia: 3, baobab: 3, shea: 2, locust_bean: 2, neem: 1 },
+      },
+      {
+        id: 'wet',
+        label: 'Warm and humid tropics',
+        illustration: '🌴',
+        scores: { teak: 3, mangrove: 2, cashew: 2, iroko: 2, bamboo: 1 },
+      },
+      {
+        id: 'coastal',
+        label: 'Salty coastal shorelines',
+        illustration: '🌊',
+        scores: { mangrove: 4, cashew: 1, eucalyptus: 1 },
+      },
+      {
+        id: 'temperate',
+        label: 'Cooler highland slopes',
+        illustration: '⛰️',
+        scores: { pine: 3, eucalyptus: 3, cedar: 2, bamboo: 1 },
+      },
+    ],
+  },
+  {
+    id: 'purpose',
+    prompt: 'What matters most to you about the tree you sponsor?',
+    illustration: '🎯',
+    options: [
+      {
+        id: 'food',
+        label: 'Feeding families and communities',
+        illustration: '🍲',
+        scores: { moringa: 3, shea: 3, cashew: 2, locust_bean: 2, baobab: 1 },
+      },
+      {
+        id: 'timber',
+        label: 'Durable timber and craftsmanship',
+        illustration: '🪵',
+        scores: { teak: 3, mahogany: 3, iroko: 2, cedar: 2, pine: 1 },
+      },
+      {
+        id: 'soil',
+        label: 'Healing soil and restoring land',
+        illustration: '🌱',
+        scores: { acacia: 3, moringa: 2, locust_bean: 2, bamboo: 2, neem: 1 },
+      },
+      {
+        id: 'wildlife',
+        label: 'Sheltering wildlife and pollinators',
+        illustration: '🐝',
+        scores: { baobab: 3, iroko: 3, mangrove: 2, eucalyptus: 2, locust_bean: 1 },
+      },
+    ],
+  },
+  {
+    id: 'water',
+    prompt: 'How much water is available where you would plant?',
+    illustration: '💧',
+    options: [
+      {
+        id: 'scarce',
+        label: 'Very little — long dry seasons',
+        illustration: '☀️',
+        scores: { baobab: 3, acacia: 3, neem: 2, moringa: 2, shea: 1 },
+      },
+      {
+        id: 'moderate',
+        label: 'Moderate seasonal rainfall',
+        illustration: '🌦️',
+        scores: { shea: 2, locust_bean: 2, cashew: 2, mahogany: 2, teak: 1 },
+      },
+      {
+        id: 'plenty',
+        label: 'Plenty — rivers and wetlands',
+        illustration: '🏞️',
+        scores: { mangrove: 3, bamboo: 3, iroko: 2, teak: 2, cedar: 1 },
+      },
+      {
+        id: 'flood',
+        label: 'Flood-prone or waterlogged ground',
+        illustration: '🌧️',
+        scores: { mangrove: 4, bamboo: 2, eucalyptus: 1 },
+      },
+    ],
+  },
+  {
+    id: 'speed',
+    prompt: 'How patient are you?',
+    illustration: '⏳',
+    options: [
+      {
+        id: 'fast',
+        label: 'I want to see growth fast!',
+        illustration: '🚀',
+        scores: { bamboo: 4, moringa: 3, eucalyptus: 3, pine: 2, cashew: 1 },
+      },
+      {
+        id: 'steady',
+        label: 'Steady progress over a few years',
+        illustration: '🌿',
+        scores: { teak: 2, cashew: 2, acacia: 2, neem: 2, shea: 1 },
+      },
+      {
+        id: 'legacy',
+        label: 'I am planting for my grandchildren',
+        illustration: '🌳',
+        scores: { baobab: 4, iroko: 4, mahogany: 2, shea: 2, cedar: 1 },
+      },
+      {
+        id: 'unsure',
+        label: 'Whatever suits the land best',
+        illustration: '🤔',
+        scores: { acacia: 1, moringa: 1, teak: 1, pine: 1, bamboo: 1 },
+      },
+    ],
+  },
+  {
+    id: 'wildlife',
+    prompt: 'Which animal would you most love to see in your tree?',
+    illustration: '🦜',
+    options: [
+      {
+        id: 'bats',
+        label: 'Bats and night-time moths',
+        illustration: '🦇',
+        scores: { baobab: 3, locust_bean: 3, iroko: 1 },
+      },
+      {
+        id: 'bees',
+        label: 'Bees and butterflies',
+        illustration: '🐝',
+        scores: { moringa: 3, shea: 3, eucalyptus: 2, acacia: 2, neem: 1 },
+      },
+      {
+        id: 'fish',
+        label: 'Fish, crabs and prawns',
+        illustration: '🦀',
+        scores: { mangrove: 4, bamboo: 1 },
+      },
+      {
+        id: 'birds',
+        label: 'Hornbills and songbirds',
+        illustration: '🐦',
+        scores: { iroko: 3, mahogany: 3, cedar: 2, eucalyptus: 2, baobab: 1 },
+      },
+    ],
+  },
+  {
+    id: 'soil_type',
+    prompt: 'What is the soil like?',
+    illustration: '🪴',
+    options: [
+      {
+        id: 'sandy',
+        label: 'Sandy and poor',
+        illustration: '🏖️',
+        scores: { cashew: 3, acacia: 3, pine: 2, neem: 2, moringa: 1 },
+      },
+      {
+        id: 'clay',
+        label: 'Heavy clay',
+        illustration: '🧱',
+        scores: { teak: 3, mahogany: 2, cedar: 2, bamboo: 2, iroko: 1 },
+      },
+      {
+        id: 'deep',
+        label: 'Deep and fertile',
+        illustration: '🌾',
+        scores: { teak: 2, mahogany: 2, iroko: 2, shea: 2, cedar: 1 },
+      },
+      {
+        id: 'mud',
+        label: 'Muddy or saline',
+        illustration: '🧂',
+        scores: { mangrove: 4, bamboo: 2, eucalyptus: 1 },
+      },
+    ],
+  },
+  {
+    id: 'impact',
+    prompt: 'Which impact would make you proudest?',
+    illustration: '💚',
+    options: [
+      {
+        id: 'carbon',
+        label: 'Locking away carbon fast',
+        illustration: '🌍',
+        scores: { bamboo: 3, eucalyptus: 3, moringa: 2, mangrove: 2, pine: 1 },
+      },
+      {
+        id: 'coast',
+        label: 'Protecting coastlines from storms',
+        illustration: '🛡️',
+        scores: { mangrove: 4, cashew: 1 },
+      },
+      {
+        id: 'income',
+        label: 'Creating income for women and farmers',
+        illustration: '💰',
+        scores: { shea: 4, cashew: 3, locust_bean: 2, moringa: 2, neem: 1 },
+      },
+      {
+        id: 'culture',
+        label: 'Preserving sacred and cultural trees',
+        illustration: '🪘',
+        scores: { iroko: 4, baobab: 3, mahogany: 2, cedar: 2, acacia: 1 },
+      },
+    ],
+  },
+  {
+    id: 'space',
+    prompt: 'How much space do you have?',
+    illustration: '📏',
+    options: [
+      {
+        id: 'small',
+        label: 'A small plot or schoolyard',
+        illustration: '🏫',
+        scores: { moringa: 3, neem: 3, cashew: 2, bamboo: 2, acacia: 1 },
+      },
+      {
+        id: 'farm',
+        label: 'A farm field',
+        illustration: '🚜',
+        scores: { shea: 3, locust_bean: 3, acacia: 2, cashew: 2, teak: 1 },
+      },
+      {
+        id: 'forest',
+        label: 'A forest edge or grove',
+        illustration: '🌲',
+        scores: { iroko: 3, mahogany: 3, cedar: 3, teak: 2, bamboo: 1 },
+      },
+      {
+        id: 'shore',
+        label: 'A shoreline or riverbank',
+        illustration: '🏝️',
+        scores: { mangrove: 4, bamboo: 2, eucalyptus: 1 },
+      },
+    ],
+  },
+  {
+    id: 'challenge',
+    prompt: 'Which challenge would you like your tree to help solve?',
+    illustration: '🧩',
+    options: [
+      {
+        id: 'desertification',
+        label: 'Desertification and drought',
+        illustration: '🌵',
+        scores: { acacia: 3, baobab: 3, neem: 2, moringa: 2, shea: 1 },
+      },
+      {
+        id: 'deforestation',
+        label: 'Deforestation and habitat loss',
+        illustration: '🪓',
+        scores: { iroko: 3, mahogany: 3, cedar: 3, teak: 2, bamboo: 1 },
+      },
+      {
+        id: 'erosion',
+        label: 'Erosion and degraded land',
+        illustration: '⛰️',
+        scores: { bamboo: 3, acacia: 3, moringa: 2, pine: 2, eucalyptus: 1 },
+      },
+      {
+        id: 'nutrition',
+        label: 'Hunger and poor nutrition',
+        illustration: '🥗',
+        scores: { moringa: 4, cashew: 3, shea: 2, locust_bean: 2, baobab: 1 },
+      },
+    ],
+  },
+  {
+    id: 'spirit',
+    prompt: 'Pick the word that speaks to you.',
+    illustration: '✨',
+    options: [
+      {
+        id: 'resilient',
+        label: 'Resilient',
+        illustration: '💪',
+        scores: { acacia: 3, baobab: 3, neem: 2, pine: 2, shea: 1 },
+      },
+      {
+        id: 'generous',
+        label: 'Generous',
+        illustration: '🎁',
+        scores: { moringa: 3, shea: 3, cashew: 2, locust_bean: 2, baobab: 1 },
+      },
+      {
+        id: 'majestic',
+        label: 'Majestic',
+        illustration: '👑',
+        scores: { mahogany: 3, iroko: 3, cedar: 3, teak: 2, baobab: 1 },
+      },
+      {
+        id: 'adaptable',
+        label: 'Adaptable',
+        illustration: '🔄',
+        scores: { bamboo: 3, eucalyptus: 3, mangrove: 2, pine: 2, neem: 1 },
+      },
+    ],
+  },
+];
+
+/** Sponsor page path for a species slug. */
+export function sponsorPathForSlug(slug: string): string {
+  return `/sponsor?species=${encodeURIComponent(slug)}`;
+}
+
+/**
+ * Scores a set of quiz answers (question id → option id) and returns the
+ * accumulated weight for every species slug that received any points.
+ */
+export function scoreQuizAnswers(
+  answers: Readonly<Record<string, string>>
+): Record<string, number> {
+  const totals: Record<string, number> = {};
+  for (const question of QUIZ_QUESTIONS) {
+    const optionId = answers[question.id];
+    if (!optionId) continue;
+    const option = question.options.find((candidate) => candidate.id === optionId);
+    if (!option) continue;
+    for (const [slug, weight] of Object.entries(option.scores)) {
+      totals[slug] = (totals[slug] ?? 0) + weight;
+    }
+  }
+  return totals;
+}
+
+/**
+ * Maps quiz answers to the top 2–3 matching species, with normalised match
+ * scores and sponsor URLs. Falls back to the highest-scoring species overall
+ * when no answers are supplied.
+ */
+export function recommendSpeciesForQuiz(
+  answers: Readonly<Record<string, string>>,
+  limit = 3
+): QuizResult {
+  const totals = scoreQuizAnswers(answers);
+  const ranked = Object.entries(totals)
+    .filter(([slug]) => TREE_SPECIES.some((species) => species.slug === slug))
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+
+  const top = ranked.slice(0, Math.max(2, Math.min(limit, 3)));
+  const maxScore = top.length > 0 ? top[0][1] : 0;
+
+  const speciesSlugs: string[] = [];
+  const scores: Record<string, number> = {};
+  const sponsorUrls: Record<string, string> = {};
+
+  for (const [slug, score] of top) {
+    speciesSlugs.push(slug);
+    scores[slug] = maxScore > 0 ? Math.round((score / maxScore) * 100) : 0;
+    sponsorUrls[slug] = sponsorPathForSlug(slug);
+  }
+
+  const names = speciesSlugs
+    .map((slug) => TREE_SPECIES.find((species) => species.slug === slug)?.name ?? slug)
+    .join(', ');
+
+  const summary =
+    speciesSlugs.length > 0
+      ? `Your answers point to ${names}. Sponsor one of these species to grow your impact.`
+      : 'Answer the quiz to discover which tree species match your goals.';
+
+  return { speciesSlugs, scores, sponsorUrls, summary };
+}

@@ -335,3 +335,36 @@ export interface TreeWithDetails extends TreeRow {
   species_name: string | null;
   co2_kg_per_year: string | null;
 }
+
+// ── Referral System (migrations 009 & 029) ───────────────────────────────────
+
+export interface ReferralCodeRow {
+  code: string;
+  referrer_wallet: string;
+  created_at: Date;
+}
+
+export interface ReferralSignupRow {
+  id: number;
+  code: string;
+  referred_wallet: string;
+  referral_type: 'sponsor' | 'planter';
+  first_tree_completed_at: Date | null;
+  first_job_completed_at: Date | null;
+  created_at: Date;
+}
+
+export interface ReferralRewardRow {
+  id: number;
+  referral_id: number;
+  referrer_wallet: string;
+  amount_xlm: string; // NUMERIC returned as string by pg driver
+  period_start: Date;
+  status: 'queued' | 'paid' | 'failed';
+  reward_type: 'sponsor' | 'planter';
+  job_ref: string | null;
+  payout_tx_hash: string | null;
+  created_at: Date;
+  paid_at: Date | null;
+  updated_at: Date;
+}

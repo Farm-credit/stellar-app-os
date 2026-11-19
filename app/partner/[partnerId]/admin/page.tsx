@@ -87,6 +87,44 @@ export default async function PartnerAdminPage({ params }: Props): Promise<React
           </table>
         </section>
 
+        <section className="space-y-4" data-testid="shared-impact-report">
+          <div>
+            <h2 className="text-2xl font-bold" style={{ color: 'var(--wl-primary)' }}>
+              Shared impact report
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              The same report is available to you and your charity partner, covering all{' '}
+              {feed.projects.length} project{feed.projects.length === 1 ? '' : 's'} as of{' '}
+              {feed.asOf}.
+            </p>
+          </div>
+
+          <ul className="grid gap-2 text-sm sm:grid-cols-2 lg:grid-cols-5">
+            {PROJECT_IMPACT_DIMENSIONS.map((meta) => {
+              const metric = feed.totals[meta.dimension];
+              return (
+                <li key={meta.dimension} className="rounded-lg border border-black/10 p-3">
+                  <span className="block text-xs uppercase tracking-wide text-muted-foreground">
+                    {meta.label}
+                  </span>
+                  <span className="mt-1 block font-semibold">
+                    {metric.value.toLocaleString()} {meta.unit}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+
+          <a
+            href={`/api/charity/impact-report?partner=${encodeURIComponent(partnerId)}`}
+            className="inline-flex items-center rounded-md px-4 py-2 text-sm font-semibold text-white"
+            style={{ backgroundColor: 'var(--wl-accent)' }}
+            download
+          >
+            Download shared impact report
+          </a>
+        </section>
+
         <section className="space-y-4">
           <div>
             <h2 className="text-2xl font-bold" style={{ color: 'var(--wl-primary)' }}>

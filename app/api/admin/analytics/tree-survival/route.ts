@@ -30,6 +30,13 @@ import {
 export const runtime = 'nodejs';
 
 /**
+ * GHG Protocol scope reference used by carbon accounting endpoints:
+ * - Scope 1: direct emissions from owned or controlled sources (e.g. fuel use)
+ * - Scope 2: indirect emissions from purchased energy (electricity, heat, steam)
+ * - Scope 3: all other indirect value-chain emissions
+ */
+
+/**
  * GET /api/admin/analytics/tree-survival
  *
  * Returns survival rate, lifecycle counts, cost per tree, and sponsor retention
@@ -161,6 +168,8 @@ export async function PUT(request: Request): Promise<NextResponse> {
  *
  * Estimates the number of carbon credits an individual needs to offset their
  * annual emissions based on household size, car usage, and energy consumption.
+ * Emissions are structured per GHG Protocol scopes (Scope 1, 2, 3) to align
+ * offset calculations with corporate carbon accounting standards.
  */
 export async function POST(request: Request): Promise<NextResponse> {
   if (!(await isAdminRequest())) {

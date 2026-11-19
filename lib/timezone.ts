@@ -239,12 +239,16 @@ export function loadTimeZonePreference(): TimeZonePreference {
   if (typeof window === 'undefined') {
     return { timeZone: 'UTC', mode: 'auto' };
   }
-  const mode = window.localStorage.getItem(TIMEZONE_MODE_STORAGE_KEY) as TimeZoneMode | null;
-  const stored = window.localStorage.getItem(TIMEZONE_STORAGE_KEY);
   const detected = detectTimeZone();
+  try {
+    const mode = window.localStorage.getItem(TIMEZONE_MODE_STORAGE_KEY) as TimeZoneMode | null;
+    const stored = window.localStorage.getItem(TIMEZONE_STORAGE_KEY);
 
-  if (mode === 'manual' && stored) {
-    return { timeZone: stored, mode: 'manual' };
+    if (mode === 'manual' && stored && isValidTimeZone(stored)) {
+      return { timeZone: stored, mode: 'manual' };
+    }
+  } catch {
+    // localStorage may be unavailable (private mode / storage disabled)
   }
   return { timeZone: detected, mode: 'auto' };
 }
@@ -358,7 +362,7 @@ function zonedTimeToUtc(
  * local, today's 9 AM is returned; otherwise tomorrow's 9 AM is returned.
  * Falls back to UTC when the timezone is invalid.
  */
-export function getNextDigestTime(
+export function nextNineAmInTimeZone(
   timeZone: string,
   from: Date = new Date(),
   hour: number = DIGEST_HOUR
@@ -385,6 +389,22 @@ export function getNextDigestTime(
 }
 
 /**
+ * Return the next occurrence of the daily digest time (9 AM local) for a
+ * sponsor's timezone, as a UTC Date. If the reference instant is before 9 AM
+ * local, today's 9 AM is returned; otherwise tomorrow's 9 AM is returned.
+ * Falls back to UTC when the timezone is invalid.
+ *
+ * Alias of {@link nextNineAmInTimeZone} kept for existing callers.
+ */
+export function getNextDigestTime(
+  timeZone: string,
+  from: Date = new Date(),
+  hour: number = DIGEST_HOUR
+): Date {
+  return nextNineAmInTimeZone(timeZone, from, hour);
+}
+
+/**
  * Whether the given instant falls within the digest hour (9 AM local) in the
  * sponsor's timezone. Used by the digest worker to decide which sponsors are
  * due for their daily summary.
@@ -397,4 +417,40 @@ export function isDigestDue(
   const zone = isValidTimeZone(timeZone) ? timeZone : 'UTC';
   const instant = isValidDate(at) ? at : new Date();
   return getZonedParts(instant, zone).hour === hour;
+}
+
+/**
+ * Whether a sponsor's daily digest is due at the given instant. A digest is
+ * due once the sponsor's local 9 AM has passed and no digest has been sent
+ * for the current local calendar day.
+ *
+ * @param timeZone Sponsor's IANA timezone.
+ * @param at Reference instant (defaults to now).
+ * @param lastSentAt Timestamp of the last digest sent, if any.
+ * @param hour Local hour at which the digest is delivered (defaults to 9 AM).
+ */
+export function isDigestDueNow(
+  timeZone: string,
+  at: Date = new Date(),
+  lastSentAt?: string | number | Date | null,
+  hour: number = DIGEST_HOUR
+): boolean {
+  const zone = isValidTimeZone(timeZone) ? timeZone : 'UTC';
+  const instant = isValidDate(at) ? at : new Date();
+  const local = getZonedParts(instant, zone);
+
+  // Before the digest hour there is nothing to send today.
+  if (local.hour < hour) return false;
+
+  if (lastSentAt === undefined || lastSentAt === null) return true;
+
+  const lastSent = toDate(lastSentAt);
+  if (!isValidDate(lastSent)) return true;
+
+  const lastLocal = getZonedParts(lastSent, zone);
+  const alreadySentToday =
+    lastLocal.year === local.year &&
+    lastLocal.month === local.month &&
+    lastLocal.day === local.day;
+  return !alreadySentToday;
 }

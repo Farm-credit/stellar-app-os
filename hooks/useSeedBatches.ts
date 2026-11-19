@@ -57,6 +57,74 @@ export interface SeedDistribution {
   updatedAt: string;
 }
 
+export type SeedProvenanceEventType =
+  | 'collected'
+  | 'processed'
+  | 'stored'
+  | 'distributed'
+  | 'received'
+  | 'planted'
+  | 'note';
+
+export interface SeedProvenanceEvent {
+  id: string;
+  batchId: string;
+  type: SeedProvenanceEventType;
+  actor?: string;
+  location?: string;
+  notes?: string;
+  occurredAt: string;
+  createdAt: string;
+}
+
+export interface CreateSeedBatchInput {
+  batchCode?: string;
+  species: string;
+  scientificName?: string;
+  seedBankId: string;
+  seedBankName?: string;
+  collectionSiteId?: string;
+  collectionSiteName?: string;
+  collectedBy?: string;
+  collectedAt?: string;
+  quantity: number;
+  quantityUnit: string;
+  status?: SeedBatchStatus;
+  provenanceNotes?: string;
+  storageLocation?: string;
+  germinationRate?: number;
+}
+
+export interface AppendProvenanceEventInput {
+  type: SeedProvenanceEventType;
+  actor?: string;
+  location?: string;
+  notes?: string;
+  occurredAt?: string;
+}
+
+export interface CreateSeedDistributionInput {
+  batchId: string;
+  nurseryId?: string;
+  nurseryName?: string;
+  plantingSiteId?: string;
+  plantingSiteName?: string;
+  treeProfileId?: string;
+  quantity: number;
+  quantityUnit: string;
+  status?: SeedDistributionStatus;
+  notes?: string;
+}
+
+export interface PlantSeedDistributionInput {
+  distributionId: string;
+  treeProfileId: string;
+  plantingSiteId?: string;
+  plantingSiteName?: string;
+  plantedAt?: string;
+  notes?: string;
+}
+
 export interface SeedBankInventorySummary {
   totalBatches: number;
   totalQuantity: number;
@@ -80,6 +148,13 @@ export interface UseSeedBatchesResult {
   loading: boolean;
   error: Error | null;
   refetch: () => Promise<void>;
+  createBatch: (input: CreateSeedBatchInput) => Promise<SeedBatch | null>;
+  appendProvenanceEvent: (
+    batchId: string,
+    input: AppendProvenanceEventInput
+  ) => Promise<SeedProvenanceEvent | null>;
+  createDistribution: (input: CreateSeedDistributionInput) => Promise<SeedDistribution | null>;
+  plantDistribution: (input: PlantSeedDistributionInput) => Promise<SeedDistribution | null>;
   transitionBatchStatus: (batchId: string, status: SeedBatchStatus) => Promise<SeedBatch | null>;
   transitionDistributionStatus: (
     distributionId: string,
@@ -132,6 +207,7 @@ export function useSeedBatches(options: UseSeedBatchesOptions = {}): UseSeedBatc
 
   const [batches, setBatches] = useState<SeedBatch[]>([]);
   const [distributions, setDistributions] = useState<SeedDistribution[]>([]);
+  const [provenanceEvents, setProvenanceEvents] = useState<SeedProvenanceEvent[]>([]);
   const [loading, setLoading] = useState<boolean>(autoFetch);
   const [error, setError] = useState<Error | null>(null);
 
@@ -171,6 +247,130 @@ export function useSeedBatches(options: UseSeedBatchesOptions = {}): UseSeedBatc
       void fetchData();
     }
   }, [autoFetch, fetchData]);
+
+  const createBatch = useCallback(
+    async (input: CreateSeedBatchInput): Promise<SeedBatch | null> => {
+      setError(null);
+      try {
+        const response = await fetch('/api/seed-batches', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(input),
+        });
+
+        if (!response.ok) {
+          throw await parseError(response);
+        }
+
+        const created = (await response.json()) as SeedBatch;
+        setBatches((prev) => [created, ...prev]);
+        return created;
+      } catch (err) {
+        setError(err instanceof Error ? err : new Error('Failed to create seed batch'));
+        return null;
+      }
+    },
+    []
+  );
+
+  const appendProvenanceEvent = useCallback(
+    async (
+      batchId: string,
+      input: AppendProvenanceEventInput
+    ): Promise<SeedProvenanceEvent | null> => {
+      setError(null);
+      try {
+        const response = await fetch(`/api/seed-batches/${batchId}/provenance`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(input),
+        });
+
+        if (!response.ok) {
+          throw await parseError(response);
+        }
+
+        const created = (await response.json()) as SeedProvenanceEvent;
+        setProvenanceEvents((prev) => [...prev, created]);
+        return created;
+      } catch (err) {
+        setError(err instanceof Error ? err : new Error('Failed to append provenance event'));
+        return null;
+      }
+    },
+    []
+  );
+
+  const createDistribution = useCallback(
+    async (input: CreateSeedDistributionInput): Promise<SeedDistribution | null> => {
+      setError(null);
+      try {
+        const response = await fetch('/api/seed-distributions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(input),
+        });
+
+        if (!response.ok) {
+          throw await parseError(response);
+        }
+
+        const created = (await response.json()) as SeedDistribution;
+        setDistributions((prev) => [created, ...prev]);
+        return created;
+      } catch (err) {
+        setError(err instanceof Error ? err : new Error('Failed to create seed distribution'));
+        return null;
+      }
+    },
+    []
+  );
+
+  const plantDistribution = useCallback(
+    async (input: PlantSeedDistributionInput): Promise<SeedDistribution | null> => {
+      setError(null);
+      try {
+        const response = await fetch(`/api/seed-distributions/${input.distributionId}/plant`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            treeProfileId: input.treeProfileId,
+            plantingSiteId: input.plantingSiteId,
+            plantingSiteName: input.plantingSiteName,
+            plantedAt: input.plantedAt,
+            notes: input.notes,
+          }),
+        });
+
+        if (!response.ok) {
+          throw await parseError(response);
+        }
+
+        const updated = (await response.json()) as SeedDistribution;
+        setDistributions((prev) =>
+          prev.map((distribution) =>
+            distribution.id === input.distributionId ? updated : distribution
+          )
+        );
+        setBatches((prev) =>
+          prev.map((batch) =>
+            batch.id === updated.batchId
+              ? {
+                  ...batch,
+                  status: 'planted',
+                  updatedAt: updated.updatedAt,
+                }
+              : batch
+          )
+        );
+        return updated;
+      } catch (err) {
+        setError(err instanceof Error ? err : new Error('Failed to plant seed distribution'));
+        return null;
+      }
+    },
+    []
+  );
 
   const transitionBatchStatus = useCallback(
     async (batchId: string, nextStatus: SeedBatchStatus): Promise<SeedBatch | null> => {
@@ -289,6 +489,10 @@ export function useSeedBatches(options: UseSeedBatchesOptions = {}): UseSeedBatc
     loading,
     error,
     refetch: fetchData,
+    createBatch,
+    appendProvenanceEvent,
+    createDistribution,
+    plantDistribution,
     transitionBatchStatus,
     transitionDistributionStatus,
     getBatchesForTreeProfile,

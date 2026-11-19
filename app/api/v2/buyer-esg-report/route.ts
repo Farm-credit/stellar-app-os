@@ -2,7 +2,7 @@
  * GET /api/v2/buyer-esg-report
  *
  * Generates a buyer ESG compliance report from their carbon offset analytics.
- * Issue #1407
+ * Issues #1407, #1670
  *
  * Query Parameters:
  * - buyerId (required): Opaque buyer identifier
@@ -10,13 +10,22 @@
  * - from (optional): ISO 8601 start date
  * - to (optional): ISO 8601 end date
  * - interval (optional): 'month' | 'quarter' (default: 'month')
- * - format (optional): 'json' | 'pdf' | 'xlsx' (default: 'json')
+ * - format (optional): 'json' | 'pdf' | 'xlsx' | 'gri' | 'tcfd' (default: 'json')
  * - companyName (optional): Company name for the report
+ * - dataSource (optional): 'ledger' | 'db' — required to be 'ledger' for gri/tcfd formats
  *
  * Response:
- * - format=json: JSON envelope with report object
- * - format=pdf: Binary PDF file
- * - format=xlsx: Binary Excel file
+ * - format=json:  JSON envelope with report object
+ * - format=pdf:   Binary PDF file download
+ * - format=xlsx:  Binary Excel workbook download
+ * - format=gri:   Signed JSON — GRI Standards structured disclosure template
+ *                 (Ed25519-signed, ISO 8601-timestamped; verify at POST /api/v2/csr-report/verify)
+ * - format=tcfd:  Signed JSON — TCFD four-pillar structured disclosure template
+ *                 (Ed25519-signed, ISO 8601-timestamped; verify at POST /api/v2/csr-report/verify)
+ *
+ * Signed CSR exports (gri/tcfd) require:
+ * - dataSource=ledger query param
+ * - CSR_REPORT_SIGNING_PRIVATE_KEY_HEX env var (32-byte Ed25519 seed, hex-encoded)
  */
 
 import { type NextRequest, NextResponse } from 'next/server';

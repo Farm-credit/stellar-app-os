@@ -19,6 +19,14 @@ const initialFormData: FormData = {
   logo: null,
 };
 
+const trackerSteps = [
+  'Application received',
+  'Eligibility review',
+  'Onboarding call',
+  'Charity code issued',
+  'First campaign live',
+];
+
 const onboardingSteps = [
   {
     title: 'Apply for partnership',
@@ -47,6 +55,7 @@ export default function CharityPartnershipPage() {
   const [logoName, setLogoName] = useState<string>('');
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [submitted, setSubmitted] = useState<boolean>(false);
+  const [applicationId, setApplicationId] = useState<string>('');
   const [error, setError] = useState<string>('');
 
   const handleChange = (
@@ -87,7 +96,7 @@ export default function CharityPartnershipPage() {
         payload.append('logo', formData.logo);
       }
 
-      const response = await fetch('/api/charity/apply', {
+      const response = await fetch('/api/charity/partners', {
         method: 'POST',
         body: payload,
       });
@@ -96,6 +105,11 @@ export default function CharityPartnershipPage() {
         throw new Error('Application submission failed.');
       }
 
+      const result = (await response.json().catch(() => ({}))) as {
+        applicationId?: string;
+      };
+
+      setApplicationId(result.applicationId ?? '');
       setSubmitted(true);
       setFormData(initialFormData);
       setLogoName('');
@@ -223,31 +237,61 @@ export default function CharityPartnershipPage() {
             <p className="mt-2 text-sm text-emerald-700">
               Here is what happens next:
             </p>
-            <ol className="mt-3 list-decimal space-y-1 pl-5 text-sm text-emerald-700">
-              <li>
-                Our partnerships team reviews your application (typically 3–5
-                business days).
-              </li>
-              <li>
-                We email you to confirm eligibility and schedule a short
-                onboarding call.
-              </li>
-              <li>
-                You receive your charity code and access to co-branded campaign
-                tools.
-              </li>
-              <li>
-                Your first joint impact report becomes available after your
-                first campaign.
-              </li>
+            {applicationId && (
+              <p className="mt-2 text-sm text-emerald-700">
+                Your application reference is{' '}
+                <span className="font-semibold">{applicationId}</span>.
+              </p>
+            )}
+            <ol className="mt-4 space-y-3">
+              {trackerSteps.map((step, index) => (
+                <li key={step} className="flex items-center gap-3">
+                  <span
+                    className={`flex h-7 w-7 flex-none items-center justify-center rounded-full text-xs font-bold ${
+                      index === 0
+                        ? 'bg-emerald-600 text-white'
+                        : 'bg-emerald-100 text-emerald-700'
+                    }`}
+                  >
+                    {index === 0 ? '✓' : index + 1}
+                  </span>
+                  <span
+                    className={`text-sm ${
+                      index === 0
+                        ? 'font-semibold text-emerald-800'
+                        : 'text-emerald-700'
+                    }`}
+                  >
+                    {step}
+                    {index === 0 && ' — complete'}
+                  </span>
+                </li>
+              ))}
             </ol>
-            <button
-              type="button"
-              onClick={() => setSubmitted(false)}
-              className="mt-6 rounded-lg bg-emerald-600 px-5 py-2 font-semibold text-white hover:bg-emerald-700"
-            >
-              Submit another application
-            </button>
+            <div className="mt-6 flex flex-wrap gap-3">
+              <Link
+                href="/charity/dashboard"
+                className="rounded-lg bg-emerald-600 px-5 py-2 font-semibold text-white hover:bg-emerald-700"
+              >
+                Go to partner dashboard
+              </Link>
+              <Link
+                href="/charity/impact-report"
+                className="rounded-lg border border-emerald-600 px-5 py-2 font-semibold text-emerald-700 hover:bg-emerald-100"
+              >
+                View shared impact report
+              </Link>
+              <button
+                type="button"
+                onClick={() => {
+                  setSubmitted(false);
+                  setApplicationId('');
+                }}
+                className="rounded-lg border border-gray-300 px-5 py-2 font-semibold text-gray-700 hover:bg-gray-100"
+              >
+                Submit another application
+              </button>
+            </div>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="mt-8 space-y-5">
@@ -366,6 +410,13 @@ export default function CharityPartnershipPage() {
           Already a partner?{' '}
           <Link href="/charity/dashboard" className="text-emerald-700 underline">
             Go to your partner dashboard
+          </Link>{' '}
+          or download your{' '}
+          <Link
+            href="/charity/impact-report"
+            className="text-emerald-700 underline"
+          >
+            shared impact report
           </Link>
           .
         </p>

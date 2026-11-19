@@ -9,6 +9,96 @@ import {
   type CertificationVerificationState,
 } from '@/lib/types/issue-1374-1377';
 
+export type CertificationFilterValue = {
+  certification: SustainabilityCertification | null;
+  provider: CertificationProvider | null;
+  verificationState: CertificationVerificationState | null;
+};
+
+export const EMPTY_CERTIFICATION_FILTER: CertificationFilterValue = {
+  certification: null,
+  provider: null,
+  verificationState: null,
+};
+
+const CERTIFICATION_PARAM = 'certification';
+const PROVIDER_PARAM = 'certificationProvider';
+const VERIFICATION_STATE_PARAM = 'certificationVerificationState';
+
+function isCertification(value: string | null): value is SustainabilityCertification {
+  return !!value && (SUSTAINABILITY_CERTIFICATIONS as readonly string[]).includes(value);
+}
+
+function isProvider(value: string | null): value is CertificationProvider {
+  return CERTIFICATION_PROVIDERS.some((option) => option.value === value);
+}
+
+function isVerificationState(value: string | null): value is CertificationVerificationState {
+  return VERIFICATION_STATES.some((option) => option.value === value);
+}
+
+/** Parse certification filters from marketplace URL search params. */
+export function parseCertificationFilter(
+  params: Pick<URLSearchParams, 'get'>
+): CertificationFilterValue {
+  const certification = params.get(CERTIFICATION_PARAM);
+  const provider = params.get(PROVIDER_PARAM);
+  const verificationState = params.get(VERIFICATION_STATE_PARAM);
+  return {
+    certification: isCertification(certification) ? certification : null,
+    provider: isProvider(provider) ? provider : null,
+    verificationState: isVerificationState(verificationState) ? verificationState : null,
+  };
+}
+
+/** Serialize certification filters into marketplace URL search params. */
+export function applyCertificationFilter(
+  params: URLSearchParams,
+  filter: CertificationFilterValue
+): URLSearchParams {
+  const next = new URLSearchParams(params);
+  if (filter.certification) {
+    next.set(CERTIFICATION_PARAM, filter.certification);
+  } else {
+    next.delete(CERTIFICATION_PARAM);
+  }
+  if (filter.provider) {
+    next.set(PROVIDER_PARAM, filter.provider);
+  } else {
+    next.delete(PROVIDER_PARAM);
+  }
+  if (filter.verificationState) {
+    next.set(VERIFICATION_STATE_PARAM, filter.verificationState);
+  } else {
+    next.delete(VERIFICATION_STATE_PARAM);
+  }
+  return next;
+}
+
+/** Whether a listing's certification metadata matches the active filters. */
+export function matchesCertificationFilter(
+  filter: CertificationFilterValue,
+  listing: {
+    certification?: SustainabilityCertification | null;
+    certificationProvider?: CertificationProvider | null;
+    certificationVerificationState?: CertificationVerificationState | null;
+  }
+): boolean {
+  if (filter.certification && listing.certification !== filter.certification) {
+    return false;
+  }
+  if (filter.provider && listing.certificationProvider !== filter.provider) {
+    return false;
+  }
+  if (
+    filter.verificationState &&
+    listing.certificationVerificationState !== filter.verificationState
+  ) {
+    return false;
+  }
+  return true;
+}
+
 const CERTIFICATION_PROVIDERS: { value: CertificationProvider; label: string }[] = [
   { value: 'verra', label: 'Verra' },
   { value: 'gold-standard', label: 'Gold Standard' },
@@ -35,6 +125,13 @@ export function CertificationFilter({
   verificationState?: CertificationVerificationState | null;
   onVerificationStateChange?: (value: CertificationVerificationState | null) => void;
 }) {
+  const hasActiveFilter = !!value || !!provider || !!verificationState;
+
+  const clearAll = () => {
+    onChange(null);
+    onProviderChange?.(null);
+    onVerificationStateChange?.(null);
+  };
   return (
     <div className="flex flex-col gap-4">
       <div>
@@ -116,6 +213,16 @@ export function CertificationFilter({
           ))}
         </Select>
       </div>
+
+      {hasActiveFilter && (
+        <button
+          type="button"
+          onClick={clearAll}
+          className="self-start text-xs font-medium text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+        >
+          Clear certification filters
+        </button>
+      )}
     </div>
   );
 }

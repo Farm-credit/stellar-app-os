@@ -194,3 +194,47 @@ export interface HistoricalCarbonDataResponse {
   /** ISO 8601 timestamp of when the response was generated. */
   generatedAt: string;
 }
+
+/** Supported certification registries for project data integration. */
+export type CertificationRegistry = 'Verra' | 'Gold Standard';
+
+/** Normalized project data pulled from a certification registry (Verra/Gold Standard). */
+export interface CertificationProjectData {
+  /** Registry that provided the data. */
+  registry: CertificationRegistry;
+  /** Registry-specific project identifier (e.g. VCS project ID). */
+  registryProjectId: string;
+  name: string;
+  description: string;
+  projectType: ProjectType;
+  /** Region the project is located in (consistent with HistoricalCarbonQuery.region). */
+  region: string;
+  location: string;
+  coordinates: ProjectCoordinates;
+  vintageYear: number;
+  /** Registry verification status mapped to the platform's verification status. */
+  verificationStatus: VerificationStatus;
+  /** Total credits issued by the registry (in tonnes). */
+  creditsIssued: number;
+  /** Credits that have been retired (in tonnes). */
+  creditsRetired: number;
+  /** ISO 8601 date of the most recent registry verification. */
+  lastVerifiedAt: string;
+  /** ISO 8601 date when the project's certification must be renewed. */
+  renewalDueAt?: string;
+  coBenefits: string[];
+}
+
+/** Outcome of verifying a credit against a certification registry. */
+export interface CreditVerificationResult {
+  registry: CertificationRegistry;
+  registryProjectId: string;
+  /** Serial number or batch identifier of the verified credit. */
+  creditId: string;
+  /** Whether the registry confirmed the credit as valid and unretired. */
+  isValid: boolean;
+  /** Human-readable reason when verification fails. */
+  reason?: string;
+  /** ISO 8601 timestamp of when verification was performed. */
+  verifiedAt: string;
+}

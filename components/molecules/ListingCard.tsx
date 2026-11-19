@@ -8,6 +8,7 @@ import { Card, CardContent, CardFooter } from '@/components/molecules/Card';
 import type { ListingCardProps } from '@/lib/types/marketplace';
 import { cn } from '@/lib/utils';
 import { FarmerCertificationBadges } from '@/components/marketplace/FarmerCertificationBadges';
+import { BidModal } from '@/components/marketplace/BidModal';
 import { useEffect, useState } from 'react';
 
 /**
@@ -93,12 +94,15 @@ export function ListingCard({ listing, isOwnListing = false }: ListingCardProps)
   const auction = isAuction ? listing.auction : undefined;
 
   const [now, setNow] = useState(() => Date.now());
+  const [isBidModalOpen, setIsBidModalOpen] = useState(false);
 
   useEffect(() => {
     if (!isAuction || !auction) return;
     const interval = setInterval(() => setNow(Date.now()), 60_000);
     return () => clearInterval(interval);
   }, [isAuction, auction]);
+
+  const auctionEnded = auction ? new Date(auction.endTime).getTime() <= now : false;
 
   const formatClosingDate = (isoDate: string) => {
     const date = new Date(isoDate);
@@ -169,7 +173,16 @@ export function ListingCard({ listing, isOwnListing = false }: ListingCardProps)
                 <Text variant="small" as="span" className="text-muted-foreground">
                   Current highest bid
                 </Text>
-                <Text variant="small" as="span" className="font-semibold">
+                <Text
+                  variant="small"
+                  as="span"
+                  className="font-semibold"
+                  aria-label={
+                    auction.highestBid != null
+                      ? `Current highest bid ${formatPrice(auction.highestBid)}`
+                      : 'No bids yet'
+                  }
+                >
                   {auction.highestBid != null ? formatPrice(auction.highestBid) : 'No bids yet'}
                 </Text>
               </div>
@@ -177,7 +190,12 @@ export function ListingCard({ listing, isOwnListing = false }: ListingCardProps)
                 <Text variant="small" as="span" className="text-muted-foreground">
                   Bids
                 </Text>
-                <Text variant="small" as="span" className="font-semibold">
+                <Text
+                  variant="small"
+                  as="span"
+                  className="font-semibold"
+                  aria-label={`${auction.bidCount} ${auction.bidCount === 1 ? 'bid' : 'bids'} placed`}
+                >
                   {auction.bidCount}
                 </Text>
               </div>
@@ -185,16 +203,24 @@ export function ListingCard({ listing, isOwnListing = false }: ListingCardProps)
                 <Text variant="small" as="span" className="text-muted-foreground">
                   Reserve
                 </Text>
-                <Badge variant={auction.reserveMet ? 'success' : 'outline'}>
+                <Badge
+                  variant={auction.reserveMet ? 'success' : 'outline'}
+                  aria-label={auction.reserveMet ? 'Reserve price met' : 'Reserve price not met'}
+                >
                   {auction.reserveMet ? 'Reserve met' : 'Reserve not met'}
                 </Badge>
               </div>
               <div className="pt-2 border-t border-border">
                 <div className="flex items-center justify-between">
                   <Text variant="small" as="span" className="font-semibold">
-                    Ends in
+                    {auctionEnded ? 'Status' : 'Ends in'}
                   </Text>
-                  <Text variant="small" as="span" className="font-semibold text-stellar-blue">
+                  <Text
+                    variant="small"
+                    as="span"
+                    className="font-semibold text-stellar-blue"
+                    aria-label={`Auction ${formatCountdown(auction.endTime, now)}`}
+                  >
                     {formatCountdown(auction.endTime, now)}
                   </Text>
                 </div>
@@ -246,14 +272,35 @@ export function ListingCard({ listing, isOwnListing = false }: ListingCardProps)
 
       <CardFooter className="p-6 pt-0">
         {isAuction ? (
-          <Button
-            asChild
-            stellar="primary"
-            width="full"
-            aria-label={`Place a bid on ${projectName}`}
-          >
-            <Link href={`/marketplace/auctions/${id}`}>Place Bid</Link>
-          </Button>
+          <>
+            <Button
+              type="button"
+              stellar="primary"
+              width="full"
+              onClick={() => setIsBidModalOpen(true)}
+              disabled={auctionEnded}
+              aria-label={
+                auctionEnded
+                  ? `Auction for ${projectName} has ended`
+                  : `Place a bid on ${projectName}`
+              }
+              aria-haspopup="dialog"
+            >
+              {auctionEnded ? 'Auction Ended' : 'Place Bid'}
+            </Button>
+            {auction && (
+              <BidModal
+                isOpen={isBidModalOpen}
+                onClose={() => setIsBidModalOpen(false)}
+                listingId={id}
+                projectName={projectName}
+                quantity={quantity}
+                currentHighestBid={auction.highestBid}
+                reservePrice={auction.reservePrice}
+                endTime={auction.endTime}
+              />
+            )}
+          </>
         ) : (
           <Button
             asChild

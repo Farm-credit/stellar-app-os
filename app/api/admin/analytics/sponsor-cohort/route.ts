@@ -22,11 +22,6 @@ export const dynamic = 'force-dynamic';
  *   to             - filter cohorts up to this month (YYYY-MM)
  *   max_periods    - max period offsets to include (default 12)
  *   wallet         - if provided, returns a single sponsor's retention summary instead
- *   payment_method - optional filter by payment method (e.g. 'xlm' for Stellar)
- *   from       - filter cohorts from this month (YYYY-MM)
- *   to         - filter cohorts up to this month (YYYY-MM)
- *   max_periods - max period offsets to include (default 12)
- *   wallet     - if provided, returns a single sponsor's retention summary instead
  *   payment_method - optional filter by payment method (e.g. 'xlm' for Stellar, 'usdc', 'bank', 'fiat')
  */
 export async function GET(request: Request) {
@@ -87,15 +82,14 @@ export async function GET(request: Request) {
 /**
  * POST /api/admin/analytics/sponsor-cohort
  *
- * Triggers a cohort retention refresh (recomputes the snapshot table)
- * or generates 1099 forms for high-value sponsors.
+ * Triggers a cohort retention refresh (recomputes the snapshot table),
+ * generates 1099 forms for high-value sponsors, or generates a
+ * regulatory compliance report.
  *
  * Query params:
  *   action - optional. Set to 'generate_1099' to generate tax forms.
+ *            Set to 'generate_compliance_report' to generate a regulatory compliance report.
  *            If omitted, the default cohort refresh is performed.
- *   action — optional. Set to 'generate_1099' to generate tax forms.
- *           Set to 'generate_compliance_report' to generate a regulatory compliance report.
- *           If omitted, the default cohort refresh is performed.
  */
 export async function POST(request: Request) {
   const url = new URL(request.url);
@@ -128,7 +122,7 @@ export async function POST(request: Request) {
         );
       }
 
-      if (!['SEC', 'EPA', 'carbon_tax'].includes(framework!)) {
+      if (!['SEC', 'EPA', 'carbon_tax'].includes(framework)) {
         return NextResponse.json(
           { error: 'Unsupported framework. Must be one of: SEC, EPA, carbon_tax' },
           { status: 400 }

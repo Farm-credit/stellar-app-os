@@ -84,6 +84,7 @@ vi.mock('@/hooks/useTranslation', () => ({
         'nav.transactions': 'Transactions',
         'nav.dashboard': 'Dashboard',
         'nav.cooperatives': 'Cooperatives',
+        'nav.offramp': 'Off-ramp',
         'header.connectWallet': 'Connect Wallet',
         'header.openMenu': 'Open navigation menu',
         'header.languageSelector': 'Select language',
@@ -249,13 +250,14 @@ describe('Header', () => {
   // ── Desktop navigation ─────────────────────────────────────────────────────
 
   describe('desktop navigation', () => {
-    it('renders all six nav links', () => {
+    it('renders all seven nav links', () => {
       render(<Header />);
       expect(screen.getByRole('link', { name: 'Home' })).toBeInTheDocument();
       expect(screen.getByRole('link', { name: 'Projects' })).toBeInTheDocument();
       expect(screen.getByRole('link', { name: 'Marketplace' })).toBeInTheDocument();
       expect(screen.getByRole('link', { name: 'Cooperatives' })).toBeInTheDocument();
       expect(screen.getByRole('link', { name: 'Transactions' })).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: 'Off-ramp' })).toBeInTheDocument();
       expect(screen.getByRole('link', { name: 'Dashboard' })).toBeInTheDocument();
     });
 

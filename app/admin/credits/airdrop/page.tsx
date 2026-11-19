@@ -15,6 +15,13 @@ import type { AirdropPreview, AirdropResult } from '@/lib/types/carbon';
 const DEFAULT_LAUNCH_DATE = '2022-01-01';
 const MIN_CREDITS_PER_SPONSOR = 1;
 
+// GHG Protocol scope classification for airdropped credits.
+// Retroactive credits are offsets (not emissions), so they are reported
+// against the sponsor's Scope 3 category 15 (investments) / voluntary offsets
+// and must be tracked separately from Scope 1, 2, and 3 gross emissions.
+const GHG_PROTOCOL_SCOPE_NOTE =
+  'Airdropped credits are voluntary offsets. They are reported separately from Scope 1, Scope 2, and Scope 3 gross emissions and are not netted against them under the GHG Protocol Corporate Standard.';
+
 export default function RetroactiveAirdropPage(): ReactNode {
   const [projectId, setProjectId] = useState('');
   const [creditsPerSponsor, setCreditsPerSponsor] = useState(50);
@@ -83,6 +90,7 @@ export default function RetroactiveAirdropPage(): ReactNode {
           Allocate credits to all sponsors (with at least one donation or credit purchase) who
           joined within the first 6 months of the platform launch date.
         </p>
+        <p className="mt-2 text-xs text-muted-foreground">{GHG_PROTOCOL_SCOPE_NOTE}</p>
       </header>
 
       <Card className="mb-6">

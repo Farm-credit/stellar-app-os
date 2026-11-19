@@ -47,14 +47,30 @@ pub fn require_invocation_auth(declared_caller: &Address) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use soroban_sdk::{testutils::Address as _, Address, Env};
+    use soroban_sdk::{contract, contractimpl, testutils::Address as _, Address, Env};
+
+    #[contract]
+    struct AuthHarness;
+
+    #[contractimpl]
+    impl AuthHarness {
+        pub fn noop(_env: Env) {}
+    }
+
+    fn env_with_contract() -> (Env, Address) {
+        let env = Env::default();
+        let id = env.register(AuthHarness, ());
+        (env, id)
+    }
 
     #[test]
     fn require_matching_invocation_auth_accepts_matching_mock() {
-        let env = Env::default();
+        let (env, id) = env_with_contract();
         let caller = Address::generate(&env);
         env.mock_all_auths();
-        require_matching_invocation_auth(&env, &caller, &caller);
+        env.as_contract(&id, || {
+            require_matching_invocation_auth(&env, &caller, &caller);
+        });
     }
 
     #[test]
@@ -78,10 +94,12 @@ mod tests {
 
     #[test]
     fn require_admin_invocation_auth_accepts_admin() {
-        let env = Env::default();
+        let (env, id) = env_with_contract();
         let admin = Address::generate(&env);
         env.mock_all_auths();
-        require_admin_invocation_auth(&env, &admin, &admin);
+        env.as_contract(&id, || {
+            require_admin_invocation_auth(&env, &admin, &admin);
+        });
     }
 
     #[test]

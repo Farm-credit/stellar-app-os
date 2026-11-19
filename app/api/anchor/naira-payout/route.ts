@@ -18,6 +18,7 @@ import {
   initiateSep31Payout,
 } from '@/lib/stellar/anchor-payout';
 import type { Sep31PayoutRequest } from '@/lib/stellar/anchor-payout';
+import { FUNDABLE_HOME_DOMAIN } from '@/lib/config/fundable';
 import Stripe from 'stripe';
 
 interface NairaPayoutRequestBody {
@@ -124,7 +125,7 @@ export async function POST(request: Request) {
     }
 
     // ── Discover anchor endpoints from stellar.toml ───────────────────────────
-    const anchorHomeDomain = process.env.NEXT_PUBLIC_ANCHOR_HOME_DOMAIN ?? 'testanchor.stellar.org';
+    const anchorHomeDomain = FUNDABLE_HOME_DOMAIN;
     const usdcIssuer = process.env.NEXT_PUBLIC_USDC_ISSUER ?? '';
     const usdcAssetCode = 'USDC';
 

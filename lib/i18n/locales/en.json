@@ -7,7 +7,8 @@
     "projects": "Projects",
     "marketplace": "Marketplace",
     "transactions": "Transactions",
-    "cooperatives": "Cooperatives"
+    "cooperatives": "Cooperatives",
+    "offramp": "Off-ramp"
   },
   "header": {
     "connectWallet": "Connect Wallet",
