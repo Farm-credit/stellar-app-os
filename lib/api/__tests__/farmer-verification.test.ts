@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
+import { StrKey } from '@stellar/stellar-sdk';
 import {
   MAX_BATCH_ADDRESSES,
   evaluateCredit,
@@ -23,8 +24,8 @@ import type { KycScreeningResult } from '@/lib/kyc/types';
  */
 
 const FARMER = 'GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF';
-const OTHER_FARMER = `G${'B'.repeat(55)}`;
-const THIRD_FARMER = `G${'C'.repeat(55)}`;
+const OTHER_FARMER = StrKey.encodeEd25519PublicKey(Buffer.alloc(32, 1));
+const THIRD_FARMER = StrKey.encodeEd25519PublicKey(Buffer.alloc(32, 2));
 
 const SCREENING: KycScreeningResult = {
   eligible: true,
@@ -75,6 +76,9 @@ describe('isStellarAddress', () => {
     expect(isStellarAddress('G123')).toBe(false);
     expect(isStellarAddress('')).toBe(false);
     expect(isStellarAddress(null)).toBe(false);
+    expect(isStellarAddress(`G${'B'.repeat(55)}`)).toBe(false);
+    expect(isStellarAddress(`${FARMER.slice(0, -1)}A`)).toBe(false);
+    expect(isStellarAddress(StrKey.encodeEd25519SecretSeed(Buffer.alloc(32)))).toBe(false);
   });
 });
 
@@ -117,10 +121,9 @@ describe('getFarmerVerification', () => {
     }
     expect(Object.keys(report.identity)).toEqual(['verified', 'verifiedAt', 'documentType']);
 
-    // Prefers an approved application, then the newest one.
+    // Uses the latest application so stale approval cannot mask its state.
     const sql = String(calls[0][0]);
-    expect(sql).toContain("status = 'approved'");
-    expect(sql).toContain('ORDER BY');
+    expect(sql).toContain('ORDER BY submitted_at DESC, updated_at DESC, id DESC');
     expect(calls[0][1]).toEqual([FARMER]);
   });
 
@@ -166,6 +169,10 @@ describe('getFarmerVerification', () => {
 });
 
 describe('evaluateCredit', () => {
+  it.each(['rejected', 'expired'] as const)('blocks an eligible but %s application', (status) => {
+    expect(evaluateCredit(status, SCREENING, []).available).toBe(false);
+  });
+
   it('grants credit from an eligible, live, sanctions-free application', () => {
     const credit = evaluateCredit('under_review', SCREENING, []);
     expect(credit).toMatchObject({
@@ -293,6 +300,45 @@ describe('authenticateFarmerVerificationRequest', () => {
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.status).toBe(401);
+  });
+
+  it('looks up the Authorization ApiKey credential in the same active-key store', async () => {
+    const lookup = vi.fn(() => Promise.resolve(null));
+    await authenticateFarmerVerificationRequest(
+      new Request('https://harvesta.test/api/v1/farmers/verification', {
+        headers: { Authorization: 'aPiKeY fc_partner_key' },
+      }),
+      lookup
+    );
+    expect(lookup).toHaveBeenCalledWith('fc_partner_key');
+  });
+
+  it.each(['Bearer fc_partner_key', 'ApiKey', 'ApiKey key extra', 'Basic credentials'])(
+    'rejects unsupported or malformed authorization: %s',
+    async (authorization) => {
+      const lookup = vi.fn();
+      const result = await authenticateFarmerVerificationRequest(
+        new Request('https://harvesta.test/api/v1/farmers/verification', {
+          headers: { authorization },
+        }),
+        lookup
+      );
+      expect(result.ok).toBe(false);
+      expect(lookup).not.toHaveBeenCalled();
+    }
+  );
+
+  it('does not fall back to Authorization when an explicit X-API-Key fails', async () => {
+    const lookup = vi.fn(() => Promise.resolve(null));
+    const result = await authenticateFarmerVerificationRequest(
+      new Request('https://harvesta.test/api/v1/farmers/verification', {
+        headers: { 'x-api-key': 'fc_revoked', authorization: 'ApiKey fc_active' },
+      }),
+      lookup
+    );
+    expect(result.ok).toBe(false);
+    expect(lookup).toHaveBeenCalledTimes(1);
+    expect(lookup).toHaveBeenCalledWith('fc_revoked');
   });
 
   it('accepts an active key and exposes only its display metadata', async () => {

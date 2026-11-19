@@ -1,19 +1,18 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { NextRequest } from 'next/server';
+import type * as FarmerPortfolioModule from '@/lib/api/farmer-portfolio';
 
 const getFarmerPortfolio = vi.fn();
 
 vi.mock('@/lib/api/farmer-portfolio', async () => {
-  const actual = await vi.importActual<typeof import('@/lib/api/farmer-portfolio')>(
-    '@/lib/api/farmer-portfolio'
-  );
+  const actual = await vi.importActual<typeof FarmerPortfolioModule>('@/lib/api/farmer-portfolio');
   return { ...actual, getFarmerPortfolio: (...args: unknown[]) => getFarmerPortfolio(...args) };
 });
 
 import { GET } from '../route';
 import { FarmerNotFoundError } from '@/lib/api/farmer-portfolio';
 
-const FARMER = `G${'A'.repeat(55)}`;
+const FARMER = 'GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF';
 
 function call(address: string) {
   return GET(new NextRequest(`http://localhost/api/v2/farmers/${address}/portfolio`), {
@@ -33,9 +32,7 @@ describe('GET /api/v2/farmers/[farmerAddress]/portfolio', () => {
   });
 
   it('404s when the farmer is unknown', async () => {
-    getFarmerPortfolio.mockImplementation(async () => {
-      throw new FarmerNotFoundError(FARMER);
-    });
+    getFarmerPortfolio.mockRejectedValue(new FarmerNotFoundError(FARMER));
     const res = await call(FARMER);
     expect(res.status).toBe(404);
     expect((await res.json()).code).toBe('not_found');
@@ -49,9 +46,7 @@ describe('GET /api/v2/farmers/[farmerAddress]/portfolio', () => {
   });
 
   it('500s on unexpected errors', async () => {
-    getFarmerPortfolio.mockImplementation(async () => {
-      throw new Error('boom');
-    });
+    getFarmerPortfolio.mockRejectedValue(new Error('boom'));
     vi.spyOn(console, 'error').mockImplementation(() => {});
     expect((await call(FARMER)).status).toBe(500);
   });

@@ -31,6 +31,30 @@ beforeEach(() => {
 });
 
 describe('proxy response headers after merge repair', () => {
+  it('applies the API-key quota to Authorization ApiKey requests', async () => {
+    const response = await proxy(
+      new NextRequest('http://localhost/api/v1/farmers/verification', {
+        headers: { authorization: 'ApiKey fc_partner_key' },
+      })
+    );
+    expect(response.status).toBe(200);
+    expect(findKey).toHaveBeenCalledWith('fc_partner_key');
+    expect(tier).toHaveBeenCalledWith('fc_partner_key', 'free');
+    expect(perIp).not.toHaveBeenCalled();
+  });
+
+  it('returns retry guidance when an Authorization ApiKey exceeds its quota', async () => {
+    tier.mockResolvedValue({ allowed: false, queued: true, retryAfter: 60 });
+    const response = await proxy(
+      new NextRequest('http://localhost/api/v1/farmers/verification', {
+        headers: { authorization: 'ApiKey fc_partner_key' },
+      })
+    );
+    expect(response.status).toBe(429);
+    expect(response.headers.get('Retry-After')).toBe('60');
+    expect(perIp).not.toHaveBeenCalled();
+  });
+
   it.each([false, true])(
     'preserves correlation and CORS headers with API key=%s',
     async (apiKey) => {
