@@ -4,6 +4,10 @@
 
 ## Interface conventions
 
+Custom error codes follow the workspace-wide allocation standard documented in
+[`error-code-standard.md`](error-code-standard.md) and implemented by
+`harvesta_errors::standard`.
+
 | Field | Meaning |
 |---|---|
 | Function | Soroban contract entry point exposed by `#[contractimpl]`. |
