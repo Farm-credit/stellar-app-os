@@ -52,7 +52,11 @@ export default function CampaignsPage() {
                     </div>
                     <div className="flex items-center justify-between">
                       <Badge variant="outline">{c.quarter}</Badge>
-                      <Badge>{c.matchMultiplier}x match</Badge>
+                      {c.matchMultiplier > 1 ? (
+                        <Badge>{c.matchMultiplier}x match</Badge>
+                      ) : (
+                        <Badge variant="outline">No match</Badge>
+                      )}
                     </div>
                     <h3 className="text-xl font-semibold">{c.title}</h3>
                     <p className="text-sm text-muted-foreground">{c.location}</p>
@@ -60,7 +64,9 @@ export default function CampaignsPage() {
                     <p className="text-sm">{getProgressPercent(c)}% funded</p>
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-muted-foreground">Match remaining</span>
-                      <span className="font-medium">${remainingMatch.toLocaleString()}</span>
+                      <span className="font-medium">
+                        {remainingMatch > 0 ? `$${remainingMatch.toLocaleString()}` : 'Fully matched'}
+                      </span>
                     </div>
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-muted-foreground">{daysRemaining} days left</span>
@@ -85,7 +91,11 @@ export default function CampaignsPage() {
                 <Card className="h-full p-6 hover:shadow-md">
                   <div className="flex items-center justify-between">
                     <Badge variant="secondary">{c.ecosystem}</Badge>
-                    <Badge>{c.matchMultiplier}x match</Badge>
+                    {c.matchMultiplier > 1 ? (
+                      <Badge>{c.matchMultiplier}x match</Badge>
+                    ) : (
+                      <Badge variant="outline">No match</Badge>
+                    )}
                   </div>
                   <h2 className="text-xl font-semibold">{c.title}</h2>
                   <p className="text-sm text-muted-foreground">{c.location}</p>

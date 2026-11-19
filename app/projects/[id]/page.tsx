@@ -8,7 +8,11 @@ import { ForestProtectionZone } from '@/components/organisms/ForestProtectionZon
 import { mockAdminProjectDetails } from '@/lib/api/mock/adminProjectDetails';
 import { mockCarbonProjects } from '@/lib/api/mock/carbonProjects';
 import { getMockProjectCoverage } from '@/lib/api/mock/projectCoverage';
-import { ensureDeforestationAlertsSeeded, getProjectAlerts } from '@/lib/deforestation/service';
+import {
+  ensureDeforestationAlertsSeeded,
+  getProjectAlerts,
+  isAlertInsideBufferZone,
+} from '@/lib/deforestation/service';
 import { getProjectSurvivalStatistic } from '@/lib/census/survival';
 import { SurvivalRateStat } from '@/components/molecules/SurvivalRateStat';
 
@@ -53,6 +57,32 @@ export async function generateMetadata(
   };
 }
 
+/**
+ * Approximate geodesic area (in hectares) of a polygon given as [lat, lng] pairs.
+ * Uses the spherical excess formula; falls back to 0 for degenerate polygons.
+ */
+function computePolygonAreaHectares(
+  polygon: ReadonlyArray<readonly [number, number]> | undefined
+): number | undefined {
+  if (!polygon || polygon.length < 3) {
+    return undefined;
+  }
+
+  const EARTH_RADIUS_M = 6_378_137;
+  const toRad = (deg: number) => (deg * Math.PI) / 180;
+
+  let total = 0;
+  for (let i = 0; i < polygon.length; i += 1) {
+    const [lat1, lng1] = polygon[i];
+    const [lat2, lng2] = polygon[(i + 1) % polygon.length];
+    total +=
+      toRad(lng2 - lng1) * (2 + Math.sin(toRad(lat1)) + Math.sin(toRad(lat2)));
+  }
+
+  const areaM2 = Math.abs((total * EARTH_RADIUS_M * EARTH_RADIUS_M) / 2);
+  return Math.round((areaM2 / 10_000) * 100) / 100;
+}
+
 export default async function ProjectPage({ params }: Props) {
   const { id } = await params;
   const adminProject = mockAdminProjectDetails.find((p) => p.id === id || p.slug === id);
@@ -68,14 +98,20 @@ export default async function ProjectPage({ params }: Props) {
   }
 
   const bufferZone = adminProject.bufferZone;
-  const protectionZoneAreaHa = bufferZone?.areaHectares;
+  const protectionZoneAreaHa =
+    typeof bufferZone?.areaHectares === 'number'
+      ? bufferZone.areaHectares
+      : computePolygonAreaHectares(bufferZone?.polygon);
 
   // Live satellite alerts for this project's monitored zone (issue #672).
   await ensureDeforestationAlertsSeeded();
   const deforestationAlerts = getProjectAlerts(adminProject.id);
-  const latestAlert = deforestationAlerts[0];
+  const bufferZoneAlerts = bufferZone
+    ? deforestationAlerts.filter((alert) => isAlertInsideBufferZone(alert, bufferZone))
+    : deforestationAlerts;
+  const latestAlert = bufferZoneAlerts[0];
   const hasDeforestationAlert =
-    Boolean(bufferZone?.deforestationAlert) || deforestationAlerts.length > 0;
+    Boolean(bufferZone?.deforestationAlert) || bufferZoneAlerts.length > 0;
 
   return (
     <>
