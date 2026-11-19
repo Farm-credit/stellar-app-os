@@ -215,10 +215,73 @@ function generateBidId(): string {
   return `bid-${Date.now()}-${bidIdCounter}`;
 }
 
+export interface PaginatedResult<T> {
+  items: T[];
+  total: number;
+  page: number;
+  pageSize: number;
+  hasMore: boolean;
+}
+
+export interface PaginationParams {
+  page?: number;
+  pageSize?: number;
+}
+
+const DEFAULT_PAGE_SIZE = 20;
+const CACHE_TTL_MS = 30_000;
+
+interface CacheEntry<T> {
+  value: T;
+  expiresAt: number;
+}
+
+const queryCache = new Map<string, CacheEntry<unknown>>();
+
+function readCache<T>(key: string): T | null {
+  const entry = queryCache.get(key);
+  if (!entry) return null;
+  if (entry.expiresAt <= Date.now()) {
+    queryCache.delete(key);
+    return null;
+  }
+  return entry.value as T;
+}
+
+function writeCache<T>(key: string, value: T): T {
+  queryCache.set(key, { value, expiresAt: Date.now() + CACHE_TTL_MS });
+  return value;
+}
+
+function invalidateCache(prefix: string): void {
+  for (const key of queryCache.keys()) {
+    if (key.startsWith(prefix)) queryCache.delete(key);
+  }
+}
+
+function paginate<T>(items: T[], params?: PaginationParams): PaginatedResult<T> {
+  const page = Math.max(1, Math.floor(params?.page ?? 1));
+  const pageSize = Math.max(1, Math.floor(params?.pageSize ?? DEFAULT_PAGE_SIZE));
+  const start = (page - 1) * pageSize;
+  const slice = items.slice(start, start + pageSize);
+  return {
+    items: slice,
+    total: items.length,
+    page,
+    pageSize,
+    hasMore: start + slice.length < items.length,
+  };
+}
+
 export async function createAuction(
   input: Omit<Auction, 'id' | 'status' | 'createdAt' | 'winnerBidId' | 'winningBid' | 'resolvedAt'>,
 ): Promise<Auction> {
   await new Promise((resolve) => setTimeout(resolve, 300));
+  if (input.quantity <= 0) throw new Error('Auction quantity must be positive');
+  if (input.reservePricePerTon < 0) throw new Error('Reserve price cannot be negative');
+  if (new Date(input.closingAt).getTime() <= Date.now()) {
+    throw new Error('Auction closing time must be in the future');
+  }
   const auction: Auction = {
     ...input,
     id: generateAuctionId(),
@@ -227,6 +290,7 @@ export async function createAuction(
   };
   MOCK_AUCTIONS[auction.id] = auction;
   MOCK_BIDS[auction.id] = [];
+  invalidateCache('auctions:');
   return auction;
 }
 
@@ -249,6 +313,19 @@ export async function listAuctions(filter?: {
   });
 }
 
+export async function listAuctionsPaginated(
+  filter?: {
+    status?: AuctionStatus;
+    projectType?: string;
+    sellerId?: string;
+  },
+  pagination?: PaginationParams,
+): Promise<PaginatedResult<Auction>> {
+  const auctions = await listAuctions(filter);
+  const sorted = [...auctions].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  return paginate(sorted, pagination);
+}
+
 export async function placeBid(
   auctionId: string,
   input: { bidderId: string; bidderName?: string; amountPerTon: number; quantity: number },
@@ -259,6 +336,9 @@ export async function placeBid(
   if (auction.status !== 'open') throw new Error(`Auction ${auctionId} is not open for bidding`);
   if (new Date(auction.closingAt).getTime() <= Date.now()) {
     throw new Error(`Auction ${auctionId} has already closed`);
+  }
+  if (input.bidderId === auction.sellerId) {
+    throw new Error('Sellers cannot bid on their own auctions');
   }
   if (input.amountPerTon <= 0) throw new Error('Bid amount must be positive');
   if (input.quantity <= 0) throw new Error('Bid quantity must be positive');
@@ -299,7 +379,15 @@ export async function getBidsForAuction(auctionId: string): Promise<Bid[]> {
   );
 }
 
-export async function resolveAuction(auctionId: string): Promise<AuctionResolution> {
+export async function getBidsForAuctionPaginated(
+  auctionId: string,
+  pagination?: PaginationParams,
+): Promise<PaginatedResult<Bid>> {
+  const bids = await getBidsForAuction(auctionId);
+  return paginate(bids, pagination);
+}
+
+export async function settleAuction(auctionId: string): Promise<AuctionResolution> {
   await new Promise((resolve) => setTimeout(resolve, 300));
   const auction = MOCK_AUCTIONS[auctionId];
   if (!auction) throw new Error(`Auction ${auctionId} not found`);
@@ -343,6 +431,8 @@ export async function resolveAuction(auctionId: string): Promise<AuctionResoluti
   return { auction, winner, losers };
 }
 
+export const resolveAuction = settleAuction;
+
 function getPeriodKey(date: Date, granularity: HistoricalGranularity): string {
   const year = date.getUTCFullYear();
   const month = date.getUTCMonth();
@@ -375,7 +465,10 @@ interface AggregationRecord {
   occurredAt: string;
 }
 
+let cachedRecords: AggregationRecord[] | null = null;
+
 function collectRecords(): AggregationRecord[] {
+  if (cachedRecords) return cachedRecords;
   const records: AggregationRecord[] = [];
   for (const batch of MOCK_PURCHASE_BATCHES) {
     records.push({
@@ -411,7 +504,19 @@ function collectRecords(): AggregationRecord[] {
       occurredAt: listing.listedAt,
     });
   }
+  cachedRecords = records;
   return records;
+}
+
+function historicalCacheKey(prefix: string, query: HistoricalDataQuery): string {
+  return [
+    prefix,
+    query.startDate,
+    query.endDate,
+    query.granularity ?? 'month',
+    query.region ?? '',
+    query.projectType ?? '',
+  ].join('|');
 }
 
 function filterRecords(records: AggregationRecord[], query: HistoricalDataQuery): AggregationRecord[] {
@@ -429,6 +534,9 @@ function filterRecords(records: AggregationRecord[], query: HistoricalDataQuery)
 export async function getHistoricalCarbonData(
   query: HistoricalDataQuery,
 ): Promise<HistoricalCarbonData> {
+  const cacheKey = historicalCacheKey('historical', query);
+  const cached = readCache<HistoricalCarbonData>(cacheKey);
+  if (cached) return cached;
   await new Promise((resolve) => setTimeout(resolve, 400));
   const granularity = query.granularity ?? 'month';
   const records = filterRecords(collectRecords(), query);
@@ -457,7 +565,7 @@ export async function getHistoricalCarbonData(
   const totalValue = series.reduce((sum, point) => sum + point.totalValue, 0);
   const transactionCount = series.reduce((sum, point) => sum + point.transactionCount, 0);
 
-  return {
+  return writeCache(cacheKey, {
     query: { ...query, granularity },
     series,
     totals: {
@@ -466,13 +574,16 @@ export async function getHistoricalCarbonData(
       averagePricePerTon: totalVolume > 0 ? totalValue / totalVolume : 0,
       transactionCount,
     },
-  };
+  });
 }
 
 export async function getProjectPerformanceHistory(
   projectName: string,
   query: HistoricalDataQuery,
 ): Promise<ProjectPerformanceHistory> {
+  const cacheKey = `${historicalCacheKey('project', query)}|${projectName}`;
+  const cached = readCache<ProjectPerformanceHistory>(cacheKey);
+  if (cached) return cached;
   await new Promise((resolve) => setTimeout(resolve, 400));
   const granularity = query.granularity ?? 'month';
   const records = filterRecords(collectRecords(), query).filter(
@@ -498,15 +609,18 @@ export async function getProjectPerformanceHistory(
     }));
 
   const sample = records[0];
-  return {
+  return writeCache(cacheKey, {
     projectName,
     projectType: sample?.projectType ?? query.projectType ?? 'Unknown',
     region: sample?.region,
     series,
-  };
+  });
 }
 
 export async function getBuyerTrends(query: HistoricalDataQuery): Promise<BuyerTrends> {
+  const cacheKey = historicalCacheKey('buyers', query);
+  const cached = readCache<BuyerTrends>(cacheKey);
+  if (cached) return cached;
   await new Promise((resolve) => setTimeout(resolve, 400));
   const granularity = query.granularity ?? 'month';
   const records = filterRecords(collectRecords(), query);
@@ -546,7 +660,7 @@ export async function getBuyerTrends(query: HistoricalDataQuery): Promise<BuyerT
       };
     });
 
-  return { region: query.region, projectType: query.projectType, series };
+  return writeCache(cacheKey, { region: query.region, projectType: query.projectType, series });
 }
 
 export async function syncCertificationProject(

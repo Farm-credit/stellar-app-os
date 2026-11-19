@@ -10,11 +10,8 @@
 //   npx prisma generate
 //   npx prisma migrate dev --name <description>
 //
-// Related SQL migrations:
-//   db/migrations/026_biome_campaigns_buffer_zones.sql
-//     (biome_campaigns, corporate_match_pledges, project_buffer_zones)
-//   db/migrations/027_waitlist_annual_impact_summary.sql
-//     (tree_sponsorship_waitlist, annual_impact_summaries)
+// Related SQL migration: db/migrations/026_biome_campaigns_buffer_zones.sql
+// (biome_campaigns, corporate_match_pledges, project_buffer_zones)
 
 generator client {
   provider = "prisma-client-js"
@@ -252,55 +249,131 @@ model ProjectBufferZone {
   @@map("project_buffer_zones")
 }
 
-// ── TreeSponsorshipWaitlist ─────────────────────────────────────────────────
+// ── Auction ─────────────────────────────────────────────────────────────────
 //
-// Waitlist entries for oversubscribed planting zones (Issue #1718). When a
-// zone reaches capacity, sponsors can join the waitlist and are automatically
-// assigned a tree (in position order) when the next planting batch opens.
+// Carbon credit auctions (Issue #1280). Farmers list a batch of credits for
+// competitive bidding; the highest bid at closing wins. Transparent price
+// discovery via the full bid history.
 //
-// Schema is for documentation; production uses raw SQL migrations (see note above).
-// Related SQL migration: db/migrations/027_waitlist_annual_impact_summary.sql
-model TreeSponsorshipWaitlist {
+// Related SQL migration: db/migrations/027_auctions_certifications_historical.sql
+model Auction {
+  id                 String    @id @default(cuid())
+  farmerId           String    @map("farmer_id")
+  projectId          String?   @map("project_id")
+  title              String    @db.VarChar(200)
+  description        String?   @db.Text
+  quantity           Float     @db.DoublePrecision
+  reservePricePerTon Float     @map("reserve_price_per_ton") @db.DoublePrecision
+  minBidIncrement    Float     @default(0.01) @map("min_bid_increment") @db.DoublePrecision
+  currency           String    @default("USD") @db.VarChar(3)
+  status             String    @default("draft") @db.VarChar(20) // draft | open | closed | settled | cancelled
+  startAt            DateTime? @map("start_at")
+  closingAt          DateTime? @map("closing_at")
+  settledAt          DateTime? @map("settled_at")
+  winnerBidId        String?   @unique @map("winner_bid_id")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+
+  bids               Bid[]
+
+  @@index([farmerId])
+  @@index([projectId])
+  @@index([status])
+  @@index([closingAt])
+  @@map("auctions")
+}
+
+// ── Bid ─────────────────────────────────────────────────────────────────────
+//
+// Individual bids placed on an Auction (Issue #1280). Bids must meet the
+// auction's reserve price and minimum increment over the current highest bid.
+model Bid {
+  id           String   @id @default(cuid())
+  auctionId    String   @map("auction_id")
+  bidderId     String   @map("bidder_id")
+  amountPerTon Float    @map("amount_per_ton") @db.DoublePrecision
+  quantity     Float    @db.DoublePrecision
+  status       String   @default("active") @db.VarChar(20) // active | outbid | won | withdrawn
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  auction      Auction  @relation(fields: [auctionId], references: [id], onDelete: Cascade)
+
+  @@index([auctionId])
+  @@index([bidderId])
+  @@index([auctionId, amountPerTon])
+  @@index([createdAt])
+  @@map("bids")
+}
+
+// ── CertificationRecord ─────────────────────────────────────────────────────
+//
+// Verified certification state for a project pulled from an external registry
+// such as Verra or Gold Standard (Issue #1286). Tracks verified credit volume,
+// renewal deadlines, and the latest synced documents.
+model CertificationRecord {
   id              String    @id @default(cuid())
-  sponsorId       String    @map("sponsor_id")
-  region          String    @db.VarChar(100) // planting zone / region, e.g. "North America"
-  position        Int       // 1-based waitlist position within the region
-  status          String    @default("waiting") @db.VarChar(20) // waiting | assigned | cancelled
-  joinedAt        DateTime  @default(now()) @map("joined_at")
-  assignedAt      DateTime? @map("assigned_at")
-  assignedTreeId  String?   @map("assigned_tree_id")
+  provider        String    @db.VarChar(50) // verra | gold_standard
+  projectId       String    @map("project_id")
+  externalId      String?   @map("external_id") @db.VarChar(200)
+  status          String    @default("pending") @db.VarChar(30) // pending | verified | expired | revoked
+  verifiedCredits Float?    @map("verified_credits") @db.DoublePrecision
+  renewalDueAt    DateTime? @map("renewal_due_at")
+  lastSyncedAt    DateTime? @map("last_synced_at")
+  documents       Json      @default("[]")
+  metadata        Json      @default("{}")
   createdAt       DateTime  @default(now()) @map("created_at")
   updatedAt       DateTime  @updatedAt @map("updated_at")
 
-  @@index([region, status])
-  @@index([sponsorId])
+  @@unique([provider, projectId])
+  @@index([provider])
+  @@index([projectId])
   @@index([status])
-  @@map("tree_sponsorship_waitlist")
+  @@index([renewalDueAt])
+  @@map("certification_records")
 }
 
-// ── AnnualImpactSummary ─────────────────────────────────────────────────────
+// ── CertificationSyncJob ────────────────────────────────────────────────────
 //
-// Year-in-review impact summary emails sent to sponsors each December 20
-// (Issue #1712). Stores the per-sponsor, per-year stats snapshot used to
-// personalise the email and the shareable impact image.
-//
-// Schema is for documentation; production uses raw SQL migrations (see note above).
-// Related SQL migration: db/migrations/027_waitlist_annual_impact_summary.sql
-model AnnualImpactSummary {
-  id          String    @id @default(cuid())
-  sponsorId   String    @map("sponsor_id")
-  year        Int
-  status      String    @default("pending") @db.VarChar(20) // pending | sent | failed
-  sentAt      DateTime? @map("sent_at")
-  // Snapshot of the year's stats: trees funded, CO2 absorbed, species
-  // diversity, milestones, shareable image URL, etc.
-  stats       Json      @default("{}")
-  createdAt   DateTime  @default(now()) @map("created_at")
-  updatedAt   DateTime  @updatedAt @map("updated_at")
+// Background sync job tracking for certification registry integrations
+// (Issue #1286). Records each pull/verify run, its outcome, and any error.
+model CertificationSyncJob {
+  id         String    @id @default(cuid())
+  provider   String    @db.VarChar(50) // verra | gold_standard
+  projectId  String?   @map("project_id")
+  status     String    @default("queued") @db.VarChar(20) // queued | running | succeeded | failed
+  startedAt  DateTime? @map("started_at")
+  finishedAt DateTime? @map("finished_at")
+  error      String?   @db.Text
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
 
-  @@unique([sponsorId, year])
-  @@index([sponsorId, year])
+  @@index([provider])
+  @@index([projectId])
   @@index([status])
-  @@index([year])
-  @@map("annual_impact_summaries")
+  @@index([startedAt])
+  @@map("certification_sync_jobs")
+}
+
+// ── HistoricalCarbonData ────────────────────────────────────────────────────
+//
+// Denormalized historical carbon data points for analytics and forecasting
+// (Issue #1285). Stores price, project performance, and buyer trend snapshots
+// keyed by region and project type with composite indexes for fast range
+// queries over time.
+model HistoricalCarbonData {
+  id              String   @id @default(cuid())
+  region          String   @db.VarChar(100)
+  projectType     String   @map("project_type") @db.VarChar(100)
+  metric          String   @db.VarChar(50) // price | project_performance | buyer_trend
+  value           Float    @db.DoublePrecision
+  currency        String?  @db.VarChar(3)
+  recordedAt      DateTime @map("recorded_at")
+  metadata        Json     @default("{}")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  @@index([region, projectType, recordedAt])
+  @@index([projectType, recordedAt])
+  @@index([metric, recordedAt])
+  @@index([recordedAt])
+  @@map("historical_carbon_data")
 }

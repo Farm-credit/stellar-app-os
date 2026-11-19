@@ -237,6 +237,7 @@ export function MarketplaceFilters({
             <option value="funded">Most Funded</option>
             <option value="ending-soon">Ending Soon</option>
             <option value="auction-ending-soon">Auctions Ending Soon</option>
+            <option value="auction-highest-bid">Auctions: Highest Bid</option>
             <option value="alphabetical">Alphabetical</option>
           </Select>
         </div>
