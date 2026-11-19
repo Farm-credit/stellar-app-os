@@ -156,6 +156,7 @@ pub const CRATE_NAMES: &[&str] = &[
     "xlm-bridge",
     "zk-location-verifier",
     "zk-verifier",
+    "impact-certificate-fractionalization",
 ];
 
 /// Number of crates covered by the standard.
@@ -233,6 +234,7 @@ pub const CRATE_ERROR_RANGES: &[(&str, ErrorRange)] = &[
     ("xlm-bridge", crate_range(53)),
     ("zk-location-verifier", crate_range(54)),
     ("zk-verifier", crate_range(55)),
+    ("impact-certificate-fractionalization", crate_range(56)),
 ];
 
 /// Builds a globally unique `u32` error code for `crate_index` and its local code.
@@ -381,6 +383,10 @@ mod tests {
     fn range_lookup_by_name() {
         let expected = crate_range(16);
         assert_eq!(crate_range_by_name("donation-escrow"), Some(expected));
+        assert_eq!(
+            crate_range_by_name("impact-certificate-fractionalization"),
+            Some(crate_range(56))
+        );
         assert_eq!(crate_range_by_name("does-not-exist"), None);
     }
 
@@ -395,6 +401,10 @@ mod tests {
         assert_eq!(
             origin_of(global_code(55, 1)),
             ErrorOrigin::Contract("zk-verifier")
+        );
+        assert_eq!(
+            origin_of(global_code(56, 1)),
+            ErrorOrigin::Contract("impact-certificate-fractionalization")
         );
     }
 }
