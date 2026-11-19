@@ -147,6 +147,7 @@ inclusive and disjoint.
 | 54 | zk-location-verifier | 0x37 | 0x370000-0x37FFFF (3604480-3670015) |
 | 55 | zk-verifier | 0x38 | 0x380000-0x38FFFF (3670016-3735551) |
 | 56 | impact-certificate-fractionalization | 0x39 | 0x390000-0x39FFFF (3735552-3801087) |
+| 57 | planter-reputation | 0x3A | 0x3A0000-0x3AFFFF (3801088-3866623) |
 
 The same table is available at runtime/compile time as
 `standard::CRATE_ERROR_RANGES`; `standard::crate_range_by_name("escrow")` and
@@ -215,7 +216,7 @@ The standard is enforced by 13 unit tests in `harvesta-errors` covering:
 - internal uniqueness of the three auxiliary enums;
 - every shared code inside `1..=118`;
 - pinned regression values for widely used codes;
-- disjointness and validity of all 57 allocations (also a compile-time `const`
+- disjointness and validity of all 58 allocations (also a compile-time `const`
   assertion);
 - encode/decode round-trips and origin resolution for every crate.
 

@@ -55,6 +55,7 @@ members = [
     "farmer-bonus-pool",
     "carbon-fractionalization",
     "impact-certificate-fractionalization",
+    "planter-reputation",
 ]
 resolver = "2"
 

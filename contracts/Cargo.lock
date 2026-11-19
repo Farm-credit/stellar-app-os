@@ -440,6 +440,7 @@ dependencies = [
 name = "bonus-pool"
 version = "0.1.0"
 dependencies = [
+ "contract-utils",
  "soroban-sdk 27.0.6",
 ]
 
@@ -1610,6 +1611,15 @@ name = "planter-registry"
 version = "0.1.0"
 dependencies = [
  "admin-controls",
+ "harvesta-errors",
+ "soroban-sdk 27.0.6",
+]
+
+[[package]]
+name = "planter-reputation"
+version = "0.1.0"
+dependencies = [
+ "contract-utils",
  "harvesta-errors",
  "soroban-sdk 27.0.6",
 ]
@@ -3220,6 +3230,7 @@ dependencies = [
 name = "zk-location-verifier"
 version = "0.1.0"
 dependencies = [
+ "contract-utils",
  "harvesta-errors",
  "soroban-sdk 27.0.6",
 ]
