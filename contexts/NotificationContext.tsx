@@ -161,6 +161,49 @@ function readStoredNewsletterOptIn(): boolean {
   }
 }
 
+/**
+ * Payload describing a published monthly forest health newsletter.
+ * Used to surface the newsletter as an in-app notification.
+ */
+export interface NewsletterPublishedEvent {
+  newsletterId: string;
+  title?: string;
+  summary?: string;
+  issueMonth?: string;
+  timestamp?: string;
+  metadata?: Record<string, unknown>;
+}
+
+function buildNewsletterNotification(
+  event: NewsletterPublishedEvent
+): Omit<Notification, 'id' | 'timestamp' | 'read' | 'archived'> {
+  const title = event.title ?? 'Monthly Forest Health Newsletter';
+  const description =
+    event.summary ??
+    'Your monthly forest health newsletter is ready with platform news, featured stories, species spotlights, and conservation tips.';
+
+  return {
+    title,
+    description,
+    type: 'newsletter',
+    priority: 'low',
+    action: {
+      label: 'Read Newsletter',
+      onClick: () => {
+        if (typeof window !== 'undefined') {
+          window.open(`/newsletter/${event.newsletterId}`, '_blank');
+        }
+      },
+      variant: 'secondary',
+    },
+    metadata: {
+      ...(event.metadata ?? {}),
+      newsletterId: event.newsletterId,
+      ...(event.issueMonth ? { issueMonth: event.issueMonth } : {}),
+    },
+  };
+}
+
 function persistNewsletterOptIn(value: boolean): void {
   if (typeof window === 'undefined') {
     return;
@@ -666,6 +709,33 @@ export function NotificationProvider({ children }: { children: ReactNode }): Rea
     persistNewsletterOptIn(value);
   }, []);
 
+  const toggleNewsletterOptIn = useCallback(() => {
+    setNewsletterOptInState((prev) => {
+      const next = !prev;
+      persistNewsletterOptIn(next);
+      return next;
+    });
+  }, []);
+
+  const notifyNewsletterPublished = useCallback(
+    (event: NewsletterPublishedEvent): string | undefined => {
+      if (!newsletterOptIn) {
+        return undefined;
+      }
+      const id = generateId();
+      const newNotification: Notification = {
+        ...buildNewsletterNotification(event),
+        id,
+        timestamp: event.timestamp ?? new Date().toISOString(),
+        read: false,
+        archived: false,
+      };
+      setNotifications((prev) => [newNotification, ...prev]);
+      return id;
+    },
+    [newsletterOptIn]
+  );
+
   const openDrawer = useCallback(() => setIsDrawerOpen(true), []);
   const closeDrawer = useCallback(() => setIsDrawerOpen(false), []);
   const toggleDrawer = useCallback(() => setIsDrawerOpen((prev) => !prev), []);
@@ -733,6 +803,8 @@ export function NotificationProvider({ children }: { children: ReactNode }): Rea
       toast: toastHelpers,
       newsletterOptIn,
       setNewsletterOptIn,
+      toggleNewsletterOptIn,
+      notifyNewsletterPublished,
       digestPreferences,
       setDigestPreferences,
       nextDigestSendTime,
@@ -765,6 +837,8 @@ export function NotificationProvider({ children }: { children: ReactNode }): Rea
       toastHelpers,
       newsletterOptIn,
       setNewsletterOptIn,
+      toggleNewsletterOptIn,
+      notifyNewsletterPublished,
       digestPreferences,
       setDigestPreferences,
       nextDigestSendTime,

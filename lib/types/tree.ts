@@ -45,6 +45,37 @@ export interface Tree {
   provenanceNotes?: string;
   /** Collection site where the seed was originally gathered. */
   collectionSite?: string;
+  /** Human-readable code of the seed batch (e.g. "SB-2024-001"). */
+  seedBatchCode?: string;
+  /** Identifier of the seed bank that supplied the seed batch. */
+  seedBankId?: string;
+  /** Identifier of the collection site record for the seed's origin. */
+  collectionSiteId?: string;
+  /** Ordered provenance trail for the seed batch this tree was grown from. */
+  provenanceEvents?: SeedProvenanceEvent[];
+  /** Ordered list of organisations the seed batch passed through (seed bank → nursery → planting site). */
+  distributionChain?: string[];
+}
+
+export type SeedProvenanceStage =
+  | 'collection'
+  | 'processing'
+  | 'storage'
+  | 'distribution'
+  | 'nursery'
+  | 'planting';
+
+export interface SeedProvenanceEvent {
+  /** Stage of the seed lifecycle this event records. */
+  stage: SeedProvenanceStage;
+  /** ISO timestamp of when the event occurred. */
+  occurredAt: string;
+  /** Location where the event took place. */
+  location: string;
+  /** Person or organisation responsible for the event. */
+  actor: string;
+  /** Optional free-form notes about the event. */
+  notes?: string;
 }
 
 export interface TreeFilterState {

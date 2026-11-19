@@ -14,6 +14,50 @@ export type NotificationType =
   | 'tree_milestone_5y'
   | 'achievement_unlocked';
 
+/**
+ * Curated section kinds available in the monthly forest health newsletter.
+ * These are authored in the admin CMS and rendered in the sponsor newsletter.
+ */
+export type NewsletterSectionKind =
+  | 'platform_news'
+  | 'featured_story'
+  | 'species_spotlight'
+  | 'conservation_tip';
+
+export interface NewsletterSection {
+  id: string;
+  kind: NewsletterSectionKind;
+  title: string;
+  /** Body copy for the section (plain text or markdown). */
+  body: string;
+  /** Optional image URL used as a hero/thumbnail for the section. */
+  imageUrl?: string;
+  /** Optional call-to-action label and link. */
+  ctaLabel?: string;
+  ctaUrl?: string;
+  /** Display order within the newsletter. */
+  order: number;
+}
+
+export interface Newsletter {
+  id: string;
+  /** Human-readable edition title, e.g. "March 2025 Forest Health". */
+  title: string;
+  /** Edition month in `YYYY-MM` format. */
+  edition: string;
+  /** Short intro/teaser shown at the top of the newsletter. */
+  summary?: string;
+  sections: NewsletterSection[];
+  /** Whether the newsletter is published and eligible for delivery. */
+  published: boolean;
+  /** ISO timestamp of when the newsletter was created. */
+  createdAt: string;
+  /** ISO timestamp of when the newsletter was last updated. */
+  updatedAt: string;
+  /** ISO timestamp of when the newsletter was published, if published. */
+  publishedAt?: string;
+}
+
 export type NotificationPriority = 'low' | 'medium' | 'high' | 'urgent';
 
 export interface NotificationAction {

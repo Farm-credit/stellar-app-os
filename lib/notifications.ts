@@ -721,6 +721,39 @@ export async function sendWaitlistAssignmentEmail(
 }
 
 // ---------------------------------------------------------------------------
+// Monthly forest health newsletter (#1703)
+//
+// A curated monthly newsletter sent to sponsors who have opted in. It contains
+// platform news, featured reforestation stories, species spotlights and
+// conservation tips, plus a personalised section with the sponsor's own tree
+// updates. Sponsors can opt in/out via their notification preferences.
+// ---------------------------------------------------------------------------
+
+export interface NewsletterTreeUpdate {
+  treeId: string;
+  species?: string;
+  zone?: string;
+  /** Short human-readable status, e.g. "Planted", "Survived 1 year". */
+  status: string;
+  /** When the update occurred. */
+  updatedAt: Date;
+}
+
+export interface NewsletterContent {
+  /** Edition identifier, e.g. "2024-06". */
+  edition: string;
+  /** Human-readable edition title, e.g. "June 2024 Forest Health". */
+  title: string;
+  /** Platform news items. */
+  news: string[];
+  /** Featured reforestation stories. */
+  featuredStories: string[];
+  /** Species spotlights. */
+  speciesSpotlights: string[];
+  /** Conservation tips. */
+  conservationTips: string[];
+}
+
 // Weekly sponsor impact digest (#1110)
 //
 // Automated weekly emails to sponsors showing tree growth updates (with tree
@@ -746,10 +779,24 @@ export interface WeeklyDigestMetrics {
   treesSurvived?: number;
 }
 
+export interface NewsletterSponsorSettings {
+  sponsorId: string;
+  sponsorName: string;
+  email: string;
+}
+
 export interface WeeklySponsorDigestSettings {
   sponsorId: string;
   sponsorName: string;
   email: string;
+}
+
+export interface MonthlyNewsletterEmail {
+  sponsorId: string;
+  to: string;
+  subject: string;
+  html: string;
+  text: string;
 }
 
 export interface WeeklySponsorDigestData {
@@ -764,6 +811,75 @@ export interface WeeklySponsorDigestEmail {
   subject: string;
   html: string;
   text: string;
+  /** The sponsor's personalised tree updates included in this edition. */
+  treeUpdates: NewsletterTreeUpdate[];
+}
+
+/**
+ * In-memory store of newsletter opt-in preferences, keyed by sponsor id.
+ * Defaults to opted-in when no explicit preference has been recorded.
+ */
+const newsletterPreferences = new Map<string, boolean>();
+
+/**
+ * Returns whether a sponsor has opted in to the monthly newsletter. Sponsors
+ * default to opted in until they explicitly opt out.
+ */
+export function getNewsletterPreference(sponsorId: string): boolean {
+  return newsletterPreferences.get(sponsorId) ?? true;
+}
+
+/**
+ * Persist a sponsor's newsletter opt-in preference. Used by the notification
+ * preferences toggle and the admin newsletter CMS.
+ */
+export function setNewsletterPreference(sponsorId: string, optedIn: boolean): void {
+  newsletterPreferences.set(sponsorId, optedIn);
+}
+
+/**
+ * Fetches a sponsor's own tree updates for the personalised newsletter
+ * section. The `fetchTreeUpdates` callback loads the updates from the data
+ * source so this module stays free of data-layer dependencies.
+ */
+export async function getSponsorTreeUpdates(
+  sponsorId: string,
+  fetchTreeUpdates: (sponsorId: string) => Promise<NewsletterTreeUpdate[]>
+): Promise<NewsletterTreeUpdate[]> {
+  try {
+    const updates = await fetchTreeUpdates(sponsorId);
+    return [...updates].sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
+  } catch (error) {
+    console.error('Failed to load sponsor tree updates for newsletter:', error);
+    return [];
+  }
+}
+
+function buildTreeUpdatesSection(updates: NewsletterTreeUpdate[]): { html: string; text: string[] } {
+  if (updates.length === 0) {
+    return {
+      html: '<p style="color:#555;">No tree updates yet this month - your next tree could be the one!</p>',
+      text: ['No tree updates yet this month - your next tree could be the one!'],
+    };
+  }
+
+  const htmlItems = updates
+    .map((update) => {
+      const species = update.species ? ` ${escapeHtml(update.species)}` : '';
+      const zone = update.zone ? ` in ${escapeHtml(update.zone)}` : '';
+      const date = escapeHtml(update.updatedAt.toISOString().slice(0, 10));
+      return `<li style="margin-bottom:8px;"><strong>${escapeHtml(update.status)}</strong>${species}${zone} <span style="color:#888;font-size:12px;">(${date})</span></li>`;
+    })
+    .join('');
+
+  const text = updates.map((update) => {
+    const species = update.species ? ` ${update.species}` : '';
+    const zone = update.zone ? ` in ${update.zone}` : '';
+    const date = update.updatedAt.toISOString().slice(0, 10);
+    return `- ${update.status}${species}${zone} (${date})`;
+  });
+
+  return { html: `<ul style="padding-left:18px;">${htmlItems}</ul>`, text };
 }
 
 /**
@@ -850,24 +966,93 @@ export function buildWeeklySponsorDigestEmail(
       ? `<li>Trees survived: <strong>${metrics.treesSurvived}</strong></li>`
       : '';
 
+/** Compile the personalised monthly newsletter email for a sponsor. */
+export function buildMonthlyNewsletterEmail(
+  content: NewsletterContent,
+  settings: NewsletterSponsorSettings,
+  treeUpdates: NewsletterTreeUpdate[]
+): MonthlyNewsletterEmail {
+  const { sponsorName } = settings;
+  const subject = `${content.title} - your forest health update`;
+
+  const treeSection = buildTreeUpdatesSection(treeUpdates);
+
+  const text = [
+    `Hi ${sponsorName},`,
+    '',
+    content.title,
+    '',
+    'Platform news:',
+    ...content.news.map((item) => `- ${item}`),
+    '',
+    'Featured reforestation stories:',
+    ...content.featuredStories.map((item) => `- ${item}`),
+    '',
+    'Species spotlights:',
+    ...content.speciesSpotlights.map((item) => `- ${item}`),
+    '',
+    'Conservation tips:',
+    ...content.conservationTips.map((item) => `- ${item}`),
+    '',
+    'Your tree updates:',
+    ...treeSection.text,
+    '',
+    'Thank you for supporting our forests!',
+  ].join('\n');
+
+  const list = (items: string[]) =>
+    items.length > 0
+      ? `<ul style="padding-left:18px;">${items.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}</ul>`
+      : '<p style="color:#555;">Nothing to share this month.</p>';
+
   const html = [
     '<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">',
     `<h2>Hi ${escapeHtml(sponsorName)},</h2>`,
-    '<p>Here is your weekly impact summary:</p>',
-    '<h3>Impact metrics</h3>',
-    '<ul>',
-    `<li>Trees funded: <strong>${metrics.treesFunded}</strong></li>`,
-    `<li>CO2 absorbed: <strong>${metrics.co2AbsorbedKg} kg</strong></li>`,
-    `<li>Species supported: <strong>${metrics.speciesCount}</strong></li>`,
-    survivedHtml,
-    '</ul>',
-    htmlTreeUpdates,
-    htmlHighlights,
-    '<p>Thank you for making a difference!</p>',
+    `<h3>${escapeHtml(content.title)}</h3>`,
+    '<h4>Platform news</h4>',
+    list(content.news),
+    '<h4>Featured reforestation stories</h4>',
+    list(content.featuredStories),
+    '<h4>Species spotlights</h4>',
+    list(content.speciesSpotlights),
+    '<h4>Conservation tips</h4>',
+    list(content.conservationTips),
+    '<h4>Your tree updates</h4>',
+    treeSection.html,
+    '<p>Thank you for supporting our forests!</p>',
     '</div>',
   ].join('');
 
-  return { sponsorId: settings.sponsorId, to: settings.email, subject, html, text };
+  return {
+    sponsorId: settings.sponsorId,
+    to: settings.email,
+    subject,
+    html,
+    text,
+    treeUpdates,
+  };
+}
+
+/**
+ * Compile and send the monthly newsletter to a single sponsor. Returns `null`
+ * when the sponsor has opted out of the newsletter. The `sendEmail` callback
+ * performs the actual delivery.
+ */
+export async function sendMonthlyNewsletter(
+  content: NewsletterContent,
+  settings: NewsletterSponsorSettings,
+  fetchTreeUpdates: (sponsorId: string) => Promise<NewsletterTreeUpdate[]>,
+  sendEmail: (email: MonthlyNewsletterEmail) => Promise<void>
+): Promise<MonthlyNewsletterEmail | null> {
+  if (!getNewsletterPreference(settings.sponsorId)) {
+    return null;
+  }
+
+  const treeUpdates = await getSponsorTreeUpdates(settings.sponsorId, fetchTreeUpdates);
+  const email = buildMonthlyNewsletterEmail(content, settings, treeUpdates);
+
+  await sendEmail(email);
+  return email;
 }
 
 /**
@@ -893,6 +1078,26 @@ export async function sendWeeklySponsorDigest(
 
   await sendEmail(email);
   return email;
+}
+
+/**
+ * Send the monthly newsletter to all opted-in sponsors. Sponsors who have
+ * opted out are skipped. Intended to be invoked by a monthly scheduler.
+ */
+export async function sendMonthlyNewsletterToAllSponsors(
+  content: NewsletterContent,
+  sponsors: NewsletterSponsorSettings[],
+  fetchTreeUpdates: (sponsorId: string) => Promise<NewsletterTreeUpdate[]>,
+  sendEmail: (email: MonthlyNewsletterEmail) => Promise<void>
+): Promise<MonthlyNewsletterEmail[]> {
+  const sent: MonthlyNewsletterEmail[] = [];
+  for (const settings of sponsors) {
+    const email = await sendMonthlyNewsletter(content, settings, fetchTreeUpdates, sendEmail);
+    if (email) {
+      sent.push(email);
+    }
+  }
+  return sent;
 }
 
 /**

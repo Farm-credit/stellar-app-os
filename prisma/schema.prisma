@@ -662,3 +662,168 @@ model ChatMessage {
   @@index([authorId])
   @@map("chat_messages")
 }
+
+// ── Newsletter ──────────────────────────────────────────────────────────────
+//
+// Monthly forest health newsletter curated in the admin CMS (Issue #1703).
+// Each newsletter is composed of ordered sections and is sent to opted-in
+// sponsors once published.
+//
+// Related SQL migration: db/migrations/028_newsletters_seed_distribution.sql
+model Newsletter {
+  id          String    @id @default(cuid())
+  title       String    @db.VarChar(200)
+  month       String    @db.VarChar(7) // e.g. "2025-01"
+  status      String    @default("draft") @db.VarChar(20) // draft | scheduled | published
+  scheduledAt DateTime? @map("scheduled_at")
+  publishedAt DateTime? @map("published_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  sections    NewsletterSection[]
+
+  @@index([month])
+  @@index([status])
+  @@index([scheduledAt])
+  @@map("newsletters")
+}
+
+// ── NewsletterSection ───────────────────────────────────────────────────────
+//
+// Ordered content blocks within a Newsletter (Issue #1703). Section kinds map
+// to the curated newsletter categories.
+model NewsletterSection {
+  id           String   @id @default(cuid())
+  newsletterId String   @map("newsletter_id")
+  kind         String   @db.VarChar(30) // platform_news | featured_story | species_spotlight | conservation_tip
+  title        String   @db.VarChar(200)
+  body         String   @db.Text
+  order        Int      @default(0)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  newsletter   Newsletter @relation(fields: [newsletterId], references: [id], onDelete: Cascade)
+
+  @@index([newsletterId, order])
+  @@index([kind])
+  @@map("newsletter_sections")
+}
+
+// ── SponsorNewsletterPreference ─────────────────────────────────────────────
+//
+// Per-sponsor opt-in/out preference for the monthly newsletter (Issue #1703).
+model SponsorNewsletterPreference {
+  id        String   @id @default(cuid())
+  sponsorId String   @unique @map("sponsor_id")
+  optIn     Boolean  @default(true) @map("opt_in")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([optIn])
+  @@map("sponsor_newsletter_preferences")
+}
+
+// ── SeedBank ────────────────────────────────────────────────────────────────
+//
+// Native plant seed bank operated by a partner organisation (Issue #1709).
+// Tracks total and used storage capacity in kilograms.
+//
+// Related SQL migration: db/migrations/028_newsletters_seed_distribution.sql
+model SeedBank {
+  id         String   @id @default(cuid())
+  name       String   @db.VarChar(200)
+  capacityKg Float    @map("capacity_kg") @db.DoublePrecision
+  usedKg     Float    @default(0) @map("used_kg") @db.DoublePrecision
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  batches    SeedBatch[]
+
+  @@index([name])
+  @@map("seed_banks")
+}
+
+// ── SeedBatch ───────────────────────────────────────────────────────────────
+//
+// A tracked batch of native plant seeds moving from collection through
+// storage and distribution to planting (Issue #1709). Provenance is linked
+// to the resulting tree profile for transparency.
+model SeedBatch {
+  id               String    @id @default(cuid())
+  batchCode        String    @unique @map("batch_code") @db.VarChar(100)
+  species          String    @db.VarChar(200)
+  scientificName   String?   @map("scientific_name") @db.VarChar(200)
+  seedBankId       String?   @map("seed_bank_id")
+  collectionSiteId String?   @map("collection_site_id")
+  collectedBy      String?   @map("collected_by") @db.VarChar(200)
+  collectedAt      DateTime? @map("collected_at")
+  quantityKg       Float     @map("quantity_kg") @db.DoublePrecision
+  stage            String    @default("collected") @db.VarChar(20) // collected | stored | distributed | planted
+  storageLocation  String?   @map("storage_location") @db.VarChar(200)
+  germinationRate  Float?    @map("germination_rate") @db.DoublePrecision
+  treeProfileId    String?   @map("tree_profile_id")
+  provenanceNotes  String?   @map("provenance_notes") @db.Text
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  seedBank         SeedBank?             @relation(fields: [seedBankId], references: [id], onDelete: SetNull)
+  provenanceEvents SeedProvenanceEvent[]
+  distributions    SeedDistribution[]
+
+  @@index([batchCode])
+  @@index([species])
+  @@index([seedBankId])
+  @@index([stage])
+  @@index([treeProfileId])
+  @@map("seed_batches")
+}
+
+// ── SeedProvenanceEvent ─────────────────────────────────────────────────────
+//
+// Immutable audit trail of a SeedBatch's journey (Issue #1709). Each event
+// records a stage transition with location, actor, and notes.
+model SeedProvenanceEvent {
+  id         String   @id @default(cuid())
+  batchId    String   @map("batch_id")
+  stage      String   @db.VarChar(20) // collected | stored | distributed | planted
+  occurredAt DateTime @map("occurred_at")
+  location   String?  @db.VarChar(200)
+  actor      String?  @db.VarChar(200)
+  notes      String?  @db.Text
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  batch      SeedBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+
+  @@index([batchId, occurredAt])
+  @@index([stage])
+  @@map("seed_provenance_events")
+}
+
+// ── SeedDistribution ────────────────────────────────────────────────────────
+//
+// Distribution of a SeedBatch from a seed bank to a nursery and onward to a
+// planting site (Issue #1709). Links the batch to the resulting tree profile.
+model SeedDistribution {
+  id             String    @id @default(cuid())
+  batchId        String    @map("batch_id")
+  nurseryId      String?   @map("nursery_id")
+  plantingSiteId String?   @map("planting_site_id")
+  treeProfileId  String?   @map("tree_profile_id")
+  quantityKg     Float     @map("quantity_kg") @db.DoublePrecision
+  status         String    @default("pending") @db.VarChar(20) // pending | in_transit | received | planted | cancelled
+  distributedAt  DateTime? @map("distributed_at")
+  receivedAt     DateTime? @map("received_at")
+  plantedAt      DateTime? @map("planted_at")
+  notes          String?   @db.Text
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  batch          SeedBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+
+  @@index([batchId])
+  @@index([nurseryId])
+  @@index([plantingSiteId])
+  @@index([treeProfileId])
+  @@index([status])
+  @@map("seed_distributions")
+}

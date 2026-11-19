@@ -87,7 +87,7 @@ function formatSendTime(date: Date | null): string {
 
 function NotificationSection() {
   const { timeZone, setTimeZone } = useTimeZone();
-  const { refresh: refreshNotifications } = useNotifications();
+  const { newsletterOptIn, setNewsletterOptIn, refresh: refreshNotifications } = useNotifications();
   const [digestEnabled, setDigestEnabled] = useState(true);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -160,6 +160,32 @@ function NotificationSection() {
 
   return (
     <div className="space-y-6">
+      <div className="flex items-start justify-between gap-4 rounded-lg border p-4">
+        <div className="min-w-0">
+          <Text variant="small" as="p" className="font-medium text-foreground">
+            Monthly Forest Health Newsletter
+          </Text>
+          <Text variant="muted" as="p" className="mt-1 text-sm">
+            Receive a curated monthly newsletter with platform news, featured reforestation
+            stories, species spotlights, conservation tips, and a personalised section with
+            updates on your own trees.
+          </Text>
+        </div>
+        <label className="flex shrink-0 cursor-pointer items-center gap-2">
+          <input
+            type="checkbox"
+            role="switch"
+            aria-label="Opt in to the monthly forest health newsletter"
+            checked={newsletterOptIn}
+            onChange={(event) => setNewsletterOptIn(event.target.checked)}
+            className="h-5 w-5 cursor-pointer accent-primary"
+          />
+          <span className="text-sm text-muted-foreground">
+            {newsletterOptIn ? 'Opted in' : 'Opted out'}
+          </span>
+        </label>
+      </div>
+
       <div className="space-y-2">
         <Text variant="h4" as="h3">
           Daily Digest
