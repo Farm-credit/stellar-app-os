@@ -35,7 +35,7 @@ Custom error codes follow the workspace-wide allocation standard documented in
 | `kyc-attestation` | 14 | 6 | 0 |
 | `location-proof` | 8 | 4 | 0 |
 | `naira-payout` | 12 | 5 | 0 |
-| `nft-certificate` | 20 | 5 | 6 |
+| `nft-certificate` | 28 | 8 | 14 |
 | `nullifier-registry` | 9 | 5 | 0 |
 | `planter-blacklist` | 6 | 2 | 0 |
 | `planter-registry` | 13 | 3 | 0 |
@@ -704,12 +704,15 @@ Custom error codes follow the workspace-wide allocation standard documented in
 | `remove_issuer` | `fn remove_issuer(env: Env, issuer: Address)` |
 | `get_issuers` | `fn get_issuers(env: Env) -> Vec<IssuerRecord>` |
 | `is_issuer` | `fn is_issuer(env: Env, addr: Address) -> bool` |
-| `mint` | `fn mint(env: Env, to: Address, token_id: u64, metadata: CertificateMetadata)` |
 | `mint` | `fn mint( env: Env, issuer: Address, to: Address, token_id: u64, metadata: CertificateMetadata, )` |
+| `mint_soulbound` | `fn mint_soulbound( env: Env, issuer: Address, to: Address, token_id: u64, metadata: CertificateMetadata, )` |
 | `batch_mint` | `fn batch_mint( env: Env, issuer: Address, to: Address, token_ids: Vec<u64>, metadatas: Vec<CertificateMetadata>, )` |
+| `batch_mint_soulbound` | `fn batch_mint_soulbound( env: Env, issuer: Address, to: Address, token_ids: Vec<u64>, metadatas: Vec<CertificateMetadata>, )` |
 | `merge` | `fn merge( env: Env, owner: Address, token_ids: Vec<u64>, new_token_id: u64, merged_metadata: CertificateMetadata, )` |
 | `split` | `fn split( env: Env, owner: Address, original_token_id: u64, new_token_id_1: u64, new_token_id_2: u64, metadata_1: CertificateMetadata, metadata_2: CertificateMetadata, )` |
 | `trade` | `fn trade( env: Env, seller: Address, buyer: Address, token_id: u64, payment_token: Address, price: i128, )` |
+| `make_soulbound` | `fn make_soulbound(env: Env, authority: Address, token_id: u64)` |
+| `is_soulbound` | `fn is_soulbound(env: Env, token_id: u64) -> bool` |
 | `get_token` | `fn get_token(env: Env, token_id: u64) -> Option<Token>` |
 | `owner_of` | `fn owner_of(env: Env, token_id: u64) -> Option<Address>` |
 | `original_planter_of` | `fn original_planter_of(env: Env, token_id: u64) -> Option<Address>` |
@@ -719,6 +722,11 @@ Custom error codes follow the workspace-wide allocation standard documented in
 | `is_paused` | `fn is_paused(env: Env) -> bool` |
 | `render_svg` | `fn render_svg(env: Env, token_id: u64) -> String` |
 | `token_uri` | `fn token_uri(env: Env, token_id: u64) -> String` |
+| `register_protocol_project` | `fn register_protocol_project( env: Env, project_id: Symbol, protocol: VerificationProtocol, registry_id: String, standard_version: String, methodology: String, total_approved_credits_tonnes: u64, )` |
+| `validate_and_issue_protocol_nft` | `fn validate_and_issue_protocol_nft( env: Env, issuer: Address, project_id: Symbol, to: Address, token_id: u64, credits_tonnes: u64, serial_number_start: String, serial_number_end: String, registry_url: String, metadata: CertificateMetadata, ) -> u64` |
+| `validate_protocol_credits` | `fn validate_protocol_credits(env: Env, project_id: Symbol, credits_tonnes: u64) -> bool` |
+| `get_protocol_project` | `fn get_protocol_project(env: Env, project_id: Symbol) -> ProtocolProject` |
+| `get_protocol_validation` | `fn get_protocol_validation(env: Env, token_id: u64) -> ProtocolValidationRecord` |
 
 #### Public types
 
@@ -728,17 +736,28 @@ Custom error codes follow the workspace-wide allocation standard documented in
 | `IssuerRecord` | `#[contracttype]` or public Rust type in `contracts/nft-certificate/src/lib.rs` |
 | `NftCertError` | `#[contracttype]` or public Rust type in `contracts/nft-certificate/src/lib.rs` |
 | `NftCertificate` | `#[contracttype]` or public Rust type in `contracts/nft-certificate/src/lib.rs` |
+| `ProtocolProject` | `#[contracttype]` or public Rust type in `contracts/nft-certificate/src/lib.rs` |
+| `ProtocolValidationRecord` | `#[contracttype]` or public Rust type in `contracts/nft-certificate/src/lib.rs` |
 | `Token` | `#[contracttype]` or public Rust type in `contracts/nft-certificate/src/lib.rs` |
+| `VerificationProtocol` | `#[contracttype]` or public Rust type in `contracts/nft-certificate/src/lib.rs` |
 
 #### Event topics
 
 | Topic | Source |
 |---|---|
+| `btch_mnt` | `env.events().publish` in `contracts/nft-certificate/src/lib.rs` |
 | `issAdd` | `env.events().publish` in `contracts/nft-certificate/src/lib.rs` |
 | `issRm` | `env.events().publish` in `contracts/nft-certificate/src/lib.rs` |
 | `merged` | `env.events().publish` in `contracts/nft-certificate/src/lib.rs` |
 | `minted` | `env.events().publish` in `contracts/nft-certificate/src/lib.rs` |
 | `paused` | `env.events().publish` in `contracts/nft-certificate/src/lib.rs` |
+| `proto_nft` | `env.events().publish` in `contracts/nft-certificate/src/lib.rs` |
+| `proto_reg` | `env.events().publish` in `contracts/nft-certificate/src/lib.rs` |
+| `soulBtch` | `env.events().publish` in `contracts/nft-certificate/src/lib.rs` |
+| `soulMint` | `env.events().publish` in `contracts/nft-certificate/src/lib.rs` |
+| `soulbond` | `env.events().publish` in `contracts/nft-certificate/src/lib.rs` |
+| `split` | `env.events().publish` in `contracts/nft-certificate/src/lib.rs` |
+| `traded` | `env.events().publish` in `contracts/nft-certificate/src/lib.rs` |
 | `unpaused` | `env.events().publish` in `contracts/nft-certificate/src/lib.rs` |
 
 ### `nullifier-registry`
