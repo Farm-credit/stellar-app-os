@@ -17,12 +17,16 @@ export type TreeSpecies =
 
 export type TreeStatus = 'funded' | 'planted' | 'verified' | 'completed' | 'failed';
 
+export type TreeGrowthStage = 'sapling' | 'juvenile' | 'mature';
+
 export interface Tree {
   id: string;
   treeId: string;
   species: TreeSpecies;
   region: string;
   status: TreeStatus;
+  /** Current developmental growth stage of the tree. */
+  growthStage?: TreeGrowthStage;
   plantedAt?: string;
   lat: number;
   lng: number;

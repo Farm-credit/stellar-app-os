@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ArrowRight, Smartphone } from 'lucide-react';
 import { TreeDetail } from '@/components/organisms/TreeDetail/TreeDetail';
+import { TreeStagePhotoTimeline } from '@/components/organisms/TreeStagePhotoTimeline';
 import { ConnectedTreeHealthAlertToggle } from '@/components/molecules/ConnectedTreeHealthAlertToggle';
 import { ConnectedTreeMessagePanel } from '@/components/organisms/TreeMessagePanel/ConnectedTreeMessagePanel';
 import { TreeQRLabel } from '@/components/organisms/TreeQRLabel';
@@ -15,6 +16,7 @@ import {
   inferClimateZone,
 } from '@/lib/carbon/ipcc-tier1';
 import { getReachedTreeMilestones } from '@/lib/trees/milestones';
+import { getTreeGrowthStageTimeline } from '@/lib/tree-growth/stages';
 
 /** Re-render daily so the age-based CO₂ figures keep up as the tree grows. */
 export const revalidate = 86400;
@@ -86,10 +88,21 @@ export default async function TreeDetailPage({ params }: { params: Promise<{ id:
     co2Kg: cumulativeCo2Kg(tree.species, climateZone, milestone.ageYears),
   }));
   const publicTreePath = `/trees/${encodeURIComponent(tree.id)}`;
+  const stageTimeline = getTreeGrowthStageTimeline(tree.id, tree);
 
   return (
     <>
       <TreeDetail tree={tree} sequestration={sequestration} />
+
+      {/* Growth stage chronological photo timeline */}
+      <div className="mx-auto max-w-3xl px-4 pb-6">
+        <TreeStagePhotoTimeline
+          treeId={tree.id}
+          initialStage={stageTimeline.currentStage}
+          initialPhotos={stageTimeline.photos}
+          initialNotifications={stageTimeline.notifications}
+        />
+      </div>
 
       <div className="mx-auto max-w-3xl space-y-6 px-4 pb-8">
         <TreeQRLabel tree={tree} />
