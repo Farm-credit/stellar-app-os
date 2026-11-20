@@ -12,6 +12,7 @@ export type NotificationType =
   | 'tree_planted'
   | 'tree_survival_1y'
   | 'tree_milestone_5y'
+  | 'tree_growth_stage_transition'
   | 'achievement_unlocked';
 
 /**
@@ -157,6 +158,7 @@ export type PushNotificationEventType =
   | 'tree_planted'
   | 'tree_survival_1y'
   | 'tree_milestone_5y'
+  | 'tree_growth_stage_transition'
   | 'achievement_unlocked';
 
 export interface TreeMilestonePushPayload {

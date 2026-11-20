@@ -4,7 +4,9 @@ import Link from 'next/link';
 import { ArrowLeft, ArrowRight, Camera, Leaf, MapPin, TreePine, Wind } from 'lucide-react';
 import { Text } from '@/components/atoms/Text';
 import { TreeStatusBadge } from '@/components/molecules/TreeStatusBadge';
+import { TreeGrowthStageBadge } from '@/components/molecules/TreeGrowthStageBadge';
 import { TreeLifecycleTimeline } from '@/components/organisms/TreeLifecycleTimeline';
+import { deriveGrowthStage } from '@/lib/tree-growth/stages';
 import {
   Card,
   CardContent,
@@ -27,6 +29,8 @@ interface TreeDetailProps {
 
 /** Tree detail view for sponsors and map click-through (#532, #533). */
 export function TreeDetail({ tree, sequestration }: TreeDetailProps) {
+  const growthStage = deriveGrowthStage(tree);
+
   return (
     <div className="mx-auto max-w-3xl px-4 py-6 sm:py-10">
       <Link
@@ -44,6 +48,7 @@ export function TreeDetail({ tree, sequestration }: TreeDetailProps) {
             {tree.treeId}
           </Text>
           <TreeStatusBadge status={tree.status} />
+          <TreeGrowthStageBadge stage={growthStage} />
         </div>
         <Text variant="muted" as="p">
           {tree.projectName}

@@ -1,4 +1,43 @@
-import type { TreeSpecies } from './tree';
+import type { TreeGrowthStage, TreeSpecies } from './tree';
+
+export type { TreeGrowthStage };
+
+/** A field-team uploaded photo documenting a tree's growth stage. */
+export interface GrowthStagePhoto {
+  id: string;
+  treeId: string;
+  stage: TreeGrowthStage;
+  imageUrl: string;
+  caption?: string;
+  /** Name of the field team or team member who uploaded the photo. */
+  uploadedBy: string;
+  /** ISO timestamp of when the photo was captured/uploaded. */
+  uploadedAt: string;
+  /** Optional measured height in centimetres at the time of the photo. */
+  heightCm?: number;
+}
+
+/** Notification sent to a sponsor when their tree transitions to a new growth stage. */
+export interface GrowthStageTransitionNotification {
+  id: string;
+  treeId: string;
+  sponsorId: string;
+  previousStage: TreeGrowthStage | null;
+  newStage: TreeGrowthStage;
+  title: string;
+  message: string;
+  notifiedAt: string;
+}
+
+/** Full growth-stage tracking state for a single tree. */
+export interface TreeGrowthStageTimeline {
+  treeId: string;
+  currentStage: TreeGrowthStage;
+  /** Field-team uploaded photos sorted chronologically (oldest first). */
+  photos: GrowthStagePhoto[];
+  /** Sponsor notifications emitted on stage transitions. */
+  notifications: GrowthStageTransitionNotification[];
+}
 
 /**
  * Sponsor growth-story types for the photo timeline (Issue #1102).
