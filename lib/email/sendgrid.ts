@@ -341,3 +341,23 @@ export async function sendGiftCertificateEmail(
   });
   return true;
 }
+
+export interface GiftCardEmailParams {
+  to: string;
+  subject: string;
+  text: string;
+  html: string;
+}
+
+/** Sends a tree sponsorship gift card email with redemption code and personalised message. */
+export async function sendGiftCardEmail(params: GiftCardEmailParams): Promise<boolean> {
+  if (!isEmailConfigured()) return false;
+  await sgMail.send({
+    to: params.to,
+    from: FROM,
+    subject: params.subject,
+    text: params.text,
+    html: params.html,
+  });
+  return true;
+}
