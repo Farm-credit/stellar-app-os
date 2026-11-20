@@ -199,7 +199,7 @@ pub struct SoilHealthScore {
     /// Composite soil health improvement score (0..=100).
     pub composite_score: u32,
     /// Grams of CO₂ sequestered above baseline.
-    pub sequestration_above_baseline_grams: u64,
+    pub seq_above_baseline_grams: u64,
     /// Awarded bonus carbon credits in grams CO₂.
     pub bonus_credits_grams: u64,
     /// Whether bonus credits have already been awarded into the farmer's balance.
@@ -1073,6 +1073,18 @@ impl CarbonCredits {
             .get(&DataKey::SoilMeasurement(plot_id.clone()))
             .unwrap_or_else(|| panic_with_error!(&env, CarbonCreditsError::PlotMeasurementNotFound));
 
+        // Re-scoring after the bonus was minted would reset `bonus_awarded`
+        // and allow a second mint for the same plot.
+        if let Some(prev) = env
+            .storage()
+            .persistent()
+            .get::<_, SoilHealthScore>(&DataKey::SoilScore(plot_id.clone()))
+        {
+            if prev.bonus_awarded {
+                panic_with_error!(&env, CarbonCreditsError::BonusAlreadyAwarded);
+            }
+        }
+
         let soc_gain_bps = m.measured_soc_bps as i32 - m.baseline_soc_bps as i32;
         if soc_gain_bps <= 0 {
             panic_with_error!(&env, CarbonCreditsError::NoSequestrationAboveBaseline);
@@ -1094,19 +1106,19 @@ impl CarbonCredits {
         let carbon_sequestered_kg = (total_soil_mass_kg * soc_gain_bps as u64) / 10_000;
 
         // Grams CO₂ = carbon_kg * 44/12 * 1000 = (carbon_kg * 44 * 1000) / 12
-        let sequestration_above_baseline_grams =
+        let seq_above_baseline_grams =
             (carbon_sequestered_kg * 44 * 1_000) / 12;
 
         // Bonus credits scaled by composite regenerative score
         let bonus_credits_grams =
-            (sequestration_above_baseline_grams * composite_score as u64) / 100;
+            (seq_above_baseline_grams * composite_score as u64) / 100;
 
         let score = SoilHealthScore {
             plot_id: plot_id.clone(),
             farmer: m.farmer,
             soc_gain_bps,
             composite_score,
-            sequestration_above_baseline_grams,
+            seq_above_baseline_grams,
             bonus_credits_grams,
             bonus_awarded: false,
             scored_at: env.ledger().timestamp(),
@@ -2223,5 +2235,82 @@ mod tests {
             Vec::from_array(&env, [2_u64])
         );
         assert_eq!(client.credit_supply().circulating, 0);
+    }
+
+    // ── Soil health scoring (issue #1262) ─────────────────────────────────────
+
+    fn record_plot(env: &Env, client: &CarbonCreditsClient<'static>, plot: &Symbol, farmer: &Address, baseline: u32, measured: u32) {
+        let verifier = Address::generate(env);
+        client.record_soil_measurement(plot, farmer, &baseline, &measured, &400_u32, &125_u32, &80_u32, &10_u32, &verifier);
+    }
+
+    #[test]
+    fn test_soil_score_and_bonus_award() {
+        let (env, _, client) = setup();
+        let farmer = Address::generate(&env);
+        let plot = symbol_short!("plot1");
+        record_plot(&env, &client, &plot, &farmer, 150, 235);
+
+        let score = client.calculate_soil_health_score(&plot);
+        assert_eq!(score.soc_gain_bps, 85);
+        assert_eq!(score.composite_score, 82);
+        assert_eq!(score.bonus_credits_grams, score.seq_above_baseline_grams * 82 / 100);
+        assert!(!score.bonus_awarded);
+
+        let before = client.total_offset_for_sponsor(&farmer);
+        let bonus = client.award_soil_bonus_credits(&plot);
+        assert_eq!(bonus, score.bonus_credits_grams);
+        assert_eq!(client.total_offset_for_sponsor(&farmer), before + bonus);
+        assert!(client.get_soil_health_score(&plot).bonus_awarded);
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #24)")]
+    fn test_soil_no_bonus_at_or_below_baseline() {
+        let (env, _, client) = setup();
+        let farmer = Address::generate(&env);
+        let plot = symbol_short!("plot2");
+        record_plot(&env, &client, &plot, &farmer, 200, 200);
+        client.calculate_soil_health_score(&plot);
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #25)")]
+    fn test_soil_bonus_cannot_be_awarded_twice() {
+        let (env, _, client) = setup();
+        let farmer = Address::generate(&env);
+        let plot = symbol_short!("plot3");
+        record_plot(&env, &client, &plot, &farmer, 150, 235);
+        client.calculate_soil_health_score(&plot);
+        client.award_soil_bonus_credits(&plot);
+        client.award_soil_bonus_credits(&plot);
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #25)")]
+    fn test_soil_rescore_after_award_cannot_reset_bonus() {
+        let (env, _, client) = setup();
+        let farmer = Address::generate(&env);
+        let plot = symbol_short!("plot4");
+        record_plot(&env, &client, &plot, &farmer, 150, 235);
+        client.calculate_soil_health_score(&plot);
+        client.award_soil_bonus_credits(&plot);
+        client.calculate_soil_health_score(&plot);
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #23)")]
+    fn test_soil_invalid_measurement_rejected() {
+        let (env, _, client) = setup();
+        let farmer = Address::generate(&env);
+        let verifier = Address::generate(&env);
+        client.record_soil_measurement(&symbol_short!("plot5"), &farmer, &150_u32, &235_u32, &400_u32, &125_u32, &101_u32, &10_u32, &verifier);
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #22)")]
+    fn test_soil_score_unknown_plot_panics() {
+        let (_, _, client) = setup();
+        client.calculate_soil_health_score(&symbol_short!("nope"));
     }
 }
