@@ -45,6 +45,7 @@ export interface GraphQLTree {
   longitude: number;
   co2OffsetKgPerYear: number;
   projectName: string;
+  sponsorName: string | null;
 }
 
 export interface GraphQLPlanter {
@@ -74,6 +75,7 @@ export function mapTree(tree: Tree): GraphQLTree {
     longitude: tree.lng,
     co2OffsetKgPerYear: tree.co2OffsetKgPerYear,
     projectName: tree.projectName,
+    sponsorName: tree.sponsorName ?? null,
   };
 }
 
@@ -93,7 +95,7 @@ export function listContracts(): GraphQLContract[] {
 
   return configuredContracts
     .filter(([, , id]) => Boolean(id))
-    .map(([name, label, id]) => ({ id: id as string, name: label, network }));
+    .map(([_name, label, id]) => ({ id: id as string, name: label, network }));
 }
 
 export const resolvers = {

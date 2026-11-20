@@ -19,6 +19,7 @@ const MOCK_TREES: Tree[] = [
     co2OffsetKgPerYear: co2BySpecies.Teak,
     projectName: 'Northern Savanna Reforestation',
     nftTokenId: '1',
+    sponsorName: 'Acme EcoSolutions',
   },
   {
     id: 'tree-002',
@@ -32,6 +33,7 @@ const MOCK_TREES: Tree[] = [
     co2OffsetKgPerYear: co2BySpecies.Moringa,
     projectName: 'Northern Savanna Reforestation',
     nftTokenId: '2',
+    sponsorName: 'Canopy Org',
   },
   {
     id: 'tree-003',
@@ -45,6 +47,7 @@ const MOCK_TREES: Tree[] = [
     co2OffsetKgPerYear: co2BySpecies.Eucalyptus,
     projectName: 'Central Belt Afforestation',
     nftTokenId: '3',
+    sponsorName: 'CleanAir Initiative',
   },
   {
     id: 'tree-004',
@@ -58,6 +61,7 @@ const MOCK_TREES: Tree[] = [
     co2OffsetKgPerYear: co2BySpecies.Mangrove,
     projectName: 'Coastal Mangrove Recovery',
     nftTokenId: '4',
+    sponsorName: 'GreenRoots Collective',
   },
   {
     id: 'tree-005',
@@ -70,6 +74,7 @@ const MOCK_TREES: Tree[] = [
     co2OffsetKgPerYear: co2BySpecies.Teak,
     projectName: 'Central Belt Afforestation',
     nftTokenId: '5',
+    sponsorName: 'Acme EcoSolutions',
   },
   {
     id: 'tree-006',
@@ -83,6 +88,7 @@ const MOCK_TREES: Tree[] = [
     co2OffsetKgPerYear: co2BySpecies.Moringa,
     projectName: 'Sahel Green Belt',
     nftTokenId: '6',
+    sponsorName: 'Selva Viva',
   },
   {
     id: 'tree-007',
@@ -96,6 +102,7 @@ const MOCK_TREES: Tree[] = [
     co2OffsetKgPerYear: co2BySpecies.Eucalyptus,
     projectName: 'East Africa Urban Greening',
     nftTokenId: '7',
+    sponsorName: 'Carbon Busters Ltd',
   },
   {
     id: 'tree-008',

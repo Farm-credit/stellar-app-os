@@ -10,7 +10,7 @@ import {
 } from '@/components/molecules/Card';
 import { Text } from '@/components/atoms/Text';
 import { cn } from '@/lib/utils';
-import { Heart, ShoppingCart, BarChart3, ArrowRight, TreePine, Users } from 'lucide-react';
+import { Heart, ShoppingCart, BarChart3, ArrowRight, TreePine, Users, MapPin } from 'lucide-react';
 
 export function QuickActions() {
   const router = useRouter();
@@ -39,6 +39,14 @@ export function QuickActions() {
       path: '/dashboard/trees',
       color:
         'bg-stellar-green/10 text-stellar-green group-hover:bg-stellar-green group-hover:text-white',
+    },
+    {
+      label: 'Sponsored Map',
+      icon: <MapPin size={20} />,
+      description: 'Interactive tree map',
+      path: '/dashboard/map',
+      color:
+        'bg-stellar-cyan/10 text-stellar-cyan group-hover:bg-stellar-cyan group-hover:text-white',
     },
     {
       label: 'Team Forest',

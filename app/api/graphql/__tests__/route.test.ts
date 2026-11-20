@@ -1,10 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { NextRequest } from 'next/server';
 
-const { getTreeList, getTreeById } = vi.hoisted(() => ({
-  getTreeList: vi.fn(),
-  getTreeById: vi.fn(),
-}));
+const { getTreeList, getTreeById } = vi.hoisted(() => {
+  process.env.STRIPE_SECRET_KEY = 'sk_test_mock';
+  return {
+    getTreeList: vi.fn(),
+    getTreeById: vi.fn(),
+  };
+});
 const { getPlanterProfiles } = vi.hoisted(() => ({
   getPlanterProfiles: vi.fn(),
 }));
@@ -111,6 +114,23 @@ describe('Apollo GraphQL API', () => {
       { id: 'ada-okafor', name: 'Ada Okafor', reputationScore: 94 },
     ]);
     expect(body.data.planter).toEqual({ name: 'Ada Okafor', totalTreesPlanted: 184 });
+  });
+
+  it('exposes sponsorName on Tree query when present', async () => {
+    const sponsoredTree = { ...tree, sponsorName: 'Acme EcoSolutions' };
+    getTreeById.mockResolvedValueOnce(sponsoredTree);
+
+    const response = await post(`{
+      tree(id: "tree-001") { id treeRef sponsorName }
+    }`);
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.data.tree).toEqual({
+      id: 'tree-001',
+      treeRef: 'HRV-2024-0001',
+      sponsorName: 'Acme EcoSolutions',
+    });
   });
 
   it('returns a standard GraphQL validation error for unknown fields', async () => {
