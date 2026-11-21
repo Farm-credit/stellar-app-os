@@ -43,9 +43,19 @@ export async function POST(request: Request) {
 
     if (agreementId) {
       const agreement = getBulkPurchaseAgreementById(agreementId);
-      if (agreement) {
-        finalNegotiatedPrice = agreement.negotiatedPricePerTon;
+      if (!agreement) {
+        return NextResponse.json(
+          { error: `Bulk purchase agreement '${agreementId}' not found.` },
+          { status: 404 }
+        );
       }
+      if (agreement.status === 'cancelled') {
+        return NextResponse.json(
+          { error: `Bulk purchase agreement '${agreementId}' has been cancelled.` },
+          { status: 400 }
+        );
+      }
+      finalNegotiatedPrice = agreement.negotiatedPricePerTon;
     }
 
     const pricing = calculateBulkPricing(tons, Number(basePricePerTon), finalNegotiatedPrice);
