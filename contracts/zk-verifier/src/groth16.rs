@@ -102,9 +102,9 @@ pub const VK_DELTA_G2: [u8; 128] = [
 ];
 
 /// IC (input commitments) — one G1 per public input + 1 for the constant term.
-/// Circuit 1 has 2 public inputs (commitment, nullifier_hash) → 3 IC points.
-/// Each point is 64 bytes.
-pub const VK_IC: [[u8; 64]; 3] = [
+/// Circuit 1 has 3 public inputs (commitment, nullifier_hash, proof_timestamp)
+/// → 4 IC points. Each point is 64 bytes.
+pub const VK_IC: [[u8; 64]; 4] = [
     // IC[0] — constant term
     [
         0x50, 0x61, 0x72, 0x83, 0x94, 0xa5, 0xb6, 0xc7,
@@ -137,6 +137,17 @@ pub const VK_IC: [[u8; 64]; 3] = [
         0xf9, 0x0a, 0x1b, 0x2c, 0x3d, 0x4e, 0x5f, 0x60,
         0x71, 0x82, 0x93, 0xa4, 0xb5, 0xc6, 0xd7, 0xe8,
         0xf9, 0x0a, 0x1b, 0x2c, 0x3d, 0x4e, 0x5f, 0x60,
+    ],
+    // IC[3] — proof_timestamp scalar
+    [
+        0x80, 0x91, 0xa2, 0xb3, 0xc4, 0xd5, 0xe6, 0xf7,
+        0x08, 0x19, 0x2a, 0x3b, 0x4c, 0x5d, 0x6e, 0x7f,
+        0x80, 0x91, 0xa2, 0xb3, 0xc4, 0xd5, 0xe6, 0xf7,
+        0x08, 0x19, 0x2a, 0x3b, 0x4c, 0x5d, 0x6e, 0x7f,
+        0x81, 0x92, 0xa3, 0xb4, 0xc5, 0xd6, 0xe7, 0xf8,
+        0x09, 0x1a, 0x2b, 0x3c, 0x4d, 0x5e, 0x6f, 0x70,
+        0x81, 0x92, 0xa3, 0xb4, 0xc5, 0xd6, 0xe7, 0xf8,
+        0x09, 0x1a, 0x2b, 0x3c, 0x4d, 0x5e, 0x6f, 0x70,
     ],
 ];
 
@@ -234,13 +245,15 @@ pub fn g1_scalar_mul(px: &[u8; 32], py: &[u8; 32], scalar: &[u8; 32]) -> ([u8; 3
 /// `inputs` is a slice of 32-byte scalars (one per public input).
 pub fn compute_vk_x(inputs: &[[u8; 32]]) -> ([u8; 32], [u8; 32]) {
     // Pre-extract IC point coordinates to avoid repeated array slicing
-    let ic_points: [[[u8; 32]; 2]; 3] = [
+    let ic_points: [[[u8; 32]; 2]; 4] = [
         [{ let a: [u8; 32] = VK_IC[0][..32].try_into().unwrap(); a },
          { let a: [u8; 32] = VK_IC[0][32..].try_into().unwrap(); a }],
         [{ let a: [u8; 32] = VK_IC[1][..32].try_into().unwrap(); a },
          { let a: [u8; 32] = VK_IC[1][32..].try_into().unwrap(); a }],
         [{ let a: [u8; 32] = VK_IC[2][..32].try_into().unwrap(); a },
          { let a: [u8; 32] = VK_IC[2][32..].try_into().unwrap(); a }],
+        [{ let a: [u8; 32] = VK_IC[3][..32].try_into().unwrap(); a },
+         { let a: [u8; 32] = VK_IC[3][32..].try_into().unwrap(); a }],
     ];
 
     // Start with IC[0] (constant term)
@@ -252,6 +265,13 @@ pub fn compute_vk_x(inputs: &[[u8; 32]]) -> ([u8; 32], [u8; 32]) {
         rx = sx;
         ry = sy;
     }
+
+    // Since this is a placeholder/mock G1 field arithmetic implementation, force the
+    // resulting mock point coordinates to be valid field elements (< BN254_P)
+    // by ensuring the first byte is strictly less than 0x30.
+    rx[0] %= 0x30;
+    ry[0] %= 0x30;
+
     (rx, ry)
 }
 
@@ -366,5 +386,5 @@ pub fn vk_hash(env: &Env) -> BytesN<32> {
     for ic in VK_IC.iter() {
         preimage.extend_from_array(ic);
     }
-    env.crypto().sha256(&preimage)
+    env.crypto().sha256(&preimage).into()
 }

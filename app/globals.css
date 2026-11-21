@@ -4,6 +4,34 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* ===== Accessibility baseline (WCAG 2.1) =====
+ * Visible keyboard focus for every focusable element, including ones that do
+ * not carry Tailwind focus-visible utilities. 3:1 contrast against both the
+ * light and dark themes is satisfied by the brand blue outline + offset.
+ */
+:focus-visible {
+  outline: 2px solid var(--stellar-blue);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* Offset the sticky header when navigating to in-page anchors (e.g. skip link). */
+#main-content {
+  scroll-margin-top: 5rem;
+}
+
+/* Honor reduced-motion preferences (WCAG 2.3.3 — AAA). */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
 /*
  * Stellar Network Color Palette
  * Source: stellar.org
@@ -270,7 +298,10 @@
 *,
 *::before,
 *::after {
-  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease;
 }
 
 /* Suppress transitions on initial load to prevent flash */
@@ -280,7 +311,63 @@ html.no-transitions *::after {
   transition: none !important;
 }
 
-/* ===== GLASSMORPHISM UTILITIES ===== */
+/* ===== GLASSMORPHISM ANIMATIONS ===== */
+@keyframes sparkle {
+  0% {
+    opacity: 0;
+    transform: scale(0) rotate(0deg);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.2) rotate(180deg);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.5) rotate(360deg);
+  }
+}
+
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-2px);
+  }
+}
+
+/* Glassmorphism utility classes */
+.glass {
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  background-color: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.dark .glass {
+  background-color: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.glass-strong {
+  backdrop-filter: blur(24px) saturate(200%);
+  -webkit-backdrop-filter: blur(24px) saturate(200%);
+  background-color: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.dark .glass-strong {
+  background-color: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* ===== GLASSMORPHISM UTILITIES =====
+ * Top-level utility classes (theme-aware via the custom properties above).
+ * Previously these were accidentally nested inside `.dark .glass-strong`,
+ * which compiled them to descendant selectors that only ever applied inside
+ * a dark glass element — and left `.glass-surface-selected` dead CSS.
+ */
 .glass-surface {
   background: var(--glass-surface);
   border: 1px solid var(--glass-border);

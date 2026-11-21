@@ -51,7 +51,7 @@
 
 use harvesta_errors::HarvestaError;
 use soroban_sdk::{
-    contract, contractimpl, contracttype, panic_with_error, symbol_short, Address, Bytes, BytesN,
+    contract, contractimpl, contracttype, panic_with_error, symbol_short, Address, BytesN,
     Env, IntoVal, Vec,
 };
 
@@ -154,7 +154,7 @@ impl LocationProof {
         Self::require_admin(&env);
 
         if vertices.len() < MIN_VERTICES {
-            panic_with_error!(&env, HarvestaError::PolygonTooFewVertices);
+            panic!("polygon too few vertices");
         }
 
         let zone = AfforestationZone {
@@ -193,7 +193,7 @@ impl LocationProof {
         }
 
         if vertices.len() < MIN_VERTICES {
-            panic_with_error!(&env, HarvestaError::PolygonTooFewVertices);
+            panic!("polygon too few vertices");
         }
 
         let zone = AfforestationZone {
@@ -229,7 +229,7 @@ impl LocationProof {
     ///   1. Loads the polygon for `zone_id`.
     ///   2. Runs the even-odd ray-casting algorithm in pure integer arithmetic.
     ///   3. Panics with `PointOutsidePolygon` if the point is outside.
-    ///   4. Panics with `ProofCommitmentAlreadyRegistered` on replay.
+    ///   4. Panics with `ProofCmntAlreadyRegistered` on replay.
     ///   5. Stores the proof entry tagged with the matched `zone_id`.
     ///
     /// `commitment` — SHA-256(lat_i32_be || lon_i32_be || farmer_id_xdr || nonce_be)
@@ -242,7 +242,7 @@ impl LocationProof {
     /// - `NotInitialized`                  — contract not initialised
     /// - `ZoneNotFound`                    — zone_id is not registered
     /// - `PointOutsidePolygon`             — ray-casting says outside
-    /// - `ProofCommitmentAlreadyRegistered` — duplicate commitment
+    /// - `ProofCmntAlreadyRegistered` — duplicate commitment
     pub fn submit_proof_in_zone(
         env: Env,
         farmer_id: Address,
@@ -268,7 +268,7 @@ impl LocationProof {
 
         // Reject duplicate commitments (replay protection)
         if env.storage().persistent().has(&commitment) {
-            panic_with_error!(&env, HarvestaError::ProofCommitmentAlreadyRegistered);
+            panic_with_error!(&env, HarvestaError::ProofCmntAlreadyRegistered);
         }
 
         let entry = LocationProofEntry {
@@ -308,11 +308,11 @@ impl LocationProof {
         Self::require_admin(&env);
 
         if !in_region {
-            panic_with_error!(&env, HarvestaError::OutsideNigeriaRegion);
+            panic!("outside nigeria region");
         }
 
         if env.storage().persistent().has(&commitment) {
-            panic_with_error!(&env, HarvestaError::ProofCommitmentAlreadyRegistered);
+            panic_with_error!(&env, HarvestaError::ProofCmntAlreadyRegistered);
         }
 
         let entry = LocationProofEntry {
@@ -510,7 +510,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "Error(Contract, #75)")]
+    #[should_panic(expected = "polygon too few vertices")]
     fn test_register_zone_too_few_vertices_rejected() {
         let (env, _, client) = setup();
         let two_pts = vec![&env, v(9_000_000, 7_000_000), v(11_000_000, 9_000_000)];
@@ -743,7 +743,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "Error(Contract, #65)")]
+    #[should_panic(expected = "outside nigeria region")]
     fn test_legacy_out_of_region_rejected() {
         let (env, _, client) = setup();
         let farmer = Address::generate(&env);

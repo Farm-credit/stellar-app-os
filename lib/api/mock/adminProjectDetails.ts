@@ -105,6 +105,25 @@ export const mockAdminProjectDetails: AdminProjectDetail[] = [
         details: 'Added amazon-mrv-q4-2025.pdf (v1.4).',
       },
     ],
+    primarySpecies: 'Brazil Nut',
+    climateZone: 'Tropical',
+    bufferZone: {
+      // Buffer polygon surrounding the Amazon project core area (simplified for demo)
+      polygonCoordinates: [
+        [-55.2, -3.5],
+        [-54.8, -3.5],
+        [-54.5, -3.8],
+        [-54.6, -4.2],
+        [-55.0, -4.4],
+        [-55.3, -4.2],
+        [-55.4, -3.8],
+        [-55.2, -3.5],
+      ],
+      areaHectares: 1200,
+      deforestationAlert: false,
+      lastCheckedAt: '2026-10-15T08:00:00.000Z',
+      designationLabel: 'Amazon Reforestation Protective Buffer — ARR-VM0047',
+    },
   },
   {
     id: 'proj-002',

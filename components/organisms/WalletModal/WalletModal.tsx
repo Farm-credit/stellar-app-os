@@ -29,7 +29,7 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import { useWalletContext } from '@/contexts/WalletContext';
-import { isFreighterInstalled, isXBullInstalled } from '@/lib/stellar/wallet';
+import { isFreighterInstalled, isRangoInstalled, isXBullInstalled } from '@/lib/stellar/wallet';
 import type { WalletType } from '@/lib/types/wallet';
 import { cn } from '@/lib/utils';
 
@@ -77,6 +77,25 @@ const WALLETS: WalletMeta[] = [
         <circle cx="20" cy="20" r="20" fill="#7C3AED" />
         <path d="M20 10l8.66 15H11.34L20 10z" fill="white" fillOpacity="0.9" />
         <circle cx="20" cy="27" r="3" fill="white" />
+      </svg>
+    ),
+  },
+  {
+    id: 'rango',
+    name: 'Rango',
+    tagline: 'Multi-chain DEX & Stellar wallet aggregator',
+    type: 'extension',
+    installUrl: 'https://rango.exchange',
+    accentClass: 'border-teal-500/40 hover:border-teal-400/60 hover:bg-teal-500/5',
+    icon: (
+      <svg viewBox="0 0 40 40" fill="none" className="h-9 w-9" aria-hidden="true">
+        <rect width="40" height="40" rx="10" fill="#0D9488" />
+        <path
+          d="M13 14c0 3.5 3 6.5 7 6.5s7-3 7-6.5S24 7.5 20 7.5 13 10.5 13 14zM10 28.5c0-4.5 4.5-8 10-8s10 3.5 10 8"
+          stroke="white"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+        />
       </svg>
     ),
   },
@@ -151,6 +170,7 @@ export function WalletModal({ isOpen, onOpenChange, onSuccess }: WalletModalProp
 
   const [connectingWallet, setConnectingWallet] = useState<WalletType | null>(null);
   const [freighterInstalled, setFreighterInstalled] = useState<boolean | null>(null);
+  const [rangoInstalled, setRangoInstalled] = useState<boolean | null>(null);
   const [xbullInstalled, setXbullInstalled] = useState<boolean | null>(null);
   const [error, setError] = useState<ParsedError | null>(null);
   const [showSuccess, setShowSuccess] = useState(false);
@@ -172,6 +192,9 @@ export function WalletModal({ isOpen, onOpenChange, onSuccess }: WalletModalProp
     isFreighterInstalled()
       .then(setFreighterInstalled)
       .catch(() => setFreighterInstalled(false));
+    isRangoInstalled()
+      .then(setRangoInstalled)
+      .catch(() => setRangoInstalled(false));
     isXBullInstalled()
       .then(setXbullInstalled)
       .catch(() => setXbullInstalled(false));
@@ -220,6 +243,7 @@ export function WalletModal({ isOpen, onOpenChange, onSuccess }: WalletModalProp
   function isNotInstalled(wallet: WalletMeta): boolean {
     if (wallet.type !== 'extension') return false;
     if (wallet.id === 'freighter') return freighterInstalled === false;
+    if (wallet.id === 'rango') return rangoInstalled === false;
     if (wallet.id === 'xbull') return xbullInstalled === false;
     return false;
   }
@@ -227,6 +251,7 @@ export function WalletModal({ isOpen, onOpenChange, onSuccess }: WalletModalProp
   function isDetecting(wallet: WalletMeta): boolean {
     if (wallet.type !== 'extension') return false;
     if (wallet.id === 'freighter') return freighterInstalled === null;
+    if (wallet.id === 'rango') return rangoInstalled === null;
     if (wallet.id === 'xbull') return xbullInstalled === null;
     return false;
   }

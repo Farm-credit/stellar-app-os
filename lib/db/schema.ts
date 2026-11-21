@@ -57,11 +57,7 @@ export interface TreeRow {
 // ── Progress Updates (migration 005) ─────────────────────────────────────────
 
 export type UpdateType =
-  | 'status_change'
-  | 'photo_submitted'
-  | 'gps_ping'
-  | 'survival_check'
-  | 'note';
+  'status_change' | 'photo_submitted' | 'gps_ping' | 'survival_check' | 'note';
 
 export interface ProgressUpdateRow {
   id: number;
@@ -108,6 +104,228 @@ export interface DisputeRow {
   resolved_at: Date | null;
 }
 
+// ── Sponsor Cohorts (migration 011) ──────────────────────────────────────────
+
+export interface SponsorCohortRow {
+  wallet: string;
+  first_sponsorship_at: Date;
+  cohort_month: Date;
+  total_sponsorships: number;
+  total_trees: number;
+  total_xlm: string;
+  created_at: Date;
+  updated_at: Date;
+}
+
+export interface SponsorshipEventRow {
+  id: number;
+  wallet: string;
+  tree_id: number | null;
+  trees_funded: number;
+  xlm_amount: string;
+  tx_hash: string | null;
+  funded_at: Date;
+  cohort_month: Date;
+  metadata: Record<string, unknown>;
+  created_at: Date;
+}
+
+export interface CohortRetentionRow {
+  id: number;
+  cohort_month: Date;
+  period_month: Date;
+  period_offset: number;
+  cohort_size: number;
+  retained_count: number;
+  retention_pct: string;
+  total_xlm: string;
+  generated_at: Date;
+}
+
+// ── School Partnerships (migration 012) ──────────────────────────────────────
+
+export type SchoolTier = 'standard' | 'bronze' | 'silver' | 'gold';
+export type BatchStatus = 'open' | 'funded' | 'completed' | 'cancelled';
+
+export interface SchoolPartnershipRow {
+  id: number;
+  school_name: string;
+  contact_name: string;
+  contact_email: string;
+  contact_wallet: string | null;
+  country_code: string;
+  city: string | null;
+  student_count: number;
+  tier: SchoolTier;
+  discount_pct: string;
+  active: boolean;
+  created_at: Date;
+  updated_at: Date;
+  deleted_at: Date | null;
+}
+
+export interface SchoolPartnershipMemberRow {
+  id: number;
+  partnership_id: number;
+  wallet: string;
+  student_name: string | null;
+  grade: string | null;
+  enrolled_at: Date;
+}
+
+export interface SchoolSponsorshipBatchRow {
+  id: number;
+  partnership_id: number;
+  project_name: string;
+  description: string | null;
+  target_trees: number;
+  trees_funded: number;
+  total_xlm: string;
+  discount_pct: string;
+  status: BatchStatus;
+  created_by: string;
+  created_at: Date;
+  updated_at: Date;
+  completed_at: Date | null;
+}
+
+export interface SchoolBatchContributionRow {
+  id: number;
+  batch_id: number;
+  member_id: number | null;
+  wallet: string;
+  trees_funded: number;
+  xlm_amount: string;
+  tx_hash: string | null;
+  contributed_at: Date;
+}
+
+// ── Daily Challenges (migration 013) ─────────────────────────────────────────
+
+export type ChallengeType =
+  | 'plant_trees'
+  | 'sponsor_rare_species'
+  | 'sponsor_new_region'
+  | 'sponsor_consecutive_days'
+  | 'sponsor_bulk'
+  | 'referral'
+  | 'carbon_milestone';
+
+export type ChallengeDifficulty = 'easy' | 'medium' | 'hard' | 'epic';
+export type ChallengeStatus = 'assigned' | 'in_progress' | 'completed' | 'expired' | 'claimed';
+export type RewardType = 'xlm' | 'nft' | 'badge' | 'multiplier';
+
+export interface DailyChallengeRow {
+  id: number;
+  slug: string;
+  title: string;
+  description: string;
+  challenge_type: ChallengeType;
+  target_value: number;
+  reward_xlm: string;
+  reward_nft: boolean;
+  badge_id: string | null;
+  species_slug: string | null;
+  region: string | null;
+  difficulty: ChallengeDifficulty;
+  active: boolean;
+  start_date: string | null;
+  end_date: string | null;
+  created_at: Date;
+}
+
+export interface SponsorDailyChallengeRow {
+  id: number;
+  wallet: string;
+  challenge_id: number;
+  assigned_date: string;
+  progress: number;
+  target: number;
+  status: ChallengeStatus;
+  completed_at: Date | null;
+  claimed_at: Date | null;
+  created_at: Date;
+}
+
+export interface ChallengeRewardRow {
+  id: number;
+  wallet: string;
+  challenge_id: number;
+  sponsor_challenge_id: number;
+  reward_type: RewardType;
+  reward_amount: string;
+  reward_description: string | null;
+  tx_hash: string | null;
+  claimed: boolean;
+  claimed_at: Date | null;
+  created_at: Date;
+}
+
+export interface SponsorStreakRow {
+  wallet: string;
+  current_streak: number;
+  longest_streak: number;
+  last_active_date: string | null;
+  streak_multiplier: string;
+  updated_at: Date;
+}
+
+// ── API Keys (migration 017) ──────────────────────────────────────────────────
+
+export type ApiKeyTier = 'free' | 'standard' | 'premium';
+
+export interface ApiKeyRow {
+  id: number;
+  name: string;
+  prefix: string;
+  key_hash: string;
+  tier: ApiKeyTier;
+  owner_wallet: string | null;
+  is_active: boolean;
+  created_at: Date;
+  last_used_at: Date | null;
+  revoked_at: Date | null;
+}
+
+/** Rolling hourly usage accounting for a single API key. */
+export interface ApiKeyUsageRow {
+  id: number;
+  api_key_id: number;
+  window_ms: number;
+  count: number;
+  queued: number;
+  updated_at: Date;
+}
+
+// ── Planting Locations (migration 024) ───────────────────────────────────────
+
+export interface PlantingLocationRow {
+  id: number;
+  name: string;
+  description: string;
+  latitude: number;
+  longitude: number;
+  region: string;
+  climate: string;
+  species: string[];
+  available_capacity: number;
+  created_at: Date;
+  updated_at: Date;
+}
+
+/** Frontend-facing shape — snake→camel, species slugs resolved to names optional. */
+export interface PlantingLocation {
+  id: number;
+  name: string;
+  description: string;
+  latitude: number;
+  longitude: number;
+  region: string;
+  climate: string;
+  species: string[];
+  availableCapacity: number;
+}
+
 // ── Joined view type (common API response shape) ──────────────────────────────
 
 /** Convenience type: tree row joined with planter display name and species. */
@@ -116,4 +334,37 @@ export interface TreeWithDetails extends TreeRow {
   planter_stellar: string | null;
   species_name: string | null;
   co2_kg_per_year: string | null;
+}
+
+// ── Referral System (migrations 009 & 029) ───────────────────────────────────
+
+export interface ReferralCodeRow {
+  code: string;
+  referrer_wallet: string;
+  created_at: Date;
+}
+
+export interface ReferralSignupRow {
+  id: number;
+  code: string;
+  referred_wallet: string;
+  referral_type: 'sponsor' | 'planter';
+  first_tree_completed_at: Date | null;
+  first_job_completed_at: Date | null;
+  created_at: Date;
+}
+
+export interface ReferralRewardRow {
+  id: number;
+  referral_id: number;
+  referrer_wallet: string;
+  amount_xlm: string; // NUMERIC returned as string by pg driver
+  period_start: Date;
+  status: 'queued' | 'paid' | 'failed';
+  reward_type: 'sponsor' | 'planter';
+  job_ref: string | null;
+  payout_tx_hash: string | null;
+  created_at: Date;
+  paid_at: Date | null;
+  updated_at: Date;
 }

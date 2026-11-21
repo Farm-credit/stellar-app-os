@@ -1,0 +1,27 @@
+name: Daily Carbon Offset Calculation
+
+on:
+  schedule:
+    # 02:00 UTC daily — off-peak, after most planter activity for the day
+    - cron: '0 2 * * *'
+  workflow_dispatch: {} # allow manual re-runs from the Actions tab
+
+concurrency:
+  group: carbon-offset-cron
+  cancel-in-progress: false # never cancel a run partway through a DB write
+
+jobs:
+  calculate:
+    name: Calculate daily carbon offset
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm carbon:calculate
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}

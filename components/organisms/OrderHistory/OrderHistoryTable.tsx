@@ -13,10 +13,9 @@ import { Badge } from '@/components/atoms/Badge';
 import { Button } from '@/components/atoms/Button';
 import { Select } from '@/components/atoms/Select';
 import { Text } from '@/components/atoms/Text';
-import { Order, OrderType, OrderStatus } from '@/lib/types/order';
+import { type Order, type OrderType, type OrderStatus } from '@/lib/types/order';
 import { fetchOrders } from '@/lib/api/mock/orders';
 import { ExternalLink, Download, FileQuestion } from 'lucide-react';
-import { cn } from '@/lib/utils';
 
 export function OrderHistoryTable() {
   const [orders, setOrders] = React.useState<Order[]>([]);

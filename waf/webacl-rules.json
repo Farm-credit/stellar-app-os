@@ -1,0 +1,149 @@
+[
+  {
+    "Name": "AWSManagedRulesCommonRuleSet",
+    "Priority": 10,
+    "OverrideAction": { "None": {} },
+    "Statement": {
+      "ManagedRuleGroupStatement": {
+        "VendorName": "AWS",
+        "Name": "AWSManagedRulesCommonRuleSet",
+        "ExcludedRules": []
+      }
+    },
+    "VisibilityConfig": {
+      "SampledRequestsEnabled": true,
+      "CloudWatchMetricsEnabled": true,
+      "MetricName": "AWSManagedRulesCommonRuleSetMetric"
+    }
+  },
+  {
+    "Name": "AWSManagedRulesSQLiRuleSet",
+    "Priority": 20,
+    "OverrideAction": { "None": {} },
+    "Statement": {
+      "ManagedRuleGroupStatement": {
+        "VendorName": "AWS",
+        "Name": "AWSManagedRulesSQLiRuleSet",
+        "ExcludedRules": []
+      }
+    },
+    "VisibilityConfig": {
+      "SampledRequestsEnabled": true,
+      "CloudWatchMetricsEnabled": true,
+      "MetricName": "AWSManagedRulesSQLiRuleSetMetric"
+    }
+  },
+  {
+    "Name": "AWSManagedRulesKnownBadInputsRuleSet",
+    "Priority": 30,
+    "OverrideAction": { "None": {} },
+    "Statement": {
+      "ManagedRuleGroupStatement": {
+        "VendorName": "AWS",
+        "Name": "AWSManagedRulesKnownBadInputsRuleSet",
+        "ExcludedRules": []
+      }
+    },
+    "VisibilityConfig": {
+      "SampledRequestsEnabled": true,
+      "CloudWatchMetricsEnabled": true,
+      "MetricName": "AWSManagedRulesKnownBadInputsRuleSetMetric"
+    }
+  },
+  {
+    "Name": "BlockRequestSmuggling",
+    "Priority": 5,
+    "Action": { "Block": {} },
+    "Statement": {
+      "OrStatement": {
+        "Statements": [
+          {
+            "ByteMatchStatement": {
+              "SearchString": "chunked",
+              "FieldToMatch": {
+                "SingleHeader": { "Name": "transfer-encoding" }
+              },
+              "TextTransformations": [
+                { "Priority": 0, "Type": "LOWERCASE" }
+              ],
+              "PositionalConstraint": "CONTAINS"
+            }
+          },
+          {
+            "SizeConstraintStatement": {
+              "FieldToMatch": {
+                "SingleHeader": { "Name": "content-length" }
+              },
+              "ComparisonOperator": "GT",
+              "Size": 0,
+              "TextTransformations": [
+                { "Priority": 0, "Type": "NONE" }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "VisibilityConfig": {
+      "SampledRequestsEnabled": true,
+      "CloudWatchMetricsEnabled": true,
+      "MetricName": "BlockRequestSmugglingMetric"
+    }
+  },
+  {
+    "Name": "BlockSuspiciousTransferEncodingHeader",
+    "Priority": 6,
+    "Action": { "Block": {} },
+    "Statement": {
+      "OrStatement": {
+        "Statements": [
+          {
+            "ByteMatchStatement": {
+              "SearchString": "transfer-encoding",
+              "FieldToMatch": {
+                "SingleHeader": { "Name": "x-forwarded-transfer-encoding" }
+              },
+              "TextTransformations": [
+                { "Priority": 0, "Type": "LOWERCASE" }
+              ],
+              "PositionalConstraint": "CONTAINS"
+            }
+          },
+          {
+            "ByteMatchStatement": {
+              "SearchString": "chunked",
+              "FieldToMatch": {
+                "SingleHeader": { "Name": "x-http-method-override" }
+              },
+              "TextTransformations": [
+                { "Priority": 0, "Type": "LOWERCASE" }
+              ],
+              "PositionalConstraint": "CONTAINS"
+            }
+          }
+        ]
+      }
+    },
+    "VisibilityConfig": {
+      "SampledRequestsEnabled": true,
+      "CloudWatchMetricsEnabled": true,
+      "MetricName": "BlockSuspiciousTransferEncodingMetric"
+    }
+  },
+  {
+    "Name": "RateLimitPerIP",
+    "Priority": 1,
+    "Action": { "Block": {} },
+    "Statement": {
+      "RateBasedStatement": {
+        "Limit": 2000,
+        "AggregateKeyType": "IP"
+      }
+    },
+    "VisibilityConfig": {
+      "SampledRequestsEnabled": true,
+      "CloudWatchMetricsEnabled": true,
+      "MetricName": "RateLimitPerIPMetric"
+    }
+  }
+]

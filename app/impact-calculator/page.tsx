@@ -1,5 +1,6 @@
 import { Suspense } from 'react';
 import { ImpactCalculator } from '@/components/organisms/ImpactCalculator/ImpactCalculator';
+import { TreeImpactDetails } from '@/components/organisms/ImpactCalculator/TreeImpactDetails';
 
 import type { Metadata } from 'next';
 
@@ -35,6 +36,11 @@ export default function ImpactCalculatorPage() {
       >
         <ImpactCalculatorWrapper />
       </Suspense>
+
+      {/* Educational per-tree impact section */}
+      <div className="mx-auto w-full max-w-5xl px-4 pb-16 pt-8">
+        <TreeImpactDetails />
+      </div>
     </div>
   );
 }

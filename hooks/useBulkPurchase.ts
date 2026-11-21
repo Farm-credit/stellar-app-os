@@ -8,12 +8,7 @@ import { showToast } from '@/lib/toast';
 import type { BulkPurchaseOrder, BulkPurchaseResult, CorporateMetadata } from '@/lib/types/carbon';
 
 export type BulkPurchaseStatus =
-  | 'idle'
-  | 'building'
-  | 'signing'
-  | 'submitting'
-  | 'success'
-  | 'error';
+  'idle' | 'building' | 'signing' | 'submitting' | 'success' | 'error';
 
 export interface BulkPurchaseState {
   status: BulkPurchaseStatus;

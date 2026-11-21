@@ -12,7 +12,7 @@ import type { NetworkType } from '@/lib/types/wallet';
 import type { AnonymousDonationProof } from '@/lib/zk/types';
 import { networkConfig } from '@/lib/config/network';
 import { calculateDonationAllocation } from '@/lib/constants/donation';
-import { getRegionPlanterAddresses } from '@/lib/stellar/region-pools';
+import { getRegionPlanterAllocations } from '@/lib/stellar/region-pools';
 
 /**
  * Build an anonymous donation transaction with ZK proof
@@ -51,7 +51,7 @@ export async function buildAnonymousDonationTransaction(
 
   const plantingAddress = networkConfig.addresses.planting;
   const replantingBufferAddress = networkConfig.addresses.replantingBuffer;
-  const regionPlanterAddresses = getRegionPlanterAddresses(regionId);
+  const regionalPlanterAllocations = getRegionPlanterAllocations(planting, regionId);
 
   // Split donation: 70% planting, 30% buffer
   const { planting, buffer } = calculateDonationAllocation(amount);
@@ -69,22 +69,16 @@ export async function buildAnonymousDonationTransaction(
     networkPassphrase,
   });
 
-  if (regionPlanterAddresses.length > 0) {
-    const planterCount = regionPlanterAddresses.length;
-    const baseShare = Math.floor((planting / planterCount) * 1e7) / 1e7;
-
-    for (let i = 0; i < planterCount; i += 1) {
-      const planterAmount =
-        i === 0 ? parseFloat((planting - baseShare * (planterCount - 1)).toFixed(7)) : baseShare;
-
+  if (regionalPlanterAllocations.length > 0) {
+    regionalPlanterAllocations.forEach((allocation) => {
       transactionBuilder.addOperation(
         Operation.payment({
-          destination: regionPlanterAddresses[i],
+          destination: allocation.address,
           asset: usdcAsset,
-          amount: planterAmount.toFixed(7),
+          amount: allocation.amount.toFixed(7),
         })
       );
-    }
+    });
   } else {
     transactionBuilder.addOperation(
       Operation.payment({

@@ -33,6 +33,65 @@ interface RateLimitRule {
 
 const endpointDocs: EndpointDoc[] = [
   {
+    id: 'trees-search',
+    title: 'Search Registered Trees',
+    method: 'GET',
+    path: '/api/trees/search',
+    description:
+      'Search and filter registered trees across species, regions, life-cycle statuses, planters, CO2 thresholds, and planting date ranges with full metadata pagination.',
+    tags: ['trees', 'search', 'inventory', 'pagination'],
+    requestExample: {
+      q: 'Mangrove',
+      species: 'Mangrove',
+      status: 'verified',
+      limit: 50,
+      offset: 0,
+    },
+    responseExample: {
+      trees: [
+        {
+          id: 'HRV-2026-0042',
+          species: 'Mangrove',
+          region: 'East Africa',
+          status: 'verified',
+          co2Offset: 24.5,
+          planter: 'GABEMKJNR4GK7M4FROGA7I7PG63N2CKE3EGDSBSISG56SVL2O3KRNDXA',
+          createdAt: '2026-03-15T10:00:00.000Z',
+        },
+      ],
+      pagination: {
+        total: 142,
+        limit: 50,
+        offset: 0,
+        hasMore: true,
+        page: 1,
+        totalPages: 3,
+      },
+      filtersApplied: {
+        q: 'Mangrove',
+        species: 'Mangrove',
+        status: 'verified',
+        sortBy: 'createdAt',
+        sortOrder: 'desc',
+      },
+      cachedAt: '2026-08-31T09:00:00.000Z',
+    },
+    errorExamples: [
+      {
+        status: 400,
+        body: {
+          error: 'Invalid search parameters',
+        },
+      },
+      {
+        status: 500,
+        body: {
+          error: 'Failed to execute tree search query',
+        },
+      },
+    ],
+  },
+  {
     id: 'health-get',
     title: 'Health Check',
     method: 'GET',
@@ -235,6 +294,136 @@ const endpointDocs: EndpointDoc[] = [
         body: {
           error: 'server_error',
           message: 'Failed to resend email',
+        },
+      },
+    ],
+  },
+  {
+    id: 'farmer-verification-single',
+    title: 'Farmer Verification (Third-Party Integration)',
+    method: 'GET',
+    path: '/api/v1/farmers/{farmerAddress}/verification',
+    description:
+      'Third-party farmer verification API for external partner platforms and financial institutions to verify farmer identity, land ownership, and credit availability without disclosing PII.',
+    tags: ['farmers', 'verification', 'kyc', 'credit', 'third-party', 'api-v1'],
+    responseExample: {
+      farmerAddress: 'GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF',
+      apiVersion: 'v1',
+      verificationStatus: 'verified',
+      verified: true,
+      identity: {
+        verified: true,
+        verifiedAt: '2026-07-01T10:00:00.000Z',
+        documentType: 'nin',
+      },
+      land: {
+        verified: true,
+        verifiedAt: '2026-07-02T10:00:00.000Z',
+        ownershipType: 'customary',
+        plotSizeHectares: 3.5,
+        region: 'Kano',
+        gpsCoordinates: {
+          latitude: 11.98,
+          longitude: 8.55,
+        },
+      },
+      certification: {
+        eligible: true,
+        tier: 'full',
+        blockers: [],
+        advisories: [],
+        rulesetVersion: 'kyc-eligibility-v1',
+      },
+      credit: {
+        available: true,
+        tier: 'full',
+        blockers: [],
+        advisories: [],
+        applicationSettled: false,
+        sanctionsClear: true,
+      },
+      consent: {
+        granted: true,
+      },
+      checkedAt: '2026-10-22T16:00:00.000Z',
+    },
+    errorExamples: [
+      {
+        status: 400,
+        body: {
+          error: 'farmerAddress must be a 56-character Stellar public key starting with G.',
+          code: 'invalid_address',
+        },
+      },
+      {
+        status: 401,
+        body: {
+          error: 'Missing credentials. Provide an X-API-Key header or an OAuth2 bearer token.',
+        },
+      },
+      {
+        status: 403,
+        body: {
+          error: 'The farmer has not granted consent for third-party verification.',
+          code: 'consent_denied',
+        },
+      },
+      {
+        status: 404,
+        body: {
+          error: 'No verification record found for this farmer.',
+          code: 'not_found',
+        },
+      },
+    ],
+  },
+  {
+    id: 'farmer-verification-batch',
+    title: 'Batch Farmer Verification',
+    method: 'POST',
+    path: '/api/v1/farmers/verification',
+    description:
+      'Batch verification for partner portfolios. Submit 1-100 unique Stellar public keys to receive verified identity, land, and credit reports.',
+    tags: ['farmers', 'batch', 'verification', 'portfolio', 'api-v1'],
+    requestExample: {
+      addresses: [
+        'GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF',
+        'GBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBWHF',
+      ],
+    },
+    responseExample: {
+      requested: 2,
+      count: 1,
+      verified: 1,
+      reports: [
+        {
+          farmerAddress: 'GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF',
+          apiVersion: 'v1',
+          verificationStatus: 'verified',
+          verified: true,
+          identity: { verified: true, verifiedAt: '2026-07-01T10:00:00.000Z', documentType: 'nin' },
+          land: { verified: true, verifiedAt: '2026-07-02T10:00:00.000Z', ownershipType: 'customary', plotSizeHectares: 3.5, region: 'Kano', gpsCoordinates: { latitude: 11.98, longitude: 8.55 } },
+          certification: { eligible: true, tier: 'full', blockers: [], advisories: [], rulesetVersion: 'kyc-eligibility-v1' },
+          credit: { available: true, tier: 'full', blockers: [], advisories: [], applicationSettled: false, sanctionsClear: true },
+          consent: { granted: true },
+          checkedAt: '2026-10-22T16:00:00.000Z',
+        },
+      ],
+      notFound: [],
+      consentDenied: ['GBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBWHF'],
+    },
+    errorExamples: [
+      {
+        status: 400,
+        body: {
+          error: 'addresses must be 1–100 well-formed Stellar public keys.',
+          details: ['addresses[1] must be a valid Stellar public key'],
+        },
+      },
+      {
+        status: 401,
+        body: {
+          error: 'Authentication is required',
         },
       },
     ],
@@ -447,12 +636,21 @@ export function ApiDocumentationClient() {
     <main className="min-h-screen bg-background px-4 py-8 sm:px-6 lg:px-8">
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-8">
         <header className="rounded-2xl border border-border bg-card p-6 shadow-sm sm:p-8">
-          <p className="text-sm font-semibold uppercase tracking-wide text-stellar-blue">
-            Developer Docs
-          </p>
-          <h1 className="mt-2 text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
-            FarmCredit API Documentation
-          </h1>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm font-semibold uppercase tracking-wide text-stellar-blue">
+                Developer Docs
+              </p>
+              <h1 className="mt-2 text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
+                FarmCredit API Documentation
+              </h1>
+            </div>
+            <a href="/api-docs/swagger">
+              <Button variant="default" size="md" className="bg-stellar-blue text-white">
+                🚀 Launch Interactive Swagger UI ("Try It Out") &rarr;
+              </Button>
+            </a>
+          </div>
           <p className="mt-4 max-w-3xl text-sm leading-6 text-muted-foreground sm:text-base">
             Public API reference for integrations. Use the search to filter endpoints by name,
             method, path, or tags.

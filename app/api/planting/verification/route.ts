@@ -5,6 +5,7 @@ import { decryptClientPayload } from '@/lib/crypto/plantingVerification';
 import { generateLocationProof } from '@/lib/zk/locationProof';
 import { submitLocationProofToContract } from '@/lib/stellar/locationProof';
 import { sendTreeVerifiedEmail } from '@/lib/email/sendgrid';
+import { emitTreeLifecycleEvent } from '@/lib/webhook/events';
 import type { ClientEncryptedPayload } from '@/lib/crypto/plantingVerification';
 import type { NetworkType } from '@/lib/types/wallet';
 
@@ -100,6 +101,16 @@ export async function POST(request: Request) {
       contractId,
       network
     );
+
+    if (treeId) {
+      void emitTreeLifecycleEvent('tree.planted', {
+        treeId,
+        farmerId,
+        species,
+        transactionHash,
+        occurredAt: new Date().toISOString(),
+      });
+    }
 
     // Notify sponsor if contact info provided
     if (sponsorEmail && sponsorName && treeId && species) {

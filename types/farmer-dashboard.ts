@@ -29,6 +29,8 @@ export interface NextAssignment {
   projectName: string;
   location: string;
   region: string;
+  /** Elevation of the planting site above sea level. */
+  altitudeMeters: number;
   species: string;
   treesTarget: number;
   payPerTree: number;

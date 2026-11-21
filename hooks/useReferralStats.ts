@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import type { ReferralStats } from '../lib/referrals';
-import { getMockReferralStats } from '../lib/referrals';
+import type { ReferralStats, ReferralType } from '../lib/referrals';
+import { useWalletContext } from '@/contexts/WalletContext';
 
 interface UseReferralStatsReturn {
   stats: ReferralStats | null;
@@ -10,26 +10,65 @@ interface UseReferralStatsReturn {
   error: string | null;
 }
 
-export function useReferralStats(): UseReferralStatsReturn {
+export function useReferralStats(role?: ReferralType): UseReferralStatsReturn {
+  const { wallet } = useWalletContext();
   const [stats, setStats] = useState<ReferralStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    try {
-      // Swap to getReferralStats() when real API is ready
-      const data = getMockReferralStats();
-      setStats(data);
-    } catch (err: unknown) {
-      if (err instanceof Error) {
-        setError(err.message);
-      } else {
-        setError('Something went wrong');
+    let cancelled = false;
+
+    async function load() {
+      setLoading(true);
+      setError(null);
+
+      if (!wallet?.publicKey) {
+        setStats(null);
+        setLoading(false);
+        return;
       }
-    } finally {
-      setLoading(false);
+
+      try {
+        const referralCode = new URLSearchParams(window.location.search).get('ref');
+        const roleParam =
+          role ??
+          (new URLSearchParams(window.location.search).get('role') as ReferralType | null) ??
+          undefined;
+
+        if (referralCode) {
+          await fetch('/api/referrals', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({
+              code: referralCode,
+              referredWallet: wallet.publicKey,
+              role: roleParam,
+            }),
+          });
+        }
+
+        const roleQuery = roleParam ? `&role=${encodeURIComponent(roleParam)}` : '';
+        const response = await fetch(
+          `/api/referrals?wallet=${encodeURIComponent(wallet.publicKey)}${roleQuery}`
+        );
+        if (!response.ok) throw new Error('Failed to load referral data');
+        const data = (await response.json()) as ReferralStats;
+        if (!cancelled) setStats(data);
+      } catch (err: unknown) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : 'Something went wrong');
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
     }
-  }, []);
+
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, [wallet?.publicKey, role]);
 
   return { stats, loading, error };
 }

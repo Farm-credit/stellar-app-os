@@ -1,9 +1,12 @@
 'use client';
 
 import Link from 'next/link';
-import { ArrowLeft, Leaf, MapPin, TreePine, Wind } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Camera, Leaf, MapPin, TreePine, Wind } from 'lucide-react';
 import { Text } from '@/components/atoms/Text';
 import { TreeStatusBadge } from '@/components/molecules/TreeStatusBadge';
+import { TreeGrowthStageBadge } from '@/components/molecules/TreeGrowthStageBadge';
+import { TreeLifecycleTimeline } from '@/components/organisms/TreeLifecycleTimeline';
+import { deriveGrowthStage } from '@/lib/tree-growth/stages';
 import {
   Card,
   CardContent,
@@ -11,23 +14,23 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/molecules/Card';
+import { Co2MethodologyLink } from '@/components/molecules/Co2MethodologyLink';
+import type { TreeSequestration } from '@/lib/carbon/ipcc-tier1';
 import type { Tree } from '@/lib/types/tree';
+import { speciesPathForName } from '@/lib/species/education';
+import { TreeCo2Calculation } from './TreeCo2Calculation';
+import { TreeImage } from './TreeImage';
 
 interface TreeDetailProps {
   tree: Tree;
-}
-
-function fmtDate(iso?: string) {
-  if (!iso) return 'Not yet planted';
-  return new Date(iso).toLocaleDateString('en-GB', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  });
+  /** IPCC Tier 1 estimate for this tree; its inputs are shown on the profile. */
+  sequestration?: TreeSequestration;
 }
 
 /** Tree detail view for sponsors and map click-through (#532, #533). */
-export function TreeDetail({ tree }: TreeDetailProps) {
+export function TreeDetail({ tree, sequestration }: TreeDetailProps) {
+  const growthStage = deriveGrowthStage(tree);
+
   return (
     <div className="mx-auto max-w-3xl px-4 py-6 sm:py-10">
       <Link
@@ -45,11 +48,18 @@ export function TreeDetail({ tree }: TreeDetailProps) {
             {tree.treeId}
           </Text>
           <TreeStatusBadge status={tree.status} />
+          <TreeGrowthStageBadge stage={growthStage} />
         </div>
         <Text variant="muted" as="p">
           {tree.projectName}
         </Text>
       </header>
+
+      {tree.imageUrl ? (
+        <div className="mb-4 overflow-hidden rounded-xl border border-border bg-muted">
+          <TreeImage src={tree.imageUrl} alt={`Evidence photo for ${tree.treeId}`} />
+        </div>
+      ) : null}
 
       <div className="grid gap-4 sm:grid-cols-2">
         <Card>
@@ -61,6 +71,14 @@ export function TreeDetail({ tree }: TreeDetailProps) {
           </CardHeader>
           <CardContent>
             <Text className="text-lg font-semibold">{tree.species}</Text>
+            {speciesPathForName(tree.species) ? (
+              <Link
+                href={speciesPathForName(tree.species) as string}
+                className="mt-1 inline-block text-sm text-stellar-blue hover:underline"
+              >
+                Learn about {tree.species}
+              </Link>
+            ) : null}
           </CardContent>
         </Card>
 
@@ -72,9 +90,16 @@ export function TreeDetail({ tree }: TreeDetailProps) {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <Text className="text-lg font-semibold">{tree.co2OffsetKgPerYear} kg / year</Text>
+            <Text className="text-lg font-semibold">
+              {sequestration
+                ? `${sequestration.annualCo2Kg.toFixed(1)} kg / year`
+                : `${tree.co2OffsetKgPerYear} kg / year`}
+            </Text>
+            <Co2MethodologyLink className="mt-1 inline-block" />
           </CardContent>
         </Card>
+
+        {sequestration ? <TreeCo2Calculation sequestration={sequestration} /> : null}
 
         <Card className="sm:col-span-2">
           <CardHeader className="pb-2">
@@ -97,9 +122,28 @@ export function TreeDetail({ tree }: TreeDetailProps) {
             <CardTitle className="text-base">Planting timeline</CardTitle>
           </CardHeader>
           <CardContent>
-            <Text>{fmtDate(tree.plantedAt)}</Text>
+            <TreeLifecycleTimeline tree={tree} />
           </CardContent>
         </Card>
+
+        <Link
+          href={`/trees/${tree.id}/timeline`}
+          className="group flex min-h-[44px] items-center justify-between gap-3 rounded-xl border border-border bg-card px-4 py-3 transition-colors hover:bg-muted sm:col-span-2"
+        >
+          <span className="flex items-center gap-3">
+            <Camera className="h-5 w-5 text-stellar-green" aria-hidden />
+            <span>
+              <span className="block font-semibold">Photo timeline</span>
+              <span className="block text-sm text-muted-foreground">
+                Month-by-month growth photos, milestones, and impact metrics.
+              </span>
+            </span>
+          </span>
+          <ArrowRight
+            className="h-5 w-5 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5"
+            aria-hidden
+          />
+        </Link>
       </div>
     </div>
   );

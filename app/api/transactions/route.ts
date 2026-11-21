@@ -24,35 +24,7 @@ export async function GET(request: NextRequest) {
     const limit = Math.min(parseInt(p.get('limit') ?? '50', 10), 200);
     const offset = Math.max(parseInt(p.get('offset') ?? '0', 10), 0);
 
-    const conditions: string[] = [];
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const values: any[] = [];
-    let idx = 1;
-
-    if (type) {
-      conditions.push(`tx_type = $${idx++}`);
-      values.push(type);
-    }
-    if (account) {
-      conditions.push(`(source_account = $${idx} OR destination = $${idx})`);
-      values.push(account);
-      idx++;
-    }
-    if (asset) {
-      conditions.push(`asset_code = $${idx++}`);
-      values.push(asset.toUpperCase());
-    }
-    if (from) {
-      conditions.push(`created_at >= $${idx++}`);
-      values.push(from);
-    }
-    if (to) {
-      conditions.push(`created_at <= $${idx++}`);
-      values.push(to);
-    }
-
-    const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
-
+    const values = [type, account, asset?.toUpperCase() ?? null, from, to, limit, offset];
     const pool = getPool();
 
     const [dataResult, countResult] = await Promise.all([
@@ -60,12 +32,25 @@ export async function GET(request: NextRequest) {
         `SELECT tx_hash, ledger, created_at, source_account, tx_type,
                 asset_code, asset_issuer, amount, destination, memo, indexed_at
          FROM indexed_transactions
-         ${where}
+         WHERE ($1::text IS NULL OR tx_type = $1)
+           AND ($2::text IS NULL OR source_account = $2 OR destination = $2)
+           AND ($3::text IS NULL OR asset_code = $3)
+           AND ($4::timestamptz IS NULL OR created_at >= $4)
+           AND ($5::timestamptz IS NULL OR created_at <= $5)
          ORDER BY created_at DESC
-         LIMIT $${idx} OFFSET $${idx + 1}`,
-        [...values, limit, offset]
+         LIMIT $6 OFFSET $7`,
+        values
       ),
-      pool.query(`SELECT COUNT(*) AS total FROM indexed_transactions ${where}`, values),
+      pool.query(
+        `SELECT COUNT(*) AS total
+         FROM indexed_transactions
+         WHERE ($1::text IS NULL OR tx_type = $1)
+           AND ($2::text IS NULL OR source_account = $2 OR destination = $2)
+           AND ($3::text IS NULL OR asset_code = $3)
+           AND ($4::timestamptz IS NULL OR created_at >= $4)
+           AND ($5::timestamptz IS NULL OR created_at <= $5)`,
+        values.slice(0, 5)
+      ),
     ]);
 
     return NextResponse.json({

@@ -25,6 +25,10 @@ CREATE TABLE IF NOT EXISTS trees (
   -- FK to species catalogue
   species_slug        TEXT            REFERENCES species_catalogue (slug) ON DELETE SET NULL,
 
+  -- Provenance: source seed batch (native plant seed distribution tracking)
+  seed_batch_id       BIGINT          REFERENCES seed_batches (id) ON DELETE SET NULL,
+  provenance_notes    TEXT,
+
   -- Geographic location (fuzzed ±0.01° for privacy)
   lat                 NUMERIC(9, 6)   NOT NULL,
   lng                 NUMERIC(9, 6)   NOT NULL,
@@ -56,6 +60,7 @@ CREATE TABLE IF NOT EXISTS trees (
 CREATE INDEX IF NOT EXISTS idx_trees_status         ON trees (status);
 CREATE INDEX IF NOT EXISTS idx_trees_planter        ON trees (planter_id);
 CREATE INDEX IF NOT EXISTS idx_trees_species        ON trees (species_slug);
+CREATE INDEX IF NOT EXISTS idx_trees_seed_batch     ON trees (seed_batch_id);
 CREATE INDEX IF NOT EXISTS idx_trees_country        ON trees (country_code);
 CREATE INDEX IF NOT EXISTS idx_trees_created        ON trees (created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_trees_active         ON trees (deleted_at) WHERE deleted_at IS NULL;

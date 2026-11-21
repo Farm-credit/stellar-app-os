@@ -1,0 +1,93 @@
+##############################################################################
+# Services
+#
+# harvesta-web    → ClusterIP, exposes port 3000 to Ingress & internal callers
+# postgres        → ClusterIP headless + regular ClusterIP
+# postgres-headless → StatefulSet DNS peer discovery
+# redis           → ClusterIP
+##############################################################################
+
+# ─── Next.js web service ─────────────────────────────────────────────────────
+apiVersion: v1
+kind: Service
+metadata:
+  name: harvesta-web
+  namespace: harvesta
+  labels:
+    app.kubernetes.io/name: harvesta
+    app.kubernetes.io/component: web
+  annotations:
+    # Prometheus ServiceMonitor (if using kube-prometheus-stack)
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "3000"
+    prometheus.io/path: "/api/metrics"
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: harvesta
+    app.kubernetes.io/component: web
+  ports:
+    - name: http
+      port: 80
+      targetPort: 3000
+      protocol: TCP
+---
+# ─── PostgreSQL ClusterIP (for app connection) ───────────────────────────────
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  namespace: harvesta
+  labels:
+    app.kubernetes.io/name: harvesta
+    app.kubernetes.io/component: postgres
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: harvesta
+    app.kubernetes.io/component: postgres
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: 5432
+      protocol: TCP
+---
+# ─── PostgreSQL headless service (for StatefulSet DNS: postgres-0.postgres-headless) ─
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-headless
+  namespace: harvesta
+  labels:
+    app.kubernetes.io/name: harvesta
+    app.kubernetes.io/component: postgres
+spec:
+  type: ClusterIP
+  clusterIP: None
+  selector:
+    app.kubernetes.io/name: harvesta
+    app.kubernetes.io/component: postgres
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: 5432
+---
+# ─── Redis ───────────────────────────────────────────────────────────────────
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis
+  namespace: harvesta
+  labels:
+    app.kubernetes.io/name: harvesta
+    app.kubernetes.io/component: redis
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: harvesta
+    app.kubernetes.io/component: redis
+  ports:
+    - name: redis
+      port: 6379
+      targetPort: 6379
+      protocol: TCP

@@ -24,12 +24,23 @@ import { type JSX, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
-import { X, Home, FolderOpen, ShoppingBag, LayoutDashboard, History } from 'lucide-react';
+import {
+  X,
+  Home,
+  FolderOpen,
+  ShoppingBag,
+  LayoutDashboard,
+  History,
+  Users,
+  MessageCircle,
+  Banknote,
+} from 'lucide-react';
 import { Button } from '@/components/atoms/Button';
 import { Text } from '@/components/atoms/Text';
 import { useWalletContext } from '@/contexts/WalletContext';
 import { LanguageSelector } from '@/components/organisms/Header/LanguageSelector';
 import { useAppTranslation } from '@/hooks/useTranslation';
+import { useSwipeGesture } from '@/hooks/useSwipeGesture';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -46,7 +57,10 @@ const NAV_LINKS = [
   { href: '/', labelKey: 'nav.home', icon: Home },
   { href: '/projects', labelKey: 'nav.projects', icon: FolderOpen },
   { href: '/marketplace', labelKey: 'nav.marketplace', icon: ShoppingBag },
+  { href: '/cooperatives', labelKey: 'nav.cooperatives', icon: Users },
+  { href: '/community/forum', labelKey: 'nav.community', icon: MessageCircle },
   { href: '/transactions', labelKey: 'nav.transactions', icon: History },
+  { href: '/offramp', labelKey: 'nav.offramp', icon: Banknote },
   { href: '/dashboard', labelKey: 'nav.dashboard', icon: LayoutDashboard },
 ] as const;
 
@@ -118,6 +132,9 @@ export function MobileDrawer({ isOpen, onClose, onOpenWallet }: MobileDrawerProp
   const walletLabel = wallet?.publicKey
     ? `${wallet.publicKey.slice(0, 6)}…${wallet.publicKey.slice(-4)}`
     : t('header.connectWallet');
+
+  // ── Touch swipe-to-close ──────────────────────────────────────────────────
+  const swipeHandlers = useSwipeGesture({ onSwipeRight: onClose });
 
   // ── Focus trap ───────────────────────────────────────────────────────────
   useEffect(() => {
@@ -209,7 +226,8 @@ export function MobileDrawer({ isOpen, onClose, onOpenWallet }: MobileDrawerProp
             role="dialog"
             aria-modal="true"
             aria-label="Mobile navigation"
-            className="fixed top-0 right-0 z-50 flex h-full w-[280px] flex-col bg-stellar-navy border-l border-border shadow-2xl md:hidden"
+            className="fixed top-0 right-0 z-50 flex h-full w-[280px] flex-col bg-stellar-navy border-l border-border shadow-2xl md:hidden touch-pan-y"
+            {...swipeHandlers}
           >
             {/* ── Header ─────────────────────────────────────────────── */}
             <div className="flex items-center justify-between p-4 border-b border-border">

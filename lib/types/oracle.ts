@@ -11,9 +11,6 @@ export interface NdviSubmissionRequest {
   network: NetworkType;
   /** Hex-encoded ed25519 signature of the canonical payload by the trusted oracle */
   signature: string;
-  /** Latitude of the planting location */
-  lat: number;
-  /** Longitude of the planting location */
   /** Latitude of the measurement */
   lat: number;
   /** Longitude of the measurement */

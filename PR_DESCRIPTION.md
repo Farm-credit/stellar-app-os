@@ -1,418 +1,217 @@
-# Storage Optimization - Hot Paths
+# Buyer Risk Scoring for Project Sustainability
 
-## Summary
-Optimized storage reads/writes in critical transaction paths to achieve **< 0.10 storage operations per transaction** target. Primary hot path (`donate()`) now operates at target threshold with 71% reduction in storage operations.
+**Closes #1294**
 
-## Related Issue
-Closes #[issue-number] - Profile and optimize storage reads/writes in hot paths
+## Overview
 
----
+This PR implements buyer risk scoring for carbon credit projects based on four sustainability pillars:
+- **Verifier Reputation** (25% weight): Credibility of the verification body
+- **Methodology Strength** (20% weight): Rigor of the carbon calculation methodology
+- **Regional Stability** (20% weight): Political and economic stability of the project region
+- **Farmer Track Record** (35% weight): Historical performance and reputation of the farmer/project operator
 
-## What Was Implemented
+Each pillar produces a 0-100 sub-score. The overall risk score is a weighted average, converted to a categorical rating: **Low** (≥80), **Medium** (60-79), or **High** (<60).
 
-### 🎯 Performance Results
+## Design Decisions & Judgment Calls
 
-| Function | Before | After | Improvement | Target Met |
-|----------|--------|-------|-------------|------------|
-| **donate()** | 0.35 | **0.10** | **71%** | ✅ **YES** |
-| **verify_planting()** | 0.20 | **0.15** | **25%** | ⚠️ Close (0.05 away) |
-| **verify_milestone()** | 0.15 | **0.15** | 0% | ⚠️ Close (0.05 away) |
-| **mint_token** | 0.10 | **0.10** | 0% | ✅ **YES** |
+### Weight Distribution (Subject to Reviewer Sign-Off)
 
-**Overall: 2/4 functions at target, 2/4 within 0.05 of target**
+The weighting formula is intentionally configurable (named constants, not magic numbers) to allow post-launch tuning:
 
----
+```
+riskScore = 
+  0.25 × verifierReputation +
+  0.20 × methodologyStrength +
+  0.20 × regionalStability +
+  0.35 × farmerTrackRecord
+```
+
+**Rationale:**
+- **Farmer track record (35%, highest)**: Most direct signal of project delivery success. A verified farmer with high buyer ratings and strong KYC tier is most predictive of project success.
+- **Verifier reputation (25%)**: Establishes credibility of the carbon calculation claims. Gold Standard and Verra are globally recognized; lower tiers carry more risk.
+- **Methodology strength (20%)**: Affects accuracy of carbon quantification. Verified methodologies with complete formula specifications are more reliable.
+- **Regional stability (20%, lowest)**: External risk factor largely outside project control. Included for completeness but weighted lower than farmer/verifier signals.
+
+**This is a design choice made in the absence of a specified formula in the issue. It should be reviewed and confirmed before merge.**
+
+### Data Gaps & Limitations
+
+The scoring system is intentionally **transparent about its limitations**. Each score includes documented data gaps:
+
+#### 1. **Verifier Reputation: Proxy-Based**
+- **What's available**: Verifier type (Gold Standard, Verra VCS, CAR, Plan Vivo, Pending)
+- **What's missing**: Individual verifier metrics (years active, reversals, disputes, accreditations)
+- **Mitigation**: Uses certification tier as proxy; flagged in response
+- **Future work**: Build `Verifier` entity table with detailed metrics per verifier instance
+
+#### 2. **Methodology Strength: Heuristic-Based**
+- **What's available**: Methodology seeded from official registries; `metadataVerified` flag; formula and parameters
+- **What's missing**: Expert-assigned strength scores; category-specific rigor assessment
+- **Calculation**: Base 70 + 20 (if verified) + 10 (if formula/parameters complete) = 70–100
+- **Limitation**: Simple heuristic; doesn't capture actual methodological rigor
+- **Future work**: Expert review could assign richer strength scores per methodology category
+
+#### 3. **Regional Stability: Static Tier Mapping**
+- **What's available**: Operating region (one of 8 predefined regions)
+- **What's missing**: Live geopolitical risk data; country/sub-region granularity
+- **Calculation**: Static tier based on IMF Financial Stress Index and World Bank Governance Indicators
+  - North America, Western Europe: 95 (very stable)
+  - Latin America: 75
+  - Southeast Asia: 70
+  - South Asia: 65
+  - Sub-Saharan Africa, West Africa: 60 (lower stability)
+  - Unknown/Other: 50 (neutral default)
+- **Limitation**: Does not reflect current events (conflicts, droughts, policy changes)
+- **Sources**:
+  - IMF Financial Stress Index: https://www.imf.org/external/research/index.aspx
+  - World Bank Worldwide Governance Indicators: https://www.worldbank.org/en/publication/worldwide-governance-indicators
+- **Future work**: Integrate live regional risk API (e.g., Verisk Maplecroft, Stratfor); add country-level granularity
+
+#### 4. **Farmer Track Record: Review-Based**
+- **What's available**: KYC tier, platform verification status, buyer review aggregates (star rating), review count
+- **What's missing**: Escrow/milestone payment history, tree-survival rates, loan repayment correlation
+- **Calculation**: 50 (base) + 15 (if verified) + 5–15 (KYC tier) + 0–15 (review rating) + 0–15 (review count)
+- **Limitation**: Buyer reviews may be skewed; doesn't capture payment reliability or tree survival
+- **Future work**: Add escrow history, milestone completion rates, tree-survival correlation; cross-reference fraud alerts
 
 ## Implementation Details
 
-### 1. donation-escrow/src/lib.rs - Major Optimizations ✅
+### New Files & Changes
 
-**Storage Operations: 7 → 2 (71% reduction)**
+1. **Design Document**: `RISK_SCORING_DESIGN.md`
+   - Comprehensive specification of the scoring model, assumptions, data sources, and limitations
 
-#### Changes:
-- **Combined token addresses** into single tuple
-  ```rust
-  // Before: 2 reads
-  let xlm: Address = env.storage().instance().get(&symbol_short!("XLM")).expect("not init");
-  let usdc: Address = env.storage().instance().get(&symbol_short!("USDC")).expect("not init");
-  
-  // After: 1 read
-  let (xlm, usdc): (Address, Address) = env.storage().instance()
-      .get(&symbol_short!("TOKENS"))
-      .expect("not init");
-  ```
+2. **Schemas**: `lib/schemas/project-risk-score.schema.ts`
+   - Zod schemas for request validation, response shape, and internal domain models
+   - Covers API endpoints, error responses, and database persistence
 
-- **Combined batch and sequence** into single tuple
-  ```rust
-  // Before: 2 reads + 1 write
-  let batch_id: u32 = env.storage().instance().get(&symbol_short!("BATCH")).unwrap();
-  let seq: u64 = env.storage().instance().get(&symbol_short!("SEQ")).unwrap();
-  env.storage().instance().set(&symbol_short!("SEQ"), &next_seq);
-  
-  // After: 1 read + 1 write
-  let (batch_id, seq): (u32, u64) = env.storage().instance()
-      .get(&symbol_short!("BATCHSEQ"))
-      .unwrap();
-  env.storage().instance().set(&symbol_short!("BATCHSEQ"), &(batch_id, next_seq));
-  ```
+3. **Scoring Logic**: `lib/scoring/buyer-risk-scoring.ts`
+   - Pure functions for each sub-score calculator
+   - Named constants for weights and regional tiers (configurable)
+   - Utility functions for combining scores and determining ratings
 
-- **Eliminated batch summary storage** (2 operations → 0)
-  - Removed persistent read/write of `BatchSummary`
-  - Moved to event-based aggregation
-  - Enhanced event emission to include token type
+4. **Unit Tests**: `lib/scoring/buyer-risk-scoring.test.ts`
+   - 50+ test cases covering:
+     - Sub-score boundaries and edge cases (missing data, invalid inputs)
+     - Overall score weighting and thresholds
+     - Risk rating assignment accuracy
+     - Configuration validation
 
-**Impact:** Primary hot path now at target threshold
+5. **Database Layer**: `lib/services/project-risk-score.service.ts`
+   - Fetches project, methodology, farmer, and region data
+   - Calculates scores and persists to database
+   - Implements caching (24-hour TTL by default)
+   - List and retrieve operations
 
----
+6. **API Endpoint**: `app/api/v2/projects/:id/risk-score`
+   - GET endpoint with caching and force-recalculate support
+   - Proper response envelope with `success` flag
+   - API versioning headers (v2)
+   - Comprehensive error handling
 
-### 2. tree-escrow/src/lib.rs - Moderate Optimizations ✅
+7. **Integration Tests**: `app/api/v2/projects/[id]/risk-score/route.test.ts`
+   - 30+ tests covering:
+     - Response structure and schema validation
+     - Sub-score components and bounds
+     - Weights inclusion and correctness
+     - Data gaps documentation
+     - Error handling (404, 400, 500)
+     - Caching headers
+     - Risk rating correctness
 
-**Storage Operations: 4 → 3 (25% reduction)**
+8. **Database Schema**:
+   - Prisma model: `ProjectRiskScore` (documented in `prisma/schema.prisma`)
+   - Migration: `db/migrations/026_create_project_risk_scores.sql`
+   - Includes indices on `projectId`, `riskRating`, `updatedAt`
+   - Stores sub-scores, overall score, rating, and data gaps for auditability
 
-#### Changes:
-- **Combined admin, tree token, and decimals** into single tuple
-  ```rust
-  // Before: 2 reads
-  Self::require_admin(&env); // reads ADMIN
-  let tree_token = Self::tree_token(&env); // reads TREE
-  
-  // After: 1 read
-  let (admin, tree_token, tree_decimals): (Address, Address, u32) = env
-      .storage()
-      .instance()
-      .get(&symbol_short!("ADMINTREE"))
-      .expect("contract not initialized");
-  admin.require_auth();
-  ```
+9. **Existing Endpoint Updates**: `app/api/v2/risk-scores/route.ts`
+   - Updated response envelope to include `success: true` wrapper
+   - Added pagination support (`limit`, `offset`)
+   - Maintained backward compatibility with sample data
 
-- **Cached tree token decimals** during initialization
-  - Eliminates repeated decimal calculations
-  - Stored in instance storage for fast access
+### API Response Shape
 
-- **Inlined authentication** to reduce function call overhead
-
-**Impact:** Significant improvement, close to target
-
----
-
-### 3. escrow-milestone/src/lib.rs - Minor Optimizations + Bug Fixes ✅
-
-**Storage Operations: 3 → 3 (maintained near-optimal)**
-
-#### Changes:
-- **Inlined admin authentication** to reduce overhead
-- **Fixed corrupted code** in `verify_survival()` function
-- **Optimized function structure** for better performance
-
-**Impact:** Already near-optimal, maintained performance
-
----
-
-## Architecture Changes
-
-### Before: On-Chain Batch Summaries
-```
-Client → Smart Contract → Persistent Storage (BatchSummary)
-                       → Persistent Storage (DonationRecord)
+```json
+{
+  "success": true,
+  "riskScore": {
+    "projectId": "proj-abc123",
+    "projectName": "Amazon Reforestation Initiative",
+    "overallScore": 75,
+    "riskRating": "Low",
+    "subScores": {
+      "verifierReputation": 90,
+      "methodologyStrength": 85,
+      "regionalStability": 60,
+      "farmerTrackRecord": 78
+    },
+    "weights": {
+      "verifierReputation": 0.25,
+      "methodologyStrength": 0.20,
+      "regionalStability": 0.20,
+      "farmerTrackRecord": 0.35
+    },
+    "calculatedAt": "2026-09-29T14:32:00Z",
+    "dataGaps": [
+      "Regional stability uses static tier based on region; no live geopolitical risk data integrated",
+      "Verifier reputation uses certification tier as proxy; no detailed verifier entity metrics (reversals, disputes) available",
+      "Farmer track record excludes escrow/milestone payment history and tree-survival correlation"
+    ]
+  }
+}
 ```
 
-### After: Event-Based Aggregation
-```
-Client → Smart Contract → Persistent Storage (DonationRecord only)
-                       → Event Emission (batch data)
-                       
-Event → Off-Chain Indexer → PostgreSQL → API Endpoints
-```
+### Endpoints
 
----
+- **GET `/api/v2/projects/:id/risk-score`**: Calculate and retrieve risk score for a project
+  - Query parameters:
+    - `useCache=false`: Skip cache, always recalculate
+    - `force=true`: Force recalculation even if cached
+  - Response: 200 with score, 404 if project not found, 400 for invalid request, 500 on error
 
-## Off-Chain Requirements
+- **GET `/api/v2/risk-scores`**: List all project risk scores (legacy sample data)
+  - Query parameters:
+    - `rating=Low|Medium|High`: Filter by rating
+    - `limit=20`: Pagination limit (default 20, max 100)
+    - `offset=0`: Pagination offset
+  - Response: 200 with paginated list
 
-### ⚠️ Action Required: Deploy Indexer Service
-
-The optimization eliminates on-chain batch summary storage. An off-chain indexer must be deployed to:
-
-1. **Listen to `donate` events:**
-   ```rust
-   (symbol_short!("donate"), donor) → (batch_id, tree_count, amount, token)
-   ```
-
-2. **Aggregate batch summaries:**
-   - Track total tree count per batch
-   - Track XLM/USDC totals per batch
-   - Track batch closure status
-
-3. **Provide API endpoints:**
-   - `GET /api/batches/{id}` - Batch summary
-   - `GET /api/batches/current` - Current batch ID
-
-### Database Schema
-```sql
-CREATE TABLE batch_summaries (
-    batch_id INTEGER PRIMARY KEY,
-    tree_count INTEGER NOT NULL DEFAULT 0,
-    xlm_total BIGINT NOT NULL DEFAULT 0,
-    usdc_total BIGINT NOT NULL DEFAULT 0,
-    closed BOOLEAN NOT NULL DEFAULT FALSE,
-    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-    closed_at TIMESTAMP
-);
-```
-
-**Complete setup instructions:** See `TESTING_AND_DEPLOYMENT_GUIDE.md`
-
----
+- **POST `/api/v2/risk-scores`**: Score a project from caller-supplied inputs (legacy sample data)
+  - Body: ProjectRiskInput with detailed verifier, methodology, region, farmer profiles
+  - Response: 200 with score or 400 for validation errors
 
 ## Testing
 
-### Unit Tests ✅
-```bash
-cd contracts
-cargo test --all
-```
-- All existing tests pass
-- No breaking changes
-- Backward compatible
+All code is tested with:
+- **Unit tests** for each sub-score calculator with boundary/edge cases
+- **Integration tests** for the full endpoint response
+- All tests pass locally (test suite not run in CI due to environment constraints)
 
-### Integration Tests ⏳
-- End-to-end donation flow
-- Batch advancement with multiple donations
-- Planting verification with token minting
+## Verification & Follow-Up
 
-### Performance Tests ⏳
-- Benchmark storage operations
-- Verify < 0.10 cost for donate()
-- Load testing
+### Before Merge
+- [ ] Review weight distribution and approve or propose alternative weighting
+- [ ] Confirm data gap mitigations are acceptable or propose additional data sources
+- [ ] Verify database schema aligns with existing patterns
+- [ ] Confirm API response shape meets consumer expectations
 
----
+### Post-Merge (Future Work)
+- Collect feedback on weight tuning after launch
+- Integrate live regional risk API
+- Build Verifier entity table with detailed metrics
+- Add escrow history and tree-survival correlation to Farmer scoring
+- Add expert-assigned methodology strength scores
 
-## Documentation
+## References
 
-### 📄 Files Added:
-1. **STORAGE_OPTIMIZATION_ANALYSIS.md** - Detailed analysis and strategy
-2. **OPTIMIZATION_IMPLEMENTATION_SUMMARY.md** - Complete implementation details
-3. **TESTING_AND_DEPLOYMENT_GUIDE.md** - Step-by-step deployment procedures
-4. **OPTIMIZATION_COMPLETE.md** - Executive summary
-5. **OPTIMIZATION_VISUAL_SUMMARY.md** - Visual reference guide
-
-### 📝 Files Modified:
-1. `contracts/donation-escrow/src/lib.rs` - Major optimizations
-2. `contracts/tree-escrow/src/lib.rs` - Moderate optimizations
-3. `contracts/escrow-milestone/src/lib.rs` - Minor optimizations + bug fixes
-4. `contracts/Cargo.toml` - Added donation-escrow to workspace
-
----
-
-## Breaking Changes
-
-**None** ✅
-
-- All existing APIs remain unchanged
-- Backward compatible
-- No migration required for existing data
-- Tests pass without modification
-
----
-
-## Security Considerations
-
-### ✅ Safe Optimizations Applied:
-- Tuple storage for related data
-- Cached computed values
-- Event-based aggregation with off-chain indexer
-- Inlined authentication checks
-
-### ⚠️ Medium Risk (Requires Monitoring):
-- Off-chain batch summary aggregation
-  - **Mitigation:** Comprehensive indexer monitoring and data consistency checks
-  - **Fallback:** Can rebuild from on-chain events
-
-### ❌ High Risk (Not Implemented):
-- No admin checks removed
-- No temporary storage for critical data
-- No deferred token minting
-
----
-
-## Deployment Plan
-
-### Phase 1: Infrastructure Setup ⏳
-1. Deploy PostgreSQL database
-2. Deploy indexer service
-3. Create API endpoints
-4. Set up monitoring
-
-### Phase 2: Testnet Deployment ⏳
-1. Deploy optimized contracts
-2. Initialize contracts
-3. Run test transactions
-4. Monitor for 24 hours
-5. Verify storage costs
-
-### Phase 3: Mainnet Deployment ⏳
-1. Deploy to mainnet
-2. Monitor for 48 hours
-3. Verify production metrics
-
-**Detailed steps:** See `TESTING_AND_DEPLOYMENT_GUIDE.md`
-
----
-
-## Rollback Plan
-
-If issues arise:
-1. Pause contract (stop accepting donations)
-2. Stop indexer service
-3. Deploy previous contract version
-4. Restore database from backup
-5. Restart services
-
-**Complete procedures:** See `TESTING_AND_DEPLOYMENT_GUIDE.md`
-
----
-
-## Screenshots / Recordings
-
-### Performance Comparison
-```
-donate() Storage Operations:
-Before:  ████████████████████████████████████████ 0.35 (7 ops)
-After:   ██████████ 0.10 (2 ops)
-Target:  ██████████ 0.10
-Status:  ✅ TARGET ACHIEVED
-```
-
-### Code Quality Metrics
-- ✅ No breaking changes
-- ✅ Backward compatible
-- ✅ All tests passing
-- ✅ Type safe (strict Rust)
-- ✅ Comprehensive error handling
-- ✅ Production-ready
-
----
-
-## How to Test
-
-### 1. Run Unit Tests
-```bash
-cd contracts
-cargo test --all
-```
-
-### 2. Build Optimized Contracts
-```bash
-cargo build --release --target wasm32-unknown-unknown
-```
-
-### 3. Deploy to Testnet
-```bash
-stellar contract deploy \
-  --wasm target/wasm32-unknown-unknown/release/donation_escrow.wasm \
-  --source $ADMIN_SECRET \
-  --network testnet
-```
-
-### 4. Test Donation
-```bash
-stellar contract invoke \
-  --id $CONTRACT_ID \
-  --source $DONOR_SECRET \
-  --network testnet \
-  -- donate \
-    --donor $DONOR_ADDRESS \
-    --token $USDC_ADDRESS \
-    --amount 10000 \
-    --tree_count 5
-```
-
-### 5. Verify Storage Cost
-```bash
-stellar transaction info $TX_HASH --network testnet
-```
-
----
-
-## Checklist
-
-### Code Quality
-- [x] No breaking changes
-- [x] Backward compatible
-- [x] All tests passing
-- [x] Type safe
-- [x] Error handling complete
-- [x] Security maintained
-
-### Documentation
-- [x] Analysis document
-- [x] Implementation summary
-- [x] Testing guide
-- [x] Deployment guide
-- [x] Visual summary
-
-### Testing
-- [x] Unit tests passing
-- [ ] Integration tests (pending)
-- [ ] Performance benchmarks (pending)
-- [ ] Testnet deployment (pending)
-
-### Infrastructure
-- [ ] Database setup (pending)
-- [ ] Indexer deployment (pending)
-- [ ] API endpoints (pending)
-- [ ] Monitoring setup (pending)
-
----
-
-## Additional Notes
-
-### Phase 2 Optimization Opportunities
-
-To achieve < 0.10 for remaining functions:
-
-**verify_planting() (0.15 → 0.08):**
-- Use temporary storage for escrow records
-- Batch token minting operations
-
-**verify_milestone() (0.15 → 0.08):**
-- Implement signature-based authentication
-- Use temporary storage for state updates
-
-**See:** `STORAGE_OPTIMIZATION_ANALYSIS.md` for detailed Phase 2 plan
-
----
-
-## Review Focus Areas
-
-1. **Storage optimization techniques** - Are the tuple patterns appropriate?
-2. **Event-based aggregation** - Is the off-chain approach acceptable?
-3. **Security implications** - Any concerns with the optimizations?
-4. **Testing coverage** - Sufficient for production deployment?
-5. **Documentation completeness** - Clear enough for deployment?
-
----
-
-## Questions for Reviewers
-
-1. Should we proceed with Phase 2 optimizations for the remaining functions?
-2. Is the off-chain indexer approach acceptable for batch summaries?
-3. Any concerns about the event-based aggregation pattern?
-4. Should we add more integration tests before testnet deployment?
-
----
-
-## Success Metrics
-
-- ✅ Primary hot path (donate) at target: **0.10**
-- ✅ 71% reduction in storage operations
-- ✅ Zero breaking changes
-- ✅ Comprehensive documentation
-- ✅ Production-ready code quality
-
-**Overall Score: 9.0/10** ⭐⭐⭐⭐⭐
-
----
-
-**Status: ✅ Ready for Review**
-
-*Optimized with senior-level expertise. No shortcuts, production-quality code, comprehensive documentation included.*
+- **Issue**: #1294
+- **Design Document**: [RISK_SCORING_DESIGN.md](./RISK_SCORING_DESIGN.md)
+- **Regional Stability Sources**:
+  - IMF Financial Stress Index: https://www.imf.org/external/research/index.aspx
+  - World Bank Worldwide Governance Indicators: https://www.worldbank.org/en/publication/worldwide-governance-indicators
+- **Carbon Standards**:
+  - Verra (VCS): https://verra.org/
+  - Gold Standard: https://www.goldstandard.org/
+  - Climate Action Reserve (CAR): https://www.climateactionreserve.org/
+  - Plan Vivo: https://www.planvivo.org/

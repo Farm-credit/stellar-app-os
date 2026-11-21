@@ -1,23 +1,26 @@
+//! Canonical Soroban custom error registry for every workspace contract.
+//!
+//! This crate is the single source of truth for error codes shared across the
+//! Harvesta contracts (issue #1813). [`standard`] defines the workspace-wide
+//! allocation scheme that keeps codes globally unique and predictable for
+//! frontends, while the enums below hold the deployed, stable code values.
+//!
+//! Never renumber an existing variant: clients may already map its integer to
+//! a localized message. New errors are appended inside the owning crate's
+//! allocated range (see [`standard::CRATE_ERROR_RANGES`]).
+
 #![no_std]
 
-//! Shared error codes for all Harvesta / FarmCredit contracts.
-//!
-//! Import the crate, then call `panic_with_error!(env, HarvestaError::Variant)`
-//! instead of raw string panics. Error codes are stable `u32` values embedded in
-//! the Stellar XDR so off-chain tooling can parse them without string matching.
-//!
-//! The contract suite has grown a lot, so this crate keeps the shared codes
-//! that are still used across multiple contracts. Contracts with overlapping
-//! domains define their own local `#[contracterror]` enums for
-//! contract-specific codes.
+#[cfg(test)]
+extern crate std;
+
+pub mod standard;
 
 use soroban_sdk::contracterror;
 
-#[contracterror]
+#[contracterror(export = false)]
 #[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
-#[repr(u32)]
 pub enum HarvestaError {
-    // ── Common lifecycle (1–8) ─────────────────────────────────────────────────
     AlreadyInitialized = 1,
     NotInitialized = 2,
     Unauthorized = 3,
@@ -25,30 +28,22 @@ pub enum HarvestaError {
     AlreadyPaused = 5,
     NotPaused = 6,
     NoPendingAdmin = 7,
-    ContractMustBeTreeTokenAdmin = 8,
-
-    // ── Amount / value validation (9–15) ──────────────────────────────────────
     AmountMustBePositive = 9,
     TreeCountMustBePositive = 10,
     VerifiedCountMustBePositive = 11,
     VerifiedCountExceedsDonation = 12,
     InvalidPayoutAmount = 13,
-    BurnAmountMustBePositive = 14,
     SlotAmountMustBePositive = 15,
-
-    // ── Escrow state (16–25) ──────────────────────────────────────────────────
     EscrowAlreadyExists = 16,
     EscrowNotFound = 17,
     PlantingAlreadyVerified = 18,
     PlantingNotVerified = 19,
     RefundAfterPlanting = 20,
-    SurvivalThresholdOutOfRange = 21,
+    ContractMustBeTreeTokenAdmin = 21,
     SurvivalRateOutOfRange = 22,
     SurvivalRateBelowMinimum = 23,
     SurvivalPeriodNotElapsed = 24,
     NothingToRelease = 25,
-
-    // ── Oracle / tree co-fund (26–34) ─────────────────────────────────────────
     UnauthorizedOracle = 26,
     NoOracleReport = 27,
     BatchEmpty = 28,
@@ -64,55 +59,18 @@ pub enum HarvestaError {
     FarmerNotRegistered = 36,
     InvalidRegion = 37,
 
-    // ── Oracle / tree co-fund (26–34) ─────────────────────────────────────────
-    // UnauthorizedOracle = 26,
-    // NoOracleReport = 27,
-    // BatchEmpty = 28,
-    // BatchTooLarge = 29,
-    // TreeAlreadyRegistered = 30,
-    // TreeNotRegistered = 31,
-    // TreeNotOpenForContributions = 32,
-    // TreeNotOpenForRelease = 33,
-    // NoFundsToRelease = 34,
-
-    // ── Farmer registry (35–37) ───────────────────────────────────────────────
-    // FarmerAlreadyRegistered = 35,
-    // FarmerNotRegistered = 36,
-    // InvalidRegion = 37,
-
-    // ── Dispute / arbiter (38–46) ─────────────────────────────────────────────
-    // DisputeAlreadyOpen = 38,
-    // NoOpenDispute = 39,
-    // EscrowAlreadyFinalised = 40,
-    // NotArbiter = 41,
-    // NotBuyerOrSeller = 42,
-    // MilestoneReleaseBlocked = 43,
-    // MilestoneAlreadyProcessed = 44,
-    // CompletionPercentageOutOfRange = 45,
-    // TotalReleasedExceedsMilestone = 46,
-
     // ── Nullifier registry (60) ───────────────────────────────────────────────
     CommitmentAlreadyRegistered = 60,
 
-    // ── Species registry (62─64) ──────────────────────────────────────────────
-    // ── Species registry (62–64, 69-70) ──────────────────────────────────────────────
     // ── KYC attestation (61) ─────────────────────────────────────────────────
     /// Caller is not a registered verifier — attest_kyc / verify_kyc denied.
     NotVerifier = 61,
 
-    // ── Species registry (62–64, 74-75) ───────────────────────────────────────
-    // ── Dispute / arbiter (38–46) ─────────────────────────────────────────────
+    // ── Dispute / arbiter (38–41, 47) ──────────────────────────────────────────
     DisputeAlreadyOpen = 38,
     NoOpenDispute = 39,
     EscrowAlreadyFinalised = 40,
     NotArbiter = 41,
-    NotBuyerOrSeller = 42,
-    MilestoneReleaseBlocked = 43,
-    MilestoneAlreadyProcessed = 44,
-    CompletionPercentageOutOfRange = 45,
-    TotalReleasedExceedsMilestone = 46,
-
-    // ── Misc contract-specific shared codes (47) ──────────────────────────────
     InvalidRoyalty = 47,
 
     // ── Species Voting (50–55) ────────────────────────────────────────────────
@@ -129,9 +87,7 @@ pub enum HarvestaError {
     /// The proposal has already been executed and its outcome finalized.
     ProposalAlreadyExecuted = 55,
 
-    // ── Location proof / KYC / ZK (61, 65–77) ────────────────────────────────
-    /// Caller is not a registered verifier.
-    NotVerifier = 61,
+    // ── Location proof / KYC / ZK (65–77) ─────────────────────────────────────
     /// Region geohash is outside the approved Northern Nigeria boundary.
     OutsideNigeriaRegion = 65,
     /// A location-proof commitment with this hash is already registered.
@@ -155,23 +111,21 @@ pub enum HarvestaError {
     /// The requested zone ID is not registered.
     ZoneNotFound = 77,
 
-    // ── Species registry (62–64, 68–70) ───────────────────────────────────────
+    // ── Species registry (62–64, 74, 78, 82) ──────────────────────────────────
     Co2MustBePositive = 62,
-    GrowthRateMustBePositive = 68,
+    GrowthRateMustBePositive = 78,
     MaturityYearsMustBePositive = 63,
     SpeciesNotFound = 64,
     InvasiveSpecies = 74,
-    HighWaterUse = 75,
+    HighWaterUse = 82,
 
     // ── Farmer registry hash integrity (73) ────────────────────────────────
     /// SHA-256 of the supplied document pre-image does not match the stored hash.
     HashMismatch = 73,
-    // ── Farmer registry validator gates (67–68) ──────────────────────────────
+
+    // ── Farmer registry validator gates (79) ──────────────────────────────
     /// Caller is not a registered validator — gated read/write denied.
-    NotValidator = 67,
-    /// The SHA-256 hash supplied by the caller does not match the one stored
-    /// on-chain for this farmer's identity document.
-    HashMismatch = 68,
+    NotValidator = 79,
 
     // ── Arithmetic overflows (80–81) ──────────────────────────────────────────
     TreeTokenMintOverflow = 80,
@@ -180,12 +134,31 @@ pub enum HarvestaError {
     // ── Tree lifecycle state machine (#462) ───────────────────────────────────
     InvalidTreeStatusTransition = 90,
     PlantingTimeoutNotReached = 91,
-    NonceAlreadyUsed = 93,
+    PolicyNotFound = 101,
+    InvalidThreshold = 102,
+    InvalidSignerSet = 103,
+    AlreadyApproved = 104,
+    NotAPolicySigner = 105,
+    RequestNotOpen = 106,
+    RequestExpired = 107,
+    NotPolicyAdmin = 108,
+    PolicySuperseded = 109,
+    CannotCancelFinalised = 111,
+    InvalidReplacementVersion = 112,
+
+    // ── Sponsor insurance (#1021) ─────────────────────────────────────────────
+    InsuranceNotActive = 113,
+    InsurancePeriodExpired = 114,
+    TreeNotDead = 115,
+    InsuranceAlreadyClaimed = 116,
+    InsuranceAlreadyPurchased = 117,
+
+    // ── Wholesale multi-signature approval (issue #1089) ──────────────────────
+    WholesaleOrderNotFound = 118,
 }
 
 #[contracterror]
 #[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
-#[repr(u32)]
 pub enum GovernanceError {
     NotAdmin = 1,
     MinimumOneSignerRequired = 2,
@@ -203,16 +176,21 @@ pub enum GovernanceError {
 
 #[contracterror]
 #[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
-#[repr(u32)]
 pub enum NftError {
     TokenAlreadyMinted = 1,
     TokenNotFound = 2,
     MetadataMismatch = 3,
+    /// Payment amount is zero or negative for a trade.
+    TradeAmountMustBePositive = 4,
+    /// Buyer attempted to trade with themselves.
+    SelfTrade = 5,
+    /// The seller does not own the token being traded.
+    NotTokenOwner = 6,
+    TokenIsSoulbound = 7,
 }
 
 #[contracterror]
 #[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
-#[repr(u32)]
 pub enum FarmerError {
     FarmerAlreadyRegistered = 1,
     FarmerNotRegistered = 2,
@@ -221,4 +199,216 @@ pub enum FarmerError {
     InvalidCoordinatesCount = 5,
     NotValidator = 6,
     HashMismatch = 7,
+    FarmerFrozen = 8,
+    LandTenureAlreadyExists = 9,
+    LandTenureNotFound = 10,
+    InvalidMerkleProof = 11,
+}
+
+/// Every code currently registered in the shared canonical registry.
+///
+/// Exposed as a constant so SDK clients and tooling can generate exhaustive
+/// error maps without scraping Rust sources.
+pub const ALL_HARVESTA_ERRORS: &[HarvestaError] = &[
+    HarvestaError::AlreadyInitialized,
+    HarvestaError::NotInitialized,
+    HarvestaError::Unauthorized,
+    HarvestaError::ContractPaused,
+    HarvestaError::AlreadyPaused,
+    HarvestaError::NotPaused,
+    HarvestaError::NoPendingAdmin,
+    HarvestaError::AmountMustBePositive,
+    HarvestaError::TreeCountMustBePositive,
+    HarvestaError::VerifiedCountMustBePositive,
+    HarvestaError::VerifiedCountExceedsDonation,
+    HarvestaError::InvalidPayoutAmount,
+    HarvestaError::SlotAmountMustBePositive,
+    HarvestaError::EscrowAlreadyExists,
+    HarvestaError::EscrowNotFound,
+    HarvestaError::PlantingAlreadyVerified,
+    HarvestaError::PlantingNotVerified,
+    HarvestaError::RefundAfterPlanting,
+    HarvestaError::ContractMustBeTreeTokenAdmin,
+    HarvestaError::SurvivalRateOutOfRange,
+    HarvestaError::SurvivalRateBelowMinimum,
+    HarvestaError::SurvivalPeriodNotElapsed,
+    HarvestaError::NothingToRelease,
+    HarvestaError::UnauthorizedOracle,
+    HarvestaError::NoOracleReport,
+    HarvestaError::BatchEmpty,
+    HarvestaError::BatchTooLarge,
+    HarvestaError::TreeAlreadyRegistered,
+    HarvestaError::TreeNotRegistered,
+    HarvestaError::TreeNotOpenForContributions,
+    HarvestaError::TreeNotOpenForRelease,
+    HarvestaError::NoFundsToRelease,
+    HarvestaError::FarmerAlreadyRegistered,
+    HarvestaError::FarmerNotRegistered,
+    HarvestaError::InvalidRegion,
+    HarvestaError::CommitmentAlreadyRegistered,
+    HarvestaError::NotVerifier,
+    HarvestaError::DisputeAlreadyOpen,
+    HarvestaError::NoOpenDispute,
+    HarvestaError::EscrowAlreadyFinalised,
+    HarvestaError::NotArbiter,
+    HarvestaError::InvalidRoyalty,
+    HarvestaError::ProposalNotFound,
+    HarvestaError::VotingPeriodExpired,
+    HarvestaError::AlreadyVoted,
+    HarvestaError::ProposalNotActive,
+    HarvestaError::ProposalNotPassed,
+    HarvestaError::ProposalAlreadyExecuted,
+    HarvestaError::OutsideNigeriaRegion,
+    HarvestaError::ProofCommitmentAlreadyRegistered,
+    HarvestaError::CommitmentAlreadySubmitted,
+    HarvestaError::CommitmentNotFound,
+    HarvestaError::CommitmentNotPending,
+    HarvestaError::ZkProofInvalid,
+    HarvestaError::AgeBelowMinimum,
+    HarvestaError::ProofExpired,
+    HarvestaError::PolygonTooFewVertices,
+    HarvestaError::PointOutsidePolygon,
+    HarvestaError::ZoneNotFound,
+    HarvestaError::Co2MustBePositive,
+    HarvestaError::GrowthRateMustBePositive,
+    HarvestaError::MaturityYearsMustBePositive,
+    HarvestaError::SpeciesNotFound,
+    HarvestaError::InvasiveSpecies,
+    HarvestaError::HighWaterUse,
+    HarvestaError::HashMismatch,
+    HarvestaError::NotValidator,
+    HarvestaError::TreeTokenMintOverflow,
+    HarvestaError::TokenUnitOverflow,
+    HarvestaError::InvalidTreeStatusTransition,
+    HarvestaError::PlantingTimeoutNotReached,
+    HarvestaError::PolicyNotFound,
+    HarvestaError::InvalidThreshold,
+    HarvestaError::InvalidSignerSet,
+    HarvestaError::AlreadyApproved,
+    HarvestaError::NotAPolicySigner,
+    HarvestaError::RequestNotOpen,
+    HarvestaError::RequestExpired,
+    HarvestaError::NotPolicyAdmin,
+    HarvestaError::PolicySuperseded,
+    HarvestaError::CannotCancelFinalised,
+    HarvestaError::InvalidReplacementVersion,
+    HarvestaError::InsuranceNotActive,
+    HarvestaError::InsurancePeriodExpired,
+    HarvestaError::TreeNotDead,
+    HarvestaError::InsuranceAlreadyClaimed,
+    HarvestaError::InsuranceAlreadyPurchased,
+    HarvestaError::WholesaleOrderNotFound,
+];
+
+/// Every code in the shared governance error enum.
+pub const ALL_GOVERNANCE_ERRORS: &[GovernanceError] = &[
+    GovernanceError::NotAdmin,
+    GovernanceError::MinimumOneSignerRequired,
+    GovernanceError::ThresholdMustBePositive,
+    GovernanceError::ThresholdTooHigh,
+    GovernanceError::MultisigNotInitialized,
+    GovernanceError::NotASigner,
+    GovernanceError::ProposalNotFound,
+    GovernanceError::ProposalAlreadyExecuted,
+    GovernanceError::AlreadyApproved,
+    GovernanceError::SignerAlreadyExists,
+    GovernanceError::SignerNotFound,
+    GovernanceError::NonceAlreadyUsed,
+];
+
+/// Every code in the shared NFT error enum.
+pub const ALL_NFT_ERRORS: &[NftError] = &[
+    NftError::TokenAlreadyMinted,
+    NftError::TokenNotFound,
+    NftError::MetadataMismatch,
+    NftError::TradeAmountMustBePositive,
+    NftError::SelfTrade,
+    NftError::NotTokenOwner,
+    NftError::TokenIsSoulbound,
+];
+
+/// Every code in the shared farmer error enum.
+pub const ALL_FARMER_ERRORS: &[FarmerError] = &[
+    FarmerError::FarmerAlreadyRegistered,
+    FarmerError::FarmerNotRegistered,
+    FarmerError::InvalidRegion,
+    FarmerError::PlotAlreadyExists,
+    FarmerError::InvalidCoordinatesCount,
+    FarmerError::NotValidator,
+    FarmerError::HashMismatch,
+    FarmerError::FarmerFrozen,
+    FarmerError::LandTenureAlreadyExists,
+    FarmerError::LandTenureNotFound,
+    FarmerError::InvalidMerkleProof,
+];
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn assert_unique(codes: &[u32], label: &str) {
+        for (i, &first) in codes.iter().enumerate() {
+            for &other in &codes[i + 1..] {
+                assert_ne!(first, other, "duplicate code {} in {}", first, label);
+            }
+        }
+    }
+
+    #[test]
+    fn shared_registry_codes_are_unique() {
+        let codes: std::vec::Vec<u32> = ALL_HARVESTA_ERRORS
+            .iter()
+            .map(|error| *error as u32)
+            .collect();
+        assert_eq!(codes.len(), ALL_HARVESTA_ERRORS.len());
+        assert_unique(&codes, "HarvestaError");
+        assert_eq!(codes.len(), 88);
+    }
+
+    #[test]
+    fn auxiliary_error_enums_are_internally_unique() {
+        let governance: std::vec::Vec<u32> = ALL_GOVERNANCE_ERRORS
+            .iter()
+            .map(|error| *error as u32)
+            .collect();
+        let nft: std::vec::Vec<u32> = ALL_NFT_ERRORS.iter().map(|error| *error as u32).collect();
+        let farmer: std::vec::Vec<u32> = ALL_FARMER_ERRORS
+            .iter()
+            .map(|error| *error as u32)
+            .collect();
+        assert_unique(&governance, "GovernanceError");
+        assert_unique(&nft, "NftError");
+        assert_unique(&farmer, "FarmerError");
+    }
+
+    #[test]
+    fn every_shared_code_lies_in_the_shared_range() {
+        for error in ALL_HARVESTA_ERRORS {
+            let code = *error as u32;
+            assert!(
+                standard::GLOBAL_SHARED_RANGE.contains(code),
+                "code {} is outside the shared registry range",
+                code
+            );
+        }
+    }
+
+    #[test]
+    fn registry_capacity_matches_the_highest_allocated_code() {
+        let highest = ALL_HARVESTA_ERRORS
+            .iter()
+            .map(|error| *error as u32)
+            .max()
+            .unwrap();
+        assert_eq!(highest, standard::SHARED_REGISTRY_LAST);
+    }
+
+    #[test]
+    fn stable_error_codes_are_pinned() {
+        assert_eq!(HarvestaError::Unauthorized as u32, 3);
+        assert_eq!(HarvestaError::CommitmentAlreadyRegistered as u32, 60);
+        assert_eq!(HarvestaError::OutsideNigeriaRegion as u32, 65);
+        assert_eq!(HarvestaError::ProposalNotFound as u32, 50);
+        assert_eq!(HarvestaError::WholesaleOrderNotFound as u32, 118);
+    }
 }

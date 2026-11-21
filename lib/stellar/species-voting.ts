@@ -5,9 +5,6 @@
  * species catalogue. Voting power is proportional to TREE token holdings.
  */
 
-import { TransactionBuilder, Operation, BASE_FEE, Contract } from '@stellar/stellar-sdk';
-import { TransactionBuilder, Operation, BASE_FEE } from '@stellar/stellar-sdk';
-import { TransactionBuilder, Operation, BASE_FEE, xdr, Address } from '@stellar/stellar-sdk';
 import {
   TransactionBuilder,
   BASE_FEE,
@@ -60,9 +57,6 @@ export const SPECIES_VOTING_CONTRACT_MAINNET =
 
 export function getSpeciesVotingContract(network: NetworkType): string {
   const address =
-    network === 'mainnet'
-      ? SPECIES_VOTING_CONTRACT_MAINNET
-      : SPECIES_VOTING_CONTRACT_TESTNET;
     network === 'mainnet' ? SPECIES_VOTING_CONTRACT_MAINNET : SPECIES_VOTING_CONTRACT_TESTNET;
   if (!address) {
     throw new Error(
@@ -119,58 +113,12 @@ export async function buildProposeSpeciesTransaction(
     throw new Error('maturity_years must be > 0');
   }
 
-  const server = new Horizon.Server(networkConfig.horizonUrl);
-  const proposerAccount = await server.loadAccount(proposerPublicKey);
-  const networkPassphrase = networkConfig.networkPassphrase;
-
-  // TODO: Replace with actual Soroban contract invocation
-  // This is a placeholder - actual implementation will use soroban-sdk
-  const transaction = new TransactionBuilder(proposerAccount, {
-    fee: BASE_FEE,
-    networkPassphrase,
-  })
-    .addOperation(
-      new Contract(getSpeciesVotingContract(network)).call(
-        'propose_species'
-      )
-      Operation.invokeHostFunction({
-        func: {
-          args: [
-            // Contract function args will go here
-          ],
-          auth: [],
-        },
-        hostFunction: {
-          type: 'invokeContract',
-          contractId: getSpeciesVotingContract(network),
-          functionName: 'propose_species',
-        },
-        func: xdr.HostFunction.hostFunctionTypeInvokeContract(
-          new xdr.InvokeContractArgs({
-            contractAddress: new Address(getSpeciesVotingContract(network)).toScAddress(),
-            functionName: 'propose_species',
-            args: [],
-          })
-        ),
-        auth: [],
-      })
-    )
-    .setTimeout(300)
-    .build();
-
-  return {
-    transactionXdr: transaction.toXDR(),
-    networkPassphrase,
-  };
   const contract = new Contract(getSpeciesVotingContract(network));
   const operation = contract.call('propose_species', {
-    // Using named arguments improves readability and type safety
     slug,
     name,
     co2_scaled,
     maturity_years,
-    // The SDK handles the `proposer` argument implicitly if the contract
-    // uses `require_auth()`. If not, add `proposer: new Address(proposerPublicKey)`
   });
 
   return buildContractCallTransaction(proposerPublicKey, network, operation);
@@ -185,49 +133,8 @@ export async function buildVoteTransaction(
   voteFor: boolean,
   network: NetworkType
 ): Promise<{ transactionXdr: string; networkPassphrase: string }> {
-  const server = new Horizon.Server(networkConfig.horizonUrl);
-  const voterAccount = await server.loadAccount(voterPublicKey);
-  const networkPassphrase = networkConfig.networkPassphrase;
-
-  // TODO: Replace with actual Soroban contract invocation
-  const transaction = new TransactionBuilder(voterAccount, {
-    fee: BASE_FEE,
-    networkPassphrase,
-  })
-    .addOperation(
-      new Contract(getSpeciesVotingContract(network)).call(
-        'vote'
-      )
-      Operation.invokeHostFunction({
-        func: {
-          args: [],
-          auth: [],
-        },
-        hostFunction: {
-          type: 'invokeContract',
-          contractId: getSpeciesVotingContract(network),
-          functionName: 'vote',
-        },
-        func: xdr.HostFunction.hostFunctionTypeInvokeContract(
-          new xdr.InvokeContractArgs({
-            contractAddress: new Address(getSpeciesVotingContract(network)).toScAddress(),
-            functionName: 'vote',
-            args: [],
-          })
-        ),
-        auth: [],
-      })
-    )
-    .setTimeout(300)
-    .build();
-
-  return {
-    transactionXdr: transaction.toXDR(),
-    networkPassphrase,
-  };
   const contract = new Contract(getSpeciesVotingContract(network));
   const operation = contract.call('vote', {
-    // The SDK handles the `voter` argument implicitly if using `require_auth()`
     proposal_id: proposalId,
     vote_for: voteFor,
   });
@@ -245,7 +152,6 @@ export async function buildExecuteProposalTransaction(
 ): Promise<{ transactionXdr: string; networkPassphrase: string }> {
   const contract = new Contract(getSpeciesVotingContract(network));
   const operation = contract.call('execute_proposal', {
-    // The SDK handles the `executor` argument implicitly if using `require_auth()`
     proposal_id: proposalId,
   });
 
@@ -265,37 +171,6 @@ export async function getProposal(
   const server = new Horizon.Server(networkConfig.horizonUrl);
   const contract = new Contract(getSpeciesVotingContract(network));
 
-  // TODO: Replace with actual Soroban contract invocation
-  const transaction = new TransactionBuilder(executorAccount, {
-    fee: BASE_FEE,
-    networkPassphrase,
-  })
-    .addOperation(
-      new Contract(getSpeciesVotingContract(network)).call(
-        'execute_proposal'
-      )
-      Operation.invokeHostFunction({
-        func: {
-          args: [],
-          auth: [],
-        },
-        hostFunction: {
-          type: 'invokeContract',
-          contractId: getSpeciesVotingContract(network),
-          functionName: 'execute_proposal',
-        },
-        func: xdr.HostFunction.hostFunctionTypeInvokeContract(
-          new xdr.InvokeContractArgs({
-            contractAddress: new Address(getSpeciesVotingContract(network)).toScAddress(),
-            functionName: 'execute_proposal',
-            args: [],
-          })
-        ),
-        auth: [],
-      })
-    )
-    .setTimeout(300)
-    .build();
   // Prepare the read-only contract call
   const operation = contract.call('get_proposal', { proposal_id: proposalId });
 
@@ -303,7 +178,6 @@ export async function getProposal(
   const result = await server.call(operation);
 
   if (result.status !== 'SUCCESS' || !result.returnValue) {
-    // You might want to inspect result.errorResult.xdr for a contract-level error
     throw new Error(`Failed to fetch proposal #${proposalId}.`);
   }
 
@@ -316,7 +190,7 @@ export async function getProposal(
   // For example: `votes_for: BigInt(parsedResult.votes_for)`
   console.info('Raw proposal data from contract:', parsedResult);
 
-  return parsedResult as ProposalRecord; // Replace with proper mapping
+  return parsedResult as ProposalRecord;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -346,12 +220,6 @@ export function isVotingActive(votingEndsAt: number): boolean {
 export function formatVotingTimeRemaining(votingEndsAt: number): string {
   const now = Date.now() / 1000;
   const remaining = votingEndsAt - now;
-  
-  if (remaining <= 0) return 'Voting ended';
-  
- const days = Math.floor(remaining / 86400);
-  const hours = Math.floor((remaining % 86400) / 3600);
-  
 
   if (remaining <= 0) return 'Voting ended';
 

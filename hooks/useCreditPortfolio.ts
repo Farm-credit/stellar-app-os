@@ -1,14 +1,29 @@
 'use client';
 
-import { useState, useCallback, useRef, useEffect } from 'react';
-import type { CreditHolding, PortfolioStats, PriceCache } from '@/lib/types/credits';
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
+import { enrichHolding } from '@/lib/credits/portfolio';
+import type { OwnedCredit, PortfolioStats, PriceCache } from '@/lib/types/credits';
 
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
+// Renewal window (in days) within which a certification renewal is considered "due soon"
+const RENEWAL_DUE_SOON_DAYS = 90;
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+export interface CertificationSummary {
+  verifiedCount: number;
+  pendingCount: number;
+  unverifiedCount: number;
+  renewalsDueSoon: number;
+  renewalsOverdue: number;
+  lastVerifiedAt: number | null;
+}
+
 export function useCreditPortfolio(publicKey: string | null) {
-  const [credits, setCredits] = useState<CreditHolding[]>([]);
+  const [credits, setCredits] = useState<OwnedCredit[]>([]);
   const [stats, setStats] = useState<PortfolioStats>({
     totalCredits: 0,
+    totalCost: 0,
     totalValue: 0,
     activeCredits: 0,
     retiredCredits: 0,
@@ -54,6 +69,7 @@ export function useCreditPortfolio(publicKey: string | null) {
           setCredits([]);
           setStats({
             totalCredits: 0,
+            totalCost: 0,
             totalValue: 0,
             activeCredits: 0,
             retiredCredits: 0,
@@ -66,7 +82,7 @@ export function useCreditPortfolio(publicKey: string | null) {
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const account = (await response.json()) as any;
-      const balances: CreditHolding[] = [];
+      const balances: OwnedCredit[] = [];
       let totalValue = 0;
       let activeCount = 0;
       let retiredCount = 0;
@@ -95,7 +111,7 @@ export function useCreditPortfolio(publicKey: string | null) {
           }
         }
 
-        const holding: CreditHolding = {
+        const holding: OwnedCredit = enrichHolding({
           projectId,
           projectName: getProjectName(projectId),
           quantity,
@@ -105,7 +121,7 @@ export function useCreditPortfolio(publicKey: string | null) {
           totalValue: quantity * price,
           assetCode,
           issuer: balance.asset_issuer || '',
-        };
+        });
 
         balances.push(holding);
         totalValue += holding.totalValue;
@@ -120,6 +136,7 @@ export function useCreditPortfolio(publicKey: string | null) {
       setCredits(balances);
       setStats({
         totalCredits: balances.reduce((sum, c) => sum + c.quantity, 0),
+        totalCost: balances.reduce((sum, c) => sum + c.purchaseCost, 0),
         totalValue,
         activeCredits: activeCount,
         retiredCredits: retiredCount,
@@ -148,12 +165,64 @@ export function useCreditPortfolio(publicKey: string | null) {
     await fetchCreditBalances();
   }, [fetchCreditBalances]);
 
+  // Derived certification summary for the portfolio UI
+  const certificationSummary = useMemo<CertificationSummary>(() => {
+    const now = Date.now();
+    const dueSoonThreshold = now + RENEWAL_DUE_SOON_DAYS * MS_PER_DAY;
+
+    let verifiedCount = 0;
+    let pendingCount = 0;
+    let unverifiedCount = 0;
+    let renewalsDueSoon = 0;
+    let renewalsOverdue = 0;
+    let lastVerifiedAt: number | null = null;
+
+    for (const credit of credits) {
+      switch (credit.certificationStatus) {
+        case 'verified':
+          verifiedCount++;
+          break;
+        case 'pending':
+          pendingCount++;
+          break;
+        default:
+          unverifiedCount++;
+          break;
+      }
+
+      if (credit.certificationVerifiedAt) {
+        if (lastVerifiedAt === null || credit.certificationVerifiedAt > lastVerifiedAt) {
+          lastVerifiedAt = credit.certificationVerifiedAt;
+        }
+      }
+
+      const renewalAt = credit.certificationRenewalAt;
+      if (typeof renewalAt === 'number' && renewalAt > 0) {
+        if (renewalAt < now) {
+          renewalsOverdue++;
+        } else if (renewalAt <= dueSoonThreshold) {
+          renewalsDueSoon++;
+        }
+      }
+    }
+
+    return {
+      verifiedCount,
+      pendingCount,
+      unverifiedCount,
+      renewalsDueSoon,
+      renewalsOverdue,
+      lastVerifiedAt,
+    };
+  }, [credits]);
+
   return {
     credits,
     stats,
     isLoading,
     error,
     refreshPortfolio,
+    certificationSummary,
   };
 }
 

@@ -1,0 +1,27 @@
+{
+  "project": {
+    "projectId": "GS-10422",
+    "title": "Clean Cookstoves for Rural Households",
+    "lifecycleStatus": "Certified",
+    "country": "UG",
+    "methodology": { "code": "GS-TPDDTEC", "title": "Thermal Energy" },
+    "developer": "Rural Climate Partners",
+    "creditingPeriod": {
+      "start": "2023-03-01T00:00:00Z",
+      "end": "2028-02-29T23:59:59Z"
+    },
+    "credits": { "issued": 8200, "available": 5000, "retired": 3200 },
+    "files": [
+      {
+        "documentId": "GS-DOC-9",
+        "category": "monitoring-report",
+        "title": "Annual monitoring report",
+        "reviewStatus": "under review",
+        "publishedAt": "2026-08-01T00:00:00Z",
+        "validUntil": "2027-08-01T00:00:00Z",
+        "downloadUrl": "https://registry.example/files/GS-DOC-9"
+      }
+    ],
+    "modifiedAt": "2026-09-21T08:30:00Z"
+  }
+}

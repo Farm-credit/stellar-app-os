@@ -2,7 +2,7 @@
 
 //! Sponsor NFT Receipt — Closes #471
 //!
-//! A non-transferable (soulbound) NFT-style receipt minted to a sponsor's
+//! A transferable, collectible NFT-style receipt minted to a sponsor's
 //! wallet as on-chain proof of each tree they have sponsored.
 //!
 //! # Purpose
@@ -22,15 +22,13 @@
 //!                   to match the convention used by `species-registry`.
 //! * `planter`     — optional planter wallet if known at mint time.
 //!
-//! # Soulbound semantics
+//! # Transferable collectible semantics
 //!
-//! The contract **deliberately does not expose any `transfer`, `approve`, or
-//! `set_owner` function**. Once a receipt is minted, the `sponsor` field is
-//! immutable for the lifetime of the ledger entry. As defence in depth, the
-//! explicit `attempt_transfer` function is provided and always panics with
-//! `SoulboundTransferBlocked`. This gives off-chain tooling and integration
-//! tests a stable, machine-readable error code instead of the host's
-//! generic "function not found" failure.
+//! Receipts are minted as collectible sponsorship assets and can be transferred
+//! between sponsor wallets via `transfer` or settled via `trade` using a payment
+//! token. The legacy `attempt_transfer` guard remains for compatibility and
+//! intentionally panics with `SoulboundTransferBlocked`, preserving the historical
+//! off-chain signal for integrations that still expect the old soulbound policy.
 //!
 //! # Storage layout
 //!
@@ -47,7 +45,7 @@
 //!     DataKey::SponsorTree(sponsor, tree_id) — u64 (dedup boundary)
 
 use soroban_sdk::{
-    contract, contracterror, contractimpl, contracttype, panic_with_error, symbol_short,
+    contract, contracterror, contractimpl, contracttype, panic_with_error, symbol_short, token,
     Address, Env, String, Symbol, Vec,
 };
 
@@ -71,6 +69,12 @@ pub enum Error {
     SoulboundTransferBlocked = 10,
     InvalidCo2Estimate = 11,
     InvalidTreeId = 12,
+    /// The `from` wallet is not the current owner of the receipt.
+    NotOwner = 13,
+    /// A receipt cannot be transferred to itself.
+    SelfTransfer = 14,
+    /// Trade price must be strictly positive.
+    InvalidTradeAmount = 15,
 }
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -277,6 +281,14 @@ impl SponsorReceiptContract {
         out
     }
 
+    /// Return the current owner of a receipt.
+    pub fn owner_of(env: Env, receipt_id: u64) -> Option<Address> {
+        env.storage()
+            .persistent()
+            .get(&DataKey::Receipt(receipt_id))
+            .map(|receipt: SponsorReceipt| receipt.sponsor)
+    }
+
     /// Resolve the receipt id for a (sponsor, tree_id) pair. Returns `0` when
     /// no receipt has been minted for that pair (the storage layer treats `0`
     /// as the canonical sentinel and id allocation starts at `1`).
@@ -297,6 +309,73 @@ impl SponsorReceiptContract {
     }
 
     // ── Soulbound enforcement ─────────────────────────────────────────────────
+
+    /// Transfer a receipt from one owner to another.
+    pub fn transfer(env: Env, from: Address, to: Address, receipt_id: u64) {
+        if from == to {
+            panic_with_error!(&env, Error::SelfTransfer);
+        }
+        from.require_auth();
+
+        let mut receipt: SponsorReceipt = env
+            .storage()
+            .persistent()
+            .get(&DataKey::Receipt(receipt_id))
+            .unwrap_or_else(|| panic_with_error!(&env, Error::ReceiptNotFound));
+
+        if receipt.sponsor != from {
+            panic_with_error!(&env, Error::NotOwner);
+        }
+
+        let old_key = DataKey::SponsorTree(from.clone(), receipt.tree_id);
+        let new_key = DataKey::SponsorTree(to.clone(), receipt.tree_id);
+
+        env.storage().persistent().remove(&old_key);
+        env.storage().persistent().set(&new_key, &receipt_id);
+
+        Self::remove_receipt_from_owner(&env, &from, receipt_id);
+        Self::add_receipt_to_owner(&env, &to, receipt_id);
+
+        receipt.sponsor = to.clone();
+        env.storage().persistent().set(&DataKey::Receipt(receipt_id), &receipt);
+
+        env.events()
+            .publish((symbol_short!("RecvXfer"), from.clone()), (to, receipt_id));
+    }
+
+    /// Trade a receipt from `seller` to `buyer` for `price` units of the
+    /// `payment_token` asset while preserving the sponsorship record.
+    pub fn trade(
+        env: Env,
+        seller: Address,
+        buyer: Address,
+        receipt_id: u64,
+        payment_token: Address,
+        price: i128,
+    ) {
+        if seller == buyer {
+            panic_with_error!(&env, Error::SelfTransfer);
+        }
+        if price <= 0 {
+            panic_with_error!(&env, Error::InvalidTradeAmount);
+        }
+
+        buyer.require_auth();
+
+        let receipt: SponsorReceipt = env
+            .storage()
+            .persistent()
+            .get(&DataKey::Receipt(receipt_id))
+            .unwrap_or_else(|| panic_with_error!(&env, Error::ReceiptNotFound));
+
+        if receipt.sponsor != seller {
+            panic_with_error!(&env, Error::NotOwner);
+        }
+
+        token::Client::new(&env, &payment_token).transfer(&buyer, &seller, &price);
+
+        Self::transfer(env, seller, buyer, receipt_id);
+    }
 
     /// Always-panicking transfer guard. The contract exposes NO working
     /// transfer function — receipts are soulbound by construction — but this
@@ -453,6 +532,65 @@ impl SponsorReceiptContract {
     }
 
     // ── internal helpers ──────────────────────────────────────────────────────
+
+    fn add_receipt_to_owner(env: &Env, owner: &Address, receipt_id: u64) {
+        let count: u32 = env
+            .storage()
+            .instance()
+            .get(&DataKey::SponsorCount(owner.clone()))
+            .unwrap_or(0);
+        env.storage().instance().set(
+            &DataKey::SponsorAt(owner.clone(), count),
+            &receipt_id,
+        );
+        env.storage().instance().set(
+            &DataKey::SponsorCount(owner.clone()),
+            &count.checked_add(1).expect("owner receipt count overflow"),
+        );
+    }
+
+    fn remove_receipt_from_owner(env: &Env, owner: &Address, receipt_id: u64) {
+        let count: u32 = env
+            .storage()
+            .instance()
+            .get(&DataKey::SponsorCount(owner.clone()))
+            .unwrap_or(0);
+        let mut remove_idx: u32 = count;
+
+        for i in 0..count {
+            if env
+                .storage()
+                .instance()
+                .get::<_, u64>(&DataKey::SponsorAt(owner.clone(), i))
+                == Some(receipt_id)
+            {
+                remove_idx = i;
+                break;
+            }
+        }
+
+        if remove_idx >= count {
+            return;
+        }
+
+        let last_idx = count - 1;
+        if remove_idx != last_idx {
+            let last_id: u64 = env
+                .storage()
+                .instance()
+                .get(&DataKey::SponsorAt(owner.clone(), last_idx))
+                .expect("last owner slot missing");
+            env.storage().instance().set(
+                &DataKey::SponsorAt(owner.clone(), remove_idx),
+                &last_id,
+            );
+        }
+        env.storage().instance().remove(&DataKey::SponsorAt(owner.clone(), last_idx));
+        env.storage().instance().set(
+            &DataKey::SponsorCount(owner.clone()),
+            &last_idx,
+        );
+    }
 
     fn require_admin(env: &Env) {
         let admin: Address = env
@@ -864,6 +1002,56 @@ mod tests {
         // Receipt id 999 was never minted — but the soulbound guard must
         // trip before any lookup logic runs.
         client.attempt_transfer(&sponsor, &stranger, &999u64);
+    }
+
+    #[test]
+    fn test_transfer_updates_owner_and_sponsor_index() {
+        let (env, _admin, sponsor, client) = setup();
+        let buyer = Address::generate(&env);
+        let id = client.mint_receipt(
+            &sponsor,
+            &1,
+            &species_teak(&env),
+            &region_lagos(&env),
+            &2200_i128,
+            &OptAddress::None,
+        );
+
+        client.transfer(&sponsor, &buyer, &id);
+
+        assert_eq!(client.owner_of(&id).unwrap(), buyer);
+        assert_eq!(client.receipt_for_tree(&buyer, &1), id);
+        assert_eq!(client.receipt_for_tree(&sponsor, &1), 0);
+        assert_eq!(client.get_receipts_by_sponsor(&buyer).len(), 1);
+        assert_eq!(client.get_receipts_by_sponsor(&sponsor).len(), 0);
+    }
+
+    #[test]
+    fn test_trade_moves_receipt_and_pays_seller() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let contract_id = env.register_contract(None, SponsorReceiptContract);
+        let client = SponsorReceiptContractClient::new(&env, &contract_id);
+        let admin = Address::generate(&env);
+        let seller = Address::generate(&env);
+        let buyer = Address::generate(&env);
+        let payment_token = env.register_stellar_asset_contract_v2(admin.clone()).address();
+
+        client.initialize(&admin);
+        let id = client.mint_receipt(
+            &seller,
+            &9,
+            &species_teak(&env),
+            &region_lagos(&env),
+            &2200_i128,
+            &OptAddress::None,
+        );
+
+        token::StellarAssetClient::new(&env, &payment_token).mint(&buyer, &1_000_i128);
+        client.trade(&seller, &buyer, &id, &payment_token, &250_i128);
+
+        assert_eq!(client.owner_of(&id).unwrap(), buyer);
+        assert_eq!(client.get_receipts_by_sponsor(&buyer).get(0).unwrap(), id);
     }
 
     // ── revoke ────────────────────────────────────────────────────────────────

@@ -1,9 +1,5 @@
 export type TreeEventType =
-  | 'tree:funded'
-  | 'tree:planted'
-  | 'tree:survived'
-  | 'tree:disputed'
-  | 'tree:refunded';
+  'tree:funded' | 'tree:planted' | 'tree:survived' | 'tree:disputed' | 'tree:refunded';
 
 export interface TreeStatusEvent {
   id: string;

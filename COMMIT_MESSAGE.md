@@ -1,4 +1,32 @@
+Commit message format
+
+This repository follows the Conventional Commits spec. Use the following template for commit messages:
+
+```
+<type>(<scope>): <short description>
+
+[optional body — explain WHY and HOW]
+
+[optional footer — breaking changes or issue refs]
+```
+
+Common types: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`
+
+Configure your local repo to use the template (optional):
+
+```bash
+git config commit.template .gitmessage
+```
+
+Commitlint is configured to enforce this format via the `commit-msg` Husky hook.
+
+Example:
+
+```
 perf(contracts): optimize storage operations in hot paths to < 0.10 per tx
+
+```
+
 
 Profiled and optimized storage reads/writes in critical transaction paths:
 - donate(): 71% reduction (0.35 → 0.10) ✅

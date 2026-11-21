@@ -5,8 +5,80 @@ if (apiKey) sgMail.setApiKey(apiKey);
 
 const FROM = process.env.SENDGRID_FROM_EMAIL ?? 'no-reply@harvesta.app';
 
-function isConfigured(): boolean {
+export function isEmailConfigured(): boolean {
   return Boolean(apiKey);
+}
+
+export type SponsorSegment = 'first-time' | 'vip' | 'lapsed' | 'regional';
+
+export interface NewsletterRecipient {
+  email: string;
+  name: string;
+  segment: SponsorSegment;
+  region?: string;
+}
+
+export interface WeeklySponsorDigestParams {
+  sponsorEmail: string;
+  sponsorName: string;
+  periodLabel: string;
+  treeCount: number;
+  newTrees: number;
+  totalCo2Kg: number;
+  communityHighlights: string[];
+  photoUrls: string[];
+}
+
+function escapeHtml(value: string): string {
+  return value.replace(
+    /[&<>'"]/g,
+    (character) =>
+      ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[character] ??
+      character
+  );
+}
+
+export async function sendSegmentedNewsletter(params: {
+  subject: string;
+  message: string;
+  recipients: NewsletterRecipient[];
+}): Promise<number> {
+  if (!isEmailConfigured()) return 0;
+  const htmlMessage = escapeHtml(params.message).replace(/\\n/g, '<br/>');
+  let sent = 0;
+  for (const recipient of params.recipients) {
+    const greeting = escapeHtml(recipient.name || 'Sponsor');
+    await sgMail.send({
+      to: recipient.email,
+      from: FROM,
+      subject: params.subject,
+      text: `Hi ${recipient.name || 'Sponsor'},\\n\\n${params.message}\\n\\nThanks,\\nThe Harvesta Team`,
+      html: `<p>Hi ${greeting},</p><p>${htmlMessage}</p><p>Thanks,<br/>The Harvesta Team</p>`,
+    });
+    sent += 1;
+  }
+  return sent;
+}
+
+export async function sendWeeklySponsorDigest(params: WeeklySponsorDigestParams): Promise<void> {
+  if (!isEmailConfigured()) return;
+  const photos = params.photoUrls
+    .filter(Boolean)
+    .map(
+      (url) =>
+        `<img src="${escapeHtml(url)}" alt="Tree progress photo" style="max-width:100%;border-radius:8px;margin:4px 0;"/>`
+    )
+    .join('');
+  const highlights = params.communityHighlights
+    .map((highlight) => `<li>${escapeHtml(highlight)}</li>`)
+    .join('');
+  await sgMail.send({
+    to: params.sponsorEmail,
+    from: FROM,
+    subject: `Your weekly impact update — ${params.treeCount} trees growing`,
+    text: `Hi ${params.sponsorName},\\n\\n${params.periodLabel}: ${params.newTrees} new trees, ${params.treeCount} total trees, and ${params.totalCo2Kg.toFixed(1)} kg CO₂ offset.\\n\\n${params.communityHighlights.join('\\n')}\\n\\nThanks,\\nThe Harvesta Team`,
+    html: `<p>Hi ${escapeHtml(params.sponsorName)},</p><p><strong>${escapeHtml(params.periodLabel)}</strong></p><p>${params.newTrees} new trees, ${params.treeCount} total trees, and <strong>${params.totalCo2Kg.toFixed(1)} kg CO₂</strong> offset.</p>${highlights ? `<h3>Community highlights</h3><ul>${highlights}</ul>` : ''}${photos ? `<h3>Tree progress</h3><div>${photos}</div>` : ''}<p>Thanks for helping local communities grow a healthier future.<br/>The Harvesta Team</p>`,
+  });
 }
 
 export interface JobAcceptedParams {
@@ -40,7 +112,7 @@ export interface CarbonMilestoneParams {
 }
 
 export async function sendJobAcceptedEmail(params: JobAcceptedParams): Promise<void> {
-  if (!isConfigured()) return;
+  if (!isEmailConfigured()) return;
   const { sponsorEmail, sponsorName, treeId, planterName, species } = params;
   await sgMail.send({
     to: sponsorEmail,
@@ -51,8 +123,20 @@ export async function sendJobAcceptedEmail(params: JobAcceptedParams): Promise<v
   });
 }
 
+export interface FieldReportEmailParams {
+  to: string;
+  subject: string;
+  text: string;
+  html: string;
+}
+
+export async function sendFieldReportEmail(params: FieldReportEmailParams): Promise<void> {
+  if (!isEmailConfigured()) return;
+  await sgMail.send({ ...params, from: FROM });
+}
+
 export async function sendPhotoUploadedEmail(params: PhotoUploadedParams): Promise<void> {
-  if (!isConfigured()) return;
+  if (!isEmailConfigured()) return;
   const { sponsorEmail, sponsorName, treeId, photoUrl } = params;
   await sgMail.send({
     to: sponsorEmail,
@@ -64,7 +148,7 @@ export async function sendPhotoUploadedEmail(params: PhotoUploadedParams): Promi
 }
 
 export async function sendTreeVerifiedEmail(params: TreeVerifiedParams): Promise<void> {
-  if (!isConfigured()) return;
+  if (!isEmailConfigured()) return;
   const { sponsorEmail, sponsorName, treeId, species, co2KgPerYear } = params;
   await sgMail.send({
     to: sponsorEmail,
@@ -88,7 +172,7 @@ export interface WaitlistNotificationParams {
 export async function sendWaitlistNotificationEmail(
   params: WaitlistNotificationParams
 ): Promise<void> {
-  if (!isConfigured()) return;
+  if (!isEmailConfigured()) return;
   const { sponsorEmail, sponsorName, treeId, species, region, estimatedWaitDays, waitlistId } =
     params;
   await sgMail.send({
@@ -101,7 +185,7 @@ export async function sendWaitlistNotificationEmail(
 }
 
 export async function sendCarbonMilestoneEmail(params: CarbonMilestoneParams): Promise<void> {
-  if (!isConfigured()) return;
+  if (!isEmailConfigured()) return;
   const { sponsorEmail, sponsorName, totalCo2Kg, treeCount } = params;
   await sgMail.send({
     to: sponsorEmail,
@@ -127,7 +211,7 @@ export interface TreasuryDailySummaryParams {
 }
 
 export async function sendTreasuryAlertEmail(params: TreasuryAlertParams): Promise<void> {
-  if (!isConfigured()) return;
+  if (!isEmailConfigured()) return;
   const { to, address, assetCode, balance, threshold } = params;
   await sgMail.send({
     to,
@@ -141,7 +225,7 @@ export async function sendTreasuryAlertEmail(params: TreasuryAlertParams): Promi
 export async function sendTreasuryDailySummaryEmail(
   params: TreasuryDailySummaryParams
 ): Promise<void> {
-  if (!isConfigured()) return;
+  if (!isEmailConfigured()) return;
   const { to, balances, threshold } = params;
   const lines = balances.map((b) => `${b.address} — ${b.assetCode}: ${b.balance}`);
   const htmlLines = balances.map(
@@ -155,4 +239,125 @@ export async function sendTreasuryDailySummaryEmail(
     text: `Treasury Daily Summary\n\n${lines.join('\n')}\n\nAlert threshold: ${threshold}`,
     html: `<p><strong>Treasury Daily Summary</strong></p><table style="border-collapse:collapse;width:100%;">${htmlLines.join('')}</table><p>Alert threshold: ${threshold}</p>`,
   });
+}
+
+export interface DeforestationAlertEmailParams {
+  /** Project manager / sponsor recipients. */
+  recipients: string[];
+  projectName: string;
+  projectId: string;
+  /** Affected area in hectares. */
+  areaHectares: number;
+  /** Detection date, YYYY-MM-DD. */
+  detectedOn: string;
+  confidence: string;
+  /** Alert source label, e.g. "Global Forest Watch". */
+  source: string;
+  /** Absolute or app-relative link to the project page. */
+  linkUrl: string;
+}
+
+/**
+ * Deforestation alert notification — Issue #672.
+ * Sent to project managers and sponsors when satellite data detects canopy
+ * loss inside a monitored zone. Returns the number of emails accepted by the
+ * provider (0 when email is not configured or there are no recipients).
+ */
+export async function sendDeforestationAlertEmail(
+  params: DeforestationAlertEmailParams
+): Promise<number> {
+  if (!isEmailConfigured() || params.recipients.length === 0) return 0;
+  const projectName = escapeHtml(params.projectName);
+  const area = params.areaHectares.toLocaleString();
+  const subject = `Deforestation alert: canopy loss detected in ${params.projectName}`;
+  const text = `Canopy loss detected\n\nProject: ${params.projectName}\nDetected: ${params.detectedOn}\nEstimated affected area: ${area} ha\nConfidence: ${params.confidence}\nSource: ${params.source}\n\nReview the affected area on the project page: ${params.linkUrl}\n\nPlease investigate and coordinate a field response.\n\nThe Harvesta Team`;
+  const html = `<p>Canopy loss has been detected inside a monitored protection zone for <strong>${projectName}</strong>.</p><table style="border-collapse:collapse;margin:12px 0;"><tr><td style="padding:4px 12px 4px 0;color:#666;">Detected</td><td style="padding:4px 0;"><strong>${params.detectedOn}</strong></td></tr><tr><td style="padding:4px 12px 4px 0;color:#666;">Affected area</td><td style="padding:4px 0;"><strong>${area} ha</strong></td></tr><tr><td style="padding:4px 12px 4px 0;color:#666;">Confidence</td><td style="padding:4px 0;">${escapeHtml(params.confidence)}</td></tr><tr><td style="padding:4px 12px 4px 0;color:#666;">Source</td><td style="padding:4px 0;">${escapeHtml(params.source)}</td></tr></table><p><a href="${escapeHtml(params.linkUrl)}" style="display:inline-block;background:#00b36b;color:#fff;padding:10px 18px;border-radius:6px;text-decoration:none;">View affected area on map</a></p><p>Please investigate and coordinate a field response.<br/>The Harvesta Team</p>`;
+
+  let sent = 0;
+  for (const recipient of params.recipients) {
+    await sgMail.send({ to: recipient, from: FROM, subject, text, html });
+    sent += 1;
+  }
+  return sent;
+}
+
+export interface SponsorshipAnniversaryEmailParams {
+  to: string;
+  subject: string;
+  text: string;
+  html: string;
+  /** Pre-computed social copy for the shareable card (issue #1647). */
+  shareText?: string;
+  shareUrls?: { twitter: string; facebook: string; linkedin: string };
+}
+
+/**
+ * Sponsorship anniversary reminder — Issue #1647.
+ * Sent once per tree on the anniversary of its planting date with the latest
+ * health photo, cumulative CO₂ stats and a shareable social card.
+ * Returns true when the provider accepted the message.
+ */
+export async function sendSponsorshipAnniversaryEmail(
+  params: SponsorshipAnniversaryEmailParams
+): Promise<boolean> {
+  if (!isEmailConfigured()) return false;
+  await sgMail.send({
+    to: params.to,
+    from: FROM,
+    subject: params.subject,
+    text: params.text,
+    html: params.html,
+  });
+  return true;
+}
+
+export interface GiftCertificateEmailParams {
+  to: string;
+  subject: string;
+  text: string;
+  html: string;
+  pdf: { fileName: string; content: ArrayBuffer };
+}
+
+/** Sends a gift sponsorship certificate (Issue #1107) with the PDF attached. */
+export async function sendGiftCertificateEmail(
+  params: GiftCertificateEmailParams
+): Promise<boolean> {
+  if (!isEmailConfigured()) return false;
+  await sgMail.send({
+    to: params.to,
+    from: FROM,
+    subject: params.subject,
+    text: params.text,
+    html: params.html,
+    attachments: [
+      {
+        content: Buffer.from(params.pdf.content).toString('base64'),
+        filename: params.pdf.fileName,
+        type: 'application/pdf',
+        disposition: 'attachment',
+      },
+    ],
+  });
+  return true;
+}
+
+export interface GiftCardEmailParams {
+  to: string;
+  subject: string;
+  text: string;
+  html: string;
+}
+
+/** Sends a tree sponsorship gift card email with redemption code and personalised message. */
+export async function sendGiftCardEmail(params: GiftCardEmailParams): Promise<boolean> {
+  if (!isEmailConfigured()) return false;
+  await sgMail.send({
+    to: params.to,
+    from: FROM,
+    subject: params.subject,
+    text: params.text,
+    html: params.html,
+  });
+  return true;
 }

@@ -50,7 +50,7 @@ export function DashboardOverview() {
 
     try {
       const qrUrl = await QRCode.toDataURL('https://stellar.expert');
-      generateCertificatePdf({
+      await generateCertificatePdf({
         qrDataUrl: qrUrl,
         data: {
           userName: 'Your Name',

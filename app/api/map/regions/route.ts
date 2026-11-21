@@ -5,7 +5,7 @@ import {
   setCachedMapData,
   type RegionMarker,
 } from '@/lib/cache/map-cache';
-import { getPool } from '@/lib/db/client';
+import { getReadPool } from '@/lib/db/read-replica';
 
 /**
  * GET /api/map/regions
@@ -15,13 +15,14 @@ import { getPool } from '@/lib/db/client';
  *
  * Response shape:
  * {
- *   regions: Array<{
- *     regionKey: string;   // opaque HMAC identifier for the snapped grid cell
- *     lat: number;         // public cell center latitude
- *     lng: number;         // public cell center longitude
- *     treesPlanted: number;
- *     farmers: number;
- *   }>
+ *   regions: Array<[
+ *     {
+ *       regionKey: string;   // opaque HMAC identifier for the snapped grid cell
+ *       lat: number;         // public cell center latitude
+ *       lng: number;         // public cell center longitude
+ *       treesPlanted: number;
+ *       farmers: number;
+ *   } ]
  * }
  */
 export const runtime = 'nodejs';
@@ -36,7 +37,7 @@ export async function GET() {
       );
     }
 
-    const pool = getPool();
+    const pool = getReadPool();
 
     const { rows } = await pool.query<{
       region_key: string;
@@ -49,8 +50,8 @@ export async function GET() {
         region_key,
         center_lat,
         center_lon,
-        COUNT(*)                       AS trees_planted,
-        COUNT(DISTINCT farmer_id)      AS farmers
+        COUNT(*)                   AS trees_planted,
+        COUNT(DISTINCT farmer_id)  AS farmers
       FROM planting_regions
       GROUP BY region_key, center_lat, center_lon
       ORDER BY trees_planted DESC
@@ -76,7 +77,7 @@ export async function GET() {
     if (msg.includes('does not exist') || msg.includes('relation')) {
       return NextResponse.json({ regions: [] });
     }
-    console.error('[map/regions] error:', error);
+    console.error('[map/regions] error', error);
     return NextResponse.json({ error: 'Failed to load region data' }, { status: 500 });
   }
 }

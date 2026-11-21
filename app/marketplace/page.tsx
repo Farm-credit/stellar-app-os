@@ -3,11 +3,30 @@
 import { useCallback, useMemo, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { MarketplaceGrid } from '@/components/organisms/MarketplaceGrid/MarketplaceGrid';
+import { MarketplaceNewsFeed } from '@/components/organisms/MarketplaceNewsFeed/MarketplaceNewsFeed';
 import { MarketplaceFilters } from '@/components/molecules/MarketplaceFilters';
 import { PaginationControl } from '@/components/molecules/PaginationControl';
 import { Text } from '@/components/atoms/Text';
+import { Button } from '@/components/atoms/Button';
+import Link from 'next/link';
 import { getMockMarketplaceListings } from '@/lib/api/mock/marketplaceListings';
 import type { FundingStatus, ProjectType, SortOption } from '@/lib/types/marketplace';
+import { CertificationFilter } from '@/components/marketplace/CertificationFilter';
+import { credentialsForListing } from '@/lib/services/farmer-credentials';
+import type { SustainabilityCertification } from '@/lib/types/issue-1374-1377';
+import { HistoricalCarbonTrends } from '@/components/marketplace/HistoricalCarbonTrends';
+import { useHistoricalCarbonData } from '@/lib/hooks/useHistoricalCarbonData';
+import type { CertificationProvider } from '@/lib/types/certification-integration';
+import { AuctionCard } from '@/components/marketplace/AuctionCard';
+import { BidPlacementModal } from '@/components/marketplace/BidPlacementModal';
+import { usePlaceBid } from '@/lib/hooks/usePlaceBid';
+import { getMockAuctions } from '@/lib/api/mock/auctions';
+import type { Auction } from '@/lib/types/auction';
+import { useState } from 'react';
+
+type ListingKind = 'fixed' | 'auction';
+const LISTING_KIND_OPTIONS: ListingKind[] = ['fixed', 'auction'];
+const CERTIFICATION_PROVIDERS: CertificationProvider[] = ['verra', 'gold-standard'];
 
 const SORT_OPTIONS: SortOption[] = [
   'date-newest',
@@ -42,6 +61,22 @@ function normalizeFundingStatus(status?: string | null): FundingStatus | null {
   return null;
 }
 
+function normalizeListingKind(kind?: string | null): ListingKind | null {
+  if (LISTING_KIND_OPTIONS.includes(kind as ListingKind)) {
+    return kind as ListingKind;
+  }
+
+  return null;
+}
+
+function normalizeCertificationProvider(provider?: string | null): CertificationProvider | null {
+  if (CERTIFICATION_PROVIDERS.includes(provider as CertificationProvider)) {
+    return provider as CertificationProvider;
+  }
+
+  return null;
+}
+
 function MarketplacePageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -50,8 +85,52 @@ function MarketplacePageContent() {
   const selectedType = (searchParams.get('type') as ProjectType) || null;
   const selectedLocation = searchParams.get('location') || null;
   const selectedFundingStatus = normalizeFundingStatus(searchParams.get('fundingStatus'));
+  const selectedCertification =
+    (searchParams.get('certification') as SustainabilityCertification) || null;
   const sortBy = normalizeSort(searchParams.get('sort'));
   const searchQuery = searchParams.get('search') || '';
+  const selectedListingKind = normalizeListingKind(searchParams.get('kind'));
+  const selectedCertificationProvider = normalizeCertificationProvider(
+    searchParams.get('provider')
+  );
+
+  const historical = useHistoricalCarbonData({
+    projectType: selectedType,
+    region: selectedLocation,
+  });
+
+  const [activeAuction, setActiveAuction] = useState<Auction | null>(null);
+  const { placeBid, isSubmitting, error: bidError } = usePlaceBid();
+
+  const auctions = useMemo(() => {
+    if (selectedListingKind === 'fixed') {
+      return [];
+    }
+
+    return getMockAuctions({
+      projectType: selectedType,
+      region: selectedLocation,
+    });
+  }, [selectedListingKind, selectedType, selectedLocation]);
+
+  const handleOpenBidModal = useCallback((auction: Auction) => {
+    setActiveAuction(auction);
+  }, []);
+
+  const handleCloseBidModal = useCallback(() => {
+    setActiveAuction(null);
+  }, []);
+
+  const handleSubmitBid = useCallback(
+    async (amount: number) => {
+      if (!activeAuction) return;
+      const result = await placeBid({ auctionId: activeAuction.id, amount });
+      if (result) {
+        setActiveAuction(null);
+      }
+    },
+    [activeAuction, placeBid]
+  );
 
   const data = useMemo(
     () =>
@@ -66,10 +145,54 @@ function MarketplacePageContent() {
     [currentPage, selectedType, sortBy, searchQuery, selectedLocation, selectedFundingStatus]
   );
 
+  const certificationFilteredListings = useMemo(() => {
+    let listings = data.listings;
+
+    if (selectedCertification) {
+      listings = listings.filter((listing) =>
+        credentialsForListing(listing.sellerId).some((farmer) =>
+          farmer.certifications.includes(selectedCertification)
+        )
+      );
+    }
+
+    if (selectedListingKind) {
+      listings = listings.filter((listing) => {
+        const kind = (listing as { listingKind?: ListingKind }).listingKind ?? 'fixed';
+        return kind === selectedListingKind;
+      });
+    }
+
+    if (selectedCertificationProvider) {
+      listings = listings.filter((listing) => {
+        const provider = (listing as { certificationProvider?: CertificationProvider })
+          .certificationProvider;
+        return provider === selectedCertificationProvider;
+      });
+    }
+
+    return listings;
+  }, [data.listings, selectedCertification, selectedListingKind, selectedCertificationProvider]);
   const activeFilterCount = useMemo(
     () =>
-      [selectedType, selectedLocation, selectedFundingStatus, searchQuery].filter(Boolean).length,
-    [selectedType, selectedLocation, selectedFundingStatus, searchQuery]
+      [
+        selectedType,
+        selectedLocation,
+        selectedFundingStatus,
+        selectedCertification,
+        selectedListingKind,
+        selectedCertificationProvider,
+        searchQuery,
+      ].filter(Boolean).length,
+    [
+      selectedType,
+      selectedLocation,
+      selectedFundingStatus,
+      selectedCertification,
+      selectedListingKind,
+      selectedCertificationProvider,
+      searchQuery,
+    ]
   );
 
   const updateUrlParams = useCallback(
@@ -80,6 +203,9 @@ function MarketplacePageContent() {
       fundingStatus?: FundingStatus | null;
       sort?: SortOption;
       search?: string;
+      certification?: SustainabilityCertification | null;
+      kind?: ListingKind | null;
+      provider?: CertificationProvider | null;
     }) => {
       const newParams = new URLSearchParams();
 
@@ -90,6 +216,11 @@ function MarketplacePageContent() {
         params.fundingStatus !== undefined ? params.fundingStatus : selectedFundingStatus;
       const sort = params.sort ?? sortBy;
       const search = params.search !== undefined ? params.search : searchQuery;
+      const certification =
+        params.certification !== undefined ? params.certification : selectedCertification;
+      const kind = params.kind !== undefined ? params.kind : selectedListingKind;
+      const provider =
+        params.provider !== undefined ? params.provider : selectedCertificationProvider;
 
       if (page > 1) newParams.set('page', page.toString());
       if (type) newParams.set('type', type);
@@ -97,6 +228,9 @@ function MarketplacePageContent() {
       if (fundingStatus) newParams.set('fundingStatus', fundingStatus);
       if (sort !== 'date-newest') newParams.set('sort', sort);
       if (search) newParams.set('search', search);
+      if (certification) newParams.set('certification', certification);
+      if (kind) newParams.set('kind', kind);
+      if (provider) newParams.set('provider', provider);
 
       const queryString = newParams.toString();
       const newUrl = queryString ? `/marketplace?${queryString}` : '/marketplace';
@@ -109,6 +243,9 @@ function MarketplacePageContent() {
       selectedFundingStatus,
       sortBy,
       searchQuery,
+      selectedCertification,
+      selectedListingKind,
+      selectedCertificationProvider,
       router,
     ]
   );
@@ -134,6 +271,21 @@ function MarketplacePageContent() {
     [updateUrlParams]
   );
 
+  const handleCertificationChange = useCallback(
+    (certification: SustainabilityCertification | null) =>
+      updateUrlParams({ certification, page: 1 }),
+    [updateUrlParams]
+  );
+
+  const handleListingKindChange = useCallback(
+    (kind: ListingKind | null) => updateUrlParams({ kind, page: 1 }),
+    [updateUrlParams]
+  );
+
+  const handleCertificationProviderChange = useCallback(
+    (provider: CertificationProvider | null) => updateUrlParams({ provider, page: 1 }),
+    [updateUrlParams]
+  );
   const handleSortChange = useCallback(
     (sort: SortOption) => {
       updateUrlParams({ sort, page: 1 });
@@ -154,6 +306,9 @@ function MarketplacePageContent() {
       type: null,
       location: null,
       fundingStatus: null,
+      certification: null,
+      kind: null,
+      provider: null,
       search: '',
       sort: 'date-newest',
     });
@@ -161,15 +316,41 @@ function MarketplacePageContent() {
 
   return (
     <main className="container mx-auto px-4 py-8 max-w-7xl">
-      <header className="mb-8">
-        <Text variant="h2" as="h1" className="mb-2">
-          Carbon Credit Marketplace
-        </Text>
-        <Text variant="muted" as="p">
-          Browse verified agricultural credit listings with shareable filter URLs and sorting
-          options.
-        </Text>
+      <header className="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-4">
+        <div>
+          <Text variant="h2" as="h1" className="mb-2">
+            Carbon Credit Marketplace
+          </Text>
+          <Text variant="muted" as="p">
+            Browse verified agricultural credit listings with shareable filter URLs and sorting
+            options.
+          </Text>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Link href="/marketplace/corporate">
+            <Button variant="outline" size="sm" className="text-xs cursor-pointer">
+              🏢 Corporate Program
+            </Button>
+          </Link>
+          <Link href="/projects/map">
+            <Button variant="outline" size="sm" className="text-xs cursor-pointer">
+              🗺 Offset Map
+            </Button>
+          </Link>
+          <Link href="/marketplace/auctions/new">
+            <Button variant="outline" size="sm" className="text-xs cursor-pointer">
+              🔨 Create Auction
+            </Button>
+          </Link>
+          <Link href="/marketplace/bulk">
+            <Button size="sm" className="text-xs cursor-pointer">
+              Bulk Purchasing &rarr;
+            </Button>
+          </Link>
+        </div>
       </header>
+
+      <MarketplaceNewsFeed />
 
       <div className="grid gap-8 lg:grid-cols-[300px_minmax(0,1fr)]">
         <aside>
@@ -190,6 +371,76 @@ function MarketplacePageContent() {
             onSearchChange={handleSearchChange}
             onClearAllFilters={handleClearAllFilters}
           />
+          <div className="mt-4 rounded-3xl border border-border bg-background p-4 lg:p-6">
+            <CertificationFilter
+              value={selectedCertification}
+              onChange={handleCertificationChange}
+            />
+            <div className="mt-4 space-y-3">
+              <Text variant="small" className="font-medium">
+                Listing type
+              </Text>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  variant={selectedListingKind === null ? 'primary' : 'outline'}
+                  size="sm"
+                  className="text-xs cursor-pointer"
+                  onClick={() => handleListingKindChange(null)}
+                >
+                  All
+                </Button>
+                <Button
+                  variant={selectedListingKind === 'fixed' ? 'primary' : 'outline'}
+                  size="sm"
+                  className="text-xs cursor-pointer"
+                  onClick={() => handleListingKindChange('fixed')}
+                >
+                  Fixed price
+                </Button>
+                <Button
+                  variant={selectedListingKind === 'auction' ? 'primary' : 'outline'}
+                  size="sm"
+                  className="text-xs cursor-pointer"
+                  onClick={() => handleListingKindChange('auction')}
+                >
+                  Auctions
+                </Button>
+              </div>
+            </div>
+            <div className="mt-4 space-y-3">
+              <Text variant="small" className="font-medium">
+                Certification provider
+              </Text>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  variant={selectedCertificationProvider === null ? 'primary' : 'outline'}
+                  size="sm"
+                  className="text-xs cursor-pointer"
+                  onClick={() => handleCertificationProviderChange(null)}
+                >
+                  All
+                </Button>
+                <Button
+                  variant={selectedCertificationProvider === 'verra' ? 'primary' : 'outline'}
+                  size="sm"
+                  className="text-xs cursor-pointer"
+                  onClick={() => handleCertificationProviderChange('verra')}
+                >
+                  Verra
+                </Button>
+                <Button
+                  variant={
+                    selectedCertificationProvider === 'gold-standard' ? 'primary' : 'outline'
+                  }
+                  size="sm"
+                  className="text-xs cursor-pointer"
+                  onClick={() => handleCertificationProviderChange('gold-standard')}
+                >
+                  Gold Standard
+                </Button>
+              </div>
+            </div>
+          </div>
         </aside>
 
         <section className="space-y-6">
@@ -197,11 +448,37 @@ function MarketplacePageContent() {
             <Text variant="small" className="text-muted-foreground">
               {data.pagination.totalListings === 0
                 ? 'No listings match your filters.'
-                : `Showing ${data.listings.length} of ${data.pagination.totalListings} listings`}
+                : `Showing ${certificationFilteredListings.length} of ${data.pagination.totalListings} listings`}
             </Text>
           </div>
 
-          <MarketplaceGrid listings={data.listings} currentUserId={null} />
+          {auctions.length > 0 && (
+            <div className="space-y-4">
+              <Text variant="h3" as="h2">
+                Live Auctions
+              </Text>
+              <div className="grid gap-4 sm:grid-cols-2">
+                {auctions.map((auction) => (
+                  <AuctionCard
+                    key={auction.id}
+                    auction={auction}
+                    onPlaceBid={handleOpenBidModal}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          <MarketplaceGrid listings={certificationFilteredListings} currentUserId={null} />
+
+          <HistoricalCarbonTrends
+            priceHistory={historical.priceHistory}
+            buyerTrends={historical.buyerTrends}
+            isLoading={historical.isLoading}
+            error={historical.error}
+            projectType={selectedType}
+            region={selectedLocation}
+          />
 
           {data.pagination.totalPages > 1 && (
             <div className="mt-8">
@@ -214,6 +491,16 @@ function MarketplacePageContent() {
           )}
         </section>
       </div>
+
+      {activeAuction && (
+        <BidPlacementModal
+          auction={activeAuction}
+          isSubmitting={isSubmitting}
+          error={bidError}
+          onClose={handleCloseBidModal}
+          onSubmit={handleSubmitBid}
+        />
+      )}
     </main>
   );
 }

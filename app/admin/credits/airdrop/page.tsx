@@ -13,6 +13,14 @@ import { Button } from '@/components/atoms/Button';
 import type { AirdropPreview, AirdropResult } from '@/lib/types/carbon';
 
 const DEFAULT_LAUNCH_DATE = '2022-01-01';
+const MIN_CREDITS_PER_SPONSOR = 1;
+
+// GHG Protocol scope classification for airdropped credits.
+// Retroactive credits are offsets (not emissions), so they are reported
+// against the sponsor's Scope 3 category 15 (investments) / voluntary offsets
+// and must be tracked separately from Scope 1, 2, and 3 gross emissions.
+const GHG_PROTOCOL_SCOPE_NOTE =
+  'Airdropped credits are voluntary offsets. They are reported separately from Scope 1, Scope 2, and Scope 3 gross emissions and are not netted against them under the GHG Protocol Corporate Standard.';
 
 export default function RetroactiveAirdropPage(): ReactNode {
   const [projectId, setProjectId] = useState('');
@@ -82,6 +90,7 @@ export default function RetroactiveAirdropPage(): ReactNode {
           Allocate credits to all sponsors (with at least one donation or credit purchase) who
           joined within the first 6 months of the platform launch date.
         </p>
+        <p className="mt-2 text-xs text-muted-foreground">{GHG_PROTOCOL_SCOPE_NOTE}</p>
       </header>
 
       <Card className="mb-6">
@@ -116,7 +125,8 @@ export default function RetroactiveAirdropPage(): ReactNode {
               <input
                 id="credits-per-sponsor"
                 type="number"
-                min={1}
+                min={MIN_CREDITS_PER_SPONSOR}
+                step={1}
                 value={creditsPerSponsor}
                 onChange={(e) => {
                   setCreditsPerSponsor(Number(e.target.value));
@@ -153,10 +163,15 @@ export default function RetroactiveAirdropPage(): ReactNode {
             </p>
           ) : null}
 
+          <p className="text-xs text-muted-foreground">
+            Retail buyers can purchase as little as {MIN_CREDITS_PER_SPONSOR} ton (1 credit).
+            Minimum allocation per sponsor is {MIN_CREDITS_PER_SPONSOR} credit.
+          </p>
+
           <Button
             type="button"
             onClick={handlePreview}
-            disabled={loading || !projectId || creditsPerSponsor <= 0}
+            disabled={loading || !projectId || creditsPerSponsor < MIN_CREDITS_PER_SPONSOR}
           >
             {loading && !preview ? 'Loading\u2026' : 'Preview eligible sponsors'}
           </Button>

@@ -1,5 +1,3 @@
-#![no_std]
-
 //! Common Soroban-friendly enum wrappers.
 //!
 //! Soroban's `#[contracttype]` macro cannot derive `Option<T>` directly —

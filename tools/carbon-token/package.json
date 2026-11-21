@@ -9,6 +9,6 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "stellar-sdk": "^10.0.0"
+    "stellar-sdk": "^13.3.0"
   }
 }

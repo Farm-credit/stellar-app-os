@@ -14,24 +14,10 @@
  *   DATABASE_URL - PostgreSQL connection string (required)
  */
 
-import pg from 'pg';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import crypto from 'crypto';
-
-const { Client } = pg;
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-const MIGRATIONS_DIR = path.join(__dirname, '..', 'db', 'migrations');
-
-// Verify migrations directory exists
-if (!fs.existsSync(MIGRATIONS_DIR)) {
-  error(`Migrations directory not found: ${MIGRATIONS_DIR}`);
-  process.exit(1);
-}
 
 // ANSI color codes for terminal output
 const colors = {
@@ -61,6 +47,23 @@ function info(message) {
 
 function warn(message) {
   log(`⚠ ${message}`, colors.yellow);
+}
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const MIGRATIONS_DIR = path.join(__dirname, '..', 'db', 'migrations');
+
+// Verify migrations directory exists
+if (!fs.existsSync(MIGRATIONS_DIR)) {
+  error(`Migrations directory not found: ${MIGRATIONS_DIR}`);
+  process.exit(1);
+}
+
+async function getPgClient(connectionString) {
+  const pgModule = await import('pg');
+  const Client = pgModule.default?.Client || pgModule.Client;
+  return new Client({ connectionString });
 }
 
 /**
@@ -225,7 +228,7 @@ async function showStatus() {
     process.exit(1);
   }
   
-  const client = new Client({ connectionString: databaseUrl });
+  const client = await getPgClient(databaseUrl);
   
   try {
     await client.connect();
@@ -275,7 +278,7 @@ async function main() {
     process.exit(1);
   }
   
-  const client = new Client({ connectionString: databaseUrl });
+  const client = await getPgClient(databaseUrl);
   
   try {
     await client.connect();

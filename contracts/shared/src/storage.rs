@@ -1,5 +1,3 @@
-#![no_std]
-
 //! Common storage helpers used by FarmCredit contracts.
 //!
 //! Most contracts follow the same pattern:

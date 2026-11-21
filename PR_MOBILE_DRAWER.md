@@ -8,108 +8,61 @@ Implements a fully accessible mobile navigation drawer with wallet integration f
 
 ## What Was Implemented
 
-### Components Created
+### Components
 
-- **Header.tsx** - Sticky header with hamburger menu trigger and desktop navigation
-- **MobileDrawer.tsx** - Slide-out drawer with navigation links and wallet integration
+- **Header.tsx** - Sticky header with desktop nav links, hamburger menu button, theme toggle, language selector, wallet balance display, and WalletModal integration
+- **MobileDrawer.tsx** - Slide-out drawer (framer-motion spring animation from right) with navigation links, LanguageSelector, wallet connect/disconnect, focus trap, swipe-to-close gesture, body scroll lock, and Escape key handling
+- **LanguageSelector.tsx** - Dropdown with desktop/mobile variants
+
+### Integrated Dependencies
+
+- `useSwipeGesture` hook from `/hooks/useSwipeGesture.ts`
+- `useWalletContext` from `/contexts/WalletContext.tsx`
+- `WalletModal` from `/components/organisms/WalletModal/`
+- `useTheme` from `/hooks/useTheme.ts`
 
 ### Key Features
 
-- Smooth 300ms slide-in animation from left
-- Navigation links: Home, Blog, Purchase Credits, Dashboard
-- Wallet connect/disconnect button with truncated public key display
+- Framer-motion spring slide-in animation (right side)
+- 5 nav links: Home, Projects, Marketplace, Transactions, Dashboard
+- Wallet connect/disconnect with truncated public key display
 - Focus trap and keyboard navigation (Tab, Shift+Tab, Escape)
-- Body scroll prevention when open
+- Touch swipe-to-close (80px threshold, 100px vertical tolerance)
+- Body scroll lock when drawer is open
 - Auto-close on link click, backdrop click, or Escape key
-- Responsive: drawer on mobile/tablet (< 768px), horizontal nav on desktop
+- Stagger-fade nav link animations on open
+- Theme toggle (light/dark mode) on both desktop and mobile
+- Language selector with desktop dropdown and mobile full-width variant
+- Desktop wallet balance display (XLM + USDC)
+- Responsive: drawer on `< 768px` (md), horizontal nav on `>= 768px`
 
 ### Accessibility (WCAG 2.1 AA)
 
-- ARIA attributes: `role="dialog"`, `aria-modal`, `aria-label`, `aria-current`
-- Focus management with auto-focus on close button
-- Keyboard navigation support
-- Screen reader friendly with semantic HTML
+- ARIA attributes: `role="dialog"`, `aria-modal`, `aria-current="page"`, `aria-label`, `aria-expanded`, `aria-controls`, `aria-hidden`
+- Focus management with auto-focus on close button when drawer opens
+- Keyboard navigation (Tab/Shift+Tab cycle, Escape to close)
+- Body scroll lock prevents background scrolling
+- Skip-to-main-content link
+- Screen reader friendly with semantic HTML landmarks (`banner`, `navigation`, `dialog`)
 
-### Technical Details
+### Testing
 
-- TypeScript strict mode (no `any` types)
-- GPU-accelerated CSS transforms
-- Direct imports only (no barrel exports)
-- Integrates with existing WalletContext
+- **Header.test.tsx** - 29 tests covering rendering, desktop nav, mobile drawer integration, theme toggle, language selector, wallet integration (connect/disconnect/balances), accessibility, scroll shadow
+- **MobileDrawer.test.tsx** - 37 tests covering rendering, accessibility (ARIA roles, aria-current, aria-modal, labels), interactions (close button, backdrop, Escape key, wallet button, nav links), body scroll lock, swipe gesture (5 scenarios), active link styling, focus management, responsive visibility
 
----
-
-## Implementation Details
-
-### Files Created
+### Files
 
 ```
 components/organisms/Header/
-├── Header.tsx (95 lines)
-├── MobileDrawer.tsx (203 lines)
+├── Header.tsx (204 lines)
+├── MobileDrawer.tsx (303 lines)
+├── LanguageSelector.tsx (113 lines)
+├── Header.test.tsx (435 lines)
+├── MobileDrawer.test.tsx (508 lines)
 ├── README.md
-└── VISUAL_GUIDE.md
 ```
 
 ### Files Modified
 
-- `app/layout.tsx` - Added Header component and WalletProviderWrapper
-
-### Dependencies
-
-- `lucide-react` - Icons (Menu, X, Home, BookOpen, ShoppingCart, LayoutDashboard)
-- Existing: Button, Text, WalletContext
-
----
-
-## How to Test
-
-### Quick Test
-
-```bash
-npm run dev
-# Open http://localhost:3000
-# Resize to mobile (< 768px)
-# Click hamburger menu
-```
-
-### Test Checklist
-
-**Basic Functionality:**
-
-- [ ] Hamburger opens drawer
-- [ ] Backdrop closes drawer
-- [ ] Links navigate and close drawer
-- [ ] Escape key closes drawer
-
-**Wallet Integration:**
-
-- [ ] "Connect Wallet" button visible
-- [ ] Connects to Freighter
-- [ ] Shows truncated public key when connected
-- [ ] Disconnect works
-
-**Accessibility:**
-
-- [ ] Tab cycles through drawer elements
-- [ ] Focus trapped when open
-- [ ] Escape closes drawer
-- [ ] Focus returns to hamburger on close
-
-**Responsive:**
-
-- [ ] Mobile (< 768px): Drawer visible
-- [ ] Desktop (≥ 768px): Horizontal nav shown
-
-**Animations:**
-
-- [ ] Smooth slide-in/out (300ms)
-- [ ] Backdrop fades in/out
-- [ ] Body scroll prevented when open
-
-### Browser Testing
-
-- [ ] Chrome/EdgeA
-- [ ] Firefox
-- [ ] Safari
-- [ ] Mobile browsers
+- `app/layout.tsx` - Added Header component, WalletProvider wrapper, Inter font import
+- `vitest.setup.ts` - Added scrollIntoView mock for jsdom compatibility

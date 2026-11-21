@@ -1,0 +1,1 @@
+export { SponsorImpactComparison } from './SponsorImpactComparison';

@@ -9,6 +9,7 @@ import {
 } from '@/components/molecules/Card';
 import { Text } from '@/components/atoms/Text';
 import { cn } from '@/lib/utils';
+import { useTimeZone } from '@/contexts/TimeZoneContext';
 import type { UserActivity } from '@/types/user-dashboard';
 import { TreePine, ShoppingBag, ShieldCheck, Eye, Layers } from 'lucide-react';
 
@@ -17,6 +18,8 @@ interface RecentActivityProps {
 }
 
 export function RecentActivity({ activities }: RecentActivityProps) {
+  const { formatDate } = useTimeZone();
+
   if (!activities || activities.length === 0) {
     return (
       <Card className="flex h-full flex-col justify-center items-center p-12 text-center bg-card/60 backdrop-blur-sm border-none shadow-sm rounded-3xl min-h-[500px]">
@@ -72,7 +75,7 @@ export function RecentActivity({ activities }: RecentActivityProps) {
                     variant="muted"
                     className="text-[11px] font-bold uppercase tracking-[0.1em] opacity-40"
                   >
-                    {formatTimestamp(activity.timestamp)}
+                    {formatTimestamp(activity.timestamp, formatDate)}
                   </Text>
                 </div>
                 <Text
@@ -128,7 +131,7 @@ function getActivityColor(type: string) {
   }
 }
 
-function formatTimestamp(timestamp: string) {
+function formatTimestamp(timestamp: string, formatDate: (input: string) => string) {
   const date = new Date(timestamp);
   const now = new Date();
   const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60));
@@ -139,7 +142,7 @@ function formatTimestamp(timestamp: string) {
   if (diffInHours < 24) return `${diffInHours}h ago`;
   if (diffInDays < 7) return `${diffInDays}d ago`;
 
-  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+  return formatDate(timestamp);
 }
 
 export function RecentActivitySkeleton() {

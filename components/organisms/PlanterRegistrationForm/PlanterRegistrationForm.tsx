@@ -56,6 +56,9 @@ export function PlanterRegistrationForm() {
     submitError,
     planterId,
     submitRegistration,
+    isOnline,
+    pendingUploads,
+    manualSync,
   } = usePlanterRegistration();
 
   // Slide direction: positive = forward, negative = backward
@@ -150,6 +153,9 @@ export function PlanterRegistrationForm() {
                 photoUploadError={photoUploadError}
                 onUploadPhoto={uploadPhoto}
                 onClearPhoto={clearPhoto}
+                isOnline={isOnline}
+                pendingUploads={pendingUploads}
+                manualSync={manualSync}
               />
             )}
             {currentStep === 'regions' && <RegionsStep form={form} />}

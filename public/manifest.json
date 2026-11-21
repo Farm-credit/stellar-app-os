@@ -3,10 +3,20 @@
   "short_name": "FarmCredit",
   "description": "Decentralized agricultural credit platform built on the Stellar network",
   "start_url": "/",
+  "scope": "/",
+  "id": "/index.html",
   "display": "standalone",
+  "display_override": [
+    "standalone",
+    "minimal-ui",
+    "browser"
+  ],
   "background_color": "#0D0B21",
   "theme_color": "#14B6E7",
   "orientation": "portrait-primary",
+  "lang": "en",
+  "dir": "ltr",
+  "prefer_related_applications": false,
   "icons": [
     {
       "src": "/icons/icon-72x72.png",
@@ -84,6 +94,45 @@
           "sizes": "96x96"
         }
       ]
+    },
+    {
+      "name": "Record Tree Health",
+      "short_name": "Tree Health",
+      "description": "Record tree health data offline",
+      "url": "/?action=record-tree-health",
+      "icons": [
+        {
+          "src": "/icons/icon-96x96.png",
+          "sizes": "96x96"
+        }
+      ]
+    },
+    {
+      "name": "Sync Offline Data",
+      "short_name": "Sync",
+      "description": "Upload pending field data and photos",
+      "url": "/?action=sync",
+      "icons": [
+        {
+          "src": "/icons/icon-96x96.png",
+          "sizes": "96x96"
+        }
+      ]
     }
-  ]
+  ],
+  "related_applications": [],
+  "iap_": {
+    "mobile_optimized": true
+  },
+  "offline_enabled": true,
+  "field_team": {
+    "offline_storage": "indexeddb",
+    "background_sync": true,
+    "low_end_android": true,
+    "features": [
+      "tree_health_records",
+      "photo_upload",
+      "gps_tagging"
+    ]
+  }
 }

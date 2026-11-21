@@ -57,6 +57,8 @@ mod full_flow_integration_tests {
             // Create mock tokens
             let xlm_token = env.register_stellar_asset_contract_v2(admin.clone()).address();
             let usdc_token = env.register_stellar_asset_contract_v2(admin.clone()).address();
+            let usdt_token = env.register_stellar_asset_contract_v2(admin.clone()).address();
+            let eurc_token = env.register_stellar_asset_contract_v2(admin.clone()).address();
             let tree_token = env.register_stellar_asset_contract_v2(admin.clone()).address();
 
             // Mint initial balances
@@ -86,7 +88,7 @@ mod full_flow_integration_tests {
 
             tree_token_client.initialize(&admin, &tree_token);
 
-            donation_escrow.initialize(&admin, &xlm_token, &usdc_token);
+            donation_escrow.initialize(&admin, &xlm_token, &usdc_token, &eurc_token);
 
             // Add tokens to whitelists
             tree_escrow.add_to_whitelist(&xlm_token);
@@ -97,6 +99,8 @@ mod full_flow_integration_tests {
 
             donation_escrow.add_to_whitelist(&xlm_token);
             donation_escrow.add_to_whitelist(&usdc_token);
+            donation_escrow.add_to_whitelist(&usdt_token);
+            donation_escrow.add_to_whitelist(&eurc_token);
 
             Self {
                 env,

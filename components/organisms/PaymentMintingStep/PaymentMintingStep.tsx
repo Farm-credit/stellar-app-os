@@ -12,7 +12,6 @@ export type { PaymentMintingProps, TransactionStatus };
 /**
  * Review-and-confirm step in the carbon credit purchase wizard.
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 
 export function PaymentMintingStep({
   error,

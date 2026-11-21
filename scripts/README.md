@@ -198,3 +198,28 @@ without `--force`.
 | `deploy-tree-asset.mjs` | **Legacy**, kept for reference; do not use as a TREE SAC bootstrap when tree-escrow is in scope (see "TREE SAC pitfall") |
 | `seed-species.mjs` | Species-registry seed script (unchanged) |
 | `generate-icons.mjs` | PWA icon generator (unchanged) |
+
+
+## Testnet sponsor-to-payout integration flow
+
+`testnet-full-flow.mjs` is a credential-safe integration harness for the complete sponsor-to-payout path. It invokes the deployed `tree-escrow` contract through the Stellar CLI, checks the returned `Funded`, `Planted`, and `Completed` states, and exits non-zero on a failed invocation or unexpected state. It never stores or generates private keys; the `--source` values are local Stellar CLI identity aliases.
+
+The first phase creates the sponsor deposit and submits the verifier's planting approval. The contract's six-month survival rule cannot be bypassed for a fresh job, so the script stops after the planting phase unless `TESTNET_SURVIVAL_READY=true` is explicitly set. A release run should execute the survival phase later against the same planted job:
+
+```bash
+export TREE_ESCROW_CONTRACT_ID=C...
+export TESTNET_SPONSOR_SOURCE=sponsor
+export TESTNET_ADMIN_SOURCE=admin
+export TESTNET_SPONSOR_ADDRESS=G...
+export TESTNET_PLANTER_ADDRESS=G...
+export TESTNET_TOKEN_CONTRACT_ID=C...
+
+# Sponsor -> planter/proof -> verifier planting approval.
+node scripts/testnet-full-flow.mjs
+
+# After the six-month contract condition is satisfied, run the payout phase.
+TESTNET_FLOW_PHASE=survival TESTNET_SURVIVAL_READY=true \
+  node scripts/testnet-full-flow.mjs
+```
+
+For CI or release dry runs, `node scripts/testnet-full-flow.mjs --dry-run` prints the exact command sequence with placeholders and does not contact Testnet. A fresh full-flow invocation must use a unique planter address or a clean deployment because `tree-escrow` rejects duplicate active escrows. The harness intentionally does not mark a payout as successful based on a local assumption: it must observe the on-chain `Completed` record from `get_record`.

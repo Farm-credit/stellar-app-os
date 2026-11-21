@@ -4,6 +4,7 @@ import { useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { ComparisonTool } from '@/components/organisms/ComparisonTool/ComparisonTool';
 import { mockCarbonProjects } from '@/lib/api/mock/carbonProjects';
+import { useAppTranslation } from '@/hooks/useTranslation';
 import { Text } from '@/components/atoms/Text';
 
 export default function ComparePage() {

@@ -6,7 +6,9 @@
     "dashboard": "Tableau de Bord",
     "projects": "Projets",
     "marketplace": "Marché",
-    "transactions": "Transactions"
+    "transactions": "Transactions",
+    "cooperatives": "Coopératives",
+    "offramp": "Retrait"
   },
   "header": {
     "connectWallet": "Connecter le Portefeuille",

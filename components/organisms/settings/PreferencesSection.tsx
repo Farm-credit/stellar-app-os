@@ -15,6 +15,8 @@ import {
 } from '@/components/ui/select';
 import { SettingsCard } from '@/components/molecules/SettingsCard';
 import { ThemeSelector } from '@/components/molecules/ThemeSelector';
+import { TimeZoneSelect } from '@/components/molecules/TimeZoneSelect';
+import { useTimeZone } from '@/contexts/TimeZoneContext';
 import { useTheme } from '@/hooks/useTheme';
 import { preferencesSchema, type PreferencesFormData } from '@/schemas/settings.schema';
 
@@ -37,6 +39,8 @@ const CURRENCIES = [
 export function PreferencesSection() {
   const [saved, setSaved] = useState(false);
   const { theme, setTheme } = useTheme();
+  const { timeZone, mode, detectedTimeZone, offsetLabel, abbreviation, formatDateTime } =
+    useTimeZone();
 
   const {
     handleSubmit,
@@ -127,6 +131,17 @@ export function PreferencesSection() {
             />
           )}
         />
+
+        <div className="space-y-1.5">
+          <Label htmlFor="timezone-select">Display timezone</Label>
+          <TimeZoneSelect />
+          <p className="text-xs text-muted-foreground">
+            {mode === 'auto'
+              ? `Auto-detected from your device (${detectedTimeZone}).`
+              : `Manually set to ${timeZone} (${abbreviation()}, ${offsetLabel()}).`}{' '}
+            Example: {formatDateTime(new Date('2026-08-30T12:00:00Z'))}
+          </p>
+        </div>
 
         <div className="flex items-center justify-end gap-3 pt-2">
           {saved && (

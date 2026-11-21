@@ -29,7 +29,11 @@ export function LandingHero() {
 
       <Text variant="muted">Trees Planted Globally</Text>
 
-      <div className="flex gap-4">
+      <div className="flex flex-wrap justify-center gap-4">
+        <Button asChild>
+          <Link href="/expert-chat">Talk to an Expert</Link>
+        </Button>
+
         <Button asChild>
           <Link href="/donate">Sponsor a Tree</Link>
         </Button>

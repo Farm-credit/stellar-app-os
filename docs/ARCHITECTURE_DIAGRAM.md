@@ -1,6 +1,13 @@
-# Privacy-Preserving Donation Architecture
+# Harvesta Architecture Diagrams & Subsystem Specifications
 
-## System Overview
+> **System-Wide C4 Architecture:** See [docs/C4_ARCHITECTURE.md](file:///docs/C4_ARCHITECTURE.md) for full C4 Context (L1), Container (L2), Component (L3), Dynamic (L4), and Deployment architecture models.  
+> **Core Architecture Guide:** See [docs/ARCHITECTURE.md](file:///docs/ARCHITECTURE.md).
+
+---
+
+## Privacy-Preserving Donation Subsystem Architecture
+
+### System Overview
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐

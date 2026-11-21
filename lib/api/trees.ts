@@ -1,6 +1,168 @@
 import { getMockTrees, getMockTreesResponse } from '@/lib/api/mock/trees';
 import type { Tree, TreeFilterState, TreesResponse } from '@/lib/types/tree';
 
+export type WaitlistStatus = 'waiting' | 'assigned' | 'cancelled';
+
+export interface WaitlistEntry {
+  id: string;
+  sponsorId: string;
+  sponsorName: string;
+  sponsorEmail: string;
+  region: string;
+  status: WaitlistStatus;
+  joinedAt: string;
+  assignedAt?: string;
+  assignedTreeId?: string;
+}
+
+export interface AnnualImpactStats {
+  sponsorId: string;
+  sponsorName: string;
+  sponsorEmail: string;
+  year: number;
+  treesFunded: number;
+  co2AbsorbedKg: number;
+  speciesCount: number;
+  milestones: string[];
+}
+
+export interface AnnualImpactEmailRecord {
+  id: string;
+  sponsorId: string;
+  year: number;
+  status: 'pending' | 'sent';
+  sentAt?: string;
+}
+
+const waitlistStore: WaitlistEntry[] = [];
+const annualImpactEmailStore: AnnualImpactEmailRecord[] = [];
+
+export function getWaitlistEntries(): WaitlistEntry[] {
+  return waitlistStore;
+}
+
+function getWaitingForRegion(region: string): WaitlistEntry[] {
+  return waitlistStore
+    .filter((e) => e.region === region && e.status === 'waiting')
+    .sort((a, b) => a.joinedAt.localeCompare(b.joinedAt) || a.id.localeCompare(b.id));
+}
+
+export function getWaitlistPosition(sponsorId: string, region: string): number | null {
+  const waiting = getWaitingForRegion(region);
+  const index = waiting.findIndex((e) => e.sponsorId === sponsorId);
+  return index === -1 ? null : index + 1;
+}
+
+export function joinWaitlist(entry: Omit<WaitlistEntry, 'id' | 'status' | 'joinedAt'>): WaitlistEntry {
+  const existing = waitlistStore.find(
+    (e) => e.sponsorId === entry.sponsorId && e.region === entry.region && e.status === 'waiting',
+  );
+  if (existing) return existing;
+  const created: WaitlistEntry = {
+    ...entry,
+    id: `wl_${waitlistStore.length + 1}`,
+    status: 'waiting',
+    joinedAt: new Date().toISOString(),
+  };
+  waitlistStore.push(created);
+  return created;
+}
+
+export async function sendWaitlistAssignmentEmail(entry: WaitlistEntry, tree: Tree): Promise<void> {
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  // Delegates to the existing email digest infrastructure in production.
+  void entry;
+  void tree;
+}
+
+export async function assignWaitlistForRegion(region: string, tree: Tree): Promise<WaitlistEntry | null> {
+  const next = getWaitingForRegion(region)[0];
+  if (!next) return null;
+  next.status = 'assigned';
+  next.assignedAt = new Date().toISOString();
+  next.assignedTreeId = tree.id;
+  await sendWaitlistAssignmentEmail(next, tree);
+  return next;
+}
+
+export async function generateImpactImage(stats: AnnualImpactStats): Promise<string> {
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  return `/api/impact-image?sponsor=${encodeURIComponent(stats.sponsorId)}&year=${stats.year}`;
+}
+
+function buildAnnualImpactStats(year: number): Map<string, AnnualImpactStats> {
+  const trees = getMockTrees();
+  const sponsors = new Map<string, AnnualImpactStats>();
+  const speciesBySponsor = new Map<string, Set<string>>();
+  for (const tree of trees) {
+    const sponsorId = tree.sponsorId ?? 'unknown';
+    const existing = sponsors.get(sponsorId);
+    if (existing) {
+      existing.treesFunded += 1;
+      existing.co2AbsorbedKg += tree.co2AbsorbedKg ?? 0;
+    } else {
+      sponsors.set(sponsorId, {
+        sponsorId,
+        sponsorName: tree.sponsorName ?? 'Sponsor',
+        sponsorEmail: tree.sponsorEmail ?? '',
+        year,
+        treesFunded: 1,
+        co2AbsorbedKg: tree.co2AbsorbedKg ?? 0,
+        speciesCount: 0,
+        milestones: [],
+      });
+    }
+    const species = speciesBySponsor.get(sponsorId) ?? new Set<string>();
+    if (tree.species) species.add(tree.species);
+    speciesBySponsor.set(sponsorId, species);
+  }
+  for (const stats of sponsors.values()) {
+    const species = speciesBySponsor.get(stats.sponsorId) ?? new Set<string>();
+    stats.speciesCount = species.size;
+    const milestones: string[] = [];
+    if (stats.treesFunded >= 1) milestones.push('First tree funded');
+    if (stats.treesFunded >= 10) milestones.push('10 trees funded');
+    if (stats.treesFunded >= 50) milestones.push('50 trees funded');
+    if (stats.treesFunded >= 100) milestones.push('100 trees funded');
+    if (stats.speciesCount >= 5) milestones.push('5+ species supported');
+    if (stats.co2AbsorbedKg >= 1000) milestones.push('1,000 kg CO2 absorbed');
+    stats.milestones = milestones;
+  }
+  return sponsors;
+}
+
+export async function enqueueAnnualImpactEmails(year: number): Promise<AnnualImpactEmailRecord[]> {
+  const sponsors = buildAnnualImpactStats(year);
+  const records: AnnualImpactEmailRecord[] = [];
+  for (const stats of sponsors.values()) {
+    if (annualImpactEmailStore.some((r) => r.sponsorId === stats.sponsorId && r.year === year)) continue;
+    const record: AnnualImpactEmailRecord = {
+      id: `aie_${annualImpactEmailStore.length + 1}`,
+      sponsorId: stats.sponsorId,
+      year,
+      status: 'pending',
+    };
+    annualImpactEmailStore.push(record);
+    records.push(record);
+  }
+  return records;
+}
+
+export async function sendAnnualImpactEmails(year: number): Promise<void> {
+  const pending = annualImpactEmailStore.filter((r) => r.year === year && r.status === 'pending');
+  if (pending.length === 0) return;
+  const sponsors = buildAnnualImpactStats(year);
+  for (const record of pending) {
+    const stats = sponsors.get(record.sponsorId);
+    if (!stats) continue;
+    await generateImpactImage(stats);
+    record.status = 'sent';
+    record.sentAt = new Date().toISOString();
+  }
+}
+
+export const ANNUAL_IMPACT_EMAIL_CRON = '0 9 20 12 *';
+
 function buildQuery(filters: TreeFilterState): string {
   const params = new URLSearchParams();
   if (filters.search) params.set('search', filters.search);

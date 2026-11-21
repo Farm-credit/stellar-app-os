@@ -30,7 +30,7 @@ export function CalculationSidebar() {
                 </span>
               </div>
             </div>
-            <p className="text-xs text-gray-500">Total CO₂ tonnes offset</p>
+            <p className="text-xs text-gray-500">Total CO2 tonnes offset</p>
           </div>
 
           <div className="h-px bg-gray-200" />
@@ -41,11 +41,11 @@ export function CalculationSidebar() {
               <div className="flex items-center gap-1">
                 <DollarSign className="w-4 h-4 text-emerald-600" />
                 <span className="text-2xl font-bold text-emerald-700">
-                  ${estimatedEarnings.toLocaleString()}
+                  ${<span class="sr-only"></span>estimatedEarnings.toLocaleString()}
                 </span>
               </div>
             </div>
-            <p className="text-xs text-gray-500">Based on ${projectData.pricePerCredit}/credit</p>
+            <p className="text-xs text-gray-500">Based on ${<span class="sr-only"></span>projectData.pricePerCredit}/credit</p>
           </div>
 
           {projectData.projectSize > 0 && (
@@ -85,7 +85,7 @@ export function CalculationSidebar() {
       <Card className="border-2 bg-amber-50">
         <CardContent className="pt-6">
           <div className="space-y-2">
-            <p className="text-xs font-semibold text-amber-900">💡 Optimization Tip</p>
+            <p className="text-xs font-semibold text-amber-900">📄 Optimization Tip</p>
             <p className="text-xs text-amber-800 leading-relaxed">
               {projectData.estimatedCredits === 0
                 ? 'Start by entering your project parameters to see potential earnings.'

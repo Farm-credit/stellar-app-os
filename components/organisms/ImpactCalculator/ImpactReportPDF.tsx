@@ -242,6 +242,10 @@ export const ImpactReportPDF: React.FC<ImpactReportPDFProps> = ({
           Energy
         </Text>
         <View style={styles.row}>
+          <Text style={styles.label}>People in household</Text>
+          <Text style={styles.value}>{energy.householdSize}</Text>
+        </View>
+        <View style={styles.row}>
           <Text style={styles.label}>Electricity (kWh/month)</Text>
           <Text style={styles.value}>{energy.electricityKwhPerMonth}</Text>
         </View>

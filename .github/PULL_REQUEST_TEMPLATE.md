@@ -41,3 +41,6 @@ Closes #
 - [ ] New components follow the atomic design pattern (atoms → molecules → organisms)
 - [ ] UI changes are responsive and tested on mobile viewports
 - [ ] I have added screenshots/recordings for UI changes
+ - [ ] Branch name follows conventions (`feature/`, `bugfix/`, `chore/`, `docs/`, `hotfix/`)
+ - [ ] PR links to an issue (`Closes #<number>`) when applicable
+ - [ ] Screen recording attached for UI or feature changes

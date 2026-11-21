@@ -18,6 +18,8 @@ import {
   initiateSep31Payout,
 } from '@/lib/stellar/anchor-payout';
 import type { Sep31PayoutRequest } from '@/lib/stellar/anchor-payout';
+import { FUNDABLE_HOME_DOMAIN } from '@/lib/config/fundable';
+import Stripe from 'stripe';
 
 interface NairaPayoutRequestBody {
   /** Farmer's Stellar public key */
@@ -27,8 +29,8 @@ interface NairaPayoutRequestBody {
   offRampMethod: 'mobile_money' | 'bank_transfer';
   /** SEP-10 JWT obtained from the client wallet */
   sep10Jwt: string;
-  /** 'sep24' for interactive UI, 'sep31' for programmatic (default) */
-  mode?: 'sep24' | 'sep31';
+  /** 'sep24' for interactive UI, 'sep31' for programmatic (default), 'stripe' for credit card sponsorship */
+  mode?: 'stripe' | 'sep24' | 'sep31';
   /** Required for mobile_money */
   mobileNumber?: string;
   /** Required for bank_transfer */
@@ -55,7 +57,7 @@ export async function POST(request: Request) {
     } = body;
 
     // ── Validate required fields ──────────────────────────────────────────────
-    if (!farmerPublicKey || !usdcAmount || !offRampMethod || !sep10Jwt) {
+    if (!farmerPublicKey || !usdcAmount || !offRampMethod || (mode !== 'stripe' && !sep10Jwt)) {
       return NextResponse.json(
         { error: 'Missing required fields: farmerPublicKey, usdcAmount, offRampMethod, sep10Jwt' },
         { status: 400 }
@@ -80,8 +82,50 @@ export async function POST(request: Request) {
       );
     }
 
+    console.log(
+      '[AUDIT] naira_payout initiated',
+      JSON.stringify({
+        actor: farmerPublicKey,
+        mode,
+        usdcAmount,
+        offRampMethod,
+        hasQuoteId: Boolean(quoteId),
+        timestamp: new Date().toISOString(),
+        ip: request.headers.get('x-forwarded-for') || null,
+      })
+    );
+
+    // ── Stripe credit card sponsorship ──────────────────────────────────────
+    if (mode === 'stripe') {
+      if (!process.env.STRIPE_SECRET_KEY) {
+        return NextResponse.json({ error: 'STRIPE_SECRET_KEY is not configured' }, { status: 500 });
+      }
+
+      const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: Math.round(usdcAmount * 100),
+        currency: 'usd',
+        metadata: {
+          farmerPublicKey,
+          usdcAmount: usdcAmount.toString(),
+          offRampMethod,
+          sep10Jwt: sep10Jwt ?? '',
+          mobileNumber: mobileNumber ?? '',
+          bankAccountNumber: bankAccountNumber ?? '',
+          bankCode: bankCode ?? '',
+          quoteId: quoteId ?? '',
+        },
+      });
+
+      return NextResponse.json({
+        mode: 'stripe',
+        clientSecret: paymentIntent.client_secret,
+        // The payout will be initiated upon payment confirmation via a webhook.
+      });
+    }
+
     // ── Discover anchor endpoints from stellar.toml ───────────────────────────
-    const anchorHomeDomain = process.env.NEXT_PUBLIC_ANCHOR_HOME_DOMAIN ?? 'testanchor.stellar.org';
+    const anchorHomeDomain = FUNDABLE_HOME_DOMAIN;
     const usdcIssuer = process.env.NEXT_PUBLIC_USDC_ISSUER ?? '';
     const usdcAssetCode = 'USDC';
 
@@ -159,6 +203,13 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     console.error('[naira-payout] error:', error);
+    console.log(
+      '[AUDIT] naira_payout failed',
+      JSON.stringify({
+        error: error instanceof Error ? error.message : 'Unknown error',
+        timestamp: new Date().toISOString(),
+      })
+    );
     const message = error instanceof Error ? error.message : 'Internal server error';
     return NextResponse.json({ error: message }, { status: 500 });
   }

@@ -18,6 +18,24 @@ Migrations are numbered sequentially and should be named in the format: `XXX_des
 - `004_create_trees.sql` - Stores tree information
 - `005_create_progress_updates.sql` - Stores progress updates
 - `006_create_disputes.sql` - Stores disputes
+- `007_create_webhook_dispatch.sql` - Stores outbound webhook delivery attempts
+- `007_create_photo_hashes.sql` - Stores perceptual hashes (pHash) of planting photos for duplicate detection (note: two migrations currently share number 007 — pre-existing, not introduced here)
+- `008_create_carbon_offset_snapshots.sql` - Stores daily snapshots of total CO₂ sequestered across active trees (see `docs/carbon-offset-cron.md`)
+- `009_create_referral_rewards.sql` - Stores referral codes, first-tree eligibility, and queued XLM rewards
+- `010_create_sponsor_teams.sql` - Stores sponsor teams, invite membership, and shared tree links
+- `011_create_sponsor_cohort_retention.sql` - Stores sponsor cohort data, sponsorship events, and monthly retention snapshots (#993)
+- `012_create_school_partnerships.sql` - Stores school partnerships, student memberships, class project batches, and contributions (#1149)
+- `013_create_daily_challenges.sql` - Stores daily challenge templates, sponsor progress, rewards, and streaks (#1158)
+- `014_create_research_tables.sql` - Stores research plot locations, field measurements, satellite metrics, and correction factors for the climate impact study (see `docs/research/climate-impact-methodology.md`)
+- `015_create_email_digests.sql` - Stores pending/sent/failed email digest jobs for the email digest worker (see `lib/workers/email-digest-worker.ts`)
+- `016_create_retirement_receipts.sql` - Immutable blockchain-anchored retirement receipts with canonical SHA-256 digests (#1330, see `lib/carbon/retirement-proof.ts`)
+- `017_create_credit_purchase_batches.sql` - Tracks purchases coalesced into single on-chain transactions to reduce gas fees (#1328, see `lib/carbon/purchase-batcher.ts`)
+- `018_create_corporate_offset_programs.sql` - Corporate offset programs, automated purchases, and monthly ESG reports (#1337, see `lib/corporate-offset.ts`)
+- `018_add_tree_search_indexes.sql` - Adds indexes on trees (region, species_slug, planter_id) for search query optimization (#1175)
+- `019_create_farmer_kyc.sql` - Stores farmer KYC applications: identity verification, land ownership proof, agricultural experience, and certification eligibility screening (#1397)
+- `020_create_sponsor_email_campaigns.sql` - Stores segmented newsletter campaigns and delivery attempts (#1117), plus digest-generation indexes (#1110)
+- `025_create_carbon_methodologies.sql` - Stores the carbon methodology library (Verra/CDM/Gold Standard/IPCC methodology summaries in 5 categories); seeded by `pnpm seed:methodologies` (see `docs/carbon-methodologies.md`)
+- `029_create_planter_referral_rewards.sql` - Stores planter referral rewards (2 XLM per referred planter who completes their first job) (#1015)
 
 ## Running Migrations
 
@@ -45,6 +63,9 @@ npm run db:migrate:validate
 
 # Seed species catalogue (after running migrations)
 npm run seed:species
+
+# Seed carbon methodology library (after running migrations)
+npm run seed:methodologies
 ```
 
 ### Environment Variables
