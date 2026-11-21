@@ -121,30 +121,7 @@ export function calculateBulkPricing(
 
   const standardTotalUsd = Number((tons * basePricePerTon).toFixed(2));
 
-  // Custom negotiated bulk rate if provided and lower than base price
-  if (negotiatedPricePerTon !== undefined && negotiatedPricePerTon > 0) {
-    const effectivePrice = Math.min(negotiatedPricePerTon, basePricePerTon);
-    const bulkTotalUsd = Number((tons * effectivePrice).toFixed(2));
-    const savingsUsd = Number((standardTotalUsd - bulkTotalUsd).toFixed(2));
-    const appliedDiscountPercentage = Number(
-      (((basePricePerTon - effectivePrice) / basePricePerTon) * 100).toFixed(1)
-    );
-
-    return {
-      tons,
-      basePricePerTon,
-      isBulkEligible: tons >= BULK_MIN_TONS,
-      appliedDiscountPercentage,
-      effectivePricePerTon: effectivePrice,
-      standardTotalUsd,
-      bulkTotalUsd,
-      savingsUsd,
-      isNegotiatedCustomRate: true,
-      tierName: `Negotiated Bilateral Rate ($${effectivePrice}/t)`,
-    };
-  }
-
-  // Tier-based volume discount
+  // Tier-based volume discount requires minimum bulk batch size
   if (tons < BULK_MIN_TONS) {
     return {
       tons,
@@ -157,6 +134,29 @@ export function calculateBulkPricing(
       savingsUsd: 0,
       isNegotiatedCustomRate: false,
       tierName: 'Standard Retail (< 100t)',
+    };
+  }
+
+  // Custom negotiated bulk rate if provided and lower than base price
+  if (negotiatedPricePerTon !== undefined && negotiatedPricePerTon > 0) {
+    const effectivePrice = Math.min(negotiatedPricePerTon, basePricePerTon);
+    const bulkTotalUsd = Number((tons * effectivePrice).toFixed(2));
+    const savingsUsd = Number((standardTotalUsd - bulkTotalUsd).toFixed(2));
+    const appliedDiscountPercentage = Number(
+      (((basePricePerTon - effectivePrice) / basePricePerTon) * 100).toFixed(1)
+    );
+
+    return {
+      tons,
+      basePricePerTon,
+      isBulkEligible: true,
+      appliedDiscountPercentage,
+      effectivePricePerTon: effectivePrice,
+      standardTotalUsd,
+      bulkTotalUsd,
+      savingsUsd,
+      isNegotiatedCustomRate: true,
+      tierName: `Negotiated Bilateral Rate ($${effectivePrice}/t)`,
     };
   }
 
@@ -311,6 +311,15 @@ export function listBulkPurchaseAgreements(filters?: {
   return list.sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
 }
 
+const ALLOWED_STATUS_TRANSITIONS: Record<AgreementStatus, AgreementStatus[]> = {
+  draft: ['proposed', 'cancelled'],
+  proposed: ['accepted', 'active', 'cancelled'],
+  accepted: ['active', 'completed', 'cancelled'],
+  active: ['completed', 'cancelled'],
+  completed: [],
+  cancelled: [],
+};
+
 export function updateBulkAgreementStatus(
   id: string,
   newStatus: AgreementStatus
@@ -320,10 +329,80 @@ export function updateBulkAgreementStatus(
     throw new Error(`Agreement with ID '${id}' not found.`);
   }
 
+  if (agreement.status === newStatus) {
+    return agreement;
+  }
+
+  const allowed = ALLOWED_STATUS_TRANSITIONS[agreement.status] || [];
+  if (!allowed.includes(newStatus)) {
+    throw new Error(
+      `Invalid status transition from '${agreement.status}' to '${newStatus}'.`
+    );
+  }
+
   const updated: BulkPurchaseAgreement = {
     ...agreement,
     status: newStatus,
     updatedAt: new Date().toISOString(),
+  };
+
+  agreementsStore.set(id, updated);
+  return updated;
+}
+
+export function negotiateBulkAgreementRate(
+  id: string,
+  negotiatedPricePerTon: number,
+  notes?: string
+): BulkPurchaseAgreement {
+  const agreement = agreementsStore.get(id);
+  if (!agreement) {
+    throw new Error(`Agreement with ID '${id}' not found.`);
+  }
+
+  if (agreement.status !== 'draft' && agreement.status !== 'proposed') {
+    throw new Error(
+      `Cannot negotiate rate for agreement in '${agreement.status}' status. Only draft or proposed agreements can be renegotiated.`
+    );
+  }
+
+  if (!Number.isFinite(negotiatedPricePerTon) || negotiatedPricePerTon <= 0) {
+    throw new Error('negotiatedPricePerTon must be a positive number.');
+  }
+
+  const pricing = calculateBulkPricing(
+    agreement.committedTons,
+    agreement.standardPricePerTon,
+    negotiatedPricePerTon
+  );
+
+  const now = new Date().toISOString();
+  const contractHash = crypto
+    .createHash('sha256')
+    .update(
+      JSON.stringify({
+        id: agreement.id,
+        buyer: agreement.buyer.walletAddress,
+        farmer: agreement.farmer.walletAddress,
+        tons: agreement.committedTons,
+        price: pricing.effectivePricePerTon,
+        project: agreement.projectId,
+        updatedAt: now,
+      })
+    )
+    .digest('hex');
+
+  const updated: BulkPurchaseAgreement = {
+    ...agreement,
+    negotiatedPricePerTon: pricing.effectivePricePerTon,
+    totalValueUsd: pricing.bulkTotalUsd,
+    discountPercentage: pricing.appliedDiscountPercentage,
+    terms: {
+      ...agreement.terms,
+      notes: notes !== undefined ? notes : agreement.terms.notes,
+    },
+    contractHash,
+    updatedAt: now,
   };
 
   agreementsStore.set(id, updated);
