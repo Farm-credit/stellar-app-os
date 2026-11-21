@@ -1,0 +1,105 @@
+{
+  "nav": {
+    "home": "首页",
+    "blog": "博客",
+    "purchaseCredits": "购买碳信用",
+    "dashboard": "仪表盘",
+    "projects": "项目",
+    "marketplace": "市场",
+    "transactions": "交易记录",
+    "cooperatives": "合作社",
+    "offramp": "法币提现"
+  },
+  "header": {
+    "connectWallet": "连接钱包",
+    "openMenu": "打开导航菜单",
+    "languageSelector": "选择语言"
+  },
+  "mobile": {
+    "closeMenu": "关闭导航菜单",
+    "tapToDisconnect": "点击断开连接"
+  },
+  "footer": {
+    "stayUpdated": "保持关注",
+    "stayUpdatedDesc": "获取有关 FarmCredit 和 Stellar 网络的最新动态。",
+    "about": "关于",
+    "resources": "资源",
+    "legal": "法律条款",
+    "aboutFarmCredit": "关于 FarmCredit",
+    "blog": "博客",
+    "documentation": "文档",
+    "apiDocs": "API 文档",
+    "devGuide": "开发者指南",
+    "community": "社区",
+    "terms": "服务条款",
+    "privacy": "隐私政策",
+    "cookies": "Cookie 政策",
+    "copyright": "© {{year}} FarmCredit. 保留所有权利。",
+    "followTwitter": "在 Twitter/X 上关注我们",
+    "viewGithub": "查看我们的 GitHub 仓库",
+    "joinDiscord": "加入我们的 Discord 社区",
+    "twitter": "Twitter",
+    "github": "GitHub",
+    "discord": "Discord"
+  },
+  "newsletter": {
+    "emailPlaceholder": "请输入您的邮箱",
+    "emailAriaLabel": "用于订阅新闻通讯的邮箱地址",
+    "subscribe": "订阅",
+    "emailRequired": "邮箱为必填项",
+    "invalidEmail": "请输入有效的邮箱地址",
+    "successMessage": "订阅成功 🎉",
+    "errorMessage": "出错了，请重试。"
+  },
+  "blog": {
+    "pageTitle": "博客",
+    "pageSubtitle": "关于碳信用、可持续农业、气候科技和农业政策的深度见解。",
+    "featuredBlogTitle": "FarmCredit 博客",
+    "categoryFiltersLabel": "分类筛选",
+    "readPost": "阅读博客文章：{{title}}",
+    "loadingAriaLabel": "正在加载博客文章",
+    "errorTitle": "出错了",
+    "errorDesc": "目前无法加载博客文章。这可能是暂时性问题，请稍后重试。",
+    "errorReference": "错误参考号：{{digest}}",
+    "tryAgain": "重试",
+    "tryAgainAriaLabel": "重新加载博客页面"
+  },
+  "purchase": {
+    "nextButton": "下一步",
+    "nextAriaLabel": "继续连接钱包",
+    "continueToPayment": "继续支付",
+    "loading": "加载中...",
+    "compareTitle": "对比碳信用项目",
+    "compareSubtitle": "最多选择 3 个项目，并排比较其特点、价格和收益"
+  },
+  "home": {
+    "badge": "由 Stellar 提供支持",
+    "title": "FarmCredit",
+    "subtitle": "基于 Stellar 网络构建的去中心化农业信贷平台。",
+    "totalCreditIssued": "累计发放信贷",
+    "activeFarmers": "活跃农户",
+    "repaymentRate": "还款率",
+    "getStarted": "立即开始",
+    "getStartedDescription": "连接您的钱包以使用农业信贷服务。",
+    "connectWallet": "连接钱包",
+    "readBlog": "阅读我们的博客",
+    "purchaseCarbon": "购买碳信用",
+    "makeDonation": "进行捐赠",
+    "showToast": "显示提示",
+    "transactions": "交易记录",
+    "profileSaved": "个人资料已保存！"
+  },
+  "languages": {
+    "en": "英语",
+    "es": "西班牙语",
+    "fr": "法语",
+    "de": "德语",
+    "pt": "葡萄牙语",
+    "ja": "日语",
+    "zh": "中文",
+    "hi": "印地语",
+    "ar": "阿拉伯语",
+    "sw": "斯瓦希里语",
+    "ha": "豪萨语"
+  }
+}
