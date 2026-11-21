@@ -1,5 +1,9 @@
 import { NextResponse } from 'next/server';
-import { createBlockchainReceipt, listBlockchainReceipts } from '@/lib/retirement/receipt';
+import {
+  createBlockchainReceipt,
+  getBlockchainReceiptById,
+  listBlockchainReceipts,
+} from '@/lib/retirement/receipt';
 import { mockCarbonProjects } from '@/lib/api/mock/carbonProjects';
 import { notifyCreditRetired } from '@/lib/webhook/offset-verification-bridge';
 import logger from '@/lib/logger';
@@ -15,6 +19,12 @@ export async function POST(request: Request) {
       quantity, // tons
       reason,
       projectId,
+      projectName,
+      projectType,
+      location,
+      vintageYear,
+      standard,
+      coBenefits,
       transactionHash,
       ledgerSequence,
       network = 'testnet',
@@ -35,6 +45,22 @@ export async function POST(request: Request) {
       );
     }
 
+    // Enforce idempotency: if a receipt already exists for this transactionHash, return it unchanged
+    if (transactionHash) {
+      const existingReceipt = getBlockchainReceiptById(transactionHash);
+      if (existingReceipt) {
+        return NextResponse.json(
+          {
+            success: true,
+            idempotent: true,
+            message: 'Immutable blockchain receipt already issued for this retirement transaction.',
+            receipt: existingReceipt,
+          },
+          { status: 200 }
+        );
+      }
+    }
+
     // Match project metadata from project directory if available
     const project = mockCarbonProjects.find((p) => p.id === projectId);
 
@@ -44,12 +70,13 @@ export async function POST(request: Request) {
       quantityRetiredTons: quantityNum,
       reason,
       projectId,
-      projectName: project?.name,
-      projectType: project?.type,
-      location: project?.location,
-      vintageYear: project?.vintageYear,
-      standard: project?.verificationStatus,
-      coBenefits: project?.coBenefits,
+      projectName: projectName || project?.name,
+      projectType: projectType || project?.type,
+      location: location || project?.location,
+      vintageYear: vintageYear || project?.vintageYear,
+      standard: standard || project?.verificationStatus,
+      coBenefits:
+        Array.isArray(coBenefits) && coBenefits.length > 0 ? coBenefits : project?.coBenefits,
       transactionHash,
       ledgerSequence,
       network: network === 'mainnet' ? 'mainnet' : 'testnet',
