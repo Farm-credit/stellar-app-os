@@ -19,6 +19,8 @@ import {
   Wallet,
   CreditCard,
   MapPin,
+  Heart,
+  Download,
 } from 'lucide-react';
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import { loadStripe } from '@stripe/stripe-js';
@@ -39,6 +41,12 @@ import { GiftTreeForm } from '@/components/organisms/GiftTreeForm/GiftTreeForm';
 import { DEFAULT_GIFT_DETAILS, isValidGiftDetails, type GiftDetails } from '@/lib/types/gift';
 import { useCurrency } from '@/contexts/CurrencyContext';
 import { CurrencySelector } from '@/components/molecules/CurrencySelector';
+import {
+  MAX_DEDICATION_LENGTH,
+  buildDedicationCardImageUrl,
+  normalizeDedication,
+  validateDedication,
+} from '@/lib/trees/dedication';
 
 // 1 tree = 1 USDC / $1 — consistent with TREES_PER_DOLLAR in donation constants
 const USDC_PER_TREE = 1;
@@ -56,6 +64,7 @@ interface ConfirmationPanelProps {
   xlmAmount: string;
   txId: string;
   paymentMethod: 'stellar' | 'card';
+  dedication?: string;
   onDonateAgain: () => void;
 }
 
@@ -66,10 +75,15 @@ function ConfirmationPanel({
   xlmAmount,
   txId,
   paymentMethod,
+  dedication,
   onDonateAgain,
 }: ConfirmationPanelProps) {
   const explorerUrl =
     paymentMethod === 'stellar' ? `https://stellar.expert/explorer/testnet/tx/${txId}` : null;
+  const normalizedDedication = normalizeDedication(dedication);
+  const dedicationCardUrl = normalizedDedication
+    ? buildDedicationCardImageUrl(txId || 'tree-001', normalizedDedication)
+    : null;
 
   return (
     <div className="flex flex-col items-center text-center space-y-6 py-8">
@@ -128,6 +142,43 @@ function ConfirmationPanel({
           </Text>
         </div>
       </div>
+
+      {normalizedDedication && dedicationCardUrl ? (
+        <div className="w-full rounded-xl border border-rose-200 bg-rose-50/70 p-4 text-left space-y-3">
+          <div className="flex items-start gap-2.5">
+            <Heart
+              className="mt-0.5 h-4 w-4 shrink-0 fill-rose-500 text-rose-500"
+              aria-hidden="true"
+            />
+            <div className="space-y-1">
+              <Text variant="small" className="font-semibold text-rose-700">
+                Your tree dedication
+              </Text>
+              <Text variant="small" className="text-foreground">
+                &ldquo;{normalizedDedication}&rdquo;
+              </Text>
+            </div>
+          </div>
+          <div className="overflow-hidden rounded-lg border border-border bg-emerald-950">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={dedicationCardUrl}
+              alt={`Shareable dedication card: ${normalizedDedication}`}
+              className="h-auto w-full object-cover"
+              width={1200}
+              height={630}
+            />
+          </div>
+          <a
+            href={dedicationCardUrl}
+            download="tree-dedication-card.png"
+            className="inline-flex items-center gap-2 rounded-lg bg-stellar-green px-3 py-2 text-xs font-medium text-white hover:bg-stellar-green/90"
+          >
+            <Download className="h-3.5 w-3.5" aria-hidden="true" />
+            Download dedication card (PNG)
+          </a>
+        </div>
+      ) : null}
 
       {explorerUrl && (
         <a
@@ -225,12 +276,14 @@ export function TreeDonationForm() {
   const [stripeClientSecret, setStripeClientSecret] = useState<string | null>(null);
   const [fetchingIntent, setFetchingIntent] = useState(false);
   const [gift, setGift] = useState<GiftDetails>({ ...DEFAULT_GIFT_DETAILS });
+  const [dedication, setDedication] = useState('');
 
   const isProcessingRef = useRef(false);
 
   const resolvedCount = isCustom ? parseInt(customCount, 10) || 0 : treeCount;
   const isValidCount = resolvedCount >= MINIMUM_TREES;
   const isValidGift = isValidGiftDetails(gift);
+  const dedicationValidation = validateDedication(dedication);
   const totalUsdc = resolvedCount * USDC_PER_TREE;
 
   const isStellarProcessing = ['preparing', 'signing', 'submitting', 'confirming'].includes(
@@ -274,6 +327,7 @@ export function TreeDonationForm() {
           amount: totalUsdc,
           isMonthly: false,
           idempotencyKey: generateIdempotencyKey(),
+          ...(normalizeDedication(dedication) ? { dedication: normalizeDedication(dedication) } : {}),
         }),
       });
       if (!res.ok) throw new Error('Failed to create payment intent');
@@ -285,7 +339,7 @@ export function TreeDonationForm() {
     } finally {
       setFetchingIntent(false);
     }
-  }, [isValidCount, totalUsdc]);
+  }, [isValidCount, totalUsdc, dedication]);
 
   const handleMethodChange = (method: 'stellar' | 'card') => {
     setPaymentMethod(method);
@@ -359,6 +413,7 @@ export function TreeDonationForm() {
     setStripeClientSecret(null);
     setPaymentMethod('stellar');
     setDonationAsset('USDC');
+    setDedication('');
   };
 
   // ── Render: confirmation ──────────────────────────────────────────────────
@@ -372,6 +427,7 @@ export function TreeDonationForm() {
         xlmAmount={confirmedXlmAmount ? `${confirmedXlmAmount.toFixed(7)} XLM` : 'Rate unavailable'}
         txId={txId}
         paymentMethod={paymentMethod}
+        dedication={dedication}
         onDonateAgain={handleDonateAgain}
       />
     );
@@ -570,6 +626,52 @@ export function TreeDonationForm() {
 
       {/* ── Step 3: Payment method ─────────────────────────────────────────── */}
       {isValidCount && <GiftTreeForm treeCount={resolvedCount} gift={gift} onChange={setGift} />}
+
+      {/* ── Tree dedication (optional, max 200 chars) ──────────────────────── */}
+      {isValidCount && (
+        <section
+          aria-labelledby="tree-dedication-heading"
+          className="rounded-xl border border-border bg-muted/20 p-4 sm:p-5 space-y-3"
+        >
+          <div className="flex items-center justify-between gap-2">
+            <label
+              id="tree-dedication-heading"
+              htmlFor="tree-dedication-input"
+              className="flex items-center gap-2 text-base font-semibold text-foreground"
+            >
+              <Heart className="h-4 w-4 fill-rose-500 text-rose-500" aria-hidden="true" />
+              Dedicate this tree (optional)
+            </label>
+            <span
+              className={`text-xs font-medium ${
+                dedicationValidation.remaining < 0 ? 'text-destructive' : 'text-muted-foreground'
+              }`}
+              aria-live="polite"
+            >
+              {dedication.length}/{MAX_DEDICATION_LENGTH}
+            </span>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            Add a personalised inscription in honour of a person or cherished memory. It will appear
+            on the tree&apos;s profile page and on an auto-generated shareable dedication card.
+          </p>
+          <textarea
+            id="tree-dedication-input"
+            name="dedication"
+            rows={3}
+            maxLength={MAX_DEDICATION_LENGTH}
+            value={dedication}
+            onChange={(e) => setDedication(e.target.value.slice(0, MAX_DEDICATION_LENGTH))}
+            placeholder="In loving memory of someone special, or dedicated to..."
+            aria-describedby="tree-dedication-help"
+            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-stellar-green focus:outline-none focus:ring-2 focus:ring-stellar-green/20"
+          />
+          <p id="tree-dedication-help" className="text-xs text-muted-foreground">
+            {dedicationValidation.error ??
+              `${dedicationValidation.remaining} character${dedicationValidation.remaining === 1 ? '' : 's'} remaining.`}
+          </p>
+        </section>
+      )}
 
       {/* ── Step 2: Payment method ─────────────────────────────────────────── */}
       <section aria-labelledby="payment-method-heading">
