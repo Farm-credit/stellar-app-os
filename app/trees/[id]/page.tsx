@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ArrowRight, Smartphone } from 'lucide-react';
 import { TreeDetail } from '@/components/organisms/TreeDetail/TreeDetail';
+import { TreeHealthTrendChart } from '@/components/organisms/TreeHealth/TreeHealthTrendChart';
 import { TreeStagePhotoTimeline } from '@/components/organisms/TreeStagePhotoTimeline';
 import { ConnectedTreeHealthAlertToggle } from '@/components/molecules/ConnectedTreeHealthAlertToggle';
 import { ConnectedTreeMessagePanel } from '@/components/organisms/TreeMessagePanel/ConnectedTreeMessagePanel';
@@ -17,6 +18,7 @@ import {
 } from '@/lib/carbon/ipcc-tier1';
 import { getReachedTreeMilestones } from '@/lib/trees/milestones';
 import { getTreeGrowthStageTimeline } from '@/lib/tree-growth/stages';
+import { getTreeHealthSummary } from '@/lib/tree-health/store';
 
 /** Re-render daily so the age-based CO₂ figures keep up as the tree grows. */
 export const revalidate = 86400;
@@ -89,10 +91,16 @@ export default async function TreeDetailPage({ params }: { params: Promise<{ id:
   }));
   const publicTreePath = `/trees/${encodeURIComponent(tree.id)}`;
   const stageTimeline = getTreeGrowthStageTimeline(tree.id, tree);
+  const healthSummary = getTreeHealthSummary(tree.id);
 
   return (
     <>
       <TreeDetail tree={tree} sequestration={sequestration} />
+
+      {/* Tree health trend chart synced from field team observations */}
+      <div className="mx-auto max-w-3xl px-4 pb-6">
+        <TreeHealthTrendChart treeId={tree.id} initialSummary={healthSummary} />
+      </div>
 
       {/* Growth stage chronological photo timeline */}
       <div className="mx-auto max-w-3xl px-4 pb-6">
