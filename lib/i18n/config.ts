@@ -4,45 +4,86 @@ import LanguageDetector from 'i18next-browser-languagedetector';
 import enTranslations from '@/lib/i18n/locales/en.json';
 import esTranslations from '@/lib/i18n/locales/es.json';
 import frTranslations from '@/lib/i18n/locales/fr.json';
+import deTranslations from '@/lib/i18n/locales/de.json';
 import ptTranslations from '@/lib/i18n/locales/pt.json';
+import jaTranslations from '@/lib/i18n/locales/ja.json';
+import zhTranslations from '@/lib/i18n/locales/zh.json';
+import hiTranslations from '@/lib/i18n/locales/hi.json';
+import arTranslations from '@/lib/i18n/locales/ar.json';
+import swTranslations from '@/lib/i18n/locales/sw.json';
 import haTranslations from '@/lib/i18n/locales/ha.json';
 
-export const SUPPORTED_LANGUAGES = ['en', 'ha', 'fr', 'es', 'pt'] as const;
+export const SUPPORTED_LANGUAGES = [
+  'en',
+  'es',
+  'fr',
+  'de',
+  'pt',
+  'ja',
+  'zh',
+  'hi',
+  'ar',
+  'sw',
+  'ha',
+] as const;
 export type SupportedLanguage = (typeof SUPPORTED_LANGUAGES)[number];
 
 export const LANGUAGE_LABELS: Record<SupportedLanguage, string> = {
   en: 'English',
-  ha: 'Hausa',
-  fr: 'Français',
   es: 'Español',
+  fr: 'Français',
+  de: 'Deutsch',
   pt: 'Português',
+  ja: '日本語',
+  zh: '中文',
+  hi: 'हिन्दी',
+  ar: 'العربية',
+  sw: 'Kiswahili',
+  ha: 'Hausa',
 };
 
-// RTL languages — Arabic prepared for future use
+// RTL languages
 export const RTL_LANGUAGES: ReadonlyArray<string> = ['ar'];
 
+export function normalizeLanguage(lang?: string): SupportedLanguage {
+  if (!lang) return 'en';
+  const base = lang.split('-')[0].toLowerCase();
+  return SUPPORTED_LANGUAGES.includes(base as SupportedLanguage)
+    ? (base as SupportedLanguage)
+    : 'en';
+}
+
 export function isRTL(lang: string): boolean {
-  return RTL_LANGUAGES.includes(lang);
+  const base = lang.split('-')[0].toLowerCase();
+  return RTL_LANGUAGES.includes(base);
 }
 
 const i18nConfig: InitOptions = {
   resources: {
     en: { translation: enTranslations },
-    ha: { translation: haTranslations },
-    fr: { translation: frTranslations },
     es: { translation: esTranslations },
+    fr: { translation: frTranslations },
+    de: { translation: deTranslations },
     pt: { translation: ptTranslations },
+    ja: { translation: jaTranslations },
+    zh: { translation: zhTranslations },
+    hi: { translation: hiTranslations },
+    ar: { translation: arTranslations },
+    sw: { translation: swTranslations },
+    ha: { translation: haTranslations },
   },
   fallbackLng: 'en',
   supportedLngs: [...SUPPORTED_LANGUAGES],
+  nonExplicitSupportedLngs: true,
+  load: 'languageOnly',
   interpolation: {
     escapeValue: false,
   },
   detection: {
-    // Order matters: localStorage first so persisted choice wins
+    // Order matters: localStorage first so persisted choice wins, then browser navigator
     order: ['localStorage', 'navigator', 'htmlTag'],
     lookupLocalStorage: 'farmcredit-language',
-    caches: ['localStorage'], // This replaces 'cacheUserLanguage: true'
+    caches: ['localStorage'],
   },
 };
 

@@ -36,9 +36,21 @@ describe('LanguageSelector', () => {
 
     const listbox = screen.getByRole('listbox', { name: /select language/i });
     expect(listbox).toBeInTheDocument();
-    expect(within(listbox).getAllByRole('option')).toHaveLength(5);
+    expect(within(listbox).getAllByRole('option')).toHaveLength(11);
 
-    for (const label of ['English', 'Hausa', 'Français', 'Español', 'Português']) {
+    for (const label of [
+      'English',
+      'Español',
+      'Français',
+      'Deutsch',
+      'Português',
+      '日本語',
+      '中文',
+      'हिन्दी',
+      'العربية',
+      'Kiswahili',
+      'Hausa',
+    ]) {
       expect(screen.getByRole('option', { name: label })).toBeInTheDocument();
     }
   });
@@ -80,6 +92,22 @@ describe('LanguageSelector', () => {
     expect(document.documentElement.lang).toBe('ha');
     expect(trigger).toHaveTextContent('Hausa');
     expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+  });
+
+  it('switches to RTL layout when Arabic is selected', async () => {
+    render(<LanguageSelector />);
+
+    const trigger = screen.getByRole('button', { name: /select language/i });
+    fireEvent.click(trigger);
+    await act(() => {
+      fireEvent.click(screen.getByRole('button', { name: 'العربية' }));
+    });
+
+    await waitFor(() => expect(i18n.language).toBe('ar'));
+
+    expect(document.documentElement.lang).toBe('ar');
+    expect(document.documentElement.dir).toBe('rtl');
+    expect(trigger).toHaveTextContent('العربية');
   });
 
   // ── Dismissal ──────────────────────────────────────────────────────────────

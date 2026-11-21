@@ -83,8 +83,8 @@ export function LanguageSelector({ variant = 'desktop' }: LanguageSelectorProps)
           aria-activedescendant={`lang-option-${language}`}
           className={
             isMobile
-              ? 'mt-1 w-full rounded-md border border-border bg-background shadow-md py-1 z-50'
-              : 'absolute right-0 mt-1 w-44 rounded-md border border-border bg-background shadow-lg py-1 z-50'
+              ? 'mt-1 w-full max-h-72 overflow-y-auto rounded-md border border-border bg-background shadow-md py-1 z-50'
+              : 'absolute end-0 mt-1 w-44 max-h-72 overflow-y-auto rounded-md border border-border bg-background shadow-lg py-1 z-50'
           }
         >
           {supportedLanguages.map((lang) => (

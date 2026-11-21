@@ -1,0 +1,105 @@
+{
+  "nav": {
+    "home": "होम",
+    "blog": "ब्लॉग",
+    "purchaseCredits": "क्रेडिट खरीदें",
+    "dashboard": "डैशबोर्ड",
+    "projects": "परियोजनाएं",
+    "marketplace": "मार्केटप्लेस",
+    "transactions": "लेन-देन",
+    "cooperatives": "सहकारी समितियां",
+    "offramp": "ऑफ-रैंप"
+  },
+  "header": {
+    "connectWallet": "वॉलेट कनेक्ट करें",
+    "openMenu": "नेविगेशन मेनू खोलें",
+    "languageSelector": "भाषा चुनें"
+  },
+  "mobile": {
+    "closeMenu": "नेविगेशन मेनू बंद करें",
+    "tapToDisconnect": "डिस्कनेक्ट करने के लिए टैप करें"
+  },
+  "footer": {
+    "stayUpdated": "अपडेट रहें",
+    "stayUpdatedDesc": "FarmCredit और Stellar नेटवर्क पर नवीनतम अपडेट प्राप्त करें।",
+    "about": "हमारे बारे में",
+    "resources": "संसाधन",
+    "legal": "कानूनी",
+    "aboutFarmCredit": "FarmCredit के बारे में",
+    "blog": "ब्लॉग",
+    "documentation": "दस्तावेज़ीकरण",
+    "apiDocs": "API दस्तावेज़ीकरण",
+    "devGuide": "डेवलपर गाइड",
+    "community": "समुदाय",
+    "terms": "सेवा की शर्तें",
+    "privacy": "गोपनीयता नीति",
+    "cookies": "कुकी नीति",
+    "copyright": "© {{year}} FarmCredit. सर्वाधिकार सुरक्षित।",
+    "followTwitter": "Twitter/X पर हमें फॉलो करें",
+    "viewGithub": "हमारा GitHub रिपॉजिटरी देखें",
+    "joinDiscord": "हमारे Discord समुदाय से जुड़ें",
+    "twitter": "Twitter",
+    "github": "GitHub",
+    "discord": "Discord"
+  },
+  "newsletter": {
+    "emailPlaceholder": "अपना ईमेल दर्ज करें",
+    "emailAriaLabel": "न्यूज़लेटर सदस्यता के लिए ईमेल पता",
+    "subscribe": "सदस्यता लें",
+    "emailRequired": "ईमेल आवश्यक है",
+    "invalidEmail": "कृपया एक मान्य ईमेल पता दर्ज करें",
+    "successMessage": "आपने सदस्यता ले ली है 🎉",
+    "errorMessage": "कुछ गलत हो गया। कृपया पुनः प्रयास करें।"
+  },
+  "blog": {
+    "pageTitle": "ब्लॉग",
+    "pageSubtitle": "कार्बन क्रेडिट, टिकाऊ खेती, जलवायु तकनीक और कृषि नीति पर जानकारी।",
+    "featuredBlogTitle": "FarmCredit ब्लॉग",
+    "categoryFiltersLabel": "श्रेणी फ़िल्टर",
+    "readPost": "ब्लॉग पोस्ट पढ़ें: {{title}}",
+    "loadingAriaLabel": "ब्लॉग पोस्ट लोड हो रहे हैं",
+    "errorTitle": "कुछ गलत हो गया",
+    "errorDesc": "हम अभी ब्लॉग पोस्ट लोड नहीं कर सके। यह एक अस्थायी समस्या हो सकती है — कृपया पुनः प्रयास करें।",
+    "errorReference": "त्रुटि संदर्भ: {{digest}}",
+    "tryAgain": "पुनः प्रयास करें",
+    "tryAgainAriaLabel": "ब्लॉग पेज को फिर से लोड करने का प्रयास करें"
+  },
+  "purchase": {
+    "nextButton": "आगे",
+    "nextAriaLabel": "वॉलेट कनेक्शन पर आगे बढ़ें",
+    "continueToPayment": "भुगतान पर आगे बढ़ें",
+    "loading": "लोड हो रहा है...",
+    "compareTitle": "कार्बन क्रेडिट परियोजनाओं की तुलना करें",
+    "compareSubtitle": "विशेषताओं, मूल्य निर्धारण और लाभों की तुलना करने के लिए अधिकतम 3 परियोजनाएं चुनें"
+  },
+  "home": {
+    "badge": "Stellar द्वारा संचालित",
+    "title": "FarmCredit",
+    "subtitle": "Stellar नेटवर्क पर निर्मित विकेंद्रीकृत कृषि ऋण मंच।",
+    "totalCreditIssued": "कुल जारी ऋण",
+    "activeFarmers": "सक्रिय किसान",
+    "repaymentRate": "पुनर्भुगतान दर",
+    "getStarted": "शुरू करें",
+    "getStartedDescription": "कृषि ऋण सेवाओं तक पहुंचने के लिए अपना वॉलेट कनेक्ट करें।",
+    "connectWallet": "वॉलेट कनेक्ट करें",
+    "readBlog": "हमारा ब्लॉग पढ़ें",
+    "purchaseCarbon": "कार्बन क्रेडिट खरीदें",
+    "makeDonation": "दान करें",
+    "showToast": "सूचना दिखाएं",
+    "transactions": "लेन-देन",
+    "profileSaved": "प्रोफ़ाइल सहेजी गई!"
+  },
+  "languages": {
+    "en": "अंग्रेज़ी",
+    "es": "स्पेनिश",
+    "fr": "फ्रेंच",
+    "de": "जर्मन",
+    "pt": "पुर्तगाली",
+    "ja": "जापानी",
+    "zh": "मंदारिन",
+    "hi": "हिन्दी",
+    "ar": "अरबी",
+    "sw": "स्वाहिली",
+    "ha": "हाउसा"
+  }
+}

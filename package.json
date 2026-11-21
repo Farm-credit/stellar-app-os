@@ -161,8 +161,14 @@
       "en",
       "es",
       "fr",
+      "de",
+      "pt",
+      "ja",
       "zh",
-      "ar"
+      "hi",
+      "ar",
+      "sw",
+      "ha"
     ],
     "rtlLocales": [
       "ar"

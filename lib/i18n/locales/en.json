@@ -93,7 +93,13 @@
     "en": "English",
     "es": "Spanish",
     "fr": "French",
+    "de": "German",
     "pt": "Portuguese",
+    "ja": "Japanese",
+    "zh": "Mandarin",
+    "hi": "Hindi",
+    "ar": "Arabic",
+    "sw": "Swahili",
     "ha": "Hausa"
   }
 }
