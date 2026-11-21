@@ -8,6 +8,7 @@ import {
   generateMonthlyReport,
   getCumulativePurchases,
 } from '@/lib/corporate-offset';
+import { formatMonthlyReportCsv, formatMonthlyReportMarkdown } from '@/lib/corporate-offset-docs';
 import logger from '@/lib/logger';
 
 export const runtime = 'nodejs';
@@ -64,13 +65,15 @@ export async function POST(request: Request) {
 
 /**
  * GET /api/offset-program?wallet=<addr>            → program + progress
- * GET /api/offset-program?wallet=<addr>&report=1    → monthly report
+ * GET /api/offset-program?wallet=<addr>&report=1    → monthly report (json|markdown|csv)
  */
 export async function GET(request: Request) {
   try {
-    const wallet = new URL(request.url).searchParams.get('wallet');
-    const wantReport = new URL(request.url).searchParams.get('report') === '1';
-    const period = new URL(request.url).searchParams.get('period') ?? undefined;
+    const searchParams = new URL(request.url).searchParams;
+    const wallet = searchParams.get('wallet');
+    const wantReport = searchParams.get('report') === '1';
+    const period = searchParams.get('period') ?? undefined;
+    const format = searchParams.get('format') ?? 'json';
 
     if (!wallet) {
       return NextResponse.json({ error: 'Missing wallet parameter' }, { status: 400 });
@@ -86,6 +89,30 @@ export async function GET(request: Request) {
 
     if (wantReport) {
       const report = await generateMonthlyReport(wallet, period);
+      const periodSlug = report.period.slice(0, 7);
+
+      if (format === 'markdown') {
+        const markdown = formatMonthlyReportMarkdown(program, report);
+        return new NextResponse(markdown, {
+          status: 200,
+          headers: {
+            'Content-Type': 'text/markdown; charset=utf-8',
+            'Content-Disposition': `attachment; filename="carbon-offset-report-${periodSlug}.md"`,
+          },
+        });
+      }
+
+      if (format === 'csv') {
+        const csv = formatMonthlyReportCsv(program, report);
+        return new NextResponse(csv, {
+          status: 200,
+          headers: {
+            'Content-Type': 'text/csv; charset=utf-8',
+            'Content-Disposition': `attachment; filename="carbon-offset-report-${periodSlug}.csv"`,
+          },
+        });
+      }
+
       return NextResponse.json({ program, progress: { cumulative, pctOfTarget }, report });
     }
 
