@@ -39,6 +39,8 @@ export interface Tree {
   nftOwner?: string;
   /** Public-facing sponsor display name used on milestone sharing cards. */
   sponsorName?: string;
+  /** Optional personalised dedication inscription (max 200 chars) shown on the tree profile. */
+  dedication?: string;
   /** Optional evidence image shown on the tree detail page. */
   imageUrl?: string;
   /** Identifier of the seed batch this tree was grown from. */

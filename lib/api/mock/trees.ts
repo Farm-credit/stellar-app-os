@@ -20,6 +20,7 @@ const MOCK_TREES: Tree[] = [
     projectName: 'Northern Savanna Reforestation',
     nftTokenId: '1',
     sponsorName: 'Acme EcoSolutions',
+    dedication: 'In loving memory of Grandma Rose — may your roots grow deep and strong.',
   },
   {
     id: 'tree-002',
