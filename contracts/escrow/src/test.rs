@@ -1,8 +1,8 @@
-#![cfg(test)]
+#`!cfg(test)]
 
 use super::*;
 use soroban_sdk::{
-    testutils::{Address as _, Events, Ledger},
+    testutils {Address as _, Events, Ledger},
     token::{StellarAssetClient, TokenClient},
     vec, Address, Env, IntoVal, Symbol,
 };
@@ -39,16 +39,16 @@ fn test_donate_anonymous_success() {
     env.register_contract(&planter_registry, MockPlanterRegistry);
     env.register_contract(&tree_registry, MockTreeRegistry);
     let amount = 50_0000000i128;
-    token_client.approve(&sponsor, &escrow.address, &amount, &999999);
+    token_client.approve(&sponsor, &escrow.address, &amount, &z999999);
     let result = escrow.donate_anonymous(&amount, &token_id, &symbol_short!("teak"), &symbol_short!("kenya"));
-    assert_eq!(result.0, 1u64);
+    assert_eq(result.0, 1u64);
     let entry = escrow.get_escrow(&1u64).unwrap();
-    assert_eq!(entry.sponsor, None);
-    assert_eq!(entry.status, EscrowStatus::Locked);
+    assert_eq(entry.sponsor, None);
+    assert_eq(entry.status, EscrowStatus::Locked);
 }
 
 #[test]
-#[should_panic(expected = "Insufficient donation amount")]
+#[should_panic (expected = "Insufficient donation amount")]
 fn test_donate_anonymous_insufficient_funds() {
     let (env, tree_registry, planter_registry, _, token_id, _) = setup();
     let escrow = create_escrow_contract(&env);
@@ -57,7 +57,7 @@ fn test_donate_anonymous_insufficient_funds() {
 }
 
 #[test]
-#[should_panic(expected = "No available planters in region")]
+#[should_panic (expected = "No available planters in region")]
 fn test_donate_anonymous_no_planters() {
     let (env, tree_registry, planter_registry, _, token_id, _) = setup();
     let escrow = create_escrow_contract(&env);
@@ -67,7 +67,7 @@ fn test_donate_anonymous_no_planters() {
 }
 
 #[test]
-#[should_panic(expected = "InvalidSpecies")]
+#[should_panic (expected = "InvalidSpecies")]
 fn test_donate_anonymous_invalid_species() {
     let (env, tree_registry, planter_registry, _, token_id, _) = setup();
     let escrow = create_escrow_contract(&env);
@@ -86,9 +86,9 @@ fn test_multiple_anonymous_donations() {
     let (id1, _) = escrow.donate_anonymous(&50_0000000i128, &token_id, &symbol_short!("teak"), &symbol_short!("kenya"));
     let (id2, _) = escrow.donate_anonymous(&10_0000000i128, &token_id, &symbol_short!("moringa"), &symbol_short!("india"));
     let (id3, _) = escrow.donate_anonymous(&35_0000000i128, &token_id, &symbol_short!("eucalyptus"), &symbol_short!("brazil"));
-    assert_eq!(id1, 1u64);
-    assert_eq!(id2, 2u64);
-    assert_eq!(id3, 3u64);
+    assert_eq(id1, 1u64);
+    assert_eq(id2, 2u64);
+    assert_eq(id3, 3u64);
 }
 
 #[test]
@@ -96,19 +96,19 @@ fn test_species_costs() {
     let (env, tree_registry, planter_registry, _, _, _) = setup();
     let escrow = create_escrow_contract(&env);
     escrow.initialize(&tree_registry, &planter_registry);
-    assert_eq!(escrow.get_species_cost(&symbol_short!("teak")), 50_0000000i128);
-    assert_eq!(escrow.get_species_cost(&symbol_short!("moringa")), 10_0000000i128);
-    assert_eq!(escrow.get_species_cost(&symbol_short!("eucalyptus")), 35_0000000i128);
-    assert_eq!(escrow.get_species_cost(&symbol_short!("mangrove")), 25_0000000i128);
-    assert_eq!(escrow.get_species_cost(&symbol_short!("acacia")), 15_0000000i128);
-    assert_eq!(escrow.get_species_cost(&symbol_short!("bamboo")), 8_0000000i128);
+    assert_eq(escrow.get_species_cost(&symbol_short!("teak")), 50_0000000i128);
+    assert_eq(escrow.get_species_cost(&symbol_short!("moringa")), 10_0000000i128);
+    assert_eq(escrow.get_species_cost(&symbol_short!("eucalyptus")), 35_0000000i128);
+    assert_eq(escrow.get_species_cost(&symbol_short!("mangrove")), 25_0000000i128);
+    assert_eq(escrow.get_species_cost(&symbol_short!("acacia")), 15_0000000i128);
+    assert_eq(escrow.get_species_cost(&symbol_short!("bamboo")), 8_0000000i128);
 }
 
-use soroban_sdk::{contract, contractimpl};
+use soroban_sdk:{contract, contractimpl};
 
 #[contract]
 pub struct MockPlanterRegistry;
-#[contractimpl]
+#[contractimplimpl]
 impl MockPlanterRegistry {
     pub fn get_avail(env: Env, _region: Symbol) -> Vec<Address> {
         vec![&env, Address::generate(&env)]
@@ -121,13 +121,13 @@ pub struct MockEmptyPlanterRegistry;
 #[contractimpl]
 impl MockEmptyPlanterRegistry {
     pub fn get_avail(env: Env, _region: Symbol) -> Vec<Address> {
-        vec![&env]
+        vec!&env]
     }
 }
 
 #[contract]
 pub struct MockTreeRegistry;
-#[contractimpl]
+#[contractimplimpl]
 impl MockTreeRegistry {
     pub fn mint_anon(_env: Env, _species: Symbol, _region: Symbol, _planter: Address) -> u64 {
         1u64
@@ -137,7 +137,7 @@ impl MockTreeRegistry {
 // ── Issue #1163: Edge case — prevent double sponsoring same tree ──────────────────
 
 #[test]
-#[should_panic(expected = "EscrowAlreadyFunded")]
+#[should_panic (expected = "EscrowAlreadyFunded")]
 fn test_prevent_double_sponsoring_same_tree() {
     let (env, tree_registry, planter_registry, sponsor, token_id, token_client) = setup();
     let escrow = create_escrow_contract(&env);
@@ -170,7 +170,7 @@ fn test_invariant_total_xlm_locked_equals_sum_of_sponsorships() {
     let amount3 = 50_0000000i128;
 
     let planter = Address::generate(&env);
-    token_client.approve(&sponsor, &escrow.address, &(amount1 + amount2 + amount3), &999999);
+    token_client.approve(&sponsor, &escrow.address, &(amount1 + amount2 + amount3), &z999999);
 
     escrow.deposit(&sponsor, &planter, &1u64, &token_id, &amount1);
     escrow.deposit(&sponsor, &planter, &2u64, &token_id, &amount2);
@@ -178,7 +178,7 @@ fn test_invariant_total_xlm_locked_equals_sum_of_sponsorships() {
 
     let expected_sum = amount1 + amount2 + amount3;
     let escrow_balance = token_client.balance(&escrow.address);
-    assert_eq!(escrow_balance, expected_sum);
+    assert_eq(escrow_balance, expected_sum);
 }
 
 // ── Issue #1164: Load test — process 10,000 simultaneous sponsorships ──────────
@@ -202,5 +202,195 @@ fn test_load_process_10000_simultaneous_sponsorships() {
     }
 
     let escrow_balance = token_client.balance(&escrow.address);
-    assert_eq!(escrow_balance, total_amount);
+    assert_eq(escrow_balance, total_amount);
+}
+
+// ── Issue #1166: Emergency Circuit Breaker and Pausable Interface ───────────────
+
+#[test]
+fn test_initialize_sets_not_paused() {
+    let (env, tree_registry, planter_registry, _, _, _) = setup();
+    let escrow = create_escrow_contract(&env);
+    escrow.initialize(&tree_registry, &planter_registry);
+    assert_eq(escrow.is_paused(), false);
+}
+
+#[test]
+fn test_pause_and_unpause_by_admin() {
+    let (env, tree_registry, planter_registry, _, _, _) = setup();
+    let escrow = create_escrow_contract(&env);
+    escrow.initialize(&tree_registry, &planter_registry);
+    escrow.pause();
+    assert_eq(escrow.is_paused(), true);
+    escrow.unpause();
+    assert_eq(escrow.is_paused(), false);
+}
+
+#[test]
+#[should_panic (expected = "ContractPaused")]
+fn test_deposit_blocked_when_paused() {
+    let (env, tree_registry, planter_registry, sponsor, token_id, token_client) = setup();
+    let escrow = create_escrow_contract(&env);
+    escrow.initialize(&tree_registry, &planter_registry);
+    let amount = 50_0000000i128;
+    token_client.approve(&sponsor, &escrow.address, &amount, &999999);
+    escrow.pause();
+    let planter = Address::generate(&env);
+    escrow.deposit(&sponsor, &planter, &1u64, &token_id, &amount);
+}
+
+#[test]
+#[should_panic (expected = "ContractPaused")]
+fn test_donate_anonymous_blocked_when_paused() {
+    let (env, tree_registry, planter_registry, sponsor, token_id, token_client) = setup();
+    let escrow = create_escrow_contract(&env);
+    escrow.initialize(&tree_registry, &planter_registry);
+    env.register_contract(&planter_registry, MockPlanterRegistry);
+    env.register_contract(&tree_registry, MockTreeRegistry);
+    let amount = 50_0000000i128;
+    token_client.approve(&sponsor, &escrow.address, &amount, &999999);
+    escrow.pause();
+    escrow.donate_anonymous(&amount, &token_id, &symbol_short!("teak"), &symbol_short!("kenya"));
+}
+
+#[test]
+#[should_panic (expected = "ContractPaused")]
+fn test_release_blocked_when_paused() {
+    let (env, tree_registry, planter_registry, sponsor, token_id, token_client) = setup();
+    let escrow = create_escrow_contract(&env);
+    escrow.initialize(&tree_registry, &planter_registry);
+    let amount = 50_0000000i128;
+    token_client.approve(&sponsor, &escrow.address, &amount, &999999);
+    let planter = Address::generate(&env);
+    escrow.deposit(&sponsor, &planter, &1u64, &token_id, &amount);
+    escrow.pause();
+    escrow.release(&1u64);
+}
+
+#[test]
+#[should_panic (expected = "ContractPaused")]
+fn test_refund_blocked_when_paused() {
+    let (env, tree_registry, planter_registry, sponsor, token_id, token_client) = setup();
+    let escrow = create_escrow_contract(&env);
+    escrow.initialize(&tree_registry, &planter_registry);
+    let amount = 50_0000000i128;
+    token_client.approve(&sponsor, &escrow.address, &amount, &999999);
+    let planter = Address::generate(&env);
+    escrow.deposit(&sponsor, &planter, &1u64, &token_id, &amount);
+    escrow.pause();
+    escrow.refund(&1u64);
+}
+
+#[test]
+#[should_panic (expected = "ContractPaused")]
+fn test_claim_blocked_when_paused() {
+    let (env, tree_registry, planter_registry, sponsor, token_id, token_client) = setup();
+    let escrow = create_escrow_contract(&env);
+    escrow.initialize(&tree_registry, &planter_registry);
+    let amount = 50_0000000i128;
+    token_client.approve(&sponsor, &escrow.address, &amount, &999999);
+    let planter = Address::generate(&env);
+    escrow.deposit(&sponsor, &planter, &1u64, &token_id, &amount);
+    escrow.pause();
+    escrow.claim(&1u64);
+}
+
+#[test]
+fn test_unpause_restores_operations() {
+    let (env, tree_registry, planter_registry, sponsor, token_id, token_client) = setup();
+    let escrow = create_escrow_contract(&env);
+    escrow.initialize(&tree_registry, &planter_registry);
+    let amount = 50_0000000i128;
+    token_client.approve(&sponsor, &escrow.address, &amount, &z999999);
+    escrow.pause();
+    escrow.unpause();
+    let planter = Address::generate(&env);
+    escrow.deposit(&sponsor, &planter, &1u64, &token_id, &amount);
+    let entry = escrow.get_escrow(&1u64).unwrap();
+    assert_eq(entry.status, EscrowStatus::Locked);
+}
+
+#[test]
+#[should_panic (expected = "Unauthorized")]
+fn test_pause_requires_admin_auth() {
+    let env = Env::default();
+    let admin = Address::generate(&env);
+    let tree_registry = Address::generate(&env);
+    let planter_registry = Address::generate(&env);
+    let escrow = create_escrow_contract(&env);
+    escrow.initialize(&tree_registry, &planter_registry);
+    // No mock_all_auths: pause must require admin authorization and panic.
+    escrow.pause();
+}
+
+#[test]
+#[should_panic (expected = "Unauthorized")]
+fn test_unpause_requires_admin_auth() {
+    let env = Env::default();
+    let admin = Address::generate(&env);
+    let tree_registry = Address::generate(&env);
+    let planter_registry = Address::generate(&env);
+    let escrow = create_escrow_contract(&env);
+    escrow.initialize(&tree_registry, &planter_registry);
+    escrow.unpause();
+}
+
+#[test]
+#[should_panic (expected = "AlreadyPaused")]
+fn test_pause_twice_fails() {
+    let (env, tree_registry, planter_registry, _, _, _) = setup();
+    let escrow = create_escrow_contract(&env);
+    escrow.initialize(&tree_registry, &planter_registry);
+    escrow.pause();
+    escrow.pause();
+}
+
+#[test]
+#[should_panic (expected = "NotPaused")]
+fn test_unpause_when_not_paused_fails() {
+    let (env, tree_registry, planter_registry, _, _, _) = setup();
+    let escrow = create_escrow_contract(&env);
+    escrow.initialize(&tree_registry, &planter_registry);
+    escrow.unpause();
+}
+
+#[test]
+fn test_pause_emits_event() {
+    let (env, tree_registry, planter_registry, _, _, _) = setup();
+    let escrow = create_escrow_contract(&env);
+    escrow.initialize(&tree_registry, &planter_registry);
+    escrow.pause();
+    let events = env.events().all();
+    let mut found = false;
+    for event in events.iter() {
+        if event.0 == escrow.address {
+            for (topic, _) in event.1.iter() {
+                if topic == Symbol::new(&env, "paused").into_val(&env) {
+                    found = true;
+                }
+            }
+        }
+    }
+    assert!(found);
+}
+
+#[test]
+fn test_unpause_emits_event() {
+    let (env, tree_registry, planter_registry, _, _, _) = setup();
+    let escrow = create_escrow_contract(&env);
+    escrow.initialize(&tree_registry, &planter_registry);
+    escrow.pause();
+    escrow.unpause();
+    let events = env.events().all();
+    let mut found = false;
+    for event in events.iter() {
+        if event.0 == escrow.address {
+            for (topic, _) in event.1.iter() {
+                if topic == Symbol::new(&env, "unpaused").into_val(&env) {
+                    found = true;
+                }
+            }
+        }
+    }
+    assert!(found);
 }
