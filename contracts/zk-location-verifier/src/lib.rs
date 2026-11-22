@@ -198,6 +198,19 @@ pub mod groth16 {
     /// Point at infinity in G1 (all-zero encoding).
     pub const G1_INFINITY: [u8; 64] = [0u8; 64];
 
+    /// BN254 base-field modulus (p) in big-endian bytes. Used to reject
+    /// malformed points whose coordinates are not valid field elements before
+    /// any host precompile is invoked (which would otherwise trap).
+    pub const BN254_P: [u8; 32] = [
+        0x30, 0x64, 0x4e, 0x72, 0xe1, 0x31, 0xa0, 0x29, 0xb8, 0x50, 0x45, 0xb6, 0x81, 0x81,
+        0x58, 0x5d, 0x97, 0x81, 0x6a, 0x91, 0x68, 0x71, 0xca, 0x8d, 0x3c, 0x20, 0x8c, 0x16,
+        0xd8, 0x7c, 0xfd, 0x47,
+    ];
+
+    fn fp_lt_modulus(bytes: &[u8; 32]) -> bool {
+        bytes < &BN254_P
+    }
+
     /// BN254 G2 generator in the host's `c1 || c0` Fp2 encoding:
     /// `x.c1 || x.c0 || y.c1 || y.c0`.
     pub const G2_GENERATOR: [u8; 128] = [
@@ -251,6 +264,27 @@ pub mod groth16 {
         let a = Bn254G1Affine::from_bytes(proof.a.clone());
         let b = Bn254G2Affine::from_bytes(proof.b.clone());
         let c = Bn254G1Affine::from_bytes(proof.c.clone());
+
+        // Reject malformed field elements (coordinates >= p) before any host
+        // precompile is invoked — otherwise the host traps instead of returning
+        // a clean `InvalidLocationProof`.
+        let a_bytes = proof.a.to_array();
+        let c_bytes = proof.c.to_array();
+        let b_bytes = proof.b.to_array();
+        if !fp_lt_modulus(&a_bytes[..32].try_into().unwrap())
+            || !fp_lt_modulus(&a_bytes[32..].try_into().unwrap())
+            || !fp_lt_modulus(&c_bytes[..32].try_into().unwrap())
+            || !fp_lt_modulus(&c_bytes[32..].try_into().unwrap())
+        {
+            return false;
+        }
+        // G2 has four 32-byte field elements.
+        for chunk in b_bytes.chunks(32) {
+            let arr: [u8; 32] = chunk.try_into().unwrap();
+            if !fp_lt_modulus(&arr) {
+                return false;
+            }
+        }
 
         // Point validation before any arithmetic: off-curve G1 points would
         // otherwise trap inside the host's bn254 precompiles. G2 subgroup
@@ -801,6 +835,23 @@ impl ZkLocationVerifier {
         env.storage()
             .persistent()
             .has(&Self::nullifier_key(&env, &nullifier))
+    }
+
+    /// Read-only audit record for a spent location nullifier, if any.
+    pub fn get_spent_nullifier(env: Env, nullifier: BytesN<32>) -> Option<SpentNullifier> {
+        env.storage()
+            .persistent()
+            .get(&Self::nullifier_key(&env, &nullifier))
+    }
+
+    /// Alias for [`Self::get_spent_nullifier`].
+    pub fn get_nullifier_record(env: Env, nullifier: BytesN<32>) -> Option<SpentNullifier> {
+        Self::get_spent_nullifier(env, nullifier)
+    }
+
+    /// Alias for [`Self::get_spent_nullifier`].
+    pub fn get_nullifier(env: Env, nullifier: BytesN<32>) -> Option<SpentNullifier> {
+        Self::get_spent_nullifier(env, nullifier)
     }
 
     /// Read-only SHA-256 of the embedded Circuit 2 verification key.
