@@ -34,6 +34,7 @@ import { ProjectCarousel } from '@/components/organisms/ProjectCarousel/ProjectC
 import { DroneImageryViewer } from '@/components/organisms/DroneImageryViewer/DroneImageryViewer';
 import { BiodiversityIndex } from '@/components/organisms/BiodiversityIndex/BiodiversityIndex';
 import { WildlifeHabitatImpact } from '@/components/organisms/WildlifeHabitatImpact/WildlifeHabitatImpact';
+import { BiodiversityImpactReport } from '@/components/organisms/BiodiversityImpactReport/BiodiversityImpactReport';
 import { ProjectPlanters } from '@/components/organisms/ProjectPlanters';
 import { SoilHealthSection } from '@/components/organisms/ProjectDetailView/SoilHealthSection';
 import { FundAllocationTransparency } from '@/components/organisms/FundAllocationTransparency';
@@ -361,6 +362,9 @@ export function ProjectDetailView({ adminProject, carbonProject }: ProjectDetail
 
             {/* Issue #1665: Wildlife habitat impact metrics + featured photos */}
             <WildlifeHabitatImpact projectId={adminProject.id} />
+
+            {/* Issue #1630: annual, downloadable biodiversity impact reports */}
+            <BiodiversityImpactReport projectId={adminProject.id} />
             <section id="transparency" className="space-y-8">
               <Text variant="h3" className="mb-6 font-bold flex items-center gap-2">
                 Transparency
