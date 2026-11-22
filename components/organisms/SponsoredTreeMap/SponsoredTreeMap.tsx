@@ -13,6 +13,7 @@ import type { TreeSpecies } from '@/lib/types/tree';
 import type { LeafletEvent } from 'leaflet';
 import type { JSX } from 'react';
 import { format } from 'date-fns';
+import { LegacyTierBadge } from '@/components/molecules/LegacyTierBadge';
 import 'leaflet/dist/leaflet.css';
 
 const DEFAULT_FILTERS: SponsoredTreeFilters = {
@@ -121,6 +122,9 @@ function TreePopupContent({ tree }: { tree: SponsoredTree }) {
         <div>
           <dt className="text-xs text-slate-500 dark:text-slate-400">Sponsor</dt>
           <dd className="font-semibold text-stellar-green">{tree.sponsorName}</dd>
+          <dd className="mt-2">
+            <LegacyTierBadge sponsorName={tree.sponsorName} compact />
+          </dd>
         </div>
       </dl>
     </div>
