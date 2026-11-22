@@ -23,6 +23,7 @@ import { usePlaceBid } from '@/lib/hooks/usePlaceBid';
 import { getMockAuctions } from '@/lib/api/mock/auctions';
 import type { Auction } from '@/lib/types/auction';
 import { useState } from 'react';
+import { VerifiedFieldMarketplace } from '@/components/organisms/VerifiedFieldMarketplace/VerifiedFieldMarketplace';
 
 type ListingKind = 'fixed' | 'auction';
 const LISTING_KIND_OPTIONS: ListingKind[] = ['fixed', 'auction'];
@@ -347,10 +348,19 @@ function MarketplacePageContent() {
               Bulk Purchasing &rarr;
             </Button>
           </Link>
+          <Link href="#verified-field-credits">
+            <Button variant="outline" size="sm" className="text-xs cursor-pointer">
+              Verified field credits
+            </Button>
+          </Link>
         </div>
       </header>
 
       <MarketplaceNewsFeed />
+
+      <div className="my-8">
+        <VerifiedFieldMarketplace />
+      </div>
 
       <div className="grid gap-8 lg:grid-cols-[300px_minmax(0,1fr)]">
         <aside>
@@ -459,11 +469,7 @@ function MarketplacePageContent() {
               </Text>
               <div className="grid gap-4 sm:grid-cols-2">
                 {auctions.map((auction) => (
-                  <AuctionCard
-                    key={auction.id}
-                    auction={auction}
-                    onPlaceBid={handleOpenBidModal}
-                  />
+                  <AuctionCard key={auction.id} auction={auction} onPlaceBid={handleOpenBidModal} />
                 ))}
               </div>
             </div>
