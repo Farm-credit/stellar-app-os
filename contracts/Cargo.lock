@@ -528,10 +528,9 @@ dependencies = [
 name = "carbon-marketplace"
 version = "0.1.0"
 dependencies = [
- "admin-controls",
- "harvesta-errors",
  "proptest",
  "soroban-sdk 27.0.6",
+ "treasury",
 ]
 
 [[package]]
