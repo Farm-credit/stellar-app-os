@@ -5,7 +5,6 @@ import {
   Building2,
   BarChart3,
   Download,
-  Settings,
   TrendingUp,
   TreePine,
   Wind,
@@ -22,6 +21,7 @@ import { generateEsgExcel, generateEsgReport, type EsgReportData } from '@/lib/c
 import { cn } from '@/lib/utils';
 import { CarbonOffsetCalculator } from '@/components/organisms/CarbonOffsetCalculator';
 import { CsrReportPanel } from '@/components/organisms/CorporateDashboard/CsrReportPanel';
+import { BenefactorLandingBuilder } from '@/components/organisms/BenefactorLandingBuilder/BenefactorLandingBuilder';
 
 export function CorporateDashboard() {
   const [isExporting, setIsExporting] = useState(false);
@@ -202,38 +202,11 @@ export function CorporateDashboard() {
 
         {/* Quick Actions & Settings */}
         <div className="space-y-6">
-          <Card className="border-white/5 bg-stellar-navy/40">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Settings className="h-5 w-5 text-stellar-purple" />
-                Custom Branding
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <label className="text-xs font-medium text-white/60 uppercase">Company Name</label>
-                <div className="p-3 rounded-lg bg-black/20 border border-white/5 text-white">
-                  Acme Corp
-                </div>
-              </div>
-              <div className="space-y-2">
-                <label className="text-xs font-medium text-white/60 uppercase">Brand Color</label>
-                <div className="flex items-center gap-3">
-                  <div className="h-8 w-8 rounded-full bg-stellar-blue border border-white/10" />
-                  <span className="text-sm text-white/80">#14B6E7</span>
-                </div>
-              </div>
-              <Button variant="outline" className="w-full text-xs py-2 border-white/10">
-                Edit Brand Settings
-              </Button>
-            </CardContent>
-          </Card>
+          {/* Benefactor Custom Landing Page Builder — Issue #1821 */}
+          <BenefactorLandingBuilder walletAddress="GACME1111111111111111111111111111111111111111111111111111111" />
 
           {/* CSR Reporting — Issue #1670 */}
-          <CsrReportPanel
-            buyerId="corporate-dashboard"
-            companyName="Acme Corp"
-          />
+          <CsrReportPanel buyerId="corporate-dashboard" companyName="Acme Corp" />
 
           <Card className="border-white/5 bg-stellar-navy/40">
             <CardHeader>
