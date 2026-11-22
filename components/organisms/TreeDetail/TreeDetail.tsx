@@ -15,6 +15,7 @@ import {
   CardTitle,
 } from '@/components/molecules/Card';
 import { Co2MethodologyLink } from '@/components/molecules/Co2MethodologyLink';
+import { LegacyTierBadge } from '@/components/molecules/LegacyTierBadge';
 import type { TreeSequestration } from '@/lib/carbon/ipcc-tier1';
 import type { Tree } from '@/lib/types/tree';
 import { speciesPathForName } from '@/lib/species/education';
@@ -49,6 +50,7 @@ export function TreeDetail({ tree, sequestration }: TreeDetailProps) {
           </Text>
           <TreeStatusBadge status={tree.status} />
           <TreeGrowthStageBadge stage={growthStage} />
+          <LegacyTierBadge sponsorName={tree.sponsorName} compact />
         </div>
         <Text variant="muted" as="p">
           {tree.projectName}
