@@ -1383,9 +1383,10 @@ Custom error codes follow the workspace-wide allocation standard documented in
 | `initialize` | `fn initialize( env: Env, admin: Address, stake_token: Address, min_stake_amount: i128, governance_contract: Address, replanting_buffer_pool: Address, sla_penalty_amount: i128, )` |
 | `register` | `fn register(env: Env, verifier: Address)` |
 | `stake` | `fn stake(env: Env, verifier: Address, amount: i128)` |
-| `slash` | `fn slash(env: Env, verifier: Address, slash_amount: i128)` |
-| `slash_invalid_approval` | `fn slash_invalid_approval( env: Env, verifier: Address, reason: InvalidApprovalKind, ) -> u64` |
-| `appeal_slash` | `fn appeal_slash(env: Env, verifier: Address, slash_id: u64, _reason: soroban_sdk::String)` |
+| `slash` | `fn slash(env: Env, verifier: Address, slash_amount: i128) -> u64` |
+| `slash_invalid_approval` | `fn slash_invalid_approval( env: Env, verifier: Address, reason: InvalidApprovalKind, evidence_hash: BytesN<32>, ) -> u64` |
+| `appeal_slash` | `fn appeal_slash(env: Env, verifier: Address, slash_id: u64, reason: soroban_sdk::String)` |
+| `resolve_appeal` | `fn resolve_appeal(env: Env, slash_id: u64, uphold: bool)` |
 | `execute_slash` | `fn execute_slash(env: Env, slash_id: u64)` |
 | `get_offense_count` | `fn get_offense_count(env: Env, verifier: Address) -> u32` |
 | `slash_escalated` | `fn slash_escalated(env: Env, verifier: Address, base_slash_amount: i128) -> i128` |
@@ -1407,6 +1408,10 @@ Custom error codes follow the workspace-wide allocation standard documented in
 | `delegate` | `fn delegate(env: Env, delegator: Address, verifier: Address, amount: i128)` |
 | `undelegate` | `fn undelegate(env: Env, delegator: Address, verifier: Address)` |
 | `get_delegation` | `fn get_delegation(env: Env, verifier: Address, delegator: Address) -> i128` |
+
+#### Slash request lifecycle
+
+`slash` and `slash_invalid_approval` create appealable requests and return their request ID; stake is transferred only after `execute_slash` succeeds following the appeal window. `SlashRequest.reason` is `None` for a generic admin slash, `Some(1)` for a dead-tree approval, and `Some(2)` for invalid progress. An unresolved or appealed slash blocks `unstake`; a rejected appeal or executed slash releases that restriction.
 
 #### Public types
 
