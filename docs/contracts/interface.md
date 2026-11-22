@@ -474,6 +474,7 @@ Custom error codes follow the workspace-wide allocation standard documented in
 | `release_partial` | `fn release_partial( env: Env, approver: Address, milestone_id: Address, completion_pct: u32, )` |
 | `verify_milestone` | `fn verify_milestone(env: Env, farmer: Address, verification_hash: BytesN<32>)` |
 | `verify_survival` | `fn verify_survival( env: Env, farmer: Address, survival_verification_hash: BytesN<32>, survival_rate_percent: u32, )` |
+| `verify_maturity` | `fn verify_maturity(env: Env, farmer: Address, proof_hash: BytesN<32>)` |
 | `raise_dispute` | `fn raise_dispute(env: Env, farmer: Address, caller: Address)` |
 | `resolve_dispute` | `fn resolve_dispute(env: Env, farmer: Address, arbiter: Address, release_to_seller: bool)` |
 | `refund` | `fn refund(env: Env, farmer: Address)` |
@@ -510,6 +511,7 @@ Custom error codes follow the workspace-wide allocation standard documented in
 | `VerfAdded` | `env.events().publish` in `contracts/escrow-milestone/src/lib.rs` |
 | `m1release` | `env.events().publish` in `contracts/escrow-milestone/src/lib.rs` |
 | `m2release` | `env.events().publish` in `contracts/escrow-milestone/src/lib.rs` |
+| `maturity_release` | `env.events().publish` in `contracts/escrow-milestone/src/lib.rs` |
 
 ### `farmer-registry`
 
