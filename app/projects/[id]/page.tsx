@@ -15,6 +15,8 @@ import {
 } from '@/lib/deforestation/service';
 import { getProjectSurvivalStatistic } from '@/lib/census/survival';
 import { SurvivalRateStat } from '@/components/molecules/SurvivalRateStat';
+import { FireRiskIndicator } from '@/components/molecules/FireRiskIndicator';
+import { getProjectFireRisk } from '@/lib/fire-risk';
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -75,8 +77,7 @@ function computePolygonAreaHectares(
   for (let i = 0; i < polygon.length; i += 1) {
     const [lat1, lng1] = polygon[i];
     const [lat2, lng2] = polygon[(i + 1) % polygon.length];
-    total +=
-      toRad(lng2 - lng1) * (2 + Math.sin(toRad(lat1)) + Math.sin(toRad(lat2)));
+    total += toRad(lng2 - lng1) * (2 + Math.sin(toRad(lat1)) + Math.sin(toRad(lat2)));
   }
 
   const areaM2 = Math.abs((total * EARTH_RADIUS_M * EARTH_RADIUS_M) / 2);
@@ -154,6 +155,7 @@ export default async function ProjectPage({ params }: Props) {
       />
 
       <div className="mx-auto max-w-7xl space-y-6 px-4 py-6">
+        <FireRiskIndicator {...getProjectFireRisk(adminProject.id)} />
         {/* Survival rate per project (issue #1645) */}
         <SurvivalRateStat
           initial={getProjectSurvivalStatistic(adminProject.id)}
