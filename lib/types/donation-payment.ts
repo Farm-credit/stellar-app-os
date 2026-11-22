@@ -24,6 +24,8 @@ export interface StripePaymentIntentRequest {
   donorName: string;
   isMonthly: boolean;
   idempotencyKey: string;
+  /** Planting partner the sponsor chose to fund (#1643). */
+  partnerSlug?: string;
 }
 
 export interface StripePaymentIntentResponse {

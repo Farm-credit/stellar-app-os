@@ -4,7 +4,7 @@ import { useCallback, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { pdf } from '@react-pdf/renderer';
 import { TreePine, Wind, Globe, Layers, Plus, ChevronRight, Download } from 'lucide-react';
-import { SponsorTreeList } from '@/components/organisms/SponsorTreeList';
+import { MyForestExplorer } from './MyForestExplorer';
 import { PooledSponsorshipPanel } from '@/components/organisms/PooledSponsorshipPanel';
 import { TeamForestPanel } from '@/components/organisms/TeamForestPanel';
 import { ForestReportPDF } from './ForestReportPDF';
@@ -362,23 +362,7 @@ export function MyForestDashboard({ initialFilters }: MyForestDashboardProps) {
       <TeamForestPanel />
 
       {/* ===== TREE CARD GRID ===== */}
-      <section aria-labelledby="forest-grid-heading">
-        <div className="mb-5 flex items-center justify-between">
-          <h2
-            id="forest-grid-heading"
-            className="text-xl font-black tracking-tight text-foreground"
-          >
-            Your Trees
-          </h2>
-          {!isLoading && totalCount > 0 && (
-            <Text variant="muted" className="text-sm font-semibold opacity-70">
-              {totalCount} {totalCount === 1 ? 'tree' : 'trees'} in your forest
-            </Text>
-          )}
-        </div>
-
-        <SponsorTreeList initialFilters={initialFilters} />
-      </section>
+      <MyForestExplorer initialFilters={initialFilters} />
 
       {/* ── Pooled Sponsorship ──────────────────────────────────────────────── */}
       <section className="px-4 pb-8 sm:px-8">

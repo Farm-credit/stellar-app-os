@@ -5,8 +5,8 @@ import { AnonymousQuickPay } from '@/components/molecules/AnonymousQuickPay/Anon
 
 export const dynamic = 'force-dynamic';
 
-function TreeDonationFormWrapper() {
-  return <TreeDonationForm />;
+function TreeDonationFormWrapper({ partner }: { partner?: string }) {
+  return <TreeDonationForm initialPartnerSlug={partner} />;
 }
 
 export const metadata = {
@@ -15,7 +15,12 @@ export const metadata = {
     'Select the number of trees you want to plant (minimum 2) and donate via Freighter wallet or credit card.',
 };
 
-export default function TreeDonatePage() {
+export default async function TreeDonatePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ partner?: string }>;
+}) {
+  const { partner } = await searchParams;
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="mx-auto w-full max-w-3xl px-4 py-8 sm:py-12">
@@ -51,7 +56,7 @@ export default function TreeDonatePage() {
                 </div>
               }
             >
-              <TreeDonationFormWrapper />
+              <TreeDonationFormWrapper partner={partner} />
             </Suspense>
           </div>
         </div>

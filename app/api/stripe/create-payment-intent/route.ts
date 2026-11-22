@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import type { StripePaymentIntentRequest } from '@/lib/types/donation-payment';
+import { getPartnerBySlug } from '@/lib/partners/data';
 
 export async function POST(request: Request) {
   try {
@@ -13,7 +14,8 @@ export async function POST(request: Request) {
     });
 
     const body = (await request.json()) as StripePaymentIntentRequest;
-    const { amount, currency, donorEmail, donorName, isMonthly, idempotencyKey } = body;
+    const { amount, currency, donorEmail, donorName, isMonthly, idempotencyKey, partnerSlug } =
+      body;
 
     if (!amount || amount < 500) {
       return NextResponse.json({ error: 'Minimum donation is $5.00' }, { status: 400 });
@@ -33,6 +35,7 @@ export async function POST(request: Request) {
           isMonthly: String(isMonthly),
           idempotencyKey,
           source: 'donation-flow',
+          ...(partnerSlug && getPartnerBySlug(partnerSlug) ? { partnerSlug } : {}),
         },
       },
       { idempotencyKey }

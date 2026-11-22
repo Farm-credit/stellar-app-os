@@ -39,6 +39,7 @@ import { GiftTreeForm } from '@/components/organisms/GiftTreeForm/GiftTreeForm';
 import { DEFAULT_GIFT_DETAILS, isValidGiftDetails, type GiftDetails } from '@/lib/types/gift';
 import { useCurrency } from '@/contexts/CurrencyContext';
 import { CurrencySelector } from '@/components/molecules/CurrencySelector';
+import { PLANTING_PARTNERS, getPartnerBySlug } from '@/lib/partners/data';
 
 // 1 tree = 1 USDC / $1 — consistent with TREES_PER_DOLLAR in donation constants
 const USDC_PER_TREE = 1;
@@ -205,7 +206,7 @@ function StripeInnerForm({ onSuccess, onError }: StripeFormProps) {
 
 // ── Main Form ─────────────────────────────────────────────────────────────────
 
-export function TreeDonationForm() {
+export function TreeDonationForm({ initialPartnerSlug }: { initialPartnerSlug?: string } = {}) {
   const { wallet } = useWalletContext();
   const { formatPrice, xlmPerUsd } = useCurrency();
 
@@ -225,6 +226,9 @@ export function TreeDonationForm() {
   const [stripeClientSecret, setStripeClientSecret] = useState<string | null>(null);
   const [fetchingIntent, setFetchingIntent] = useState(false);
   const [gift, setGift] = useState<GiftDetails>({ ...DEFAULT_GIFT_DETAILS });
+  const [partnerSlug, setPartnerSlug] = useState<string>(
+    initialPartnerSlug && getPartnerBySlug(initialPartnerSlug) ? initialPartnerSlug : ''
+  );
 
   const isProcessingRef = useRef(false);
 
@@ -274,6 +278,7 @@ export function TreeDonationForm() {
           amount: totalUsdc,
           isMonthly: false,
           idempotencyKey: generateIdempotencyKey(),
+          partnerSlug: partnerSlug || undefined,
         }),
       });
       if (!res.ok) throw new Error('Failed to create payment intent');
@@ -285,7 +290,7 @@ export function TreeDonationForm() {
     } finally {
       setFetchingIntent(false);
     }
-  }, [isValidCount, totalUsdc]);
+  }, [isValidCount, totalUsdc, partnerSlug]);
 
   const handleMethodChange = (method: 'stellar' | 'card') => {
     setPaymentMethod(method);
@@ -494,6 +499,34 @@ export function TreeDonationForm() {
             </Badge>
           </div>
         </div>
+      )}
+
+      {/* ── Planting partner choice (Issue #1643) ──────────────────────────── */}
+      {isValidCount && (
+        <section aria-labelledby="partner-heading">
+          <Text id="partner-heading" variant="h2" className="mb-2 text-xl font-bold">
+            Planting partner
+          </Text>
+          <label htmlFor="partner-select" className="sr-only">
+            Fund trees via a specific planting partner
+          </label>
+          <select
+            id="partner-select"
+            value={partnerSlug}
+            onChange={(e) => {
+              setPartnerSlug(e.target.value);
+              setStripeClientSecret(null);
+            }}
+            className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
+          >
+            <option value="">Any certified partner (default)</option>
+            {PLANTING_PARTNERS.map((p) => (
+              <option key={p.slug} value={p.slug}>
+                {p.name}
+              </option>
+            ))}
+          </select>
+        </section>
       )}
 
       {/* ── Step 2: Region selection (Issue #1683) ─────────────────────────── */}
