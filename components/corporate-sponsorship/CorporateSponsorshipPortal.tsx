@@ -6,8 +6,13 @@ import type { CorporateOrder } from '@/lib/corporate-sponsorship/packages';
 import { BulkCertificateDownloader } from './BulkCertificateDownloader';
 import { BulkOrderFlow } from './BulkOrderFlow';
 import { CorporateImpactDashboard } from './CorporateImpactDashboard';
+import {
+  BatchWalletFundingModal,
+  type BatchFundingReceipt,
+  type FundingInstruction,
+} from '@/components/organisms/BatchWalletFundingModal/BatchWalletFundingModal';
 
-type TabKey = 'order' | 'dashboard' | 'certificates';
+type TabKey = 'order' | 'dashboard' | 'certificates' | 'funding';
 
 interface CorporateSponsorshipPortalProps {
   initialOrders: CorporateOrder[];
@@ -16,9 +21,22 @@ interface CorporateSponsorshipPortalProps {
 export function CorporateSponsorshipPortal({ initialOrders }: CorporateSponsorshipPortalProps) {
   const [orders, setOrders] = useState<CorporateOrder[]>(initialOrders);
   const [activeTab, setActiveTab] = useState<TabKey>('order');
+  const [fundingOpen, setFundingOpen] = useState(false);
 
   function handleOrderCreated(newOrder: CorporateOrder) {
     setOrders((prev) => [newOrder, ...prev]);
+  }
+
+  async function prepareFundingBatch(
+    instructions: FundingInstruction[]
+  ): Promise<BatchFundingReceipt> {
+    const response = await fetch('/api/escrow/batch-funding', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ instructions }),
+    });
+    if (!response.ok) throw new Error('Unable to prepare the funding batch. Please try again.');
+    return (await response.json()) as BatchFundingReceipt;
   }
 
   return (
@@ -87,6 +105,22 @@ export function CorporateSponsorshipPortal({ initialOrders }: CorporateSponsorsh
           <Award className="h-4 w-4" />
           Co-Branded Certificates
         </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={activeTab === 'funding'}
+          onClick={() => {
+            setActiveTab('funding');
+            setFundingOpen(true);
+          }}
+          className={`inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition ${
+            activeTab === 'funding'
+              ? 'bg-emerald-700 text-white'
+              : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300'
+          }`}
+        >
+          Fund Endowments
+        </button>
       </div>
 
       {/* Tab Content */}
@@ -94,7 +128,19 @@ export function CorporateSponsorshipPortal({ initialOrders }: CorporateSponsorsh
         {activeTab === 'order' && <BulkOrderFlow onOrderCreated={handleOrderCreated} />}
         {activeTab === 'dashboard' && <CorporateImpactDashboard orders={orders} />}
         {activeTab === 'certificates' && <BulkCertificateDownloader orders={orders} />}
+        {activeTab === 'funding' && (
+          <div className="rounded-xl border border-emerald-100 bg-emerald-50 p-6 dark:border-emerald-900/40 dark:bg-emerald-950/20">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Fund corporate endowments</h2>
+            <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+              Prepare USDC or XLM deposits with a reconciliation memo for each escrow.
+            </p>
+            <button type="button" onClick={() => setFundingOpen(true)} className="mt-4 rounded-lg bg-emerald-700 px-4 py-2 text-sm font-semibold text-white">
+              Open funding modal
+            </button>
+          </div>
+        )}
       </div>
+      <BatchWalletFundingModal isOpen={fundingOpen} onOpenChange={setFundingOpen} onFund={prepareFundingBatch} />
     </div>
   );
 }
