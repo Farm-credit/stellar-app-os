@@ -5,7 +5,7 @@
 import { ImageResponse } from 'next/og';
 import { type NextRequest, NextResponse } from 'next/server';
 import { getAchievementsForSponsor } from '@/lib/api/sponsor-achievements';
-import { getSponsorProfile } from '@/lib/api/sponsors';
+import { getSponsorProfile } from '@/lib/api/sponsor-profile';
 
 export const runtime = 'nodejs';
 

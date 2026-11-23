@@ -9,7 +9,7 @@ import {
   calculateSocialImpactScore,
   getSponsorSocialImpactScore,
 } from '@/lib/impact/social-impact-score';
-import { getSponsorProfile } from '@/lib/api/sponsors';
+import { getSponsorProfile } from '@/lib/api/sponsor-profile';
 
 interface RouteParams {
   params: Promise<{ sponsorId: string }>;
