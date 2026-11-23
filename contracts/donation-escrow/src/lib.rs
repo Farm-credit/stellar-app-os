@@ -98,6 +98,10 @@ pub struct CampaignDonation {
     pub refunded: bool,
     /// Attempted to remove a token that was never on the accepted list.
     TokenNotAccepted = 93,
+    /// Donation has passed its claim expiration window and can no longer be released.
+    ClaimExpired = 99,
+    /// Expiration window has not yet elapsed; reclamation is not permitted.
+    ClaimNotExpired = 100,
     /// Cannot remove a canonical initial (XLM/USDC/EURC) token from the whitelist.
     CannotRemoveCanonicalToken = 94,
     /// Tree count outside of allowed range.

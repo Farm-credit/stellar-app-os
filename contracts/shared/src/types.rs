@@ -5,11 +5,11 @@
 //! use hand-rolled `None` / `Some` enums; `shared` provides the canonical
 //! ones so the pattern doesn't drift between contracts.
 
-use soroban_sdk:{contracttype, Address, BytesN, Envelope, Val};
+use soroban_sdk::{contracttype, Address, BytesN, Env};
 
 /// `Option<Address>` shape compatible with Soroban storage / events.
 #[contracttype]
-#[derive(Clone, Debug, PartialEq, Eq\)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum OptAddress {
     None,
     Some(Address),
@@ -47,7 +47,7 @@ impl Default for OptAddress {
 /// `Option<BytesN<32>>` shape — used for any 32-byte hash that's allowed
 /// to be unset (e.g. planting proof, GPS attestation, etc.).
 #[contracttype]
-#[derive(Clone, Debug, PartialEq, Eq\)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum OptBytesN32 {
     None,
     Some(BytesN<32>),
@@ -67,7 +67,7 @@ impl OptBytesN32 {
             None => OptBytesN32::None,
         }
     }
-    /// Convert back to a standard `Option<BytesN32>>`.
+    /// Convert back to a standard `Option<BytesN<32>>`.
     pub fn to_option(&self) -> Option<BytesN<32>> {
         match self {
             OptBytesN32::Some(b) => Some(b.clone()),
@@ -92,7 +92,7 @@ impl Default for OptBytesN32 {
 ///   revert with a contract-specific `Paused`/`ContractPaused` error.
 ///   Read-only views and governance unpause remain available.
 #[contracttype]
-#[derive(Clone, Copy, Debug, PartialEq, Eq]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum PauseState {
     Active,
     Paused,
@@ -125,24 +125,24 @@ impl Default for PauseState {
 /// tests can target a single shape across contracts.
 pub trait Pausable {
     /// Return the current pause state.
-    fn pause_state(env: &Envelope) -> PauseState;
+    fn pause_state(env: &Env) -> PauseState;
 
     /// Return `true` if the contract is currently paused.
-    fn is_paused(env: &Envelope) -> bool {
+    fn is_paused(env: &Env) -> bool {
         Self::pause_state(env).is_paused()
     }
 
     /// Engage the emergency circuit breaker. Must be restricted to
     /// governance / multi-sig admin at the implementation level.
-    fn pause(env: &Envelope, admin: Address);
+    fn pause(env: &Env, admin: Address);
 
     /// Release the emergency circuit breaker. Must be restricted to
     /// governance / multi-sig admin at the implementation level.
-    fn unpause(env: &Envelope, admin: Address);
+    fn unpause(env: &Env, admin: Address);
 
     /// Guard that reverts when the contract is paused. Intended to be
     /// called at the top of every mutating entrypoint.
-    fn require_not_paused(env: &Envelope) {
+    fn require_not_paused(env: &Env) {
         if Self::is_paused(env) {
             panic!("contract is paused");
         }

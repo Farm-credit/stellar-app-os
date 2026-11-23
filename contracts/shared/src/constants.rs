@@ -27,3 +27,7 @@ pub const SECONDS_PER_YEAR: u64 = 365 * 24 * 60 * 60;
 pub const SIX_MONTHS_SECS: u64 = 26 * 7 * 24 * 60 * 60;
 /// 90 days in seconds — sponsor refund window used by the escrow contract.
 pub const NINETY_DAYS_SECS: u64 = 90 * 24 * 60 * 60;
+
+/// 180 days in seconds — benefactor reclaim window for reward pool capital
+/// when a funded project fails to launch (donation-escrow timelock expiry).
+pub const ONE_EIGHTY_DAYS_SECS: u64 = 180 * 24 * 60 * 60;
