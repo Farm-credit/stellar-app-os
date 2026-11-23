@@ -1,11 +1,10 @@
 import {
   Asset,
-  Keypair,
+  Horizon,
   Memo,
   Networks,
   Operation,
   TransactionBuilder,
-  type AccountResponse,
 } from '@stellar/stellar-sdk';
 import crypto from 'crypto';
 import type { NetworkType } from '@/lib/types/wallet';
@@ -73,16 +72,7 @@ export function calculateBatchGasSavings(itemCount: number): BatchFeeComparison 
   const individualFeePerTx = INDIVIDUAL_TX_BASE_FEE_STROOPS;
   const individualTransactionsFeeStroops = itemCount * individualFeePerTx;
 
-  // Single batched transaction:
-  // 1 envelope overhead + N operations
-  // For each purchase: 1 payment operation (buyer -> seller/escrow)
-  // Shared base fee: 100 stroops base + (100 stroops * N operations)
-  // By packing into a single transaction, we eliminate N - 1 separate tx sequence updates and signatures.
-  // 100 base + 100 * itemCount vs 500 * itemCount -> (5000 - 1100) / 5000 = ~78% - 82% savings (~80%)!
-  const batchedTransactionFeeStroops = Math.max(
-    100,
-    Math.round(100 + BATCHED_OP_BASE_FEE_STROOPS * (itemCount * 0.9))
-  );
+  const batchedTransactionFeeStroops = itemCount * BATCHED_OP_BASE_FEE_STROOPS;
 
   const feesSavedStroops = Math.max(
     0,
@@ -154,25 +144,19 @@ export async function buildBatchedCarbonCreditPurchase(
   const batchId = `batch_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
   const now = new Date().toISOString();
 
-  // Primary batch source/sponsor account
   const sourceAccountAddress =
-    sponsorPublicKey ||
-    items[0].buyerPublicKey ||
-    networkConfig.addresses.bulkRecipient ||
-    Keypair.random().publicKey();
+    sponsorPublicKey || items[0].buyerPublicKey || networkConfig.addresses.bulkRecipient;
+  if (!sourceAccountAddress) {
+    throw new Error('A sponsor public key is required to build a batch transaction.');
+  }
 
-  // Create mock account representation with current sequence for XDR generation
-  const mockAccount = {
-    accountId: () => sourceAccountAddress,
-    sequenceNumber: () => '12345678901234',
-    incrementSequenceNumber: () => '12345678901235',
-  } as unknown as AccountResponse;
-
+  const sourceAccount = await new Horizon.Server(networkConfig.horizonUrl, {
+    allowHttp: true,
+  }).loadAccount(sourceAccountAddress);
   const feeComparison = calculateBatchGasSavings(items.length);
 
-  // Build the single atomic transaction
-  const txBuilder = new TransactionBuilder(mockAccount, {
-    fee: String(feeComparison.batchedTransactionFeeStroops),
+  const txBuilder = new TransactionBuilder(sourceAccount, {
+    fee: String(BATCHED_OP_BASE_FEE_STROOPS),
     networkPassphrase,
   });
 
