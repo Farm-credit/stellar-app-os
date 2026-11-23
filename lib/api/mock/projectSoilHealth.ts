@@ -1,16 +1,6 @@
-export interface SoilHealthReading {
-  date: string;
-  ph: number;
-  nitrogenMgKg: number;
-  moisturePercent: number;
-  organicMatterPercent: number;
-}
+import type { ProjectSoilHealthData } from '@/lib/services/project-soil-health';
 
-export interface ProjectSoilHealthData {
-  source: string;
-  isSampleData: boolean;
-  readings: SoilHealthReading[];
-}
+export type { ProjectSoilHealthData, SoilHealthReading } from '@/lib/services/project-soil-health';
 
 const sampleSoilHealthByProject: Record<string, ProjectSoilHealthData> = {
   'proj-001': {
