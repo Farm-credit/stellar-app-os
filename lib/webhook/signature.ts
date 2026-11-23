@@ -47,13 +47,17 @@ export function buildSignatureHeaders(
   rawBody: string,
   secret: string,
   eventId: string,
-  timestamp: number = Math.floor(Date.now() / 1000)
+  timestamp: number = Math.floor(Date.now() / 1000),
+  previousSecret?: string | null
 ): Record<string, string> {
   const signature = computeSignature(rawBody, secret, timestamp);
+  const signatureValue = previousSecret
+    ? `v1=${signature},v1=${computeSignature(rawBody, previousSecret, timestamp)}`
+    : `v1=${signature}`;
   return {
     [WEBHOOK_HEADERS.id]: eventId,
     [WEBHOOK_HEADERS.timestamp]: String(timestamp),
-    [WEBHOOK_HEADERS.signature]: `v1=${signature}`,
+    [WEBHOOK_HEADERS.signature]: signatureValue,
   };
 }
 
@@ -68,10 +72,15 @@ function safeEqualHex(a: string, b: string): boolean {
   return timingSafeEqual(bufA, bufB);
 }
 
-/** Strip an optional `v1=` scheme prefix from a signature header value. */
-function parseSignatureHeader(header: string): string {
-  const trimmed = header.trim();
-  return trimmed.startsWith('v1=') ? trimmed.slice(3) : trimmed;
+/** Extract one or more hex signatures from a comma-separated header value. */
+function parseSignatureHeader(header: string): string[] {
+  return header
+    .split(',')
+    .map((part) => {
+      const trimmed = part.trim();
+      return trimmed.startsWith('v1=') ? trimmed.slice(3) : trimmed;
+    })
+    .filter((part) => part.length > 0);
 }
 
 export interface VerifyOptions {
@@ -106,5 +115,6 @@ export function verifySignature(
   }
 
   const expected = computeSignature(rawBody, secret, timestamp);
-  return safeEqualHex(expected, parseSignatureHeader(signatureHeader));
+  const candidates = parseSignatureHeader(signatureHeader);
+  return candidates.some((candidate) => safeEqualHex(expected, candidate));
 }

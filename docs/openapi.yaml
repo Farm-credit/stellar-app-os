@@ -2445,6 +2445,8 @@ paths:
       operationId: getWebhookEvents
       tags: [Webhooks]
       summary: List webhook events
+      security:
+        - adminAuth: []
       parameters:
         - name: status
           in: query
@@ -2469,15 +2471,79 @@ paths:
                 properties:
                   events:
                     type: array
+                    items:
+                      $ref: "#/components/schemas/WebhookDelivery"
                   total:
                     type: integer
                   timestamp:
                     type: string
                     format: date-time
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/webhooks/events/catalog:
+    get:
+      operationId: getOffsetWebhookEventCatalog
+      tags: [Webhooks]
+      summary: Discover offset-verification webhook events and payload schemas
+      parameters:
+        - name: type
+          in: query
+          required: false
+          schema:
+            type: string
+            enum:
+              - credit.verified
+              - project.approved
+              - credit.retired
+              - price.changed
+              - project.status.changed
+      responses:
+        "200":
+          description: Event catalog
+          headers:
+            X-Webhook-Version:
+              $ref: "#/components/headers/XWebhookVersion"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OffsetVerificationEventCatalogResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "500":
           $ref: "#/components/responses/InternalServerError"
 
   /api/webhooks/process:
+    get:
+      operationId: getWebhooksProcess
+      tags: [Webhooks]
+      summary: Process due webhooks (Vercel cron, authenticated)
+      security:
+        - webhookCronAuth: []
+      responses:
+        "200":
+          description: Processing summary
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  processed:
+                    type: integer
+                  succeeded:
+                    type: integer
+                  stillRetrying:
+                    type: integer
+                  failed:
+                    type: integer
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "503":
+          description: WEBHOOK_CRON_SECRET not configured
+        "500":
+          $ref: "#/components/responses/InternalServerError"
     post:
       operationId: postWebhooksProcess
       tags: [Webhooks]
@@ -2512,6 +2578,8 @@ paths:
       operationId: postWebhooksRetry
       tags: [Webhooks]
       summary: Retry a failed webhook delivery
+      security:
+        - adminAuth: []
       requestBody:
         required: true
         content:
@@ -2546,6 +2614,8 @@ paths:
                     nullable: true
         "400":
           $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "404":
           description: Delivery not found or not retryable
         "500":
@@ -3238,8 +3308,8 @@ paths:
         Registers an HTTPS endpoint to receive signed event deliveries.
         The signing secret is returned only once, at creation time.
       security:
-        - oauth2: [webhooks:write]
         - apiKeyAuth: []
+        - apiKeyAuthorization: []
       requestBody:
         required: true
         content:
@@ -3277,8 +3347,8 @@ paths:
       tags: [Public API]
       summary: List webhook subscriptions
       security:
-        - oauth2: [webhooks:read]
         - apiKeyAuth: []
+        - apiKeyAuthorization: []
       responses:
         "200":
           description: Webhook subscriptions
@@ -3413,13 +3483,75 @@ paths:
                 $ref: "#/components/schemas/OAuthError"
 
   /api/v1/webhooks/{id}:
+    get:
+      operationId: getPublicWebhookSubscription
+      tags: [Public API]
+      summary: Get a webhook subscription
+      security:
+        - apiKeyAuth: []
+        - apiKeyAuthorization: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Webhook subscription
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebhookSubscription"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      operationId: updatePublicWebhookSubscription
+      tags: [Public API]
+      summary: Update a webhook subscription
+      security:
+        - apiKeyAuth: []
+        - apiKeyAuthorization: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WebhookSubscriptionUpdateRequest"
+      responses:
+        "200":
+          description: Subscription updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebhookSubscription"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
     delete:
       operationId: deletePublicWebhookSubscription
       tags: [Public API]
       summary: Delete a webhook subscription
       security:
-        - oauth2: [webhooks:write]
         - apiKeyAuth: []
+        - apiKeyAuthorization: []
       parameters:
         - name: id
           in: path
@@ -3451,6 +3583,188 @@ paths:
           $ref: "#/components/responses/RateLimited"
         "500":
           $ref: "#/components/responses/InternalServerError"
+
+  /api/v1/webhooks/{id}/rotate-secret:
+    post:
+      operationId: rotatePublicWebhookSubscriptionSecret
+      tags: [Public API]
+      summary: Rotate a webhook subscription signing secret
+      security:
+        - apiKeyAuth: []
+        - apiKeyAuthorization: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Signing secret rotated with 24h previous-secret grace window
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebhookSubscriptionWithSecret"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/webhooks/{id}/test:
+    post:
+      operationId: testPublicWebhookSubscription
+      tags: [Public API]
+      summary: Send a signed test webhook event
+      security:
+        - apiKeyAuth: []
+        - apiKeyAuthorization: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Test delivery outcome
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebhookTestPingResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/webhooks/{id}/deliveries:
+    get:
+      operationId: listPublicWebhookDeliveries
+      tags: [Public API]
+      summary: List delivery attempts for a webhook subscription
+      security:
+        - apiKeyAuth: []
+        - apiKeyAuthorization: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: status
+          in: query
+          schema:
+            type: string
+        - name: eventType
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+      responses:
+        "200":
+          description: Webhook delivery attempts
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deliveries:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/WebhookDelivery"
+                  total:
+                    type: integer
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v2/carbon-prices:
+    patch:
+      operationId: patchCarbonPrice
+      tags: [Webhooks]
+      summary: Explicitly reprice a listed carbon credit series (emits price.changed webhook)
+      security:
+        - adminAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [assetCode, pricePerTon]
+              properties:
+                assetCode:
+                  type: string
+                projectId:
+                  type: string
+                pricePerTon:
+                  type: number
+                currency:
+                  type: string
+                  default: USD
+                reason:
+                  type: string
+      responses:
+        "200":
+          description: Series repriced
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v2/marketplace/listings/{id}:
+    patch:
+      operationId: patchMarketplaceListingPrice
+      tags: [Webhooks]
+      summary: Update a published marketplace listing price (emits price.changed webhook)
+      security:
+        - adminAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [pricePerTon]
+              properties:
+                pricePerTon:
+                  type: number
+                sellerAddress:
+                  type: string
+                reason:
+                  type: string
+      responses:
+        "200":
+          description: Listing price updated
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
 
   # ──────────────────────────────────────────────
   # GraphQL
@@ -4441,14 +4755,46 @@ components:
           items:
             type: string
             enum:
+              - credit.verified
+              - project.approved
+              - credit.retired
+              - price.changed
+              - project.status.changed
               - tree.planted
               - tree.verified
+              - tree.grown
+              - tree.died
+              - tree.status.changed
+              - milestone.payout.approved
               - sponsorship.created
               - sponsorship.confirmed
               - sponsorship.failed
         description:
           type: string
-          maxLength: 255
+          maxLength: 500
+        active:
+          type: boolean
+
+    WebhookSubscriptionUpdateRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        url:
+          type: string
+          format: uri
+          pattern: "^https://"
+        events:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items:
+            type: string
+        description:
+          type: string
+          nullable: true
+          maxLength: 500
+        active:
+          type: boolean
 
     WebhookSubscription:
       type: object
@@ -4458,6 +4804,8 @@ components:
         id:
           type: string
           format: uuid
+        internalId:
+          type: integer
         url:
           type: string
           format: uri
@@ -4470,7 +4818,35 @@ components:
           nullable: true
         active:
           type: boolean
+        secretLastFour:
+          type: string
+          nullable: true
+        maskedSecret:
+          type: string
+        secretRotatedAt:
+          type: string
+          format: date-time
+          nullable: true
+        consecutiveFailures:
+          type: integer
+        lastDeliveryAt:
+          type: string
+          format: date-time
+          nullable: true
+        lastDeliveryStatus:
+          type: string
+          nullable: true
+        disabledAt:
+          type: string
+          format: date-time
+          nullable: true
+        disabledReason:
+          type: string
+          nullable: true
         createdAt:
+          type: string
+          format: date-time
+        updatedAt:
           type: string
           format: date-time
 
@@ -4482,7 +4858,220 @@ components:
           properties:
             secret:
               type: string
-              description: HMAC signing secret; shown only once at creation
+              description: HMAC signing secret; shown only once at creation or rotation
+            previousSecretExpiresAt:
+              type: string
+              format: date-time
+              nullable: true
+
+    WebhookTestPingResponse:
+      type: object
+      required: [delivered, durationMs, eventType]
+      properties:
+        delivered:
+          type: boolean
+        httpStatus:
+          type: integer
+          nullable: true
+        durationMs:
+          type: integer
+        error:
+          type: string
+          nullable: true
+        eventType:
+          type: string
+
+    WebhookDelivery:
+      type: object
+      required: [id, eventId, subscriptionId, endpoint, eventType, status, retryCount, maxRetries, timestamp]
+      properties:
+        id:
+          type: integer
+        eventId:
+          type: string
+          format: uuid
+        subscriptionId:
+          type: integer
+        subscriptionPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        endpoint:
+          type: string
+          format: uri
+        eventType:
+          type: string
+        status:
+          type: string
+          enum: [pending, retrying, success, failed]
+        httpStatus:
+          type: integer
+          nullable: true
+        payload:
+          type: object
+          additionalProperties: true
+        response:
+          type: string
+          nullable: true
+        errorMessage:
+          type: string
+          nullable: true
+        retryCount:
+          type: integer
+        maxRetries:
+          type: integer
+        durationMs:
+          type: integer
+          nullable: true
+        nextRetryAt:
+          type: string
+          format: date-time
+          nullable: true
+        deliveredAt:
+          type: string
+          format: date-time
+          nullable: true
+        failedAt:
+          type: string
+          format: date-time
+          nullable: true
+        timestamp:
+          type: string
+          format: date-time
+
+    OffsetVerificationEventCatalogResponse:
+      type: object
+      required: [version, generatedAt, events]
+      properties:
+        version:
+          type: string
+          enum: [v1]
+        generatedAt:
+          type: string
+          format: date-time
+        events:
+          type: array
+          items:
+            $ref: "#/components/schemas/OffsetVerificationEventDescriptor"
+
+    OffsetVerificationEventDescriptor:
+      type: object
+      required: [type, summary, requiredFields, optionalFields, sample]
+      properties:
+        type:
+          type: string
+          enum: [credit.verified, project.approved, credit.retired, price.changed, project.status.changed]
+        summary:
+          type: string
+        requiredFields:
+          type: array
+          items:
+            type: string
+        optionalFields:
+          type: array
+          items:
+            type: string
+        sample:
+          oneOf:
+            - $ref: "#/components/schemas/CreditVerifiedPayload"
+            - $ref: "#/components/schemas/ProjectApprovedPayload"
+            - $ref: "#/components/schemas/CreditRetiredPayload"
+            - $ref: "#/components/schemas/PriceChangedPayload"
+            - $ref: "#/components/schemas/ProjectStatusChangedPayload"
+
+    WebhookEnvelope:
+      type: object
+      required: [id, type, createdAt, data]
+      properties:
+        id:
+          type: string
+          format: uuid
+        type:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        data:
+          type: object
+          additionalProperties: true
+
+    CreditVerifiedPayload:
+      type: object
+      required: [creditId, assetCode, projectId, projectName, quantityTonnes, vintage, standard, verifier, registry, transactionHash, explorerUrl, verifiedAt]
+      properties:
+        creditId: { type: string }
+        assetCode: { type: string }
+        projectId: { type: string }
+        projectName: { type: string }
+        quantityTonnes: { type: number }
+        vintage: { type: integer }
+        standard: { type: string }
+        verifier: { type: string }
+        registry: { type: string }
+        verificationReportUrl: { type: string, nullable: true }
+        transactionHash: { type: string }
+        explorerUrl: { type: string }
+        verifiedAt: { type: string, format: date-time }
+
+    ProjectApprovedPayload:
+      type: object
+      required: [projectId, projectName, projectType, region, standard, expectedAnnualTonnes, approvedBy, approvalReference, approvedAt]
+      properties:
+        projectId: { type: string }
+        projectName: { type: string }
+        projectType: { type: string }
+        region: { type: string }
+        standard: { type: string }
+        expectedAnnualTonnes: { type: number }
+        approvedBy: { type: string }
+        approvalReference: { type: string }
+        transactionHash: { type: string, nullable: true }
+        explorerUrl: { type: string, nullable: true }
+        approvedAt: { type: string, format: date-time }
+
+    CreditRetiredPayload:
+      type: object
+      required: [creditId, assetCode, projectId, buyerWallet, quantityTonnes, transactionHash, explorerUrl, retiredAt]
+      properties:
+        creditId: { type: string }
+        assetCode: { type: string }
+        projectId: { type: string }
+        buyerWallet: { type: string }
+        quantityTonnes: { type: number }
+        retirementPurpose: { type: string, nullable: true }
+        beneficiary: { type: string, nullable: true }
+        retirementCertificateUrl: { type: string, nullable: true }
+        transactionHash: { type: string }
+        explorerUrl: { type: string }
+        retiredAt: { type: string, format: date-time }
+
+    PriceChangedPayload:
+      type: object
+      required: [assetCode, projectId, currency, previousPricePerTon, pricePerTon, changePercent, changedAt]
+      properties:
+        assetCode: { type: string }
+        projectId: { type: string }
+        currency: { type: string }
+        previousPricePerTon: { type: number }
+        pricePerTon: { type: number }
+        changePercent: { type: number }
+        reason: { type: string, nullable: true }
+        transactionHash: { type: string, nullable: true }
+        explorerUrl: { type: string, nullable: true }
+        changedAt: { type: string, format: date-time }
+
+    ProjectStatusChangedPayload:
+      type: object
+      required: [projectId, projectName, previousStatus, newStatus, changedAt]
+      properties:
+        projectId: { type: string }
+        projectName: { type: string }
+        previousStatus: { type: string }
+        newStatus: { type: string }
+        note: { type: string, nullable: true }
+        transactionHash: { type: string, nullable: true }
+        explorerUrl: { type: string, nullable: true }
+        changedAt: { type: string, format: date-time }
 
     OAuthTokenResponse:
       type: object
@@ -4588,6 +5177,24 @@ components:
       description: Seconds until the quota window resets
       schema:
         type: integer
+    XWebhookVersion:
+      description: Webhook contract version
+      schema:
+        type: string
+        enum: [v1]
+    XWebhookId:
+      description: Stable UUID event identifier shared across retries
+      schema:
+        type: string
+        format: uuid
+    XWebhookTimestamp:
+      description: Unix epoch seconds when the payload was signed
+      schema:
+        type: string
+    XWebhookSignature:
+      description: Comma-separated HMAC-SHA256 signatures (v1=<hex>) over "<timestamp>.<rawBody>"
+      schema:
+        type: string
 
   responses:
     BadRequest:

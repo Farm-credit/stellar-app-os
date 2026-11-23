@@ -18,12 +18,14 @@ import { filterWebhookEvents, getEventTypes } from '@/lib/webhook/webhookFilters
 interface WebhookEventLogsViewerProps {
   events: WebhookEvent[];
   onRetryEvent?: (eventId: string) => Promise<void>;
+  onRefresh?: () => Promise<void>;
   enableRealtime?: boolean;
 }
 
 export function WebhookEventLogsViewer({
   events: initialEvents,
   onRetryEvent,
+  onRefresh,
   enableRealtime = false,
 }: WebhookEventLogsViewerProps): ReactNode {
   const [events, setEvents] = useState<WebhookEvent[]>(initialEvents);
@@ -39,31 +41,16 @@ export function WebhookEventLogsViewer({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [retryingEventId, setRetryingEventId] = useState<string | null>(null);
 
-  // Simulate real-time updates
+  // Poll backend when realtime updates are enabled
   useEffect(() => {
-    if (!enableRealtime) return;
+    if (!enableRealtime || !onRefresh) return;
 
     const interval = setInterval(() => {
-      // Simulate new events or status updates
-      setEvents((prevEvents: WebhookEvent[]) => {
-        const updatedEvents = [...prevEvents];
-        // Update retrying events to success/failed randomly
-        updatedEvents.forEach((event, index) => {
-          if (event.status === 'retrying' && Math.random() > 0.7) {
-            updatedEvents[index] = {
-              ...event,
-              status: Math.random() > 0.5 ? 'success' : 'failed',
-              httpStatus: Math.random() > 0.5 ? 200 : 500,
-              retryCount: event.retryCount + 1,
-            };
-          }
-        });
-        return updatedEvents;
-      });
-    }, 5000);
+      void onRefresh();
+    }, 10000);
 
     return () => clearInterval(interval);
-  }, [enableRealtime]);
+  }, [enableRealtime, onRefresh]);
 
   // Update events when initialEvents change
   useEffect(() => {

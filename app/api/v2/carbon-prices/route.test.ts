@@ -2,8 +2,16 @@
  * Route tests for /api/v2/carbon-prices (-/history) — Issue #1388
  */
 
-import { describe, expect, it } from 'vitest';
-import { GET, POST } from './route';
+import { describe, expect, it, vi } from 'vitest';
+
+vi.mock('@/lib/auth/admin', () => ({ isAdminRequest: vi.fn(() => Promise.resolve(true)) }));
+vi.mock('@/lib/webhook/offset-verification-bridge', () => ({
+  notifyPriceChanged: vi.fn(() => Promise.resolve([])),
+}));
+
+import { isAdminRequest } from '@/lib/auth/admin';
+import { notifyPriceChanged } from '@/lib/webhook/offset-verification-bridge';
+import { GET, PATCH, POST } from './route';
 import { GET as GET_HISTORY } from './history/route';
 import { CARBON_PRICE_CATALOG } from '@/lib/api/carbon-prices';
 
@@ -158,5 +166,65 @@ describe('GET /api/v2/carbon-prices/history', () => {
     );
 
     expect(response.status).toBe(400);
+  });
+});
+
+describe('PATCH /api/v2/carbon-prices', () => {
+  it('requires admin auth and emits price.changed only when price actually changes', async () => {
+    const mockedAdmin = vi.mocked(isAdminRequest);
+    const mockedNotify = vi.mocked(notifyPriceChanged);
+    mockedNotify.mockClear();
+
+    mockedAdmin.mockResolvedValueOnce(false);
+    const unauth = await PATCH(
+      new Request(URL_BASE, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ assetCode: 'CARBON-PROJ-004-2024', pricePerTon: 45.1 }),
+      })
+    );
+    expect(unauth.status).toBe(401);
+
+    const updated = await PATCH(
+      new Request(URL_BASE, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          assetCode: 'CARBON-PROJ-004-2024',
+          pricePerTon: 45.1,
+          reason: 'Registry demand',
+        }),
+      })
+    );
+    expect(updated.status).toBe(200);
+    expect(updated.headers.get('Cache-Control')).toBe('no-store');
+    expect(mockedNotify).toHaveBeenCalledTimes(1);
+    expect(mockedNotify).toHaveBeenCalledWith(
+      expect.objectContaining({
+        assetCode: 'CARBON-PROJ-004-2024',
+        previousPricePerTon: 42.5,
+        pricePerTon: 45.1,
+      })
+    );
+
+    mockedNotify.mockClear();
+    const noop = await PATCH(
+      new Request(URL_BASE, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ assetCode: 'CARBON-PROJ-004-2024', pricePerTon: 45.1 }),
+      })
+    );
+    expect(noop.status).toBe(200);
+    expect(mockedNotify).not.toHaveBeenCalled();
+
+    // Restore original price for test isolation
+    await PATCH(
+      new Request(URL_BASE, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ assetCode: 'CARBON-PROJ-004-2024', pricePerTon: 42.5 }),
+      })
+    );
   });
 });

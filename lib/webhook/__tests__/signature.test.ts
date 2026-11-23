@@ -84,4 +84,32 @@ describe('webhook signature', () => {
   it('folds the timestamp into the signature (different ts → different sig)', () => {
     expect(computeSignature(BODY, SECRET, 1)).not.toBe(computeSignature(BODY, SECRET, 2));
   });
+
+  it('verifies comma-separated dual signatures during secret rotation', () => {
+    const ts = 1_700_000_000;
+    const prevSecret = 'whsec_previous_secret_0123456789abcdef';
+    const headers = buildSignatureHeaders(BODY, SECRET, 'evt_1', ts, prevSecret);
+
+    expect(headers[WEBHOOK_HEADERS.signature]).toContain(',');
+    expect(
+      verifySignature(
+        BODY,
+        SECRET,
+        headers[WEBHOOK_HEADERS.timestamp],
+        headers[WEBHOOK_HEADERS.signature],
+        {
+          now: ts,
+        }
+      )
+    ).toBe(true);
+    expect(
+      verifySignature(
+        BODY,
+        prevSecret,
+        headers[WEBHOOK_HEADERS.timestamp],
+        headers[WEBHOOK_HEADERS.signature],
+        { now: ts }
+      )
+    ).toBe(true);
+  });
 });

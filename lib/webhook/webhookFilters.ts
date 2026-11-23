@@ -91,5 +91,8 @@ export function formatTimestamp(timestamp: string): string {
 }
 
 export function canRetryEvent(event: WebhookEvent): boolean {
-  return event.status === 'failed' && event.retryCount < event.maxRetries;
+  return (
+    (event.status === 'failed' || event.status === 'retrying') &&
+    event.retryCount < event.maxRetries
+  );
 }

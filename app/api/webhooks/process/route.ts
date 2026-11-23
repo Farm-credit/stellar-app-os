@@ -2,16 +2,19 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { getPool } from '@/lib/db/client';
 import { processDueDeliveries } from '@/lib/webhook/dispatch';
 
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+
 /**
  * Backoff processor: redelivers webhook deliveries whose retry timer has
- * elapsed. Intended to be invoked on a schedule (platform cron / external
- * scheduler), e.g. every minute.
+ * elapsed. Intended to be invoked on a schedule (Vercel Cron GET or external
+ * scheduler POST), e.g. every 5 minutes.
  *
  * Protected by a shared secret in the `Authorization: Bearer <WEBHOOK_CRON_SECRET>`
- * header so it can't be triggered by arbitrary callers.
+ * (or `<CRON_SECRET>`) header so it can't be triggered by arbitrary callers.
  */
-export async function POST(request: NextRequest) {
-  const secret = process.env.WEBHOOK_CRON_SECRET;
+async function handleProcess(request: NextRequest): Promise<NextResponse> {
+  const secret = process.env.WEBHOOK_CRON_SECRET || process.env.CRON_SECRET;
   if (!secret) {
     return NextResponse.json({ error: 'WEBHOOK_CRON_SECRET is not configured' }, { status: 503 });
   }
@@ -40,4 +43,12 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
+}
+
+export function GET(request: NextRequest): Promise<NextResponse> {
+  return handleProcess(request);
+}
+
+export function POST(request: NextRequest): Promise<NextResponse> {
+  return handleProcess(request);
 }

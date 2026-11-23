@@ -39,15 +39,35 @@ export type DeliveryStatus = 'pending' | 'retrying' | 'success' | 'failed';
 
 export interface WebhookSubscriptionRow {
   id: number;
-  planter_id: number;
+  public_id?: string;
+  planter_id: number | null;
+  client_id?: string | null;
+  api_key_id?: number | null;
+  owner_wallet?: string | null;
   url: string;
-  secret: string;
+  description?: string | null;
+  secret: string | null;
+  secret_encrypted?: string | null;
+  secret_last_four?: string | null;
+  secret_rotated_at?: Date | string | null;
+  previous_secret_encrypted?: string | null;
+  previous_secret_expires_at?: Date | string | null;
   event_types: string[];
   is_active: boolean;
+  consecutive_failures?: number;
+  last_delivery_at?: Date | string | null;
+  last_delivery_status?: DeliveryStatus | null;
+  disabled_at?: Date | string | null;
+  disabled_reason?: string | null;
   created_at: Date;
   updated_at: Date;
   deleted_at: Date | null;
 }
+
+export type SafeWebhookSubscriptionRow = Omit<
+  WebhookSubscriptionRow,
+  'secret' | 'secret_encrypted' | 'previous_secret_encrypted'
+>;
 
 export interface WebhookDeliveryRow {
   id: number;
@@ -61,6 +81,8 @@ export interface WebhookDeliveryRow {
   error_message: string | null;
   attempt_count: number;
   max_attempts: number;
+  duration_ms?: number | null;
+  failed_at?: Date | null;
   next_attempt_at: Date | null;
   delivered_at: Date | null;
   created_at: Date;
@@ -202,8 +224,8 @@ export interface ProjectApprovedPayload {
   expectedAnnualTonnes: number;
   approvedBy: string;
   approvalReference: string;
-  transactionHash: string;
-  explorerUrl: string;
+  transactionHash: string | null;
+  explorerUrl: string | null;
   approvedAt: string; // ISO 8601
 }
 

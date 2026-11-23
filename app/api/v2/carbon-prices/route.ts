@@ -34,8 +34,11 @@ import {
   aggregateCarbonPrices,
   parseCarbonPriceQuery,
   parseCarbonPriceRequest,
+  updateCarbonPrice,
 } from '@/lib/api/carbon-prices';
 import { apiVersionHeaders } from '@/lib/api/versioning';
+import { isAdminRequest } from '@/lib/auth/admin';
+import { notifyPriceChanged } from '@/lib/webhook/offset-verification-bridge';
 
 export const runtime = 'nodejs';
 
@@ -48,6 +51,13 @@ const CACHE_HEADERS: Record<string, string> = {
 function responseHeaders(): Record<string, string> {
   return {
     ...CACHE_HEADERS,
+    ...(apiVersionHeaders('v2') as Record<string, string>),
+  };
+}
+
+function mutationHeaders(): Record<string, string> {
+  return {
+    'Cache-Control': 'no-store',
     ...(apiVersionHeaders('v2') as Record<string, string>),
   };
 }
@@ -112,4 +122,93 @@ export async function POST(request: Request): Promise<NextResponse> {
   } catch (error) {
     return errorResponse(error);
   }
+}
+
+export async function PATCH(request: Request): Promise<NextResponse> {
+  if (!(await isAdminRequest())) {
+    return NextResponse.json(
+      { error: 'Unauthorized' },
+      { status: 401, headers: mutationHeaders() }
+    );
+  }
+
+  let body: {
+    assetCode?: unknown;
+    projectId?: unknown;
+    pricePerTon?: unknown;
+    currency?: unknown;
+    reason?: unknown;
+    transactionHash?: unknown;
+    explorerUrl?: unknown;
+  };
+  try {
+    body = (await request.json()) as typeof body;
+  } catch {
+    return NextResponse.json(
+      { error: 'Invalid JSON body' },
+      { status: 400, headers: mutationHeaders() }
+    );
+  }
+
+  const assetCode = typeof body.assetCode === 'string' ? body.assetCode.trim() : '';
+  const projectId = typeof body.projectId === 'string' ? body.projectId.trim() : undefined;
+  const pricePerTon = Number(body.pricePerTon);
+
+  if (!assetCode) {
+    return NextResponse.json(
+      { error: 'assetCode is required' },
+      { status: 400, headers: mutationHeaders() }
+    );
+  }
+  if (!Number.isFinite(pricePerTon) || pricePerTon <= 0) {
+    return NextResponse.json(
+      { error: 'pricePerTon must be a positive number' },
+      { status: 400, headers: mutationHeaders() }
+    );
+  }
+
+  const updated = updateCarbonPrice({
+    assetCode,
+    projectId: projectId || undefined,
+    pricePerTon,
+  });
+
+  if (!updated) {
+    return NextResponse.json(
+      { error: 'Carbon credit series not found' },
+      { status: 404, headers: mutationHeaders() }
+    );
+  }
+
+  const currency =
+    typeof body.currency === 'string' && body.currency.trim()
+      ? body.currency.trim().toUpperCase()
+      : 'USD';
+
+  if (updated.changed) {
+    void notifyPriceChanged({
+      assetCode: updated.record.assetCode,
+      projectId: updated.record.projectId,
+      currency,
+      previousPricePerTon: updated.previousPricePerTon,
+      pricePerTon: updated.pricePerTon,
+      reason: typeof body.reason === 'string' ? body.reason : null,
+      transactionHash: typeof body.transactionHash === 'string' ? body.transactionHash : null,
+      explorerUrl: typeof body.explorerUrl === 'string' ? body.explorerUrl : null,
+      changedAt: updated.record.updatedAt,
+    });
+  }
+
+  return NextResponse.json(
+    {
+      assetCode: updated.record.assetCode,
+      projectId: updated.record.projectId,
+      currency,
+      previousPricePerTon: updated.previousPricePerTon,
+      pricePerTon: updated.pricePerTon,
+      changed: updated.changed,
+      updatedAt: updated.record.updatedAt,
+    },
+    { status: 200, headers: mutationHeaders() }
+  );
 }

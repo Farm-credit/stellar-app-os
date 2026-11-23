@@ -204,8 +204,8 @@ function normalizeProjectApproved(raw: Record<string, unknown>, now: Date): Proj
     expectedAnnualTonnes: requirePositiveNumber(raw.expectedAnnualTonnes, 'expectedAnnualTonnes'),
     approvedBy: requireString(raw.approvedBy, 'approvedBy'),
     approvalReference: requireString(raw.approvalReference, 'approvalReference'),
-    transactionHash: requireString(raw.transactionHash, 'transactionHash'),
-    explorerUrl: requireString(raw.explorerUrl, 'explorerUrl', { maxLength: 2048 }),
+    transactionHash: optionalString(raw.transactionHash, 'transactionHash', 200),
+    explorerUrl: optionalString(raw.explorerUrl, 'explorerUrl', 2048),
     approvedAt: requireIsoDate(raw.approvedAt, 'approvedAt', now),
   };
 }
@@ -533,10 +533,8 @@ export const OFFSET_VERIFICATION_EVENT_CATALOG: readonly OffsetVerificationEvent
       'expectedAnnualTonnes',
       'approvedBy',
       'approvalReference',
-      'transactionHash',
-      'explorerUrl',
     ],
-    optionalFields: ['approvedAt'],
+    optionalFields: ['transactionHash', 'explorerUrl', 'approvedAt'],
     sample: buildProjectApprovedEvent(
       {
         projectId: 'PROJ-011',

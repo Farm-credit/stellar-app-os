@@ -7,6 +7,7 @@ import {
 import { creditVerificationRequestSchema, validationErrors } from '@/lib/certification/validation';
 import logger from '@/lib/logger';
 import { MemoryRateLimiter } from '@/lib/rate-limit';
+import { notifyCreditVerified } from '@/lib/webhook/offset-verification-bridge';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -192,6 +193,24 @@ export async function POST(request: Request): Promise<NextResponse> {
     const result = await orchestrator.tokenize(tokenizationRequest);
 
     if (result.success) {
+      if (result.tokenId && result.record && result.mint?.txHash) {
+        void notifyCreditVerified({
+          creditId: result.tokenId,
+          assetCode: `CARBON-${result.record.protocol}-${result.record.vintage}`,
+          projectId: result.record.projectId,
+          projectName: result.validation?.project?.projectName ?? result.record.projectId,
+          quantityTonnes: result.record.tonnage,
+          vintage: result.record.vintage,
+          standard: result.record.protocol,
+          verifier: `${result.record.protocol} Registry`,
+          registry: result.record.protocol,
+          verificationReportUrl: null,
+          transactionHash: result.mint.txHash,
+          explorerUrl: `https://stellar.expert/explorer/${result.mint.network === 'mainnet' ? 'public' : 'testnet'}/tx/${result.mint.txHash}`,
+          verifiedAt: result.record.mintedAt,
+        });
+      }
+
       return NextResponse.json(
         {
           success: true,

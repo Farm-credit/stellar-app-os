@@ -1,6 +1,11 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { Pool } from 'pg';
-import { attemptDelivery, deliver, dispatchEvent } from '@/lib/webhook/dispatch';
+import {
+  attemptDelivery,
+  deliver,
+  dispatchEvent,
+  processDueDeliveries,
+} from '@/lib/webhook/dispatch';
 import * as repository from '@/lib/webhook/repository';
 import { WEBHOOK_HEADERS, verifySignature } from '@/lib/webhook/signature';
 import type { RecordAttemptParams } from '@/lib/webhook/repository';
@@ -11,6 +16,15 @@ import type {
 } from '@/lib/webhook/types';
 
 vi.mock('@/lib/webhook/repository');
+vi.mock('node:dns/promises', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>();
+  const mockLookup = vi.fn(() => Promise.resolve([{ address: '93.184.216.34', family: 4 }]));
+  return {
+    ...actual,
+    default: { ...actual, lookup: mockLookup },
+    lookup: mockLookup,
+  };
+});
 
 const mockedRepo = vi.mocked(repository);
 
@@ -268,5 +282,57 @@ describe('dispatchEvent', () => {
     const rows = await dispatchEvent(fakePool, 'milestone.payout.approved', {});
     expect(rows).toHaveLength(0);
     expect(mockedRepo.insertDelivery).not.toHaveBeenCalled();
+  });
+
+  it('blocks SSRF targets and 3xx redirects during deliver', async () => {
+    const fetchSpy = vi.fn(() => Promise.resolve(fetchResponse(302, 'redirect')));
+    vi.stubGlobal('fetch', fetchSpy);
+
+    const ssrf = await deliver('https://127.0.0.1/internal', 'secret', {
+      id: 'evt_ssrf',
+      type: 'credit.verified',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      data: {},
+    });
+    expect(ssrf.ok).toBe(false);
+    expect(ssrf.error).toContain('SSRF');
+    expect(fetchSpy).not.toHaveBeenCalled();
+
+    const redir = await deliver('https://partner.example/hook', 'secret', {
+      id: 'evt_redir',
+      type: 'credit.verified',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      data: {},
+    });
+    expect(redir.ok).toBe(false);
+    expect(redir.httpStatus).toBe(302);
+    expect(redir.error).toContain('redirect');
+  });
+
+  it('stops retrying immediately on 410 Gone and marks inactive subscription deliveries failed', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => Promise.resolve(fetchResponse(410, 'gone')))
+    );
+
+    const gone = await attemptDelivery(
+      fakePool,
+      makeDelivery({ attempt_count: 0, max_attempts: 6 }),
+      makeSubscription()
+    );
+    expect(gone.status).toBe('failed');
+    expect(gone.next_attempt_at).toBeNull();
+
+    mockedRepo.claimDueDeliveries.mockResolvedValueOnce([
+      makeDelivery({ id: 200, subscription_id: 99, status: 'retrying', attempt_count: 1 }),
+    ]);
+    mockedRepo.getSubscriptionForDispatchById.mockResolvedValueOnce(
+      makeSubscription({ id: 99, is_active: false })
+    );
+
+    const processed = await processDueDeliveries(fakePool);
+    expect(processed).toHaveLength(1);
+    expect(processed[0]?.status).toBe('failed');
+    expect(processed[0]?.error_message).toContain('inactive or deleted');
   });
 });

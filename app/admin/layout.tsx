@@ -32,6 +32,11 @@ const adminNavItems: AdminNavItem[] = [
     description:
       'Review audit accuracy, disputes, turnaround time, and indexed collateral slashes.',
   },
+  {
+    href: '/admin/webhooks',
+    label: 'Webhooks',
+    description: 'Manage external webhook subscriptions, signing secrets, and delivery logs.',
+  },
 ];
 
 export default async function AdminLayout({ children }: AdminLayoutProps) {

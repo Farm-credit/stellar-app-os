@@ -2,13 +2,11 @@
  * Outward webhook dispatch service.
  *
  * Responsibilities:
- *   • POST signed JSON notifications to planter backends (`deliver`)
+ *   • Validate destination URL against SSRF (`validateWebhookUrl`) and POST
+ *     signed JSON notifications (`deliver`)
  *   • Fan an event out to every matching subscription (`dispatchEvent`)
  *   • Retry failed attempts with exponential backoff (`processDueDeliveries`,
  *     `retryDelivery`)
- *
- * The HTTP send (`deliver`) is pure and pool-free so it can be unit-tested with
- * a mocked `fetch`. Everything that touches Postgres goes through `repository`.
  */
 
 import type { Pool } from 'pg';
@@ -22,11 +20,14 @@ import {
   claimDueDeliveries,
   getActiveSubscriptionsForEvent,
   getDeliveryById,
-  getSubscriptionById,
+  getSubscriptionForDispatchById,
   insertDelivery,
   recordAttemptResult,
+  recordSubscriptionDeliveryHealth,
 } from './repository';
+import { decryptWebhookSecret } from './secrets';
 import { buildSignatureHeaders } from './signature';
+import { type DnsLookupFn, validateWebhookUrl, WebhookUrlValidationError } from './ssrf';
 import type {
   AttemptResult,
   DispatchEventType,
@@ -52,6 +53,8 @@ export function getDispatchConfig() {
     maxDelayMs: intFromEnv('WEBHOOK_MAX_DELAY_MS', DEFAULT_MAX_DELAY_MS),
     /** Max deliveries pulled per processor run. */
     batchSize: intFromEnv('WEBHOOK_BATCH_SIZE', 50),
+    concurrency: intFromEnv('WEBHOOK_DISPATCH_CONCURRENCY', 5),
+    autoDisableThreshold: intFromEnv('WEBHOOK_AUTO_DISABLE_THRESHOLD', 10),
   };
 }
 
@@ -67,23 +70,93 @@ export function buildEnvelope(delivery: WebhookDeliveryRow): WebhookEnvelope {
   };
 }
 
+// ── Secret Resolution ─────────────────────────────────────────────────────────
+
+export function resolveSubscriptionSigningSecrets(
+  subscription: Pick<
+    WebhookSubscriptionRow,
+    'secret' | 'secret_encrypted' | 'previous_secret_encrypted' | 'previous_secret_expires_at'
+  >,
+  now: Date = new Date()
+): { activeSecret: string; previousSecret: string | null } {
+  const activeSecret = subscription.secret_encrypted
+    ? decryptWebhookSecret(subscription.secret_encrypted)
+    : subscription.secret;
+
+  if (!activeSecret) {
+    throw new Error('Subscription has no signing secret configured.');
+  }
+
+  let previousSecret: string | null = null;
+  if (subscription.previous_secret_encrypted && subscription.previous_secret_expires_at) {
+    const expiresAt = new Date(subscription.previous_secret_expires_at);
+    if (!Number.isNaN(expiresAt.getTime()) && expiresAt.getTime() > now.getTime()) {
+      previousSecret = decryptWebhookSecret(subscription.previous_secret_encrypted);
+    }
+  }
+
+  return { activeSecret, previousSecret };
+}
+
 // ── Low-level HTTP send ───────────────────────────────────────────────────────
 
+export interface DeliverOptions {
+  timeoutMs?: number;
+  previousSecret?: string | null;
+  dnsLookup?: DnsLookupFn;
+  allowHttpLocalhost?: boolean;
+  skipUrlValidation?: boolean;
+}
+
+export interface ExtendedAttemptResult extends AttemptResult {
+  durationMs: number;
+}
+
 /**
- * Sign and POST one envelope to a single endpoint. Never throws — network and
- * timeout failures are returned as `{ ok: false }`.
+ * Sign and POST one envelope to a single endpoint. Never throws — SSRF,
+ * network, redirect, and timeout failures are returned as `{ ok: false }`.
  */
 export async function deliver(
   url: string,
   secret: string,
   envelope: WebhookEnvelope,
-  timeoutMs: number = getDispatchConfig().timeoutMs
-): Promise<AttemptResult> {
+  timeoutMsOrOptions: number | DeliverOptions = getDispatchConfig().timeoutMs
+): Promise<ExtendedAttemptResult> {
+  const opts: DeliverOptions =
+    typeof timeoutMsOrOptions === 'number' ? { timeoutMs: timeoutMsOrOptions } : timeoutMsOrOptions;
+
+  const timeoutMs = opts.timeoutMs ?? getDispatchConfig().timeoutMs;
+  const startedAt = Date.now();
+
+  if (!opts.skipUrlValidation) {
+    try {
+      await validateWebhookUrl(url, {
+        allowHttpLocalhost: opts.allowHttpLocalhost ?? process.env.NODE_ENV !== 'production',
+        dnsLookup: opts.dnsLookup,
+      });
+    } catch (err) {
+      const error =
+        err instanceof WebhookUrlValidationError
+          ? `SSRF validation failed: ${err.message}`
+          : err instanceof Error
+            ? err.message
+            : 'Invalid webhook URL';
+      return {
+        ok: false,
+        httpStatus: null,
+        responseBody: null,
+        error,
+        durationMs: Date.now() - startedAt,
+      };
+    }
+  }
+
   const rawBody = JSON.stringify(envelope);
   const headers = {
     'Content-Type': 'application/json',
     'User-Agent': 'Harvesta-Webhooks/1',
-    ...buildSignatureHeaders(rawBody, secret, envelope.id),
+    'X-Webhook-Event': envelope.type,
+    ...buildSignatureHeaders(rawBody, secret, envelope.id, undefined, opts.previousSecret),
   };
 
   const controller = new AbortController();
@@ -94,8 +167,19 @@ export async function deliver(
       method: 'POST',
       headers,
       body: rawBody,
+      redirect: 'manual',
       signal: controller.signal,
     });
+
+    if (res.status >= 300 && res.status < 400) {
+      return {
+        ok: false,
+        httpStatus: res.status,
+        responseBody: null,
+        error: `Endpoint returned disallowed redirect ${res.status}`,
+        durationMs: Date.now() - startedAt,
+      };
+    }
 
     // Read body best-effort for diagnostics; cap to keep rows small.
     let responseBody: string | null = null;
@@ -110,6 +194,7 @@ export async function deliver(
       httpStatus: res.status,
       responseBody,
       error: res.ok ? null : `Endpoint responded ${res.status}`,
+      durationMs: Date.now() - startedAt,
     };
   } catch (err) {
     const error =
@@ -118,13 +203,24 @@ export async function deliver(
           ? `Request timed out after ${timeoutMs}ms`
           : err.message
         : 'Unknown delivery error';
-    return { ok: false, httpStatus: null, responseBody: null, error };
+    return {
+      ok: false,
+      httpStatus: null,
+      responseBody: null,
+      error,
+      durationMs: Date.now() - startedAt,
+    };
   } finally {
     clearTimeout(timer);
   }
 }
 
 // ── Attempt orchestration (HTTP + persistence) ────────────────────────────────
+
+export interface DispatchRuntimeOptions {
+  dnsLookup?: DnsLookupFn;
+  allowHttpLocalhost?: boolean;
+}
 
 /**
  * Perform one delivery attempt for a row, persist the outcome, and schedule the
@@ -134,16 +230,54 @@ export async function deliver(
 export async function attemptDelivery(
   pool: Pool,
   delivery: WebhookDeliveryRow,
-  subscription: WebhookSubscriptionRow
+  subscription: WebhookSubscriptionRow,
+  runtimeOptions: DispatchRuntimeOptions = {}
 ): Promise<WebhookDeliveryRow> {
   const config = getDispatchConfig();
   const envelope = buildEnvelope(delivery);
-  const result = await deliver(subscription.url, subscription.secret, envelope, config.timeoutMs);
+
+  let activeSecret: string;
+  let previousSecret: string | null = null;
+  try {
+    const resolved = resolveSubscriptionSigningSecrets(subscription);
+    activeSecret = resolved.activeSecret;
+    previousSecret = resolved.previousSecret;
+  } catch (err) {
+    const attemptCount = delivery.attempt_count + 1;
+    const message = err instanceof Error ? err.message : 'Unable to resolve signing secret';
+    const updated = await recordAttemptResult(pool, {
+      deliveryId: delivery.id,
+      status: 'failed',
+      attemptCount,
+      httpStatus: null,
+      responseBody: null,
+      errorMessage: message,
+      nextAttemptAt: null,
+      deliveredAt: null,
+      failedAt: new Date(),
+    });
+    await recordSubscriptionHealthBestEffort(
+      pool,
+      subscription.id,
+      false,
+      true,
+      'failed',
+      config.autoDisableThreshold
+    );
+    return updated;
+  }
+
+  const result = await deliver(subscription.url, activeSecret, envelope, {
+    timeoutMs: config.timeoutMs,
+    previousSecret,
+    dnsLookup: runtimeOptions.dnsLookup,
+    allowHttpLocalhost: runtimeOptions.allowHttpLocalhost,
+  });
 
   const attemptCount = delivery.attempt_count + 1;
 
   if (result.ok) {
-    return recordAttemptResult(pool, {
+    const updated = await recordAttemptResult(pool, {
       deliveryId: delivery.id,
       status: 'success',
       attemptCount,
@@ -152,11 +286,22 @@ export async function attemptDelivery(
       errorMessage: null,
       nextAttemptAt: null,
       deliveredAt: new Date(),
+      durationMs: result.durationMs,
     });
+    await recordSubscriptionHealthBestEffort(
+      pool,
+      subscription.id,
+      true,
+      false,
+      'success',
+      config.autoDisableThreshold
+    );
+    return updated;
   }
 
-  // Failed. Schedule another retry unless we've exhausted the budget.
-  const retriesRemaining = attemptCount < delivery.max_attempts;
+  // HTTP 410 Gone means the endpoint permanently no longer exists — stop retrying immediately.
+  const isPermanentGone = result.httpStatus === 410;
+  const retriesRemaining = !isPermanentGone && attemptCount < delivery.max_attempts;
   const nextAttemptAt = retriesRemaining
     ? new Date(
         Date.now() +
@@ -167,45 +312,98 @@ export async function attemptDelivery(
       )
     : null;
 
-  return recordAttemptResult(pool, {
+  const status = retriesRemaining ? 'retrying' : 'failed';
+  const updated = await recordAttemptResult(pool, {
     deliveryId: delivery.id,
-    status: retriesRemaining ? 'retrying' : 'failed',
+    status,
     attemptCount,
     httpStatus: result.httpStatus,
     responseBody: result.responseBody,
     errorMessage: result.error,
     nextAttemptAt,
     deliveredAt: null,
+    durationMs: result.durationMs,
+    failedAt: retriesRemaining ? null : new Date(),
   });
+
+  await recordSubscriptionHealthBestEffort(
+    pool,
+    subscription.id,
+    false,
+    !retriesRemaining,
+    status,
+    config.autoDisableThreshold
+  );
+
+  return updated;
+}
+
+async function recordSubscriptionHealthBestEffort(
+  pool: Pool,
+  subscriptionId: number,
+  success: boolean,
+  terminalFailure: boolean,
+  status: 'pending' | 'retrying' | 'success' | 'failed',
+  autoDisableThreshold: number
+): Promise<void> {
+  try {
+    if (typeof recordSubscriptionDeliveryHealth === 'function') {
+      await recordSubscriptionDeliveryHealth(pool, {
+        subscriptionId,
+        success,
+        terminalFailure,
+        status,
+        autoDisableThreshold,
+      });
+    }
+  } catch {
+    // Health accounting must never fail a delivery attempt.
+  }
+}
+
+async function runWithConcurrency<T, R>(
+  items: T[],
+  concurrency: number,
+  worker: (item: T) => Promise<R>
+): Promise<R[]> {
+  const results: R[] = [];
+  const limit = Math.max(1, concurrency);
+  for (let i = 0; i < items.length; i += limit) {
+    const chunk = items.slice(i, i + limit);
+    const settled = await Promise.allSettled(chunk.map((item) => worker(item)));
+    for (const outcome of settled) {
+      if (outcome.status === 'fulfilled') {
+        results.push(outcome.value);
+      }
+    }
+  }
+  return results;
 }
 
 // ── Public API ────────────────────────────────────────────────────────────────
 
 /**
  * Fan an event out to all matching active subscriptions: create a delivery row
- * for each and attempt the first delivery immediately. Failed sends are left in
- * 'retrying' state for the backoff processor to pick up. Returns one delivery
- * row per targeted subscription.
+ * for each and attempt the first delivery with bounded concurrency.
  */
 export async function dispatchEvent(
   pool: Pool,
   eventType: DispatchEventType,
-  payload: Record<string, unknown>
+  payload: Record<string, unknown>,
+  runtimeOptions: DispatchRuntimeOptions = {}
 ): Promise<WebhookDeliveryRow[]> {
   const config = getDispatchConfig();
   const subscriptions = await getActiveSubscriptionsForEvent(pool, eventType);
 
-  const results: WebhookDeliveryRow[] = [];
-  for (const subscription of subscriptions) {
+  return runWithConcurrency(subscriptions, config.concurrency, async (subscription) => {
     const delivery = await insertDelivery(pool, {
       subscriptionId: subscription.id,
       eventType,
       payload,
       maxAttempts: config.maxAttempts,
     });
-    results.push(await attemptDelivery(pool, delivery, subscription));
-  }
-  return results;
+    return attemptDelivery(pool, delivery, subscription, runtimeOptions);
+  });
 }
 
 /** Whether a delivery is still eligible for (re)delivery. */
@@ -220,17 +418,18 @@ export function isRetryable(delivery: WebhookDeliveryRow): boolean {
  */
 export async function retryDelivery(
   pool: Pool,
-  deliveryId: number
+  deliveryId: number,
+  runtimeOptions: DispatchRuntimeOptions = {}
 ): Promise<WebhookDeliveryRow | null> {
   const delivery = await getDeliveryById(pool, deliveryId);
   if (!delivery || !isRetryable(delivery)) {
     return null;
   }
-  const subscription = await getSubscriptionById(pool, delivery.subscription_id);
+  const subscription = await getSubscriptionForDispatchById(pool, delivery.subscription_id);
   if (!subscription) {
     return null;
   }
-  return attemptDelivery(pool, delivery, subscription);
+  return attemptDelivery(pool, delivery, subscription, runtimeOptions);
 }
 
 /**
@@ -239,19 +438,29 @@ export async function retryDelivery(
  */
 export async function processDueDeliveries(
   pool: Pool,
-  now: Date = new Date()
+  now: Date = new Date(),
+  runtimeOptions: DispatchRuntimeOptions = {}
 ): Promise<WebhookDeliveryRow[]> {
   const config = getDispatchConfig();
   const claimLeaseMs = Math.max(config.timeoutMs + 30_000, 60_000);
   const due = await claimDueDeliveries(pool, config.batchSize, now, claimLeaseMs);
 
-  const processed: WebhookDeliveryRow[] = [];
-  for (const delivery of due) {
-    const subscription = await getSubscriptionById(pool, delivery.subscription_id);
-    if (!subscription || !subscription.is_active) {
-      continue;
+  return runWithConcurrency(due, config.concurrency, async (delivery) => {
+    const subscription = await getSubscriptionForDispatchById(pool, delivery.subscription_id);
+    if (!subscription || !subscription.is_active || subscription.deleted_at !== null) {
+      // Transition to terminal 'failed' so inactive/deleted subscriptions do not re-claim forever.
+      return recordAttemptResult(pool, {
+        deliveryId: delivery.id,
+        status: 'failed',
+        attemptCount: delivery.attempt_count,
+        httpStatus: null,
+        responseBody: null,
+        errorMessage: 'Subscription inactive or deleted',
+        nextAttemptAt: null,
+        deliveredAt: null,
+        failedAt: new Date(),
+      });
     }
-    processed.push(await attemptDelivery(pool, delivery, subscription));
-  }
-  return processed;
+    return attemptDelivery(pool, delivery, subscription, runtimeOptions);
+  });
 }

@@ -1,8 +1,11 @@
 export type WebhookEventType =
+  | 'credit.verified'
   | 'credit.issued'
   | 'credit.retired'
   | 'credit.transferred'
+  | 'price.changed'
   | 'project.approved'
+  | 'project.status.changed'
   | 'project.updated'
   | 'transaction.completed'
   | 'transaction.failed'
@@ -84,12 +87,7 @@ export interface WebhookSigningSecret {
   active: boolean;
 }
 
-export type WebhookDeliveryStatus =
-  | 'success'
-  | 'failed'
-  | 'pending'
-  | 'retrying'
-  | 'dropped';
+export type WebhookDeliveryStatus = 'success' | 'failed' | 'pending' | 'retrying' | 'dropped';
 
 /**
  * A single delivery attempt for a webhook event, used by the admin

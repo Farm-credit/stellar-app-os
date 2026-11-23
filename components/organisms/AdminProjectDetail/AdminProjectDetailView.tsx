@@ -83,8 +83,23 @@ export function AdminProjectDetailView({ initialProject }: AdminProjectDetailVie
 
   function handleSave(event: FormEvent<HTMLFormElement>): void {
     event.preventDefault();
-    startSavingTransition(() => {
+    startSavingTransition(async () => {
       const updated = applyFormValues(project, formValues);
+      try {
+        await fetch(`/api/admin/projects/${encodeURIComponent(project.id)}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            lifecycleStatus: formValues.lifecycleStatus,
+            pricePerTonUsd: formValues.pricePerTonUsd,
+            verificationEnabled: formValues.verificationEnabled,
+            verificationNotes: formValues.verificationNotes,
+            updatedBy: ACTIVE_ADMIN_NAME,
+          }),
+        });
+      } catch {
+        // Keep local optimistic update if backend persistence is unavailable in offline demos.
+      }
       setProject(() => {
         const withAudit = {
           ...updated,

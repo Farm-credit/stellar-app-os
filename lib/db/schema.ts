@@ -281,6 +281,7 @@ export interface ApiKeyRow {
   key_hash: string;
   tier: ApiKeyTier;
   owner_wallet: string | null;
+  scopes?: string[];
   is_active: boolean;
   created_at: Date;
   last_used_at: Date | null;
