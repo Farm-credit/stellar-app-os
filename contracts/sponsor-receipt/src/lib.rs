@@ -166,8 +166,10 @@ impl SponsorReceiptContract {
 
     // ── Mint ──────────────────────────────────────────────────────────────────
 
-    /// Mint a non-transferable receipt to `sponsor` for `tree_id`. Returns the
-    /// newly allocated receipt id.
+    /// Mint a transferable collectible receipt to `sponsor` for `tree_id`. Returns
+    /// the newly allocated receipt id. Species, region, and planting metadata are
+    /// stored on-chain so the receipt can be displayed in a connected Stellar
+    /// wallet as a verifiable proof of tree ownership.
     ///
     /// Authentication: the **sponsor** must sign the transaction
     /// (`sponsor.require_auth()`). The sponsor is the canonical authority

@@ -13,9 +13,17 @@ export async function POST(request: Request) {
       signedTransactionXdr: string;
       network: 'testnet' | 'mainnet';
       sourcePublicKey?: string;
+      sponsorship?: {
+        treeId: string;
+        sponsorPublicKey: string;
+        species: string;
+        latitude: number;
+        longitude: number;
+        plantingDate: string;
+      };
     };
 
-    const { signedTransactionXdr, network, sourcePublicKey } = body;
+    const { signedTransactionXdr, network, sourcePublicKey, sponsorship } = body;
 
     if (!signedTransactionXdr || !network) {
       return NextResponse.json({ error: 'Missing required parameters' }, { status: 400 });
@@ -54,7 +62,41 @@ export async function POST(request: Request) {
       transactionHash = await submitFn();
     }
 
-    return NextResponse.json({ transactionHash });
+    // Mint ownership NFT once the sponsorship transaction is confirmed on-chain
+    let nft: { assetCode: string; issuer: string; metadata: Record<string, unknown> } | null = null;
+    if (sponsorship) {
+      try {
+        const { mintTreeOwnershipNft } = await import('@/lib/stellar/nft');
+        nft = await mintTreeOwnershipNft({
+          network,
+          treeId: sponsorship.treeId,
+          sponsorPublicKey: sponsorship.sponsorPublicKey,
+          metadata: {
+            species: sponsorship.species,
+            latitude: sponsorship.latitude,
+            longitude: sponsorship.longitude,
+            plantingDate: sponsorship.plantingDate,
+          },
+        });
+        logger.info('[api:submit] Tree ownership NFT minted', {
+          transactionHash,
+          assetCode: nft.assetCode,
+          issuer: nft.issuer,
+        });
+      } catch (nftError) {
+        // Sponsorship is already on-chain; surface NFT failure without losing the hash
+        logger.error('[api:submit] NFT minting failed', { error: nftError, transactionHash });
+        return NextResponse.json(
+          {
+            transactionHash,
+            nftError: nftError instanceof Error ? nftError.message : 'NFT minting failed',
+          },
+          { status: 207 }
+        );
+      }
+    }
+
+    return NextResponse.json({ transactionHash, nft });
   } catch (error) {
     logger.error('[api:submit] Error submitting transaction', { error });
     const errorMessage = error instanceof Error ? error.message : 'Failed to submit transaction';
