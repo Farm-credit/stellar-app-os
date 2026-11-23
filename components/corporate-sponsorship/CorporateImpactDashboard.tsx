@@ -46,7 +46,8 @@ export function CorporateImpactDashboard({ orders }: CorporateImpactDashboardPro
           tree.treeCode.toLowerCase().includes(q) ||
           tree.species.toLowerCase().includes(q) ||
           tree.region.toLowerCase().includes(q) ||
-          (tree.assignedEmployee?.toLowerCase().includes(q) ?? false)
+          (tree.assignedEmployee?.toLowerCase().includes(q) ?? false) ||
+          (tree.assignedEmployeeEmail?.toLowerCase().includes(q) ?? false)
         );
       });
   }, [filteredOrders, statusFilter, searchQuery]);
@@ -218,6 +219,11 @@ export function CorporateImpactDashboard({ orders }: CorporateImpactDashboardPro
                     <td className="px-4 py-2.5 text-gray-600 dark:text-gray-400">{tree.region}</td>
                     <td className="px-4 py-2.5 text-gray-700 dark:text-gray-300">
                       {tree.assignedEmployee || '—'}
+                      {tree.assignedEmployeeEmail && (
+                        <span className="block text-xs text-gray-500 dark:text-gray-400">
+                          {tree.assignedEmployeeEmail}
+                        </span>
+                      )}
                     </td>
                     <td className="px-4 py-2.5">
                       <span

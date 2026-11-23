@@ -361,3 +361,63 @@ export async function sendGiftCardEmail(params: GiftCardEmailParams): Promise<bo
   });
   return true;
 }
+
+export interface EmployeeTreeAssignmentParams {
+  employeeName: string;
+  employeeEmail: string;
+  companyName: string;
+  department?: string;
+  treeCount: number;
+  treeCodes: string[];
+  orderNumber: string;
+  primaryColor?: string;
+}
+
+/**
+ * Notifies an employee that their employer has sponsored trees in their name as
+ * part of a corporate HR programme. Returns false when email is not configured.
+ */
+export async function sendEmployeeTreeAssignmentEmail(
+  params: EmployeeTreeAssignmentParams
+): Promise<boolean> {
+  if (!isEmailConfigured()) return false;
+
+  const {
+    employeeName,
+    employeeEmail,
+    companyName,
+    department,
+    treeCount,
+    treeCodes,
+    orderNumber,
+  } = params;
+  const codes = treeCodes.slice(0, 10).join(', ');
+  const extra = treeCodes.length > 10 ? ` and ${treeCodes.length - 10} more` : '';
+  const departmentLine = department ? ` Department: ${department}.` : '';
+  const accentColor = params.primaryColor ?? '#166534';
+
+  const text = [
+    `Hi ${employeeName},`,
+    '',
+    `${companyName} has sponsored ${treeCount} verified tree${treeCount === 1 ? '' : 's'} in your name as part of their reforestation programme.${departmentLine}`,
+    '',
+    `Your tree codes: ${codes}${extra}.`,
+    `Order reference: ${orderNumber}.`,
+    '',
+    'You can follow the growth of your trees on the Harvesta corporate impact dashboard.',
+    '',
+    'Thanks,',
+    'The Harvesta Team',
+  ].join('\n');
+
+  const html = `<p>Hi ${escapeHtml(employeeName)},</p><p><strong>${escapeHtml(companyName)}</strong> has sponsored <strong>${treeCount}</strong> verified tree${treeCount === 1 ? '' : 's'} in your name as part of their reforestation programme.${department ? ` Department: ${escapeHtml(department)}.` : ''}</p><p>Your tree codes: <code>${escapeHtml(codes)}</code>${extra ? ` and ${treeCodes.length - 10} more` : ''}</p><p>Order reference: <strong>${escapeHtml(orderNumber)}</strong></p><p>You can follow the growth of your trees on the Harvesta corporate impact dashboard.</p><p style="color:${escapeHtml(accentColor)}">Thanks,<br/>The Harvesta Team</p>`;
+
+  await sgMail.send({
+    to: employeeEmail,
+    from: FROM,
+    subject: `${companyName} sponsored ${treeCount} tree${treeCount === 1 ? '' : 's'} for you 🌱`,
+    text,
+    html,
+  });
+  return true;
+}

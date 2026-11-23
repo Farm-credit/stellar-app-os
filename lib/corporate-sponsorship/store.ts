@@ -6,6 +6,12 @@ import {
   type CorporateOrder,
   type SponsoredTreeRecord,
 } from './packages';
+import {
+  planEmployeeAssignments,
+  type EmployeeCsvRow,
+  type EmployeeImportSummary,
+  type EmployeeTreeAssignment,
+} from './employeeImport';
 
 const SEED_ORDER: CorporateOrder = (() => {
   const order = createCorporateOrder({
@@ -39,6 +45,8 @@ const SEED_ORDER: CorporateOrder = (() => {
 
 const ordersStore: CorporateOrder[] = [SEED_ORDER];
 
+const employeeImportSummaries = new Map<string, EmployeeImportSummary>();
+
 export function listCorporateOrders(): CorporateOrder[] {
   return [...ordersStore];
 }
@@ -54,6 +62,48 @@ export function addCorporateOrder(params: {
   const order = createCorporateOrder(params);
   ordersStore.unshift(order);
   return order;
+}
+
+/**
+ * Assigns employees from a validated CSV to trees on a corporate order and
+ * persists the assignment on each tree record.
+ */
+export function assignEmployeesToOrder(
+  orderId: string,
+  rows: EmployeeCsvRow[]
+): { order: CorporateOrder; assignments: EmployeeTreeAssignment[] } {
+  const order = ordersStore.find((o) => o.id === orderId);
+  if (!order) {
+    throw new Error('Corporate order not found.');
+  }
+
+  const assignments = planEmployeeAssignments(order.trees, rows);
+  const employeeByTreeCode = new Map<string, EmployeeTreeAssignment>();
+  for (const assignment of assignments) {
+    for (const treeCode of assignment.treeCodes) {
+      employeeByTreeCode.set(treeCode, assignment);
+    }
+  }
+
+  order.trees = order.trees.map((tree) => {
+    const assignment = employeeByTreeCode.get(tree.treeCode);
+    if (!assignment) return tree;
+    return {
+      ...tree,
+      assignedEmployee: assignment.name,
+      assignedEmployeeEmail: assignment.email,
+    };
+  });
+
+  return { order, assignments };
+}
+
+export function saveEmployeeImportSummary(orderId: string, summary: EmployeeImportSummary): void {
+  employeeImportSummaries.set(orderId, summary);
+}
+
+export function getEmployeeImportSummary(orderId: string): EmployeeImportSummary | undefined {
+  return employeeImportSummaries.get(orderId);
 }
 
 export function listAllSponsoredTrees(): SponsoredTreeRecord[] {
