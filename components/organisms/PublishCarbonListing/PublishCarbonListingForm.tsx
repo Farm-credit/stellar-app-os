@@ -8,54 +8,26 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/molecules
 import { Button } from '@/components/atoms/Button';
 import { Text } from '@/components/atoms/Text';
 import { useWalletContext } from '@/contexts/WalletContext';
-import type {
-  CreditTypeCategory,
-  VerificationMethod,
-  PublishedListing,
+import { VERIFIED_CARBON_PROJECTS } from '@/lib/data/verified-carbon-projects';
+import {
+  CREDIT_TYPE_OPTIONS,
+  VERIFICATION_METHOD_OPTIONS,
+  type CreditTypeCategory,
+  type VerificationMethod,
+  type PublishedListing,
 } from '@/lib/types/carbon-listing-publish';
 
-const CREDIT_TYPES: CreditTypeCategory[] = [
-  'Soil Carbon',
-  'Reforestation & Afforestation',
-  'Blue Carbon (Mangroves)',
-  'Agroforestry & Silvopasture',
-  'Renewable Energy & Biochar',
-];
+const CREDIT_TYPES = CREDIT_TYPE_OPTIONS;
+const VERIFICATION_METHODS = VERIFICATION_METHOD_OPTIONS;
 
-const VERIFICATION_METHODS: VerificationMethod[] = [
-  'Verra (VCS)',
-  'Gold Standard',
-  'Climate Action Reserve',
-  'Plan Vivo',
-  'Regenerative Organic Certified',
-];
-
-const VERIFIED_PROJECTS_PRESET = [
-  {
-    id: 'VCS-1940',
-    name: 'East Africa Community Reforestation & Soil Sequestration',
-    defaultType: 'Reforestation & Afforestation' as CreditTypeCategory,
-    defaultMethod: 'Verra (VCS)' as VerificationMethod,
-    availableTonnes: 108000,
-    suggestedPrice: 24.5,
-  },
-  {
-    id: 'GS-4820',
-    name: 'Rift Valley Smallholder Agroforestry & Carbon Sink',
-    defaultType: 'Agroforestry & Silvopasture' as CreditTypeCategory,
-    defaultMethod: 'Gold Standard' as VerificationMethod,
-    availableTonnes: 63500,
-    suggestedPrice: 28.0,
-  },
-  {
-    id: 'ROC-2024',
-    name: 'Kilimanjaro Regenerative Agriculture & Soil Sequestration',
-    defaultType: 'Soil Carbon' as CreditTypeCategory,
-    defaultMethod: 'Regenerative Organic Certified' as VerificationMethod,
-    availableTonnes: 34200,
-    suggestedPrice: 26.0,
-  },
-];
+const VERIFIED_PROJECTS_PRESET = VERIFIED_CARBON_PROJECTS.map((p) => ({
+  id: p.id,
+  name: p.name,
+  defaultType: p.defaultType,
+  defaultMethod: p.verificationMethod,
+  availableTonnes: p.availableTonnes,
+  suggestedPrice: p.suggestedPrice,
+}));
 
 export function PublishCarbonListingForm() {
   const { wallet } = useWalletContext();
@@ -73,7 +45,7 @@ export function PublishCarbonListingForm() {
   const [pricePerTon, setPricePerTon] = useState<number>(
     VERIFIED_PROJECTS_PRESET[0].suggestedPrice
   );
-  const [currency, setCurrency] = useState('USD');
+  const [currency] = useState('USD');
   const [vintageYear, setVintageYear] = useState<number>(2024);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [publishedListing, setPublishedListing] = useState<PublishedListing | null>(null);
@@ -98,8 +70,11 @@ export function PublishCarbonListingForm() {
     e.preventDefault();
     setErrorMessage(null);
 
-    const sellerAddress =
-      wallet?.publicKey || 'GBZXN7PIRZGNMHGA72XZQGBG66AGDCKTHJNRQ6T6O4B37666U2N2C62Z';
+    const sellerAddress = wallet?.publicKey;
+    if (!sellerAddress) {
+      setErrorMessage('Connect your Stellar wallet to publish a listing.');
+      return;
+    }
 
     if (!quantityTonnes || quantityTonnes <= 0) {
       setErrorMessage('Please enter a valid quantity of carbon credits in tons.');
@@ -130,8 +105,13 @@ export function PublishCarbonListingForm() {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to publish listing');
+        const errorData = (await response.json().catch(() => ({}))) as {
+          error?: string;
+          issues?: string[];
+        };
+        throw new Error(
+          errorData.issues?.join(' ') || errorData.error || 'Failed to publish listing'
+        );
       }
 
       const result: PublishedListing = await response.json();
@@ -236,6 +216,11 @@ export function PublishCarbonListingForm() {
         </CardHeader>
 
         <CardContent className="p-6 sm:p-8 space-y-6">
+          {!wallet?.publicKey && (
+            <p role="status" className="text-sm text-muted-foreground">
+              Connect your Stellar wallet to publish. Listings are created under your address.
+            </p>
+          )}
           {errorMessage && (
             <div className="p-3.5 rounded-lg bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300 border border-red-200 dark:border-red-900 text-sm">
               {errorMessage}
@@ -404,7 +389,7 @@ export function PublishCarbonListingForm() {
             <Button
               type="submit"
               stellar="accent"
-              disabled={isSubmitting}
+              disabled={isSubmitting || !wallet?.publicKey}
               className="px-8 py-2.5 text-base font-semibold"
             >
               {isSubmitting ? 'Publishing to Marketplace...' : 'Create & Publish Listing'}

@@ -60,7 +60,6 @@ export const publishListingSchema = z.object({
   creditType: z.enum(CREDIT_TYPE_OPTIONS as [CreditTypeCategory, ...CreditTypeCategory[]]),
   quantityTonnes: z
     .number({
-      message: 'Quantity is required',
       message: 'Quantity must be a number',
     })
     .int('Quantity must be a whole number')
@@ -68,7 +67,6 @@ export const publishListingSchema = z.object({
     .max(10_000_000, 'Quantity cannot exceed 10,000,000 metric tons'),
   pricePerTon: z
     .number({
-      message: 'Price per ton is required',
       message: 'Price must be a number',
     })
     .positive('Price must be greater than 0')
