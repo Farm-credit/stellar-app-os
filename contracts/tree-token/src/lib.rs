@@ -53,7 +53,7 @@
 
 use soroban_sdk::{
     contract, contractimpl, contracttype, panic_with_error, symbol_short, token, Address, Env,
-    Symbol,
+    Symbol, Vec,
 };
 
 #[contracterror]
@@ -77,6 +77,8 @@ pub enum TreeTokenError {
     InsufficientAllowance = 93,
     /// The allowance granted by `permit()` has passed its `deadline`.
     AllowanceExpired = 94,
+    /// The requested reward token has not been registered by the admin.
+    UnsupportedRewardAsset = 95,
 }
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -221,6 +223,18 @@ fn rewards_key(env: &Env, addr: &Address) -> (Symbol, Address) {
     (Symbol::new(env, "REWARDS"), addr.clone())
 }
 
+fn asset_rpt_key(env: &Env, asset: &Address) -> (Symbol, Address) {
+    (Symbol::new(env, "ASSET_RPT"), asset.clone())
+}
+
+fn asset_user_rpt_key(env: &Env, asset: &Address, user: &Address) -> (Symbol, Address, Address) {
+    (Symbol::new(env, "ASSET_URPT"), asset.clone(), user.clone())
+}
+
+fn asset_rewards_key(env: &Env, asset: &Address, user: &Address) -> (Symbol, Address, Address) {
+    (Symbol::new(env, "ASSET_REW"), asset.clone(), user.clone())
+}
+
 const REWARD_MULTIPLIER: i128 = 1_000_000_000_000_000_000;
 
 
@@ -258,6 +272,9 @@ impl TreeToken {
         env.storage()
             .instance()
             .set(&symbol_short!("RPT_STORE"), &0i128);
+        env.storage()
+            .instance()
+            .set(&symbol_short!("REWARD_ASSETS"), &Vec::from_array(&env, [tree_token]));
     }
     pub fn clawback(env: Env, admin: Address, from: Address, amount: i128) {
         admin.require_auth();
@@ -429,6 +446,92 @@ impl TreeToken {
         env.storage().persistent().extend_ttl(&staked_balance_key(&env, &user), 518400, 1036800);
         env.storage().persistent().extend_ttl(&user_reward_per_token_paid_key(&env, &user), 518400, 1036800);
         env.storage().persistent().extend_ttl(&rewards_key(&env, &user), 518400, 1036800);
+    }
+
+    /// Register a CARBON, USDC, or native-XLM SAC as a campaign reward asset.
+    /// Each asset maintains an independent reward-per-staked-unit index.
+    pub fn add_reward_asset(env: Env, admin: Address, asset: Address) {
+        let stored_admin: Address = env.storage().instance().get(&symbol_short!("ADMIN")).unwrap();
+        if admin != stored_admin {
+            panic_with_error!(&env, HarvestaError::Unauthorized);
+        }
+        admin.require_auth();
+        let mut assets: Vec<Address> = env
+            .storage()
+            .instance()
+            .get(&symbol_short!("REWARD_ASSETS"))
+            .unwrap_or_else(|| Vec::new(&env));
+        if !assets.contains(&asset) {
+            assets.push_back(asset);
+            env.storage().instance().set(&symbol_short!("REWARD_ASSETS"), &assets);
+        }
+    }
+
+    pub fn is_reward_asset(env: Env, asset: Address) -> bool {
+        let assets: Vec<Address> = env
+            .storage()
+            .instance()
+            .get(&symbol_short!("REWARD_ASSETS"))
+            .unwrap_or_else(|| Vec::new(&env));
+        assets.contains(&asset)
+    }
+
+    /// Deposit `amount` of one registered asset for all current TREE stakers.
+    pub fn deposit_reward_asset(env: Env, admin: Address, asset: Address, amount: i128) {
+        Self::assert_not_paused(&env);
+        let stored_admin: Address = env.storage().instance().get(&symbol_short!("ADMIN")).unwrap();
+        if admin != stored_admin {
+            panic_with_error!(&env, HarvestaError::Unauthorized);
+        }
+        admin.require_auth();
+        if amount <= 0 {
+            panic_with_error!(&env, TreeTokenError::RewardAmountMustBePositive);
+        }
+        if !Self::is_reward_asset(env.clone(), asset.clone()) {
+            panic_with_error!(&env, TreeTokenError::UnsupportedRewardAsset);
+        }
+        let total_staked: i128 = env.storage().instance().get(&symbol_short!("TOT_STKED")).unwrap_or(0);
+        if total_staked <= 0 {
+            panic_with_error!(&env, TreeTokenError::InsufficientStake);
+        }
+        token::Client::new(&env, &asset).transfer(&admin, &env.current_contract_address(), &amount);
+        let increase = amount.checked_mul(REWARD_MULTIPLIER).unwrap_or(0).checked_div(total_staked).unwrap_or(0);
+        let key = asset_rpt_key(&env, &asset);
+        let current: i128 = env.storage().instance().get(&key).unwrap_or(0);
+        env.storage().instance().set(&key, &current.checked_add(increase).unwrap_or(0));
+        env.events().publish((symbol_short!("asset_dep"), asset, admin), amount);
+    }
+
+    /// Claim one reward asset without affecting TREE or other asset balances.
+    pub fn claim_reward_asset(env: Env, user: Address, asset: Address) -> i128 {
+        Self::assert_not_paused(&env);
+        user.require_auth();
+        if !Self::is_reward_asset(env.clone(), asset.clone()) {
+            panic_with_error!(&env, TreeTokenError::UnsupportedRewardAsset);
+        }
+        let rpt: i128 = env.storage().instance().get(&asset_rpt_key(&env, &asset)).unwrap_or(0);
+        let staked: i128 = env.storage().persistent().get(&staked_balance_key(&env, &user)).unwrap_or(0);
+        let previous: i128 = env.storage().persistent().get(&asset_user_rpt_key(&env, &asset, &user)).unwrap_or(0);
+        let stored: i128 = env.storage().persistent().get(&asset_rewards_key(&env, &asset, &user)).unwrap_or(0);
+        let reward = stored + staked.checked_mul(rpt.checked_sub(previous).unwrap_or(0)).unwrap_or(0) / REWARD_MULTIPLIER;
+        env.storage().persistent().set(&asset_user_rpt_key(&env, &asset, &user), &rpt);
+        env.storage().persistent().set(&asset_rewards_key(&env, &asset, &user), &0i128);
+        if reward > 0 {
+            token::Client::new(&env, &asset).transfer(&env.current_contract_address(), &user, &reward);
+            env.events().publish((symbol_short!("asset_clm"), user, asset), reward);
+        }
+        reward
+    }
+
+    pub fn pending_reward_asset(env: Env, user: Address, asset: Address) -> i128 {
+        if !Self::is_reward_asset(env.clone(), asset.clone()) {
+            return 0;
+        }
+        let rpt: i128 = env.storage().instance().get(&asset_rpt_key(&env, &asset)).unwrap_or(0);
+        let previous: i128 = env.storage().persistent().get(&asset_user_rpt_key(&env, &asset, &user)).unwrap_or(0);
+        let stored: i128 = env.storage().persistent().get(&asset_rewards_key(&env, &asset, &user)).unwrap_or(0);
+        let staked: i128 = env.storage().persistent().get(&staked_balance_key(&env, &user)).unwrap_or(0);
+        stored + staked.checked_mul(rpt.checked_sub(previous).unwrap_or(0)).unwrap_or(0) / REWARD_MULTIPLIER
     }
 
     /// Deposit marketplace trading fee revenues into the reward pool.
