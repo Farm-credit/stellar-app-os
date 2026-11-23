@@ -4,8 +4,19 @@ import { useEffect, useState } from 'react';
 import type { ReferralStats, ReferralType } from '../lib/referrals';
 import { useWalletContext } from '@/contexts/WalletContext';
 
+export const PLANTER_REFERRAL_REWARD_XLM = 2;
+
+interface PlanterReferralStats {
+  planterReferralsCount: number;
+  rewardedPlanterReferralsCount: number;
+  pendingPlanterReferralsCount: number;
+  totalEarnings: number;
+  rewardAmountXlm: number;
+}
+
 interface UseReferralStatsReturn {
   stats: ReferralStats | null;
+  planterStats: PlanterReferralStats | null;
   loading: boolean;
   error: string | null;
 }
@@ -13,6 +24,7 @@ interface UseReferralStatsReturn {
 export function useReferralStats(role?: ReferralType): UseReferralStatsReturn {
   const { wallet } = useWalletContext();
   const [stats, setStats] = useState<ReferralStats | null>(null);
+  const [planterStats, setPlanterStats] = useState<PlanterReferralStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -25,6 +37,7 @@ export function useReferralStats(role?: ReferralType): UseReferralStatsReturn {
 
       if (!wallet?.publicKey) {
         setStats(null);
+        setPlanterStats(null);
         setLoading(false);
         return;
       }
@@ -53,8 +66,29 @@ export function useReferralStats(role?: ReferralType): UseReferralStatsReturn {
           `/api/referrals?wallet=${encodeURIComponent(wallet.publicKey)}${roleQuery}`
         );
         if (!response.ok) throw new Error('Failed to load referral data');
-        const data = (await response.json()) as ReferralStats;
-        if (!cancelled) setStats(data);
+        const data = (await response.json()) as ReferralStats & Partial<PlanterReferralStats>;
+        if (!cancelled) {
+          setStats(data);
+          if (roleParam === 'planter') {
+            const planterReferralsCount = data.planterReferralsCount ?? 0;
+            const rewardedPlanterReferralsCount = data.rewardedPlanterReferralsCount ?? 0;
+            const pendingPlanterReferralsCount =
+              data.pendingPlanterReferralsCount ??
+              Math.max(planterReferralsCount - rewardedPlanterReferralsCount, 0);
+            const rewardAmountXlm = data.rewardAmountXlm ?? PLANTER_REFERRAL_REWARD_XLM;
+            const totalEarnings =
+              data.totalEarnings ?? rewardedPlanterReferralsCount * rewardAmountXlm;
+            setPlanterStats({
+              planterReferralsCount,
+              rewardedPlanterReferralsCount,
+              pendingPlanterReferralsCount,
+              totalEarnings,
+              rewardAmountXlm,
+            });
+          } else {
+            setPlanterStats(null);
+          }
+        }
       } catch (err: unknown) {
         if (!cancelled) {
           setError(err instanceof Error ? err.message : 'Something went wrong');
@@ -70,5 +104,5 @@ export function useReferralStats(role?: ReferralType): UseReferralStatsReturn {
     };
   }, [wallet?.publicKey, role]);
 
-  return { stats, loading, error };
+  return { stats, planterStats, loading, error };
 }

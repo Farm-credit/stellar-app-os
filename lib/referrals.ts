@@ -25,6 +25,8 @@ export interface ReferralStats {
   role?: ReferralType;
   rewardAmountXlm?: number;
   planterReferralsCount?: number;
+  rewardedPlanterReferralsCount?: number;
+  pendingPlanterReferralsCount?: number;
   sponsorReferralsCount?: number;
 }
 
@@ -165,11 +167,15 @@ export async function getReferralStats(
     total_earnings: string | number;
     rewards_this_month: number;
     planter_referrals_count: number;
+    rewarded_planter_referrals_count: number;
+    pending_planter_referrals_count: number;
     sponsor_referrals_count: number;
   }>(
     `SELECT
        COUNT(r.id) FILTER (WHERE r.first_tree_completed_at IS NOT NULL OR r.first_job_completed_at IS NOT NULL)::int AS referrals_count,
-       COUNT(r.id) FILTER (WHERE r.first_job_completed_at IS NOT NULL OR r.referral_type = 'planter')::int AS planter_referrals_count,
+       COUNT(r.id) FILTER (WHERE r.referral_type = 'planter')::int AS planter_referrals_count,
+       COUNT(r.id) FILTER (WHERE r.referral_type = 'planter' AND r.first_job_completed_at IS NOT NULL)::int AS rewarded_planter_referrals_count,
+       COUNT(r.id) FILTER (WHERE r.referral_type = 'planter' AND r.first_job_completed_at IS NULL)::int AS pending_planter_referrals_count,
        COUNT(r.id) FILTER (WHERE r.first_tree_completed_at IS NOT NULL AND (r.first_job_completed_at IS NULL AND r.referral_type != 'planter'))::int AS sponsor_referrals_count,
        COALESCE(SUM(rr.amount_xlm) FILTER (WHERE rr.status IN ('queued', 'paid')), 0)::numeric AS total_earnings,
        COUNT(rr.id) FILTER (WHERE rr.period_start = date_trunc('month', CURRENT_DATE)::date)::int AS rewards_this_month
@@ -184,6 +190,8 @@ export async function getReferralStats(
     total_earnings: 0,
     rewards_this_month: 0,
     planter_referrals_count: 0,
+    rewarded_planter_referrals_count: 0,
+    pending_planter_referrals_count: 0,
     sponsor_referrals_count: 0,
   };
 
@@ -201,6 +209,8 @@ export async function getReferralStats(
     role: isPlanter ? 'planter' : 'sponsor',
     rewardAmountXlm: isPlanter ? PLANTER_REFERRAL_REWARD_XLM : REFERRAL_REWARD_XLM,
     planterReferralsCount: Number(row.planter_referrals_count ?? 0),
+    rewardedPlanterReferralsCount: Number(row.rewarded_planter_referrals_count ?? 0),
+    pendingPlanterReferralsCount: Number(row.pending_planter_referrals_count ?? 0),
     sponsorReferralsCount: Number(row.sponsor_referrals_count ?? 0),
   };
 }
@@ -227,6 +237,34 @@ export async function registerReferral(
      VALUES ($1, $2, $3)
      ON CONFLICT (referred_wallet) DO NOTHING`,
     [code, referredWallet, referralType]
+  );
+}
+
+/**
+ * Register a new planter against a planter referral code. Idempotent: repeated
+ * calls for the same referred wallet are no-ops.
+ */
+export async function createPlanterReferral(
+  pool: Pick<Pool, 'query'>,
+  code: string,
+  refereeWallet: string
+): Promise<void> {
+  if (!isValidReferralCode(code)) throw new Error('Invalid referral code');
+  if (!isValidStellarAddress(refereeWallet)) throw new Error('Invalid referred wallet');
+
+  const owner = await pool.query<{ referrer_wallet: string }>(
+    'SELECT referrer_wallet FROM referral_codes WHERE code = $1',
+    [code]
+  );
+  const referrerWallet = owner.rows[0]?.referrer_wallet;
+  if (!referrerWallet) throw new Error('Referral code not found');
+  if (referrerWallet === refereeWallet) throw new Error('Self-referrals are not allowed');
+
+  await pool.query(
+    `INSERT INTO referral_signups (code, referred_wallet, referral_type)
+     VALUES ($1, $2, 'planter')
+     ON CONFLICT (referred_wallet) DO NOTHING`,
+    [code, refereeWallet]
   );
 }
 
@@ -466,6 +504,96 @@ export async function queuePlanterReferralReward(
 
 export type ReferralDbClient = Pick<PoolClient, 'query'>;
 
+export interface StellarPaymentHelper {
+  sendPayment(params: {
+    destination: string;
+    amountXlm: number;
+    memo?: string;
+  }): Promise<{ transactionHash: string }>;
+}
+
+export interface PlanterRewardDisbursementResult {
+  status: 'paid' | 'already_paid' | 'not_found';
+  rewardId: number;
+  referrerWallet?: string;
+  amountXlm: number;
+  transactionHash?: string;
+}
+
+/**
+ * Disburse a queued 2 XLM planter referral reward to the referrer's Stellar
+ * wallet. Safe to retry: rewards that are already paid are skipped.
+ */
+export async function disbursePlanterReward(
+  pool: Pool,
+  rewardId: number,
+  stellar: StellarPaymentHelper
+): Promise<PlanterRewardDisbursementResult> {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const reward = await client.query<{
+      id: number;
+      referrer_wallet: string;
+      amount_xlm: string | number;
+      status: string;
+      reward_type: string;
+      reward_tx_hash: string | null;
+    }>(
+      `SELECT id, referrer_wallet, amount_xlm, status, reward_type, reward_tx_hash
+       FROM referral_rewards
+       WHERE id = $1
+       FOR UPDATE`,
+      [rewardId]
+    );
+    const row = reward.rows[0];
+    if (!row || row.reward_type !== 'planter') {
+      await client.query('ROLLBACK');
+      return { status: 'not_found', rewardId, amountXlm: PLANTER_REFERRAL_REWARD_XLM };
+    }
+    if (row.status === 'paid' || row.reward_tx_hash) {
+      await client.query('ROLLBACK');
+      return {
+        status: 'already_paid',
+        rewardId,
+        referrerWallet: row.referrer_wallet,
+        amountXlm: Number(row.amount_xlm ?? PLANTER_REFERRAL_REWARD_XLM),
+        transactionHash: row.reward_tx_hash ?? undefined,
+      };
+    }
+
+    const payment = await stellar.sendPayment({
+      destination: row.referrer_wallet,
+      amountXlm: PLANTER_REFERRAL_REWARD_XLM,
+      memo: `planter-referral-${rewardId}`,
+    });
+
+    await client.query(
+      `UPDATE referral_rewards
+       SET status = 'paid',
+           reward_tx_hash = $2,
+           rewarded_at = NOW()
+       WHERE id = $1`,
+      [rewardId, payment.transactionHash]
+    );
+
+    await client.query('COMMIT');
+    return {
+      status: 'paid',
+      rewardId,
+      referrerWallet: row.referrer_wallet,
+      amountXlm: PLANTER_REFERRAL_REWARD_XLM,
+      transactionHash: payment.transactionHash,
+    };
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
 // Kept for existing demo consumers until they migrate to the API-backed hook.
 export function getMockReferralStats(role: ReferralType = 'sponsor'): ReferralStats {
   const code = 'ref_demo_2026';
@@ -483,6 +611,8 @@ export function getMockReferralStats(role: ReferralType = 'sponsor'): ReferralSt
     role,
     rewardAmountXlm: isPlanter ? PLANTER_REFERRAL_REWARD_XLM : REFERRAL_REWARD_XLM,
     planterReferralsCount: 0,
+    rewardedPlanterReferralsCount: 0,
+    pendingPlanterReferralsCount: 0,
     sponsorReferralsCount: 0,
   };
 }
