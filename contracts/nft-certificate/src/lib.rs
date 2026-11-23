@@ -68,6 +68,11 @@ const MAX_MERGE_BATCH_SIZE: u32 = 100;
 
 /// Maximum number of certificates that can be minted in a single batch call.
 const MAX_BATCH_MINT_SIZE: u32 = 50;
+
+/// Sponsored-tree ownership NFT metadata keys (sponsor ownership certificates).
+/// Minted automatically on sponsorship confirmation; carries species,
+/// GPS coordinates and planting date so it is viewable in Stellar wallets.
+const SPONSOR_NFT_NAME_PREFIX: &str = "Tree Ownership";
 /// Renew dynamic metadata at least every day and retain it for another 30 days.
 const GROWTH_TTL_THRESHOLD: u32 = 17_280;
 const GROWTH_TTL_EXTEND_TO: u32 = 518_400;
@@ -339,6 +344,73 @@ impl NftCertificate {
     }
 
     // ── Minting ───────────────────────────────────────────────────────────────
+
+    /// Mint an ownership NFT for a sponsored tree.
+    ///
+    /// Called automatically upon sponsorship confirmation. The NFT metadata
+    /// records species, GPS coordinates and planting date so sponsors can view
+    /// the certificate in their connected Stellar wallet. The token is minted to
+    /// the sponsor, and the original planter is recorded for royalties.
+    ///
+    /// Issuer or admin only.
+    pub fn mint_sponsor_nft(
+        env: Env,
+        issuer: Address,
+        sponsor: Address,
+        original_planter: Address,
+        species: String,
+        gps_lat: String,
+        gps_lng: String,
+        planting_date: String,
+    ) -> u64 {
+        issuer.require_auth();
+        if !Self::check_is_issuer(&env, &issuer) {
+            panic_with_error!(&env, NftCertError::NotAuthorizedIssuer);
+        }
+
+        // Encode species and GPS coordinates into the region descriptor so the
+        // metadata is carried on-chain without changing the Token ABI.
+        let mut region = species.clone();
+        region.append(&String::from_str(&env, "|"));
+        region.append(&gps_lat);
+        region.append(&String::from_str(&env, ","));
+        region.append(&gps_lng);
+
+        let metadata = CertificateMetadata {
+            tree_count: 1,
+            co2_offset_kg: 0,
+            planting_date,
+            region,
+        };
+
+        let token_id: u64 = env
+            .storage()
+            .instance()
+            .get(&symbol_short!("TOK_COUNT"))
+            .unwrap_or(0u64)
+            + 1;
+
+        let token = Token {
+            owner: sponsor.clone(),
+            original_planter,
+            issuer: issuer.clone(),
+            metadata,
+            soulbound: false,
+        };
+        env.storage()
+            .persistent()
+            .set(&DataKey::Token(token_id), &token);
+        env.storage()
+            .instance()
+            .set(&symbol_short!("TOK_COUNT"), &token_id);
+
+        env.events().publish(
+            (symbol_short!("sponNft"), sponsor),
+            (token_id, env.ledger().timestamp()),
+        );
+
+        token_id
+    }
 
     /// Mint a transferable certificate NFT.
     ///

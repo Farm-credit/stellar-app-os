@@ -4,6 +4,11 @@
  * Returns only trees that have a verified sponsor attribution and valid
  * geographic coordinates. Filter options are derived from the actual
  * dataset so the UI never shows stale or hardcoded values.
+ *
+ * Ownership NFT support (Stellar): each sponsored tree carries an
+ * `ownershipNft` descriptor whose metadata includes species, GPS
+ * coordinates, and planting date. The NFT is minted on sponsorship
+ * confirmation and is viewable from the sponsor's connected Stellar wallet.
  */
 
 import { getMockTrees } from '@/lib/api/mock/trees';
@@ -14,6 +19,37 @@ import type {
   SponsoredTreeFilterOptions,
   SponsoredTreesResponse,
 } from '@/lib/types/sponsored-tree';
+
+/** Stellar network the ownership NFTs are minted on. */
+export type StellarNetwork = 'testnet' | 'mainnet';
+
+/** Metadata embedded in each ownership NFT. */
+export interface TreeOwnershipNftMetadata {
+  name: string;
+  description: string;
+  species: TreeSpecies;
+  latitude: number;
+  longitude: number;
+  plantedAt: string | null;
+  sponsorName: string;
+  treeId: string;
+}
+
+/** Descriptor for a Stellar-native ownership NFT tied to a sponsored tree. */
+export interface TreeOwnershipNft {
+  /** Stellar asset code (<= 12 alphanumeric chars). */
+  assetCode: string;
+  /** Issuer account (G...) that controls minting for this asset. */
+  issuer: string;
+  /** Asset identifier, e.g. `TREE<id>:G...`. */
+  assetId: string;
+  network: StellarNetwork;
+  /** Sponsor account the NFT is (or will be) delivered to. */
+  ownerAccount: string | null;
+  /** Mint status. */
+  status: 'minted' | 'pending';
+  metadata: TreeOwnershipNftMetadata;
+}
 
 /**
  * Map of sponsor display names → stable IDs.
@@ -65,6 +101,64 @@ export function isValidSpeciesFilter(species: string, known: TreeSpecies[]): boo
 export function isValidYearFilter(year: number | string): year is number {
   if (typeof year === 'string') return false;
   return Number.isInteger(year) && year >= 2000 && year <= 2100;
+}
+
+/**
+ * Build the Stellar asset code for a tree. Asset codes are limited to
+ * 12 alphanumeric characters, so the tree ID is normalized and truncated.
+ */
+export function buildOwnershipAssetCode(treeId: string): string {
+  const normalized = treeId.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+  return `TREE${normalized}`.slice(0, 12);
+}
+
+/**
+ * Build the ownership NFT metadata for a sponsored tree. Pure function:
+ * the same tree always yields the same metadata.
+ */
+export function buildOwnershipNftMetadata(tree: SponsoredTree): TreeOwnershipNftMetadata {
+  return {
+    name: `Tree Ownership #${tree.id}`,
+    description: `Ownership certificate for ${tree.species} tree sponsored by ${tree.sponsorName}`,
+    species: tree.species,
+    latitude: tree.lat,
+    longitude: tree.lng,
+    plantedAt: tree.plantedAt ?? null,
+    sponsorName: tree.sponsorName,
+    treeId: tree.id,
+  };
+}
+
+/**
+ * Produce the ownership NFT descriptor for a sponsored tree.
+ *
+ * The NFT is considered minted once the sponsor account is known and the
+ * tree has passed sponsorship confirmation (`sponsorConfirmed`). Until then
+ * the status is `pending`, and it is minted automatically on confirmation.
+ */
+export function buildOwnershipNft(
+  tree: SponsoredTree,
+  options: {
+    issuer: string;
+    network?: StellarNetwork;
+    ownerAccount?: string | null;
+    sponsorConfirmed?: boolean;
+  }
+): TreeOwnershipNft {
+  const assetCode = buildOwnershipAssetCode(tree.id);
+  const ownerAccount = options.ownerAccount ?? null;
+  const status: TreeOwnershipNft['status'] =
+    options.sponsorConfirmed && ownerAccount ? 'minted' : 'pending';
+
+  return {
+    assetCode,
+    issuer: options.issuer,
+    assetId: `${assetCode}:${options.issuer}`,
+    network: options.network ?? 'testnet',
+    ownerAccount,
+    status,
+    metadata: buildOwnershipNftMetadata(tree),
+  };
 }
 
 /**

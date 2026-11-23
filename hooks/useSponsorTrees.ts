@@ -20,6 +20,22 @@ interface WaitlistResponse {
   entries: WaitlistEntry[];
 }
 
+export interface TreeNftMetadata {
+  treeId: string;
+  species: TreeSpecies;
+  latitude?: number;
+  longitude?: number;
+  plantedAt?: string;
+}
+
+export interface TreeNftMintResult {
+  treeId: string;
+  assetCode: string;
+  issuer: string;
+  transactionHash: string;
+  metadata: TreeNftMetadata;
+}
+
 async function fetchWaitlist(): Promise<WaitlistResponse> {
   const response = await fetch('/api/sponsors/waitlist', {
     headers: { Accept: 'application/json' },
@@ -40,6 +56,18 @@ async function postJoinWaitlist(region: string, treeId?: string): Promise<Waitli
     throw new Error('Failed to join waitlist');
   }
   return (await response.json()) as WaitlistEntry;
+}
+
+async function postMintTreeNft(treeId: string): Promise<TreeNftMintResult> {
+  const response = await fetch(`/api/sponsors/trees/${encodeURIComponent(treeId)}/nft`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify({ treeId }),
+  });
+  if (!response.ok) {
+    throw new Error('Failed to mint tree ownership NFT');
+  }
+  return (await response.json()) as TreeNftMintResult;
 }
 
 export interface TreeUpdate {
@@ -74,6 +102,8 @@ export function useSponsorTrees(initialFilters: Partial<TreeFilterState> = {}) {
   const [statusOptions, setStatusOptions] = useState<TreeStatus[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [mintedNfts, setMintedNfts] = useState<Record<string, TreeNftMintResult>>({});
+  const [mintingTreeIds, setMintingTreeIds] = useState<Record<string, boolean>>({});
 
   const loadTrees = useCallback(async (nextFilters: TreeFilterState) => {
     setIsLoading(true);
@@ -97,6 +127,24 @@ export function useSponsorTrees(initialFilters: Partial<TreeFilterState> = {}) {
 
   const updateFilters = useCallback((partial: Partial<TreeFilterState>) => {
     setFilters((prev) => ({ ...prev, ...partial }));
+  }, []);
+
+  const mintTreeNft = useCallback(async (treeId: string) => {
+    setMintingTreeIds((prev) => ({ ...prev, [treeId]: true }));
+    try {
+      const result = await postMintTreeNft(treeId);
+      setMintedNfts((prev) => ({ ...prev, [treeId]: result }));
+      return result;
+    } catch {
+      setError('Failed to mint tree ownership NFT. Please try again.');
+      return null;
+    } finally {
+      setMintingTreeIds((prev) => {
+        const next = { ...prev };
+        delete next[treeId];
+        return next;
+      });
+    }
   }, []);
 
   const totalCount = useMemo(() => trees.length, [trees]);
@@ -166,6 +214,9 @@ export function useSponsorTrees(initialFilters: Partial<TreeFilterState> = {}) {
     isJoiningWaitlist: waitlist.isJoining,
     joinWaitlist: waitlist.joinWaitlist,
     refreshWaitlist: waitlist.refresh,
+    mintedNfts,
+    mintingTreeIds,
+    mintTreeNft,
   };
 }
 
