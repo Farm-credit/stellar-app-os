@@ -1,0 +1,229 @@
+{
+  "_comment": "Each crate owns a 100-code block so a contract error code identifies its contract. See docs/CONTRACT_ERROR_CODES.md. Crates in 'legacy' still use their original codes and are only checked for duplicates until migrated.",
+  "ranges": {
+    "additionality-verifier": [
+      1000,
+      1099
+    ],
+    "aggregate-impact-verifier": [
+      1100,
+      1199
+    ],
+    "atomic-swap": [
+      1200,
+      1299
+    ],
+    "auth-contract": [
+      1300,
+      1399
+    ],
+    "bonus-pool": [
+      1400,
+      1499
+    ],
+    "carbon-credits": [
+      1500,
+      1599
+    ],
+    "carbon-dex": [
+      1600,
+      1699
+    ],
+    "carbon-fractionalization": [
+      1700,
+      1799
+    ],
+    "carbon-futures": [
+      1800,
+      1899
+    ],
+    "carbon-insurance": [
+      1900,
+      1999
+    ],
+    "carbon-marketplace": [
+      2000,
+      2099
+    ],
+    "community-offset-pool": [
+      2100,
+      2199
+    ],
+    "contract-utils": [
+      2200,
+      2299
+    ],
+    "cross-chain-settlement": [
+      2300,
+      2399
+    ],
+    "donation-escrow": [
+      2400,
+      2499
+    ],
+    "escrow": [
+      2500,
+      2599
+    ],
+    "escrow-milestone": [
+      2600,
+      2699
+    ],
+    "farmer-bonus-pool": [
+      2700,
+      2799
+    ],
+    "farmer-escrow": [
+      2800,
+      2899
+    ],
+    "farmer-registry": [
+      2900,
+      2999
+    ],
+    "harvesta-errors": [
+      3000,
+      3099
+    ],
+    "impact-plot-shares": [
+      3100,
+      3199
+    ],
+    "insurance-pool": [
+      3200,
+      3299
+    ],
+    "kyc-attestation": [
+      3300,
+      3399
+    ],
+    "leaderboard": [
+      3400,
+      3499
+    ],
+    "leakage-prevention": [
+      3500,
+      3599
+    ],
+    "naira-payout": [
+      3600,
+      3699
+    ],
+    "nft-certificate": [
+      3700,
+      3799
+    ],
+    "nullifier-registry": [
+      3800,
+      3899
+    ],
+    "planter-registry": [
+      3900,
+      3999
+    ],
+    "planting-bond": [
+      4000,
+      4099
+    ],
+    "platform-governance": [
+      4100,
+      4199
+    ],
+    "species-catalog": [
+      4200,
+      4299
+    ],
+    "sponsor-receipt": [
+      4300,
+      4399
+    ],
+    "transparent-proxy": [
+      4400,
+      4499
+    ],
+    "tree-escrow": [
+      4500,
+      4599
+    ],
+    "tree-registry": [
+      4600,
+      4699
+    ],
+    "tree-retirement": [
+      4700,
+      4799
+    ],
+    "tree-token": [
+      4800,
+      4899
+    ],
+    "tree_registry": [
+      4900,
+      4999
+    ],
+    "upgrade-timelock": [
+      5000,
+      5099
+    ],
+    "verifier-staking": [
+      5100,
+      5199
+    ],
+    "xlm-bridge": [
+      5200,
+      5299
+    ],
+    "zk-location-verifier": [
+      5300,
+      5399
+    ],
+    "zk-verifier": [
+      5400,
+      5499
+    ]
+  },
+  "legacy": [
+    "additionality-verifier",
+    "aggregate-impact-verifier",
+    "atomic-swap",
+    "auth-contract",
+    "bonus-pool",
+    "carbon-credits",
+    "carbon-dex",
+    "carbon-futures",
+    "carbon-insurance",
+    "carbon-marketplace",
+    "community-offset-pool",
+    "contract-utils",
+    "cross-chain-settlement",
+    "donation-escrow",
+    "escrow",
+    "escrow-milestone",
+    "farmer-bonus-pool",
+    "farmer-escrow",
+    "farmer-registry",
+    "harvesta-errors",
+    "insurance-pool",
+    "kyc-attestation",
+    "leaderboard",
+    "leakage-prevention",
+    "naira-payout",
+    "nft-certificate",
+    "nullifier-registry",
+    "planter-registry",
+    "planting-bond",
+    "species-catalog",
+    "sponsor-receipt",
+    "transparent-proxy",
+    "tree-escrow",
+    "tree-registry",
+    "tree-retirement",
+    "tree-token",
+    "tree_registry",
+    "upgrade-timelock",
+    "verifier-staking",
+    "xlm-bridge",
+    "zk-location-verifier",
+    "zk-verifier"
+  ]
+}

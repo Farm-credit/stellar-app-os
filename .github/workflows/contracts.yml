@@ -26,6 +26,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Check contract error-code ranges
+        run: node scripts/check-error-codes.mjs
+
       - name: Install Rust + wasm32 target
         uses: dtolnay/rust-toolchain@stable
         with:

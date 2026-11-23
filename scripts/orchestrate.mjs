@@ -422,6 +422,8 @@ async function runPhases(ctx, tree, deps) {
         String(platformFee),
         '--min_planting_bond',
         String(minBond),
+        '--tree_token',
+        treeSac,
       ],
     );
   }

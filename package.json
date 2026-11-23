@@ -11,6 +11,7 @@
     "build:mainnet": "dotenxv run --env-file=.env.mainnet -- next build --webpack",
     "start": "next start",
     "lint": "eslint .",
+    "check:contract-errors": "node scripts/check-error-codes.mjs",
     "lint:strict": "eslint . --max-warnings 0",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",

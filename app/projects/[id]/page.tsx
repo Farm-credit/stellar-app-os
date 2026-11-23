@@ -4,10 +4,12 @@ import { notFound } from 'next/navigation';
 
 import { ProjectDetailView } from '@/components/organisms/ProjectDetailView/ProjectDetailView';
 import { ForestRegenerationSimulation } from '@/components/organisms/ForestRegenerationSimulation/ForestRegenerationSimulation';
+import { ProjectMediaFeed } from '@/components/organisms/ProjectMediaFeed';
 import { ForestProtectionZone } from '@/components/organisms/ForestProtectionZone/ForestProtectionZone';
 import { mockAdminProjectDetails } from '@/lib/api/mock/adminProjectDetails';
 import { mockCarbonProjects } from '@/lib/api/mock/carbonProjects';
 import { getMockProjectCoverage } from '@/lib/api/mock/projectCoverage';
+import { getProjectMedia } from '@/lib/data/project-media';
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -99,11 +101,14 @@ export default async function ProjectPage({ params }: Props) {
           climateZone={adminProject.climateZone ?? 'Tropical'}
         />
 
-        {bufferZone && (
-          <ForestProtectionZone
-            bufferZone={bufferZone}
-          />
-        )}
+        <section aria-labelledby="project-media-heading">
+          <h2 id="project-media-heading" className="mb-3 text-xl font-semibold">
+            Field, drone and satellite media
+          </h2>
+          <ProjectMediaFeed projectId={adminProject.id} items={getProjectMedia(adminProject.id)} />
+        </section>
+
+        {bufferZone && <ForestProtectionZone bufferZone={bufferZone} />}
       </div>
     </>
   );

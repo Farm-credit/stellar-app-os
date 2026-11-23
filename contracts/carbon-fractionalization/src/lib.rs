@@ -30,16 +30,16 @@ pub const MIN_PURCHASE_TONNES: i128 = 1;
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[repr(u32)]
 pub enum FractionError {
-    AlreadyInitialized = 1,
-    NotInitialized = 2,
-    Unauthorized = 3,
-    BlockTooSmall = 4,
-    InvalidPrice = 5,
-    BelowMinimumPurchase = 6,
-    InsufficientSupply = 7,
-    InsufficientHolding = 8,
-    ProjectNotFound = 9,
-    ProjectInactive = 10,
+    AlreadyInitialized = 1701,
+    NotInitialized = 1702,
+    Unauthorized = 1703,
+    BlockTooSmall = 1704,
+    InvalidPrice = 1705,
+    BelowMinimumPurchase = 1706,
+    InsufficientSupply = 1707,
+    InsufficientHolding = 1708,
+    ProjectNotFound = 1709,
+    ProjectInactive = 1710,
 }
 
 #[contracttype]
