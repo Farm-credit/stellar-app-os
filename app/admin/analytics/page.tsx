@@ -38,14 +38,6 @@ function buildCsv(range: AnalyticsTimeRange, metrics: Record<string, number>): s
   return rows.join('\n');
 }
 
-function buildComplianceCsv(report: ComplianceReport): string {
-  const rows: string[] = ['metric,value', `standard,${report.standard}`, `generated_at,${report.generatedAt}`];
-  for (const [key, value] of Object.entries(report.metrics)) {
-    rows.push(`${key},${value}`);
-  }
-  return rows.join('\n');
-}
-
 function downloadCsv(filename: string, content: string): void {
   const blob = new Blob([content], { type: 'text/csv;charset=utf-8' });
   const url = URL.createObjectURL(blob);
@@ -159,10 +151,12 @@ export default function AdminAnalyticsPage() {
   const handleExportEsg = () => {
     if (!data) return;
     const esgMetrics: Record<string, number> = {
-      trees_funded: data.metrics.treesFunded,
-      co2_sequestered_kg: data.metrics.co2SequesteredKg,
+      scope1_direct_emissions_kg: 0,
+      scope2_purchased_energy_emissions_kg: 0,
+      scope3_value_chain_sequestration_kg: data.metrics.co2SequesteredKg,
+      scope3_trees_funded: data.metrics.treesFunded,
       biodiversity_score: data.metrics.biodiversityScore,
-      employee_engagement: data.metrics.totalFarmers,
+      scope3_farmers_engaged: data.metrics.totalFarmers,
       total_donations_xlm: data.metrics.totalDonationsXlm,
     };
     const csv = buildCsv(data.range, esgMetrics);

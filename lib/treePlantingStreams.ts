@@ -37,6 +37,8 @@ export interface PlantingEvent {
   treeIds: string[];
   /** Optional broadcaster thumbnail. */
   thumbnailUrl?: string;
+  /** Estimated species planted in this batch (public planting calendar, #1659). */
+  estimatedSpecies?: string[];
 }
 
 /** Sponsor → trees mapping for a planting batch. */
@@ -60,9 +62,22 @@ export const MOCK_PLANTING_EVENTS: PlantingEvent[] = [
     streamUrl: 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8',
     recordingUrl: undefined,
     batchId: 'batch-proj-001-north-42',
+    estimatedSpecies: ['Brazil nut', 'Açaí palm', 'Cecropia'],
     treeIds: ['tree-1001', 'tree-1002', 'tree-1003', 'tree-1004'],
     thumbnailUrl:
       'https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?auto=format&fit=crop&q=80&w=1200',
+  },
+  {
+    id: 'evt-proj-001-2026-11',
+    projectId: 'proj-001',
+    title: 'Amazon Riparian Planting — Sector South',
+    description: 'Second riparian batch: 3,000 seedlings along the southern corridor.',
+    scheduledAt: '2026-11-18T12:00:00Z',
+    status: 'scheduled',
+    streamUrl: 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8',
+    batchId: 'batch-proj-001-south-43',
+    estimatedSpecies: ['Brazil nut', 'Cecropia', 'Inga'],
+    treeIds: ['tree-1101', 'tree-1102'],
   },
   {
     id: 'evt-proj-001-2026-06',
@@ -75,6 +90,7 @@ export const MOCK_PLANTING_EVENTS: PlantingEvent[] = [
     streamUrl: 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8',
     recordingUrl: 'https://videos.farmcredit.example/recordings/evt-proj-001-2026-06.mp4',
     batchId: 'batch-proj-001-broadcast-17',
+    estimatedSpecies: ['Ipê', 'Mahogany'],
     treeIds: ['tree-0900', 'tree-0901', 'tree-0902'],
   },
   {
@@ -86,6 +102,7 @@ export const MOCK_PLANTING_EVENTS: PlantingEvent[] = [
     status: 'scheduled',
     streamUrl: 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8',
     batchId: 'batch-proj-004-tide-05',
+    estimatedSpecies: ['Rhizophora mucronata', 'Avicennia marina'],
     treeIds: ['tree-2200', 'tree-2201'],
   },
 ];
@@ -120,6 +137,13 @@ export const MOCK_BATCH_SPONSORSHIPS: BatchSponsorship[] = [
     treeIds: ['tree-0900', 'tree-0901'],
   },
   {
+    batchId: 'batch-proj-001-south-43',
+    sponsorId: 'sponsor-101',
+    sponsorEmail: 'ana@example.com',
+    sponsorName: 'Ana Ferreira',
+    treeIds: ['tree-1101'],
+  },
+  {
     batchId: 'batch-proj-004-tide-05',
     sponsorId: 'sponsor-404',
     sponsorEmail: 'rina@example.com',
@@ -129,8 +153,8 @@ export const MOCK_BATCH_SPONSORSHIPS: BatchSponsorship[] = [
 ];
 
 export function getPlantingEventsForProject(projectId: string): PlantingEvent[] {
-  return MOCK_PLANTING_EVENTS.filter((event) => event.projectId === projectId).sort((a, b) =>
-    b.scheduledAt.localeCompare(a.scheduledAt)
+  return MOCK_PLANTING_EVENTS.filter((event) => event.projectId === projectId).sort(
+    (a, b) => b.scheduledAt.localeCompare(a.scheduledAt)
   );
 }
 
@@ -212,7 +236,9 @@ export interface TreeRecordingLink {
  * After a broadcast ends the recording is linked to every tree profile in the
  * batch. Returns the links to persist, or an empty list while not recorded.
  */
-export function linkRecordingToTrees(event: PlantingEvent): TreeRecordingLink[] {
+export function linkRecordingToTrees(
+  event: PlantingEvent
+): TreeRecordingLink[] {
   if (event.status !== 'ended' || !event.recordingUrl) return [];
   return event.treeIds.map((treeId) => ({
     treeId,

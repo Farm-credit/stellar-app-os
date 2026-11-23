@@ -15,8 +15,8 @@ import { clearDigestEvents, getPendingDigestEvents } from '../notifications';
 describe('project event lookup', () => {
   it('lists project events newest-first', () => {
     const events = getPlantingEventsForProject('proj-001');
-    expect(events).toHaveLength(2);
-    expect(events[0].id).toBe('evt-proj-001-2026-10');
+    expect(events).toHaveLength(3);
+    expect(events[0].id).toBe('evt-proj-001-2026-11');
   });
 
   it('features the live stream first for the event page embed', () => {

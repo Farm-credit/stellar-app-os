@@ -200,6 +200,76 @@ function segmentIntersects(
 }
 
 /**
+ * Compute the area in hectares of a protection buffer polygon.
+ * Thin wrapper around computePolygonAreaHectares for buffer zones.
+ */
+export function computeBufferAreaHectares(polygon: [number, number][]): number {
+  return computePolygonAreaHectares(polygon);
+}
+
+/**
+ * Build a closed GeoJSON-style ring from stored coordinates.
+ * The first vertex is repeated at the end to close the ring. Longitudes
+ * are normalized to [-180, 180] and the ring is returned as [lng, lat]
+ * pairs (GeoJSON order).
+ */
+export function buildClosedRing(coordinates: [number, number][]): [number, number][] {
+  if (coordinates.length === 0) {
+    return [];
+  }
+
+  const ring: [number, number][] = coordinates.map(([lat, lng]) => [
+    normalizeLng(lng),
+    lat,
+  ]);
+
+  const first = ring[0];
+  const last = ring[ring.length - 1];
+  if (first[0] !== last[0] || first[1] !== last[1]) {
+    ring.push([first[0], first[1]]);
+  }
+
+  return ring;
+}
+
+/**
+ * Returns true if a deforestation detection (given as a point) falls inside
+ * the project buffer polygon.
+ */
+export function pointInBuffer(
+  latitude: number,
+  longitude: number,
+  bufferPolygon: [number, number][]
+): boolean {
+  return containsPointInPolygon(latitude, longitude, bufferPolygon);
+}
+
+/**
+ * Returns true if a deforestation detection area (given as a polygon)
+ * overlaps the project buffer polygon.
+ */
+export function areaIntersectsBuffer(
+  detectionPolygon: [number, number][],
+  bufferPolygon: [number, number][]
+): boolean {
+  return polygonIntersectsPolygon(detectionPolygon, bufferPolygon);
+}
+
+/**
+ * Returns true if a deforestation detection falls inside the project buffer,
+ * accepting either a point or an area polygon.
+ */
+export function isDeforestationInBuffer(
+  detection: { latitude: number; longitude: number } | { polygon: [number, number][] },
+  bufferPolygon: [number, number][]
+): boolean {
+  if ('polygon' in detection) {
+    return areaIntersectsBuffer(detection.polygon, bufferPolygon);
+  }
+  return pointInBuffer(detection.latitude, detection.longitude, bufferPolygon);
+}
+
+/**
  * Returns true if two polygons overlap (edge intersection, containment,
  * or shared vertices). Longitudes are unwrapped relative to the first
  * polygon's first vertex to remain date-line safe.

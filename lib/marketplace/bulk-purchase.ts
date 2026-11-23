@@ -58,10 +58,10 @@ const VALID_STATUSES: BulkPurchaseStatus[] = [
 ];
 
 function toNumber(value: unknown, label: string): number {
-  if (typeof value === 'number' && Number.finite(value)) return value;
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
   if (typeof value === 'string' && value.trim() !== '') {
     const parsed = Number(value);
-    if (Number.finite(parsed)) return parsed;
+    if (Number.isFinite(parsed)) return parsed;
   }
   throw new Error(`${label} must be a finite number`);
 }

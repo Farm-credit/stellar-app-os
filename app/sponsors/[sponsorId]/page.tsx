@@ -9,6 +9,8 @@ import { getSponsorProfile } from '@/lib/api/sponsors';
 import { getSponsorPortfolio } from '@/lib/api/sponsor-portfolio';
 import { ImpactStatCard } from '@/components/atoms/ImpactStatCard';
 import { Badge } from '@/components/atoms/Badge';
+import { SocialImpactScore } from '@/components/molecules/SocialImpactScore/SocialImpactScore';
+import { calculateSocialImpactScore } from '@/lib/impact/social-impact-score';
 import type { SponsorTreeEntry } from '@/lib/types/sponsor-portfolio';
 import { BadgeCheck, Folder, Globe2, MapPin, Sprout } from 'lucide-react';
 
@@ -59,6 +61,16 @@ export default async function SponsorProfilePage({
   const milestones = getSponsorMilestones(plantingHistory);
   const achievements = evaluateSponsorAchievements(plantingHistory);
   const sponsorDisplayName = profile.name ?? formatAddress(profile.address);
+
+  const earliestPlantedAt =
+    plantingHistory.length > 0 ? plantingHistory[plantingHistory.length - 1].plantedAt : undefined;
+
+  const socialImpactScore = calculateSocialImpactScore({
+    treesFunded: profile.totalTrees,
+    speciesCount: forest.totalSpecies,
+    regionsCount: forest.totalRegions,
+    firstPlantedAt: earliestPlantedAt,
+  });
 
   return (
     <main className="mx-auto flex max-w-6xl flex-col gap-8 px-4 py-12 sm:px-6 lg:px-8">
@@ -144,6 +156,8 @@ export default async function SponsorProfilePage({
           />
         </div>
       </section>
+
+      <SocialImpactScore initialScore={socialImpactScore} _sponsorAddress={profile.address} />
 
       <SponsorAchievementGallery achievements={achievements} sponsorAddress={profile.address} />
 

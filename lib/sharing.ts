@@ -114,6 +114,61 @@ export function generateAnnualImpactShareText(options: AnnualImpactShareOptions)
 }
 
 /**
+ * Options for generating tree species quiz result share text
+ */
+export interface QuizResultShareOptions {
+  speciesIds: string[];
+  score: number;
+  totalQuestions?: number;
+  speciesNames?: string[];
+}
+
+/**
+ * Build a shareable URL for a tree species quiz result
+ */
+export function buildQuizResultShareUrl(
+  speciesIds: string[],
+  score: number,
+  totalQuestions?: number
+): string {
+  const baseUrl =
+    typeof window !== 'undefined' && window.location?.origin
+      ? window.location.origin
+      : process.env.NEXT_PUBLIC_APP_URL || 'https://farmcredit.app';
+
+  const params = new URLSearchParams({
+    species: speciesIds.join(','),
+    score: String(score),
+  });
+
+  if (totalQuestions !== undefined) {
+    params.set('total', String(totalQuestions));
+  }
+
+  return `${baseUrl}/quiz/result?${params.toString()}`;
+}
+
+/**
+ * Generate share text summarising a tree species quiz result
+ */
+export function generateQuizResultShareText(options: QuizResultShareOptions): string {
+  const { speciesIds, score, totalQuestions, speciesNames } = options;
+
+  const scorePart =
+    totalQuestions !== undefined ? `I scored ${score}/${totalQuestions}` : `I scored ${score}`;
+
+  const speciesPart =
+    speciesNames && speciesNames.length > 0
+      ? `My tree matches: ${speciesNames.join(', ')}`
+      : `My tree matches: ${speciesIds.join(', ')}`;
+
+  return generateShareText({
+    title: `I took the FarmCredit tree species quiz! ${scorePart}.`,
+    description: `${speciesPart}. Find your tree and sponsor one today! 🌳`,
+  });
+}
+
+/**
  * Generate share text based on options
  */
 export function generateShareText(options: ShareOptions | AnnualImpactShareOptions): string {

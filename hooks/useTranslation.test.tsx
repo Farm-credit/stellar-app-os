@@ -24,7 +24,7 @@ describe('useAppTranslation', () => {
 
     expect(result.current.language).toBe('en');
     expect(result.current.supportedLanguages).toEqual(
-      expect.arrayContaining(['en', 'ha', 'fr', 'es'])
+      expect.arrayContaining(['en', 'es', 'fr', 'de', 'pt', 'ja', 'zh', 'hi', 'ar', 'sw', 'ha'])
     );
     expect(typeof result.current.t).toBe('function');
   });
@@ -37,11 +37,40 @@ describe('useAppTranslation', () => {
     await act(async () => {
       await result.current.changeLanguage('fr');
     });
-
     expect(result.current.t('nav.home')).toBe('Accueil');
+
+    await act(async () => {
+      await result.current.changeLanguage('de');
+    });
+    expect(result.current.t('nav.home')).toBe('Startseite');
+
+    await act(async () => {
+      await result.current.changeLanguage('ja');
+    });
+    expect(result.current.t('nav.home')).toBe('ホーム');
+
+    await act(async () => {
+      await result.current.changeLanguage('zh');
+    });
+    expect(result.current.t('nav.home')).toBe('首页');
+
+    await act(async () => {
+      await result.current.changeLanguage('hi');
+    });
+    expect(result.current.t('nav.home')).toBe('होम');
+
+    await act(async () => {
+      await result.current.changeLanguage('ar');
+    });
+    expect(result.current.t('nav.home')).toBe('الرئيسية');
+
+    await act(async () => {
+      await result.current.changeLanguage('sw');
+    });
+    expect(result.current.t('nav.home')).toBe('Nyumbani');
   });
 
-  it('changeLanguage updates i18n and the document lang attribute', async () => {
+  it('changeLanguage updates i18n, document lang, and RTL dir for Arabic', async () => {
     const { result } = renderHook(() => useAppTranslation());
 
     await act(async () => {
@@ -50,12 +79,22 @@ describe('useAppTranslation', () => {
 
     expect(result.current.language).toBe('es');
     expect(document.documentElement.lang).toBe('es');
+    expect(document.documentElement.dir).toBe('ltr');
     expect(result.current.isRTLLanguage).toBe(false);
+
+    await act(async () => {
+      await result.current.changeLanguage('ar');
+    });
+
+    expect(result.current.language).toBe('ar');
+    expect(document.documentElement.lang).toBe('ar');
+    expect(document.documentElement.dir).toBe('rtl');
+    expect(result.current.isRTLLanguage).toBe(true);
   });
 
   it('falls back to English for an unsupported detected language', async () => {
     await act(async () => {
-      await i18n.changeLanguage('de');
+      await i18n.changeLanguage('xx');
     });
     const { result } = renderHook(() => useAppTranslation());
     await act(async () => {});

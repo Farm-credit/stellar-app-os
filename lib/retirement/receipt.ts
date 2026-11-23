@@ -154,7 +154,8 @@ export function computeReceiptDigest(data: {
   transactionHash: string;
   buyerAddress: string;
   creditsRetired: number;
-  projectId: string;
+  project: Pick<ProjectReceiptDetails, 'id' | 'name' | 'location' | 'vintageYear' | 'standard'>;
+  coBenefits: CoBenefitAchieved[];
   timestamp: string;
 }): string {
   const canonicalPayload = JSON.stringify({
@@ -162,13 +163,54 @@ export function computeReceiptDigest(data: {
     tx: data.transactionHash,
     buyer: data.buyerAddress,
     tons: data.creditsRetired,
-    project: data.projectId,
+    project: {
+      id: data.project.id,
+      name: data.project.name,
+      location: data.project.location,
+      vintageYear: data.project.vintageYear,
+      standard: data.project.standard,
+    },
+    coBenefits: data.coBenefits.map((b) => ({
+      category: b.category,
+      name: b.name,
+      impactMetric: b.impactMetric ?? null,
+      sdgGoal: b.sdgGoal ?? null,
+    })),
     time: data.timestamp,
   });
   return crypto.createHash('sha256').update(canonicalPayload).digest('hex');
 }
 
+function freezeReceipt(receipt: BlockchainProofReceipt): BlockchainProofReceipt {
+  Object.freeze(receipt.buyer);
+  if (receipt.project.coordinates) {
+    Object.freeze(receipt.project.coordinates);
+  }
+  Object.freeze(receipt.project);
+  receipt.coBenefits.forEach((benefit) => Object.freeze(benefit));
+  Object.freeze(receipt.coBenefits);
+  return Object.freeze(receipt);
+}
+
 export function createBlockchainReceipt(input: CreateRetirementProofInput): BlockchainProofReceipt {
+  if (!input.buyerAddress?.trim()) {
+    throw new Error('buyerAddress is required to issue a retirement receipt');
+  }
+  if (!input.projectId?.trim()) {
+    throw new Error('projectId is required to issue a retirement receipt');
+  }
+  if (!Number.isFinite(input.quantityRetiredTons) || input.quantityRetiredTons <= 0) {
+    throw new Error('quantityRetiredTons must be a positive number');
+  }
+
+  // Enforce immutability: once a receipt is issued for a transactionHash, return it unchanged
+  if (input.transactionHash) {
+    const existing = receiptsStore.get(input.transactionHash);
+    if (existing) {
+      return existing;
+    }
+  }
+
   const network = input.network || 'testnet';
   const now = new Date();
   const timestamp = now.toISOString();
@@ -192,7 +234,7 @@ export function createBlockchainReceipt(input: CreateRetirementProofInput): Bloc
       ? input.coBenefits
       : ['Biodiversity', 'Water Conservation', 'Soil Health'];
 
-  const coBenefitsAchieved = rawCoBenefits.map(normalizeCoBenefit);
+  const coBenefitsAchieved = rawCoBenefits.map((item) => ({ ...normalizeCoBenefit(item) }));
 
   const explorerBaseUrl =
     network === 'mainnet'
@@ -202,16 +244,27 @@ export function createBlockchainReceipt(input: CreateRetirementProofInput): Bloc
   const explorerUrl = `${explorerBaseUrl}/${txHash}`;
   const certificateUrl = `/credits/retire/certificate?receiptId=${receiptId}&hash=${txHash}`;
 
+  const projectDetails: ProjectReceiptDetails = {
+    id: input.projectId,
+    name: input.projectName || `Carbon Project ${input.projectId}`,
+    type: input.projectType || 'Reforestation',
+    location: input.location || 'Global Verified Reserve',
+    vintageYear: input.vintageYear || 2024,
+    standard: input.standard || 'Gold Standard',
+    registryUrl: `https://registry.verra.org/app/projectDetail/VCS/${input.projectId}`,
+  };
+
   const digest = computeReceiptDigest({
     receiptId,
     transactionHash: txHash,
     buyerAddress: input.buyerAddress,
     creditsRetired: input.quantityRetiredTons,
-    projectId: input.projectId,
+    project: projectDetails,
+    coBenefits: coBenefitsAchieved,
     timestamp,
   });
 
-  const receipt: BlockchainProofReceipt = {
+  const receipt = freezeReceipt({
     receiptId,
     transactionHash: txHash,
     ledgerSequence,
@@ -227,27 +280,23 @@ export function createBlockchainReceipt(input: CreateRetirementProofInput): Bloc
     gramsRetired,
     retirementReason: input.reason || 'Permanent corporate greenhouse gas offset claim',
     burnDestination: 'GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF', // Standard burn sink
-    project: {
-      id: input.projectId,
-      name: input.projectName || `Carbon Project ${input.projectId}`,
-      type: input.projectType || 'Reforestation',
-      location: input.location || 'Global Verified Reserve',
-      vintageYear: input.vintageYear || 2024,
-      standard: input.standard || 'Gold Standard',
-      registryUrl: `https://registry.verra.org/app/projectDetail/VCS/${input.projectId}`,
-    },
+    project: projectDetails,
     coBenefits: coBenefitsAchieved,
     cryptographicDigest: digest,
     certificateUrl,
     explorerUrl,
     isImmutable: true,
-  };
+  });
 
   // Store in persistent cache
   receiptsStore.set(receiptId, receipt);
   receiptsStore.set(txHash, receipt);
 
   return receipt;
+}
+
+export function clearBlockchainReceiptsStore(): void {
+  receiptsStore.clear();
 }
 
 export function getBlockchainReceiptById(idOrHash: string): BlockchainProofReceipt | null {
@@ -281,7 +330,8 @@ export function verifyBlockchainReceipt(receipt: BlockchainProofReceipt): {
     transactionHash: receipt.transactionHash,
     buyerAddress: receipt.buyer.walletAddress,
     creditsRetired: receipt.creditsRetired,
-    projectId: receipt.project.id,
+    project: receipt.project,
+    coBenefits: receipt.coBenefits,
     timestamp: receipt.timestamp,
   });
 

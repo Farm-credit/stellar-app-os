@@ -8,6 +8,8 @@ import { Card, CardContent, CardFooter } from '@/components/molecules/Card';
 import type { ListingCardProps } from '@/lib/types/marketplace';
 import { cn } from '@/lib/utils';
 import { FarmerCertificationBadges } from '@/components/marketplace/FarmerCertificationBadges';
+import { BidModal } from '@/components/marketplace/BidModal';
+import { useEffect, useState } from 'react';
 
 /**
  * Formats a number as USD currency
@@ -38,6 +40,23 @@ function formatRelativeTime(dateString: string): string {
 }
 
 /**
+ * Formats a countdown to an auction end time (e.g., "2d 4h left", "Ended")
+ */
+function formatCountdown(endTime: string, now: number): string {
+  const diffInSeconds = Math.floor((new Date(endTime).getTime() - now) / 1000);
+
+  if (diffInSeconds <= 0) return 'Ended';
+
+  const days = Math.floor(diffInSeconds / 86400);
+  const hours = Math.floor((diffInSeconds % 86400) / 3600);
+  const minutes = Math.floor((diffInSeconds % 3600) / 60);
+
+  if (days > 0) return `${days}d ${hours}h left`;
+  if (hours > 0) return `${hours}h ${minutes}m left`;
+  return `${minutes}m left`;
+}
+
+/**
  * ListingCard molecule component
  *
  * Displays a marketplace listing card with project details, pricing, and seller info.
@@ -50,8 +69,9 @@ function formatRelativeTime(dateString: string): string {
  * - Visual indicator for own listings
  * - Responsive layout
  * - Accessible with ARIA labels
+ * - Distinct auction rendering (highest bid, bid count, countdown, reserve status)
  *
- * Requirements: Issue #23 - Marketplace Listings
+ * Requirements: Issue #23 - Marketplace Listings, Issue #1280 - Auction mechanism
  */
 export function ListingCard({ listing, isOwnListing = false }: ListingCardProps) {
   const {
@@ -69,6 +89,20 @@ export function ListingCard({ listing, isOwnListing = false }: ListingCardProps)
     closingAt,
     location,
   } = listing;
+
+  const isAuction = listing.listingKind === 'auction';
+  const auction = isAuction ? listing.auction : undefined;
+
+  const [now, setNow] = useState(() => Date.now());
+  const [isBidModalOpen, setIsBidModalOpen] = useState(false);
+
+  useEffect(() => {
+    if (!isAuction || !auction) return;
+    const interval = setInterval(() => setNow(Date.now()), 60_000);
+    return () => clearInterval(interval);
+  }, [isAuction, auction]);
+
+  const auctionEnded = auction ? new Date(auction.endTime).getTime() <= now : false;
 
   const formatClosingDate = (isoDate: string) => {
     const date = new Date(isoDate);
@@ -95,7 +129,14 @@ export function ListingCard({ listing, isOwnListing = false }: ListingCardProps)
               </Badge>
             )}
           </div>
-          <Badge variant="outline">{projectType}</Badge>
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant="outline">{projectType}</Badge>
+            {isAuction && (
+              <Badge variant="warning" className="shrink-0">
+                Auction
+              </Badge>
+            )}
+          </div>
         </div>
 
         {/* Seller info */}
@@ -126,24 +167,87 @@ export function ListingCard({ listing, isOwnListing = false }: ListingCardProps)
               {quantity.toFixed(2)} tons CO₂
             </Text>
           </div>
-          <div className="flex items-center justify-between">
-            <Text variant="small" as="span" className="text-muted-foreground">
-              Price per ton
-            </Text>
-            <Text variant="small" as="span" className="font-semibold">
-              {formatPrice(pricePerTon)}
-            </Text>
-          </div>
-          <div className="pt-2 border-t border-border">
-            <div className="flex items-center justify-between">
-              <Text variant="small" as="span" className="font-semibold">
-                Total Price
-              </Text>
-              <Text variant="h4" as="span" className="font-bold text-stellar-blue">
-                {formatPrice(totalPrice)}
-              </Text>
-            </div>
-          </div>
+          {isAuction && auction ? (
+            <>
+              <div className="flex items-center justify-between">
+                <Text variant="small" as="span" className="text-muted-foreground">
+                  Current highest bid
+                </Text>
+                <Text
+                  variant="small"
+                  as="span"
+                  className="font-semibold"
+                  aria-label={
+                    auction.highestBid != null
+                      ? `Current highest bid ${formatPrice(auction.highestBid)}`
+                      : 'No bids yet'
+                  }
+                >
+                  {auction.highestBid != null ? formatPrice(auction.highestBid) : 'No bids yet'}
+                </Text>
+              </div>
+              <div className="flex items-center justify-between">
+                <Text variant="small" as="span" className="text-muted-foreground">
+                  Bids
+                </Text>
+                <Text
+                  variant="small"
+                  as="span"
+                  className="font-semibold"
+                  aria-label={`${auction.bidCount} ${auction.bidCount === 1 ? 'bid' : 'bids'} placed`}
+                >
+                  {auction.bidCount}
+                </Text>
+              </div>
+              <div className="flex items-center justify-between">
+                <Text variant="small" as="span" className="text-muted-foreground">
+                  Reserve
+                </Text>
+                <Badge
+                  variant={auction.reserveMet ? 'success' : 'outline'}
+                  aria-label={auction.reserveMet ? 'Reserve price met' : 'Reserve price not met'}
+                >
+                  {auction.reserveMet ? 'Reserve met' : 'Reserve not met'}
+                </Badge>
+              </div>
+              <div className="pt-2 border-t border-border">
+                <div className="flex items-center justify-between">
+                  <Text variant="small" as="span" className="font-semibold">
+                    {auctionEnded ? 'Status' : 'Ends in'}
+                  </Text>
+                  <Text
+                    variant="small"
+                    as="span"
+                    className="font-semibold text-stellar-blue"
+                    aria-label={`Auction ${formatCountdown(auction.endTime, now)}`}
+                  >
+                    {formatCountdown(auction.endTime, now)}
+                  </Text>
+                </div>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="flex items-center justify-between">
+                <Text variant="small" as="span" className="text-muted-foreground">
+                  Price per ton
+                </Text>
+                <Text variant="small" as="span" className="font-semibold">
+                  {formatPrice(pricePerTon)}
+                </Text>
+              </div>
+              <div className="pt-2 border-t border-border">
+                <div className="flex items-center justify-between">
+                  <Text variant="small" as="span" className="font-semibold">
+                    Total Price
+                  </Text>
+                  <Text variant="h4" as="span" className="font-bold text-stellar-blue">
+                    {formatPrice(totalPrice)}
+                  </Text>
+                </div>
+              </div>
+            </>
+          )}
         </div>
 
         {/* Metadata */}
@@ -167,14 +271,46 @@ export function ListingCard({ listing, isOwnListing = false }: ListingCardProps)
       </CardContent>
 
       <CardFooter className="p-6 pt-0">
-        <Button
-          asChild
-          stellar="primary"
-          width="full"
-          aria-label={`View details for ${projectName}`}
-        >
-          <Link href={`/marketplace/${id}`}>View Details</Link>
-        </Button>
+        {isAuction ? (
+          <>
+            <Button
+              type="button"
+              stellar="primary"
+              width="full"
+              onClick={() => setIsBidModalOpen(true)}
+              disabled={auctionEnded}
+              aria-label={
+                auctionEnded
+                  ? `Auction for ${projectName} has ended`
+                  : `Place a bid on ${projectName}`
+              }
+              aria-haspopup="dialog"
+            >
+              {auctionEnded ? 'Auction Ended' : 'Place Bid'}
+            </Button>
+            {auction && (
+              <BidModal
+                isOpen={isBidModalOpen}
+                onClose={() => setIsBidModalOpen(false)}
+                listingId={id}
+                projectName={projectName}
+                quantity={quantity}
+                currentHighestBid={auction.highestBid}
+                reservePrice={auction.reservePrice}
+                endTime={auction.endTime}
+              />
+            )}
+          </>
+        ) : (
+          <Button
+            asChild
+            stellar="primary"
+            width="full"
+            aria-label={`View details for ${projectName}`}
+          >
+            <Link href={`/marketplace/${id}`}>View Details</Link>
+          </Button>
+        )}
       </CardFooter>
     </Card>
   );

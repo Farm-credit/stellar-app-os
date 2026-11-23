@@ -7,7 +7,8 @@
     "projects": "Projects",
     "marketplace": "Marketplace",
     "transactions": "Transactions",
-    "cooperatives": "Cooperatives"
+    "cooperatives": "Cooperatives",
+    "offramp": "Off-ramp"
   },
   "header": {
     "connectWallet": "Connect Wallet",
@@ -92,7 +93,13 @@
     "en": "English",
     "es": "Spanish",
     "fr": "French",
+    "de": "German",
     "pt": "Portuguese",
+    "ja": "Japanese",
+    "zh": "Mandarin",
+    "hi": "Hindi",
+    "ar": "Arabic",
+    "sw": "Swahili",
     "ha": "Hausa"
   }
 }

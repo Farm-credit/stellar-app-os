@@ -187,6 +187,14 @@ function logAudit(action: string, details: Record<string, unknown>): void {
 
 // Carbon credit fractionalization - retail access
 // Minimum purchase is 1 ton instead of 100+ ton blocks.
+// GHG Protocol: offset credits must be tracked by emission scope (1, 2, 3)
+const GHG_SCOPES = [1, 2, 3] as const;
+type GhgScope = (typeof GHG_SCOPES)[number];
+
+function isValidGhgScope(scope: unknown): scope is GhgScope {
+  return typeof scope === 'number' && (GHG_SCOPES as readonly number[]).includes(scope);
+}
+
 const MINIMUM_PURCHASE_TONS = 1;
 const MAX_FRACTIONAL_TONS = 1000000;
 
@@ -194,6 +202,7 @@ interface FractionalizationRequest {
   projectId: string;
   totalTons: number;
   minimumPurchaseTons?: number;
+  scope?: GhgScope;
 }
 
 interface FractionalizationResult {
@@ -207,6 +216,9 @@ interface FractionalizationResult {
 
 function validateFractionalization(request: FractionalizationRequest): string | null {
   if (!request.projectId) return 'projectId is required';
+  if (request.scope !== undefined && !isValidGhgScope(request.scope)) {
+    return `scope must be one of GHG Protocol scopes: ${GHG_SCOPES.join(', ')}`;
+  }
   if (!request.totalTons || request.totalTons <= 0) {
     return 'totalTons must be greater than zero';
   }

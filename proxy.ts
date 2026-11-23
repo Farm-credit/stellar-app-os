@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { checkRateLimit } from '@/lib/rateLimit';
 import { checkTieredRateLimit, WINDOW_MS } from '@/lib/rateLimit/tieredRateLimit';
 import { findApiKeyByRawValue, touchApiKey, recordApiKeyUsage } from '@/lib/api/apiKeys';
+import { readApiKey } from '@/lib/api/api-key-header';
 import { getCorsHeaders, handleCorsPreflight, isOriginAllowed } from '@/lib/cors';
 
 // Auth endpoints get a much stricter limit to slow brute-force attacks.
@@ -14,17 +15,6 @@ function getClientIp(request: NextRequest): string {
     request.headers.get('x-real-ip') ??
     '127.0.0.1'
   );
-}
-
-/**
- * Extracts a bearer API key from the `x-api-key` header. Returns null when the
- * header is absent or malformed.
- */
-function getApiKey(request: NextRequest): string | null {
-  const raw = request.headers.get('x-api-key');
-  if (!raw) return null;
-  const trimmed = raw.trim();
-  return trimmed.length > 0 ? trimmed : null;
 }
 
 export async function proxy(request: NextRequest): Promise<NextResponse> {
@@ -59,7 +49,7 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
 
   // Requests presenting an API key are governed by their tier's rolling hourly
   // budget rather than the shared per-IP minute limit.
-  const apiKey = getApiKey(request);
+  const apiKey = readApiKey(request);
   if (apiKey) {
     const tierResult = await enforceApiKeyLimit(apiKey, txId);
     if (tierResult) return tierResult;

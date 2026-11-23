@@ -1,4 +1,4 @@
-import { exifr } from 'exifr';
+import exifr from 'exifr';
 
 export interface GPSCoordinates {
   latitude: number;

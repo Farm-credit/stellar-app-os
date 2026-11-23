@@ -15,6 +15,7 @@ import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/atoms/Checkbox';
 import { Input } from '@/components/atoms/Input';
+import Link from 'next/link';
 import { TREE_SPECIES } from '@/lib/constants/species';
 
 export interface LocationFilters {
@@ -258,6 +259,11 @@ export function LocationFilterPanel({
               </p>
             )}
           </div>
+          <p className="mt-2 text-xs">
+            <Link href="/species" className="text-stellar-blue hover:underline">
+              Learn about our tree species
+            </Link>
+          </p>
           {filters.species.length > 0 && (
             <div className="mt-3 flex flex-wrap gap-1.5">
               {filters.species.map((slug) => (

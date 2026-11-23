@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import {
   LESSON_PLANS,
   SCHOOL_SPONSORSHIP_TIERS,
@@ -43,6 +44,14 @@ export default function SchoolsPage() {
             </article>
           ))}
         </div>
+
+        <p className="mt-10 text-muted-foreground">
+          Every species has a kid-friendly guide for the classroom.{' '}
+          <Link href="/species" className="font-medium text-stellar-blue hover:underline">
+            Browse the species guides
+          </Link>
+          .
+        </p>
 
         <h2 className="mt-14 text-2xl font-semibold text-foreground">Lesson plans by species</h2>
         <ul className="mt-6 grid gap-4 md:grid-cols-2">

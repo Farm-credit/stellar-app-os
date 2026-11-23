@@ -1,10 +1,12 @@
 'use client';
 
 import Link from 'next/link';
-import { ArrowLeft, ArrowRight, Camera, Leaf, MapPin, TreePine, Wind } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Camera, Heart, Leaf, MapPin, TreePine, Wind } from 'lucide-react';
 import { Text } from '@/components/atoms/Text';
 import { TreeStatusBadge } from '@/components/molecules/TreeStatusBadge';
+import { TreeGrowthStageBadge } from '@/components/molecules/TreeGrowthStageBadge';
 import { TreeLifecycleTimeline } from '@/components/organisms/TreeLifecycleTimeline';
+import { deriveGrowthStage } from '@/lib/tree-growth/stages';
 import {
   Card,
   CardContent,
@@ -13,8 +15,10 @@ import {
   CardTitle,
 } from '@/components/molecules/Card';
 import { Co2MethodologyLink } from '@/components/molecules/Co2MethodologyLink';
+import { LegacyTierBadge } from '@/components/molecules/LegacyTierBadge';
 import type { TreeSequestration } from '@/lib/carbon/ipcc-tier1';
 import type { Tree } from '@/lib/types/tree';
+import { speciesPathForName } from '@/lib/species/education';
 import { TreeCo2Calculation } from './TreeCo2Calculation';
 import { TreeImage } from './TreeImage';
 
@@ -26,6 +30,8 @@ interface TreeDetailProps {
 
 /** Tree detail view for sponsors and map click-through (#532, #533). */
 export function TreeDetail({ tree, sequestration }: TreeDetailProps) {
+  const growthStage = deriveGrowthStage(tree);
+
   return (
     <div className="mx-auto max-w-3xl px-4 py-6 sm:py-10">
       <Link
@@ -43,11 +49,43 @@ export function TreeDetail({ tree, sequestration }: TreeDetailProps) {
             {tree.treeId}
           </Text>
           <TreeStatusBadge status={tree.status} />
+          <TreeGrowthStageBadge stage={growthStage} />
+          <LegacyTierBadge sponsorName={tree.sponsorName} compact />
         </div>
         <Text variant="muted" as="p">
           {tree.projectName}
         </Text>
       </header>
+
+      {tree.dedication?.trim() ? (
+        <section
+          aria-label="Tree dedication"
+          className="mb-6 rounded-xl border border-rose-200 bg-rose-50/70 p-4 sm:p-5"
+        >
+          <div className="flex items-start gap-3">
+            <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-rose-100">
+              <Heart
+                className="h-5 w-5 fill-rose-500 text-rose-500"
+                data-testid="dedication-heart-icon"
+                aria-hidden="true"
+              />
+            </div>
+            <div className="space-y-1">
+              <Text variant="small" className="font-semibold uppercase tracking-wide text-rose-700">
+                Dedicated with love
+              </Text>
+              <blockquote className="text-base font-medium leading-relaxed text-foreground">
+                &ldquo;{tree.dedication.trim()}&rdquo;
+              </blockquote>
+              {tree.sponsorName?.trim() ? (
+                <Text variant="muted" className="text-xs">
+                  — {tree.sponsorName.trim()}
+                </Text>
+              ) : null}
+            </div>
+          </div>
+        </section>
+      ) : null}
 
       {tree.imageUrl ? (
         <div className="mb-4 overflow-hidden rounded-xl border border-border bg-muted">
@@ -65,6 +103,14 @@ export function TreeDetail({ tree, sequestration }: TreeDetailProps) {
           </CardHeader>
           <CardContent>
             <Text className="text-lg font-semibold">{tree.species}</Text>
+            {speciesPathForName(tree.species) ? (
+              <Link
+                href={speciesPathForName(tree.species) as string}
+                className="mt-1 inline-block text-sm text-stellar-blue hover:underline"
+              >
+                Learn about {tree.species}
+              </Link>
+            ) : null}
           </CardContent>
         </Card>
 

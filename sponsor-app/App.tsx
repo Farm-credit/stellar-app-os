@@ -1,33 +1,38 @@
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View, FlatList } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import { HomeScreen } from './src/screens/HomeScreen';
 import { MyTreesScreen } from './src/screens/MyTreesScreen';
 import { ARTreeViewerScreen } from './src/screens/ARTreeViewerScreen';
 import { ProfileScreen } from './src/screens/ProfileScreen';
+import { TaxDeductionScreen } from './src/screens/TaxDeductionScreen';
 import {
   authenticateWithBiometrics,
   getBiometricAvailability,
   type BiometricAvailability,
 } from './src/lib/biometrics';
 import { registerForPushNotifications } from './src/lib/notifications';
+import { subscribeToTreeEvents } from './src/lib/treeEvents';
 import { notify } from './src/lib/toast';
 
-type Tab = 'home' | 'trees' | 'ar' | 'profile';
+type Tab = 'home' | 'trees' | 'ar' | 'profile' | 'tax-deduction';
 
 const TABS: Array<{ id: Tab; label: string }> = [
   { id: 'home', label: 'Home' },
   { id: 'trees', label: 'My Trees' },
   { id: 'ar', label: 'AR' },
   { id: 'profile', label: 'Profile' },
+  { id: 'tax-deduction', label: 'Tax Deduction' },
 ];
 
 export default function App() {
   const [availability, setAvailability] = useState<BiometricAvailability>({ available: false });
-  const [unlocked, setUnlocked] = useState(false);
+  const [unbalanced, setUnbalanced] = useState(false);
   const [tab, setTab] = useState<Tab>('home');
   const notificationListener = useRef<Notifications.Subscription | null>(null);
+  const responseListener = useRef<Notifications.Subscription | null>(null);
+  const treeEventsUnsubscribe = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     void (async () => {
@@ -35,45 +40,79 @@ export default function App() {
       setAvailability(info);
       if (!info.available) {
         // Simulator / device without biometrics: allow entry so the app is
-        // still usable; the Profile tab documents the fallback.
-        setUnlocked(true);
+        // still usable; the Profile tab documents the biometric status.
+        setUnbalanced(true);
         return;
       }
       if (info.enrolled) {
-        setUnlocked(await authenticateWithBiometrics());
+        setUnbalanced(await authenticateWithBiometrics());
       } else {
-        setUnlocked(true);
+        setUnbalanced(true);
       }
     })();
   }, []);
 
   useEffect(() => {
-    if (!unlocked) {
+    if (!unbalanced) {
       return;
     }
 
     void registerForPushNotifications();
 
-    notificationListener.current = Notifications.addNotificationReceivedListener(
-      (notification) => {
-        const data = notification.request.content.data ?? {};
-        const title = notification.request.content.title ?? 'FarmCredit Sponsor';
-        const body = notification.request.content.body ?? '';
-        notify(body ? `${title}: ${body}` : title);
+    const handleNotification = (notification: Notifications.Notification) => {
+      const data = notification.request.content.data ?? {};
+      const title = notification.request.content.title ?? 'FarmCredit Sponsor';
+      const body = notification.request.content.body ?? '';
+      notify(body ? `${title}: ${body}` : title);
 
-        if (typeof data.treeId === 'string' && data.treeId.length > 0) {
-          setTab('trees');
-        }
+      const dataId = data.treeId ?? data.id;
+      const kind = typeof data.kind === 'string' ? data.kind : undefined;
+
+      if (kind === 'achievement') {
+        setTab('profile');
+        return;
+      }
+
+      if (typeof dataId === 'string' && dataId.length > 0) {
+        setTab('trees');
+      }
+    };
+
+    notificationListener.current = Notifications.addNotificationReceivedListener(
+      handleNotification,
+    );
+
+    responseListener.current = Notifications.addNotificationResponseReceivedListener(
+      (response) => {
+        handleNotification(response.notification);
       },
     );
+
+    // Subscribe to real-time tree milestone / achievement events so they
+    // surface as in-app notifications (and are routed to the right screen).
+    treeEventsUnsubscribe.current = subscribeToTreeEvents((event) => {
+      const title = event.title ?? 'FarmCredit Sponsor';
+      const body = event.body ?? '';
+      notify(body ? `${title}: ${body}` : title);
+
+      if (event.kind === 'achievement') {
+        setTab('profile');
+      } else if (event.treeId) {
+        setTab('trees');
+      }
+    });
 
     return () => {
       notificationListener.current?.remove();
       notificationListener.current = null;
+      responseListener.current?.remove();
+      responseListener.current = null;
+      treeEventsUnsubscribe.current?.();
+      treeEventsUnsubscribe.current = null;
     };
-  }, [unlocked]);
+  }, [unbalanced]);
 
-  if (!unlocked) {
+  if (!unbalanced) {
     return (
       <View style={styles.lockScreen}>
         <Text style={styles.lockTitle}>FarmCredit Sponsor</Text>
@@ -81,7 +120,7 @@ export default function App() {
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Unlock the app"
-          onPress={() => void authenticateWithBiometrics().then(setUnlocked)}
+          onPress={() => void authenticateWithBiometrics().then(setUnbalanced)}
           android_ripple={{ color: '#0d90b8' }}
           style={({ pressed }) => [styles.unlockButton, pressed && styles.unlockPressed]}
         >
@@ -98,6 +137,7 @@ export default function App() {
         {tab === 'trees' && <MyTreesScreen />}
         {tab === 'ar' && <ARTreeViewerScreen />}
         {tab === 'profile' && <ProfileScreen />}
+        {tab === 'tax-deduction' && <TaxDeductionScreen />}
       </View>
 
       <View style={styles.tabBar} accessibilityRole="tablist" accessibilityLabel="Main navigation">
@@ -111,9 +151,11 @@ export default function App() {
               accessibilityState={{ selected }}
               onPress={() => setTab(id)}
               android_ripple={{ color: '#e0e0e0' }}
-              style={[styles.tab, selected && styles.tabSelected]}
+              style={({ pressed }) => [styles.tab, selected && styles.tabSelected]}
             >
-              <Text style={[styles.tabText, selected && styles.tabTextSelected]}>{label}</Text>
+              <Text style={[styles.tabText, selected && styles.tabTextSelected]}>
+                {label}
+              </Text>
             </Pressable>
           );
         })}

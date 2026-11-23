@@ -55,6 +55,10 @@ pub enum CarbonCreditsError {
     BonusAlreadyAwarded = 25,
     /// No retirement record exists for the supplied id.
     RetirementNotFound = 26,
+    /// An evidence digest has already been used for a field credit issue.
+    FieldCreditAlreadyRecorded = 27,
+    /// No field credit record exists for the supplied evidence digest.
+    FieldCreditNotFound = 28,
 }
 
 // ── Units ─────────────────────────────────────────────────────────────────────
@@ -199,7 +203,7 @@ pub struct SoilHealthScore {
     /// Composite soil health improvement score (0..=100).
     pub composite_score: u32,
     /// Grams of CO₂ sequestered above baseline.
-    pub sequestration_above_baseline_grams: u64,
+    pub seq_above_baseline_grams: u64,
     /// Awarded bonus carbon credits in grams CO₂.
     pub bonus_credits_grams: u64,
     /// Whether bonus credits have already been awarded into the farmer's balance.
@@ -242,6 +246,18 @@ pub struct CreditSupply {
     pub circulating: u64,
 }
 
+/// Immutable record of an admin-reviewed field credit issuance.
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct FieldCreditRecord {
+    pub sponsor: Address,
+    pub project_id: Symbol,
+    pub grams: u64,
+    pub evidence_digest: BytesN<32>,
+    pub recorded_at: u64,
+    pub ledger: u32,
+}
+
 // ── Storage keys ──────────────────────────────────────────────────────────────
 
 #[contracttype]
@@ -278,6 +294,12 @@ enum DataKey {
     OwnerRetirementCount(Address),
     /// Owner's n-th retirement (0-based) → retirement id.
     OwnerRetirement(Address, u64),
+    /// Immutable field credit record, keyed by its evidence digest.
+    FieldCredit(BytesN<32>),
+    /// Field-issued grams not yet listed in a retail lot, keyed by evidence digest.
+    FieldCreditAvailable(BytesN<32>),
+    /// Evidence digest for a retail lot opened from field-issued credits.
+    FieldRetailLotDigest(u64),
 }
 
 // ── Contract ──────────────────────────────────────────────────────────────────
@@ -348,6 +370,85 @@ impl CarbonCredits {
     ) {
         Self::require_admin(&env);
         Self::accumulate_credit(env, sponsor, slug, tree_count, age_years);
+    }
+
+    /// Admin-only: issue measured field credits backed by an off-chain reviewed dataset.
+    /// The digest is write-once and permanently identifies this issuance record.
+    pub fn record_field_credit(
+        env: Env,
+        sponsor: Address,
+        project_id: Symbol,
+        amount_grams: u64,
+        evidence_digest: BytesN<32>,
+    ) {
+        Self::require_admin(&env);
+        if amount_grams == 0 {
+            panic_with_error!(&env, CarbonCreditsError::InvalidAmount);
+        }
+
+        let record_key = DataKey::FieldCredit(evidence_digest.clone());
+        if env.storage().persistent().has(&record_key) {
+            panic_with_error!(&env, CarbonCreditsError::FieldCreditAlreadyRecorded);
+        }
+
+        let balance_key = DataKey::TotalOffset(sponsor.clone());
+        let balance: u64 = env.storage().persistent().get(&balance_key).unwrap_or(0u64);
+        let updated = balance
+            .checked_add(amount_grams)
+            .unwrap_or_else(|| panic_with_error!(&env, CarbonCreditsError::InvalidAmount));
+        env.storage().persistent().set(&balance_key, &updated);
+        env.storage().persistent().set(
+            &DataKey::FieldCreditAvailable(evidence_digest.clone()),
+            &amount_grams,
+        );
+        env.storage().persistent().extend_ttl(
+            &DataKey::FieldCreditAvailable(evidence_digest.clone()),
+            RETIREMENT_BUMP_THRESHOLD,
+            RETIREMENT_BUMP_AMOUNT,
+        );
+        Self::add_issued(&env, amount_grams);
+
+        let record = FieldCreditRecord {
+            sponsor: sponsor.clone(),
+            project_id: project_id.clone(),
+            grams: amount_grams,
+            evidence_digest: evidence_digest.clone(),
+            recorded_at: env.ledger().timestamp(),
+            ledger: env.ledger().sequence(),
+        };
+        env.storage().persistent().set(&record_key, &record);
+        env.storage().persistent().extend_ttl(
+            &record_key,
+            RETIREMENT_BUMP_THRESHOLD,
+            RETIREMENT_BUMP_AMOUNT,
+        );
+        env.events().publish(
+            (symbol_short!("field"), symbol_short!("credit")),
+            (evidence_digest, amount_grams, sponsor, project_id),
+        );
+    }
+
+    /// Returns the immutable field credit record for an evidence digest.
+    pub fn get_field_credit(env: Env, evidence_digest: BytesN<32>) -> FieldCreditRecord {
+        env.storage()
+            .persistent()
+            .get(&DataKey::FieldCredit(evidence_digest))
+            .unwrap_or_else(|| panic_with_error!(&env, CarbonCreditsError::FieldCreditNotFound))
+    }
+
+    /// Returns unlisted grams for a field-credit evidence digest.
+    pub fn get_field_credit_available(env: Env, evidence_digest: BytesN<32>) -> u64 {
+        if !env
+            .storage()
+            .persistent()
+            .has(&DataKey::FieldCredit(evidence_digest.clone()))
+        {
+            panic_with_error!(&env, CarbonCreditsError::FieldCreditNotFound);
+        }
+        env.storage()
+            .persistent()
+            .get(&DataKey::FieldCreditAvailable(evidence_digest))
+            .unwrap_or(0u64)
     }
 
     /// Returns the total accumulated grams CO₂ offset for a sponsor.
@@ -723,6 +824,99 @@ impl CarbonCredits {
         id
     }
 
+    /// Seller-only retail listing path restricted to grams from one field issuance.
+    pub fn open_field_credit_lot(
+        env: Env,
+        seller: Address,
+        evidence_digest: BytesN<32>,
+        grams: u64,
+        price_per_ton: i128,
+    ) -> u64 {
+        seller.require_auth();
+        Self::retail_payment_token(&env);
+
+        let record: FieldCreditRecord = env
+            .storage()
+            .persistent()
+            .get(&DataKey::FieldCredit(evidence_digest.clone()))
+            .unwrap_or_else(|| panic_with_error!(&env, CarbonCreditsError::FieldCreditNotFound));
+        if record.sponsor != seller {
+            panic_with_error!(&env, CarbonCreditsError::Unauthorized);
+        }
+        if price_per_ton <= 0 {
+            panic_with_error!(&env, CarbonCreditsError::InvalidPrice);
+        }
+        if grams < MIN_RETAIL_PORTION_GRAMS || grams % GRAMS_PER_TON != 0 {
+            panic_with_error!(&env, CarbonCreditsError::InvalidLotSize);
+        }
+
+        let available_key = DataKey::FieldCreditAvailable(evidence_digest.clone());
+        let available: u64 = env
+            .storage()
+            .persistent()
+            .get(&available_key)
+            .unwrap_or(0u64);
+        if grams > available {
+            panic_with_error!(&env, CarbonCreditsError::InsufficientOffsets);
+        }
+        let balance_key = DataKey::TotalOffset(seller.clone());
+        let balance: u64 = env.storage().persistent().get(&balance_key).unwrap_or(0u64);
+        if grams > balance {
+            panic_with_error!(&env, CarbonCreditsError::InsufficientOffsets);
+        }
+
+        env.storage()
+            .persistent()
+            .set(&available_key, &(available - grams));
+        env.storage().persistent().extend_ttl(
+            &available_key,
+            RETIREMENT_BUMP_THRESHOLD,
+            RETIREMENT_BUMP_AMOUNT,
+        );
+        env.storage()
+            .persistent()
+            .set(&balance_key, &(balance - grams));
+        let id = Self::next_retail_lot_id(&env);
+        let lot = RetailLot {
+            id,
+            project_id: record.project_id.clone(),
+            seller: seller.clone(),
+            total: grams,
+            remaining: grams,
+            price_per_ton,
+            active: true,
+            opened_at: env.ledger().timestamp(),
+        };
+        env.storage()
+            .persistent()
+            .set(&DataKey::RetailLot(id), &lot);
+        env.storage().persistent().extend_ttl(
+            &DataKey::RetailLot(id),
+            RETIREMENT_BUMP_THRESHOLD,
+            RETIREMENT_BUMP_AMOUNT,
+        );
+        env.storage()
+            .persistent()
+            .set(&DataKey::FieldRetailLotDigest(id), &evidence_digest);
+        env.storage().persistent().extend_ttl(
+            &DataKey::FieldRetailLotDigest(id),
+            RETIREMENT_BUMP_THRESHOLD,
+            RETIREMENT_BUMP_AMOUNT,
+        );
+        env.events().publish(
+            (symbol_short!("retail"), symbol_short!("opened")),
+            (id, seller, record.project_id, grams, price_per_ton),
+        );
+        id
+    }
+
+    /// Evidence digest for a field-credit retail lot; legacy modeled lots return `None`.
+    pub fn get_field_retail_lot_digest(env: Env, lot_id: u64) -> Option<BytesN<32>> {
+        env.storage()
+            .persistent()
+            .get(&DataKey::FieldRetailLotDigest(lot_id))
+    }
+
     /// Buy `grams` of CO₂ out of a retail lot.
     ///
     /// At minimum one ton must be bought — that is the whole point of the
@@ -770,6 +964,11 @@ impl CarbonCredits {
             lot.active = false;
         }
         env.storage().persistent().set(&lot_key, &lot);
+        env.storage().persistent().extend_ttl(
+            &lot_key,
+            RETIREMENT_BUMP_THRESHOLD,
+            RETIREMENT_BUMP_AMOUNT,
+        );
 
         let balance_key = DataKey::TotalOffset(buyer.clone());
         let balance: u64 = env.storage().persistent().get(&balance_key).unwrap_or(0u64);
@@ -806,6 +1005,11 @@ impl CarbonCredits {
         lot.remaining = 0;
         lot.active = false;
         env.storage().persistent().set(&lot_key, &lot);
+        env.storage().persistent().extend_ttl(
+            &lot_key,
+            RETIREMENT_BUMP_THRESHOLD,
+            RETIREMENT_BUMP_AMOUNT,
+        );
 
         if refund > 0 {
             let balance_key = DataKey::TotalOffset(seller.clone());
@@ -814,6 +1018,29 @@ impl CarbonCredits {
                 .checked_add(refund)
                 .unwrap_or_else(|| panic_with_error!(&env, CarbonCreditsError::InvalidAmount));
             env.storage().persistent().set(&balance_key, &restored);
+            if let Some(evidence_digest) = env
+                .storage()
+                .persistent()
+                .get::<_, BytesN<32>>(&DataKey::FieldRetailLotDigest(lot_id))
+            {
+                let available_key = DataKey::FieldCreditAvailable(evidence_digest);
+                let available: u64 = env
+                    .storage()
+                    .persistent()
+                    .get(&available_key)
+                    .unwrap_or(0u64);
+                let restored_available = available
+                    .checked_add(refund)
+                    .unwrap_or_else(|| panic_with_error!(&env, CarbonCreditsError::InvalidAmount));
+                env.storage()
+                    .persistent()
+                    .set(&available_key, &restored_available);
+                env.storage().persistent().extend_ttl(
+                    &available_key,
+                    RETIREMENT_BUMP_THRESHOLD,
+                    RETIREMENT_BUMP_AMOUNT,
+                );
+            }
         }
 
         env.events().publish(
@@ -1071,7 +1298,21 @@ impl CarbonCredits {
             .storage()
             .persistent()
             .get(&DataKey::SoilMeasurement(plot_id.clone()))
-            .unwrap_or_else(|| panic_with_error!(&env, CarbonCreditsError::PlotMeasurementNotFound));
+            .unwrap_or_else(|| {
+                panic_with_error!(&env, CarbonCreditsError::PlotMeasurementNotFound)
+            });
+
+        // Re-scoring after the bonus was minted would reset `bonus_awarded`
+        // and allow a second mint for the same plot.
+        if let Some(prev) = env
+            .storage()
+            .persistent()
+            .get::<_, SoilHealthScore>(&DataKey::SoilScore(plot_id.clone()))
+        {
+            if prev.bonus_awarded {
+                panic_with_error!(&env, CarbonCreditsError::BonusAlreadyAwarded);
+            }
+        }
 
         let soc_gain_bps = m.measured_soc_bps as i32 - m.baseline_soc_bps as i32;
         if soc_gain_bps <= 0 {
@@ -1094,19 +1335,17 @@ impl CarbonCredits {
         let carbon_sequestered_kg = (total_soil_mass_kg * soc_gain_bps as u64) / 10_000;
 
         // Grams CO₂ = carbon_kg * 44/12 * 1000 = (carbon_kg * 44 * 1000) / 12
-        let sequestration_above_baseline_grams =
-            (carbon_sequestered_kg * 44 * 1_000) / 12;
+        let seq_above_baseline_grams = (carbon_sequestered_kg * 44 * 1_000) / 12;
 
         // Bonus credits scaled by composite regenerative score
-        let bonus_credits_grams =
-            (sequestration_above_baseline_grams * composite_score as u64) / 100;
+        let bonus_credits_grams = (seq_above_baseline_grams * composite_score as u64) / 100;
 
         let score = SoilHealthScore {
             plot_id: plot_id.clone(),
             farmer: m.farmer,
             soc_gain_bps,
             composite_score,
-            sequestration_above_baseline_grams,
+            seq_above_baseline_grams,
             bonus_credits_grams,
             bonus_awarded: false,
             scored_at: env.ledger().timestamp(),
@@ -1134,7 +1373,9 @@ impl CarbonCredits {
             .storage()
             .persistent()
             .get(&DataKey::SoilScore(plot_id.clone()))
-            .unwrap_or_else(|| panic_with_error!(&env, CarbonCreditsError::PlotMeasurementNotFound));
+            .unwrap_or_else(|| {
+                panic_with_error!(&env, CarbonCreditsError::PlotMeasurementNotFound)
+            });
 
         if score.bonus_awarded {
             panic_with_error!(&env, CarbonCreditsError::BonusAlreadyAwarded);
@@ -1201,6 +1442,161 @@ mod tests {
 
     fn region(env: &Env, name: &str) -> Symbol {
         Symbol::new(env, name)
+    }
+
+    #[test]
+    fn test_record_field_credit_updates_supply_and_persists_record() {
+        let (env, _, client) = setup();
+        let sponsor = Address::generate(&env);
+        let project = Symbol::new(&env, "field1");
+        let evidence = digest(&env, 7);
+
+        client.record_field_credit(&sponsor, &project, &12_345_u64, &evidence);
+
+        assert_eq!(client.total_offset_for_sponsor(&sponsor), 12_345);
+        let supply = client.credit_supply();
+        assert_eq!(supply.issued, 12_345);
+        assert_eq!(supply.circulating, 12_345);
+        let record = client.get_field_credit(&evidence);
+        assert_eq!(record.sponsor, sponsor);
+        assert_eq!(record.project_id, project);
+        assert_eq!(record.grams, 12_345);
+        assert_eq!(record.evidence_digest, evidence);
+        assert_eq!(record.recorded_at, env.ledger().timestamp());
+        assert_eq!(record.ledger, env.ledger().sequence());
+        assert_eq!(client.get_field_credit_available(&evidence), 12_345);
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #27)")]
+    fn test_record_field_credit_rejects_duplicate_digest() {
+        let (env, _, client) = setup();
+        let sponsor = Address::generate(&env);
+        let evidence = digest(&env, 8);
+        let project = Symbol::new(&env, "field2");
+        client.record_field_credit(&sponsor, &project, &10_u64, &evidence);
+        client.record_field_credit(&sponsor, &project, &20_u64, &evidence);
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #3)")]
+    fn test_record_field_credit_rejects_zero_amount() {
+        let (env, _, client) = setup();
+        let sponsor = Address::generate(&env);
+        client.record_field_credit(
+            &sponsor,
+            &Symbol::new(&env, "field3"),
+            &0_u64,
+            &digest(&env, 9),
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Auth, InvalidAction)")]
+    fn test_record_field_credit_requires_admin_auth() {
+        let env = Env::default();
+        let contract_id = env.register_contract(None, CarbonCredits);
+        let client = CarbonCreditsClient::new(&env, &contract_id);
+        let admin = Address::generate(&env);
+        client.initialize(&admin);
+        let sponsor = Address::generate(&env);
+        client.record_field_credit(
+            &sponsor,
+            &Symbol::new(&env, "field4"),
+            &10_u64,
+            &digest(&env, 10),
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #28)")]
+    fn test_get_missing_field_credit_panics() {
+        let (env, _, client) = setup();
+        client.get_field_credit(&digest(&env, 11));
+    }
+
+    #[test]
+    fn test_field_credit_lot_digest_and_close_restore_allow_relisting() {
+        let (env, _, client) = setup();
+        let seller = Address::generate(&env);
+        let evidence = digest(&env, 12);
+        let project = Symbol::new(&env, "field_lot");
+        let token = Address::generate(&env);
+        client.configure_retail(&token);
+        client.record_field_credit(&seller, &project, &2_000_000_u64, &evidence);
+
+        let first = client.open_field_credit_lot(&seller, &evidence, &1_000_000_u64, &50_i128);
+        assert_eq!(
+            client.get_field_retail_lot_digest(&first),
+            Some(evidence.clone())
+        );
+        assert_eq!(client.get_retail_lot(&first).project_id, project);
+        assert_eq!(client.total_offset_for_sponsor(&seller), 1_000_000);
+        assert_eq!(client.get_field_credit_available(&evidence), 1_000_000);
+
+        client.close_retail_lot(&seller, &first);
+        assert_eq!(client.total_offset_for_sponsor(&seller), 2_000_000);
+        assert_eq!(client.get_field_credit_available(&evidence), 2_000_000);
+        let second = client.open_field_credit_lot(&seller, &evidence, &2_000_000_u64, &60_i128);
+        assert_eq!(client.get_field_retail_lot_digest(&second), Some(evidence));
+        assert_eq!(client.total_offset_for_sponsor(&seller), 0);
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #21)")]
+    fn test_field_credit_lot_rejects_non_sponsor() {
+        let (env, _, client) = setup();
+        let sponsor = Address::generate(&env);
+        let other = Address::generate(&env);
+        let evidence = digest(&env, 13);
+        client.configure_retail(&Address::generate(&env));
+        client.record_field_credit(
+            &sponsor,
+            &Symbol::new(&env, "field_sponsor"),
+            &1_000_000_u64,
+            &evidence,
+        );
+        client.open_field_credit_lot(&other, &evidence, &1_000_000_u64, &1_i128);
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #28)")]
+    fn test_field_credit_lot_rejects_modeled_only_credits() {
+        let (env, _, client) = setup();
+        let seller = Address::generate(&env);
+        client.configure_retail(&Address::generate(&env));
+        client.set_rate(&Symbol::new(&env, "oak"), &100_000_i128, &20_u32);
+        client.record_credit(&seller, &Symbol::new(&env, "oak"), &1_u32, &1_u32);
+        client.open_field_credit_lot(&seller, &digest(&env, 14), &1_000_000_u64, &1_i128);
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #5)")]
+    fn test_field_credit_lot_prevents_overlisting_digest() {
+        let (env, _, client) = setup();
+        let seller = Address::generate(&env);
+        let evidence = digest(&env, 15);
+        client.configure_retail(&Address::generate(&env));
+        client.record_field_credit(
+            &seller,
+            &Symbol::new(&env, "field_overlist"),
+            &1_000_000_u64,
+            &evidence,
+        );
+        client.open_field_credit_lot(&seller, &evidence, &1_000_000_u64, &1_i128);
+        client.open_field_credit_lot(&seller, &evidence, &1_000_000_u64, &1_i128);
+    }
+
+    #[test]
+    fn test_legacy_retail_lot_has_no_field_digest() {
+        let (env, _, client) = setup();
+        let seller = Address::generate(&env);
+        client.configure_retail(&Address::generate(&env));
+        client.set_rate(&Symbol::new(&env, "pine"), &100_000_i128, &20_u32);
+        client.record_credit(&seller, &Symbol::new(&env, "pine"), &1_u32, &1_u32);
+        let id =
+            client.open_retail_lot(&seller, &Symbol::new(&env, "pine"), &1_000_000_u64, &1_i128);
+        assert_eq!(client.get_field_retail_lot_digest(&id), None);
     }
 
     #[test]
@@ -2171,7 +2567,12 @@ mod tests {
 
         client.retire_credits(&seller, &2_000_000_u64, &symbol_short!("offset"));
         // Nothing is left to list, so the burned tons cannot be sold on.
-        client.open_retail_lot(&seller, &Symbol::new(&env, "proj1"), &1_000_000_u64, &5_i128);
+        client.open_retail_lot(
+            &seller,
+            &Symbol::new(&env, "proj1"),
+            &1_000_000_u64,
+            &5_i128,
+        );
     }
 
     #[test]
@@ -2223,5 +2624,104 @@ mod tests {
             Vec::from_array(&env, [2_u64])
         );
         assert_eq!(client.credit_supply().circulating, 0);
+    }
+
+    // ── Soil health scoring (issue #1262) ─────────────────────────────────────
+
+    fn record_plot(
+        env: &Env,
+        client: &CarbonCreditsClient<'static>,
+        plot: &Symbol,
+        farmer: &Address,
+        baseline: u32,
+        measured: u32,
+    ) {
+        let verifier = Address::generate(env);
+        client.record_soil_measurement(
+            plot, farmer, &baseline, &measured, &400_u32, &125_u32, &80_u32, &10_u32, &verifier,
+        );
+    }
+
+    #[test]
+    fn test_soil_score_and_bonus_award() {
+        let (env, _, client) = setup();
+        let farmer = Address::generate(&env);
+        let plot = symbol_short!("plot1");
+        record_plot(&env, &client, &plot, &farmer, 150, 235);
+
+        let score = client.calculate_soil_health_score(&plot);
+        assert_eq!(score.soc_gain_bps, 85);
+        assert_eq!(score.composite_score, 82);
+        assert_eq!(
+            score.bonus_credits_grams,
+            score.seq_above_baseline_grams * 82 / 100
+        );
+        assert!(!score.bonus_awarded);
+
+        let before = client.total_offset_for_sponsor(&farmer);
+        let bonus = client.award_soil_bonus_credits(&plot);
+        assert_eq!(bonus, score.bonus_credits_grams);
+        assert_eq!(client.total_offset_for_sponsor(&farmer), before + bonus);
+        assert!(client.get_soil_health_score(&plot).bonus_awarded);
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #24)")]
+    fn test_soil_no_bonus_at_or_below_baseline() {
+        let (env, _, client) = setup();
+        let farmer = Address::generate(&env);
+        let plot = symbol_short!("plot2");
+        record_plot(&env, &client, &plot, &farmer, 200, 200);
+        client.calculate_soil_health_score(&plot);
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #25)")]
+    fn test_soil_bonus_cannot_be_awarded_twice() {
+        let (env, _, client) = setup();
+        let farmer = Address::generate(&env);
+        let plot = symbol_short!("plot3");
+        record_plot(&env, &client, &plot, &farmer, 150, 235);
+        client.calculate_soil_health_score(&plot);
+        client.award_soil_bonus_credits(&plot);
+        client.award_soil_bonus_credits(&plot);
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #25)")]
+    fn test_soil_rescore_after_award_cannot_reset_bonus() {
+        let (env, _, client) = setup();
+        let farmer = Address::generate(&env);
+        let plot = symbol_short!("plot4");
+        record_plot(&env, &client, &plot, &farmer, 150, 235);
+        client.calculate_soil_health_score(&plot);
+        client.award_soil_bonus_credits(&plot);
+        client.calculate_soil_health_score(&plot);
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #23)")]
+    fn test_soil_invalid_measurement_rejected() {
+        let (env, _, client) = setup();
+        let farmer = Address::generate(&env);
+        let verifier = Address::generate(&env);
+        client.record_soil_measurement(
+            &symbol_short!("plot5"),
+            &farmer,
+            &150_u32,
+            &235_u32,
+            &400_u32,
+            &125_u32,
+            &101_u32,
+            &10_u32,
+            &verifier,
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #22)")]
+    fn test_soil_score_unknown_plot_panics() {
+        let (_, _, client) = setup();
+        client.calculate_soil_health_score(&symbol_short!("nope"));
     }
 }

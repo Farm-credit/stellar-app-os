@@ -50,7 +50,7 @@ export async function GET(request: NextRequest, context: RouteContext): Promise<
   if (!isStellarAddress(farmerAddress)) {
     return NextResponse.json(
       {
-        error: 'farmerAddress must be a 56-character Stellar public key starting with G.',
+        error: 'farmerAddress must be a valid Stellar public key with a valid checksum.',
         code: 'invalid_address',
       },
       { status: 400, headers: responseHeaders(auth.client.tier) }
@@ -80,8 +80,8 @@ export async function GET(request: NextRequest, context: RouteContext): Promise<
   } catch (error) {
     console.error('[api/v1/farmers/[farmerAddress]/verification] error:', error);
     return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500, headers: responseHeaders(auth.client.tier) }
+      { error: 'Verification data is temporarily unavailable', code: 'service_unavailable' },
+      { status: 503, headers: responseHeaders(auth.client.tier) }
     );
   }
 }

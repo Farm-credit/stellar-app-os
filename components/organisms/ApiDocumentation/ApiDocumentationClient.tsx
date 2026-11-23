@@ -298,6 +298,136 @@ const endpointDocs: EndpointDoc[] = [
       },
     ],
   },
+  {
+    id: 'farmer-verification-single',
+    title: 'Farmer Verification (Third-Party Integration)',
+    method: 'GET',
+    path: '/api/v1/farmers/{farmerAddress}/verification',
+    description:
+      'Third-party farmer verification API for external partner platforms and financial institutions to verify farmer identity, land ownership, and credit availability without disclosing PII.',
+    tags: ['farmers', 'verification', 'kyc', 'credit', 'third-party', 'api-v1'],
+    responseExample: {
+      farmerAddress: 'GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF',
+      apiVersion: 'v1',
+      verificationStatus: 'verified',
+      verified: true,
+      identity: {
+        verified: true,
+        verifiedAt: '2026-07-01T10:00:00.000Z',
+        documentType: 'nin',
+      },
+      land: {
+        verified: true,
+        verifiedAt: '2026-07-02T10:00:00.000Z',
+        ownershipType: 'customary',
+        plotSizeHectares: 3.5,
+        region: 'Kano',
+        gpsCoordinates: {
+          latitude: 11.98,
+          longitude: 8.55,
+        },
+      },
+      certification: {
+        eligible: true,
+        tier: 'full',
+        blockers: [],
+        advisories: [],
+        rulesetVersion: 'kyc-eligibility-v1',
+      },
+      credit: {
+        available: true,
+        tier: 'full',
+        blockers: [],
+        advisories: [],
+        applicationSettled: false,
+        sanctionsClear: true,
+      },
+      consent: {
+        granted: true,
+      },
+      checkedAt: '2026-10-22T16:00:00.000Z',
+    },
+    errorExamples: [
+      {
+        status: 400,
+        body: {
+          error: 'farmerAddress must be a 56-character Stellar public key starting with G.',
+          code: 'invalid_address',
+        },
+      },
+      {
+        status: 401,
+        body: {
+          error: 'Missing credentials. Provide an X-API-Key header or an OAuth2 bearer token.',
+        },
+      },
+      {
+        status: 403,
+        body: {
+          error: 'The farmer has not granted consent for third-party verification.',
+          code: 'consent_denied',
+        },
+      },
+      {
+        status: 404,
+        body: {
+          error: 'No verification record found for this farmer.',
+          code: 'not_found',
+        },
+      },
+    ],
+  },
+  {
+    id: 'farmer-verification-batch',
+    title: 'Batch Farmer Verification',
+    method: 'POST',
+    path: '/api/v1/farmers/verification',
+    description:
+      'Batch verification for partner portfolios. Submit 1-100 unique Stellar public keys to receive verified identity, land, and credit reports.',
+    tags: ['farmers', 'batch', 'verification', 'portfolio', 'api-v1'],
+    requestExample: {
+      addresses: [
+        'GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF',
+        'GBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBWHF',
+      ],
+    },
+    responseExample: {
+      requested: 2,
+      count: 1,
+      verified: 1,
+      reports: [
+        {
+          farmerAddress: 'GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF',
+          apiVersion: 'v1',
+          verificationStatus: 'verified',
+          verified: true,
+          identity: { verified: true, verifiedAt: '2026-07-01T10:00:00.000Z', documentType: 'nin' },
+          land: { verified: true, verifiedAt: '2026-07-02T10:00:00.000Z', ownershipType: 'customary', plotSizeHectares: 3.5, region: 'Kano', gpsCoordinates: { latitude: 11.98, longitude: 8.55 } },
+          certification: { eligible: true, tier: 'full', blockers: [], advisories: [], rulesetVersion: 'kyc-eligibility-v1' },
+          credit: { available: true, tier: 'full', blockers: [], advisories: [], applicationSettled: false, sanctionsClear: true },
+          consent: { granted: true },
+          checkedAt: '2026-10-22T16:00:00.000Z',
+        },
+      ],
+      notFound: [],
+      consentDenied: ['GBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBWHF'],
+    },
+    errorExamples: [
+      {
+        status: 400,
+        body: {
+          error: 'addresses must be 1–100 well-formed Stellar public keys.',
+          details: ['addresses[1] must be a valid Stellar public key'],
+        },
+      },
+      {
+        status: 401,
+        body: {
+          error: 'Authentication is required',
+        },
+      },
+    ],
+  },
 ];
 
 const languageLabels: Record<CodeLanguage, string> = {

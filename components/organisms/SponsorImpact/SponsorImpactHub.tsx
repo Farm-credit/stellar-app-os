@@ -23,8 +23,10 @@ import {
   CardTitle,
 } from '@/components/molecules/Card';
 import { Button } from '@/components/atoms/Button';
+import { mockAllTimeSponsors } from '@/lib/api/mock/leaderboard';
+import { ImpactReportsTab } from './ImpactReportsTab';
 
-type Tab = 'overview' | 'portfolio' | 'rewards';
+type Tab = 'overview' | 'portfolio' | 'rewards' | 'reports';
 interface PortfolioProject {
   id: string;
   name: string;
@@ -380,7 +382,16 @@ function Portfolio() {
     </div>
   );
 }
-export function SponsorImpactHub({ initialTab = 'overview' }: { initialTab?: Tab }) {
+// TODO: replace with the authenticated sponsor once sponsor sessions exist.
+const DEFAULT_SPONSOR_ADDRESS = mockAllTimeSponsors[0]?.address ?? '';
+
+export function SponsorImpactHub({
+  initialTab = 'overview',
+  sponsorAddress = DEFAULT_SPONSOR_ADDRESS,
+}: {
+  initialTab?: Tab;
+  sponsorAddress?: string;
+}) {
   const [tab, setTab] = useState<Tab>(initialTab);
   return (
     <div className="space-y-8">
@@ -409,8 +420,22 @@ export function SponsorImpactHub({ initialTab = 'overview' }: { initialTab?: Tab
         <Button variant={tab === 'rewards' ? 'default' : 'ghost'} onClick={() => setTab('rewards')}>
           Rewards
         </Button>
+        <Button
+          variant={tab === 'reports' ? 'default' : 'ghost'}
+          onClick={() => setTab('reports')}
+        >
+          Impact Reports
+        </Button>
       </div>
-      {tab === 'overview' ? <Overview /> : tab === 'portfolio' ? <Portfolio /> : <Rewards />}
+      {tab === 'overview' ? (
+        <Overview />
+      ) : tab === 'portfolio' ? (
+        <Portfolio />
+      ) : tab === 'reports' ? (
+        <ImpactReportsTab sponsorAddress={sponsorAddress} />
+      ) : (
+        <Rewards />
+      )}
     </div>
   );
 }

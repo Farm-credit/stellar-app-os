@@ -41,10 +41,14 @@ export function getWaitlistEntries(): WaitlistEntry[] {
   return waitlistStore;
 }
 
-export function getWaitlistPosition(sponsorId: string, region: string): number | null {
-  const waiting = waitlistStore
+function getWaitingForRegion(region: string): WaitlistEntry[] {
+  return waitlistStore
     .filter((e) => e.region === region && e.status === 'waiting')
-    .sort((a, b) => a.joinedAt.localeCompare(b.joinedAt));
+    .sort((a, b) => a.joinedAt.localeCompare(b.joinedAt) || a.id.localeCompare(b.id));
+}
+
+export function getWaitlistPosition(sponsorId: string, region: string): number | null {
+  const waiting = getWaitingForRegion(region);
   const index = waiting.findIndex((e) => e.sponsorId === sponsorId);
   return index === -1 ? null : index + 1;
 }
@@ -72,9 +76,7 @@ export async function sendWaitlistAssignmentEmail(entry: WaitlistEntry, tree: Tr
 }
 
 export async function assignWaitlistForRegion(region: string, tree: Tree): Promise<WaitlistEntry | null> {
-  const next = waitlistStore
-    .filter((e) => e.region === region && e.status === 'waiting')
-    .sort((a, b) => a.joinedAt.localeCompare(b.joinedAt))[0];
+  const next = getWaitingForRegion(region)[0];
   if (!next) return null;
   next.status = 'assigned';
   next.assignedAt = new Date().toISOString();
@@ -88,9 +90,10 @@ export async function generateImpactImage(stats: AnnualImpactStats): Promise<str
   return `/api/impact-image?sponsor=${encodeURIComponent(stats.sponsorId)}&year=${stats.year}`;
 }
 
-export async function enqueueAnnualImpactEmails(year: number): Promise<AnnualImpactEmailRecord[]> {
+function buildAnnualImpactStats(year: number): Map<string, AnnualImpactStats> {
   const trees = getMockTrees();
   const sponsors = new Map<string, AnnualImpactStats>();
+  const speciesBySponsor = new Map<string, Set<string>>();
   for (const tree of trees) {
     const sponsorId = tree.sponsorId ?? 'unknown';
     const existing = sponsors.get(sponsorId);
@@ -109,7 +112,27 @@ export async function enqueueAnnualImpactEmails(year: number): Promise<AnnualImp
         milestones: [],
       });
     }
+    const species = speciesBySponsor.get(sponsorId) ?? new Set<string>();
+    if (tree.species) species.add(tree.species);
+    speciesBySponsor.set(sponsorId, species);
   }
+  for (const stats of sponsors.values()) {
+    const species = speciesBySponsor.get(stats.sponsorId) ?? new Set<string>();
+    stats.speciesCount = species.size;
+    const milestones: string[] = [];
+    if (stats.treesFunded >= 1) milestones.push('First tree funded');
+    if (stats.treesFunded >= 10) milestones.push('10 trees funded');
+    if (stats.treesFunded >= 50) milestones.push('50 trees funded');
+    if (stats.treesFunded >= 100) milestones.push('100 trees funded');
+    if (stats.speciesCount >= 5) milestones.push('5+ species supported');
+    if (stats.co2AbsorbedKg >= 1000) milestones.push('1,000 kg CO2 absorbed');
+    stats.milestones = milestones;
+  }
+  return sponsors;
+}
+
+export async function enqueueAnnualImpactEmails(year: number): Promise<AnnualImpactEmailRecord[]> {
+  const sponsors = buildAnnualImpactStats(year);
   const records: AnnualImpactEmailRecord[] = [];
   for (const stats of sponsors.values()) {
     if (annualImpactEmailStore.some((r) => r.sponsorId === stats.sponsorId && r.year === year)) continue;
@@ -127,17 +150,11 @@ export async function enqueueAnnualImpactEmails(year: number): Promise<AnnualImp
 
 export async function sendAnnualImpactEmails(year: number): Promise<void> {
   const pending = annualImpactEmailStore.filter((r) => r.year === year && r.status === 'pending');
+  if (pending.length === 0) return;
+  const sponsors = buildAnnualImpactStats(year);
   for (const record of pending) {
-    const stats: AnnualImpactStats = {
-      sponsorId: record.sponsorId,
-      sponsorName: 'Sponsor',
-      sponsorEmail: '',
-      year,
-      treesFunded: 0,
-      co2AbsorbedKg: 0,
-      speciesCount: 0,
-      milestones: [],
-    };
+    const stats = sponsors.get(record.sponsorId);
+    if (!stats) continue;
     await generateImpactImage(stats);
     record.status = 'sent';
     record.sentAt = new Date().toISOString();

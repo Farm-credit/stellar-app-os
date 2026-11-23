@@ -91,6 +91,15 @@ export interface TreeEventSubscription {
   unsubscribe: () => void;
 }
 
+/**
+ * Returned by subscribeToTreeEvents so callers can stop listening and, for
+ * internal event sources, push events into the subscriber.
+ */
+export interface TreeEventSubscriptionInternal extends TreeEventSubscription {
+  /** Deliver an event to the subscriber's handlers and notification path. */
+  emit: (event: TreeEvent) => void;
+}
+
 const EVENT_TITLES: Record<TreeEventType, string> = {
   tree_planted: 'Tree planted 🌱',
   tree_survival_1y: '1-year survival 🌳',
@@ -131,7 +140,7 @@ function buildNotificationBody(event: TreeEvent): string {
 export function subscribeToTreeEvents(
   handlers: TreeEventHandlers,
   options: { silent?: boolean } = {}
-): TreeEventSubscription {
+): TreeEventSubscriptionInternal {
   let active = true;
 
   const emit = (event: TreeEvent): void => {
@@ -162,6 +171,6 @@ export function subscribeToTreeEvents(
       active = false;
     },
     // Exposed internally for the event source to push events into subscribers.
-    ...({ emit } as { emit: (event: TreeEvent) => void }),
+    emit,
   };
 }

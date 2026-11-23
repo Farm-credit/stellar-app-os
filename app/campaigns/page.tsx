@@ -9,6 +9,7 @@ import {
   getRemainingMatchBalance,
   getTreesRemaining,
 } from '@/lib/campaigns/data';
+import { CHARITY_CAMPAIGNS } from '@/lib/charity/data';
 
 export const metadata: Metadata = { title: 'Ecosystem Campaigns' };
 
@@ -21,6 +22,7 @@ function getDaysRemaining(deadline: string | Date): number {
 export default function CampaignsPage() {
   const endangeredCampaigns = CAMPAIGNS.filter((c) => c.isEndangeredBiome ?? false);
   const otherCampaigns = CAMPAIGNS.filter((c) => !(c.isEndangeredBiome ?? false));
+  const charityCampaigns = CHARITY_CAMPAIGNS;
 
   return (
     <div className="mx-auto max-w-4xl space-y-6 px-4 py-10">
@@ -52,7 +54,11 @@ export default function CampaignsPage() {
                     </div>
                     <div className="flex items-center justify-between">
                       <Badge variant="outline">{c.quarter}</Badge>
-                      <Badge>{c.matchMultiplier}x match</Badge>
+                      {c.matchMultiplier > 1 ? (
+                        <Badge>{c.matchMultiplier}x match</Badge>
+                      ) : (
+                        <Badge variant="outline">No match</Badge>
+                      )}
                     </div>
                     <h3 className="text-xl font-semibold">{c.title}</h3>
                     <p className="text-sm text-muted-foreground">{c.location}</p>
@@ -60,7 +66,9 @@ export default function CampaignsPage() {
                     <p className="text-sm">{getProgressPercent(c)}% funded</p>
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-muted-foreground">Match remaining</span>
-                      <span className="font-medium">${remainingMatch.toLocaleString()}</span>
+                      <span className="font-medium">
+                        {remainingMatch > 0 ? `$${remainingMatch.toLocaleString()}` : 'Fully matched'}
+                      </span>
                     </div>
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-muted-foreground">{daysRemaining} days left</span>
@@ -76,6 +84,43 @@ export default function CampaignsPage() {
         </section>
       )}
 
+      {charityCampaigns.length > 0 && (
+        <section className="space-y-4">
+          <div className="flex items-center gap-2">
+            <h2 className="text-2xl font-semibold">Charity &amp; NGO Partnerships</h2>
+            <Badge variant="secondary">Co-branded</Badge>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            Campaigns run in partnership with charities and NGOs. Support them with a charity code
+            or visit the co-branded page for shared impact reporting.
+          </p>
+          <div className="grid gap-6 md:grid-cols-2">
+            {charityCampaigns.map((c) => (
+              <Link key={c.slug} href={`/campaigns/charity/${c.slug}`}>
+                <Card className="h-full space-y-2 p-6 hover:shadow-md">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={c.charityLogoUrl}
+                        alt={`${c.charityName} logo`}
+                        className="h-8 w-8 rounded-full object-contain"
+                      />
+                      <span className="text-sm font-medium">{c.charityName}</span>
+                    </div>
+                    <Badge variant="outline">Code: {c.charityCode}</Badge>
+                  </div>
+                  <h3 className="text-xl font-semibold">{c.title}</h3>
+                  <p className="text-sm text-muted-foreground">{c.description}</p>
+                  <Progress value={getProgressPercent(c)} />
+                  <p className="text-sm">{getProgressPercent(c)}% funded</p>
+                </Card>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
+
       {otherCampaigns.length > 0 && (
         <section className="space-y-4">
           <h2 className="text-2xl font-semibold">All Campaigns</h2>
@@ -85,7 +130,11 @@ export default function CampaignsPage() {
                 <Card className="h-full p-6 hover:shadow-md">
                   <div className="flex items-center justify-between">
                     <Badge variant="secondary">{c.ecosystem}</Badge>
-                    <Badge>{c.matchMultiplier}x match</Badge>
+                    {c.matchMultiplier > 1 ? (
+                      <Badge>{c.matchMultiplier}x match</Badge>
+                    ) : (
+                      <Badge variant="outline">No match</Badge>
+                    )}
                   </div>
                   <h2 className="text-xl font-semibold">{c.title}</h2>
                   <p className="text-sm text-muted-foreground">{c.location}</p>

@@ -10,6 +10,7 @@ import {
   copyToClipboard,
   openShareWindow,
 } from '@/lib/sharing';
+import { trackEvent } from '@/lib/analytics';
 import { type ShareOptions, type SharePlatform } from '@/types/sharing';
 
 interface SocialShareButtonsProps {
@@ -19,6 +20,12 @@ interface SocialShareButtonsProps {
   donationAmount?: number;
   impact?: string;
   className?: string;
+  /** Optional override for the generated share text (e.g. quiz result text). */
+  shareTextOverride?: string;
+  /** Optional URL of a result-card image to attach to the share. */
+  imageUrl?: string;
+  /** Optional context label used when tracking share events (e.g. 'quiz'). */
+  shareContext?: string;
 }
 
 const iconMap: Record<string, React.ReactNode> = {
@@ -37,6 +44,9 @@ export default function SocialShareButtons({
   donationAmount,
   impact,
   className = '',
+  shareTextOverride,
+  imageUrl,
+  shareContext,
 }: SocialShareButtonsProps): React.ReactElement {
   const { addToast } = useToast();
   const isMobile = isMobileDevice();
@@ -46,6 +56,9 @@ export default function SocialShareButtons({
   }, [url]);
 
   const shareText = useMemo(() => {
+    if (shareTextOverride) {
+      return shareTextOverride;
+    }
     const shareOptions: ShareOptions = {
       url: shareUrl,
       title,
@@ -54,7 +67,7 @@ export default function SocialShareButtons({
       impact,
     };
     return generateShareText(shareOptions);
-  }, [shareUrl, title, description, donationAmount, impact]);
+  }, [shareUrl, title, description, donationAmount, impact, shareTextOverride]);
 
   const encodedUrl = useMemo(() => encodeURIComponent(shareUrl), [shareUrl]);
   const encodedText = useMemo(() => encodeURIComponent(shareText), [shareText]);
@@ -62,11 +75,22 @@ export default function SocialShareButtons({
   const handleShare = (platform: SharePlatform): void => {
     const config = shareConfigs[platform];
     const shareUrl = config.getShareUrl(encodedUrl, encodedText);
+    trackEvent('share', {
+      platform,
+      context: shareContext ?? 'default',
+      hasImage: Boolean(imageUrl),
+    });
     openShareWindow(shareUrl, platform);
   };
 
   const handleCopyLink = async (): Promise<void> => {
     const success = await copyToClipboard(shareUrl);
+    trackEvent('share', {
+      platform: 'copy',
+      context: shareContext ?? 'default',
+      success,
+      hasImage: Boolean(imageUrl),
+    });
     if (success) {
       addToast('Link copied to clipboard!', 'success', 3000);
     } else {

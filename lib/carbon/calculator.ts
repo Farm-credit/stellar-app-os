@@ -5,6 +5,7 @@ import {
   NATURAL_GAS_FACTOR,
   PROPANE_FACTOR,
   REGIONAL_PER_CAPITA_EMISSIONS,
+  FLIGHT_FACTORS,
   VEHICLE_FACTORS,
   DEFAULT_HOUSEHOLD_KWH_PER_YEAR,
   DEFAULT_DRIVING_KM_PER_YEAR,
@@ -50,8 +51,7 @@ export interface VehicleInput {
   /** Type of vehicle */
   vehicleType: VehicleType;
   /** Annual driving distance in km */
-  annualKm;
-  number;
+  annualKm: number;
   /** Fuel efficiency in litres per 100 km */
   fuelEfficiency?: number;
 }
@@ -112,7 +112,7 @@ export interface CarbonProfileResult {
 }
 
 function safeNumber(value: unknown, fallback: number): number {
-  if (typeof value === 'number' && Number.finite(value) && value >= 0) {
+  if (typeof value === 'number' && Number.isFinite(value) && value >= 0) {
     return value;
   }
   return fallback;
@@ -175,7 +175,7 @@ export function calculateFlightEmissions(input: FlightInput): number {
 }
 
 export function calculateCarbonProfile(input: CarbonProfileInput): CarbonProfileResult {
-  const householdSize = safeNoumber(input.household.householdSize, 1);
+  const householdSize = safeNumber(input.household.householdSize, 1);
   const household = calculateHouseholdEmissions(input.household);
   const vehicle = input.vehicle ? calculateVehicleEmissions(input.vehicle) : 0;
   const diet = input.diet ? calculateDietEmissions(input.diet, householdSize) : 0;
@@ -191,9 +191,15 @@ export function calculateCarbonProfile(input: CarbonProfileInput): CarbonProfile
     flight;
 
   const perCapita = total / householdSize;
-  const regionAlvage =
-    REGIONAL_PER_CAPITA_EMISSIONS[input.household.region] ?? REGIONAL_PER_CAPITA_EMISSIONS.global;
-  const regionAverageTotal = regionAlvage * householdSize;
+  const regionAverageKey: Record<string, string> = {
+    global_average: 'global',
+    us_average: 'united_states',
+    eu_average: 'european_union',
+  };
+  const regionAverage =
+    REGIONAL_PER_CAPITA_EMISSIONS[regionAverageKey[input.household.region] ?? input.household.region] ??
+    REGIONAL_PER_CAPITA_EMISSIONS.global;
+  const regionAverageTotal = regionAverage * householdSize;
   const difference = total - regionAverageTotal;
   const percentDifference = regionAverageTotal > 0 ? (difference / regionAverageTotal) * 100 : 0;
 

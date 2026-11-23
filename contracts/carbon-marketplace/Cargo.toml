@@ -8,12 +8,11 @@ crate-type = ["cdylib"]
 
 [dependencies]
 soroban-sdk = { version = "27.0.6", features = ["alloc"] }
-harvesta-errors = { path = "../harvesta-errors" }
-admin-controls = { path = "../admin-controls" }
 
 [dev-dependencies]
 soroban-sdk = { version = "27.0.6", features = ["testutils", "alloc"] }
 proptest = "1.5.0"
+treasury = { path = "../treasury" }
 
 [profile.release]
 opt-level = "z"

@@ -1,0 +1,105 @@
+{
+  "nav": {
+    "home": "Startseite",
+    "blog": "Blog",
+    "purchaseCredits": "Gutschriften kaufen",
+    "dashboard": "Dashboard",
+    "projects": "Projekte",
+    "marketplace": "Marktplatz",
+    "transactions": "Transaktionen",
+    "cooperatives": "Genossenschaften",
+    "offramp": "Auszahlung"
+  },
+  "header": {
+    "connectWallet": "Wallet verbinden",
+    "openMenu": "Navigationsmenü öffnen",
+    "languageSelector": "Sprache auswählen"
+  },
+  "mobile": {
+    "closeMenu": "Navigationsmenü schließen",
+    "tapToDisconnect": "Zum Trennen tippen"
+  },
+  "footer": {
+    "stayUpdated": "Auf dem Laufenden bleiben",
+    "stayUpdatedDesc": "Erhalten Sie die neuesten Updates zu FarmCredit und dem Stellar-Netzwerk.",
+    "about": "Über uns",
+    "resources": "Ressourcen",
+    "legal": "Rechtliches",
+    "aboutFarmCredit": "Über FarmCredit",
+    "blog": "Blog",
+    "documentation": "Dokumentation",
+    "apiDocs": "API-Dokumentation",
+    "devGuide": "Entwicklerhandbuch",
+    "community": "Gemeinschaft",
+    "terms": "Nutzungsbedingungen",
+    "privacy": "Datenschutzrichtlinie",
+    "cookies": "Cookie-Richtlinie",
+    "copyright": "© {{year}} FarmCredit. Alle Rechte vorbehalten.",
+    "followTwitter": "Folgen Sie uns auf Twitter/X",
+    "viewGithub": "Unser GitHub-Repository ansehen",
+    "joinDiscord": "Unserer Discord-Community beitreten",
+    "twitter": "Twitter",
+    "github": "GitHub",
+    "discord": "Discord"
+  },
+  "newsletter": {
+    "emailPlaceholder": "Geben Sie Ihre E-Mail ein",
+    "emailAriaLabel": "E-Mail-Adresse für das Newsletter-Abonnement",
+    "subscribe": "Abonnieren",
+    "emailRequired": "E-Mail ist erforderlich",
+    "invalidEmail": "Bitte geben Sie eine gültige E-Mail-Adresse ein",
+    "successMessage": "Sie sind abonniert 🎉",
+    "errorMessage": "Etwas ist schiefgelaufen. Bitte versuchen Sie es erneut."
+  },
+  "blog": {
+    "pageTitle": "Blog",
+    "pageSubtitle": "Einblicke in CO₂-Zertifikate, nachhaltige Landwirtschaft, Klimatechnologie und Agrarpolitik.",
+    "featuredBlogTitle": "FarmCredit Blog",
+    "categoryFiltersLabel": "Kategoriefilter",
+    "readPost": "Blogbeitrag lesen: {{title}}",
+    "loadingAriaLabel": "Blogbeiträge werden geladen",
+    "errorTitle": "Etwas ist schiefgelaufen",
+    "errorDesc": "Wir konnten die Blogbeiträge derzeit nicht laden. Dies könnte ein vorübergehendes Problem sein — bitte versuchen Sie es erneut.",
+    "errorReference": "Fehlerreferenz: {{digest}}",
+    "tryAgain": "Erneut versuchen",
+    "tryAgainAriaLabel": "Versuchen Sie, die Blog-Seite erneut zu laden"
+  },
+  "purchase": {
+    "nextButton": "Weiter",
+    "nextAriaLabel": "Weiter zur Wallet-Verbindung",
+    "continueToPayment": "Weiter zur Zahlung",
+    "loading": "Wird geladen...",
+    "compareTitle": "CO₂-Zertifikatsprojekte vergleichen",
+    "compareSubtitle": "Wählen Sie bis zu 3 Projekte aus, um deren Funktionen, Preise und Vorteile nebeneinander zu vergleichen"
+  },
+  "home": {
+    "badge": "Unterstützt von Stellar",
+    "title": "FarmCredit",
+    "subtitle": "Dezentrale Agrarkreditplattform auf Basis des Stellar-Netzwerks.",
+    "totalCreditIssued": "Gesamt ausgegebene Kredite",
+    "activeFarmers": "Aktive Landwirte",
+    "repaymentRate": "Rückzahlungsquote",
+    "getStarted": "Loslegen",
+    "getStartedDescription": "Verbinden Sie Ihr Wallet, um auf Agrarkreditdienste zuzugreifen.",
+    "connectWallet": "Wallet verbinden",
+    "readBlog": "Unseren Blog lesen",
+    "purchaseCarbon": "CO₂-Zertifikate kaufen",
+    "makeDonation": "Spenden",
+    "showToast": "Benachrichtigung anzeigen",
+    "transactions": "Transaktionen",
+    "profileSaved": "Profil gespeichert!"
+  },
+  "languages": {
+    "en": "Englisch",
+    "es": "Spanisch",
+    "fr": "Französisch",
+    "de": "Deutsch",
+    "pt": "Portugiesisch",
+    "ja": "Japanisch",
+    "zh": "Mandarin",
+    "hi": "Hindi",
+    "ar": "Arabisch",
+    "sw": "Swahili",
+    "ha": "Hausa"
+  }
+}

@@ -1,0 +1,105 @@
+{
+  "nav": {
+    "home": "Nyumbani",
+    "blog": "Blogu",
+    "purchaseCredits": "Nunua Mikopo ya Kaboni",
+    "dashboard": "Dashibodi",
+    "projects": "Miradi",
+    "marketplace": "Soko",
+    "transactions": "Miamala",
+    "cooperatives": "Vyama vya Ushirika",
+    "offramp": "Kutoa Fedha"
+  },
+  "header": {
+    "connectWallet": "Unganisha Pochi",
+    "openMenu": "Fungua menyu ya urambazaji",
+    "languageSelector": "Chagua lugha"
+  },
+  "mobile": {
+    "closeMenu": "Funga menyu ya urambazaji",
+    "tapToDisconnect": "Gusa ili kutenganisha"
+  },
+  "footer": {
+    "stayUpdated": "Pata Taarifa Mpya",
+    "stayUpdatedDesc": "Pata taarifa mpya kuhusu FarmCredit na mtandao wa Stellar.",
+    "about": "Kuhusu",
+    "resources": "Rasilimali",
+    "legal": "Kisheria",
+    "aboutFarmCredit": "Kuhusu FarmCredit",
+    "blog": "Blogu",
+    "documentation": "Nyaraka",
+    "apiDocs": "Nyaraka za API",
+    "devGuide": "Mwongozo wa Wasanidi",
+    "community": "Jamii",
+    "terms": "Masharti ya Huduma",
+    "privacy": "Sera ya Faragha",
+    "cookies": "Sera ya Vidakuzi",
+    "copyright": "© {{year}} FarmCredit. Haki zote zimehifadhiwa.",
+    "followTwitter": "Tufuate kwenye Twitter/X",
+    "viewGithub": "Tazama hazina yetu ya GitHub",
+    "joinDiscord": "Jiunge na jamii yetu ya Discord",
+    "twitter": "Twitter",
+    "github": "GitHub",
+    "discord": "Discord"
+  },
+  "newsletter": {
+    "emailPlaceholder": "Weka barua pepe yako",
+    "emailAriaLabel": "Anwani ya barua pepe kwa usajili wa jarida",
+    "subscribe": "Jisajili",
+    "emailRequired": "Barua pepe inahitajika",
+    "invalidEmail": "Tafadhali weka anwani halali ya barua pepe",
+    "successMessage": "Umejisajili kikamilifu 🎉",
+    "errorMessage": "Hitilafu imetokea. Tafadhali jaribu tena."
+  },
+  "blog": {
+    "pageTitle": "Blogu",
+    "pageSubtitle": "Maarifa kuhusu mikopo ya kaboni, kilimo endelevu, teknolojia ya hali ya hewa na sera ya kilimo.",
+    "featuredBlogTitle": "Blogu ya FarmCredit",
+    "categoryFiltersLabel": "Vichujio vya kategoria",
+    "readPost": "Soma makala ya blogu: {{title}}",
+    "loadingAriaLabel": "Inapakia makala za blogu",
+    "errorTitle": "Hitilafu imetokea",
+    "errorDesc": "Hatukuweza kupakia makala za blogu kwa sasa. Hili linaweza kuwa tatizo la muda — tafadhali jaribu tena.",
+    "errorReference": "Nambari ya hitilafu: {{digest}}",
+    "tryAgain": "Jaribu tena",
+    "tryAgainAriaLabel": "Jaribu kupakia ukurasa wa blogu tena"
+  },
+  "purchase": {
+    "nextButton": "Endelea",
+    "nextAriaLabel": "Endelea kwenye kuunganisha pochi",
+    "continueToPayment": "Endelea kwenye malipo",
+    "loading": "Inapakia...",
+    "compareTitle": "Linganisha Miradi ya Mikopo ya Kaboni",
+    "compareSubtitle": "Chagua hadi miradi 3 ili kulinganisha vipengele, bei na manufaa yake bega kwa bega"
+  },
+  "home": {
+    "badge": "Inaendeshwa na Stellar",
+    "title": "FarmCredit",
+    "subtitle": "Jukwaa huru la mikopo ya kilimo lililojengwa kwenye mtandao wa Stellar.",
+    "totalCreditIssued": "Jumla ya Mikopo Iliyotolewa",
+    "activeFarmers": "Wakulima Hai",
+    "repaymentRate": "Kiwango cha Urejesho",
+    "getStarted": "Anza Sasa",
+    "getStartedDescription": "Unganisha pochi yako ili kufikia huduma za mikopo ya kilimo.",
+    "connectWallet": "Unganisha Pochi",
+    "readBlog": "Soma Blogu Yetu",
+    "purchaseCarbon": "Nunua Mikopo ya Kaboni",
+    "makeDonation": "Toa Mchango",
+    "showToast": "Onyesha Arifa",
+    "transactions": "Miamala",
+    "profileSaved": "Wasifu umehifadhiwa!"
+  },
+  "languages": {
+    "en": "Kiingereza",
+    "es": "Kihispania",
+    "fr": "Kifaransa",
+    "de": "Kijerumani",
+    "pt": "Kireno",
+    "ja": "Kijapani",
+    "zh": "Kimandarini",
+    "hi": "Kihindi",
+    "ar": "Kiarabu",
+    "sw": "Kiswahili",
+    "ha": "Kihausa"
+  }
+}

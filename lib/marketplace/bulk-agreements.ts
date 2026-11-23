@@ -61,7 +61,7 @@ export async function createBulkAgreement(
   input: CreateBulkAgreementInput,
   pool = getPool()
 ): Promise<{ agreement: BulkAgreement; quote: BulkPriceQuote }> {
-  if (!Number.finite(input.tons) || input.tons < MIN_BULK_TONS) {
+  if (!Number.isFinite(input.tons) || input.tons < MIN_BULK_TONS) {
     throw new Error(`bulk agreements require at least ${MIN_BULK_TONS} tons`);
   }
   if (!input.buyer_id || !input.farmer_id) {

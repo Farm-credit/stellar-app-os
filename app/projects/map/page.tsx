@@ -6,64 +6,54 @@ import { OffsetProjectMapWrapper } from '@/components/organisms/OffsetProjectMap
 import { mockCarbonProjects } from '@/lib/api/mock/carbonProjects';
 import { Button } from '@/components/atoms/Button';
 import { Badge } from '@/components/atoms/Badge';
+import {
+  buildBufferPolygon,
+  computePolygonAreaHectares,
+  type GeoPolygon,
+} from '@/lib/geo/polygon';
+import { mockDeforestationDetections } from '@/lib/api/mock/deforestation';
+import { isPointInPolygon } from '@/lib/geo/deforestationZones';
 
 /**
- * Radius (in kilometers) of the designated forest protection buffer zone
- * drawn around each reforestation project.
+ * Default radius (in kilometers) of the designated forest protection buffer
+ * zone used when a project does not specify its own buffer radius.
  */
-const PROTECTION_BUFFER_RADIUS_KM = 5;
-
-/**
- * Approximate area of a circular buffer zone in hectares.
- * 1 km² = 100 hectares.
- */
-const PROTECTION_BUFFER_AREA_HA = Math.round(
-  Math.PI * PROTECTION_BUFFER_RADIUS_KM * PROTECTION_BUFFER_RADIUS_KM * 100
-);
-
-/**
- * Builds a GeoJSON-style polygon approximating a circular buffer zone
- * around the given coordinates.
- */
-function buildBufferPolygon(
-  latitude: number,
-  longitude: number,
-  radiusKm: number,
-  segments = 32
-): [number, number][] {
-  const coords: [number, number][] = [];
-  const latDelta = radiusKm / 111.32;
-  const lngDelta = radiusKm / (111.32 * Math.cos((latitude * Math.PI) / 180) || 1);
-
-  for (let i = 0; i < segments; i += 1) {
-    const angle = (i / segments) * 2 * Math.PI;
-    coords.push([longitude + lngDelta * Math.cos(angle), latitude + latDelta * Math.sin(angle)]);
-  }
-  // Close the ring.
-  coords.push(coords[0]);
-  return coords;
-}
+const DEFAULT_PROTECTION_BUFFER_RADIUS_KM = 5;
 
 export default function ProjectsMapPage(): JSX.Element {
   const protectionZones = useMemo(
     () =>
-      mockCarbonProjects.map((project) => ({
-        projectId: project.id,
-        projectName: project.name,
-        areaHectares: PROTECTION_BUFFER_AREA_HA,
-        radiusKm: PROTECTION_BUFFER_RADIUS_KM,
-        polygon: buildBufferPolygon(
+      mockCarbonProjects.map((project) => {
+        const radiusKm = project.protectionBufferRadiusKm ?? DEFAULT_PROTECTION_BUFFER_RADIUS_KM;
+        const polygon: GeoPolygon = buildBufferPolygon(
           project.latitude,
           project.longitude,
-          PROTECTION_BUFFER_RADIUS_KM
-        ),
-        // Placeholder: replace with real deforestation event intersection check.
-        hasDeforestationAlert: false,
-      })),
+          radiusKm
+        );
+        const areaHectares = computePolygonAreaHectares(polygon);
+        const hasDeforestationAlert = mockDeforestationDetections.some(
+          (detection) =>
+            detection.projectId === project.id &&
+            isPointInPolygon([detection.longitude, detection.latitude], polygon)
+        );
+
+        return {
+          projectId: project.id,
+          projectName: project.name,
+          areaHectares,
+          radiusKm,
+          polygon,
+          hasDeforestationAlert,
+        };
+      }),
     []
   );
 
   const alertCount = protectionZones.filter((zone) => zone.hasDeforestationAlert).length;
+  const totalProtectionAreaHa = protectionZones.reduce(
+    (sum, zone) => sum + zone.areaHectares,
+    0
+  );
 
   return (
     <main className="min-h-screen bg-background text-foreground py-8 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
@@ -98,8 +88,8 @@ export default function ProjectsMapPage(): JSX.Element {
               variant="outline"
               className="bg-emerald-500/5 text-emerald-600 border-emerald-500/20 text-xs"
             >
-              Forest Protection Zones: {PROTECTION_BUFFER_RADIUS_KM} km buffer &middot;{' '}
-              {PROTECTION_BUFFER_AREA_HA.toLocaleString()} ha each
+              Forest Protection Zones: {DEFAULT_PROTECTION_BUFFER_RADIUS_KM} km buffer &middot;{' '}
+              {totalProtectionAreaHa.toLocaleString()} ha total
             </Badge>
             {alertCount > 0 ? (
               <Badge

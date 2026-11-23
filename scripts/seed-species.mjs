@@ -35,6 +35,27 @@ import {
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const CSV_PATH = resolve(__dirname, '../data/fao_co2_rates.csv');
 
+/**
+ * `species_category` values in the CSV → on-chain `SpeciesCategory` variant
+ * names (#1807).  These strings must match
+ * `contracts/species-registry/src/lib.rs` exactly.
+ *
+ * A fieldless Soroban enum is a union with void cases, so it serialises as a
+ * one-element `Vec` holding the variant name as a `Symbol` — not as a bare
+ * `Symbol` and not as the integer code used in events.  See
+ * `encodeCategory()` below.
+ */
+const CATEGORY_VARIANTS = {
+  native: 'Native',
+  fast_growing: 'FastGrowing',
+  unclassified: 'Unclassified',
+};
+
+/** Encode a `SpeciesCategory` variant the way the contract expects it. */
+function encodeCategory(variantName) {
+  return xdr.ScVal.scvVec([nativeToScVal(variantName, { type: 'symbol' })]);
+}
+
 const NETWORK = process.env.STELLAR_NETWORK ?? 'testnet';
 const RPC_URL =
   NETWORK === 'mainnet'
@@ -120,7 +141,15 @@ async function seedDatabase(rows) {
 
 /**
  * Register each species in the species-registry Soroban contract.
- * Calls: register_species(slug, co2_kg_per_year_scaled, maturity_years)
+ *
+ * Classified rows (#1807) call:
+ *   register_classified_species(slug, co2_kg_per_year_scaled, maturity_years,
+ *                              category)
+ * which stores the category's default ecological yield multiplier (native
+ * 1.20×, fast-growing 0.80×).  Rows without a known `species_category` call
+ * the legacy `register_species`, which lands in `Unclassified` at a neutral
+ * 1.00× — exactly the pre-#1807 behaviour.
+ *
  * co2_kg_per_year is scaled ×100 to avoid floating point (stored as integer).
  */
 async function seedOnChain(rows) {
@@ -142,22 +171,39 @@ async function seedOnChain(rows) {
 
   const account = await rpc.getAccount(admin.publicKey());
 
+  let classified = 0;
+  let unclassified = 0;
+
   for (const row of rows) {
     const co2Scaled = Math.round(parseFloat(row.co2_kg_per_year) * 100);
     const maturity = parseInt(row.maturity_years, 10);
+
+    const rawCategory = (row.species_category ?? '').trim().toLowerCase();
+    const category = CATEGORY_VARIANTS[rawCategory];
+    if (rawCategory && !category) {
+      console.warn(
+        `[chain] ${row.slug}: unknown species_category "${rawCategory}" — falling back to unclassified`,
+      );
+    }
+
+    const args = [
+      nativeToScVal(row.slug, { type: 'symbol' }),
+      nativeToScVal(co2Scaled, { type: 'i128' }),
+      nativeToScVal(maturity, { type: 'u32' }),
+    ];
+    const method = category && category !== 'Unclassified'
+      ? 'register_classified_species'
+      : 'register_species';
+
+    if (method === 'register_classified_species') {
+      args.push(encodeCategory(category));
+    }
 
     const tx = new TransactionBuilder(account, {
       fee: BASE_FEE,
       networkPassphrase: PASSPHRASE,
     })
-      .addOperation(
-        contract.call(
-          'register_species',
-          nativeToScVal(row.slug, { type: 'symbol' }),
-          nativeToScVal(co2Scaled, { type: 'i128' }),
-          nativeToScVal(maturity, { type: 'u32' }),
-        ),
-      )
+      .addOperation(contract.call(method, ...args))
       .setTimeout(30)
       .build();
 
@@ -166,7 +212,11 @@ async function seedOnChain(rows) {
 
     try {
       const result = await rpc.sendTransaction(prepared);
-      console.log(`[chain] registered ${row.slug} — tx: ${result.hash}`);
+      console.log(
+        `[chain] registered ${row.slug} as ${category ?? 'Unclassified'} — tx: ${result.hash}`,
+      );
+      if (method === 'register_classified_species') classified += 1;
+      else unclassified += 1;
     } catch (err) {
       console.error(`[chain] failed to register ${row.slug}:`, err?.message ?? err);
     }
@@ -174,6 +224,10 @@ async function seedOnChain(rows) {
     // Increment sequence for next op
     account.incrementSequenceNumber();
   }
+
+  console.log(
+    `[chain] ${classified} classified / ${unclassified} unclassified species registered`,
+  );
 }
 
 // ── Carbon-credits on-chain registration ──────────────────────────────────────

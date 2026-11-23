@@ -4,9 +4,9 @@
 //! Flow:
 //!   1. Funder deposits XLM, USDC, USDT, or EURC into escrow via `deposit()`
 //!   2. Verifier (oracle/admin) calls `verify_milestone()` after GPS + photo check
-//!   3. Contract instantly releases 75% to the farmer's Stellar wallet
-//!   4. After 6 months, verifier confirms survival rate >= 70%
-//!   5. Contract releases the remaining 25% to the farmer's Stellar wallet
+//!   3. Planting verifier approval releases 25% to the farmer's Stellar wallet
+//!   4. After 6 months, verifier confirms survival rate >= 70%; 25% is released
+//!   5. A final maturity approval releases the exact remaining 50% (including rounding)
 //!
 //! Dispute Resolution (new in #392):
 //!   - Either the buyer (funder) or seller (farmer) can call `raise_dispute()`
@@ -14,12 +14,11 @@
 //!   - The arbiter can then call `resolve_dispute()` to either release funds to
 //!     the seller (farmer) or refund them to the buyer (funder).
 
+use harvesta_errors::HarvestaError;
 use soroban_sdk::{
-    contract, contractimpl, contracttype, contracterror, panic_with_error, symbol_short, token,
+    contract, contracterror, contractimpl, contracttype, panic_with_error, symbol_short, token,
     Address, BytesN, Env, IntoVal, Symbol,
 };
-use harvesta_errors::HarvestaError;
-
 
 #[contracterror]
 #[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord)]
@@ -35,8 +34,9 @@ pub enum MilestoneError {
     NoOpenDispute = 56,
 }
 
-/// Percentage released on first milestone verification (basis points: 7500 = 75%)
-const MILESTONE_1_BPS: i128 = 7500;
+/// Planting tranche percentage in basis points (2,500 = 25%).
+const MILESTONE_1_BPS: i128 = 2500;
+const MILESTONE_2_BPS: i128 = 2500;
 const BPS_DENOM: i128 = 10_000;
 const MIN_SURVIVAL_RATE_PERCENT: u32 = 70;
 
@@ -67,7 +67,9 @@ impl OptProof {
 pub enum EscrowStatus {
     Funded,
     Milestone1Released,
-    /// Survival rate >= 70%, Tranche 2 released — fully complete
+    /// Planting and survival tranches have been released; maturity remains pending
+    SurvivalReleased,
+    /// All defined tranches released
     Completed,
     /// A party has raised a dispute; milestone release is blocked
     Disputed,
@@ -78,7 +80,13 @@ pub enum EscrowStatus {
 pub trait AmmInterface {
     fn deposit(env: Env, from: Address, token: Address, amount: i128) -> i128;
     fn withdraw(env: Env, from: Address, token: Address, share_amount: i128) -> i128;
-    fn swap(env: Env, from: Address, token_in: Address, token_out: Address, amount_in: i128) -> i128;
+    fn swap(
+        env: Env,
+        from: Address,
+        token_in: Address,
+        token_out: Address,
+        amount_in: i128,
+    ) -> i128;
 }
 
 #[contracttype]
@@ -119,9 +127,10 @@ impl EscrowMilestone {
         if env.storage().instance().has(&symbol_short!("ADMIN")) {
             panic_with_error!(&env, HarvestaError::AlreadyInitialized);
         }
-        env.storage()
-            .instance()
-            .set(&symbol_short!("ADMIN"), &(admin, amm, xlm, usdc));
+        env.storage().instance().set(
+            &symbol_short!("ADMIN"),
+            &(admin, amm, xlm.clone(), usdc.clone()),
+        );
         contract_utils::add_to_whitelist(&env, &xlm);
         contract_utils::add_to_whitelist(&env, &usdc);
         contract_utils::add_to_whitelist(&env, &usdt);
@@ -157,7 +166,15 @@ impl EscrowMilestone {
         amount: i128,
         arbiter: Address,
     ) {
-        Self::deposit_internal(env, funder, Some(recipient_wallet), farmer, token, amount, arbiter);
+        Self::deposit_internal(
+            env,
+            funder,
+            Some(recipient_wallet),
+            farmer,
+            token,
+            amount,
+            arbiter,
+        );
     }
 
     fn deposit_internal(
@@ -186,34 +203,50 @@ impl EscrowMilestone {
             &amount,
         );
 
-        let (_, amm, xlm, usdc): (Address, Address, Address, Address) = env.storage().instance().get(&symbol_short!("ADMIN")).expect("contract not initialized");
-        
+        let (_, amm, xlm, usdc): (Address, Address, Address, Address) = env
+            .storage()
+            .instance()
+            .get(&symbol_short!("ADMIN"))
+            .expect("contract not initialized");
+
         let fee = (amount * 200) / 10_000;
         let net_amount = amount - fee;
 
         if fee > 0 && token == xlm {
             let swap_amount = fee / 2;
-            AmmClient::new(&env, &amm).swap(&env.current_contract_address(), &xlm, &usdc, &swap_amount);
+            AmmClient::new(&env, &amm).swap(
+                &env.current_contract_address(),
+                &xlm,
+                &usdc,
+                &swap_amount,
+            );
         }
 
-        let lp_shares = AmmClient::new(&env, &amm).deposit(&env.current_contract_address(), &token, &net_amount);
+        let lp_shares = AmmClient::new(&env, &amm).deposit(
+            &env.current_contract_address(),
+            &token,
+            &net_amount,
+        );
 
-        env.storage().persistent().set(&key, &EscrowState {
-            farmer: farmer.clone(),
-            funder,
-            gift_recipient,
-            token,
-            total_amount: net_amount,
-            released: 0,
-            status: EscrowStatus::Funded,
-            verification_hash: OptProof::None,
-            milestone1_verified_at: 0,
-            survival_verification_hash: OptProof::None,
-            survival_rate_percent: 0,
-            arbiter,
-            dispute_open: false,
-            lp_shares,
-        });
+        env.storage().persistent().set(
+            &key,
+            &EscrowState {
+                farmer: farmer.clone(),
+                funder,
+                gift_recipient,
+                token,
+                total_amount: net_amount,
+                released: 0,
+                status: EscrowStatus::Funded,
+                verification_hash: OptProof::None,
+                milestone1_verified_at: 0,
+                survival_verification_hash: OptProof::None,
+                survival_rate_percent: 0,
+                arbiter,
+                dispute_open: false,
+                lp_shares,
+            },
+        );
 
         env.events()
             .publish((symbol_short!("deposit"), farmer), net_amount);
@@ -249,13 +282,21 @@ impl EscrowMilestone {
 
         let payout = (state.total_amount * completion_pct as i128) / 100;
         let remainder = state.total_amount - state.released;
-        let payout_shares = if remainder > 0 { (payout * state.lp_shares) / remainder } else { 0 };
+        let payout_shares = if remainder > 0 {
+            (payout * state.lp_shares) / remainder
+        } else {
+            0
+        };
 
         if state.released + payout > state.total_amount {
             panic_with_error!(&env, MilestoneError::TotalReleasedExceedsMile);
         }
 
-        let withdrawn_amount = AmmClient::new(&env, &amm).withdraw(&env.current_contract_address(), &state.token, &payout_shares);
+        let withdrawn_amount = AmmClient::new(&env, &amm).withdraw(
+            &env.current_contract_address(),
+            &state.token,
+            &payout_shares,
+        );
         token::Client::new(&env, &state.token).transfer(
             &env.current_contract_address(),
             &state.farmer,
@@ -279,7 +320,7 @@ impl EscrowMilestone {
     }
 
     /// Called by the admin/verifier after GPS + photo validation passes.
-    /// Releases 75% of escrowed funds instantly to the farmer wallet.
+    /// Releases the planting tranche (25%) to the farmer wallet.
     pub fn verify_milestone(env: Env, farmer: Address, verification_hash: BytesN<32>) {
         let (admin, amm, _xlm, _usdc): (Address, Address, Address, Address) = env
             .storage()
@@ -316,7 +357,11 @@ impl EscrowMilestone {
             .expect("release amount division error");
         let release_shares = (state.lp_shares * MILESTONE_1_BPS) / BPS_DENOM;
 
-        let withdrawn_amount = AmmClient::new(&env, &amm).withdraw(&env.current_contract_address(), &state.token, &release_shares);
+        let withdrawn_amount = AmmClient::new(&env, &amm).withdraw(
+            &env.current_contract_address(),
+            &state.token,
+            &release_shares,
+        );
         token::Client::new(&env, &state.token).transfer(
             &env.current_contract_address(),
             &state.farmer,
@@ -336,7 +381,7 @@ impl EscrowMilestone {
             .publish((symbol_short!("m1release"), farmer), release_amount);
     }
 
-    /// Release remaining 25% after 6-month survival milestone.
+    /// Release the survival tranche (25%) after the 6-month survival milestone.
     pub fn verify_survival(
         env: Env,
         farmer: Address,
@@ -383,19 +428,46 @@ impl EscrowMilestone {
             .total_amount
             .checked_sub(state.released)
             .expect("remainder calculation underflow");
-        let (_, amm, _xlm, _usdc): (Address, Address, Address, Address) = env.storage().instance().get(&symbol_short!("ADMIN")).expect("contract not initialized");        if remainder <= 0 {
+        let (_, amm, _xlm, _usdc): (Address, Address, Address, Address) = env
+            .storage()
+            .instance()
+            .get(&symbol_short!("ADMIN"))
+            .expect("contract not initialized");
+        if remainder <= 0 {
             panic_with_error!(&env, HarvestaError::NothingToRelease);
         }
 
-        let withdrawn_amount = AmmClient::new(&env, &amm).withdraw(&env.current_contract_address(), &state.token, &state.lp_shares);
-        token::Client::new(&env, &state.token).transfer(&env.current_contract_address(), &state.farmer, &withdrawn_amount);
+        let tranche = state
+            .total_amount
+            .checked_mul(MILESTONE_2_BPS)
+            .expect("survival tranche overflow")
+            / BPS_DENOM;
+        let payout = core::cmp::min(tranche, remainder);
+        let shares = if payout == remainder {
+            state.lp_shares
+        } else {
+            state.lp_shares.checked_mul(payout).expect("share overflow") / remainder
+        };
+        let withdrawn_amount = AmmClient::new(&env, &amm).withdraw(
+            &env.current_contract_address(),
+            &state.token,
+            &shares,
+        );
+        token::Client::new(&env, &state.token).transfer(
+            &env.current_contract_address(),
+            &state.farmer,
+            &withdrawn_amount,
+        );
 
         state.released = state
             .released
-            .checked_add(remainder)
+            .checked_add(payout)
             .expect("released amount overflow");
-        state.lp_shares = 0;
-        state.status = EscrowStatus::Completed;
+        state.lp_shares = state
+            .lp_shares
+            .checked_sub(shares)
+            .expect("share underflow");
+        state.status = EscrowStatus::SurvivalReleased;
         state.survival_verification_hash = OptProof::Some(survival_verification_hash.clone());
         state.survival_rate_percent = survival_rate_percent;
         env.storage().persistent().set(&used_key, &true);
@@ -403,7 +475,61 @@ impl EscrowMilestone {
         env.storage().persistent().set(&key, &state);
 
         env.events()
-            .publish((symbol_short!("m2release"), farmer), remainder);
+            .publish((symbol_short!("m2release"), farmer), payout);
+    }
+
+    /// Verifier-approved final maturity milestone releases the complete remaining
+    /// balance. The proof is globally single-use, as in the earlier milestones.
+    pub fn verify_maturity(env: Env, farmer: Address, proof_hash: BytesN<32>) {
+        let (admin, amm, _xlm, _usdc): (Address, Address, Address, Address) = env
+            .storage()
+            .instance()
+            .get(&symbol_short!("ADMIN"))
+            .unwrap_or_else(|| panic_with_error!(&env, HarvestaError::NotInitialized));
+        admin.require_auth();
+        let key = Self::escrow_key(&env, &farmer);
+        let mut state: EscrowState = env
+            .storage()
+            .persistent()
+            .get(&key)
+            .unwrap_or_else(|| panic_with_error!(&env, HarvestaError::EscrowNotFound));
+        if state.dispute_open {
+            panic_with_error!(&env, MilestoneError::MilestoneReleaseBlocked);
+        }
+        if state.status != EscrowStatus::SurvivalReleased {
+            panic_with_error!(&env, MilestoneError::MilestoneAlreadyProcessed);
+        }
+        let used_key = Self::used_proof_key(&env, &proof_hash);
+        if env.storage().persistent().has(&used_key) {
+            panic!("proof hash already used");
+        }
+        let remainder = state
+            .total_amount
+            .checked_sub(state.released)
+            .expect("remainder underflow");
+        if remainder <= 0 {
+            panic_with_error!(&env, HarvestaError::NothingToRelease);
+        }
+        let withdrawn = AmmClient::new(&env, &amm).withdraw(
+            &env.current_contract_address(),
+            &state.token,
+            &state.lp_shares,
+        );
+        token::Client::new(&env, &state.token).transfer(
+            &env.current_contract_address(),
+            &state.farmer,
+            &withdrawn,
+        );
+        state.released = state.total_amount;
+        state.lp_shares = 0;
+        state.status = EscrowStatus::Completed;
+        state.survival_verification_hash = OptProof::Some(proof_hash.clone());
+        env.storage().persistent().set(&used_key, &true);
+        env.storage().persistent().set(&key, &state);
+        env.events().publish(
+            (Symbol::new(&env, "maturity_release"), farmer),
+            (remainder, withdrawn),
+        );
     }
 
     /// Either the funder (buyer) or the farmer (seller) can raise a dispute
@@ -467,11 +593,19 @@ impl EscrowMilestone {
             .total_amount
             .checked_sub(state.released)
             .expect("remainder calculation underflow");
-        let (_, amm, _xlm, _usdc): (Address, Address, Address, Address) = env.storage().instance().get(&symbol_short!("ADMIN")).expect("contract not initialized");
+        let (_, amm, _xlm, _usdc): (Address, Address, Address, Address) = env
+            .storage()
+            .instance()
+            .get(&symbol_short!("ADMIN"))
+            .expect("contract not initialized");
         if release_to_seller {
             // Release remaining funds to the farmer
             if remainder > 0 {
-                let withdrawn_amount = AmmClient::new(&env, &amm).withdraw(&env.current_contract_address(), &state.token, &state.lp_shares);
+                let withdrawn_amount = AmmClient::new(&env, &amm).withdraw(
+                    &env.current_contract_address(),
+                    &state.token,
+                    &state.lp_shares,
+                );
                 token::Client::new(&env, &state.token).transfer(
                     &env.current_contract_address(),
                     &state.farmer,
@@ -480,13 +614,18 @@ impl EscrowMilestone {
                 state.released = state
                     .released
                     .checked_add(remainder)
-                    .expect("released amount overflow");                state.lp_shares = 0;
+                    .expect("released amount overflow");
+                state.lp_shares = 0;
             }
             state.status = EscrowStatus::Completed;
         } else {
             // Refund remaining funds to the funder
             if remainder > 0 {
-                let withdrawn_amount = AmmClient::new(&env, &amm).withdraw(&env.current_contract_address(), &state.token, &state.lp_shares);
+                let withdrawn_amount = AmmClient::new(&env, &amm).withdraw(
+                    &env.current_contract_address(),
+                    &state.token,
+                    &state.lp_shares,
+                );
                 token::Client::new(&env, &state.token).transfer(
                     &env.current_contract_address(),
                     &state.funder,
@@ -524,7 +663,11 @@ impl EscrowMilestone {
             panic_with_error!(&env, HarvestaError::RefundAfterPlanting);
         }
 
-        let withdrawn_amount = AmmClient::new(&env, &amm).withdraw(&env.current_contract_address(), &state.token, &state.lp_shares);
+        let withdrawn_amount = AmmClient::new(&env, &amm).withdraw(
+            &env.current_contract_address(),
+            &state.token,
+            &state.lp_shares,
+        );
         token::Client::new(&env, &state.token).transfer(
             &env.current_contract_address(),
             &state.funder,
@@ -583,8 +726,11 @@ impl EscrowMilestone {
             }
         }
         list.push_back(verifier.clone());
-        env.storage().instance().set(&symbol_short!("VERFRS"), &list);
-        env.events().publish((symbol_short!("VerfAdded"),), verifier);
+        env.storage()
+            .instance()
+            .set(&symbol_short!("VERFRS"), &list);
+        env.events()
+            .publish((symbol_short!("VerfAdded"),), verifier);
     }
 
     /// Admin removes a verifier address.
@@ -603,7 +749,9 @@ impl EscrowMilestone {
                 new_list.push_back(v);
             }
         }
-        env.storage().instance().set(&symbol_short!("VERFRS"), &new_list);
+        env.storage()
+            .instance()
+            .set(&symbol_short!("VERFRS"), &new_list);
     }
 
     /// Returns the list of registered verifiers.
@@ -615,8 +763,9 @@ impl EscrowMilestone {
     }
 
     /// A registered verifier casts their approval vote for a farmer's milestone.
-    /// milestone_id: 1 = planting, 2 = survival.
-    /// Funds release automatically once 2-of-N verifiers have voted.
+    /// milestone_id: 1 = planting, 2 = survival, 3 = maturity.
+    /// Funds release automatically once the approval threshold of independent
+    /// verifiers has voted for the next eligible milestone.
     pub fn approve_milestone(env: Env, verifier: Address, farmer: Address, milestone_id: u32) {
         verifier.require_auth();
 
@@ -635,14 +784,40 @@ impl EscrowMilestone {
             panic_with_error!(&env, EscrowMilestoneError::VerifierSetIncomplete);
         }
 
-        let vote_key: soroban_sdk::Val = (Symbol::new(&env, "VOTE"), farmer.clone(), milestone_id, verifier.clone())
+        let escrow_key = Self::escrow_key(&env, &farmer);
+        let state: EscrowState = env
+            .storage()
+            .persistent()
+            .get(&escrow_key)
+            .unwrap_or_else(|| panic_with_error!(&env, HarvestaError::EscrowNotFound));
+        if state.dispute_open {
+            panic_with_error!(&env, MilestoneError::MilestoneReleaseBlocked);
+        }
+        match (milestone_id, &state.status) {
+            (1, EscrowStatus::Funded) => {}
+            (2, EscrowStatus::Milestone1Released) => {
+                if env.ledger().timestamp() < state.milestone1_verified_at + SIX_MONTHS_SECS {
+                    panic_with_error!(&env, HarvestaError::SurvivalPeriodNotElapsed);
+                }
+            }
+            (3, EscrowStatus::SurvivalReleased) => {}
+            _ => panic_with_error!(&env, MilestoneError::MilestoneAlreadyProcessed),
+        }
+
+        let vote_key: soroban_sdk::Val = (
+            Symbol::new(&env, "VOTE"),
+            farmer.clone(),
+            milestone_id,
+            verifier.clone(),
+        )
             .into_val(&env);
         if env.storage().persistent().has(&vote_key) {
             panic_with_error!(&env, EscrowMilestoneError::AlreadyVoted);
         }
         env.storage().persistent().set(&vote_key, &true);
 
-        let count_key: soroban_sdk::Val = (Symbol::new(&env, "VCNT"), farmer.clone(), milestone_id).into_val(&env);
+        let count_key: soroban_sdk::Val =
+            (Symbol::new(&env, "VCNT"), farmer.clone(), milestone_id).into_val(&env);
         let count: u32 = env.storage().persistent().get(&count_key).unwrap_or(0u32);
         let new_count = count + 1;
         env.storage().persistent().set(&count_key, &new_count);
@@ -664,17 +839,26 @@ impl EscrowMilestone {
                 panic_with_error!(&env, EscrowMilestoneError::MilestoneReleaseBlocked);
             }
 
-            let (_, amm, _xlm, _usdc): (Address, Address, Address, Address) = env.storage().instance().get(&symbol_short!("ADMIN")).unwrap();
+            let (_, amm, _xlm, _usdc): (Address, Address, Address, Address) = env
+                .storage()
+                .instance()
+                .get(&symbol_short!("ADMIN"))
+                .unwrap();
 
             if milestone_id == 1 && state.status == EscrowStatus::Funded {
-                let release_amount = state.total_amount
+                let release_amount = state
+                    .total_amount
                     .checked_mul(MILESTONE_1_BPS)
                     .expect("overflow")
                     .checked_div(BPS_DENOM)
                     .expect("div error");
                 let release_shares = (state.lp_shares * MILESTONE_1_BPS) / BPS_DENOM;
 
-                let withdrawn_amount = AmmClient::new(&env, &amm).withdraw(&env.current_contract_address(), &state.token, &release_shares);
+                let withdrawn_amount = AmmClient::new(&env, &amm).withdraw(
+                    &env.current_contract_address(),
+                    &state.token,
+                    &release_shares,
+                );
                 token::Client::new(&env, &state.token).transfer(
                     &env.current_contract_address(),
                     &state.farmer,
@@ -684,34 +868,77 @@ impl EscrowMilestone {
                 s.released = release_amount;
                 s.lp_shares -= release_shares;
                 s.status = EscrowStatus::Milestone1Released;
+                s.milestone1_verified_at = env.ledger().timestamp();
                 env.storage().persistent().set(&key, &s);
-                env.events().publish((symbol_short!("m1release"), farmer), withdrawn_amount);
-
+                env.events()
+                    .publish((symbol_short!("m1release"), farmer), withdrawn_amount);
             } else if milestone_id == 2 && state.status == EscrowStatus::Milestone1Released {
-                let remainder = state.total_amount
+                let remainder = state
+                    .total_amount
                     .checked_sub(state.released)
                     .expect("underflow");
-                if remainder > 0 {
-                    let withdrawn_amount = AmmClient::new(&env, &amm).withdraw(&env.current_contract_address(), &state.token, &state.lp_shares);
-                    token::Client::new(&env, &state.token).transfer(
-                        &env.current_contract_address(),
-                        &state.farmer,
-                        &withdrawn_amount,
-                    );
-                }
+                let payout = core::cmp::min(
+                    state
+                        .total_amount
+                        .checked_mul(MILESTONE_2_BPS)
+                        .expect("overflow")
+                        / BPS_DENOM,
+                    remainder,
+                );
+                let shares = if payout == remainder {
+                    state.lp_shares
+                } else {
+                    state.lp_shares.checked_mul(payout).expect("share overflow") / remainder
+                };
+                let withdrawn_amount = AmmClient::new(&env, &amm).withdraw(
+                    &env.current_contract_address(),
+                    &state.token,
+                    &shares,
+                );
+                token::Client::new(&env, &state.token).transfer(
+                    &env.current_contract_address(),
+                    &state.farmer,
+                    &withdrawn_amount,
+                );
+                let mut s = state;
+                s.released = s.released.checked_add(payout).expect("released overflow");
+                s.lp_shares = s.lp_shares.checked_sub(shares).expect("share underflow");
+                s.status = EscrowStatus::SurvivalReleased;
+                env.storage().persistent().set(&key, &s);
+                env.events()
+                    .publish((symbol_short!("m2release"), farmer), payout);
+            } else if milestone_id == 3 && state.status == EscrowStatus::SurvivalReleased {
+                let remainder = state
+                    .total_amount
+                    .checked_sub(state.released)
+                    .expect("underflow");
+                let withdrawn = AmmClient::new(&env, &amm).withdraw(
+                    &env.current_contract_address(),
+                    &state.token,
+                    &state.lp_shares,
+                );
+                token::Client::new(&env, &state.token).transfer(
+                    &env.current_contract_address(),
+                    &state.farmer,
+                    &withdrawn,
+                );
                 let mut s = state;
                 s.released = s.total_amount;
                 s.lp_shares = 0;
                 s.status = EscrowStatus::Completed;
                 env.storage().persistent().set(&key, &s);
-                env.events().publish((symbol_short!("m2release"), farmer), remainder);
+                env.events().publish(
+                    (Symbol::new(&env, "maturity_release"), farmer),
+                    (remainder, withdrawn),
+                );
             }
         }
     }
 
     /// Returns the current vote count for a given farmer + milestone.
     pub fn get_vote_count(env: Env, farmer: Address, milestone_id: u32) -> u32 {
-        let count_key: soroban_sdk::Val = (Symbol::new(&env, "VCNT"), farmer, milestone_id).into_val(&env);
+        let count_key: soroban_sdk::Val =
+            (Symbol::new(&env, "VCNT"), farmer, milestone_id).into_val(&env);
         env.storage().persistent().get(&count_key).unwrap_or(0u32)
     }
     /// Add `addr` to the contract whitelist. Restricted to admin.
@@ -758,7 +985,6 @@ mod tests {
         contract: Address,
     }
 
-    
     #[contract]
     pub struct MockAmm;
     #[contractimpl]
@@ -773,13 +999,19 @@ mod tests {
             token::Client::new(&env, &token).transfer(&caller, &from, &shares);
             shares
         }
-        pub fn swap(env: Env, from: Address, token_in: Address, _token_out: Address, amount_in: i128) -> i128 {
+        pub fn swap(
+            env: Env,
+            from: Address,
+            token_in: Address,
+            _token_out: Address,
+            amount_in: i128,
+        ) -> i128 {
             let caller = env.current_contract_address();
             token::Client::new(&env, &token_in).transfer(&from, &caller, &amount_in);
             amount_in
         }
     }
-fn setup() -> Ctx {
+    fn setup() -> Ctx {
         let env = Env::default();
         env.mock_all_auths_allowing_non_root_auth();
 
@@ -797,7 +1029,9 @@ fn setup() -> Ctx {
 
         let amm = env.register_contract(None, MockAmm);
         let xlm = token.clone();
-        let usdc = env.register_stellar_asset_contract_v2(admin.clone()).address();
+        let usdc = env
+            .register_stellar_asset_contract_v2(admin.clone())
+            .address();
         client.initialize(&admin, &amm, &xlm, &usdc, &usdc, &usdc);
         client.add_to_whitelist(&token);
         Ctx {
@@ -866,29 +1100,31 @@ fn setup() -> Ctx {
         client.deposit(&funder, &farmer, &token, &0, &arbiter);
     }
 
-        assert_eq!(balance(&env, &token, &farmer), 0, "farmer not yet paid");
-
-        let state = client.get_escrow(&farmer).unwrap();
-        assert_eq!(state.status, EscrowStatus::Funded);
-        assert_eq!(balance(&env, &token, &contract), 100);
-        assert_eq!(state.released, 0);
-
-        // Step 2: Planting verification → 75% released
-        client.verify_milestone(&farmer, &dummy_hash(&env, 1));
-
-        // assert_eq!(balance(&env, &token, &contract), 2_500, "25% still locked");
-        assert_eq!(balance(&env, &token, &farmer), 7_350, "farmer received 75%");
-
+    #[test]
+    fn test_three_tranche_lifecycle_releases_exact_remainder() {
+        let Ctx {
+            env,
+            client,
+            token,
+            funder,
+            farmer,
+            arbiter,
+            ..
+        } = setup();
+        client.deposit(&funder, &farmer, &token, &10_001, &arbiter);
+        client.verify_milestone(&farmer, &dummy_hash(&env, 21));
+        assert_eq!(balance(&env, &token, &farmer), 2_450); // 25% of net 9,801
         env.ledger()
             .with_mut(|l| l.timestamp += SIX_MONTHS_SECS + 1);
-        client.verify_survival(&farmer, &dummy_hash(&env, 2), &80);
-
-        // assert_eq!(balance(&env, &token, &contract), 0, "contract fully drained");
-        assert_eq!(balance(&env, &token, &farmer), 9_800, "farmer received 100%");
-
+        client.verify_survival(&farmer, &dummy_hash(&env, 22), &80);
+        let state = client.get_escrow(&farmer).unwrap();
+        assert_eq!(state.status, EscrowStatus::SurvivalReleased);
+        assert_eq!(state.released, 4_900);
+        client.verify_maturity(&farmer, &dummy_hash(&env, 23));
         let state = client.get_escrow(&farmer).unwrap();
         assert_eq!(state.status, EscrowStatus::Completed);
-        assert_eq!(state.released, 9_800);
+        assert_eq!(state.released, state.total_amount);
+        assert_eq!(balance(&env, &token, &farmer), 9_801); // net escrow amount after deposit fee
     }
 
     #[test]
@@ -967,13 +1203,14 @@ fn setup() -> Ctx {
         client.deposit(&funder, &farmer, &token, &999, &arbiter);
 
         client.verify_milestone(&farmer, &dummy_hash(&env, 1));
-        let tranche1 = (999_i128 * 7_500) / 10_000; // = 749
-        assert_eq!(balance(&env, &token, &farmer), 735);
+        let tranche1 = (999_i128 * 2_500) / 10_000; // informational: net escrow tranche rounds down
+        assert_eq!(balance(&env, &token, &farmer), 245);
 
         // Advance time for survival check
-        env.ledger().with_mut(|l| l.timestamp += SIX_MONTHS_SECS + 1);
+        env.ledger()
+            .with_mut(|l| l.timestamp += SIX_MONTHS_SECS + 1);
         client.verify_survival(&farmer, &dummy_hash(&env, 2), &80);
-        assert_eq!(balance(&env, &token, &farmer), 980);
+        assert_eq!(balance(&env, &token, &farmer), 490);
         // assert_eq!(balance(&env, &token, &contract), 0);
     }
 
@@ -1092,7 +1329,11 @@ fn setup() -> Ctx {
 
         client.refund(&farmer);
 
-        assert_eq!(balance(&env, &token, &funder), 19_800, "funder fully refunded");
+        assert_eq!(
+            balance(&env, &token, &funder),
+            19_800,
+            "funder fully refunded"
+        );
         assert_eq!(balance(&env, &token, &farmer), 0, "farmer got nothing");
         assert_eq!(
             client.get_escrow(&farmer).unwrap().status,
@@ -1312,7 +1553,7 @@ fn setup() -> Ctx {
         // Third vote — 3-of-5 consensus reached, funds released automatically
         client.approve_milestone(&v3, &farmer, &1u32);
         assert_eq!(client.get_vote_count(&farmer, &1u32), 3);
-        assert_eq!(balance(&env, &token, &farmer), 7_350);
+        assert_eq!(balance(&env, &token, &farmer), 2_450);
     }
 
     #[test]
@@ -1375,9 +1616,15 @@ fn setup() -> Ctx {
     #[test]
     #[should_panic(expected = "Error(Contract, #1)")]
     fn test_initialize_twice_rejected() {
-        
         let Ctx { env, client, .. } = setup();
-        client.initialize(&Address::generate(&env), &Address::generate(&env), &Address::generate(&env), &Address::generate(&env));
+        client.initialize(
+            &Address::generate(&env),
+            &Address::generate(&env),
+            &Address::generate(&env),
+            &Address::generate(&env),
+            &Address::generate(&env),
+            &Address::generate(&env),
+        );
     }
 
     #[test]

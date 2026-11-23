@@ -11,15 +11,18 @@
 
 import { useEffect, type JSX } from 'react';
 import { MapContainer, TileLayer, Polygon, Tooltip, CircleMarker } from 'react-leaflet';
-import L from 'leaflet';
+import type L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import type { ProjectBufferZone } from '@/lib/types/adminProject';
+import type { DeforestationAlert } from '@/lib/deforestation/types';
 
 interface ForestProtectionZoneMapProps {
   bufferZone: ProjectBufferZone;
   /** Optional project centroid to show with a marker (lat, lng). */
   center?: [number, number];
   zoom?: number;
+  /** Detected canopy-loss areas to highlight (issue #672). */
+  alerts?: DeforestationAlert[];
 }
 
 /** Convert [lng, lat] buffer coordinates to Leaflet's [lat, lng] tuples. */
@@ -39,6 +42,7 @@ export function ForestProtectionZoneMap({
   bufferZone,
   center,
   zoom = 9,
+  alerts = [],
 }: ForestProtectionZoneMapProps): JSX.Element {
   // Fix Leaflet's default icon paths when running in Next.js
   useEffect(() => {
@@ -54,7 +58,8 @@ export function ForestProtectionZoneMap({
   }, []);
 
   const positions = toLeafletPositions(bufferZone.polygonCoordinates);
-  const mapCenter = center ?? polygonCentroid(bufferZone.polygonCoordinates).reverse() as [number, number];
+  const mapCenter =
+    center ?? (polygonCentroid(bufferZone.polygonCoordinates).reverse() as [number, number]);
 
   const polygonStyle: L.PathOptions = bufferZone.deforestationAlert
     ? {
@@ -93,7 +98,7 @@ export function ForestProtectionZoneMap({
               {bufferZone.designationLabel ?? 'Forest Protection Buffer Zone'}
             </p>
             <p>Area: {bufferZone.areaHectares.toLocaleString()} ha</p>
-            {bufferZone.deforestationAlert ? (
+            {bufferZone.deforestationAlert || alerts.length > 0 ? (
               <p className="text-red-600 font-medium">⚠ Deforestation detected</p>
             ) : (
               <p className="text-emerald-600">✓ No deforestation detected</p>
@@ -111,6 +116,34 @@ export function ForestProtectionZoneMap({
           </div>
         </Tooltip>
       </Polygon>
+
+      {/* Detected canopy-loss areas (issue #672) */}
+      {alerts.map((alert) => (
+        <Polygon
+          key={alert.id}
+          positions={toLeafletPositions(alert.affectedAreaPolygon)}
+          pathOptions={{
+            color: '#dc2626',
+            fillColor: '#ef4444',
+            fillOpacity: 0.45,
+            weight: 2,
+          }}
+        >
+          <Tooltip sticky>
+            <div className="space-y-1 text-sm">
+              <p className="font-semibold text-red-600">⚠ Canopy loss detected</p>
+              <p>Detected: {alert.detectedOn}</p>
+              {alert.areaHectares > 0 && (
+                <p>Affected area: {alert.areaHectares.toLocaleString()} ha</p>
+              )}
+              <p>Confidence: {alert.confidence}</p>
+              <p className="text-xs text-gray-500">
+                Source: {alert.source === 'gfw' ? 'Global Forest Watch' : 'GFW alert feed (mock)'}
+              </p>
+            </div>
+          </Tooltip>
+        </Polygon>
+      ))}
 
       {/* Project centroid dot */}
       {center && (

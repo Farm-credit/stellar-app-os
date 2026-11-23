@@ -47,13 +47,14 @@ the window rolls, allowing bursts to be processed without losing work.
 
 The v1 endpoints below are the stable third-party integration contract for
 partner platforms and financial institutions. Requests use the same active
-`x-api-key` authentication and tiered limits described above. The report
+`x-api-key` (or `Authorization: ApiKey <key>`) authentication and tiered limits
+described above. The report
 answers three questions in one call — identity, land ownership, and credit
 availability — while returning no personal data or evidence documents.
 
 ### `GET /api/v1/farmers/{address}/verification`
 
-Verify one farmer. `address` is a 56-character Stellar public key.
+Verify one farmer. `address` is a 56-character Stellar public key with a valid checksum.
 
 ### `POST /api/v1/farmers/verification`
 
@@ -66,6 +67,13 @@ same `FarmerVerificationReport` fields documented below. A farmer must have
 granted recorded consent; otherwise the single-farmer endpoint returns
 `403 consent_denied` and the batch endpoint places the address in
 `consentDenied`.
+
+The newest submitted application determines status and consent, so an older
+approval cannot override a newer rejection or withheld consent. Duplicate
+batch addresses are collapsed, and `requested` counts unique addresses.
+Credit availability describes stored certification eligibility, not an
+available lending balance. See [the integration guide](farmer-verification-api.md)
+for the full response, setup, quotas, and error handling.
 
 ## Carbon Price API (v1)
 

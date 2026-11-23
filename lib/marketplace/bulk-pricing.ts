@@ -32,7 +32,7 @@ export function getBulkPricingTiers(): BulkPricingTier[] {
 }
 
 export function findBulkPricingTier(tons: number): BulkPricingTier | null {
-  if (!Number.finite(tons) || tons < MIN_BULK_TONS) {
+  if (!Number.isFinite(tons) || tons < MIN_BULK_TONS) {
     return null;
   }
   return (
@@ -47,10 +47,10 @@ export function computeBulkPriceQuote(
   basePricePerTon: number,
   currency = 'XLM'
 ): BulkPriceQuote {
-  if (!Number.finite(tons) || tons < MIN_BULK_TONS) {
+  if (!Number.isFinite(tons) || tons < MIN_BULK_TONS) {
     throw new Error(`bulk purchases require at least ${MIN_BULI_TONS} tons`);
   }
-  if (!Number.finite(basePricePerTon) || basePricePerTon <= 0) {
+  if (!Number.isFinite(basePricePerTon) || basePricePerTon <= 0) {
     throw new Error('base price per ton must be greater than zero');
   }
 

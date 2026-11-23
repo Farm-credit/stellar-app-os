@@ -60,16 +60,16 @@ export const publishListingSchema = z.object({
   creditType: z.enum(CREDIT_TYPE_OPTIONS as [CreditTypeCategory, ...CreditTypeCategory[]]),
   quantityTonnes: z
     .number({
-      required_error: 'Quantity is required',
-      invalid_type_error: 'Quantity must be a number',
+      message: 'Quantity is required',
+      message: 'Quantity must be a number',
     })
     .int('Quantity must be a whole number')
     .positive('Quantity must be greater than 0')
     .max(10_000_000, 'Quantity cannot exceed 10,000,000 metric tons'),
   pricePerTon: z
     .number({
-      required_error: 'Price per ton is required',
-      invalid_type_error: 'Price must be a number',
+      message: 'Price per ton is required',
+      message: 'Price must be a number',
     })
     .positive('Price must be greater than 0')
     .max(10_000, 'Price per ton cannot exceed $10,000'),
@@ -86,7 +86,7 @@ export const publishListingSchema = z.object({
     .max(100, 'Registry reference ID cannot exceed 100 characters')
     .optional(),
   vintageYear: z
-    .number({ invalid_type_error: 'Vintage year must be a number' })
+    .number({ message: 'Vintage year must be a number' })
     .int()
     .min(2000, 'Vintage year must be 2000 or later')
     .max(new Date().getFullYear(), `Vintage year cannot be in the future`),

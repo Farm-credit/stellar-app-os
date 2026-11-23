@@ -1,5 +1,5 @@
 /**
- * Farmer verification API — Farm-credit/stellar-app-os#1403
+ * Farmer verification API — Farm-credit/stellar-app-os#1341 (v1), #1403 (v2)
  *
  * A read-only, privacy-preserving view of a farmer's verification state for
  * third-party integrators: partner platforms, lenders, and financial
@@ -28,6 +28,7 @@
  */
 
 import type { Pool } from 'pg';
+import { StrKey } from '@stellar/stellar-sdk';
 import {
   DOCUMENTARY_TENURE_TYPES,
   INFORMAL_TENURE_TYPES,
@@ -47,12 +48,6 @@ export type FarmerVerificationDb = Pick<Pool, 'query'>;
 /** Maximum number of addresses accepted by a single batch verification call. */
 export const MAX_BATCH_ADDRESSES = 100;
 
-/**
- * Stellar public keys are 56-char base32 starting with `G`. The same shape
- * check `lib/kyc/validation.ts` applies on submission.
- */
-const STELLAR_ADDRESS = /^G[A-Z2-7]{55}$/;
-
 const IDENTITY_DOCUMENT_TYPES: readonly IdentityDocumentType[] = [
   'nin',
   'voter_card',
@@ -66,7 +61,7 @@ const LAND_OWNERSHIP_TYPES: readonly LandOwnershipType[] = [
 ];
 
 export function isStellarAddress(value: unknown): value is string {
-  return typeof value === 'string' && STELLAR_ADDRESS.test(value.trim());
+  return typeof value === 'string' && StrKey.isValidEd25519PublicKey(value.trim());
 }
 
 // ── Report shape ──────────────────────────────────────────────────────────────
@@ -306,9 +301,9 @@ const SELECT_VERIFICATION_COLUMNS = `
 /**
  * Verify a single farmer.
  *
- * The newest approved application wins; failing that the most recent
- * application is used, so a pending or rejected case still yields a definite
- * answer instead of a bare 404. Returns `consent_denied` — not a redacted
+ * The most recently submitted application wins, including its consent and
+ * sanctions state. An older approval must not override a newer rejection or
+ * withheld consent. Returns `consent_denied` — not a redacted
  * report — when the farmer has not agreed to third-party disclosure.
  */
 export async function getFarmerVerification(
@@ -320,7 +315,7 @@ export async function getFarmerVerification(
     `SELECT ${SELECT_VERIFICATION_COLUMNS}
        FROM farmer_kyc_applications
       WHERE farmer_address = $1
-      ORDER BY CASE WHEN status = 'approved' THEN 0 ELSE 1 END, submitted_at DESC
+      ORDER BY submitted_at DESC, updated_at DESC, id DESC
       LIMIT 1`,
     [farmerAddress]
   );
@@ -355,15 +350,14 @@ export async function verifyFarmers(
   }
 
   // Fetch a portfolio in one round trip. DISTINCT ON applies the same
-  // precedence as the single-farmer lookup: prefer an approved application,
-  // otherwise use the newest application for that farmer.
+  // precedence as the single-farmer lookup: use the newest application,
+  // even if an older one was approved.
   const { rows } = await db.query<VerificationRow>(
     `SELECT DISTINCT ON (farmer_address) ${SELECT_VERIFICATION_COLUMNS}
        FROM farmer_kyc_applications
       WHERE farmer_address = ANY($1::text[])
       ORDER BY farmer_address,
-               CASE WHEN status = 'approved' THEN 0 ELSE 1 END,
-               submitted_at DESC`,
+               submitted_at DESC, updated_at DESC, id DESC`,
     [addresses]
   );
 
@@ -422,13 +416,17 @@ export function parseVerificationAddresses(body: unknown): AddressParseResult {
 
   const errors: string[] = [];
   if (raw.length > MAX_BATCH_ADDRESSES) {
-    errors.push(`addresses must contain at most ${MAX_BATCH_ADDRESSES} entries.`);
+    return {
+      ok: false,
+      addresses: [],
+      errors: [`addresses must contain at most ${MAX_BATCH_ADDRESSES} entries.`],
+    };
   }
 
   const addresses: string[] = [];
   raw.forEach((value, index) => {
     if (!isStellarAddress(value)) {
-      errors.push(`addresses[${index}] must be a 56-character Stellar public key starting with G.`);
+      errors.push(`addresses[${index}] must be a valid Stellar public key with a valid checksum.`);
       return;
     }
     const normalised = (value as string).trim();

@@ -30,6 +30,8 @@ export interface TreeHealthObservation {
   /** Steps the field team has taken or is taking. */
   remediation: string[];
   note: string | null;
+  /** Photo URLs attached by the field team (#1692). */
+  photoUrls?: string[];
   recordedAt: string;
 }
 

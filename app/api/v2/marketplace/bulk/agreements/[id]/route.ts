@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import {
   getBulkPurchaseAgreementById,
+  negotiateBulkAgreementRate,
   updateBulkAgreementStatus,
   type AgreementStatus,
 } from '@/lib/marketplace/bulkPurchasing';
@@ -35,7 +36,16 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   try {
     const { id } = await context.params;
     const body = await request.json();
-    const { status } = body;
+    const { status, negotiatedPricePerTon, notes } = body;
+
+    if (negotiatedPricePerTon !== undefined) {
+      const updated = negotiateBulkAgreementRate(id, Number(negotiatedPricePerTon), notes);
+      return NextResponse.json({
+        success: true,
+        message: 'Agreement negotiated rate updated.',
+        agreement: updated,
+      });
+    }
 
     const validStatuses: AgreementStatus[] = [
       'draft',

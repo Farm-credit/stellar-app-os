@@ -440,6 +440,7 @@ dependencies = [
 name = "bonus-pool"
 version = "0.1.0"
 dependencies = [
+ "contract-utils",
  "soroban-sdk 27.0.6",
 ]
 
@@ -527,10 +528,9 @@ dependencies = [
 name = "carbon-marketplace"
 version = "0.1.0"
 dependencies = [
- "admin-controls",
- "harvesta-errors",
  "proptest",
  "soroban-sdk 27.0.6",
+ "treasury",
 ]
 
 [[package]]
@@ -959,6 +959,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "endowment-stream"
+version = "0.1.0"
+dependencies = [
+ "soroban-sdk 27.0.6",
+]
+
+[[package]]
 name = "enum-ordinalize"
 version = "4.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1288,6 +1295,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b9e0384b61958566e926dc50660321d12159025e767c18e043daf26b70104c39"
 
 [[package]]
+name = "impact-certificate-fractionalization"
+version = "0.1.0"
+dependencies = [
+ "harvesta-errors",
+ "soroban-sdk 27.0.6",
+]
+
+[[package]]
 name = "impact-plot-shares"
 version = "0.1.0"
 dependencies = [
@@ -1609,6 +1624,15 @@ name = "planter-registry"
 version = "0.1.0"
 dependencies = [
  "admin-controls",
+ "harvesta-errors",
+ "soroban-sdk 27.0.6",
+]
+
+[[package]]
+name = "planter-reputation"
+version = "0.1.0"
+dependencies = [
+ "contract-utils",
  "harvesta-errors",
  "soroban-sdk 27.0.6",
 ]
@@ -3219,6 +3243,7 @@ dependencies = [
 name = "zk-location-verifier"
 version = "0.1.0"
 dependencies = [
+ "contract-utils",
  "harvesta-errors",
  "soroban-sdk 27.0.6",
 ]

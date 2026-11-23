@@ -6,6 +6,8 @@ import {
   useState,
   useCallback,
   useMemo,
+  useEffect,
+  useRef,
   type ReactNode,
   type ReactElement,
 } from 'react';
@@ -101,6 +103,49 @@ const MAX_TOAST_DURATION = 10000;
 
 const NEWSLETTER_OPT_IN_STORAGE_KEY = 'sponsor.newsletterOptIn';
 
+const DIGEST_PREFERENCES_STORAGE_KEY = 'sponsor.digestPreferences';
+
+const DIGEST_SEND_HOUR = 9;
+
+export interface DigestPreferences {
+  enabled: boolean;
+  timezone: string;
+}
+
+export interface ExpertChatMessage {
+  id: string;
+  conversationId: string;
+  sender: 'farmer' | 'expert';
+  senderName: string;
+  body: string;
+  timestamp: string;
+  read: boolean;
+}
+
+export interface ExpertChatConversation {
+  id: string;
+  expertName: string;
+  topic: string;
+  messages: ExpertChatMessage[];
+  unreadCount: number;
+}
+
+export interface ExpertChatReplyEvent {
+  conversationId: string;
+  expertName: string;
+  topic?: string;
+  body: string;
+  timestamp?: string;
+}
+
+function detectTimezone(): string {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+  } catch {
+    return 'UTC';
+  }
+}
+
 function readStoredNewsletterOptIn(): boolean {
   if (typeof window === 'undefined') {
     return true;
@@ -116,6 +161,49 @@ function readStoredNewsletterOptIn(): boolean {
   }
 }
 
+/**
+ * Payload describing a published monthly forest health newsletter.
+ * Used to surface the newsletter as an in-app notification.
+ */
+export interface NewsletterPublishedEvent {
+  newsletterId: string;
+  title?: string;
+  summary?: string;
+  issueMonth?: string;
+  timestamp?: string;
+  metadata?: Record<string, unknown>;
+}
+
+function buildNewsletterNotification(
+  event: NewsletterPublishedEvent
+): Omit<Notification, 'id' | 'timestamp' | 'read' | 'archived'> {
+  const title = event.title ?? 'Monthly Forest Health Newsletter';
+  const description =
+    event.summary ??
+    'Your monthly forest health newsletter is ready with platform news, featured stories, species spotlights, and conservation tips.';
+
+  return {
+    title,
+    description,
+    type: 'newsletter',
+    priority: 'low',
+    action: {
+      label: 'Read Newsletter',
+      onClick: () => {
+        if (typeof window !== 'undefined') {
+          window.open(`/newsletter/${event.newsletterId}`, '_blank');
+        }
+      },
+      variant: 'secondary',
+    },
+    metadata: {
+      ...(event.metadata ?? {}),
+      newsletterId: event.newsletterId,
+      ...(event.issueMonth ? { issueMonth: event.issueMonth } : {}),
+    },
+  };
+}
+
 function persistNewsletterOptIn(value: boolean): void {
   if (typeof window === 'undefined') {
     return;
@@ -125,6 +213,94 @@ function persistNewsletterOptIn(value: boolean): void {
   } catch {
     // Ignore storage failures (e.g. private mode or quota exceeded).
   }
+}
+
+function readStoredDigestPreferences(): DigestPreferences {
+  const fallback: DigestPreferences = { enabled: true, timezone: detectTimezone() };
+  if (typeof window === 'undefined') {
+    return fallback;
+  }
+  try {
+    const stored = window.localStorage.getItem(DIGEST_PREFERENCES_STORAGE_KEY);
+    if (!stored) {
+      return fallback;
+    }
+    const parsed = JSON.parse(stored) as Partial<DigestPreferences>;
+    return {
+      enabled: typeof parsed.enabled === 'boolean' ? parsed.enabled : fallback.enabled,
+      timezone:
+        typeof parsed.timezone === 'string' && parsed.timezone.length > 0
+          ? parsed.timezone
+          : fallback.timezone,
+    };
+  } catch {
+    return fallback;
+  }
+}
+
+function persistDigestPreferences(prefs: DigestPreferences): void {
+  if (typeof window === 'undefined') {
+    return;
+  }
+  try {
+    window.localStorage.setItem(DIGEST_PREFERENCES_STORAGE_KEY, JSON.stringify(prefs));
+  } catch {
+    // Ignore storage failures (e.g. private mode or quota exceeded).
+  }
+}
+
+/**
+ * Compute the next 9 AM (in the given timezone) after `from`.
+ * Falls back to a UTC-based calculation if the timezone is invalid.
+ */
+export function computeNextDigestSendTime(
+  timezone: string,
+  from: Date = new Date()
+): Date {
+  const safeTimezone = timezone || 'UTC';
+
+  const zonedParts = (date: Date): { year: number; month: number; day: number; hour: number } => {
+    try {
+      const formatter = new Intl.DateTimeFormat('en-US', {
+        timeZone: safeTimezone,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        hour12: false,
+      });
+      const parts = formatter.formatToParts(date);
+      const get = (type: string) => parts.find((p) => p.type === type)?.value ?? '0';
+      return {
+        year: Number(get('year')),
+        month: Number(get('month')),
+        day: Number(get('day')),
+        hour: Number(get('hour')) % 24,
+      };
+    } catch {
+      return {
+        year: date.getUTCFullYear(),
+        month: date.getUTCMonth() + 1,
+        day: date.getUTCDate(),
+        hour: date.getUTCHours(),
+      };
+    }
+  };
+
+  const parts = zonedParts(from);
+  const todayAtNine = new Date(
+    Date.UTC(parts.year, parts.month - 1, parts.day, DIGEST_SEND_HOUR, 0, 0, 0)
+  );
+
+  // Offset between the timezone's wall clock and UTC at `from`.
+  const wallClockAsUtc = Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, 0, 0, 0);
+  const offsetMs = wallClockAsUtc - Math.floor(from.getTime() / 60000) * 60000;
+
+  let candidate = new Date(todayAtNine.getTime() - offsetMs);
+  if (candidate.getTime() <= from.getTime()) {
+    candidate = new Date(candidate.getTime() + 24 * 60 * 60 * 1000);
+  }
+  return candidate;
 }
 
 export function normalizeToastDuration(duration?: number): number {
@@ -161,6 +337,15 @@ export interface TreeLifecycleNotificationEvent {
   timestamp?: string;
   metadata?: Record<string, unknown>;
 }
+
+/**
+ * Listener invoked whenever a tree lifecycle event is received and converted
+ * into an in-app notification. Receives the event and the created notification id.
+ */
+export type TreeLifecycleEventListener = (
+  event: TreeLifecycleNotificationEvent,
+  notificationId: string
+) => void;
 
 interface TreeEventMapping {
   type: Notification['type'];
@@ -233,6 +418,14 @@ export function NotificationProvider({ children }: { children: ReactNode }): Rea
   const [toasts, setToasts] = useState<ToastNotification[]>([]);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [newsletterOptIn, setNewsletterOptInState] = useState<boolean>(readStoredNewsletterOptIn);
+  const [digestPreferences, setDigestPreferencesState] =
+    useState<DigestPreferences>(readStoredDigestPreferences);
+  const [expertChatConversations, setExpertChatConversations] = useState<
+    ExpertChatConversation[]
+  >([]);
+
+  const treeEventListenersRef = useRef<Set<TreeLifecycleEventListener>>(new Set());
+  const expertChatListenersRef = useRef<Set<(message: ExpertChatMessage) => void>>(new Set());
 
   const unreadCount = useMemo(
     () => notifications.filter((n) => !n.read && !n.archived).length,
@@ -310,9 +503,185 @@ export function NotificationProvider({ children }: { children: ReactNode }): Rea
       };
 
       setNotifications((prev) => [newNotification, ...prev]);
+
+      treeEventListenersRef.current.forEach((listener) => {
+        try {
+          listener(event, id);
+        } catch {
+          // Ignore listener failures so one bad subscriber cannot break others.
+        }
+      });
+
       return id;
     },
     []
+  );
+
+  const subscribeToTreeEvents = useCallback(
+    (listener: TreeLifecycleEventListener): (() => void) => {
+      treeEventListenersRef.current.add(listener);
+      return () => {
+        treeEventListenersRef.current.delete(listener);
+      };
+    },
+    []
+  );
+
+  useEffect(() => {
+    return () => {
+      treeEventListenersRef.current.clear();
+      expertChatListenersRef.current.clear();
+    };
+  }, []);
+
+  const setDigestPreferences = useCallback((prefs: Partial<DigestPreferences>) => {
+    setDigestPreferencesState((prev) => {
+      const next: DigestPreferences = {
+        enabled: typeof prefs.enabled === 'boolean' ? prefs.enabled : prev.enabled,
+        timezone:
+          typeof prefs.timezone === 'string' && prefs.timezone.length > 0
+            ? prefs.timezone
+            : prev.timezone,
+      };
+      persistDigestPreferences(next);
+      return next;
+    });
+  }, []);
+
+  const nextDigestSendTime = useMemo(
+    () => computeNextDigestSendTime(digestPreferences.timezone),
+    [digestPreferences.timezone]
+  );
+
+  const expertChatUnreadCount = useMemo(
+    () => expertChatConversations.reduce((sum, c) => sum + c.unreadCount, 0),
+    [expertChatConversations]
+  );
+
+  const addExpertChatMessage = useCallback(
+    (conversationId: string, message: Omit<ExpertChatMessage, 'id' | 'conversationId' | 'timestamp' | 'read'> & { timestamp?: string; read?: boolean }) => {
+      const id = generateId();
+      const newMessage: ExpertChatMessage = {
+        ...message,
+        id,
+        conversationId,
+        timestamp: message.timestamp ?? new Date().toISOString(),
+        read: message.read ?? message.sender === 'farmer',
+      };
+
+      setExpertChatConversations((prev) => {
+        const existing = prev.find((c) => c.id === conversationId);
+        if (!existing) {
+          return [
+            ...prev,
+            {
+              id: conversationId,
+              expertName: newMessage.sender === 'expert' ? newMessage.senderName : 'Support',
+              topic: 'Agricultural assistance',
+              messages: [newMessage],
+              unreadCount: newMessage.read ? 0 : 1,
+            },
+          ];
+        }
+        return prev.map((c) =>
+          c.id === conversationId
+            ? {
+                ...c,
+                messages: [...c.messages, newMessage],
+                unreadCount: newMessage.read ? c.unreadCount : c.unreadCount + 1,
+              }
+            : c
+        );
+      });
+
+      expertChatListenersRef.current.forEach((listener) => {
+        try {
+          listener(newMessage);
+        } catch {
+          // Ignore listener failures so one bad subscriber cannot break others.
+        }
+      });
+
+      return id;
+    },
+    []
+  );
+
+  const markConversationRead = useCallback((conversationId: string) => {
+    setExpertChatConversations((prev) =>
+      prev.map((c) =>
+        c.id === conversationId
+          ? {
+              ...c,
+              unreadCount: 0,
+              messages: c.messages.map((m) => (m.read ? m : { ...m, read: true })),
+            }
+          : c
+      )
+    );
+  }, []);
+
+  const subscribeToExpertChat = useCallback(
+    (listener: (message: ExpertChatMessage) => void): (() => void) => {
+      expertChatListenersRef.current.add(listener);
+      return () => {
+        expertChatListenersRef.current.delete(listener);
+      };
+    },
+    []
+  );
+
+  const notifyExpertChatReply = useCallback(
+    (event: ExpertChatReplyEvent): string => {
+      const timestamp = event.timestamp ?? new Date().toISOString();
+      const messageId = addExpertChatMessage(event.conversationId, {
+        sender: 'expert',
+        senderName: event.expertName,
+        body: event.body,
+        timestamp,
+        read: false,
+      });
+
+      const notificationId = addNotification({
+        title: `New message from ${event.expertName}`,
+        description: event.body,
+        type: 'account_alert',
+        priority: 'medium',
+        action: {
+          label: 'Open Chat',
+          onClick: () => {
+            if (typeof window !== 'undefined') {
+              window.open(`/support/chat/${event.conversationId}`, '_blank');
+            }
+          },
+          variant: 'primary',
+        },
+        metadata: {
+          conversationId: event.conversationId,
+          expertName: event.expertName,
+          ...(event.topic ? { topic: event.topic } : {}),
+          chatMessageId: messageId,
+        },
+      });
+
+      addToast({
+        title: `New message from ${event.expertName}`,
+        description: event.body,
+        type: 'info',
+        action: {
+          label: 'Open Chat',
+          onClick: () => {
+            if (typeof window !== 'undefined') {
+              window.open(`/support/chat/${event.conversationId}`, '_blank');
+            }
+          },
+          variant: 'primary',
+        },
+      });
+
+      return notificationId;
+    },
+    [addExpertChatMessage, addNotification, addToast]
   );
 
   const markAsRead = useCallback((id: string) => {
@@ -339,6 +708,33 @@ export function NotificationProvider({ children }: { children: ReactNode }): Rea
     setNewsletterOptInState(value);
     persistNewsletterOptIn(value);
   }, []);
+
+  const toggleNewsletterOptIn = useCallback(() => {
+    setNewsletterOptInState((prev) => {
+      const next = !prev;
+      persistNewsletterOptIn(next);
+      return next;
+    });
+  }, []);
+
+  const notifyNewsletterPublished = useCallback(
+    (event: NewsletterPublishedEvent): string | undefined => {
+      if (!newsletterOptIn) {
+        return undefined;
+      }
+      const id = generateId();
+      const newNotification: Notification = {
+        ...buildNewsletterNotification(event),
+        id,
+        timestamp: event.timestamp ?? new Date().toISOString(),
+        read: false,
+        archived: false,
+      };
+      setNotifications((prev) => [newNotification, ...prev]);
+      return id;
+    },
+    [newsletterOptIn]
+  );
 
   const openDrawer = useCallback(() => setIsDrawerOpen(true), []);
   const closeDrawer = useCallback(() => setIsDrawerOpen(false), []);
@@ -393,6 +789,7 @@ export function NotificationProvider({ children }: { children: ReactNode }): Rea
       addNotification,
       addToast,
       notifyTreeEvent,
+      subscribeToTreeEvents,
       markAsRead,
       markAllAsRead,
       archiveNotification,
@@ -406,6 +803,17 @@ export function NotificationProvider({ children }: { children: ReactNode }): Rea
       toast: toastHelpers,
       newsletterOptIn,
       setNewsletterOptIn,
+      toggleNewsletterOptIn,
+      notifyNewsletterPublished,
+      digestPreferences,
+      setDigestPreferences,
+      nextDigestSendTime,
+      expertChatConversations,
+      expertChatUnreadCount,
+      addExpertChatMessage,
+      markConversationRead,
+      subscribeToExpertChat,
+      notifyExpertChatReply,
     }),
     [
       notifications,
@@ -415,6 +823,7 @@ export function NotificationProvider({ children }: { children: ReactNode }): Rea
       addNotification,
       addToast,
       notifyTreeEvent,
+      subscribeToTreeEvents,
       markAsRead,
       markAllAsRead,
       archiveNotification,
@@ -428,6 +837,17 @@ export function NotificationProvider({ children }: { children: ReactNode }): Rea
       toastHelpers,
       newsletterOptIn,
       setNewsletterOptIn,
+      toggleNewsletterOptIn,
+      notifyNewsletterPublished,
+      digestPreferences,
+      setDigestPreferences,
+      nextDigestSendTime,
+      expertChatConversations,
+      expertChatUnreadCount,
+      addExpertChatMessage,
+      markConversationRead,
+      subscribeToExpertChat,
+      notifyExpertChatReply,
     ]
   );
 
@@ -441,3 +861,6 @@ export function useNotification(): NotificationContextValue {
   }
   return context;
 }
+</｜｜DSML｜｜ parameter>
+</｜｜DSML｜｜ invoke>
+</｜｜DSML｜｜ calls>

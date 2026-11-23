@@ -180,6 +180,22 @@
     "zk-verifier": [
       5400,
       5499
+    ],
+    "endowment-stream": [
+      5500,
+      5599
+    ],
+    "impact-certificate-fractionalization": [
+      5600,
+      5699
+    ],
+    "planter-reputation": [
+      5700,
+      5799
+    ],
+    "species-registry": [
+      5800,
+      5899
     ]
   },
   "legacy": [
@@ -224,6 +240,10 @@
     "verifier-staking",
     "xlm-bridge",
     "zk-location-verifier",
-    "zk-verifier"
+    "zk-verifier",
+    "endowment-stream",
+    "impact-certificate-fractionalization",
+    "planter-reputation",
+    "species-registry"
   ]
 }
