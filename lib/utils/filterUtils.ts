@@ -1,10 +1,17 @@
 import type { ProjectFilters } from '@/lib/types/filters';
 import type { CarbonProject } from '@/lib/types/carbon';
 
+function parsePrice(value: string | null, fallback: number): number {
+  if (value === null || value.trim() === '') return fallback;
+  const parsed = Number.parseFloat(value);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback;
+}
+
 export function parseFiltersFromUrl(searchParams: URLSearchParams): ProjectFilters {
   const search = searchParams.get('search')?.trim() || '';
   const types = searchParams.get('types')?.split(',').filter(Boolean) || [];
-  const locations = searchParams.get('locations')?.split(',').filter(Boolean) || [];
+  // Location names contain commas ("Texas, USA"), so they use repeated params, not a CSV.
+  const locations = searchParams.getAll('locations').filter(Boolean);
   const coBenefits = searchParams.get('coBenefits')?.split(',').filter(Boolean) || [];
   const standards =
     searchParams.get('standards')?.split(',').filter(Boolean) ||
@@ -18,8 +25,8 @@ export function parseFiltersFromUrl(searchParams: URLSearchParams): ProjectFilte
     types: types as ProjectFilters['types'],
     locations,
     priceRange: {
-      min: minPrice ? parseFloat(minPrice) : 0,
-      max: maxPrice ? parseFloat(maxPrice) : 100,
+      min: parsePrice(minPrice, 0),
+      max: parsePrice(maxPrice, 100),
     },
     coBenefits,
     certificationStandards: standards,
@@ -36,7 +43,7 @@ export function buildFiltersUrl(filters: ProjectFilters): URLSearchParams {
     params.set('types', filters.types.join(','));
   }
   if (filters.locations.length > 0) {
-    params.set('locations', filters.locations.join(','));
+    for (const location of filters.locations) params.append('locations', location);
   }
   if (filters.coBenefits.length > 0) {
     params.set('coBenefits', filters.coBenefits.join(','));

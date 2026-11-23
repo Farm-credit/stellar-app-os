@@ -8,6 +8,7 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { apiVersionHeaders } from '@/lib/api/versioning';
 import {
+  ProtocolVerificationError,
   validateAndIssueProtocolNft,
   type ValidateAndIssueRequest,
 } from '@/lib/api/protocol-verification';
@@ -24,13 +25,12 @@ function responseHeaders(): Record<string, string> {
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
-    const body = (await request.json()) as ValidateAndIssueRequest;
-
-    if (!body.projectId || !body.recipientAddress || !body.creditsTonnes) {
+    let body: ValidateAndIssueRequest;
+    try {
+      body = (await request.json()) as ValidateAndIssueRequest;
+    } catch {
       return NextResponse.json(
-        {
-          error: 'projectId, recipientAddress, and positive creditsTonnes are required.',
-        },
+        { error: 'Request body must be valid JSON.', code: 'invalid_request' },
         { status: 400, headers: responseHeaders() }
       );
     }
@@ -57,10 +57,16 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     return NextResponse.json(issuedNft, { headers: responseHeaders() });
   } catch (error) {
+    if (error instanceof ProtocolVerificationError) {
+      return NextResponse.json(
+        { error: error.message, code: error.code },
+        { status: error.status, headers: responseHeaders() }
+      );
+    }
     console.error('[api/v2/verification/validate-and-issue] error:', error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Internal server error' },
-      { status: 400, headers: responseHeaders() }
+      { error: 'Internal server error' },
+      { status: 500, headers: responseHeaders() }
     );
   }
 }

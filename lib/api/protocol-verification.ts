@@ -8,6 +8,9 @@
  * Automatically validates carbon credits against registered projects and issues NFTs.
  */
 
+import { randomBytes } from 'node:crypto';
+import { StrKey } from '@stellar/stellar-sdk';
+
 export type ProtocolType = 'Verra (VCS)' | 'Gold Standard';
 
 export interface RegisteredProtocolProject {
@@ -103,17 +106,101 @@ const REGISTERED_PROJECTS: RegisteredProtocolProject[] = [
   },
 ];
 
-export async function getRegisteredProtocolProjects(): Promise<RegisteredProtocolProject[]> {
-  return REGISTERED_PROJECTS;
+export class ProtocolVerificationError extends Error {
+  constructor(
+    message: string,
+    readonly code:
+      'invalid_request' | 'project_not_found' | 'project_inactive' | 'insufficient_credits',
+    readonly status: 400 | 404 | 409
+  ) {
+    super(message);
+    this.name = 'ProtocolVerificationError';
+  }
 }
 
-export async function getProtocolProjectById(
+export interface ProjectFilter {
+  protocol?: ProtocolType;
+  country?: string;
+  activeOnly?: boolean;
+}
+
+export interface CreditValidationResult {
+  valid: true;
+  project: RegisteredProtocolProject;
+  creditsTonnes: number;
+  remainingAfterTonnes: number;
+}
+
+export function getRegisteredProtocolProjects(
+  filter: ProjectFilter = {}
+): Promise<RegisteredProtocolProject[]> {
+  return Promise.resolve(
+    REGISTERED_PROJECTS.filter(
+      (p) =>
+        (!filter.protocol || p.protocol === filter.protocol) &&
+        (!filter.country || p.country.toLowerCase() === filter.country.toLowerCase()) &&
+        (!filter.activeOnly || p.active)
+    )
+  );
+}
+
+export function getProtocolProjectById(
   projectId: string
 ): Promise<RegisteredProtocolProject | null> {
   const project = REGISTERED_PROJECTS.find(
     (p) => p.projectId === projectId || p.registryId === projectId
   );
-  return project || null;
+  return Promise.resolve(project || null);
+}
+
+/**
+ * Check a credit request against the registry without allocating anything.
+ * Throws `ProtocolVerificationError` carrying an HTTP-mappable status.
+ */
+export async function validateCreditsAgainstProject(
+  projectId: unknown,
+  creditsTonnes: unknown
+): Promise<CreditValidationResult> {
+  if (typeof projectId !== 'string' || projectId.trim() === '') {
+    throw new ProtocolVerificationError('projectId is required.', 'invalid_request', 400);
+  }
+  if (typeof creditsTonnes !== 'number' || !Number.isFinite(creditsTonnes) || creditsTonnes <= 0) {
+    throw new ProtocolVerificationError(
+      'creditsTonnes must be a positive number.',
+      'invalid_request',
+      400
+    );
+  }
+
+  const project = await getProtocolProjectById(projectId.trim());
+  if (!project) {
+    throw new ProtocolVerificationError(
+      `Project ${projectId} is not registered under Verra or Gold Standard.`,
+      'project_not_found',
+      404
+    );
+  }
+  if (!project.active) {
+    throw new ProtocolVerificationError(
+      `Project ${project.projectName} (${project.registryId}) is not active.`,
+      'project_inactive',
+      409
+    );
+  }
+  if (creditsTonnes > project.availableCreditsTonnes) {
+    throw new ProtocolVerificationError(
+      `Insufficient available credits. Requested ${creditsTonnes} tonnes, but only ${project.availableCreditsTonnes} tonnes remain approved.`,
+      'insufficient_credits',
+      409
+    );
+  }
+
+  return {
+    valid: true,
+    project,
+    creditsTonnes,
+    remainingAfterTonnes: project.availableCreditsTonnes - creditsTonnes,
+  };
 }
 
 /**
@@ -123,38 +210,33 @@ export async function getProtocolProjectById(
 export async function validateAndIssueProtocolNft(
   request: ValidateAndIssueRequest
 ): Promise<IssuedNftCertificate> {
-  const project = await getProtocolProjectById(request.projectId);
-  if (!project) {
-    throw new Error(`Project ${request.projectId} is not registered under Verra or Gold Standard.`);
-  }
-
-  if (!project.active) {
-    throw new Error(`Project ${project.projectName} (${project.registryId}) is not active.`);
-  }
-
-  if (request.creditsTonnes <= 0) {
-    throw new Error('Credits tonnes must be a positive quantity.');
-  }
-
-  if (request.creditsTonnes > project.availableCreditsTonnes) {
-    throw new Error(
-      `Insufficient available credits. Requested ${request.creditsTonnes} tonnes, but only ${project.availableCreditsTonnes} tonnes remain approved.`
+  const recipient =
+    typeof request.recipientAddress === 'string' ? request.recipientAddress.trim() : '';
+  if (!StrKey.isValidEd25519PublicKey(recipient)) {
+    throw new ProtocolVerificationError(
+      'recipientAddress must be a valid Stellar public key.',
+      'invalid_request',
+      400
     );
   }
 
-  // Deduct/allocate credits
+  const { project } = await validateCreditsAgainstProject(request.projectId, request.creditsTonnes);
+
   project.issuedCreditsTonnes += request.creditsTonnes;
   project.availableCreditsTonnes -= request.creditsTonnes;
 
+  const issuedAt = new Date();
+  const year = issuedAt.getUTCFullYear();
   const serialStart =
     request.serialNumberStart ||
-    `${project.registryId}-2025-${String(project.issuedCreditsTonnes - request.creditsTonnes + 1).padStart(7, '0')}`;
+    `${project.registryId}-${year}-${String(project.issuedCreditsTonnes - request.creditsTonnes + 1).padStart(7, '0')}`;
   const serialEnd =
     request.serialNumberEnd ||
-    `${project.registryId}-2025-${String(project.issuedCreditsTonnes).padStart(7, '0')}`;
+    `${project.registryId}-${year}-${String(project.issuedCreditsTonnes).padStart(7, '0')}`;
 
-  const tokenId = `NFT-${project.protocol === 'Verra (VCS)' ? 'VCS' : 'GS'}-${Date.now().toString(36).toUpperCase()}`;
-  const transactionHash = `0x${Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join('')}`;
+  const prefix = project.protocol === 'Verra (VCS)' ? 'VCS' : 'GS';
+  const tokenId = `NFT-${prefix}-${Date.now().toString(36).toUpperCase()}-${randomBytes(3).toString('hex').toUpperCase()}`;
+  const transactionHash = `0x${randomBytes(32).toString('hex')}`;
 
   return {
     tokenId,
@@ -164,10 +246,10 @@ export async function validateAndIssueProtocolNft(
     registryId: project.registryId,
     creditsTonnes: request.creditsTonnes,
     co2OffsetKg: request.creditsTonnes * 1000,
-    recipientAddress: request.recipientAddress,
+    recipientAddress: recipient,
     serialNumbers: `${serialStart} to ${serialEnd}`,
     registryUrl: project.registryUrl,
     transactionHash,
-    issuedAt: new Date().toISOString(),
+    issuedAt: issuedAt.toISOString(),
   };
 }
