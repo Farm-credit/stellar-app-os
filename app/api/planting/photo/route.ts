@@ -9,8 +9,10 @@ import { sendPhotoUploadedEmail } from '@/lib/email/sendgrid';
 import { getPool } from '@/lib/db/client';
 import { encodeGeohash } from '@/lib/geo/geohash';
 import { buildRegionHash } from '@/lib/geo/regionHash';
-import { computePHash } from '@/lib/image/phash';
-import { findDuplicate, recordPhotoHash } from '@/lib/db/photo-hashes';
+import {
+  guardUploadAgainstDuplicates,
+  safelyRecordUploadedPhotoHash,
+} from '@/lib/image/upload-dedup';
 
 const MAX_DISTANCE_METERS = 500;
 
@@ -38,19 +40,22 @@ export async function POST(request: Request) {
 
     const buffer = Buffer.from(await photo.arrayBuffer());
 
-    const phash = await computePHash(buffer);
-    const duplicateMatch = await findDuplicate(phash.hex, {
-      threshold: 5,
+    const dedupVerdict = await guardUploadAgainstDuplicates(buffer, {
       entityType: 'tree',
+      entityId: treeId || farmerId,
+      routeLabel: 'planting/photo',
     });
 
-    if (duplicateMatch) {
+    if (dedupVerdict.isDuplicate) {
       return NextResponse.json(
         {
           error: 'Duplicate photo detected.',
-          distance: duplicateMatch.distance,
-          duplicateOf: duplicateMatch.row.id,
-          hash: phash.hex,
+          code: 'DUPLICATE_PHOTO',
+          distance: dedupVerdict.distance,
+          similarity: dedupVerdict.similarityScore,
+          threshold: dedupVerdict.threshold,
+          duplicateOf: dedupVerdict.duplicateOf,
+          hash: dedupVerdict.phash.hex,
         },
         { status: 422 }
       );
@@ -93,24 +98,21 @@ export async function POST(request: Request) {
     const ipfsResult = await uploadToIpfs(buffer, `${farmerId}-${Date.now()}.jpg`, photo.type);
 
     const storageRef = s3Key ?? ipfsResult.cid ?? `${farmerId}-${Date.now()}`;
-    try {
-      await recordPhotoHash({
-        entityType: 'tree',
-        entityId: treeId || farmerId,
-        hashHex: phash.hex,
-        storageRef,
-        metadata: {
-          farmerId,
-          region,
-          exifLat: exifLat ?? null,
-          exifLon: exifLon ?? null,
-          s3Bucket: process.env.AWS_S3_BUCKET,
-          ipfsCid: ipfsResult.cid,
-        },
-      });
-    } catch (err) {
-      console.error('[planting/photo] hash record failed:', err);
-    }
+    await safelyRecordUploadedPhotoHash({
+      entityType: 'tree',
+      entityId: treeId || farmerId,
+      hashHex: dedupVerdict.phash.hex,
+      storageRef,
+      metadata: {
+        farmerId,
+        region,
+        exifLat: exifLat ?? null,
+        exifLon: exifLon ?? null,
+        s3Bucket: process.env.AWS_S3_BUCKET,
+        ipfsCid: ipfsResult.cid,
+      },
+      routeLabel: 'planting/photo',
+    });
 
     const regionLat = exifLat ?? lat;
     const regionLon = exifLon ?? lon;
@@ -170,7 +172,7 @@ export async function POST(request: Request) {
         s3Key,
         cdnUrl: cdnPhotoUrl,
         encryptedGps,
-        hash: phash.hex,
+        hash: dedupVerdict.phash.hex,
       },
       { status: 201 }
     );
