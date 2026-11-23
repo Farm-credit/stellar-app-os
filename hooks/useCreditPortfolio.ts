@@ -19,6 +19,19 @@ export interface CertificationSummary {
   lastVerifiedAt: number | null;
 }
 
+/**
+ * Parse an ISO date (YYYYMMDD) embedded in a retired asset code.
+ * Expected format: CARBON-<PROJECT>-<VINTAGE>-RET-YYYYMMDD
+ * Returns an ISO date string, or null if no valid retirement date is present.
+ */
+export function parseRetirementDate(assetCode: string): string | null {
+  const match = assetCode.match(/RET-(\d{4})(\d{2})(\d{2})/);
+  if (!match) return null;
+  const [, year, month, day] = match;
+  const date = new Date(`${year}-${month}-${day}T00:00:00.000Z`);
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+}
+
 export function useCreditPortfolio(publicKey: string | null) {
   const [credits, setCredits] = useState<OwnedCredit[]>([]);
   const [stats, setStats] = useState<PortfolioStats>({
@@ -101,6 +114,7 @@ export function useCreditPortfolio(publicKey: string | null) {
         const quantity = parseFloat(balance.balance);
         const isRetired = assetCode.includes('RET');
         const status = isRetired ? 'retired' : 'active';
+        const retirementDate = isRetired ? parseRetirementDate(assetCode) : null;
 
         // Get or use cached price
         let price = 50; // Default fallback price
@@ -121,6 +135,7 @@ export function useCreditPortfolio(publicKey: string | null) {
           totalValue: quantity * price,
           assetCode,
           issuer: balance.asset_issuer || '',
+          retirementDate,
         });
 
         balances.push(holding);
