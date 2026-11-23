@@ -10,6 +10,7 @@ crate-type = ["cdylib", "rlib"]
 soroban-sdk = { version = "27.0.6", features = ["alloc"] }
 harvesta-errors = { path = "../harvesta-errors" }
 admin-controls = { path = "../admin-controls" }
+baseline-emissions = { path = "../baseline-emissions" }
 
 [dev-dependencies]
 soroban-sdk = { version = "27.0.6", features = ["testutils", "alloc"] }
