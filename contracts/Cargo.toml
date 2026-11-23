@@ -12,6 +12,7 @@ members = [
     "farmer-registry",
     "farmer-escrow",
     "donation-escrow",
+    "endowment-stream",
     "zk-location-verifier",
     "zk-verifier",
     "location-proof",
