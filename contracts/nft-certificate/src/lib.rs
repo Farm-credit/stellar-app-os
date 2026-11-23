@@ -68,6 +68,9 @@ const MAX_MERGE_BATCH_SIZE: u32 = 100;
 
 /// Maximum number of certificates that can be minted in a single batch call.
 const MAX_BATCH_MINT_SIZE: u32 = 50;
+/// Renew dynamic metadata at least every day and retain it for another 30 days.
+const GROWTH_TTL_THRESHOLD: u32 = 17_280;
+const GROWTH_TTL_EXTEND_TO: u32 = 518_400;
 
 // ── Error codes ───────────────────────────────────────────────────────────────
 
@@ -99,6 +102,12 @@ pub enum NftCertError {
     AlreadySoulbound = 309,
     /// Caller is neither the contract admin nor the issuer of the certificate.
     NotAuthorizedForSoulbound = 310,
+    /// Growth metadata update did not use the next sequential update number.
+    InvalidGrowthUpdateSequence = 311,
+    /// Growth stage must advance by exactly one stage.
+    InvalidGrowthStageTransition = 312,
+    /// Metadata URI is empty or exceeds the supported length.
+    InvalidMetadataUri = 313,
 }
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -153,6 +162,29 @@ pub struct ProtocolValidationRecord {
     pub verified_at: u64,
 }
 
+/// Verified lifecycle stage for a planted-tree certificate.
+#[contracttype]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[repr(u32)]
+pub enum GrowthStage {
+    Seeded = 0,
+    Planted = 1,
+    Sprout = 2,
+    Sapling = 3,
+    Mature = 4,
+}
+
+/// Separately stored evolution state; avoids changing the existing `Token` ABI.
+#[contracttype]
+#[derive(Clone, Debug, PartialEq)]
+pub struct GrowthState {
+    pub stage: GrowthStage,
+    /// Monotonic update sequence, starting at zero on mint.
+    pub update_sequence: u64,
+    /// Content-addressed or otherwise immutable metadata reference.
+    pub metadata_uri: String,
+}
+
 /// On-chain data stored for each certificate NFT.
 #[contracttype]
 #[derive(Clone, Debug)]
@@ -187,6 +219,8 @@ enum DataKey {
     ProtocolProject(Symbol),
     /// Validation and issuance audit record, keyed by token ID
     ProtocolValidation(u64),
+    /// Growth and dynamic metadata state, keyed by token ID
+    Growth(u64),
 }
 
 // ── Contract ──────────────────────────────────────────────────────────────────
@@ -723,6 +757,97 @@ impl NftCertificate {
         );
     }
 
+    /// Advance verified planting progress and replace the token metadata URI.
+    ///
+    /// The certificate issuer or contract admin must authenticate. Updates are
+    /// replay-protected by `update_sequence` and may advance only one stage at a
+    /// time; stages are never accepted directly from an untrusted planter.
+    /// `metadata_uri` must be non-empty and at most 512 bytes. The sequence
+    /// starts at 1 for the first update (minted state is sequence 0).
+    pub fn update_growth(
+        env: Env,
+        authority: Address,
+        token_id: u64,
+        update_sequence: u64,
+        stage: GrowthStage,
+        metadata_uri: String,
+    ) {
+        Self::assert_not_paused(&env);
+        authority.require_auth();
+        let token = Self::load_token(&env, token_id);
+        let admin: Address = env
+            .storage()
+            .instance()
+            .get(&symbol_short!("ADMIN"))
+            .unwrap_or_else(|| panic_with_error!(&env, HarvestaError::NotInitialized));
+        if authority != admin && authority != token.issuer {
+            panic_with_error!(&env, NftCertError::NotAuthorizedForSoulbound);
+        }
+        if metadata_uri.is_empty() || metadata_uri.len() > 512 {
+            panic_with_error!(&env, NftCertError::InvalidMetadataUri);
+        }
+        let key = DataKey::Growth(token_id);
+        let current = env
+            .storage()
+            .persistent()
+            .get::<DataKey, GrowthState>(&key)
+            .unwrap_or_else(|| GrowthState {
+                stage: GrowthStage::Seeded,
+                update_sequence: 0,
+                metadata_uri: String::from_str(&env, ""),
+            });
+        if current.update_sequence.checked_add(1) != Some(update_sequence) {
+            panic_with_error!(&env, NftCertError::InvalidGrowthUpdateSequence);
+        }
+        let expected = match current.stage {
+            GrowthStage::Seeded => GrowthStage::Planted,
+            GrowthStage::Planted => GrowthStage::Sprout,
+            GrowthStage::Sprout => GrowthStage::Sapling,
+            GrowthStage::Sapling => GrowthStage::Mature,
+            GrowthStage::Mature => {
+                panic_with_error!(&env, NftCertError::InvalidGrowthStageTransition)
+            }
+        };
+        if stage != expected {
+            panic_with_error!(&env, NftCertError::InvalidGrowthStageTransition);
+        }
+        env.storage().persistent().set(
+            &key,
+            &GrowthState {
+                stage,
+                update_sequence,
+                metadata_uri: metadata_uri.clone(),
+            },
+        );
+        env.storage()
+            .persistent()
+            .extend_ttl(&key, GROWTH_TTL_THRESHOLD, GROWTH_TTL_EXTEND_TO);
+        contract_utils::ttl::bump_instance_ttl(&env);
+        env.events().publish(
+            (symbol_short!("growth"), token_id),
+            (current.stage, stage, update_sequence, metadata_uri),
+        );
+    }
+
+    /// Return the stored growth state, or the initial seeded state for a token.
+    pub fn get_growth_state(env: Env, token_id: u64) -> Option<GrowthState> {
+        if !env.storage().persistent().has(&DataKey::Token(token_id)) {
+            return None;
+        }
+        let key = DataKey::Growth(token_id);
+        if let Some(state) = env.storage().persistent().get(&key) {
+            env.storage()
+                .persistent()
+                .extend_ttl(&key, GROWTH_TTL_THRESHOLD, GROWTH_TTL_EXTEND_TO);
+            return Some(state);
+        }
+        Some(GrowthState {
+            stage: GrowthStage::Seeded,
+            update_sequence: 0,
+            metadata_uri: String::from_str(&env, ""),
+        })
+    }
+
     /// Returns `true` when the certificate is a non-transferable impact badge.
     ///
     /// Missing certificates return `false` so front-ends can render a neutral
@@ -797,7 +922,22 @@ impl NftCertificate {
     }
 
     pub fn token_uri(env: Env, token_id: u64) -> String {
-        let _svg = Self::render_svg(env.clone(), token_id);
+        Self::load_token(&env, token_id);
+        let growth_key = DataKey::Growth(token_id);
+        if let Some(state) = env
+            .storage()
+            .persistent()
+            .get::<DataKey, GrowthState>(&growth_key)
+        {
+            if !state.metadata_uri.is_empty() {
+                env.storage().persistent().extend_ttl(
+                    &growth_key,
+                    GROWTH_TTL_THRESHOLD,
+                    GROWTH_TTL_EXTEND_TO,
+                );
+                return state.metadata_uri;
+            }
+        }
         String::from_str(&env, "data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"400\" height=\"400\"><rect width=\"100%\" height=\"100%\" fill=\"#1b4332\"/><text x=\"20\" y=\"40\" fill=\"#ffffff\">Harvesta NFT Certificate</text></svg>")
     }
 
@@ -1932,6 +2072,146 @@ mod tests {
     }
 
     // ------------------------------------------------------------------
+    #[test]
+    fn growth_updates_uri_and_advances_one_stage_at_a_time() {
+        let ctx = setup();
+        let planter = Address::generate(&ctx.env);
+        ctx.client
+            .mint(&ctx.issuer, &planter, &1, &metadata(&ctx.env, 1, 10));
+        let uri1 = String::from_str(&ctx.env, "ipfs://cid-planted");
+        ctx.client
+            .update_growth(&ctx.issuer, &1, &1, &GrowthStage::Planted, &uri1);
+        assert_eq!(ctx.client.token_uri(&1), uri1);
+        let state = ctx.client.get_growth_state(&1).unwrap();
+        assert_eq!(state.stage, GrowthStage::Planted);
+        assert_eq!(state.update_sequence, 1);
+        ctx.client.update_growth(
+            &ctx.admin,
+            &1,
+            &2,
+            &GrowthStage::Sprout,
+            &String::from_str(&ctx.env, "ipfs://cid-sprout"),
+        );
+        assert_eq!(
+            ctx.client.get_growth_state(&1).unwrap().stage,
+            GrowthStage::Sprout
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #311)")]
+    fn growth_replay_or_skipped_sequence_rejected() {
+        let ctx = setup();
+        let planter = Address::generate(&ctx.env);
+        ctx.client
+            .mint(&ctx.issuer, &planter, &1, &metadata(&ctx.env, 1, 10));
+        ctx.client.update_growth(
+            &ctx.issuer,
+            &1,
+            &2,
+            &GrowthStage::Planted,
+            &String::from_str(&ctx.env, "ipfs://x"),
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #312)")]
+    fn growth_cannot_skip_stages_or_regress() {
+        let ctx = setup();
+        let planter = Address::generate(&ctx.env);
+        ctx.client
+            .mint(&ctx.issuer, &planter, &1, &metadata(&ctx.env, 1, 10));
+        ctx.client.update_growth(
+            &ctx.issuer,
+            &1,
+            &1,
+            &GrowthStage::Sprout,
+            &String::from_str(&ctx.env, "ipfs://x"),
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #312)")]
+    fn growth_cannot_regress_after_valid_advance() {
+        let ctx = setup();
+        let planter = Address::generate(&ctx.env);
+        ctx.client
+            .mint(&ctx.issuer, &planter, &1, &metadata(&ctx.env, 1, 10));
+        ctx.client.update_growth(
+            &ctx.issuer,
+            &1,
+            &1,
+            &GrowthStage::Planted,
+            &String::from_str(&ctx.env, "ipfs://planted"),
+        );
+        ctx.client.update_growth(
+            &ctx.issuer,
+            &1,
+            &2,
+            &GrowthStage::Seeded,
+            &String::from_str(&ctx.env, "ipfs://regressed"),
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #313)")]
+    fn growth_rejects_uri_over_512_bytes() {
+        let ctx = setup();
+        let planter = Address::generate(&ctx.env);
+        ctx.client
+            .mint(&ctx.issuer, &planter, &1, &metadata(&ctx.env, 1, 10));
+        let bytes = [b'x'; 513];
+        let uri = String::from_bytes(&ctx.env, &bytes);
+        ctx.client
+            .update_growth(&ctx.issuer, &1, &1, &GrowthStage::Planted, &uri);
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #310)")]
+    fn growth_rejects_unauthorized_caller() {
+        let ctx = setup();
+        let planter = Address::generate(&ctx.env);
+        let stranger = Address::generate(&ctx.env);
+        ctx.client
+            .mint(&ctx.issuer, &planter, &1, &metadata(&ctx.env, 1, 10));
+        ctx.client.update_growth(
+            &stranger,
+            &1,
+            &1,
+            &GrowthStage::Planted,
+            &String::from_str(&ctx.env, "ipfs://x"),
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #313)")]
+    fn growth_rejects_empty_uri() {
+        let ctx = setup();
+        let planter = Address::generate(&ctx.env);
+        ctx.client
+            .mint(&ctx.issuer, &planter, &1, &metadata(&ctx.env, 1, 10));
+        ctx.client.update_growth(
+            &ctx.issuer,
+            &1,
+            &1,
+            &GrowthStage::Planted,
+            &String::from_str(&ctx.env, ""),
+        );
+    }
+
+    #[test]
+    fn unknown_growth_state_is_none_and_missing_state_has_seeded_default() {
+        let ctx = setup();
+        assert!(ctx.client.get_growth_state(&99).is_none());
+        let planter = Address::generate(&ctx.env);
+        ctx.client
+            .mint(&ctx.issuer, &planter, &1, &metadata(&ctx.env, 1, 10));
+        assert_eq!(
+            ctx.client.get_growth_state(&1).unwrap().stage,
+            GrowthStage::Seeded
+        );
+    }
+
     // Protocol verification (regression coverage)
     // ------------------------------------------------------------------
 
