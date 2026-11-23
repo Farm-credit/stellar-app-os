@@ -139,6 +139,71 @@ All responses carry `X-API-Version: v1`. Snapshot responses are publicly
 cacheable for 30 seconds and history for 5 minutes (with stale revalidation),
 so polling is safe at dashboard rates.
 
+## Carbon Price API (v2)
+
+The current version of the real-time carbon credit market data API (issue
+#1388). The response shape mirrors the frozen v1 contract above; v2 is the
+active development line where new fields may appear. Data is public and
+read-only, so responses are cacheable and do not require an `x-api-key`.
+
+### `GET /api/v2/carbon-prices`
+
+One quote per listed credit series, with pre-rolled aggregates by credit type,
+region and certification standard. Accepts the same optional, comma-separated,
+case-tolerant query params as v1:
+
+| Parameter    | Description                                                  |
+| ------------ | ------------------------------------------------------------ |
+| `types`      | Project/credit type, e.g. `Reforestation`, `Mangrove Restoration` |
+| `regions`    | `africa`, `latin-america`, `southeast-asia`, `oceania`, `north-america`, `global` |
+| `standards`  | Certification standard, e.g. `Verra (VCS)`, `Gold Standard`   |
+| `projectIds` | Exact project IDs, e.g. `PROJ-004`                            |
+| `assetCodes` | Ledger asset codes, e.g. `CARBON-PROJ-004-2024`               |
+| `limit`      | 1–500 quotes (default: all)                                   |
+
+```bash
+curl "https://<host>/api/v2/carbon-prices?types=Mangrove%20Restoration&limit=1"
+```
+
+Each quote carries `pricePerTon`, `previousClose`, `change24hAmount`,
+`change24hPercent`, `volume24h` and `updatedAt` (USD per tonne), plus the
+series' `assetCode`, `projectId`, `projectType`, `region` and `standard`. The
+envelope includes `filters`, `count`, `generatedAt`, `source` and an
+`aggregates` object (`averagePricePerTon`, `totalVolume24h`, `byType`,
+`byRegion`, `byStandard`).
+
+`POST /api/v2/carbon-prices` accepts the same fields as a JSON body
+(`{ "types": [...], "regions": [...], ... }`) and returns the identical
+snapshot — useful for clients that build complex filter sets.
+
+### `GET /api/v2/carbon-prices/history`
+
+Historical pricing for one listed series, bucketed by `interval`.
+
+| Parameter  | Required | Description                                        |
+| ---------- | -------- | -------------------------------------------------- |
+| `assetCode`| Yes      | Series to read, e.g. `CARBON-PROJ-004-2024`        |
+| `interval` | No       | `day` (default), `week`, or `month`                |
+| `from`     | No       | `YYYY-MM-DD`; defaults to 90 days before `to`      |
+| `to`       | No       | `YYYY-MM-DD`; defaults to today (UTC)              |
+
+The response contains the `points` array (`at`, `pricePerTon`, `volume`) and a
+`stats` rollup (first/last/min/max/average price, `changePercent`,
+`totalVolume`).
+
+| Status | Meaning                                                    |
+| ------ | ---------------------------------------------------------- |
+| `200`  | Snapshot or history                                        |
+| `400`  | Validation failure — `{ error, details: string[] }`        |
+| `404`  | `assetCode` is not a listed series (history only)          |
+| `502`  | Upstream price source unreachable — `{ error, failures }`  |
+| `500`  | Unexpected processing failure                              |
+
+All responses carry `X-API-Version: v2`. Cache directives match v1: snapshots
+are publicly cacheable for 30 seconds and history for 5 minutes (with stale
+revalidation). Integrators starting fresh should target v2; v1 remains
+available under its frozen contract.
+
 ## Carbon Impact Calculator API (v1)
 
 Company footprint calculator (issue #1333): submit emissions data —
