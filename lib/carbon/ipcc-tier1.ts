@@ -20,6 +20,10 @@
  * densities follow the Global Wood Density Database; root-to-shoot ratios and the
  * carbon fraction follow IPCC (2006) Guidelines, Vol. 4, Ch. 4 default values.
  * All of them are plain constants below and are shown on the methodology page.
+ *
+ * Additionality: a project's claimed sequestration is only credited if it exceeds
+ * the regional baseline (business-as-usual) sequestration that would have occurred
+ * without the carbon-credit incentive. See `assessAdditionality` below.
  */
 import { CLIMATE_FACTORS, TREE_SPECIES, type ClimateZone } from '@/lib/constants/species';
 import type { TreeSpecies } from '@/lib/types/tree';
@@ -206,5 +210,63 @@ export function estimateTreeSequestration(input: TreeSequestrationInput): TreeSe
     size: sizeAtAge(input.species, input.climateZone, ageYears),
     cumulativeCo2Kg: cumulativeCo2Kg(input.species, input.climateZone, ageYears),
     annualCo2Kg: annualSequestrationKg(input.species, input.climateZone, ageYears),
+  };
+}
+
+export interface RegionalBaseline {
+  /** Regional business-as-usual sequestration per hectare per year, kg CO₂. */
+  baselineKgCo2PerHaYear: number;
+  /** Region identifier, for audit trail. */
+  region: string;
+}
+
+export interface AdditionalityInput {
+  /** Project's claimed net annual sequestration, kg CO₂. */
+  projectAnnualCo2Kg: number;
+  /** Project area, hectares. */
+  areaHa: number;
+  baseline: RegionalBaseline;
+}
+
+export interface AdditionalityResult {
+  additional: boolean;
+  /** Project sequestration above baseline, kg CO₂/year (negative if below). */
+  excessAnnualCo2Kg: number;
+  /** Expected baseline sequestration for the project area, kg CO₂/year. */
+  baselineAnnualCo2Kg: number;
+  /** Project sequestration relative to baseline (1 = equal). */
+  ratioToBaseline: number;
+  region: string;
+}
+
+/**
+ * Verifies additionality by comparing project sequestration against the regional
+ * baseline (business-as-usual) for the same area. A project is additional only when
+ * its claimed sequestration strictly exceeds the baseline it would have achieved
+ * without the incentive.
+ */
+export function assessAdditionality(input: AdditionalityInput): AdditionalityResult {
+  const { projectAnnualCo2Kg, areaHa, baseline } = input;
+  if (!Number.isFinite(areaHa) || areaHa <= 0) {
+    throw new Error('Additionality requires a positive project area in hectares');
+  }
+  if (!Number.isFinite(projectAnnualCo2Kg) || projectAnnualCo2Kg < 0) {
+    throw new Error('Project annual CO₂ must be a non-negative finite number');
+  }
+  if (!Number.isFinite(baseline.baselineKgCo2PerHaYear) || baseline.baselineKgCo2PerHaYear < 0) {
+    throw new Error('Regional baseline must be a non-negative finite number');
+  }
+
+  const baselineAnnualCo2Kg = baseline.baselineKgCo2PerHaYear * areaHa;
+  const excessAnnualCo2Kg = projectAnnualCo2Kg - baselineAnnualCo2Kg;
+  const ratioToBaseline =
+    baselineAnnualCo2Kg > 0 ? projectAnnualCo2Kg / baselineAnnualCo2Kg : Infinity;
+
+  return {
+    additional: excessAnnualCo2Kg > 0,
+    excessAnnualCo2Kg,
+    baselineAnnualCo2Kg,
+    ratioToBaseline,
+    region: baseline.region,
   };
 }

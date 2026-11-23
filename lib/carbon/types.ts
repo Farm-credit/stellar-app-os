@@ -66,3 +66,28 @@ export interface CarbonOffsetSnapshotRow {
   created_at: Date;
   updated_at: Date;
 }
+
+/**
+ * Additionality verification — issue: verify offsets would not have happened
+ * without the incentive, by comparing project emissions to regional baselines.
+ */
+
+/** Regional baseline emissions reference for a given region and year. */
+export interface RegionalBaseline {
+  regionCode: string;
+  baselineYear: number;
+  /** Baseline expected annual CO2 sequestration per hectare (kg CO2/ha/yr) without the project. */
+  baselineKgCo2PerHaPerYear: number;
+}
+
+/** Result of an additionality check for a project's offset claim. */
+export interface AdditionalityResult {
+  regionCode: string;
+  baselineYear: number;
+  projectKgCo2PerHaPerYear: number;
+  baselineKgCo2PerHaPerYear: number;
+  /** Project sequestration minus regional baseline (kg CO2/ha/yr). Positive = additional. */
+  additionalKgCo2PerHaPerYear: number;
+  /** True when the project exceeds the regional baseline. */
+  isAdditional: boolean;
+}

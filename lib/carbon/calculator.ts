@@ -90,6 +90,19 @@ export interface EmissionBreakdown {
   total: number;
 }
 
+export interface AdditionalityResult {
+  /** Whether the project's emissions are below the regional baseline (i.e. the offset is additional) */
+  isAdditional: boolean;
+  /** Baseline emissions for the project's household size in the region, tCO2e */
+  baselineTCO2e: number;
+  /** Project emissions, tCO2e */
+  projectTCO2e: number;
+  /** Additional emissions reduction relative to baseline, tCO2e (baseline - project, floored at 0) */
+  additionalReductionTCO2e: number;
+  /** Number of credits that can be considered additional (1 credit = 1 tCO2e) */
+  additionalCredits: number;
+}
+
 export interface CarbonProfileResult {
   /** Total annual emissions in tCO2e */
   totalTC02e: number;
@@ -107,6 +120,8 @@ export interface CarbonProfileResult {
     differenceTCO2e: number;
     percentDifference: number;
   };
+  /** Additionality verification against the regional baseline */
+  additionality: AdditionalityResult;
   /** Equivalent number of trees needed to sequester the emissions for one year */
   treesNeeded: number;
 }
@@ -116,6 +131,43 @@ function safeNumber(value: unknown, fallback: number): number {
     return value;
   }
   return fallback;
+}
+
+const REGION_KEY_ALIASES: Record<string, string> = {
+  global_average: 'global',
+  us_average: 'united_states',
+  eu_average: 'european_union',
+};
+
+/**
+ * Resolves the regional per-capita baseline (tCO2e/person/year) for a region key.
+ */
+export function getRegionalBaselinePerCapita(region: string): number {
+  const key = REGION_KEY_ALIASES[region] ?? region;
+  return REGIONAL_PER_CAPITA_EMISSIONS[key] ?? REGIONAL_PER_CAPITA_EMISSIONS.global;
+}
+
+/**
+ * Verifies whether a project's emissions reduction is additional: the project's
+ * per-household emissions must fall below the regional per-capita baseline scaled
+ * to the household size. Only the reduction below baseline is counted as additional.
+ */
+export function verifyAdditionality(
+  projectTCO2e: number,
+  householdSize: number,
+  region: string,
+): AdditionalityResult {
+  const size = safeNumber(householdSize, 1);
+  const project = safeNumber(projectTCO2e, 0);
+  const baseline = getRegionalBaselinePerCapita(region) * size;
+  const reduction = Math.max(0, baseline - project);
+  return {
+    isAdditional: project < baseline,
+    baselineTCO2e: baseline,
+    projectTCO2e: project,
+    additionalReductionTCO2e: reduction,
+    additionalCredits: Math.floor(reduction),
+  };
 }
 
 export function calculateHouseholdEmissions(input: HouseholdInput): {
@@ -191,17 +243,12 @@ export function calculateCarbonProfile(input: CarbonProfileInput): CarbonProfile
     flight;
 
   const perCapita = total / householdSize;
-  const regionAverageKey: Record<string, string> = {
-    global_average: 'global',
-    us_average: 'united_states',
-    eu_average: 'european_union',
-  };
-  const regionAverage =
-    REGIONAL_PER_CAPITA_EMISSIONS[regionAverageKey[input.household.region] ?? input.household.region] ??
-    REGIONAL_PER_CAPITA_EMISSIONS.global;
+  const regionAverage = getRegionalBaselinePerCapita(input.household.region);
   const regionAverageTotal = regionAverage * householdSize;
   const difference = total - regionAverageTotal;
   const percentDifference = regionAverageTotal > 0 ? (difference / regionAverageTotal) * 100 : 0;
+
+  const additionality = verifyAdditionality(total, householdSize, input.household.region);
 
   const creditPrice = safeNumber(input.creditPriceUSD, DEFAULT_CREDIT_PRICE_USD);
   const creditsNeeded = Math.ceil(total);
@@ -230,6 +277,7 @@ export function calculateCarbonProfile(input: CarbonProfileInput): CarbonProfile
       differenceTCO2e: difference,
       percentDifference,
     },
+    additionality,
     treesNeeded,
   };
 }

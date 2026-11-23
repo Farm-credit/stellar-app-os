@@ -128,7 +128,7 @@ export const DIET_FACTORS: Record<string, EmissionFactor> = {
     source: 'Pooine 2021',
   },
   meat_medium: {
-    label: 'Medium meat (<annotation>50-150g/day)',
+    label: 'Medium meat (50-150g/day)',
     factor: 2.0,
     unit: 'tCO2e/person/yr',
     source: 'Pooine 2021',
@@ -163,3 +163,31 @@ export const DEFAULT_FUEL_EFFICIENCY_L_PER_100KM = 8.0;
 
 /** Price of a single carbon credit in USD if unknown. */
 export const DEFAULT_CREDIT_PRICE_USD = 15;
+
+/**
+ * Additionality check: a project's claimed emission reduction is considered
+ * additional only if its emissions fall below the regional baseline.
+ *
+ * @param projectEmissionsPerYear - Project emissions (tCO2e/person/yr)
+ * @param region - Key of REGIONAL_PER_CAPITA_EMISSIONS
+ * @returns true if project emissions are strictly below the regional baseline
+ */
+export function isAdditional(projectEmissionsPerYear: number, region: string): boolean {
+  const baseline = REGIONAL_PER_CAPITA_EMISSIONS[region];
+  if (baseline === undefined) {
+    throw new Error(`Unknown region for additionality baseline: ${region}`);
+  }
+  return projectEmissionsPerYear < baseline;
+}
+
+/**
+ * Returns the reduction (tCO2e/person/yr) of a project relative to the regional baseline.
+ * Positive values indicate reductions below baseline.
+ */
+export function baselineReduction(projectEmissionsPerYear: number, region: string): number {
+  const baseline = REGIONAL_PER_CAPITA_EMISSIONS[region];
+  if (baseline === undefined) {
+    throw new Error(`Unknown region for additionality baseline: ${region}`);
+  }
+  return baseline - projectEmissionsPerYear;
+}
