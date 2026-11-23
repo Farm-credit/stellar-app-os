@@ -157,7 +157,7 @@ function CreditPortfolioContent() {
           <div>
             <CardTitle>Owned carbon credits</CardTitle>
             <CardDescription>
-              Track each purchase, retirement date, and the co-benefits supported by its project.
+              Track each purchase: project name, quantity, cost, retirement date, and co-benefits (biodiversity, soil health).
             </CardDescription>
           </div>
           <Button
@@ -201,7 +201,7 @@ function CreditPortfolioContent() {
             <div className="space-y-0">
               {credits.map((credit) => (
                 <CreditRow
-                  key={`${credit.projectId}-${credit.vintage}-${credit.status}`}
+                  key={`${credit.projectId}-${credit.vintage}-${credit.status}-${credit.quantity}`}
                   credit={credit}
                   onTrade={handleTrade}
                   onRetire={handleRetire}
