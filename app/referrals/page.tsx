@@ -84,7 +84,52 @@ export default function ReferralProgramPage() {
         </button>
       </div>
 
-      <ReferralLinkCard referralLink={stats.referralLink} />
+      <ReferralLinkCard
+        referralLink={stats.referralLink}
+        {...(activeRole === 'planter'
+          ? {
+              rewardAmountXlm: stats.rewardAmountXlm,
+              planterReferralsCount: stats.planterReferralsCount,
+              rewardedPlanterReferralsCount: stats.rewardedPlanterReferralsCount,
+              pendingPlanterReferralsCount: stats.pendingPlanterReferralsCount,
+              totalEarnings: stats.totalEarnings,
+            }
+          : {})}
+      />
+
+      {activeRole === 'planter' && (
+        <section
+          aria-label="Planter referral earnings summary"
+          className="mb-6 rounded-lg border border-border bg-muted/30 p-6"
+        >
+          <h2 className="mb-2 text-lg font-semibold">Your planter referral earnings</h2>
+          <p className="mb-3 text-sm text-muted-foreground">
+            Earn 2 XLM for every referred planter who completes their first job. Rewards are capped
+            at 10 per calendar month.
+          </p>
+          <dl className="grid grid-cols-2 gap-4 text-sm sm:grid-cols-4">
+            <div>
+              <dt className="text-muted-foreground">Reward per referral</dt>
+              <dd className="font-semibold">{stats.rewardAmountXlm} XLM</dd>
+            </div>
+            <div>
+              <dt className="text-muted-foreground">Referred planters</dt>
+              <dd className="font-semibold">{stats.planterReferralsCount}</dd>
+            </div>
+            <div>
+              <dt className="text-muted-foreground">Rewarded</dt>
+              <dd className="font-semibold">{stats.rewardedPlanterReferralsCount}</dd>
+            </div>
+            <div>
+              <dt className="text-muted-foreground">Pending first job</dt>
+              <dd className="font-semibold">{stats.pendingPlanterReferralsCount}</dd>
+            </div>
+          </dl>
+          <p className="mt-3 text-sm">
+            Total earnings: <span className="font-semibold">{stats.totalEarnings} XLM</span>
+          </p>
+        </section>
+      )}
 
       <StatsDisplay
         referralsCount={stats.referralsCount}

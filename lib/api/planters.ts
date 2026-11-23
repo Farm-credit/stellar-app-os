@@ -131,6 +131,44 @@ export function getPlanterProfile(planterId: string): PlanterProfile | undefined
   return planterProfiles.find((profile) => profile.id === planterId);
 }
 
+export interface PlanterRegistrationInput {
+  wallet: string;
+  name?: string;
+  region?: string;
+  /** Referral code captured from the `?ref=` query param during sign-up. */
+  referralCode?: string | null;
+}
+
+export interface PlanterRegistrationResult {
+  wallet: string;
+  referralRecorded: boolean;
+}
+
+/**
+ * Register a new planter, recording a referral when a `?ref=` code is present.
+ *
+ * The referral is attributed to the new planter's wallet so the referrer can
+ * earn 2 XLM once this planter completes their first job.
+ */
+export async function registerPlanterWithReferral(
+  input: PlanterRegistrationInput,
+): Promise<PlanterRegistrationResult> {
+  const wallet = input.wallet.trim();
+  if (!wallet) {
+    throw new Error('A wallet address is required to register a planter.');
+  }
+
+  const referralCode = input.referralCode?.trim();
+  if (!referralCode) {
+    return { wallet, referralRecorded: false };
+  }
+
+  const { createPlanterReferral } = await import('../referrals');
+  await createPlanterReferral({ referralCode, refereeWallet: wallet });
+
+  return { wallet, referralRecorded: true };
+}
+
 /** Return a defensive copy for read-only API consumers such as GraphQL. */
 export function getPlanterProfiles(): PlanterProfile[] {
   return planterProfiles.map((profile) => ({

@@ -799,6 +799,33 @@ model SeedProvenanceEvent {
   @@map("seed_provenance_events")
 }
 
+// ── PlanterReferral ─────────────────────────────────────────────────────────
+//
+// Planter-to-planter referral tracking (Issue #1015). A planter earns 2 XLM
+// for each referred planter who completes their first job. `refereeWallet` is
+// unique so a wallet can only ever be referred once (idempotency); `status`
+// moves from "pending" to "rewarded" once the reward payout is submitted and
+// `rewardTxHash` records the Stellar transaction hash.
+//
+// Schema is for documentation; production uses raw SQL migrations (see note above).
+// TODO: create db/migrations/029_planter_referrals.sql mirroring this model,
+// including a UNIQUE constraint on referee_wallet for idempotency.
+model PlanterReferral {
+  id             String    @id @default(cuid())
+  referrerWallet String    @map("referrer_wallet") @db.VarChar(56)
+  refereeWallet  String    @unique @map("referee_wallet") @db.VarChar(56)
+  referralCode   String    @map("referral_code") @db.VarChar(50)
+  status         String    @default("pending") @db.VarChar(20) // pending | rewarded
+  rewardTxHash   String?   @map("reward_tx_hash") @db.VarChar(64)
+  rewardedAt     DateTime? @map("rewarded_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  @@index([referrerWallet])
+  @@index([status])
+  @@map("planter_referrals")
+}
+
 // ── SeedDistribution ────────────────────────────────────────────────────────
 //
 // Distribution of a SeedBatch from a seed bank to a nursery and onward to a
