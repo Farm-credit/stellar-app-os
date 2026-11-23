@@ -4472,3 +4472,10 @@ Generates and returns a downloadable PDF certificate.
 
 
 <!-- Issue #1090 is a duplicate of an already-implemented feature request. -->
+
+## Searchable Species Database
+
+Explore detailed botanical profiles for all tree species available for sponsorship:
+- **Search & Filter:** Browse and filter species directly from tree profiles and species filters.
+- **Species Detail Pages:** View species photography alongside structured data cards for native range, growth rate, ecological role, and typical CO2 absorption.
+- **Verified Botanical Data:** Sourced from authoritative botanical databases.
