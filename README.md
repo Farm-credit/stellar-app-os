@@ -4473,6 +4473,12 @@ Generates and returns a downloadable PDF certificate.
 
 <!-- Issue #1090 is a duplicate of an already-implemented feature request. -->
 
+## Offset Project Impact Metrics
+
+Track verified environmental and social outcomes across carbon offset projects:
+- **Emissions & Carbon:** Monitor actual emissions reduced and soil carbon sequestered.
+- **Ecosystem Restoration:** View measurable water quality improvements and biodiversity metrics.
+- **Community Impact:** Track local jobs created through project initiatives.
 ## Searchable Species Database
 
 Explore detailed botanical profiles for all tree species available for sponsorship:
