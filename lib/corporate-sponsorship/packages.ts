@@ -43,6 +43,7 @@ export interface SponsoredTreeRecord {
   status: SponsoredTreeStatus;
   co2OffsetKgPerYear: number;
   assignedEmployee?: string;
+  assignedEmployeeEmail?: string;
 }
 
 export interface CorporateOrder {
