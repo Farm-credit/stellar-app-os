@@ -53,10 +53,6 @@ export async function pollContractEvents() {
   const response = await server.getEvents(request);
 
   const nextLedger = response.latestLedger ?? startLedger;
-  if (nextLedger > startLedger) {
-    await saveEventCursor(pool, NETWORK, nextLedger);
-  }
-
   for (const event of response.events) {
     await upsertContractEvent(pool, {
       id: event.id,
@@ -71,6 +67,10 @@ export async function pollContractEvents() {
       valueXdr: event.value ? scValToBase64(event.value) : null,
       pagingToken: event.pagingToken ?? null,
     });
+  }
+
+  if (nextLedger > startLedger) {
+    await saveEventCursor(pool, NETWORK, nextLedger);
   }
 }
 
