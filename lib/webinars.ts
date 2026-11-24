@@ -268,7 +268,7 @@ export function getWebinarTopic(id: WebinarTopicId | string): WebinarTopic {
 /** Find a session by slug, or `undefined` when it is not in the series. */
 export function findWebinarSessionBySlug(
   slug: string,
-  sessions: readonly WebinarSession[] = WEBINAR_SESSIONS,
+  sessions: readonly WebinarSession[] = WEBINAR_SESSIONS
 ): WebinarSession | undefined {
   return sessions.find((session) => session.slug === slug);
 }
@@ -284,7 +284,7 @@ export function findWebinarSessionBySlug(
  * once the offset is known.
  */
 export function getWebinarStart(
-  session: Pick<WebinarSession, 'date' | 'startTime' | 'timeZone'>,
+  session: Pick<WebinarSession, 'date' | 'startTime' | 'timeZone'>
 ): Date {
   const offsetMinutes = timeZoneOffsetMinutes(session.timeZone, session.date);
   const asUtc = Date.parse(`${session.date}T${session.startTime}:00Z`);
@@ -314,7 +314,7 @@ function timeZoneOffsetMinutes(timeZone: string, date: string): number {
       asUtc('month') - 1,
       asUtc('day'),
       asUtc('hour') % 24,
-      asUtc('minute'),
+      asUtc('minute')
     );
     return (zoned - utcMidnight) / 60_000;
   } catch {
@@ -336,7 +336,7 @@ export function formatWebinarDate(date: string): string {
 
 /** Format the start and end clock times, e.g. `15:00–16:30`. */
 export function formatWebinarTimeRange(
-  session: Pick<WebinarSession, 'startTime' | 'durationMinutes'>,
+  session: Pick<WebinarSession, 'startTime' | 'durationMinutes'>
 ): string {
   const [hours, minutes] = session.startTime.split(':').map(Number);
   const start = (hours || 0) * 60 + (minutes || 0);
@@ -355,7 +355,7 @@ export function formatWebinarSchedule(session: WebinarSession): string {
 
 /** Seats left, full/waitlist state, and the label shown on the session badge. */
 export function getSeatAvailability(
-  session: Pick<WebinarSession, 'capacity' | 'registered'>,
+  session: Pick<WebinarSession, 'capacity' | 'registered'>
 ): SeatAvailability {
   if (session.capacity === null) {
     return { remaining: null, isFull: false, label: 'Open stream' };
@@ -377,7 +377,7 @@ export function getSeatAvailability(
 /** Sessions that have not started yet, soonest first. */
 export function getUpcomingWebinarSessions(
   sessions: readonly WebinarSession[] = WEBINAR_SESSIONS,
-  now: Date = new Date(),
+  now: Date = new Date()
 ): WebinarSession[] {
   return sessions
     .filter((session) => getWebinarStart(session).getTime() > now.getTime())
@@ -387,7 +387,7 @@ export function getUpcomingWebinarSessions(
 /** Sessions that have already started, most recent first. */
 export function getPastWebinarSessions(
   sessions: readonly WebinarSession[] = WEBINAR_SESSIONS,
-  now: Date = new Date(),
+  now: Date = new Date()
 ): WebinarSession[] {
   return sessions
     .filter((session) => getWebinarStart(session).getTime() <= now.getTime())
@@ -401,7 +401,7 @@ export function getPastWebinarSessions(
 export function filterWebinarSessions(
   sessions: readonly WebinarSession[],
   query = '',
-  topicId: WebinarTopicId | 'all' = 'all',
+  topicId: WebinarTopicId | 'all' = 'all'
 ): WebinarSession[] {
   const needle = query.trim().toLowerCase();
   return sessions.filter((session) => {
@@ -437,7 +437,7 @@ export interface WebinarSeriesSummary {
 /** Headline numbers for the series, used by the page summary tiles. */
 export function summarizeWebinarSeries(
   sessions: readonly WebinarSession[] = WEBINAR_SESSIONS,
-  now: Date = new Date(),
+  now: Date = new Date()
 ): WebinarSeriesSummary {
   const upcoming = getUpcomingWebinarSessions(sessions, now);
   const past = getPastWebinarSessions(sessions, now);
@@ -452,5 +452,145 @@ export function summarizeWebinarSeries(
       ? capped.reduce((sum, session) => sum + (getSeatAvailability(session).remaining ?? 0), 0)
       : null,
     nextSession: upcoming[0] ?? null,
+  };
+}
+
+// ── v2: calendar export, registration and curriculum progress (#1419) ────────
+
+/** When a session ends, derived from its start and duration. */
+export function getWebinarEnd(
+  session: Pick<WebinarSession, 'date' | 'startTime' | 'timeZone' | 'durationMinutes'>
+): Date {
+  return new Date(
+    getWebinarStart(session).getTime() + Math.max(0, session.durationMinutes) * 60_000
+  );
+}
+
+function icsTimestamp(date: Date): string {
+  return date
+    .toISOString()
+    .replace(/[-:]/g, '')
+    .replace(/\.\d{3}/, '');
+}
+
+function icsEscape(value: string): string {
+  return value
+    .replace(/\\/g, '\\\\')
+    .replace(/;/g, '\\;')
+    .replace(/,/g, '\\,')
+    .replace(/\r?\n/g, '\\n');
+}
+
+/**
+ * An RFC 5545 calendar file for one session, so farmers can add it to any
+ * phone or desktop calendar. Times are written in UTC so no timezone
+ * definitions need to be embedded.
+ */
+export function buildWebinarIcs(
+  session: WebinarSession,
+  options: { siteUrl?: string; now?: Date } = {}
+): string {
+  const siteUrl = (options.siteUrl ?? '').replace(/\/$/, '');
+  const topic = getWebinarTopic(session.topicId);
+  const description = `${session.summary}\n\nTrack: ${topic.label}\nFacilitator: ${session.facilitator}`;
+
+  return [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//Farm Credit//Farmer Training Webinars//EN',
+    'CALSCALE:GREGORIAN',
+    'METHOD:PUBLISH',
+    'BEGIN:VEVENT',
+    `UID:${session.slug}@webinars.farmcredit`,
+    `DTSTAMP:${icsTimestamp(options.now ?? new Date())}`,
+    `DTSTART:${icsTimestamp(getWebinarStart(session))}`,
+    `DTEND:${icsTimestamp(getWebinarEnd(session))}`,
+    `SUMMARY:${icsEscape(session.title)}`,
+    `DESCRIPTION:${icsEscape(description)}`,
+    `URL:${siteUrl}${session.registrationUrl}`,
+    'END:VEVENT',
+    'END:VCALENDAR',
+    '',
+  ].join('\r\n');
+}
+
+export interface WebinarRegistrationInput {
+  name: string;
+  email: string;
+  /** Optional farm location, used to plan regional follow-up sessions. */
+  location?: string;
+}
+
+export type WebinarRegistrationValidation =
+  { ok: true; data: WebinarRegistrationInput } | { ok: false; errors: string[] };
+
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/** Validate and normalize a registration form submission. */
+export function validateWebinarRegistration(raw: unknown): WebinarRegistrationValidation {
+  const body = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {};
+  const name = typeof body.name === 'string' ? body.name.trim() : '';
+  const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : '';
+  const location = typeof body.location === 'string' ? body.location.trim() : '';
+  const errors: string[] = [];
+
+  if (name.length < 2 || name.length > 100) errors.push('Enter your name (2–100 characters).');
+  if (!EMAIL_PATTERN.test(email) || email.length > 254) errors.push('Enter a valid email address.');
+  if (location.length > 120) errors.push('Location must be 120 characters or fewer.');
+
+  if (errors.length) return { ok: false, errors };
+  return { ok: true, data: { name, email, ...(location ? { location } : {}) } };
+}
+
+export interface CurriculumTrackProgress {
+  topic: WebinarTopic;
+  /** Whether the farmer attended at least one session in this track. */
+  completed: boolean;
+  /** Slugs of the sessions attended in this track. */
+  attended: string[];
+}
+
+export interface CurriculumProgress {
+  tracks: CurriculumTrackProgress[];
+  completedTracks: number;
+  totalTracks: number;
+  percentComplete: number;
+  /** A training certificate is issued once every track has been attended. */
+  certificateEligible: boolean;
+  /** Soonest upcoming session in a track still to complete, if any. */
+  nextRecommended: WebinarSession | null;
+}
+
+/**
+ * Progress through the five-track curriculum from the sessions a farmer has
+ * attended. Unknown slugs are ignored.
+ */
+export function getCurriculumProgress(
+  attendedSlugs: readonly string[],
+  sessions: readonly WebinarSession[] = WEBINAR_SESSIONS,
+  now: Date = new Date()
+): CurriculumProgress {
+  const attended = new Set(attendedSlugs);
+  const tracks = WEBINAR_TOPICS.map((topic) => {
+    const attendedInTrack = sessions
+      .filter((session) => session.topicId === topic.id && attended.has(session.slug))
+      .map((session) => session.slug);
+    return { topic, completed: attendedInTrack.length > 0, attended: attendedInTrack };
+  });
+
+  const remaining = new Set(
+    tracks.filter((track) => !track.completed).map((track) => track.topic.id)
+  );
+  const completedTracks = tracks.length - remaining.size;
+
+  return {
+    tracks,
+    completedTracks,
+    totalTracks: tracks.length,
+    percentComplete: Math.round((completedTracks / tracks.length) * 100),
+    certificateEligible: remaining.size === 0,
+    nextRecommended:
+      getUpcomingWebinarSessions(sessions, now).find((session) => remaining.has(session.topicId)) ??
+      null,
   };
 }

@@ -1,4 +1,5 @@
 import { cn } from '@/lib/utils';
+import { Switch } from '@/components/ui/switch';
 
 type SettingsCardProps = {
   title: string;
@@ -42,3 +43,58 @@ export function SettingsCard({
 }
 
 SettingsCard.displayName = 'SettingsCard';
+
+type SettingsToggleRowProps = {
+  title: string;
+  description?: string;
+  checked: boolean;
+  onCheckedChange: (checked: boolean) => void;
+  disabled?: boolean;
+  id?: string;
+  className?: string;
+};
+
+export function SettingsToggleRow({
+  title,
+  description,
+  checked,
+  onCheckedChange,
+  disabled,
+  id,
+  className,
+}: SettingsToggleRowProps) {
+  const descriptionId = id ? `${id}-description` : undefined;
+
+  return (
+    <div
+      className={cn(
+        'flex items-start justify-between gap-4 py-3',
+        className
+      )}
+    >
+      <div className="min-w-0">
+        <label
+          htmlFor={id}
+          className="text-sm font-medium text-foreground"
+        >
+          {title}
+        </label>
+        {description && (
+          <p id={descriptionId} className="mt-1 text-sm text-muted-foreground">
+            {description}
+          </p>
+        )}
+      </div>
+      <Switch
+        id={id}
+        checked={checked}
+        onCheckedChange={onCheckedChange}
+        disabled={disabled}
+        aria-describedby={descriptionId}
+        className="mt-0.5 shrink-0"
+      />
+    </div>
+  );
+}
+
+SettingsToggleRow.displayName = 'SettingsToggleRow';

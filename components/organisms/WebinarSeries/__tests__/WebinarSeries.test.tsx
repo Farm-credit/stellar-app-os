@@ -73,7 +73,7 @@ describe('WebinarSeries', () => {
       screen.getByRole('heading', {
         level: 1,
         name: /Monthly webinars for healthier farms/i,
-      }),
+      })
     ).toBeInTheDocument();
     expect(screen.getByText('Sessions in series')).toBeInTheDocument();
     expect(screen.getByText('Topics covered')).toBeInTheDocument();
@@ -88,7 +88,7 @@ describe('WebinarSeries', () => {
     expect(
       screen.getByRole('link', {
         name: 'Register for Reading carbon and commodity markets',
-      }),
+      })
     ).toHaveAttribute('href', '/farmer-guides/webinars/market-trends-pricing');
     // Banner heading + the single "Next session" badge on the soonest card.
     expect(screen.getAllByText('Next session')).toHaveLength(2);
@@ -102,7 +102,7 @@ describe('WebinarSeries', () => {
     expect(
       screen.getByRole('link', {
         name: 'Join the waitlist for Compliance: keeping audit-ready records',
-      }),
+      })
     ).toBeInTheDocument();
   });
 
@@ -112,14 +112,14 @@ describe('WebinarSeries', () => {
     expect(
       screen.getByRole('link', {
         name: 'Watch the recording of Carbon accounting foundations',
-      }),
+      })
     ).toHaveAttribute('href', 'https://videos.example.org/farmable/carbon-accounting-foundations');
 
     rerender(
       <WebinarSeries
         sessions={[buildSession({ slug: 'no-recording', date: '2026-04-09', recordingUrl: null })]}
         now={NOW}
-      />,
+      />
     );
     expect(screen.getByText('Recording coming soon')).toBeInTheDocument();
   });
@@ -140,22 +140,24 @@ describe('WebinarSeries', () => {
 
     expect(screen.getByRole('button', { name: 'All topics' })).toHaveAttribute(
       'aria-pressed',
-      'true',
+      'true'
     );
 
     fireEvent.click(screen.getByRole('button', { name: 'Compliance requirements' }));
 
     expect(screen.getByRole('button', { name: 'Compliance requirements' })).toHaveAttribute(
       'aria-pressed',
-      'true',
+      'true'
     );
     expect(screen.getByText(/Showing 1 upcoming and 0 past session/)).toBeInTheDocument();
     // The filtered-out session's card and call to action are gone (the
     // unfiltered "next session" banner is a highlight and stays put).
     expect(
-      screen.queryByRole('link', { name: 'Register for Reading carbon and commodity markets' }),
+      screen.queryByRole('link', { name: 'Register for Reading carbon and commodity markets' })
     ).not.toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Compliance: keeping audit-ready records' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: 'Compliance: keeping audit-ready records' })
+    ).toBeInTheDocument();
   });
 
   it('filters by free text and shows an empty state when nothing matches', () => {
@@ -185,7 +187,9 @@ describe('WebinarSeries', () => {
 
     const summary = screen.getByText('Sessions in series').closest('div');
     expect(summary).not.toBeNull();
-    expect(within(summary as HTMLElement).getByText(String(WEBINAR_SESSIONS.length))).toBeInTheDocument();
+    expect(
+      within(summary as HTMLElement).getByText(String(WEBINAR_SESSIONS.length))
+    ).toBeInTheDocument();
     expect(screen.getAllByText('Upcoming sessions').length).toBeGreaterThan(0);
   });
 });

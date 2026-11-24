@@ -2,14 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import Image from 'next/image';
-import {
-  AlertTriangle,
-  CheckCircle2,
-  Filter,
-  MapPin,
-  RefreshCw,
-  XCircle,
-} from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Filter, MapPin, RefreshCw, XCircle } from 'lucide-react';
 import { Badge } from '@/components/atoms/Badge';
 import { Button } from '@/components/atoms/Button';
 import { Input } from '@/components/atoms/Input';
@@ -71,6 +64,28 @@ interface BatchResponse {
   message: string;
 }
 
+interface KycVerification {
+  id: number;
+  farmerId: number;
+  farmerName: string;
+  status: 'pending' | 'in_review' | 'approved' | 'rejected';
+  identityVerified: boolean;
+  landOwnershipVerified: boolean;
+  agriculturalExperienceVerified: boolean;
+  certificationEligible: boolean;
+  submittedAt: string;
+  reviewedAt: string | null;
+  reviewerNotes: string | null;
+}
+
+interface KycResponse {
+  verifications: KycVerification[];
+  totalCount: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
 export default function VerificationPhotosPage(): React.ReactNode {
   const [photos, setPhotos] = useState<VerificationPhoto[]>([]);
   const [totalCount, setTotalCount] = useState(0);
@@ -97,6 +112,9 @@ export default function VerificationPhotosPage(): React.ReactNode {
   const [actionReason, setActionReason] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
   const [lastAction, setLastAction] = useState<BatchResponse | null>(null);
+  const [kycVerifications, setKycVerifications] = useState<KycVerification[]>([]);
+  const [kycLoading, setKycLoading] = useState(false);
+  const [kycStatusFilter, setKycStatusFilter] = useState('pending');
 
   const fetchPhotos = useCallback(async () => {
     setLoading(true);
@@ -125,9 +143,31 @@ export default function VerificationPhotosPage(): React.ReactNode {
     }
   }, [page, filters]);
 
+  const fetchKycVerifications = useCallback(async () => {
+    setKycLoading(true);
+    try {
+      const params = new URLSearchParams({
+        status: kycStatusFilter,
+        limit: '50',
+      });
+      const response = await fetch(`/api/admin/kyc/verifications?${params}`);
+      if (!response.ok) throw new Error('Failed to fetch KYC verifications');
+      const data: KycResponse = await response.json();
+      setKycVerifications(data.verifications);
+    } catch (error) {
+      console.error('Error fetching KYC verifications:', error);
+    } finally {
+      setKycLoading(false);
+    }
+  }, [kycStatusFilter]);
+
   useEffect(() => {
     fetchPhotos();
   }, [fetchPhotos]);
+
+  useEffect(() => {
+    fetchKycVerifications();
+  }, [fetchKycVerifications]);
 
   const togglePhotoSelection = (photoId: number) => {
     setSelectedPhotos((prev) => {
@@ -141,11 +181,37 @@ export default function VerificationPhotosPage(): React.ReactNode {
     });
   };
 
+  // Selection persists across pages, so "select all" must be scoped to the
+  // current page's photos rather than comparing total selected to page size.
+  const allOnPageSelected = photos.length > 0 && photos.every((p) => selectedPhotos.has(p.id));
+
   const toggleSelectAll = () => {
-    if (selectedPhotos.size === photos.length) {
-      setSelectedPhotos(new Set());
-    } else {
-      setSelectedPhotos(new Set(photos.map((p) => p.id)));
+    setSelectedPhotos((prev) => {
+      const next = new Set(prev);
+      if (allOnPageSelected) {
+        photos.forEach((p) => next.delete(p.id));
+      } else {
+        photos.forEach((p) => next.add(p.id));
+      }
+      return next;
+    });
+  };
+
+  const handleKycDecision = async (verificationId: number, decision: 'approve' | 'reject') => {
+    setKycLoading(true);
+    try {
+      const response = await fetch(`/api/admin/kyc/verifications/${verificationId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ decision }),
+      });
+      if (!response.ok) throw new Error('KYC decision failed');
+      await fetchKycVerifications();
+    } catch (error) {
+      console.error('Error updating KYC verification:', error);
+      alert('Failed to update KYC verification');
+    } finally {
+      setKycLoading(false);
     }
   };
 
@@ -182,10 +248,10 @@ export default function VerificationPhotosPage(): React.ReactNode {
       setLastAction(result);
       setSelectedPhotos(new Set());
       setActionReason('');
-      
+
       // Refresh the list
       await fetchPhotos();
-      
+
       alert(result.message);
     } catch (error) {
       console.error('Error performing batch action:', error);
@@ -221,15 +287,89 @@ export default function VerificationPhotosPage(): React.ReactNode {
             Batch approve or reject tree planting verification photos
           </Text>
         </div>
-        <Button
-          variant="outline"
-          size="icon"
-          onClick={() => fetchPhotos()}
-          disabled={loading}
-        >
+        <Button variant="outline" size="icon" onClick={() => fetchPhotos()} disabled={loading}>
           <RefreshCw className={loading ? 'animate-spin' : ''} />
         </Button>
       </div>
+
+      {/* Farmer KYC Verification Workflow */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div>
+            <CardTitle>Farmer KYC Verifications</CardTitle>
+            <CardDescription>
+              Identity, land ownership, and certification eligibility review
+            </CardDescription>
+          </div>
+          <Select value={kycStatusFilter} onChange={(e) => setKycStatusFilter(e.target.value)}>
+            <option value="pending">Pending</option>
+            <option value="in_review">In Review</option>
+            <option value="approved">Approved</option>
+            <option value="rejected">Rejected</option>
+          </Select>
+        </CardHeader>
+        <CardContent>
+          {kycLoading ? (
+            <div className="text-center py-8">
+              <RefreshCw className="animate-spin mx-auto mb-4" />
+              <Text>Loading KYC verifications...</Text>
+            </div>
+          ) : kycVerifications.length === 0 ? (
+            <div className="text-center py-8">
+              <Text className="text-muted-foreground">No KYC verifications found</Text>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {kycVerifications.map((kyc) => (
+                <div
+                  key={kyc.id}
+                  className="flex items-center justify-between border rounded-lg p-4"
+                >
+                  <div className="space-y-1">
+                    <Text className="font-semibold">{kyc.farmerName}</Text>
+                    <div className="flex flex-wrap gap-2 text-xs">
+                      <Badge variant={kyc.identityVerified ? 'default' : 'secondary'}>
+                        Identity
+                      </Badge>
+                      <Badge variant={kyc.landOwnershipVerified ? 'default' : 'secondary'}>
+                        Land
+                      </Badge>
+                      <Badge variant={kyc.agriculturalExperienceVerified ? 'default' : 'secondary'}>
+                        Experience
+                      </Badge>
+                      <Badge variant={kyc.certificationEligible ? 'default' : 'secondary'}>
+                        Certification
+                      </Badge>
+                    </div>
+                    <Text className="text-xs text-muted-foreground">
+                      Submitted {formatDate(kyc.submittedAt)}
+                    </Text>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="secondary">{kyc.status}</Badge>
+                    <Button
+                      size="sm"
+                      className="bg-green-600 hover:bg-green-700"
+                      onClick={() => handleKycDecision(kyc.id, 'approve')}
+                      disabled={kycLoading}
+                    >
+                      <CheckCircle2 className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      onClick={() => handleKycDecision(kyc.id, 'reject')}
+                      disabled={kycLoading}
+                    >
+                      <XCircle className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Filters */}
       <Card>
@@ -242,9 +382,7 @@ export default function VerificationPhotosPage(): React.ReactNode {
         <CardContent className="grid grid-cols-1 md:grid-cols-5 gap-4">
           <Select
             value={filters.status}
-            onChange={(e) =>
-              setFilters((prev) => ({ ...prev, status: e.target.value }))
-            }
+            onChange={(e) => setFilters((prev) => ({ ...prev, status: e.target.value }))}
           >
             <option value="pending">Pending</option>
             <option value="all">All</option>
@@ -255,9 +393,7 @@ export default function VerificationPhotosPage(): React.ReactNode {
 
           <Select
             value={filters.region}
-            onChange={(e) =>
-              setFilters((prev) => ({ ...prev, region: e.target.value }))
-            }
+            onChange={(e) => setFilters((prev) => ({ ...prev, region: e.target.value }))}
           >
             <option value="all">All Regions</option>
             {filterOptions.regions.map((region) => (
@@ -269,9 +405,7 @@ export default function VerificationPhotosPage(): React.ReactNode {
 
           <Select
             value={filters.species}
-            onChange={(e) =>
-              setFilters((prev) => ({ ...prev, species: e.target.value }))
-            }
+            onChange={(e) => setFilters((prev) => ({ ...prev, species: e.target.value }))}
           >
             <option value="all">All Species</option>
             {filterOptions.species.map((species) => (
@@ -317,18 +451,14 @@ export default function VerificationPhotosPage(): React.ReactNode {
       {selectedPhotos.size > 0 && (
         <Card className="bg-blue-50 border-blue-200">
           <CardHeader>
-            <CardTitle>
-              Batch Actions ({selectedPhotos.size} selected)
-            </CardTitle>
+            <CardTitle>Batch Actions ({selectedPhotos.size} selected)</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <Select
                 value={conflictResolution}
                 onChange={(e) =>
-                  setConflictResolution(
-                    e.target.value as 'keep_newest' | 'keep_oldest' | 'manual'
-                  )
+                  setConflictResolution(e.target.value as 'keep_newest' | 'keep_oldest' | 'manual')
                 }
               >
                 <option value="keep_newest">Keep Newest (Auto-resolve)</option>
@@ -382,14 +512,12 @@ export default function VerificationPhotosPage(): React.ReactNode {
             <Text>{lastAction.message}</Text>
             {lastAction.conflicts.length > 0 && (
               <div className="mt-2">
-                <Text className="font-semibold">
-                  Conflicts ({lastAction.conflicts.length}):
-                </Text>
+                <Text className="font-semibold">Conflicts ({lastAction.conflicts.length}):</Text>
                 <ul className="list-disc list-inside text-sm">
                   {lastAction.conflicts.slice(0, 5).map((conflict) => (
                     <li key={conflict.photoId}>
-                      Photo #{conflict.photoId} - {conflict.treeRef}:{' '}
-                      {conflict.conflictType} - {conflict.resolution}
+                      Photo #{conflict.photoId} - {conflict.treeRef}: {conflict.conflictType} -{' '}
+                      {conflict.resolution}
                     </li>
                   ))}
                   {lastAction.conflicts.length > 5 && (
@@ -452,7 +580,7 @@ export default function VerificationPhotosPage(): React.ReactNode {
             </CardDescription>
           </div>
           <Button variant="outline" size="sm" onClick={toggleSelectAll}>
-            {selectedPhotos.size === photos.length ? 'Deselect All' : 'Select All'}
+            {allOnPageSelected ? 'Deselect All' : 'Select All'}
           </Button>
         </CardHeader>
         <CardContent>
@@ -517,8 +645,7 @@ export default function VerificationPhotosPage(): React.ReactNode {
                         <div className="flex items-center gap-1 text-muted-foreground">
                           <MapPin className="w-3 h-3" />
                           <Text className="text-xs">
-                            {parseFloat(photo.lat).toFixed(4)},{' '}
-                            {parseFloat(photo.lng).toFixed(4)}
+                            {parseFloat(photo.lat).toFixed(4)}, {parseFloat(photo.lng).toFixed(4)}
                           </Text>
                         </div>
                         <Text className="text-xs text-muted-foreground">

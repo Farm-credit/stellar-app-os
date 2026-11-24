@@ -16,8 +16,9 @@ export function resolveTheme(theme: Theme, prefersDark = false): ResolvedTheme {
 }
 
 export function getSystemPrefersDark(): boolean {
-  if (typeof window === 'undefined') return false;
-  return window.matchMedia('(prefers-color-scheme: dark)').matches;
+  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return false;
+  const mq = window.matchMedia('(prefers-color-scheme: dark)');
+  return Boolean(mq && mq.matches);
 }
 
 export function getStoredTheme(): Theme {

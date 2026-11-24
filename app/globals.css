@@ -360,20 +360,26 @@ html.no-transitions *::after {
 .dark .glass-strong {
   background-color: rgba(0, 0, 0, 0.3);
   border: 1px solid rgba(255, 255, 255, 0.1);
-  /* ===== GLASSMORPHISM UTILITIES ===== */
-  .glass-surface {
-    background: var(--glass-surface);
-    border: 1px solid var(--glass-border);
-    box-shadow: var(--glass-shadow);
-    backdrop-filter: blur(var(--glass-blur));
-    -webkit-backdrop-filter: blur(var(--glass-blur));
-  }
+}
 
-  .glass-surface-selected {
-    background: var(--glass-selected-bg);
-    border-color: var(--glass-selected-border);
-    box-shadow:
-      var(--glass-shadow),
-      0 0 0 1px var(--glass-selected-border);
-  }
+/* ===== GLASSMORPHISM UTILITIES =====
+ * Top-level utility classes (theme-aware via the custom properties above).
+ * Previously these were accidentally nested inside `.dark .glass-strong`,
+ * which compiled them to descendant selectors that only ever applied inside
+ * a dark glass element — and left `.glass-surface-selected` dead CSS.
+ */
+.glass-surface {
+  background: var(--glass-surface);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+}
+
+.glass-surface-selected {
+  background: var(--glass-selected-bg);
+  border-color: var(--glass-selected-border);
+  box-shadow:
+    var(--glass-shadow),
+    0 0 0 1px var(--glass-selected-border);
 }

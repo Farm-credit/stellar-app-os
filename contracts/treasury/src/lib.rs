@@ -71,6 +71,10 @@ enum DataKey {
     NextId,
     /// Proposal by id
     Proposal(u32),
+    /// Protocol fees recorded per payment token (issue #1811)
+    ProtocolFees(Address),
+    /// Lifetime total of protocol fees reported by the marketplace
+    TotalProtocolFees,
 }
 
 // — Contract ——————————————————————————————————————————————————————————
@@ -120,6 +124,40 @@ impl Treasury {
             .get(&DataKey::Token)
             .expect("not initialized");
         token::Client::new(&env, &token).transfer(&from, &env.current_contract_address(), &amount);
+    }
+
+    // — Protocol fee ledger (issue #1811) ————————————————————————
+
+    /// Record a protocol fee that the Carbon Marketplace has already
+    /// transferred into this contract.
+    ///
+    /// The marketplace sends the payment token directly to this contract and
+    /// then reports the amount here so the treasury keeps a per-asset ledger of
+    /// siphoned trading fees. This entry point never moves funds, so any caller
+    /// may report; `balance()` / `asset_balance(token)` remain authoritative.
+    pub fn record_protocol_fee(env: Env, payment_token: Address, amount: i128) {
+        if amount <= 0 {
+            panic!("amount must be positive");
+        }
+        if !env.storage().instance().has(&DataKey::Signers) {
+            panic!("not initialized");
+        }
+
+        let key = DataKey::ProtocolFees(payment_token.clone());
+        let existing: i128 = env.storage().instance().get(&key).unwrap_or(0);
+        env.storage().instance().set(&key, &(existing + amount));
+
+        let total: i128 = env
+            .storage()
+            .instance()
+            .get(&DataKey::TotalProtocolFees)
+            .unwrap_or(0);
+        env.storage()
+            .instance()
+            .set(&DataKey::TotalProtocolFees, &(total + amount));
+
+        env.events()
+            .publish((symbol_short!("fee_rcvd"),), (payment_token, amount));
     }
 
     // — Multisig flow ————————————————————————————————————————————
@@ -280,6 +318,27 @@ impl Treasury {
         proposal.is_emergency
     }
 
+    /// Lifetime protocol fees recorded for a payment token.
+    pub fn protocol_fees(env: Env, payment_token: Address) -> i128 {
+        env.storage()
+            .instance()
+            .get(&DataKey::ProtocolFees(payment_token))
+            .unwrap_or(0)
+    }
+
+    /// Lifetime protocol fees recorded across all payment tokens.
+    pub fn total_protocol_fees(env: Env) -> i128 {
+        env.storage()
+            .instance()
+            .get(&DataKey::TotalProtocolFees)
+            .unwrap_or(0)
+    }
+
+    /// Balance of an arbitrary token held by this contract.
+    pub fn asset_balance(env: Env, token: Address) -> i128 {
+        token::Client::new(&env, &token).balance(&env.current_contract_address())
+    }
+
     /// Return the current treasury token balance of this contract.
     pub fn balance(env: Env) -> i128 {
         let token: Address = env
@@ -328,7 +387,8 @@ mod tests {
     use crate::{ProposalStatus, Treasury, TreasuryClient, EMERGENCY_THRESHOLD};
 
     fn deploy_token(env: &Env, admin: &Address) -> Address {
-        env.register_stellar_asset_contract_v2(admin.clone()).address()
+        env.register_stellar_asset_contract_v2(admin.clone())
+            .address()
     }
 
     fn mint(env: &Env, token: &Address, to: &Address, amount: i128) {
@@ -353,12 +413,22 @@ mod tests {
         }
         let contract = env.register(Treasury, ());
         TreasuryClient::new(&env, &contract).initialize(&signers, &token);
-        Ctx { env, contract, signers, token }
+        Ctx {
+            env,
+            contract,
+            signers,
+            token,
+        }
     }
 
     #[test]
     fn test_propose_and_four_approvals_execute_transfer() {
-        let Ctx { env, contract, signers, token } = setup();
+        let Ctx {
+            env,
+            contract,
+            signers,
+            token,
+        } = setup();
         let client = TreasuryClient::new(&env, &contract);
         mint(&env, &token, &contract, 10_000);
         let recipient = Address::generate(&env);
@@ -367,27 +437,43 @@ mod tests {
         client.approve(&signers.get(1).unwrap(), &pid);
         client.approve(&signers.get(2).unwrap(), &pid);
         client.approve(&signers.get(3).unwrap(), &pid);
-        assert_eq!(soroban_sdk::token::Client::new(&env, &token).balance(&recipient), 1_000);
+        assert_eq!(
+            soroban_sdk::token::Client::new(&env, &token).balance(&recipient),
+            1_000
+        );
         assert_eq!(client.get_proposal(&pid).status, ProposalStatus::Executed);
     }
 
     #[test]
     fn test_three_approvals_not_enough() {
-        let Ctx { env, contract, signers, token } = setup();
+        let Ctx {
+            env,
+            contract,
+            signers,
+            token,
+        } = setup();
         let client = TreasuryClient::new(&env, &contract);
         mint(&env, &token, &contract, 10_000);
         let recipient = Address::generate(&env);
         let pid = client.propose(&signers.get(0).unwrap(), &recipient, &1_000);
         client.approve(&signers.get(1).unwrap(), &pid);
         client.approve(&signers.get(2).unwrap(), &pid);
-        assert_eq!(soroban_sdk::token::Client::new(&env, &token).balance(&recipient), 0);
+        assert_eq!(
+            soroban_sdk::token::Client::new(&env, &token).balance(&recipient),
+            0
+        );
         assert_eq!(client.get_proposal(&pid).status, ProposalStatus::Open);
         assert_eq!(client.approval_count(&pid), 3);
     }
 
     #[test]
     fn test_deposit_increases_balance() {
-        let Ctx { env, contract, token, .. } = setup();
+        let Ctx {
+            env,
+            contract,
+            token,
+            ..
+        } = setup();
         let client = TreasuryClient::new(&env, &contract);
         let funder = Address::generate(&env);
         mint(&env, &token, &funder, 2_000);
@@ -397,7 +483,12 @@ mod tests {
 
     #[test]
     fn test_cancel_open_proposal() {
-        let Ctx { env, contract, signers, token } = setup();
+        let Ctx {
+            env,
+            contract,
+            signers,
+            token,
+        } = setup();
         let client = TreasuryClient::new(&env, &contract);
         mint(&env, &token, &contract, 1_000);
         let recipient = Address::generate(&env);
@@ -408,7 +499,12 @@ mod tests {
 
     #[test]
     fn test_emergency_flag_set_for_large_transfers() {
-        let Ctx { env, contract, signers, .. } = setup();
+        let Ctx {
+            env,
+            contract,
+            signers,
+            ..
+        } = setup();
         let client = TreasuryClient::new(&env, &contract);
         let recipient = Address::generate(&env);
         let pid_normal = client.propose(&signers.get(0).unwrap(), &recipient, &1_000);
@@ -419,7 +515,12 @@ mod tests {
 
     #[test]
     fn test_seven_signers_retrieved_correctly() {
-        let Ctx { env, contract, signers, .. } = setup();
+        let Ctx {
+            env,
+            contract,
+            signers,
+            ..
+        } = setup();
         let client = TreasuryClient::new(&env, &contract);
         let stored = client.get_signers();
         assert_eq!(stored.len(), 7);
@@ -431,7 +532,12 @@ mod tests {
     #[test]
     #[should_panic(expected = "already initialized")]
     fn test_double_init_rejected() {
-        let Ctx { env, contract, signers, token } = setup();
+        let Ctx {
+            env,
+            contract,
+            signers,
+            token,
+        } = setup();
         TreasuryClient::new(&env, &contract).initialize(&signers, &token);
     }
 
@@ -444,7 +550,9 @@ mod tests {
         let token = deploy_token(&env, &admin);
         let contract = env.register(Treasury, ());
         let mut signers = Vec::new(&env);
-        for _ in 0..3 { signers.push_back(Address::generate(&env)); }
+        for _ in 0..3 {
+            signers.push_back(Address::generate(&env));
+        }
         TreasuryClient::new(&env, &contract).initialize(&signers, &token);
     }
 
@@ -458,14 +566,21 @@ mod tests {
         let dup = Address::generate(&env);
         let contract = env.register(Treasury, ());
         let mut signers = Vec::new(&env);
-        for _ in 0..7 { signers.push_back(dup.clone()); }
+        for _ in 0..7 {
+            signers.push_back(dup.clone());
+        }
         TreasuryClient::new(&env, &contract).initialize(&signers, &token);
     }
 
     #[test]
     #[should_panic(expected = "signer already approved")]
     fn test_proposer_cannot_approve_own_proposal() {
-        let Ctx { env, contract, signers, token } = setup();
+        let Ctx {
+            env,
+            contract,
+            signers,
+            token,
+        } = setup();
         let client = TreasuryClient::new(&env, &contract);
         mint(&env, &token, &contract, 1_000);
         let recipient = Address::generate(&env);
@@ -476,7 +591,12 @@ mod tests {
     #[test]
     #[should_panic(expected = "not a signer")]
     fn test_non_signer_cannot_propose() {
-        let Ctx { env, contract, token, .. } = setup();
+        let Ctx {
+            env,
+            contract,
+            token,
+            ..
+        } = setup();
         let client = TreasuryClient::new(&env, &contract);
         mint(&env, &token, &contract, 1_000);
         let outsider = Address::generate(&env);
@@ -487,7 +607,12 @@ mod tests {
     #[test]
     #[should_panic(expected = "proposal is not open")]
     fn test_approve_cancelled_proposal_rejected() {
-        let Ctx { env, contract, signers, token } = setup();
+        let Ctx {
+            env,
+            contract,
+            signers,
+            token,
+        } = setup();
         let client = TreasuryClient::new(&env, &contract);
         mint(&env, &token, &contract, 1_000);
         let recipient = Address::generate(&env);
@@ -497,9 +622,61 @@ mod tests {
     }
 
     #[test]
+    fn test_record_protocol_fee_tracks_per_token_ledger() {
+        let Ctx {
+            env,
+            contract,
+            token,
+            ..
+        } = setup();
+        let client = TreasuryClient::new(&env, &contract);
+        let funder = Address::generate(&env);
+        mint(&env, &token, &funder, 2_000);
+        soroban_sdk::token::Client::new(&env, &token).transfer(&funder, &contract, &500);
+
+        client.record_protocol_fee(&token, &500);
+
+        assert_eq!(client.protocol_fees(&token), 500);
+        assert_eq!(client.total_protocol_fees(), 500);
+        assert_eq!(client.asset_balance(&token), 500);
+    }
+
+    #[test]
+    fn test_record_protocol_fee_accumulates() {
+        let Ctx {
+            env,
+            contract,
+            token,
+            ..
+        } = setup();
+        let client = TreasuryClient::new(&env, &contract);
+        client.record_protocol_fee(&token, &100);
+        client.record_protocol_fee(&token, &250);
+        assert_eq!(client.protocol_fees(&token), 350);
+        assert_eq!(client.total_protocol_fees(), 350);
+    }
+
+    #[test]
+    #[should_panic(expected = "amount must be positive")]
+    fn test_record_zero_protocol_fee_rejected() {
+        let Ctx {
+            env,
+            contract,
+            token,
+            ..
+        } = setup();
+        TreasuryClient::new(&env, &contract).record_protocol_fee(&token, &0);
+    }
+
+    #[test]
     #[should_panic(expected = "signer already approved")]
     fn test_double_approve_rejected() {
-        let Ctx { env, contract, signers, token } = setup();
+        let Ctx {
+            env,
+            contract,
+            signers,
+            token,
+        } = setup();
         let client = TreasuryClient::new(&env, &contract);
         mint(&env, &token, &contract, 1_000);
         let recipient = Address::generate(&env);

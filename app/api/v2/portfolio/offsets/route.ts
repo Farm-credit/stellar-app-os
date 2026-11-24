@@ -1,5 +1,5 @@
 /**
- * /api/v2/portfolio/offsets — Issue #1426
+ * /api/v2/portfolio/offsets — Issue #1302 / #1426
  *
  * Offset aggregation API for portfolio managers. Returns a single view of a
  * portfolio's carbon positions and retirements across platforms, sourced from
@@ -25,7 +25,7 @@
  *   502  { error, failures: [{ sourceId, message }] } — every source failed
  *   500  { error }
  *
- * Closes #1426
+ * Closes #1302, #1426
  */
 
 import { NextResponse } from 'next/server';

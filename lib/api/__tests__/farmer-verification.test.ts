@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
+import { StrKey } from '@stellar/stellar-sdk';
 import {
   MAX_BATCH_ADDRESSES,
   evaluateCredit,
@@ -23,8 +24,8 @@ import type { KycScreeningResult } from '@/lib/kyc/types';
  */
 
 const FARMER = 'GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF';
-const OTHER_FARMER = `G${'B'.repeat(55)}`;
-const THIRD_FARMER = `G${'C'.repeat(55)}`;
+const OTHER_FARMER = StrKey.encodeEd25519PublicKey(Buffer.alloc(32, 1));
+const THIRD_FARMER = StrKey.encodeEd25519PublicKey(Buffer.alloc(32, 2));
 
 const SCREENING: KycScreeningResult = {
   eligible: true,
@@ -60,9 +61,9 @@ function row(overrides: Record<string, unknown> = {}): Record<string, unknown> {
 function stubDb(rows: unknown[]): { db: FarmerVerificationDb; calls: Array<[string, unknown[]?]> } {
   const calls: Array<[string, unknown[]?]> = [];
   const db = {
-    query: vi.fn(async (sql: string, params?: unknown[]) => {
+    query: vi.fn((sql: string, params?: unknown[]) => {
       calls.push([sql, params]);
-      return { rows };
+      return Promise.resolve({ rows });
     }),
   } as unknown as FarmerVerificationDb;
   return { db, calls };
@@ -75,6 +76,9 @@ describe('isStellarAddress', () => {
     expect(isStellarAddress('G123')).toBe(false);
     expect(isStellarAddress('')).toBe(false);
     expect(isStellarAddress(null)).toBe(false);
+    expect(isStellarAddress(`G${'B'.repeat(55)}`)).toBe(false);
+    expect(isStellarAddress(`${FARMER.slice(0, -1)}A`)).toBe(false);
+    expect(isStellarAddress(StrKey.encodeEd25519SecretSeed(Buffer.alloc(32)))).toBe(false);
   });
 });
 
@@ -117,10 +121,9 @@ describe('getFarmerVerification', () => {
     }
     expect(Object.keys(report.identity)).toEqual(['verified', 'verifiedAt', 'documentType']);
 
-    // Prefers an approved application, then the newest one.
+    // Uses the latest application so stale approval cannot mask its state.
     const sql = String(calls[0][0]);
-    expect(sql).toContain("status = 'approved'");
-    expect(sql).toContain('ORDER BY');
+    expect(sql).toContain('ORDER BY submitted_at DESC, updated_at DESC, id DESC');
     expect(calls[0][1]).toEqual([FARMER]);
   });
 
@@ -131,6 +134,15 @@ describe('getFarmerVerification', () => {
     if (!result.ok) return;
     expect(result.report.verified).toBe(true);
     expect(result.report.verificationStatus).toBe('verified');
+  });
+
+  it('can emit the v1 contract for legacy partner integrations', async () => {
+    const { db } = stubDb([row({ status: 'approved' })]);
+    const result = await getFarmerVerification(db, FARMER, 'v1');
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.report.apiVersion).toBe('v1');
+    expect(result.report.credit.available).toBe(true);
   });
 
   it('reports consent_denied instead of a redacted record', async () => {
@@ -157,6 +169,10 @@ describe('getFarmerVerification', () => {
 });
 
 describe('evaluateCredit', () => {
+  it.each(['rejected', 'expired'] as const)('blocks an eligible but %s application', (status) => {
+    expect(evaluateCredit(status, SCREENING, []).available).toBe(false);
+  });
+
   it('grants credit from an eligible, live, sanctions-free application', () => {
     const credit = evaluateCredit('under_review', SCREENING, []);
     expect(credit).toMatchObject({
@@ -218,14 +234,17 @@ describe('parseVerificationAddresses', () => {
 });
 
 describe('verifyFarmers', () => {
-  it('buckets hits, misses, and consent refusals in request order', async () => {
+  it('fetches the portfolio once and buckets results in request order', async () => {
     const db = {
-      query: vi.fn(async (_sql: string, params?: unknown[]) => {
-        const address = params?.[0];
-        if (address === FARMER) return { rows: [row({ status: 'approved' })] };
-        if (address === OTHER_FARMER) return { rows: [row({ consent_granted: false })] };
-        return { rows: [] };
-      }),
+      query: vi.fn(() =>
+        Promise.resolve({
+          // Deliberately reverse DB order: response order follows the request.
+          rows: [
+            row({ farmer_address: OTHER_FARMER, consent_granted: false }),
+            row({ farmer_address: FARMER, status: 'approved' }),
+          ],
+        })
+      ),
     } as unknown as FarmerVerificationDb;
 
     const third = THIRD_FARMER;
@@ -237,6 +256,23 @@ describe('verifyFarmers', () => {
     expect(batch.reports[0].farmerAddress).toBe(FARMER);
     expect(batch.consentDenied).toEqual([OTHER_FARMER]);
     expect(batch.notFound).toEqual([third]);
+    expect(db.query).toHaveBeenCalledTimes(1);
+    expect(db.query).toHaveBeenCalledWith(expect.stringContaining('DISTINCT ON'), [
+      [FARMER, OTHER_FARMER, third],
+    ]);
+  });
+
+  it('does not query the database for an empty portfolio', async () => {
+    const { db } = stubDb([]);
+    await expect(verifyFarmers(db, [])).resolves.toEqual({
+      requested: 0,
+      count: 0,
+      verified: 0,
+      reports: [],
+      notFound: [],
+      consentDenied: [],
+    });
+    expect(db.query).not.toHaveBeenCalled();
   });
 });
 
@@ -259,26 +295,67 @@ describe('authenticateFarmerVerificationRequest', () => {
   it('rejects an unknown or revoked key', async () => {
     const result = await authenticateFarmerVerificationRequest(
       request('fc_deadbeef'),
-      vi.fn(async () => null)
+      vi.fn(() => Promise.resolve(null))
     );
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.status).toBe(401);
   });
 
+  it('looks up the Authorization ApiKey credential in the same active-key store', async () => {
+    const lookup = vi.fn(() => Promise.resolve(null));
+    await authenticateFarmerVerificationRequest(
+      new Request('https://harvesta.test/api/v1/farmers/verification', {
+        headers: { Authorization: 'aPiKeY fc_partner_key' },
+      }),
+      lookup
+    );
+    expect(lookup).toHaveBeenCalledWith('fc_partner_key');
+  });
+
+  it.each(['Bearer fc_partner_key', 'ApiKey', 'ApiKey key extra', 'Basic credentials'])(
+    'rejects unsupported or malformed authorization: %s',
+    async (authorization) => {
+      const lookup = vi.fn();
+      const result = await authenticateFarmerVerificationRequest(
+        new Request('https://harvesta.test/api/v1/farmers/verification', {
+          headers: { authorization },
+        }),
+        lookup
+      );
+      expect(result.ok).toBe(false);
+      expect(lookup).not.toHaveBeenCalled();
+    }
+  );
+
+  it('does not fall back to Authorization when an explicit X-API-Key fails', async () => {
+    const lookup = vi.fn(() => Promise.resolve(null));
+    const result = await authenticateFarmerVerificationRequest(
+      new Request('https://harvesta.test/api/v1/farmers/verification', {
+        headers: { 'x-api-key': 'fc_revoked', authorization: 'ApiKey fc_active' },
+      }),
+      lookup
+    );
+    expect(result.ok).toBe(false);
+    expect(lookup).toHaveBeenCalledTimes(1);
+    expect(lookup).toHaveBeenCalledWith('fc_revoked');
+  });
+
   it('accepts an active key and exposes only its display metadata', async () => {
-    const lookup = vi.fn(async () => ({
-      id: 7,
-      name: 'Lagos Microfinance',
-      prefix: 'fc_1a2b3c4d',
-      key_hash: 'secret-hash',
-      tier: 'standard' as const,
-      owner_wallet: FARMER,
-      is_active: true,
-      created_at: new Date(),
-      last_used_at: null,
-      revoked_at: null,
-    }));
+    const lookup = vi.fn(() =>
+      Promise.resolve({
+        id: 7,
+        name: 'Lagos Microfinance',
+        prefix: 'fc_1a2b3c4d',
+        key_hash: 'secret-hash',
+        tier: 'standard' as const,
+        owner_wallet: FARMER,
+        is_active: true,
+        created_at: new Date(),
+        last_used_at: null,
+        revoked_at: null,
+      })
+    );
 
     const result = await authenticateFarmerVerificationRequest(request('fc_live_key'), lookup);
     expect(result).toEqual({

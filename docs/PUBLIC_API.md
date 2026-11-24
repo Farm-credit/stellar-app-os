@@ -43,6 +43,204 @@ When a Free or Standard key exhausts its rolling hourly budget the request is
 **queued** rather than dropped. The queue is drained as capacity frees up when
 the window rolls, allowing bursts to be processed without losing work.
 
+## Farmer Verification API (v1)
+
+The v1 endpoints below are the stable third-party integration contract for
+partner platforms and financial institutions. Requests use the same active
+`x-api-key` (or `Authorization: ApiKey <key>`) authentication and tiered limits
+described above. The report
+answers three questions in one call — identity, land ownership, and credit
+availability — while returning no personal data or evidence documents.
+
+### `GET /api/v1/farmers/{address}/verification`
+
+Verify one farmer. `address` is a 56-character Stellar public key with a valid checksum.
+
+### `POST /api/v1/farmers/verification`
+
+Verify a portfolio of 1–100 unique farmers with
+`{"addresses": ["G...", "G..."]}`. The response includes `requested`,
+`count`, `verified`, `reports`, `notFound`, and `consentDenied` fields.
+
+Both endpoints return `X-API-Version: v1`, private no-store responses, and the
+same `FarmerVerificationReport` fields documented below. A farmer must have
+granted recorded consent; otherwise the single-farmer endpoint returns
+`403 consent_denied` and the batch endpoint places the address in
+`consentDenied`.
+
+The newest submitted application determines status and consent, so an older
+approval cannot override a newer rejection or withheld consent. Duplicate
+batch addresses are collapsed, and `requested` counts unique addresses.
+Credit availability describes stored certification eligibility, not an
+available lending balance. See [the integration guide](farmer-verification-api.md)
+for the full response, setup, quotas, and error handling.
+
+## Carbon Price API (v1)
+
+Real-time carbon credit market data for dashboards and integrations (issue
+#1326). The v1 response shape is a frozen contract: fields may be added, but
+existing ones will not be removed or renamed. Data is public and read-only, so
+responses are cacheable and do not require an `x-api-key`.
+
+### `GET /api/v1/carbon-prices`
+
+One quote per listed credit series, with pre-rolled aggregates by credit type,
+region and certification standard. All query params are optional and accept
+comma-separated, case-tolerant values:
+
+| Parameter    | Description                                                  |
+| ------------ | ------------------------------------------------------------ |
+| `types`      | Project/credit type, e.g. `Reforestation`, `Mangrove Restoration` |
+| `regions`    | `africa`, `latin-america`, `southeast-asia`, `oceania`, `north-america`, `global` |
+| `standards`  | Certification standard, e.g. `Verra (VCS)`, `Gold Standard`   |
+| `projectIds` | Exact project IDs, e.g. `PROJ-004`                            |
+| `assetCodes` | Ledger asset codes, e.g. `CARBON-PROJ-004-2024`               |
+| `limit`      | 1–500 quotes (default: all)                                   |
+
+```bash
+curl "https://<host>/api/v1/carbon-prices?regions=africa&standards=Gold%20Standard"
+```
+
+Each quote carries `pricePerTon`, `previousClose`, `change24hAmount`,
+`change24hPercent`, `volume24h` and `updatedAt` (USD per tonne), plus the
+series' `assetCode`, `projectId`, `projectType`, `region` and `standard`. The
+envelope includes `filters`, `count`, `generatedAt`, `source` and an
+`aggregates` object (`averagePricePerTon`, `totalVolume24h`, `byType`,
+`byRegion`, `byStandard`).
+
+`POST /api/v1/carbon-prices` accepts the same fields as a JSON body
+(`{ "types": [...], "regions": [...], ... }`) and returns the identical
+snapshot — useful for clients that build complex filter sets.
+
+### `GET /api/v1/carbon-prices/history`
+
+Historical pricing for one listed series, bucketed by `interval`.
+
+| Parameter  | Required | Description                                        |
+| ---------- | -------- | -------------------------------------------------- |
+| `assetCode`| Yes      | Series to read, e.g. `CARBON-PROJ-004-2024`        |
+| `interval` | No       | `day` (default), `week`, or `month`                |
+| `from`     | No       | `YYYY-MM-DD`; defaults to 90 days before `to`      |
+| `to`       | No       | `YYYY-MM-DD`; defaults to today (UTC)              |
+
+The response contains the `points` array (`at`, `pricePerTon`, `volume`) and a
+`stats` rollup (first/last/min/max/average price, `changePercent`,
+`totalVolume`).
+
+| Status | Meaning                                                    |
+| ------ | ---------------------------------------------------------- |
+| `200`  | Snapshot or history                                        |
+| `400`  | Validation failure — `{ error, details: string[] }`        |
+| `404`  | `assetCode` is not a listed series (history only)          |
+| `502`  | Upstream price source unreachable — `{ error, failures }`  |
+| `500`  | Unexpected processing failure                              |
+
+All responses carry `X-API-Version: v1`. Snapshot responses are publicly
+cacheable for 30 seconds and history for 5 minutes (with stale revalidation),
+so polling is safe at dashboard rates.
+
+## Carbon Price API (v2)
+
+The current version of the real-time carbon credit market data API (issue
+#1388). The response shape mirrors the frozen v1 contract above; v2 is the
+active development line where new fields may appear. Data is public and
+read-only, so responses are cacheable and do not require an `x-api-key`.
+
+### `GET /api/v2/carbon-prices`
+
+One quote per listed credit series, with pre-rolled aggregates by credit type,
+region and certification standard. Accepts the same optional, comma-separated,
+case-tolerant query params as v1:
+
+| Parameter    | Description                                                  |
+| ------------ | ------------------------------------------------------------ |
+| `types`      | Project/credit type, e.g. `Reforestation`, `Mangrove Restoration` |
+| `regions`    | `africa`, `latin-america`, `southeast-asia`, `oceania`, `north-america`, `global` |
+| `standards`  | Certification standard, e.g. `Verra (VCS)`, `Gold Standard`   |
+| `projectIds` | Exact project IDs, e.g. `PROJ-004`                            |
+| `assetCodes` | Ledger asset codes, e.g. `CARBON-PROJ-004-2024`               |
+| `limit`      | 1–500 quotes (default: all)                                   |
+
+```bash
+curl "https://<host>/api/v2/carbon-prices?types=Mangrove%20Restoration&limit=1"
+```
+
+Each quote carries `pricePerTon`, `previousClose`, `change24hAmount`,
+`change24hPercent`, `volume24h` and `updatedAt` (USD per tonne), plus the
+series' `assetCode`, `projectId`, `projectType`, `region` and `standard`. The
+envelope includes `filters`, `count`, `generatedAt`, `source` and an
+`aggregates` object (`averagePricePerTon`, `totalVolume24h`, `byType`,
+`byRegion`, `byStandard`).
+
+`POST /api/v2/carbon-prices` accepts the same fields as a JSON body
+(`{ "types": [...], "regions": [...], ... }`) and returns the identical
+snapshot — useful for clients that build complex filter sets.
+
+### `GET /api/v2/carbon-prices/history`
+
+Historical pricing for one listed series, bucketed by `interval`.
+
+| Parameter  | Required | Description                                        |
+| ---------- | -------- | -------------------------------------------------- |
+| `assetCode`| Yes      | Series to read, e.g. `CARBON-PROJ-004-2024`        |
+| `interval` | No       | `day` (default), `week`, or `month`                |
+| `from`     | No       | `YYYY-MM-DD`; defaults to 90 days before `to`      |
+| `to`       | No       | `YYYY-MM-DD`; defaults to today (UTC)              |
+
+The response contains the `points` array (`at`, `pricePerTon`, `volume`) and a
+`stats` rollup (first/last/min/max/average price, `changePercent`,
+`totalVolume`).
+
+| Status | Meaning                                                    |
+| ------ | ---------------------------------------------------------- |
+| `200`  | Snapshot or history                                        |
+| `400`  | Validation failure — `{ error, details: string[] }`        |
+| `404`  | `assetCode` is not a listed series (history only)          |
+| `502`  | Upstream price source unreachable — `{ error, failures }`  |
+| `500`  | Unexpected processing failure                              |
+
+All responses carry `X-API-Version: v2`. Cache directives match v1: snapshots
+are publicly cacheable for 30 seconds and history for 5 minutes (with stale
+revalidation). Integrators starting fresh should target v2; v1 remains
+available under its frozen contract.
+
+## Carbon Impact Calculator API (v1)
+
+Company footprint calculator (issue #1333): submit emissions data —
+employees, energy use, vehicle fuel — and receive the annual CO2e footprint
+plus the number of carbon credits required for a full offset and
+recommendations. Stateless and read-only; responses are `private, no-store`
+because they contain company data.
+
+### `POST /api/v1/carbon-impact`
+
+```bash
+curl -X POST https://<host>/api/v1/carbon-impact \
+  -H "Content-Type: application/json" \
+  -d '{
+    "employees": 10,
+    "energy":   { "electricityKwh": 10000, "naturalGasTherms": 100, "renewablePercentage": 25 },
+    "vehicles": { "gasolineLiters": 1000, "dieselLiters": 500, "electricKwh": 200 }
+  }'
+```
+
+`employees` is required and positive; every `energy`/`vehicles` field is
+optional and defaults to `0` (`renewablePercentage` must be 0–100). The
+response contains:
+
+- `emissions` — `energyKg`, `vehicleKg`, `totalKg`, `totalTonnes`, and
+  per-employee intensity (`perEmployeeKg`, `perEmployeeTonnes`).
+- `recommendations` — `creditsNeeded` (integer, 1 credit = 1 tCO2e, rounded up
+  to fully cover `totalTonnes`), `creditsUnit`, the avoided emissions already
+  gained from the renewable share (`renewableEnergySavingsKg`) and free-form
+  `notes` for the buyer.
+- `factors` — the published kg-CO2e-per-unit emission factors used, so callers
+  can audit the arithmetic.
+
+The v1 response shape is a frozen contract: fields may be added, existing
+ones will not be removed or renamed. Validation failures return `400` with
+`{ error, details: [{ path, message }] }`; malformed JSON returns `400`.
+
 ## Farmer Verification API (v2)
 
 For partner platforms, lenders, and financial institutions that need to verify

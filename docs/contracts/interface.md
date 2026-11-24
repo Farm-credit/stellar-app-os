@@ -4,6 +4,10 @@
 
 ## Interface conventions
 
+Custom error codes follow the workspace-wide allocation standard documented in
+[`error-code-standard.md`](error-code-standard.md) and implemented by
+`harvesta_errors::standard`.
+
 | Field | Meaning |
 |---|---|
 | Function | Soroban contract entry point exposed by `#[contractimpl]`. |
@@ -20,6 +24,7 @@
 | `auth-contract` | 7 | 3 | 0 |
 | `carbon-credits` | 8 | 3 | 1 |
 | `carbon-dex` | 7 | 4 | 0 |
+| `carbon-insurance` | 13 | 6 | 1 |
 | `carbon-marketplace` | 57 | 14 | 10 |
 | `contract-utils` | 6 | 0 | 0 |
 | `donation-escrow` | 27 | 11 | 0 |
@@ -30,7 +35,7 @@
 | `kyc-attestation` | 14 | 6 | 0 |
 | `location-proof` | 8 | 4 | 0 |
 | `naira-payout` | 12 | 5 | 0 |
-| `nft-certificate` | 20 | 5 | 6 |
+| `nft-certificate` | 28 | 8 | 14 |
 | `nullifier-registry` | 9 | 5 | 0 |
 | `planter-blacklist` | 6 | 2 | 0 |
 | `planter-registry` | 13 | 3 | 0 |
@@ -204,6 +209,43 @@
 | Topic | Source |
 |---|---|
 | — | No inline `symbol_short!` event topics detected. |
+
+### `carbon-insurance`
+
+#### Functions
+
+| Name | ABI signature |
+|---|---|
+| `initialize` | `fn initialize(env: Env, admin: Address, token: Address)` |
+| `fund_pool` | `fn fund_pool(env: Env, funder: Address, amount: i128)` |
+| `withdraw_excess` | `fn withdraw_excess(env: Env, caller: Address, to: Address, amount: i128)` |
+| `set_verifier` | `fn set_verifier(env: Env, caller: Address, verifier: Address)` |
+| `purchase_policy` | `fn purchase_policy( env: Env, farmer: Address, project_id: Symbol, coverage_amount: i128, ) -> u64` |
+| `get_policy` | `fn get_policy(env: Env, policy_id: u64) -> Policy` |
+| `record_verification` | `fn record_verification(env: Env, caller: Address, project_id: Symbol, approved: bool)` |
+| `get_verification` | `fn get_verification(env: Env, project_id: Symbol) -> Verification` |
+| `claim` | `fn claim(env: Env, claimant: Address, policy_id: u64) -> i128` |
+| `settle_approved` | `fn settle_approved(env: Env, policy_id: u64)` |
+| `get_pool` | `fn get_pool(env: Env) -> PoolStatus` |
+| `guaranteed_payout_bps` | `fn guaranteed_payout_bps(_env: Env) -> u32` |
+| `preview_payout` | `fn preview_payout(_env: Env, coverage_amount: i128) -> i128` |
+
+#### Public types
+
+| Type | Encoding source |
+|---|---|
+| `CarbonInsurance` | `#[contracttype]` or public Rust type in `contracts/carbon-insurance/src/lib.rs` |
+| `CarbonInsuranceError` | `#[contracttype]` or public Rust type in `contracts/carbon-insurance/src/lib.rs` |
+| `Policy` | `#[contracttype]` or public Rust type in `contracts/carbon-insurance/src/lib.rs` |
+| `PolicyStatus` | `#[contracttype]` or public Rust type in `contracts/carbon-insurance/src/lib.rs` |
+| `PoolStatus` | `#[contracttype]` or public Rust type in `contracts/carbon-insurance/src/lib.rs` |
+| `Verification` | `#[contracttype]` or public Rust type in `contracts/carbon-insurance/src/lib.rs` |
+
+#### Event topics
+
+| Topic | Source |
+|---|---|
+| `verifier` | `env.events().publish` in `contracts/carbon-insurance/src/lib.rs` |
 
 ### `carbon-marketplace`
 
@@ -432,6 +474,7 @@
 | `release_partial` | `fn release_partial( env: Env, approver: Address, milestone_id: Address, completion_pct: u32, )` |
 | `verify_milestone` | `fn verify_milestone(env: Env, farmer: Address, verification_hash: BytesN<32>)` |
 | `verify_survival` | `fn verify_survival( env: Env, farmer: Address, survival_verification_hash: BytesN<32>, survival_rate_percent: u32, )` |
+| `verify_maturity` | `fn verify_maturity(env: Env, farmer: Address, proof_hash: BytesN<32>)` |
 | `raise_dispute` | `fn raise_dispute(env: Env, farmer: Address, caller: Address)` |
 | `resolve_dispute` | `fn resolve_dispute(env: Env, farmer: Address, arbiter: Address, release_to_seller: bool)` |
 | `refund` | `fn refund(env: Env, farmer: Address)` |
@@ -468,6 +511,7 @@
 | `VerfAdded` | `env.events().publish` in `contracts/escrow-milestone/src/lib.rs` |
 | `m1release` | `env.events().publish` in `contracts/escrow-milestone/src/lib.rs` |
 | `m2release` | `env.events().publish` in `contracts/escrow-milestone/src/lib.rs` |
+| `maturity_release` | `env.events().publish` in `contracts/escrow-milestone/src/lib.rs` |
 
 ### `farmer-registry`
 
@@ -662,12 +706,15 @@
 | `remove_issuer` | `fn remove_issuer(env: Env, issuer: Address)` |
 | `get_issuers` | `fn get_issuers(env: Env) -> Vec<IssuerRecord>` |
 | `is_issuer` | `fn is_issuer(env: Env, addr: Address) -> bool` |
-| `mint` | `fn mint(env: Env, to: Address, token_id: u64, metadata: CertificateMetadata)` |
 | `mint` | `fn mint( env: Env, issuer: Address, to: Address, token_id: u64, metadata: CertificateMetadata, )` |
+| `mint_soulbound` | `fn mint_soulbound( env: Env, issuer: Address, to: Address, token_id: u64, metadata: CertificateMetadata, )` |
 | `batch_mint` | `fn batch_mint( env: Env, issuer: Address, to: Address, token_ids: Vec<u64>, metadatas: Vec<CertificateMetadata>, )` |
+| `batch_mint_soulbound` | `fn batch_mint_soulbound( env: Env, issuer: Address, to: Address, token_ids: Vec<u64>, metadatas: Vec<CertificateMetadata>, )` |
 | `merge` | `fn merge( env: Env, owner: Address, token_ids: Vec<u64>, new_token_id: u64, merged_metadata: CertificateMetadata, )` |
 | `split` | `fn split( env: Env, owner: Address, original_token_id: u64, new_token_id_1: u64, new_token_id_2: u64, metadata_1: CertificateMetadata, metadata_2: CertificateMetadata, )` |
 | `trade` | `fn trade( env: Env, seller: Address, buyer: Address, token_id: u64, payment_token: Address, price: i128, )` |
+| `make_soulbound` | `fn make_soulbound(env: Env, authority: Address, token_id: u64)` |
+| `is_soulbound` | `fn is_soulbound(env: Env, token_id: u64) -> bool` |
 | `get_token` | `fn get_token(env: Env, token_id: u64) -> Option<Token>` |
 | `owner_of` | `fn owner_of(env: Env, token_id: u64) -> Option<Address>` |
 | `original_planter_of` | `fn original_planter_of(env: Env, token_id: u64) -> Option<Address>` |
@@ -677,6 +724,11 @@
 | `is_paused` | `fn is_paused(env: Env) -> bool` |
 | `render_svg` | `fn render_svg(env: Env, token_id: u64) -> String` |
 | `token_uri` | `fn token_uri(env: Env, token_id: u64) -> String` |
+| `register_protocol_project` | `fn register_protocol_project( env: Env, project_id: Symbol, protocol: VerificationProtocol, registry_id: String, standard_version: String, methodology: String, total_approved_credits_tonnes: u64, )` |
+| `validate_and_issue_protocol_nft` | `fn validate_and_issue_protocol_nft( env: Env, issuer: Address, project_id: Symbol, to: Address, token_id: u64, credits_tonnes: u64, serial_number_start: String, serial_number_end: String, registry_url: String, metadata: CertificateMetadata, ) -> u64` |
+| `validate_protocol_credits` | `fn validate_protocol_credits(env: Env, project_id: Symbol, credits_tonnes: u64) -> bool` |
+| `get_protocol_project` | `fn get_protocol_project(env: Env, project_id: Symbol) -> ProtocolProject` |
+| `get_protocol_validation` | `fn get_protocol_validation(env: Env, token_id: u64) -> ProtocolValidationRecord` |
 
 #### Public types
 
@@ -686,17 +738,28 @@
 | `IssuerRecord` | `#[contracttype]` or public Rust type in `contracts/nft-certificate/src/lib.rs` |
 | `NftCertError` | `#[contracttype]` or public Rust type in `contracts/nft-certificate/src/lib.rs` |
 | `NftCertificate` | `#[contracttype]` or public Rust type in `contracts/nft-certificate/src/lib.rs` |
+| `ProtocolProject` | `#[contracttype]` or public Rust type in `contracts/nft-certificate/src/lib.rs` |
+| `ProtocolValidationRecord` | `#[contracttype]` or public Rust type in `contracts/nft-certificate/src/lib.rs` |
 | `Token` | `#[contracttype]` or public Rust type in `contracts/nft-certificate/src/lib.rs` |
+| `VerificationProtocol` | `#[contracttype]` or public Rust type in `contracts/nft-certificate/src/lib.rs` |
 
 #### Event topics
 
 | Topic | Source |
 |---|---|
+| `btch_mnt` | `env.events().publish` in `contracts/nft-certificate/src/lib.rs` |
 | `issAdd` | `env.events().publish` in `contracts/nft-certificate/src/lib.rs` |
 | `issRm` | `env.events().publish` in `contracts/nft-certificate/src/lib.rs` |
 | `merged` | `env.events().publish` in `contracts/nft-certificate/src/lib.rs` |
 | `minted` | `env.events().publish` in `contracts/nft-certificate/src/lib.rs` |
 | `paused` | `env.events().publish` in `contracts/nft-certificate/src/lib.rs` |
+| `proto_nft` | `env.events().publish` in `contracts/nft-certificate/src/lib.rs` |
+| `proto_reg` | `env.events().publish` in `contracts/nft-certificate/src/lib.rs` |
+| `soulBtch` | `env.events().publish` in `contracts/nft-certificate/src/lib.rs` |
+| `soulMint` | `env.events().publish` in `contracts/nft-certificate/src/lib.rs` |
+| `soulbond` | `env.events().publish` in `contracts/nft-certificate/src/lib.rs` |
+| `split` | `env.events().publish` in `contracts/nft-certificate/src/lib.rs` |
+| `traded` | `env.events().publish` in `contracts/nft-certificate/src/lib.rs` |
 | `unpaused` | `env.events().publish` in `contracts/nft-certificate/src/lib.rs` |
 
 ### `nullifier-registry`
@@ -1322,9 +1385,10 @@
 | `initialize` | `fn initialize( env: Env, admin: Address, stake_token: Address, min_stake_amount: i128, governance_contract: Address, replanting_buffer_pool: Address, sla_penalty_amount: i128, )` |
 | `register` | `fn register(env: Env, verifier: Address)` |
 | `stake` | `fn stake(env: Env, verifier: Address, amount: i128)` |
-| `slash` | `fn slash(env: Env, verifier: Address, slash_amount: i128)` |
-| `slash_invalid_approval` | `fn slash_invalid_approval( env: Env, verifier: Address, reason: InvalidApprovalKind, ) -> u64` |
-| `appeal_slash` | `fn appeal_slash(env: Env, verifier: Address, slash_id: u64, _reason: soroban_sdk::String)` |
+| `slash` | `fn slash(env: Env, verifier: Address, slash_amount: i128) -> u64` |
+| `slash_invalid_approval` | `fn slash_invalid_approval( env: Env, verifier: Address, reason: InvalidApprovalKind, evidence_hash: BytesN<32>, ) -> u64` |
+| `appeal_slash` | `fn appeal_slash(env: Env, verifier: Address, slash_id: u64, reason: soroban_sdk::String)` |
+| `resolve_appeal` | `fn resolve_appeal(env: Env, slash_id: u64, uphold: bool)` |
 | `execute_slash` | `fn execute_slash(env: Env, slash_id: u64)` |
 | `get_offense_count` | `fn get_offense_count(env: Env, verifier: Address) -> u32` |
 | `slash_escalated` | `fn slash_escalated(env: Env, verifier: Address, base_slash_amount: i128) -> i128` |
@@ -1346,6 +1410,10 @@
 | `delegate` | `fn delegate(env: Env, delegator: Address, verifier: Address, amount: i128)` |
 | `undelegate` | `fn undelegate(env: Env, delegator: Address, verifier: Address)` |
 | `get_delegation` | `fn get_delegation(env: Env, verifier: Address, delegator: Address) -> i128` |
+
+#### Slash request lifecycle
+
+`slash` and `slash_invalid_approval` create appealable requests and return their request ID; stake is transferred only after `execute_slash` succeeds following the appeal window. `SlashRequest.reason` is `None` for a generic admin slash, `Some(1)` for a dead-tree approval, and `Some(2)` for invalid progress. An unresolved or appealed slash blocks `unstake`; a rejected appeal or executed slash releases that restriction.
 
 #### Public types
 
@@ -1385,6 +1453,10 @@
 | `batch_submit_commitments` | `fn batch_submit_commitments( env: Env, farmers: Vec<Address>, commitments: Vec<BytesN<32>>, region_indices: Vec<u32>, )` |
 | `batch_approve_locations` | `fn batch_approve_locations( env: Env, commitments: Vec<BytesN<32>>, proof_digests: Vec<BytesN<32>>, )` |
 | `batch_reject_locations` | `fn batch_reject_locations(env: Env, commitments: Vec<BytesN<32>>)` |
+| `verify_location_proof` | `fn verify_location_proof(env: Env, submitter: Address, proof: LocationProof, input: LocationProofInput) -> bool` |
+| `is_nullifier_spent` | `fn is_nullifier_spent(env: Env, nullifier: BytesN<32>) -> bool` |
+| `get_verification_key_hash` | `fn get_verification_key_hash(env: Env) -> BytesN<32>` |
+| `get_boundary_commitment` | `fn get_boundary_commitment(env: Env) -> BytesN<32>` |
 
 #### Public types
 
@@ -1392,6 +1464,9 @@
 |---|---|
 | `CachedProofResult` | `#[contracttype]` or public Rust type in `contracts/zk-location-verifier/src/lib.rs` |
 | `LocationVerification` | `#[contracttype]` or public Rust type in `contracts/zk-location-verifier/src/lib.rs` |
+| `LocationProof` | `#[contracttype]` in `contracts/zk-location-verifier/src/lib.rs` — BN254 Groth16 A/B/C points |
+| `LocationProofInput` | `#[contracttype]` in `contracts/zk-location-verifier/src/lib.rs` — boundary commitment + nullifier |
+| `SpentNullifier` | `#[contracttype]` in `contracts/zk-location-verifier/src/lib.rs` — replay audit record |
 | `VerificationStatus` | `#[contracttype]` or public Rust type in `contracts/zk-location-verifier/src/lib.rs` |
 | `ZkLocationError` | `#[contracttype]` or public Rust type in `contracts/zk-location-verifier/src/lib.rs` |
 | `ZkLocationVerifier` | `#[contracttype]` or public Rust type in `contracts/zk-location-verifier/src/lib.rs` |
@@ -1400,7 +1475,8 @@
 
 | Topic | Source |
 |---|---|
-| — | No inline `symbol_short!` event topics detected. |
+| `zkLocVer` | `env.events().publish` in `contracts/zk-location-verifier/src/lib.rs` (Circuit 2 verification) |
+| — | Other inline `symbol_short!` topics are declared in the contract source. |
 
 ### `zk-verifier`
 

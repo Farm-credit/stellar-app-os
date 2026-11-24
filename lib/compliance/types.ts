@@ -1,11 +1,6 @@
 export type ComplianceReportFormat = 'csv' | 'json';
 export type ComplianceRegistry =
-  | 'verra'
-  | 'gold-standard'
-  | 'car'
-  | 'plan-vivo'
-  | 'cdm'
-  | 'generic';
+  'verra' | 'gold-standard' | 'car' | 'plan-vivo' | 'cdm' | 'generic';
 export type ComplianceReportType =
   | 'project-registry'
   | 'carbon-credits'

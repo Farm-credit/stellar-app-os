@@ -6,7 +6,9 @@
     "dashboard": "Painel",
     "projects": "Projetos",
     "marketplace": "Mercado",
-    "transactions": "Transações"
+    "transactions": "Transações",
+    "cooperatives": "Cooperativas",
+    "offramp": "Saque"
   },
   "header": {
     "connectWallet": "Conectar Carteira",
@@ -91,6 +93,13 @@
     "en": "Inglês",
     "es": "Espanhol",
     "fr": "Francês",
-    "pt": "Português"
+    "de": "Alemão",
+    "pt": "Português",
+    "ja": "Japonês",
+    "zh": "Mandarim",
+    "hi": "Hindi",
+    "ar": "Árabe",
+    "sw": "Suaíli",
+    "ha": "Hausa"
   }
 }

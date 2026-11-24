@@ -8,7 +8,6 @@ import {
   type LeaderboardPlanter,
   type LeaderboardPeriod,
   type LeaderboardCategory,
-  type BonusReward,
 } from '@/lib/types/leaderboard';
 import {
   fetchLeaderboard as fetchSponsorLeaderboard,
@@ -16,15 +15,10 @@ import {
 } from '@/lib/api/mock/leaderboard';
 import { Button } from '@/components/atoms/Button';
 import { Text } from '@/components/atoms/Text';
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-  CardContent,
-} from '@/components/molecules/Card';
+import { Card, CardContent } from '@/components/molecules/Card';
 import {
   Table,
+  TableBody,
   TableHeader,
   TableHead,
   TableRow,
@@ -32,16 +26,15 @@ import {
 } from '@/components/ui/table';
 import {
   TreePine,
-  TrendingUp,
   Trophy,
-  Medal,
   Loader2,
-  ArrowUp,
-  ArrowDown,
   Minus,
-  Crown,
   Sparkles,
   Gift,
+  Leaf,
+  ChevronUp,
+  ChevronDown,
+  Wallet,
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -156,6 +149,13 @@ function LeaderboardContent() {
                 ? 'Honoring the sponsors who make our planet greener, one tree at a time.'
                 : 'Celebrating the planters who bring our forests to life, one tree at a time.'}
             </Text>
+            <Link
+              href="/leaderboard/sponsors"
+              className="mt-3 inline-flex items-center gap-2 text-sm font-medium text-stellar-green hover:underline"
+            >
+              <span className="size-2 animate-pulse rounded-full bg-stellar-green" aria-hidden />
+              Global live sponsor rankings
+            </Link>
           </div>
 
           <div className="flex items-center gap-3">
@@ -637,7 +637,9 @@ function LeaderboardContent() {
                   </div>
 
                   <Button asChild stellar="primary" size="sm">
-                    <Link href={category === 'sponsors' ? '/credits/purchase' : '/planters/register'}>
+                    <Link
+                      href={category === 'sponsors' ? '/credits/purchase' : '/planters/register'}
+                    >
                       {category === 'sponsors' ? 'Increase Impact' : 'Register as Planter'}
                     </Link>
                   </Button>

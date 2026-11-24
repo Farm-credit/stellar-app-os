@@ -28,7 +28,7 @@ describe('TiltCard', () => {
     render(
       <TiltCard>
         <span>content</span>
-      </TiltCard>,
+      </TiltCard>
     );
     expect(screen.getByText('content')).toBeTruthy();
   });
@@ -37,7 +37,7 @@ describe('TiltCard', () => {
     const { container } = render(
       <TiltCard className="test-class">
         <div />
-      </TiltCard>,
+      </TiltCard>
     );
     expect((container.firstChild as HTMLElement).className).toContain('test-class');
   });
@@ -46,7 +46,7 @@ describe('TiltCard', () => {
     const { container } = render(
       <TiltCard>
         <div />
-      </TiltCard>,
+      </TiltCard>
     );
     expect(container.querySelector('[aria-hidden="true"]')).not.toBeNull();
   });
@@ -55,7 +55,7 @@ describe('TiltCard', () => {
     const { container } = render(
       <TiltCard>
         <div />
-      </TiltCard>,
+      </TiltCard>
     );
     const wrapper = container.firstChild as HTMLElement;
 
@@ -73,7 +73,7 @@ describe('TiltCard', () => {
     const { container } = render(
       <TiltCard>
         <div />
-      </TiltCard>,
+      </TiltCard>
     );
     const wrapper = container.firstChild as HTMLElement;
     expect(wrapper.style.transform).toBe('');

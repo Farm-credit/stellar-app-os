@@ -5,20 +5,23 @@ import {
   Building2,
   BarChart3,
   Download,
-  Settings,
   TrendingUp,
   TreePine,
   Wind,
   PlusCircle,
   FileText,
+  Trophy,
+  Code2,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/molecules/Card';
 import { Button } from '@/components/atoms/Button';
 import { Text } from '@/components/atoms/Text';
 import Link from 'next/link';
-import { generateEsgReport } from '@/lib/corporate';
+import { generateEsgExcel, generateEsgReport, type EsgReportData } from '@/lib/corporate';
 import { cn } from '@/lib/utils';
 import { CarbonOffsetCalculator } from '@/components/organisms/CarbonOffsetCalculator';
+import { CsrReportPanel } from '@/components/organisms/CorporateDashboard/CsrReportPanel';
+import { BenefactorLandingBuilder } from '@/components/organisms/BenefactorLandingBuilder/BenefactorLandingBuilder';
 
 export function CorporateDashboard() {
   const [isExporting, setIsExporting] = useState(false);
@@ -30,22 +33,73 @@ export function CorporateDashboard() {
     { label: 'Next Milestone', value: '15k Trees', icon: TrendingUp, color: 'text-stellar-green' },
   ];
 
+  const getEsgReportData = (): EsgReportData => ({
+    companyName: 'Acme Corp',
+    totalTrees: 12500,
+    totalCo2Offset: 450.2,
+    projectsSupported: [
+      'Amazon Rainforest Restoration',
+      'Kenya Mangrove Planting',
+      'Indonesia Peatland Protection',
+      'European Mixed Forest Growth',
+    ],
+    offsets: [
+      {
+        projectName: 'Amazon Rainforest Restoration',
+        creditType: 'ARR',
+        tonnesCo2e: 180.4,
+        verification: 'Verra VCS',
+      },
+      {
+        projectName: 'Kenya Mangrove Planting',
+        creditType: 'Blue carbon',
+        tonnesCo2e: 142.1,
+        verification: 'Gold Standard',
+      },
+      {
+        projectName: 'Indonesia Peatland Protection',
+        creditType: 'REDD+',
+        tonnesCo2e: 127.7,
+        verification: 'Verra VCS',
+      },
+    ],
+    coBenefits: [
+      { name: 'Biodiversity & Habitat Protection', tonnes: 307.8, sharePercentage: 68.4 },
+      { name: 'Local Community Livelihoods', tonnes: 269.8, sharePercentage: 60.0 },
+    ],
+    supplyChain: [
+      {
+        projectName: 'Amazon Rainforest Restoration',
+        location: 'Brazil',
+        tonnesCo2e: 180.4,
+        retiredTonnes: 0,
+        stageSummary: '4/5 stages complete',
+      },
+      {
+        projectName: 'Kenya Mangrove Planting',
+        location: 'Kenya',
+        tonnesCo2e: 142.1,
+        retiredTonnes: 142.1,
+        stageSummary: '5/5 stages complete',
+      },
+    ],
+    period: 'Q1 2026',
+    reportId: 'ESG-2026-ACME-001',
+  });
+
   const handleExportEsg = () => {
     setIsExporting(true);
     try {
-      generateEsgReport({
-        companyName: 'Acme Corp',
-        totalTrees: 12500,
-        totalCo2Offset: 450.2,
-        projectsSupported: [
-          'Amazon Rainforest Restoration',
-          'Kenya Mangrove Planting',
-          'Indonesia Peatland Protection',
-          'European Mixed Forest Growth',
-        ],
-        period: 'Q1 2026',
-        reportId: 'ESG-2026-ACME-001',
-      });
+      generateEsgReport(getEsgReportData());
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleExportExcel = () => {
+    setIsExporting(true);
+    try {
+      generateEsgExcel(getEsgReportData());
     } finally {
       setIsExporting(false);
     }
@@ -62,13 +116,27 @@ export function CorporateDashboard() {
             Manage your organization&apos;s environmental footprint and ESG compliance.
           </Text>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Link
             href="/esg-disclosure"
             className="inline-flex items-center gap-2 rounded-md border border-white/10 px-4 py-2 text-sm font-medium hover:bg-white/5"
           >
             <FileText className="h-4 w-4" />
             ESG disclosure
+          </Link>
+          <Link
+            href="/dashboard/team-challenges"
+            className="inline-flex items-center gap-2 rounded-md border border-white/10 px-4 py-2 text-sm font-medium hover:bg-white/5"
+          >
+            <Trophy className="h-4 w-4" />
+            Team challenges
+          </Link>
+          <Link
+            href="/dashboard/embeds"
+            className="inline-flex items-center gap-2 rounded-md border border-white/10 px-4 py-2 text-sm font-medium hover:bg-white/5"
+          >
+            <Code2 className="h-4 w-4" />
+            Carbon embed
           </Link>
           <Button
             onClick={handleExportEsg}
@@ -77,7 +145,16 @@ export function CorporateDashboard() {
             className="gap-2 border-white/10 hover:bg-white/5"
           >
             <Download className="h-4 w-4" />
-            Export ESG Report
+            Export PDF
+          </Button>
+          <Button
+            onClick={handleExportExcel}
+            disabled={isExporting}
+            variant="outline"
+            className="gap-2 border-white/10 hover:bg-white/5"
+          >
+            <Download className="h-4 w-4" />
+            Export Excel
           </Button>
           <Button className="gap-2 bg-stellar-blue hover:bg-stellar-blue/90 shadow-lg shadow-stellar-blue/20">
             <PlusCircle className="h-4 w-4" />
@@ -125,32 +202,11 @@ export function CorporateDashboard() {
 
         {/* Quick Actions & Settings */}
         <div className="space-y-6">
-          <Card className="border-white/5 bg-stellar-navy/40">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Settings className="h-5 w-5 text-stellar-purple" />
-                Custom Branding
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <label className="text-xs font-medium text-white/60 uppercase">Company Name</label>
-                <div className="p-3 rounded-lg bg-black/20 border border-white/5 text-white">
-                  Acme Corp
-                </div>
-              </div>
-              <div className="space-y-2">
-                <label className="text-xs font-medium text-white/60 uppercase">Brand Color</label>
-                <div className="flex items-center gap-3">
-                  <div className="h-8 w-8 rounded-full bg-stellar-blue border border-white/10" />
-                  <span className="text-sm text-white/80">#14B6E7</span>
-                </div>
-              </div>
-              <Button variant="outline" className="w-full text-xs py-2 border-white/10">
-                Edit Brand Settings
-              </Button>
-            </CardContent>
-          </Card>
+          {/* Benefactor Custom Landing Page Builder — Issue #1821 */}
+          <BenefactorLandingBuilder walletAddress="GACME1111111111111111111111111111111111111111111111111111111" />
+
+          {/* CSR Reporting — Issue #1670 */}
+          <CsrReportPanel buyerId="corporate-dashboard" companyName="Acme Corp" />
 
           <Card className="border-white/5 bg-stellar-navy/40">
             <CardHeader>

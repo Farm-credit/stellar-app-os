@@ -8,7 +8,7 @@ Get both the Counter feature and PWA implementation tested and submitted as PRs.
 
 ## ⚡ Quick Start (5 Minutes)
 
-### Step 1: Install Dependencies
+###Step 1: Install Dependencies
 
 ```bash
 # Install pnpm

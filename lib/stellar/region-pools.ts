@@ -28,7 +28,10 @@ export function getRegionPlanterAddresses(regionId?: string): string[] {
     .filter((address) => address.length > 0);
 }
 
-export function getRegionPlanterAllocations(amount: number, regionId?: string): RegionPlanterAllocation[] {
+export function getRegionPlanterAllocations(
+  amount: number,
+  regionId?: string
+): RegionPlanterAllocation[] {
   const addresses = getRegionPlanterAddresses(regionId);
   if (!amount || amount <= 0 || addresses.length === 0) {
     return [];
@@ -40,8 +43,6 @@ export function getRegionPlanterAllocations(amount: number, regionId?: string): 
   return addresses.map((address, index) => ({
     address,
     amount:
-      index === 0
-        ? parseFloat((amount - baseShare * (planterCount - 1)).toFixed(7))
-        : baseShare,
+      index === 0 ? parseFloat((amount - baseShare * (planterCount - 1)).toFixed(7)) : baseShare,
   }));
 }

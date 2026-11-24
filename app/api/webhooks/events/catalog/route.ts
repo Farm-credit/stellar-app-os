@@ -45,9 +45,7 @@ export async function GET(request: Request): Promise<NextResponse> {
       return NextResponse.json(
         {
           error: 'Unknown webhook event type',
-          details: [
-            `type must be one of: ${OFFSET_VERIFICATION_EVENT_TYPES.join(', ')}`,
-          ],
+          details: [`type must be one of: ${OFFSET_VERIFICATION_EVENT_TYPES.join(', ')}`],
         },
         { status: 400, headers: CACHE_HEADERS }
       );

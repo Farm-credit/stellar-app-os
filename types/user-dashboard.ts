@@ -17,7 +17,29 @@ export interface UserSummaryStats {
   totalCO2OffsetKg: number;
 }
 
+export interface CoBenefits {
+  biodiversity?: number; // score 0-100
+  soilHealth?: number; // score 0-100
+}
+
+export interface OwnedCreditHolding {
+  id: string;
+  projectName: string;
+  quantity: number; // tonnes CO2e
+  cost: number; // total cost paid
+  currency: string; // ISO 4217 code, e.g. 'USD'
+  retirementDate?: string; // ISO string; undefined if not yet retired
+  coBenefits: CoBenefits;
+}
+
+export interface UserPortfolio {
+  holdings: OwnedCreditHolding[];
+  totalQuantity: number;
+  totalCost: number;
+}
+
 export interface UserDashboardData {
   stats: UserSummaryStats;
   recentActivity: UserActivity[];
+  portfolio: UserPortfolio;
 }

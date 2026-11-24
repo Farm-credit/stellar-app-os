@@ -66,7 +66,10 @@ function SummaryTile({ label, value }: { label: string; value: string }) {
 
 function EmptyState({ children }: { children: ReactNode }) {
   return (
-    <p role="status" className="rounded-2xl border border-dashed border-border p-6 text-sm text-muted-foreground">
+    <p
+      role="status"
+      className="rounded-2xl border border-dashed border-border p-6 text-sm text-muted-foreground"
+    >
       {children}
     </p>
   );
@@ -87,7 +90,7 @@ export function WebinarSeries({ sessions = WEBINAR_SESSIONS, now }: WebinarSerie
 
   const matching = useMemo(
     () => filterWebinarSessions(sessions, query, topic),
-    [sessions, query, topic],
+    [sessions, query, topic]
   );
   const upcoming = useMemo(() => getUpcomingWebinarSessions(matching, now), [matching, now]);
   const past = useMemo(() => getPastWebinarSessions(matching, now), [matching, now]);
@@ -151,20 +154,12 @@ export function WebinarSeries({ sessions = WEBINAR_SESSIONS, now }: WebinarSerie
             />
           </span>
         </label>
-        <div
-          role="group"
-          aria-label="Filter webinars by topic"
-          className="flex flex-wrap gap-2"
-        >
+        <div role="group" aria-label="Filter webinars by topic" className="flex flex-wrap gap-2">
           <TopicChip active={topic === ALL_TOPICS} onClick={() => setTopic(ALL_TOPICS)}>
             All topics
           </TopicChip>
           {WEBINAR_TOPICS.map((item) => (
-            <TopicChip
-              key={item.id}
-              active={topic === item.id}
-              onClick={() => setTopic(item.id)}
-            >
+            <TopicChip key={item.id} active={topic === item.id} onClick={() => setTopic(item.id)}>
               {item.label}
             </TopicChip>
           ))}

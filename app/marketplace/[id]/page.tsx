@@ -7,7 +7,17 @@ import { Badge } from '@/components/atoms/Badge';
 import { Text } from '@/components/atoms/Text';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/molecules/Card';
 import { getMockMarketplaceListings } from '@/lib/api/mock/marketplaceListings';
-import { ArrowLeft, User, MapPin, Calendar, Shield, Package, MessageCircle } from 'lucide-react';
+import { findCreditTrace } from '@/lib/marketplace/supplyChainTrace';
+import {
+  ArrowLeft,
+  User,
+  MapPin,
+  Calendar,
+  Shield,
+  Package,
+  MessageCircle,
+  Route,
+} from 'lucide-react';
 
 /**
  * Formats a number as USD currency
@@ -106,6 +116,15 @@ export default function MarketplaceDetailPage({ params }: MarketplaceDetailPageP
               <Badge variant="success">{listing.verificationStatus}</Badge>
             </div>
           </div>
+          {findCreditTrace(listing.id) && (
+            <Button
+              variant="outline"
+              onClick={() => router.push(`/marketplace/trace/${listing.id}`)}
+            >
+              <Route className="mr-2 h-4 w-4" />
+              Trace credit origin
+            </Button>
+          )}
         </div>
       </header>
 

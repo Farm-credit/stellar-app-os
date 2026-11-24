@@ -194,26 +194,27 @@ export function ProjectComparisonTool({
   // Keep the address bar in sync so the page can be bookmarked/shared as-is.
   useEffect(() => {
     const search = buildComparisonSearch({ ids: selectedIds, criteria: visibleCriteria });
-    window.history.replaceState(null, '', `${window.location.pathname}${search ? `?${search}` : ''}`);
+    window.history.replaceState(
+      null,
+      '',
+      `${window.location.pathname}${search ? `?${search}` : ''}`
+    );
   }, [selectedIds, visibleCriteria]);
 
-  const toggleProject = useCallback(
-    (id: string) => {
-      setSelectedIds((previous) => {
-        if (previous.includes(id)) {
-          setNotice(null);
-          return previous.filter((selected) => selected !== id);
-        }
-        if (previous.length >= MAX_COMPARE_PROJECTS) {
-          setNotice(`You can compare up to ${MAX_COMPARE_PROJECTS} projects at a time.`);
-          return previous;
-        }
+  const toggleProject = useCallback((id: string) => {
+    setSelectedIds((previous) => {
+      if (previous.includes(id)) {
         setNotice(null);
-        return [...previous, id];
-      });
-    },
-    []
-  );
+        return previous.filter((selected) => selected !== id);
+      }
+      if (previous.length >= MAX_COMPARE_PROJECTS) {
+        setNotice(`You can compare up to ${MAX_COMPARE_PROJECTS} projects at a time.`);
+        return previous;
+      }
+      setNotice(null);
+      return [...previous, id];
+    });
+  }, []);
 
   const toggleCriterion = useCallback((id: ComparisonCriterionId, visible: boolean) => {
     setVisibleCriteria((previous) => {
@@ -292,10 +293,7 @@ export function ProjectComparisonTool({
       </div>
 
       {notice && (
-        <p
-          role="status"
-          className="text-sm rounded-md border bg-muted/50 px-3 py-2 break-words"
-        >
+        <p role="status" className="text-sm rounded-md border bg-muted/50 px-3 py-2 break-words">
           {notice}
         </p>
       )}
@@ -467,7 +465,10 @@ export function ProjectComparisonTool({
         <TabsContent value="compare">
           {comparisonProjects.length < MIN_COMPARE_PROJECTS ? (
             <div className="text-center py-12 border border-dashed rounded-lg">
-              <Columns className="w-12 h-12 mx-auto text-muted-foreground mb-4" aria-hidden="true" />
+              <Columns
+                className="w-12 h-12 mx-auto text-muted-foreground mb-4"
+                aria-hidden="true"
+              />
               <h2 className="text-lg font-medium">Select projects to compare</h2>
               <p className="text-muted-foreground mt-1">
                 Choose at least {MIN_COMPARE_PROJECTS} projects from the Browse tab to compare them

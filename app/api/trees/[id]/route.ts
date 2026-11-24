@@ -37,8 +37,23 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'tree not found' }, { status: 404 });
     }
 
+    // Expose on-chain ownership NFT metadata (species, GPS, planting date)
+    // for sponsored trees so sponsors can verify ownership in their wallet.
+    const nft = tree.sponsored
+      ? {
+          standard: 'SEP-0039' as const,
+          metadata: {
+            name: tree.treeId ?? tree.id,
+            species: tree.species,
+            latitude: tree.location?.latitude,
+            longitude: tree.location?.longitude,
+            plantingDate: tree.plantingDate,
+          },
+        }
+      : null;
+
     return NextResponse.json(
-      { tree, cachedAt: new Date().toISOString() },
+      { tree, nft, cachedAt: new Date().toISOString() },
       {
         headers: {
           'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=10',

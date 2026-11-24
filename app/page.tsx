@@ -6,6 +6,7 @@ import { Badge } from '@/components/atoms/Badge';
 import { Text } from '@/components/atoms/Text';
 import { Counter } from '@/components/atoms/Counter';
 import { LandingHero } from '@/components/organisms/LandingHero';
+import { DonorRecognitionWall } from '@/components/organisms/DonorRecognitionWall';
 import SocialShareButtons from '@/components/SocialShareButtons';
 import {
   Card,
@@ -60,6 +61,8 @@ export default function HomePage() {
         </div>
       </section>
 
+      <DonorRecognitionWall />
+
       <section className="w-full max-w-md">
         <Card data-tour-id="get-started-card">
           <CardHeader>
@@ -83,6 +86,9 @@ export default function HomePage() {
             </Button>
             <Button asChild variant="outline" size="lg" className="w-full">
               <Link href="/blog">Read Blog</Link>
+            </Button>
+            <Button asChild variant="outline" size="lg" className="w-full">
+              <Link href="/success-stories">Farmer Success Stories</Link>
             </Button>
             <Button asChild variant="outline" size="lg" className="w-full">
               <Link href="/api-docs">Explore API Documentation</Link>

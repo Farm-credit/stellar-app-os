@@ -10,12 +10,22 @@ export function generateApiKey(): string {
 
 export function isValidAllowedDomain(domain: string): boolean {
   const normalized = domain.trim().toLowerCase();
-  if (!normalized || normalized.includes('://') || normalized.includes('/') || normalized.includes(':')) {
+  if (
+    !normalized ||
+    normalized.includes('://') ||
+    normalized.includes('/') ||
+    normalized.includes(':')
+  ) {
     return false;
   }
 
-  return normalized === 'localhost' ||
-    (/^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)*[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(normalized) && normalized.includes('.'));
+  return (
+    normalized === 'localhost' ||
+    (/^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)*[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(
+      normalized
+    ) &&
+      normalized.includes('.'))
+  );
 }
 
 export function isAllowedOrigin(origin: string | null, allowedDomains: string[]): boolean {

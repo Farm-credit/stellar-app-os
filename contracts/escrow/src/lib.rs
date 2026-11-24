@@ -53,6 +53,9 @@ const INSURANCE_FEE_BPS: u32 = 200;
 const MAX_FEE_BPS: u32 = 10_000;
 const BPS_DENOM: i128 = 10_000;
 
+/// Storage key for the paused flag.
+const PAUSED_KEY: Symbol = symbol_short!("PAUSED");
+
 #[contracterror]
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 #[repr(u32)]
@@ -79,6 +82,9 @@ pub enum EscrowError {
     TreeNotDead = 19,
     Unauthorized = 20,
     InsuranceAlreadyPurchased = 21,
+    // ── Pausable interface ─────────────────────────────────────────────────
+    Paused = 22,
+    NotPaused = 23,
     InsufficientDonation = 8,
     NoPlantersAvailable = 9,
     InvalidSpecies = 10,
@@ -136,6 +142,31 @@ impl Escrow {
         env.storage()
             .instance()
             .set(&symbol_short!("ADMC"), &admin_controls);
+    }
+
+    /// Pause the contract. Only the admin (multi-sig governance) may call this.
+    /// While paused, all state-mutating fund flows are rejected.
+    pub fn pause(env: Env) {
+        Self::require_admin(&env);
+        env.storage().instance().set(&PAUSED_KEY, &true);
+        env.events()
+            .publish((symbol_short!("Paused"),), (env.ledger().timestamp(),));
+    }
+
+    /// Unpause the contract. Only the admin (multi-sig governance) may call this.
+    pub fn unpause(env: Env) {
+        Self::require_admin(&env);
+        env.storage().instance().set(&PAUSED_KEY, &false);
+        env.events()
+            .publish((symbol_short!("Unpaused"),), (env.ledger().timestamp(),));
+    }
+
+    /// Returns `true` if the contract is currently paused.
+    pub fn is_paused(env: Env) -> bool {
+        env.storage()
+            .instance()
+            .get(&PAUSED_KEY)
+            .unwrap_or(false)
     }
 
     /// Configure registry addresses. Only the verifier may call this.
@@ -773,6 +804,9 @@ impl Escrow {
     }
 
     fn assert_not_paused(env: &Env) {
+        if env.storage().instance().get(&PAUSED_KEY).unwrap_or(false) {
+            panic_with_error!(env, EscrowError::Paused);
+        }
         AdminControlsClient::new(env, &Self::admin_controls(env)).assert_not_paused();
     }
 
@@ -1215,6 +1249,54 @@ mod tests {
         let (_env, admin, verifier, _sponsor, _planter, _token, client) = setup();
         let admin_controls_id = _env.register_contract(None, admin_controls::AdminControls);
         client.initialize(&admin, &verifier, &admin_controls_id);
+    }
+
+    #[test]
+    fn test_pause_unpause_toggles_state() {
+        let (_env, _admin, _verifier, _sponsor, _planter, _token, client) = setup();
+        assert!(!client.is_paused());
+        client.pause();
+        assert!(client.is_paused());
+        client.unpause();
+        assert!(!client.is_paused());
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #22)")]
+    fn test_deposit_rejected_when_paused() {
+        let (_env, _admin, _verifier, sponsor, planter, token, client) = setup();
+        client.pause();
+        client.deposit(&sponsor, &planter, &1u64, &token, &10_000);
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #22)")]
+    fn test_release_rejected_when_paused() {
+        let (_env, _admin, _verifier, sponsor, planter, token, client) = setup();
+        client.deposit(&sponsor, &planter, &1u64, &token, &10_000);
+        client.pause();
+        client.release(&1u64);
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #22)")]
+    fn test_refund_rejected_when_paused() {
+        let (env, _admin, _verifier, sponsor, planter, token, client) = setup();
+        client.deposit(&sponsor, &planter, &1u64, &token, &10_000);
+        env.ledger().with_mut(|l| l.timestamp += REFUND_WINDOW + 1);
+        client.pause();
+        client.refund(&1u64);
+    }
+
+    #[test]
+    fn test_unpause_restores_operations() {
+        let (_env, _admin, _verifier, sponsor, planter, token, client) = setup();
+        client.pause();
+        client.unpause();
+        client.deposit(&sponsor, &planter, &1u64, &token, &10_000);
+        client.release(&1u64);
+        let rec = client.get_escrow(&1u64).unwrap();
+        assert_eq!(rec.status, EscrowStatus::Released);
     }
 
     #[cfg(test)]

@@ -27,6 +27,8 @@ export async function POST(request: Request) {
         { error: 'farmerId, farmerName, region, and verifier are required' },
         { status: 400 }
       );
+    if (!Array.isArray(body.certifications))
+      return NextResponse.json({ error: 'certifications must be an array' }, { status: 400 });
     if (body.certifications.some((value) => !FARMER_CERTIFICATIONS.includes(value)))
       return NextResponse.json({ error: 'Unsupported certification' }, { status: 400 });
     return NextResponse.json({ credential: addFarmerCredential(body) }, { status: 201 });

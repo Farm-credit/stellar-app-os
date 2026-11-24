@@ -3,7 +3,11 @@ import React from 'react';
 import { renderToBuffer, Document, Page, Text, View, StyleSheet, Image } from '@react-pdf/renderer';
 import QRCode from 'qrcode';
 import { getMockTrees } from '@/lib/api/mock/trees';
-import { TREE_SPECIES } from '@/lib/constants/species';
+import {
+  generateTreeCertificatePng,
+  getTreeCertificateDetails,
+  type TreeCarbonMetrics,
+} from '@/lib/carbon-offset-certificate';
 
 export const runtime = 'nodejs';
 
@@ -11,7 +15,7 @@ const ALLOWED_ORIGINS = new Set(
   (process.env.CORS_ORIGINS || process.env.ALLOWED_ORIGINS || '')
     .split(',')
     .map((origin) => origin.trim())
-    .filter(Boolean),
+    .filter(Boolean)
 );
 
 function isWhitelistedOrigin(origin: string | null): boolean {
@@ -22,9 +26,15 @@ function isWhitelistedOrigin(origin: string | null): boolean {
 const gdprDeletedTreeIds = new Set<string>();
 
 // ── Audit logging ─────────────────────────────────────────────────────────────
-function logAuditEvent(event: string, details: Record<string, unknown>, request?: NextRequest): void {
+function logAuditEvent(
+  event: string,
+  details: Record<string, unknown>,
+  request?: NextRequest
+): void {
   const ip = request?.headers.get('x-forwarded-for') ?? request?.headers.get('x-real-ip') ?? null;
-  console.log(JSON.stringify({ audit: true, timestamp: new Date().toISOString(), event, ...details, ip }));
+  console.info(
+    JSON.stringify({ audit: true, timestamp: new Date().toISOString(), event, ...details, ip })
+  );
 }
 
 // ── Styles ────────────────────────────────────────────────────────────────────
@@ -33,35 +43,35 @@ const S = StyleSheet.create({
   page: {
     fontFamily: 'Helvetica',
     backgroundColor: '#ffffff',
-    paddingHorizontal: 40,
+    paddingHorizontal: 36,
     paddingTop: 0,
-    paddingBottom: 32,
+    paddingBottom: 24,
   },
   // Header band
   header: {
     backgroundColor: '#0D0B21',
-    marginHorizontal: -40,
-    paddingHorizontal: 40,
-    paddingTop: 28,
-    paddingBottom: 20,
+    marginHorizontal: -36,
+    paddingHorizontal: 36,
+    paddingTop: 22,
+    paddingBottom: 16,
     alignItems: 'center',
   },
   headerTitle: {
     color: '#ffffff',
-    fontSize: 20,
+    fontSize: 18,
     fontFamily: 'Helvetica-Bold',
     letterSpacing: 1.5,
   },
   headerSubtitle: {
     color: '#14B6E7',
-    fontSize: 9,
-    marginTop: 5,
+    fontSize: 8.5,
+    marginTop: 4,
   },
   accentBar: {
     backgroundColor: '#14B6E7',
     height: 3,
-    marginHorizontal: -40,
-    marginBottom: 28,
+    marginHorizontal: -36,
+    marginBottom: 18,
   },
   // Verified badge
   badge: {
@@ -69,7 +79,7 @@ const S = StyleSheet.create({
     borderRadius: 4,
     paddingHorizontal: 8,
     paddingVertical: 3,
-    marginTop: 8,
+    marginTop: 6,
     alignSelf: 'center',
   },
   badgeText: {
@@ -80,22 +90,22 @@ const S = StyleSheet.create({
   },
   // Body
   sectionLabel: {
-    fontSize: 8,
+    fontSize: 7.5,
     color: '#64748B',
     fontFamily: 'Helvetica-Bold',
     letterSpacing: 0.8,
     textTransform: 'uppercase',
-    marginBottom: 3,
+    marginBottom: 2,
   },
   sectionValue: {
-    fontSize: 13,
+    fontSize: 12,
     color: '#0D0B21',
     fontFamily: 'Helvetica-Bold',
-    marginBottom: 16,
+    marginBottom: 12,
   },
   row: {
     flexDirection: 'row',
-    gap: 16,
+    gap: 12,
   },
   col: {
     flex: 1,
@@ -103,73 +113,115 @@ const S = StyleSheet.create({
   statsBox: {
     backgroundColor: '#F1F5F9',
     borderRadius: 6,
-    padding: 14,
+    padding: 10,
     flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginBottom: 24,
+    justifyContent: 'space-between',
+    marginBottom: 14,
+    borderWidth: 0.5,
+    borderColor: '#E2E8F0',
+  },
+  statCard: {
+    flex: 1,
+    alignItems: 'center',
+    paddingHorizontal: 4,
   },
   statValue: {
-    fontSize: 18,
+    fontSize: 13,
     fontFamily: 'Helvetica-Bold',
     color: '#0D0B21',
     textAlign: 'center',
   },
   statLabel: {
-    fontSize: 8,
+    fontSize: 7,
+    fontFamily: 'Helvetica-Bold',
+    color: '#14B6E7',
+    textAlign: 'center',
+    marginTop: 2,
+    textTransform: 'uppercase',
+  },
+  statPeriod: {
+    fontSize: 6.5,
     color: '#64748B',
     textAlign: 'center',
-    marginTop: 3,
+    marginTop: 2,
+  },
+  missingFormulaBox: {
+    backgroundColor: '#FEF2F2',
+    borderWidth: 0.5,
+    borderColor: '#F87171',
+    borderRadius: 6,
+    padding: 10,
+    marginBottom: 14,
+  },
+  missingFormulaText: {
+    fontSize: 8,
+    color: '#B91C1C',
+    fontFamily: 'Helvetica-Bold',
+    textAlign: 'center',
   },
   divider: {
     borderBottomWidth: 0.5,
     borderBottomColor: '#14B6E7',
-    marginBottom: 20,
+    marginBottom: 14,
   },
-  // QR + hash block
+  // QR + verification block
   verifyRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 16,
-    marginBottom: 20,
+    alignItems: 'center',
+    gap: 14,
+    marginBottom: 16,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 6,
+    padding: 10,
+    borderWidth: 0.5,
+    borderColor: '#E2E8F0',
   },
   qrImage: {
-    width: 72,
-    height: 72,
+    width: 68,
+    height: 68,
   },
   hashBlock: {
     flex: 1,
   },
   hashLabel: {
     fontSize: 8,
-    color: '#64748B',
+    color: '#0D0B21',
     fontFamily: 'Helvetica-Bold',
-    letterSpacing: 0.8,
-    marginBottom: 4,
+    letterSpacing: 0.5,
+    marginBottom: 2,
   },
   hashValue: {
     fontSize: 7,
     color: '#0D0B21',
     fontFamily: 'Helvetica',
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#FFFFFF',
     borderRadius: 3,
-    padding: 5,
-    marginBottom: 6,
+    padding: 4,
+    marginBottom: 4,
+    borderWidth: 0.5,
+    borderColor: '#CBD5E1',
   },
   hashUrl: {
     fontSize: 7,
     color: '#14B6E7',
+    fontFamily: 'Helvetica-Bold',
+  },
+  methodologyNote: {
+    fontSize: 6.5,
+    color: '#64748B',
+    marginTop: 3,
   },
   // Footer
   footer: {
     backgroundColor: '#0D0B21',
-    marginHorizontal: -40,
-    paddingHorizontal: 40,
-    paddingVertical: 10,
+    marginHorizontal: -36,
+    paddingHorizontal: 36,
+    paddingVertical: 8,
     marginTop: 'auto',
   },
   footerText: {
     color: '#ffffff',
-    fontSize: 7,
+    fontSize: 6.5,
     textAlign: 'center',
     opacity: 0.7,
   },
@@ -181,9 +233,11 @@ interface CertProps {
   treeUid: string;
   species: string;
   region: string;
+  locationDetails: string;
   projectName: string;
+  sponsorName: string;
   plantedAt: string;
-  co2Tonnes: string;
+  carbonMetrics: TreeCarbonMetrics;
   qrDataUrl: string;
   treeUrl: string;
   issuedDate: string;
@@ -194,9 +248,11 @@ function TreeCertificate({
   treeUid,
   species,
   region,
+  locationDetails,
   projectName,
+  sponsorName,
   plantedAt,
-  co2Tonnes,
+  carbonMetrics,
   qrDataUrl,
   treeUrl,
   issuedDate,
@@ -214,69 +270,116 @@ function TreeCertificate({
           <Text style={S.headerTitle}>CARBON OFFSET CERTIFICATE</Text>
           <Text style={S.headerSubtitle}>Verified on the Stellar Network · {issuedDate}</Text>
           <View style={S.badge}>
-            <Text style={S.badgeText}>✓ VERIFIED</Text>
+            <Text style={S.badgeText}>✓ VERIFIED OFFSET</Text>
           </View>
         </View>
 
         {/* Accent bar */}
         <View style={S.accentBar} />
 
-        {/* Tree ID */}
-        <Text style={S.sectionLabel}>Tree ID</Text>
-        <Text style={S.sectionValue}>{treeUid}</Text>
+        {/* Tree ID & Sponsor */}
+        <View style={S.row}>
+          <View style={S.col}>
+            <Text style={S.sectionLabel}>Tree ID</Text>
+            <Text style={S.sectionValue}>{treeUid}</Text>
+          </View>
+          <View style={S.col}>
+            <Text style={S.sectionLabel}>Sponsored By</Text>
+            <Text style={S.sectionValue}>{sponsorName}</Text>
+          </View>
+        </View>
 
-        {/* Species + Region */}
+        {/* Species + Planting Date */}
         <View style={S.row}>
           <View style={S.col}>
             <Text style={S.sectionLabel}>Species</Text>
             <Text style={S.sectionValue}>{species}</Text>
           </View>
           <View style={S.col}>
-            <Text style={S.sectionLabel}>Region</Text>
-            <Text style={S.sectionValue}>{region}</Text>
+            <Text style={S.sectionLabel}>Planting Date</Text>
+            <Text style={S.sectionValue}>{plantedAt}</Text>
           </View>
         </View>
 
-        {/* Project */}
-        <Text style={S.sectionLabel}>Reforestation Project</Text>
-        <Text style={S.sectionValue}>{projectName}</Text>
+        {/* Location & Project */}
+        <View style={S.row}>
+          <View style={S.col}>
+            <Text style={S.sectionLabel}>Location</Text>
+            <Text style={S.sectionValue}>{locationDetails || region}</Text>
+          </View>
+          <View style={S.col}>
+            <Text style={S.sectionLabel}>Reforestation Project</Text>
+            <Text style={S.sectionValue}>{projectName}</Text>
+          </View>
+        </View>
 
         {distanceFromSponsor && (
-          <>
+          <View style={{ marginBottom: 8 }}>
             <Text style={S.sectionLabel}>Distance from Sponsor</Text>
             <Text style={S.sectionValue}>{distanceFromSponsor}</Text>
-          </>
+          </View>
         )}
 
-        {/* Impact stats */}
-        <View style={S.statsBox}>
-          <View>
-            <Text style={S.statValue}>{co2Tonnes}</Text>
-            <Text style={S.statLabel}>Tonnes CO₂ Offset</Text>
-            <Text style={S.statLabel}>(25-year estimate)</Text>
+        {/* Estimated CO2 Sequestration Over Time */}
+        <Text style={S.sectionLabel}>
+          Estimated CO₂ Sequestration Over Time ({carbonMetrics.methodology})
+        </Text>
+
+        {carbonMetrics.hasMissingFormula ? (
+          <View style={S.missingFormulaBox}>
+            <Text style={S.missingFormulaText}>
+              Allometric parameters or formula missing for species &quot;{species}&quot;. Values are
+              not invented.
+            </Text>
           </View>
-          <View>
-            <Text style={S.statValue}>{plantedAt}</Text>
-            <Text style={S.statLabel}>Date Planted</Text>
+        ) : (
+          <View style={S.statsBox}>
+            <View style={S.statCard}>
+              <Text style={S.statValue}>{carbonMetrics.annualRateKg} kg</Text>
+              <Text style={S.statLabel}>Annual Rate</Text>
+              <Text style={S.statPeriod}>Next 12 months</Text>
+            </View>
+            <View style={S.statCard}>
+              <Text style={S.statValue}>{carbonMetrics.storedToDateKg} kg</Text>
+              <Text style={S.statLabel}>Stored to Date</Text>
+              <Text style={S.statPeriod}>Age {carbonMetrics.currentAgeYears} yrs</Text>
+            </View>
+            <View style={S.statCard}>
+              <Text style={S.statValue}>{carbonMetrics.at10YearsKg} kg</Text>
+              <Text style={S.statLabel}>10-Year Horizon</Text>
+              <Text style={S.statPeriod}>Cumulative 10 yrs</Text>
+            </View>
+            <View style={S.statCard}>
+              <Text style={S.statValue}>{carbonMetrics.atMaturityTonnes} t</Text>
+              <Text style={S.statLabel}>At Maturity</Text>
+              <Text style={S.statPeriod}>{carbonMetrics.maturityYears}-Year Period</Text>
+            </View>
           </View>
-        </View>
+        )}
 
         <View style={S.divider} />
 
         {/* QR + verification */}
         <View style={S.verifyRow}>
+          {/* eslint-disable-next-line jsx-a11y/alt-text */}
           <Image src={qrDataUrl} style={S.qrImage} />
           <View style={S.hashBlock}>
-            <Text style={S.hashLabel}>Scan to Verify On-Chain</Text>
-            <Text style={S.hashValue}>{treeUid}</Text>
+            <Text style={S.hashLabel}>Scan QR Code to Track Tree Live</Text>
+            <Text style={S.hashSub}>
+              Opens the live tracking page and permanent audit record on FarmCredit:
+            </Text>
             <Text style={S.hashUrl}>{treeUrl}</Text>
+            <Text style={S.methodologyNote}>
+              Methodology: IPCC Tier 1 (Chapman–Richards / Chave 2014) · Allometric parameters from
+              Global Wood Density Database
+            </Text>
           </View>
         </View>
 
         {/* Footer */}
         <View style={S.footer}>
           <Text style={S.footerText}>
-            Powered by Stellar Network · Immutable · Verifiable · Permanent
+            Powered by Stellar Network · Immutable · Verifiable · Permanent · {treeUrl}
           </Text>
         </View>
       </Page>
@@ -292,15 +395,13 @@ function haversineDistanceKm(lat1: number, lon1: number, lat2: number, lon2: num
   const dLon = ((lon2 - lon1) * Math.PI) / 180;
   const a =
     Math.sin(dLat / 2) ** 2 +
-    Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLon / 2) ** 2;
+    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLon / 2) ** 2;
   return earthRadiusKm * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
 // ── Route Handler ─────────────────────────────────────────────────────────────
 
-export async function OPTIONS(request: NextRequest): Promise<NextResponse> {
+export function OPTIONS(request: NextRequest): NextResponse {
   const origin = request.headers.get('origin');
 
   if (!origin || !isWhitelistedOrigin(origin)) {
@@ -312,7 +413,8 @@ export async function OPTIONS(request: NextRequest): Promise<NextResponse> {
     headers: {
       'Access-Control-Allow-Origin': origin,
       'Access-Control-Allow-Methods': 'GET, DELETE, OPTIONS',
-      'Access-Control-Allow-Headers': request.headers.get('access-control-request-headers') ?? 'Content-Type, Authorization',
+      'Access-Control-Allow-Headers':
+        request.headers.get('access-control-request-headers') ?? 'Content-Type, Authorization',
       'Access-Control-Max-Age': '86400',
       Vary: 'Origin',
     },
@@ -336,16 +438,16 @@ export async function GET(
     return NextResponse.json({ error: 'Tree not found' }, { status: 404 });
   }
 
-  const speciesInfo = TREE_SPECIES.find((s) => s.name === tree.species);
-  const co2KgTotal =
-    (speciesInfo?.co2KgPerYear ?? tree.co2OffsetKgPerYear) * (speciesInfo?.maturityYears ?? 25);
-  const co2Tonnes = (co2KgTotal / 1000).toFixed(3);
-
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.farmcredit.io';
-  const treeUrl = `${appUrl}/trees/${tree.treeId}`;
+  const treeUrl = `${appUrl}/trees/${tree.treeId || tree.id}`;
 
-  const sponsorLat = _request.nextUrl.searchParams.get('lat');
-  const sponsorLng = _request.nextUrl.searchParams.get('lng');
+  const certDetails = getTreeCertificateDetails(tree, appUrl);
+  const carbonMetrics = certDetails.carbonMetrics;
+
+  const url = _request.nextUrl ?? new URL(_request.url, 'http://localhost');
+  const sponsorLat = url.searchParams.get('lat');
+  const sponsorLng = url.searchParams.get('lng');
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const anyTree = tree as any;
   const treeLat = anyTree.latitude ?? anyTree.lat;
   const treeLng = anyTree.longitude ?? anyTree.lng ?? anyTree.lon;
@@ -354,15 +456,19 @@ export async function GET(
       ? `${haversineDistanceKm(Number(sponsorLat), Number(sponsorLng), Number(treeLat), Number(treeLng)).toFixed(1)} km`
       : undefined;
 
-  logAuditEvent('sensitive.certificate.access', {
-    treeId: tree.treeId,
-    queriedCoordinates: {
-      latitude: sponsorLat ?? null,
-      longitude: sponsorLng ?? null,
+  logAuditEvent(
+    'sensitive.certificate.access',
+    {
+      treeId: tree.treeId,
+      queriedCoordinates: {
+        latitude: sponsorLat ?? null,
+        longitude: sponsorLng ?? null,
+      },
     },
-  }, _request);
+    _request
+  );
 
-  const qrDataUrl = await QRCode.toDataURL(treeUrl, { margin: 1, width: 200, type: 'image/png' });
+  const qrDataUrl = await QRCode.toDataURL(treeUrl, { margin: 1, width: 250, type: 'image/png' });
 
   const plantedAt = tree.plantedAt
     ? new Date(tree.plantedAt).toLocaleDateString('en-US', {
@@ -370,7 +476,7 @@ export async function GET(
         month: 'short',
         day: 'numeric',
       })
-    : 'Pending';
+    : 'Pending / Not yet planted';
 
   const issuedDate = new Date().toLocaleDateString('en-US', {
     year: 'numeric',
@@ -378,10 +484,14 @@ export async function GET(
     day: 'numeric',
   });
 
+  const formatParam = url.searchParams.get('format')?.toLowerCase();
+  const exportParam = url.searchParams.get('export')?.toLowerCase();
+
+  // 1. JSON Export
   const wantsJsonExport = Boolean(
-    _request.nextUrl.searchParams.get('export') === 'json' ||
-      _request.nextUrl.searchParams.get('format') === 'json' ||
-      _request.headers.get('accept')?.includes('application/json')
+    exportParam === 'json' ||
+    formatParam === 'json' ||
+    _request.headers.get('accept')?.includes('application/json')
   );
 
   if (wantsJsonExport) {
@@ -391,9 +501,11 @@ export async function GET(
           treeId: tree.treeId,
           species: tree.species,
           region: tree.region,
+          locationDetails: certDetails.formattedLocation,
           projectName: tree.projectName,
+          sponsorName: certDetails.sponsorName,
           plantedAt,
-          co2Tonnes,
+          carbonMetrics,
           distanceFromSponsor: distanceFromSponsor ?? null,
           treeUrl,
           issuedDate,
@@ -407,14 +519,35 @@ export async function GET(
     );
   }
 
+  // 2. Shareable Image (PNG) Export
+  const wantsImageExport = Boolean(
+    formatParam === 'png' ||
+    formatParam === 'image' ||
+    _request.headers.get('accept')?.includes('image/png')
+  );
+
+  if (wantsImageExport) {
+    const { pngBuffer } = await generateTreeCertificatePng(tree, appUrl);
+    return new NextResponse(new Uint8Array(pngBuffer), {
+      headers: {
+        'Content-Type': 'image/png',
+        'Content-Disposition': `attachment; filename="certificate-${tree.treeId}.png"`,
+        'Cache-Control': 'no-store',
+      },
+    });
+  }
+
+  // 3. PDF Export (Default)
   const pdfBuffer = await renderToBuffer(
     <TreeCertificate
       treeUid={tree.treeId}
       species={tree.species}
       region={tree.region}
+      locationDetails={certDetails.formattedLocation}
       projectName={tree.projectName}
+      sponsorName={certDetails.sponsorName}
       plantedAt={plantedAt}
-      co2Tonnes={co2Tonnes}
+      carbonMetrics={carbonMetrics}
       qrDataUrl={qrDataUrl}
       treeUrl={treeUrl}
       issuedDate={issuedDate}

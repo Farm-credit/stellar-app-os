@@ -246,7 +246,11 @@ function readLimit(raw: string | number | null | undefined, errors: string[]): n
   return parsed;
 }
 
-function readDate(raw: string | null | undefined, field: string, errors: string[]): string | undefined {
+function readDate(
+  raw: string | null | undefined,
+  field: string,
+  errors: string[]
+): string | undefined {
   if (raw === null || raw === undefined || raw === '') return undefined;
   if (!DATE_RE.test(raw) || Number.isNaN(Date.parse(`${raw}T00:00:00Z`))) {
     errors.push(`${field} must be an ISO date (YYYY-MM-DD)`);
@@ -262,11 +266,9 @@ function pickFilters(
   const limit = readLimit(get('limit'), errors);
   return {
     types: readList(get('types') ?? get('type'), 'types', CARBON_PROJECT_TYPES, errors) as
-      | CarbonProjectType[]
-      | undefined,
+      CarbonProjectType[] | undefined,
     regions: readList(get('regions') ?? get('region'), 'regions', CARBON_REGIONS, errors) as
-      | CarbonRegion[]
-      | undefined,
+      CarbonRegion[] | undefined,
     standards: readList(
       get('standards') ?? get('standard'),
       'standards',
@@ -352,11 +354,9 @@ export function parseCarbonPriceRequest(body: unknown): ParseResult<CarbonPriceF
   const limit = readLimit(record.limit as number | string | undefined, errors);
   const filters: CarbonPriceFilters = {
     types: bodyList(record.types ?? record.type, 'types', CARBON_PROJECT_TYPES, errors) as
-      | CarbonProjectType[]
-      | undefined,
+      CarbonProjectType[] | undefined,
     regions: bodyList(record.regions ?? record.region, 'regions', CARBON_REGIONS, errors) as
-      | CarbonRegion[]
-      | undefined,
+      CarbonRegion[] | undefined,
     standards: bodyList(
       record.standards ?? record.standard,
       'standards',
@@ -378,9 +378,7 @@ export function parseCarbonPriceRequest(body: unknown): ParseResult<CarbonPriceF
  * to a single asset's price history, so accepting them here would silently do
  * nothing.
  */
-export function parseCarbonPriceHistoryQuery(
-  params: URLSearchParams
-): ParseResult<HistoryRequest> {
+export function parseCarbonPriceHistoryQuery(params: URLSearchParams): ParseResult<HistoryRequest> {
   const errors: string[] = [];
   const assetCode = (params.get('assetCode') ?? params.get('asset') ?? '').trim();
   if (!assetCode) errors.push('assetCode is required');
@@ -446,7 +444,9 @@ export function buildDailySeries(
 ): CarbonPricePoint[] {
   const safeDays = Math.max(1, Math.floor(days));
   const random = pseudoRandom(hashSeed(record.assetCode));
-  const end = new Date(Date.UTC(endDate.getUTCFullYear(), endDate.getUTCMonth(), endDate.getUTCDate()));
+  const end = new Date(
+    Date.UTC(endDate.getUTCFullYear(), endDate.getUTCMonth(), endDate.getUTCDate())
+  );
 
   const prices: number[] = new Array(safeDays);
   const volumes: number[] = new Array(safeDays);
@@ -637,7 +637,10 @@ function matchesFilters(record: CarbonPriceSeriesRecord, filters: CarbonPriceFil
   if (filters.types && !filters.types.includes(record.projectType)) return false;
   if (filters.regions && !filters.regions.includes(record.region)) return false;
   if (filters.standards && !filters.standards.includes(record.standard)) return false;
-  if (filters.projectIds && !filters.projectIds.some((id) => normalizeToken(id) === normalizeToken(record.projectId)))
+  if (
+    filters.projectIds &&
+    !filters.projectIds.some((id) => normalizeToken(id) === normalizeToken(record.projectId))
+  )
     return false;
   if (
     filters.assetCodes &&
@@ -692,7 +695,10 @@ export async function aggregateCarbonPrices(
     records = await source.listQuotes();
   } catch (error) {
     throw new CarbonPriceError('Failed to load carbon price data', [
-      { sourceId: source.sourceId, message: error instanceof Error ? error.message : String(error) },
+      {
+        sourceId: source.sourceId,
+        message: error instanceof Error ? error.message : String(error),
+      },
     ]);
   }
 
@@ -705,7 +711,10 @@ export async function aggregateCarbonPrices(
       series = await source.getDailySeries(record.assetCode, 2);
     } catch (error) {
       throw new CarbonPriceError('Failed to load carbon price history', [
-        { sourceId: source.sourceId, message: error instanceof Error ? error.message : String(error) },
+        {
+          sourceId: source.sourceId,
+          message: error instanceof Error ? error.message : String(error),
+        },
       ]);
     }
 
@@ -725,8 +734,7 @@ export async function aggregateCarbonPrices(
       pricePerTon,
       previousClose,
       change24hAmount,
-      change24hPercent:
-        previousClose === 0 ? 0 : round2((change24hAmount / previousClose) * 100),
+      change24hPercent: previousClose === 0 ? 0 : round2((change24hAmount / previousClose) * 100),
       volume24h: last?.volume ?? record.volume24h,
       updatedAt: record.updatedAt,
     });
@@ -777,16 +785,17 @@ export async function getCarbonPriceHistory(
   }
 
   const spanDays =
-    Math.floor(
-      (Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000
-    ) + 1;
+    Math.floor((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000) + 1;
 
   let series: CarbonPricePoint[] | null;
   try {
     series = await source.getDailySeries(request.assetCode, Math.min(spanDays, MAX_HISTORY_DAYS));
   } catch (error) {
     throw new CarbonPriceError('Failed to load carbon price history', [
-      { sourceId: source.sourceId, message: error instanceof Error ? error.message : String(error) },
+      {
+        sourceId: source.sourceId,
+        message: error instanceof Error ? error.message : String(error),
+      },
     ]);
   }
 

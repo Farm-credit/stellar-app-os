@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { checkRateLimit } from '@/lib/rateLimit';
 import { checkTieredRateLimit, WINDOW_MS } from '@/lib/rateLimit/tieredRateLimit';
 import { findApiKeyByRawValue, touchApiKey, recordApiKeyUsage } from '@/lib/api/apiKeys';
+import { readApiKey } from '@/lib/api/api-key-header';
 import { getCorsHeaders, handleCorsPreflight, isOriginAllowed } from '@/lib/cors';
 
 // Auth endpoints get a much stricter limit to slow brute-force attacks.
@@ -16,19 +17,7 @@ function getClientIp(request: NextRequest): string {
   );
 }
 
-/**
- * Extracts a bearer API key from the `x-api-key` header. Returns null when the
- * header is absent or malformed.
- */
-function getApiKey(request: NextRequest): string | null {
-  const raw = request.headers.get('x-api-key');
-  if (!raw) return null;
-  const trimmed = raw.trim();
-  return trimmed.length > 0 ? trimmed : null;
-}
-
 export async function proxy(request: NextRequest): Promise<NextResponse> {
-export function proxy(request: NextRequest): NextResponse {
   const origin = request.headers.get('origin');
 
   // Handle CORS preflight (OPTIONS) requests
@@ -60,13 +49,13 @@ export function proxy(request: NextRequest): NextResponse {
 
   // Requests presenting an API key are governed by their tier's rolling hourly
   // budget rather than the shared per-IP minute limit.
-  const apiKey = getApiKey(request);
+  const apiKey = readApiKey(request);
   if (apiKey) {
     const tierResult = await enforceApiKeyLimit(apiKey, txId);
     if (tierResult) return tierResult;
     return NextResponse.next({
       request: { headers: passHeaders },
-      headers: { 'X-TX-ID': txId },
+      headers: { ...getCorsHeaders(origin), 'X-TX-ID': txId },
     });
   }
 
@@ -93,7 +82,10 @@ export function proxy(request: NextRequest): NextResponse {
     });
   }
 
-  return NextResponse.next({ request: { headers: passHeaders } });
+  return NextResponse.next({
+    request: { headers: passHeaders },
+    headers: { ...getCorsHeaders(origin), 'X-TX-ID': txId },
+  });
 }
 
 /**
@@ -152,24 +144,8 @@ async function enforceApiKeyLimit(apiKey: string, txId: string): Promise<NextRes
     console.error('[proxy] tiered rate limit failed open', { error });
     return null;
   }
-  const txId = request.headers.get('x-tx-id') ?? crypto.randomUUID();
-  const requestHeaders = new Headers(request.headers);
-  requestHeaders.set('x-tx-id', txId);
-
-  const response = NextResponse.next({ request: { headers: requestHeaders } });
-
-  // Attach CORS response headers for valid cross-origin requests
-  const corsHeaders = getCorsHeaders(origin);
-  Object.entries(corsHeaders).forEach(([key, value]) => {
-    if (value) {
-      response.headers.set(key, value);
-    }
-  });
-
-  return response;
 }
 
 export const config = {
   matcher: ['/api/:path*'],
 };
-

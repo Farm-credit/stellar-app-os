@@ -1,10 +1,23 @@
 'use client';
 
 import React, { useMemo, useState, type ChangeEvent, type FormEvent } from 'react';
-import { CheckCircle2, ChevronLeft, ChevronRight, Loader2, ShieldCheck, Sprout } from 'lucide-react';
+import {
+  CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
+  Loader2,
+  ShieldCheck,
+  Sprout,
+} from 'lucide-react';
 import { Button } from '@/components/atoms/Button';
 import { Input } from '@/components/atoms/Input';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/molecules/Card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/molecules/Card';
 
 interface FormValues {
   fullName: string;
@@ -227,7 +240,11 @@ export function FarmerOnboardingWizard() {
             aria-describedby={errors.fullName ? 'fullName-error' : undefined}
             variant={errors.fullName ? 'destructive' : 'primary'}
           />
-          {errors.fullName ? <p id="fullName-error" className="text-sm text-destructive">{errors.fullName}</p> : null}
+          {errors.fullName ? (
+            <p id="fullName-error" className="text-sm text-destructive">
+              {errors.fullName}
+            </p>
+          ) : null}
         </div>
 
         <div className="space-y-2">
@@ -247,7 +264,11 @@ export function FarmerOnboardingWizard() {
             aria-describedby={errors.nationalId ? 'nationalId-error' : undefined}
             variant={errors.nationalId ? 'destructive' : 'primary'}
           />
-          {errors.nationalId ? <p id="nationalId-error" className="text-sm text-destructive">{errors.nationalId}</p> : null}
+          {errors.nationalId ? (
+            <p id="nationalId-error" className="text-sm text-destructive">
+              {errors.nationalId}
+            </p>
+          ) : null}
         </div>
 
         <div className="space-y-2">
@@ -268,7 +289,11 @@ export function FarmerOnboardingWizard() {
             aria-describedby={errors.phoneNumber ? 'phoneNumber-error' : undefined}
             variant={errors.phoneNumber ? 'destructive' : 'primary'}
           />
-          {errors.phoneNumber ? <p id="phoneNumber-error" className="text-sm text-destructive">{errors.phoneNumber}</p> : null}
+          {errors.phoneNumber ? (
+            <p id="phoneNumber-error" className="text-sm text-destructive">
+              {errors.phoneNumber}
+            </p>
+          ) : null}
         </div>
 
         <div className="space-y-2 md:col-span-2">
@@ -288,7 +313,11 @@ export function FarmerOnboardingWizard() {
             aria-describedby={errors.village ? 'village-error' : undefined}
             variant={errors.village ? 'destructive' : 'primary'}
           />
-          {errors.village ? <p id="village-error" className="text-sm text-destructive">{errors.village}</p> : null}
+          {errors.village ? (
+            <p id="village-error" className="text-sm text-destructive">
+              {errors.village}
+            </p>
+          ) : null}
         </div>
       </div>
     );
@@ -313,7 +342,11 @@ export function FarmerOnboardingWizard() {
             aria-describedby={errors.plotSize ? 'plotSize-error' : undefined}
             variant={errors.plotSize ? 'destructive' : 'primary'}
           />
-          {errors.plotSize ? <p id="plotSize-error" className="text-sm text-destructive">{errors.plotSize}</p> : null}
+          {errors.plotSize ? (
+            <p id="plotSize-error" className="text-sm text-destructive">
+              {errors.plotSize}
+            </p>
+          ) : null}
         </div>
 
         <div className="space-y-2">
@@ -332,7 +365,11 @@ export function FarmerOnboardingWizard() {
             aria-describedby={errors.cropType ? 'cropType-error' : undefined}
             variant={errors.cropType ? 'destructive' : 'primary'}
           />
-          {errors.cropType ? <p id="cropType-error" className="text-sm text-destructive">{errors.cropType}</p> : null}
+          {errors.cropType ? (
+            <p id="cropType-error" className="text-sm text-destructive">
+              {errors.cropType}
+            </p>
+          ) : null}
         </div>
 
         <div className="space-y-2">
@@ -351,7 +388,11 @@ export function FarmerOnboardingWizard() {
             aria-describedby={errors.soilType ? 'soilType-error' : undefined}
             variant={errors.soilType ? 'destructive' : 'primary'}
           />
-          {errors.soilType ? <p id="soilType-error" className="text-sm text-destructive">{errors.soilType}</p> : null}
+          {errors.soilType ? (
+            <p id="soilType-error" className="text-sm text-destructive">
+              {errors.soilType}
+            </p>
+          ) : null}
         </div>
 
         <div className="space-y-2">
@@ -370,7 +411,11 @@ export function FarmerOnboardingWizard() {
             aria-describedby={errors.gpsCoordinates ? 'gpsCoordinates-error' : undefined}
             variant={errors.gpsCoordinates ? 'destructive' : 'primary'}
           />
-          {errors.gpsCoordinates ? <p id="gpsCoordinates-error" className="text-sm text-destructive">{errors.gpsCoordinates}</p> : null}
+          {errors.gpsCoordinates ? (
+            <p id="gpsCoordinates-error" className="text-sm text-destructive">
+              {errors.gpsCoordinates}
+            </p>
+          ) : null}
         </div>
       </div>
     );
@@ -431,7 +476,11 @@ export function FarmerOnboardingWizard() {
             aria-invalid={Boolean(errors.farmingGoal)}
             aria-describedby={errors.farmingGoal ? 'farmingGoal-error' : undefined}
           />
-          {errors.farmingGoal ? <p id="farmingGoal-error" className="text-sm text-destructive">{errors.farmingGoal}</p> : null}
+          {errors.farmingGoal ? (
+            <p id="farmingGoal-error" className="text-sm text-destructive">
+              {errors.farmingGoal}
+            </p>
+          ) : null}
         </div>
 
         <label className="flex items-start gap-3 rounded-xl border border-border/70 bg-muted/40 p-3 text-sm text-foreground">
@@ -444,10 +493,15 @@ export function FarmerOnboardingWizard() {
             aria-describedby={errors.consent ? 'consent-error' : undefined}
           />
           <span>
-            I consent to the onboarding review and understand that my information may be verified by field staff.
+            I consent to the onboarding review and understand that my information may be verified by
+            field staff.
           </span>
         </label>
-        {errors.consent ? <p id="consent-error" className="text-sm text-destructive">{errors.consent}</p> : null}
+        {errors.consent ? (
+          <p id="consent-error" className="text-sm text-destructive">
+            {errors.consent}
+          </p>
+        ) : null}
       </div>
     );
   }
@@ -481,8 +535,17 @@ export function FarmerOnboardingWizard() {
                 <span className="font-medium">Progress</span>
                 <span>{Math.round(progressPercent)}%</span>
               </div>
-              <div className="h-2 rounded-full bg-white/15" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(progressPercent)}>
-                <div className="h-2 rounded-full bg-gradient-to-r from-stellar-cyan to-stellar-blue" style={{ width: `${progressPercent}%` }} />
+              <div
+                className="h-2 rounded-full bg-white/15"
+                role="progressbar"
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={Math.round(progressPercent)}
+              >
+                <div
+                  className="h-2 rounded-full bg-gradient-to-r from-stellar-cyan to-stellar-blue"
+                  style={{ width: `${progressPercent}%` }}
+                />
               </div>
 
               <ol className="mt-5 space-y-3">
@@ -491,7 +554,9 @@ export function FarmerOnboardingWizard() {
                   const isDone = stepIndex > index;
                   return (
                     <li key={step.id} className="flex items-start gap-3">
-                      <div className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border ${isDone ? 'border-stellar-green bg-stellar-green text-white' : isActive ? 'border-stellar-cyan bg-stellar-cyan/20 text-stellar-cyan' : 'border-white/20 bg-white/10 text-slate-300'}`}>
+                      <div
+                        className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border ${isDone ? 'border-stellar-green bg-stellar-green text-white' : isActive ? 'border-stellar-cyan bg-stellar-cyan/20 text-stellar-cyan' : 'border-white/20 bg-white/10 text-slate-300'}`}
+                      >
                         {isDone ? <CheckCircle2 className="h-4 w-4" /> : index + 1}
                       </div>
                       <div>
@@ -523,14 +588,21 @@ export function FarmerOnboardingWizard() {
                 {stepIndex === 1 ? renderLandStep() : null}
                 {stepIndex === 2 ? renderReviewStep() : null}
 
-                <div className="rounded-2xl border border-border/70 bg-muted/40 px-4 py-3 text-sm text-muted-foreground" aria-live="polite">
-                  {statusMessage || 'Complete each step to keep the onboarding flow moving smoothly.'}
+                <div
+                  className="rounded-2xl border border-border/70 bg-muted/40 px-4 py-3 text-sm text-muted-foreground"
+                  aria-live="polite"
+                >
+                  {statusMessage ||
+                    'Complete each step to keep the onboarding flow moving smoothly.'}
                 </div>
 
                 {isComplete ? (
                   <div className="rounded-2xl border border-stellar-green/30 bg-stellar-green/10 p-4 text-sm text-stellar-green">
                     <p className="font-semibold">Profile ready for review</p>
-                    <p className="mt-1">The onboarding request has been prepared successfully and is ready for staff review.</p>
+                    <p className="mt-1">
+                      The onboarding request has been prepared successfully and is ready for staff
+                      review.
+                    </p>
                   </div>
                 ) : null}
 
@@ -548,12 +620,24 @@ export function FarmerOnboardingWizard() {
                   </Button>
 
                   {stepIndex < steps.length - 1 ? (
-                    <Button type="button" stellar="primary" width="full" onClick={handleNext} className="sm:w-auto">
+                    <Button
+                      type="button"
+                      stellar="primary"
+                      width="full"
+                      onClick={handleNext}
+                      className="sm:w-auto"
+                    >
                       Continue
                       <ChevronRight className="ml-2 h-4 w-4" />
                     </Button>
                   ) : (
-                    <Button type="submit" stellar="success" width="full" disabled={isSubmitting} className="sm:w-auto">
+                    <Button
+                      type="submit"
+                      stellar="success"
+                      width="full"
+                      disabled={isSubmitting}
+                      className="sm:w-auto"
+                    >
                       {isSubmitting ? (
                         <>
                           <Loader2 className="mr-2 h-4 w-4 animate-spin" />

@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { recordReferralAttribution } = vi.hoisted(() => ({
+const hoisted = (vi as unknown as { hoisted?: <T>(fn: () => T) => T }).hoisted ?? ((fn) => fn());
+
+const { recordReferralAttribution } = hoisted(() => ({
   recordReferralAttribution: vi.fn(),
 }));
 

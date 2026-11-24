@@ -7,7 +7,7 @@ describe('Issue #1172 - Security: SQL Injection Prevention & Parameterized Queri
     "' UNION SELECT id, password_hash FROM users --",
     "admin' --",
     "1'; EXEC xp_cmdshell('dir'); --",
-    "1 OR 1=1; SELECT * FROM sensitive_data--",
+    '1 OR 1=1; SELECT * FROM sensitive_data--',
     "' HAVING 1=1--",
   ];
 

@@ -34,7 +34,8 @@ function hashString(str: string): number {
 const SAMPLE_PROJECT_TEMPLATES = [
   {
     name: 'Kilimanjaro Agroforestry & Regenerative Soil Project',
-    description: 'Community regenerative agroforestry and soil organic carbon enhancement initiative.',
+    description:
+      'Community regenerative agroforestry and soil organic carbon enhancement initiative.',
     projectType: 'Regenerative Agriculture',
     location: 'Moshi Rural, Kilimanjaro',
     country: 'Tanzania',
@@ -52,7 +53,8 @@ const SAMPLE_PROJECT_TEMPLATES = [
         buyerCompany: 'EcoCorp Sustainability Inc.',
         rating: 5,
         title: 'Exceptional transparency and soil sequestration data',
-        comment: 'High quality credits with verified third-party audit trail and measurable soil improvement.',
+        comment:
+          'High quality credits with verified third-party audit trail and measurable soil improvement.',
         verified: true,
         createdAt: '2025-01-15T10:30:00Z',
       },
@@ -70,7 +72,8 @@ const SAMPLE_PROJECT_TEMPLATES = [
   },
   {
     name: 'Serengeti Buffer Silvopasture & Carbon Sink',
-    description: 'Silvopasture restoration combining rotational grazing, native tree planting, and cover cropping.',
+    description:
+      'Silvopasture restoration combining rotational grazing, native tree planting, and cover cropping.',
     projectType: 'Silvopasture & Grassland',
     location: 'Mara Region',
     country: 'Tanzania',
@@ -96,7 +99,8 @@ const SAMPLE_PROJECT_TEMPLATES = [
   },
   {
     name: 'Usambara Highlands Organic Cover Crop & Carbon Project',
-    description: 'High-altitude organic farming with multi-species cover cropping and reduced tillage.',
+    description:
+      'High-altitude organic farming with multi-species cover cropping and reduced tillage.',
     projectType: 'Soil Carbon Enhancement',
     location: 'Lushoto, Tanga',
     country: 'Tanzania',
@@ -114,7 +118,8 @@ const SAMPLE_PROJECT_TEMPLATES = [
         buyerCompany: 'BioFoods Enterprise',
         rating: 4.9,
         title: 'High soil carbon sequestration benchmarks',
-        comment: 'Outstanding soil health improvement score and transparent MRV audit documentation.',
+        comment:
+          'Outstanding soil health improvement score and transparent MRV audit documentation.',
         verified: true,
         createdAt: '2025-03-01T16:20:00Z',
       },
@@ -144,9 +149,8 @@ export function buildFarmerProjects(farmerAddress: string): ListedProject[] {
 
     const avgRating =
       reviews.length > 0
-        ? Math.round(
-            (reviews.reduce((acc, curr) => acc + curr.rating, 0) / reviews.length) * 10
-          ) / 10
+        ? Math.round((reviews.reduce((acc, curr) => acc + curr.rating, 0) / reviews.length) * 10) /
+          10
         : 5.0;
 
     projects.push({
@@ -177,6 +181,11 @@ export function buildFarmerProjects(farmerAddress: string): ListedProject[] {
   return projects;
 }
 
+function round(value: number, decimals: number): number {
+  const factor = 10 ** decimals;
+  return Math.round(value * factor) / factor;
+}
+
 /**
  * Aggregates portfolio summary across all listed projects:
  * - total acres
@@ -203,22 +212,25 @@ export function calculatePortfolioSummary(projects: ListedProject[]): FarmerPort
   const totalCreditsAvailable = projects.reduce((sum, p) => sum + p.creditsAvailable, 0);
   const totalCreditsIssued = projects.reduce((sum, p) => sum + p.totalCredits, 0);
 
-  // Price average weighted by available credits (or arithmetic if 0)
-  const weightedPriceSum = projects.reduce(
-    (sum, p) => sum + p.pricePerTon * (p.creditsAvailable || 1),
-    0
-  );
-  const divisor = totalCreditsAvailable > 0 ? totalCreditsAvailable : projects.length;
-  const averagePrice = Math.round((weightedPriceSum / divisor) * 100) / 100;
+  // Average price is weighted by credits available, so a large low-priced
+  // listing counts for more than a small high-priced one. When nothing is
+  // available to weight by, fall back to the plain mean across projects.
+  const averagePrice =
+    totalCreditsAvailable > 0
+      ? round(
+          projects.reduce((sum, p) => sum + p.pricePerTon * p.creditsAvailable, 0) /
+            totalCreditsAvailable,
+          2
+        )
+      : round(projects.reduce((sum, p) => sum + p.pricePerTon, 0) / projects.length, 2);
 
   const allReviews = projects.flatMap((p) => p.reviews);
   const totalReviews = allReviews.length;
+  // No reviews means no rating (0), not a perfect one.
   const overallRating =
     totalReviews > 0
-      ? Math.round(
-          (allReviews.reduce((sum, r) => sum + r.rating, 0) / totalReviews) * 10
-        ) / 10
-      : 5.0;
+      ? round(allReviews.reduce((sum, r) => sum + r.rating, 0) / totalReviews, 1)
+      : 0;
 
   const uniqueCertifications = Array.from(
     new Set(projects.flatMap((p) => [p.certificationStatus, ...p.certifications]))
@@ -236,50 +248,73 @@ export function calculatePortfolioSummary(projects: ListedProject[]): FarmerPort
   };
 }
 
+/** Thrown when no portfolio exists for the requested farmer address. */
+export class FarmerNotFoundError extends Error {
+  constructor(public readonly farmerAddress: string) {
+    super(`Farmer not found: ${farmerAddress}`);
+    this.name = 'FarmerNotFoundError';
+  }
+}
+
 /**
- * Get farmer profile and full project portfolio
+ * Where a farmer's profile and listed projects come from. Return `null` when
+ * the farmer is unknown. Swap the default source for a database-backed one
+ * once projects, reviews and certifications are persisted.
+ */
+export interface FarmerPortfolioSource {
+  load(farmerAddress: string): Promise<{ farmer: FarmerProfile; projects: ListedProject[] } | null>;
+}
+
+const FARMER_NAMES = [
+  'Amani Mwangi',
+  'Baraka Osei',
+  'Chioma Adeleke',
+  'Daudi Kimaro',
+  'Eshe Mrema',
+];
+const ORGANIZATIONS = [
+  'Kilimanjaro Regenerative Cooperative',
+  'East Africa Agroforestry Alliance',
+  'Rift Valley Soil Stewards',
+  'Mara Highlands Ecological Farmers',
+];
+
+/** Default source: deterministic sample data (no persistence layer exists yet). */
+export const sampleFarmerPortfolioSource: FarmerPortfolioSource = {
+  async load(farmerAddress) {
+    const hash = hashString(farmerAddress);
+    return {
+      farmer: {
+        address: farmerAddress,
+        name: FARMER_NAMES[hash % FARMER_NAMES.length],
+        organization: ORGANIZATIONS[hash % ORGANIZATIONS.length],
+        bio: 'Regenerative agriculture pioneer managing verified carbon offset projects. Focused on soil organic carbon accumulation, biodiversity enhancement, and community agroforestry.',
+        location: 'Arusha Region',
+        country: 'Tanzania',
+        joinedAt: '2023-08-15T00:00:00Z',
+        verified: true,
+        kycTier: 2,
+      },
+      projects: buildFarmerProjects(farmerAddress),
+    };
+  },
+};
+
+/**
+ * Get farmer profile and full project portfolio.
+ * @throws FarmerNotFoundError when the source has no record for the address.
  */
 export async function getFarmerPortfolio(
-  farmerAddress: string
+  farmerAddress: string,
+  source: FarmerPortfolioSource = sampleFarmerPortfolioSource
 ): Promise<FarmerPortfolioResponse> {
-  const hash = hashString(farmerAddress);
-  const projects = buildFarmerProjects(farmerAddress);
-  const summary = calculatePortfolioSummary(projects);
-  const allReviews = projects.flatMap((p) => p.reviews);
-
-  const farmerNames = [
-    'Amani Mwangi',
-    'Baraka Osei',
-    'Chioma Adeleke',
-    'Daudi Kimaro',
-    'Eshe Mrema',
-  ];
-  const organizations = [
-    'Kilimanjaro Regenerative Cooperative',
-    'East Africa Agroforestry Alliance',
-    'Rift Valley Soil Stewards',
-    'Mara Highlands Ecological Farmers',
-  ];
-
-  const farmerName = farmerNames[hash % farmerNames.length];
-  const organization = organizations[hash % organizations.length];
-
-  const farmer: FarmerProfile = {
-    address: farmerAddress,
-    name: farmerName,
-    organization,
-    bio: `Regenerative agriculture pioneer managing verified carbon offset projects. Focused on soil organic carbon accumulation, biodiversity enhancement, and community agroforestry.`,
-    location: 'Arusha Region',
-    country: 'Tanzania',
-    joinedAt: '2023-08-15T00:00:00Z',
-    verified: true,
-    kycTier: 2,
-  };
+  const record = await source.load(farmerAddress);
+  if (!record) throw new FarmerNotFoundError(farmerAddress);
 
   return {
-    farmer,
-    summary,
-    projects,
-    buyerReviews: allReviews,
+    farmer: record.farmer,
+    summary: calculatePortfolioSummary(record.projects),
+    projects: record.projects,
+    buyerReviews: record.projects.flatMap((p) => p.reviews),
   };
 }

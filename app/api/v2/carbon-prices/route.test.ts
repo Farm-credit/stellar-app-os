@@ -92,9 +92,7 @@ describe('POST /api/v2/carbon-prices', () => {
   });
 
   it('returns the filtered snapshot from a JSON body', async () => {
-    const response = await POST(
-      postRequest({ types: ['Mangrove Restoration'], limit: 1 })
-    );
+    const response = await POST(postRequest({ types: ['Mangrove Restoration'], limit: 1 }));
     const body = await response.json();
 
     expect(response.status).toBe(200);

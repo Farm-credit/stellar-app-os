@@ -1,18 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
-import {
-  Alert,
-  FlatList,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { Alert, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { fetchTreeSpecies, type TreeSpecies } from '../lib/treeApi';
-import {
-  addCachedSponsorship,
-  enqueuePendingAction,
-  getPendingActions,
-} from '../lib/offlineCache';
+import { addCachedSponsorship, enqueuePendingAction, getPendingActions } from '../lib/offlineCache';
 import { notify } from '../lib/notifications';
 
 export function HomeScreen() {

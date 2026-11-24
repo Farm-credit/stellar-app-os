@@ -10,8 +10,12 @@ import type {
   SponsorshipSubscription,
   CreateSubscriptionRequest,
   CancelSubscriptionRequest,
+  PauseSubscriptionRequest,
+  ResumeSubscriptionRequest,
   SubscriptionListFilters,
+  UpdateSpeciesPreferenceRequest,
 } from '@/lib/types/subscription';
+import { TREE_SPECIES } from '@/lib/constants/species';
 
 // ── Stripe helpers ──────────────────────────────────────────────────────────
 
@@ -156,12 +160,110 @@ export async function cancelSubscription(
 
   const result = await pool.query(
     `UPDATE sponsorship_subscriptions
-     SET status = 'canceled', updated_at = NOW()
+     SET status = 'canceled', pause_until = NULL, updated_at = NOW()
      WHERE id = $1 AND wallet = $2
      RETURNING *`,
     [subscription_id, wallet]
   );
 
+  return mapRow(result.rows[0]);
+}
+
+// ── Pause / resume / preference management ─────────────────────────────────
+
+export async function pauseSubscription(
+  req: PauseSubscriptionRequest
+): Promise<SponsorshipSubscription> {
+  if (
+    !Number.isInteger(req.duration_months) ||
+    req.duration_months < 1 ||
+    req.duration_months > 3
+  ) {
+    throw new Error('Pause duration must be between 1 and 3 months');
+  }
+
+  const pool = getPool();
+  const existing = await pool.query(
+    `SELECT * FROM sponsorship_subscriptions WHERE id = $1 AND wallet = $2`,
+    [req.subscription_id, req.wallet]
+  );
+  if (existing.rows.length === 0)
+    throw new Error('Subscription not found or not owned by this wallet');
+
+  const sub = mapRow(existing.rows[0]);
+  if (sub.status !== 'active') throw new Error('Only active subscriptions can be paused');
+
+  const pauseUntil = new Date();
+  pauseUntil.setMonth(pauseUntil.getMonth() + req.duration_months);
+
+  if (sub.stripe_subscription_id) {
+    const stripe = getStripe();
+    await stripe.subscriptions.update(sub.stripe_subscription_id, {
+      pause_collection: { behavior: 'void', resumes_at: Math.floor(pauseUntil.getTime() / 1000) },
+    });
+  }
+
+  const result = await pool.query(
+    `UPDATE sponsorship_subscriptions
+     SET status = 'paused', pause_until = $3, updated_at = NOW()
+     WHERE id = $1 AND wallet = $2 AND status = 'active'
+     RETURNING *`,
+    [req.subscription_id, req.wallet, pauseUntil]
+  );
+  if (result.rows.length === 0) throw new Error('Subscription could not be paused');
+  return mapRow(result.rows[0]);
+}
+
+export async function resumeSubscription(
+  req: ResumeSubscriptionRequest
+): Promise<SponsorshipSubscription> {
+  const pool = getPool();
+  const existing = await pool.query(
+    `SELECT * FROM sponsorship_subscriptions WHERE id = $1 AND wallet = $2`,
+    [req.subscription_id, req.wallet]
+  );
+  if (existing.rows.length === 0)
+    throw new Error('Subscription not found or not owned by this wallet');
+
+  const sub = mapRow(existing.rows[0]);
+  if (sub.status !== 'paused') throw new Error('Only paused subscriptions can be resumed');
+
+  if (sub.stripe_subscription_id) {
+    const stripe = getStripe();
+    await stripe.subscriptions.update(sub.stripe_subscription_id, { pause_collection: null });
+  }
+
+  const result = await pool.query(
+    `UPDATE sponsorship_subscriptions
+     SET status = 'active', pause_until = NULL, updated_at = NOW()
+     WHERE id = $1 AND wallet = $2 AND status = 'paused'
+     RETURNING *`,
+    [req.subscription_id, req.wallet]
+  );
+  if (result.rows.length === 0) throw new Error('Subscription could not be resumed');
+  return mapRow(result.rows[0]);
+}
+
+export async function updateSpeciesPreference(
+  req: UpdateSpeciesPreferenceRequest
+): Promise<SponsorshipSubscription> {
+  if (
+    req.species_preference !== null &&
+    !TREE_SPECIES.some((species) => species.slug === req.species_preference)
+  ) {
+    throw new Error('Invalid species preference');
+  }
+
+  const pool = getPool();
+  const result = await pool.query(
+    `UPDATE sponsorship_subscriptions
+     SET species_preference = $3, updated_at = NOW()
+     WHERE id = $1 AND wallet = $2 AND status IN ('active', 'paused')
+     RETURNING *`,
+    [req.subscription_id, req.wallet, req.species_preference]
+  );
+  if (result.rows.length === 0)
+    throw new Error('Subscription not found, not owned, or not editable');
   return mapRow(result.rows[0]);
 }
 
@@ -279,6 +381,8 @@ function mapRow(row: Record<string, unknown>): SponsorshipSubscription {
     stripe_subscription_id: row.stripe_subscription_id as string | null,
     stripe_customer_id: row.stripe_customer_id as string | null,
     status: row.status as SponsorshipSubscription['status'],
+    pause_until: row.pause_until ? new Date(row.pause_until as string) : null,
+    species_preference: row.species_preference as string | null,
     next_billing_date: row.next_billing_date ? new Date(row.next_billing_date as string) : null,
     last_billing_date: row.last_billing_date ? new Date(row.last_billing_date as string) : null,
     created_at: new Date(row.created_at as string),

@@ -10,11 +10,7 @@ interface DonationRegionMapProps {
   onSelect: (regionId: string) => void;
 }
 
-export function DonationRegionMap({
-  regions,
-  selectedRegionId,
-  onSelect,
-}: DonationRegionMapProps) {
+export function DonationRegionMap({ regions, selectedRegionId, onSelect }: DonationRegionMapProps) {
   return (
     <MapContainer
       center={[8, 12]}

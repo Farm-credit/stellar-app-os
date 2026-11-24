@@ -77,6 +77,9 @@ export interface MilestonePayoutApprovedPayload {
   loanId: string;
   farmerWalletAddress: string;
   releasedAmountUsdc: number;
+  farmerPayoutUsdc?: number;
+  verifierWalletAddress?: string;
+  verifierRewardUsdc?: number;
   network: 'testnet' | 'mainnet';
   transactionHash: string;
   explorerUrl: string;

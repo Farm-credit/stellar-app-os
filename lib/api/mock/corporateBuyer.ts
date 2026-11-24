@@ -3,6 +3,24 @@
  * All values are illustrative; replace with real API calls when available.
  */
 
+/** UN Sustainable Development Goal numbers relevant to carbon markets */
+export const CO_BENEFIT_SDG_MAP: Record<string, number[]> = {
+  Biodiversity: [15],
+  'Water Conservation': [6, 15],
+  'Indigenous Communities': [10, 16],
+  'Clean Energy': [7],
+  'Job Creation': [8],
+  'Coastal Protection': [14, 13],
+  Fisheries: [14],
+  'Soil Health': [15, 2],
+  'Food Security': [2],
+  'Farmer Income': [1, 8],
+  'Wildfire Prevention': [15, 13],
+  'Energy Access': [7, 1],
+  Education: [4],
+  Health: [3],
+};
+
 export interface OffsetPurchase {
   id: string;
   date: string;
@@ -15,10 +33,20 @@ export interface OffsetPurchase {
   pricePerTon: number;
   totalCost: number;
   verificationStandard: string;
+  /** Serial number of the retirement certificate, when status === 'retired' */
+  certificateSerial?: string;
   coBenefits: string[];
   vintage: number;
   status: 'retired' | 'pending' | 'active';
 }
+
+/** Annual offset commitment for the company */
+export const annualTarget = {
+  year: 2025,
+  targetTons: 5000,
+  label: 'FY 2025 Commitment',
+};
+
 
 export interface MonthlyTrend {
   month: string;
@@ -64,6 +92,7 @@ export const mockPurchases: OffsetPurchase[] = [
     pricePerTon: 44.0,
     totalCost: 22000,
     verificationStandard: 'Gold Standard',
+    certificateSerial: 'GS-VER-2024-001-500',
     coBenefits: ['Biodiversity', 'Water Conservation', 'Indigenous Communities'],
     vintage: 2023,
     status: 'retired',
@@ -80,6 +109,7 @@ export const mockPurchases: OffsetPurchase[] = [
     pricePerTon: 37.5,
     totalCost: 11250,
     verificationStandard: 'Verra (VCS)',
+    certificateSerial: 'VCS-2024-TX-0300',
     coBenefits: ['Clean Energy', 'Job Creation'],
     vintage: 2024,
     status: 'retired',
@@ -96,6 +126,7 @@ export const mockPurchases: OffsetPurchase[] = [
     pricePerTon: 54.0,
     totalCost: 13500,
     verificationStandard: 'Plan Vivo',
+    certificateSerial: 'PV-2024-IDN-250',
     coBenefits: ['Coastal Protection', 'Fisheries', 'Biodiversity'],
     vintage: 2024,
     status: 'retired',
@@ -176,6 +207,7 @@ export const mockPurchases: OffsetPurchase[] = [
     pricePerTon: 38.0,
     totalCost: 8360,
     verificationStandard: 'Verra (VCS)',
+    certificateSerial: 'VCS-2024-TX-0220',
     coBenefits: ['Clean Energy', 'Job Creation'],
     vintage: 2024,
     status: 'retired',
@@ -265,6 +297,33 @@ export const mockMonthlyTrends: MonthlyTrend[] = [
   { month: 'Feb 25', tonsRetired: 400, spend: 24800, avgPricePerTon: 62.0 },
   { month: 'Mar 25', tonsRetired: 500, spend: 23250, avgPricePerTon: 46.5 },
 ];
+
+/** Same shape but for the prior year — used by the YoY overlay in the trend chart. */
+export const mockMonthlyTrendsPriorYear: MonthlyTrend[] = [
+  { month: 'Jan 23', tonsRetired: 320, spend: 13120, avgPricePerTon: 41.0 },
+  { month: 'Feb 23', tonsRetired: 200, spend: 7200, avgPricePerTon: 36.0 },
+  { month: 'Mar 23', tonsRetired: 180, spend: 9000, avgPricePerTon: 50.0 },
+  { month: 'Apr 23', tonsRetired: 150, spend: 4950, avgPricePerTon: 33.0 },
+  { month: 'May 23', tonsRetired: 300, spend: 13200, avgPricePerTon: 44.0 },
+  { month: 'Jun 23', tonsRetired: 240, spend: 13920, avgPricePerTon: 58.0 },
+  { month: 'Jul 23', tonsRetired: 90, spend: 3510, avgPricePerTon: 39.0 },
+  { month: 'Aug 23', tonsRetired: 130, spend: 5200, avgPricePerTon: 40.0 },
+  { month: 'Sep 23', tonsRetired: 60, spend: 2400, avgPricePerTon: 40.0 },
+  { month: 'Oct 23', tonsRetired: 170, spend: 6120, avgPricePerTon: 36.0 },
+  { month: 'Nov 23', tonsRetired: 110, spend: 3850, avgPricePerTon: 35.0 },
+  { month: 'Dec 23', tonsRetired: 50, spend: 1750, avgPricePerTon: 35.0 },
+];
+
+export type DateRange = '3m' | '6m' | '1y' | 'all';
+
+/** Returns purchases falling within the selected range, relative to today. */
+export function filterPurchasesByRange(purchases: OffsetPurchase[], range: DateRange): OffsetPurchase[] {
+  if (range === 'all') return purchases;
+  const now = new Date();
+  const months = range === '3m' ? 3 : range === '6m' ? 6 : 12;
+  const cutoff = new Date(now.getFullYear(), now.getMonth() - months, now.getDate());
+  return purchases.filter((p) => new Date(p.date) >= cutoff);
+}
 
 // ─── Derived helpers ───────────────────────────────────────────────────────────
 

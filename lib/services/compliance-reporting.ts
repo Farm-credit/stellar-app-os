@@ -7,12 +7,21 @@ import type {
 
 const reports = new Map<string, ComplianceReport>();
 const round = (value: number, digits = 3) => Number(value.toFixed(digits));
+const REGIMES: ComplianceRegime[] = ['SEC', 'EPA', 'CARBON_TAX'];
+
+function assertValidDate(value: string, field: string): void {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value) || Number.isNaN(Date.parse(`${value}T00:00:00Z`))) {
+    throw new Error(`${field} must be an ISO date (YYYY-MM-DD)`);
+  }
+}
 
 export function calculateCompliance(
   input: ComplianceReportInput,
   regime: ComplianceRegime
 ): ComplianceReport {
   if (!input.buyerId.trim()) throw new Error('buyerId is required');
+  assertValidDate(input.reportingPeriodStart, 'reportingPeriodStart');
+  assertValidDate(input.reportingPeriodEnd, 'reportingPeriodEnd');
   if (
     !input.reportingPeriodStart ||
     !input.reportingPeriodEnd ||
@@ -44,7 +53,7 @@ export function calculateCompliance(
       input.emissionsTonnes === 0
         ? 100
         : round(Math.min(100, (input.offsetsTonnes / input.emissionsTonnes) * 100), 2),
-    offsetSources: input.offsetSources ?? [],
+    offsetSources: [...(input.offsetSources ?? [])],
     jurisdiction: input.jurisdiction,
     carbonTaxDue: regime === 'CARBON_TAX' ? round(net * (input.carbonTaxRate ?? 0), 2) : undefined,
     generatedAt: new Date().toISOString(),
@@ -60,6 +69,9 @@ export function generateComplianceBundle(
 ): ComplianceReportBundle {
   const uniqueRegimes = [...new Set(regimes)];
   if (!uniqueRegimes.length) throw new Error('At least one compliance regime is required');
+  if (uniqueRegimes.some((regime) => !REGIMES.includes(regime))) {
+    throw new Error(`Unsupported compliance regime. Choose from ${REGIMES.join(', ')}`);
+  }
   const generated = uniqueRegimes.map((regime) => calculateCompliance(input, regime));
   return {
     buyerId: input.buyerId,

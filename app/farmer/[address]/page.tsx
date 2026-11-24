@@ -1,7 +1,7 @@
 // Copyright 2024 Farm-credit Contributors
 // Licensed under the Apache License, Version 2.0
 
-import { Metadata } from 'next';
+import { type Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { getFarmerPortfolio, isStellarAddress } from '@/lib/api/farmer-portfolio';
 import { FarmerPortfolioView } from '@/components/organisms/FarmerPortfolio/FarmerPortfolioView';

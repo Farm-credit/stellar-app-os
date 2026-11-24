@@ -1,6 +1,6 @@
 /**
  * CDN URL utilities for global edge delivery
- * 
+ *
  * All photos, map tiles, and static assets are served through CloudFront
  * with edge locations ensuring <100ms TTFB globally.
  */
@@ -18,7 +18,7 @@ export interface ImageOptimizationOptions {
 /**
  * Get CDN URL for a photo stored in S3
  * Falls back to signed S3 URL if CDN is not configured
- * 
+ *
  * @param s3Key - S3 object key (e.g., "planting-photos/farmer123/timestamp.jpg")
  * @param options - Optional image optimization parameters
  * @returns CDN URL with edge caching
@@ -44,7 +44,7 @@ export function getCdnPhotoUrl(s3Key: string, options?: ImageOptimizationOptions
 
 /**
  * Get CDN URL for map tiles API endpoint
- * 
+ *
  * @param region - Optional region filter
  * @param zoom - Optional zoom level
  * @param bbox - Optional bounding box
@@ -55,21 +55,35 @@ export function getCdnMapTilesUrl(params?: {
   zoom?: number;
   bbox?: string;
 }): string {
-  const baseUrl = CDN_URL || '';
-  const url = new URL('/api/planting/map', baseUrl || window.location.origin);
+  const query = new URLSearchParams();
 
   if (params) {
-    if (params.region) url.searchParams.set('region', params.region);
-    if (params.zoom) url.searchParams.set('zoom', params.zoom.toString());
-    if (params.bbox) url.searchParams.set('bbox', params.bbox);
+    if (params.region) query.set('region', params.region);
+    // `0` is a valid zoom level (the whole world), so compare against
+    // `undefined` rather than relying on truthiness.
+    if (params.zoom !== undefined) query.set('zoom', params.zoom.toString());
+    if (params.bbox) query.set('bbox', params.bbox);
   }
 
-  return url.toString();
+  const search = query.toString();
+  const path = `/api/planting/map${search ? `?${search}` : ''}`;
+
+  if (CDN_URL) {
+    return new URL(path, CDN_URL).toString();
+  }
+
+  // Browser fallback: resolve against the current origin. During SSR there is
+  // no `window`, so return the root-relative path instead of throwing.
+  if (typeof window !== 'undefined') {
+    return new URL(path, window.location.origin).toString();
+  }
+
+  return path;
 }
 
 /**
  * Get CDN URL for static assets
- * 
+ *
  * @param assetPath - Path to static asset (e.g., "assets/logo.svg", "icons/icon-192x192.png")
  * @returns CDN URL with aggressive edge caching
  */
@@ -98,7 +112,7 @@ export function getDistributionId(): string | undefined {
 
 /**
  * Generate responsive image srcset for CDN delivery
- * 
+ *
  * @param s3Key - S3 object key
  * @param widths - Array of widths for responsive images
  * @param format - Image format (default: webp)
@@ -119,13 +133,11 @@ export function getCdnImageSrcSet(
 
 /**
  * Get cache headers for CDN-compatible responses
- * 
+ *
  * @param type - Content type (photo, map, static)
  * @returns Cache-Control header value
  */
-export function getCdnCacheHeaders(
-  type: 'photo' | 'map' | 'static'
-): Record<string, string> {
+export function getCdnCacheHeaders(type: 'photo' | 'map' | 'static'): Record<string, string> {
   const headers: Record<string, string> = {};
 
   switch (type) {
@@ -153,9 +165,9 @@ export function getCdnCacheHeaders(
 
 /**
  * Invalidate CDN cache for specific paths
- * 
+ *
  * This is a server-side only function
- * 
+ *
  * @param paths - Array of paths to invalidate
  * @returns Invalidation ID or null if CDN not configured
  */
@@ -168,9 +180,8 @@ export async function invalidateCdnCache(paths: string[]): Promise<string | null
   // This requires AWS SDK on server-side
   // Import dynamically to avoid client-side bundle
   try {
-    const { CloudFrontClient, CreateInvalidationCommand } = await import(
-      '@aws-sdk/client-cloudfront'
-    );
+    const { CloudFrontClient, CreateInvalidationCommand } =
+      await import('@aws-sdk/client-cloudfront');
 
     const client = new CloudFrontClient({
       region: 'us-east-1',

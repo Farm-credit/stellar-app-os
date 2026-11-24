@@ -2,7 +2,7 @@
 
 import { useTranslation as useI18nTranslation } from 'react-i18next';
 import type { SupportedLanguage } from '@/lib/i18n/config';
-import { SUPPORTED_LANGUAGES, isRTL } from '@/lib/i18n/config';
+import { SUPPORTED_LANGUAGES, isRTL, normalizeLanguage } from '@/lib/i18n/config';
 
 interface UseAppTranslationReturn {
   t: ReturnType<typeof useI18nTranslation>['t'];
@@ -17,18 +17,22 @@ interface UseAppTranslationReturn {
 
 const LOCALE_MAP: Record<SupportedLanguage, string> = {
   en: 'en-US',
-  ha: 'ha-NG',
   es: 'es-ES',
   fr: 'fr-FR',
+  de: 'de-DE',
   pt: 'pt-BR',
+  ja: 'ja-JP',
+  zh: 'zh-CN',
+  hi: 'hi-IN',
+  ar: 'ar-SA',
+  sw: 'sw-KE',
+  ha: 'ha-NG',
 };
 
 export function useAppTranslation(): UseAppTranslationReturn {
   const { t, i18n } = useI18nTranslation();
 
-  const language = (
-    SUPPORTED_LANGUAGES.includes(i18n.language as SupportedLanguage) ? i18n.language : 'en'
-  ) as SupportedLanguage;
+  const language = normalizeLanguage(i18n.language);
 
   const locale = LOCALE_MAP[language];
 

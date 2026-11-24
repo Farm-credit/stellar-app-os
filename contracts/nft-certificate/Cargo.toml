@@ -11,6 +11,7 @@ crate-type = ["cdylib", "rlib"]
 contract-utils = { path = "../contract-utils" }
 soroban-sdk = { version = "27.0.6", features = ["alloc"] }
 harvesta-errors = { path = "../harvesta-errors" }
+soroban-sdk-metadata = { path = "../soroban-sdk-metadata" }
 
 [dev-dependencies]
 soroban-sdk = { version = "27.0.6", features = ["testutils", "alloc"] }

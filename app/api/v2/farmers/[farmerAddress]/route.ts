@@ -5,9 +5,10 @@
  * and project portfolio overview.
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { type NextRequest, NextResponse } from 'next/server';
 import { apiVersionHeaders } from '@/lib/api/versioning';
 import {
+  FarmerNotFoundError,
   getFarmerPortfolio,
   isStellarAddress,
 } from '@/lib/api/farmer-portfolio';
@@ -24,18 +25,14 @@ function responseHeaders(): Record<string, string> {
   };
 }
 
-export async function GET(
-  _request: NextRequest,
-  context: RouteContext
-): Promise<NextResponse> {
+export async function GET(_request: NextRequest, context: RouteContext): Promise<NextResponse> {
   try {
     const { farmerAddress } = await context.params;
 
     if (!farmerAddress || !isStellarAddress(farmerAddress.trim())) {
       return NextResponse.json(
         {
-          error:
-            'farmerAddress must be a 56-character Stellar public key starting with G.',
+          error: 'farmerAddress must be a 56-character Stellar public key starting with G.',
           code: 'invalid_address',
         },
         { status: 400, headers: responseHeaders() }
@@ -45,6 +42,12 @@ export async function GET(
     const portfolio = await getFarmerPortfolio(farmerAddress.trim());
     return NextResponse.json(portfolio, { headers: responseHeaders() });
   } catch (error) {
+    if (error instanceof FarmerNotFoundError) {
+      return NextResponse.json(
+        { error: 'Farmer not found', code: 'not_found' },
+        { status: 404, headers: responseHeaders() }
+      );
+    }
     console.error('[api/v2/farmers/[farmerAddress]] error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },

@@ -2,43 +2,60 @@
 // Licensed under the Apache License, Version 2.0
 
 /**
- * Team Challenges Leaderboard API
- * Issue #1423: Corporate offset goals - team challenges
+ * GET /api/challenges/leaderboard — Issue #1361
+ *
+ * Standings for the active corporate offset challenge. Employee teams are
+ * ranked by offset-per-employee (`totalOffsetTonnes / employeeCount`) and the
+ * team with the best ratio is returned as `winner`; teams with no employees are
+ * ineligible and ranked last.
+ *
+ *   ?limit=1..100   (default: 25)
+ *
+ * 200 { challengeId, metric, generatedAt, lastUpdated, limit, totals, winner,
+ *       entries, totalTeams }
+ * 400 { error, details: string[] }
  */
 
-import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { NextResponse } from 'next/server';
+import { buildTeamChallengeStandings } from '@/lib/team-challenges/standings';
+import { getTeamChallengeStore } from '@/lib/team-challenges/teamChallengeStore';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
-/**
- * GET /api/challenges/leaderboard
- * Get leaderboard for a challenge
- * Query: ?challengeId=xxx&metric=offset_per_employee&limit=10
- */
-export async function GET(request: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+const DEFAULT_LIMIT = 25;
+const MAX_LIMIT = 100;
+
+export function GET(request: Request): NextResponse {
+  const rawLimit = new URL(request.url).searchParams.get('limit');
+  const limit = rawLimit === null ? DEFAULT_LIMIT : Number(rawLimit);
+
+  if (!Number.isInteger(limit) || limit < 1 || limit > MAX_LIMIT) {
+    return NextResponse.json(
+      {
+        error: 'Invalid leaderboard query',
+        details: [`limit must be an integer between 1 and ${MAX_LIMIT}`],
+      },
+      { status: 400 }
+    );
   }
 
-  const { searchParams } = new URL(request.url);
-  const challengeId = searchParams.get('challengeId');
-  const metric = searchParams.get('metric') || 'offset_per_employee';
-  const limit = parseInt(searchParams.get('limit') || '10', 10);
+  const store = getTeamChallengeStore();
+  const standings = buildTeamChallengeStandings(store.teams(), store.challenge());
 
-  if (!challengeId) {
-    return NextResponse.json({ error: 'challengeId is required' }, { status: 400 });
-  }
-
-  // In production, compute from teamChallenges service
-  return NextResponse.json({
-    challengeId,
-    metric,
-    entries: [],
-    totalTeams: 0,
-    lastUpdated: new Date().toISOString(),
-    limit,
-  });
+  return NextResponse.json(
+    {
+      challengeId: standings.challenge.id,
+      metric: standings.challenge.metric,
+      generatedAt: standings.generatedAt,
+      // Kept for API consumers that predate the standings snapshot.
+      lastUpdated: standings.generatedAt,
+      limit,
+      totals: standings.totals,
+      winner: standings.winner,
+      entries: standings.rankings.slice(0, limit),
+      totalTeams: standings.totals.teams,
+    },
+    { headers: { 'Cache-Control': 'no-store' } }
+  );
 }

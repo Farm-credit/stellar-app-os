@@ -59,7 +59,9 @@ describe('Security: JWT Refresh Token Rotation & Reuse Detection (#1170)', () =>
     // Verify new refresh token
     const newRefreshPayload = await verifyRefreshToken(rotationResult!.refreshToken);
     expect(newRefreshPayload?.sub).toBe(walletAddress);
-    expect(newRefreshPayload?.jti).not.toEqual((await verifyRefreshToken(initialRefreshToken))?.jti);
+    expect(newRefreshPayload?.jti).not.toEqual(
+      (await verifyRefreshToken(initialRefreshToken))?.jti
+    );
   });
 
   it('prevents old refresh tokens from being reused after rotation', async () => {

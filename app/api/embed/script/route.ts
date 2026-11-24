@@ -4,11 +4,11 @@
 /**
  * Embed JavaScript SDK
  * Issue #1415: Carbon offset API - embed on websites
- * 
+ *
  * This serves the client-side JavaScript for the embeddable widget
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { type NextRequest, NextResponse } from 'next/server';
 import { validateApiKey } from '@/backend/src/services/carbonOffsetApi';
 
 const EMBED_SDK = `
@@ -48,8 +48,8 @@ const EMBED_SDK = `
       }
       this.injectStyles();
       
-      if (this.config.containerId || userConfig.container) {
-        this.renderWidget(this.config.containerId || userConfig.container);
+      if (this.config.containerId || userConfig.container || userConfig.mode === 'widget' || userConfig.mode === 'inline') {
+        this.renderWidget(this.config.containerId || userConfig.container || 'farm-credit-offset');
       } else if (userConfig.mode === 'button') {
         this.renderButton();
       }
@@ -434,7 +434,6 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         'Access-Control-Allow-Origin': '*',
       },
     });
-
   } catch (error) {
     console.error('Serve embed script error:', error);
     return new NextResponse('Internal server error', { status: 500 });

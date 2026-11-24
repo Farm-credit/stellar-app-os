@@ -1,18 +1,20 @@
 import { NextResponse } from 'next/server';
 import { getPool } from '@/lib/db/client';
 import { isAdminRequest } from '@/lib/auth/admin';
-import { emitTreeLifecycleEvent } from '@/lib/webhook/events';
+import { emitTreeWebhookEvent } from '@/lib/webhook/events';
 
-interface BatchActionRequest {
-  photoIds: number[];
-  action: 'approve' | 'reject';
+interface BatchPaymentRequest {
+  paymentIds: number[];
+  action: 'process' | 'cancel';
+  currency?: 'XLM' | 'USDC' | 'FIAT';
+  paymentMethod?: 'bank' | 'wallet' | 'payment_app';
   reason?: string;
   resolveConflicts?: 'keep_newest' | 'keep_oldest' | 'manual';
 }
 
 interface ConflictResolution {
-  photoId: number;
-  treeRef: string;
+  paymentId: number;
+  farmerRef: string;
   conflictType: 'duplicate' | 'status_mismatch';
   resolution: string;
 }
@@ -24,18 +26,33 @@ export async function POST(request: Request) {
   }
 
   try {
-    const body: BatchActionRequest = await request.json();
-    const { photoIds, action, reason, resolveConflicts = 'keep_newest' } = body;
+    const body: BatchPaymentRequest = await request.json();
+    const {
+      paymentIds,
+      action,
+      currency,
+      paymentMethod,
+      reason,
+      resolveConflicts = 'keep_newest',
+    } = body;
 
-    if (!photoIds || photoIds.length === 0) {
-      return NextResponse.json({ error: 'No photo IDs provided' }, { status: 400 });
+    if (!paymentIds || paymentIds.length === 0) {
+      return NextResponse.json({ error: 'No payment IDs provided' }, { status: 400 });
     }
 
-    if (!['approve', 'reject'].includes(action)) {
+    if (!['process', 'cancel'].includes(action)) {
       return NextResponse.json(
-        { error: 'Invalid action. Must be approve or reject' },
+        { error: 'Invalid action. Must be process or cancel' },
         { status: 400 }
       );
+    }
+
+    if (currency && !['XLM', 'USDC', 'FIAT'].includes(currency)) {
+      return NextResponse.json({ error: 'Unsupported currency' }, { status: 400 });
+    }
+
+    if (paymentMethod && !['bank', 'wallet', 'payment_app'].includes(paymentMethod)) {
+      return NextResponse.json({ error: 'Unsupported payment method' }, { status: 400 });
     }
 
     const pool = getPool();
@@ -44,155 +61,163 @@ export async function POST(request: Request) {
     try {
       await client.query('BEGIN');
 
-      // Get photo details and check for conflicts
-      const photosQuery = `
+      // Get payment details and check for conflicts
+      const paymentsQuery = `
         SELECT 
-          pu.id,
-          pu.tree_id,
-          t.tree_ref,
-          t.status,
-          ph.duplicate_of,
-          ph.hash_hex,
-          pu.created_at
-        FROM progress_updates pu
-        INNER JOIN trees t ON pu.tree_id = t.id
-        LEFT JOIN photo_hashes ph ON ph.entity_type = 'tree' 
-          AND ph.entity_id = t.tree_ref
-        WHERE pu.id = ANY($1::bigint[])
-          AND t.deleted_at IS NULL
-        ORDER BY pu.created_at DESC
+          fp.id,
+          fp.farmer_id,
+          f.farmer_ref,
+          f.status,
+          fp.duplicate_of,
+          fp.reference_hash,
+          fp.currency,
+          fp.payment_method,
+          fp.amount,
+          fp.created_at
+        FROM farmer_payments fp
+        INNER JOIN farmers f ON fp.farmer_id = f.id
+        LEFT JOIN payment_hashes ph ON ph.entity_type = 'farmer' 
+          AND ph.entity_id = f.farmer_ref
+        WHERE fp.id = ANY($1::bigint[])
+          AND f.deleted_at IS NULL
+        ORDER BY fp.created_at DESC
       `;
 
-      const photosResult = await client.query(photosQuery, [photoIds]);
-      const photos = photosResult.rows;
+      const paymentsResult = await client.query(paymentsQuery, [paymentIds]);
+      const payments = paymentsResult.rows;
 
-      if (photos.length === 0) {
+      if (payments.length === 0) {
         await client.query('ROLLBACK');
-        return NextResponse.json({ error: 'No valid photos found' }, { status: 404 });
+        return NextResponse.json({ error: 'No valid payments found' }, { status: 404 });
       }
 
       // Check for conflicts
       const conflicts: ConflictResolution[] = [];
-      const photosToProcess: number[] = [];
+      const paymentsToProcess: number[] = [];
 
-      // Group photos by tree for conflict detection
-      const photosByTree = photos.reduce((acc: Record<string, typeof photos>, photo) => {
-        if (!acc[photo.tree_ref]) {
-          acc[photo.tree_ref] = [];
+      // Group payments by farmer for conflict detection
+      const paymentsByFarmer = payments.reduce((acc: Record<string, typeof payments>, payment) => {
+        if (!acc[payment.farmer_ref]) {
+          acc[payment.farmer_ref] = [];
         }
-        acc[photo.tree_ref].push(photo);
+        acc[payment.farmer_ref].push(payment);
         return acc;
       }, {});
 
-      // Resolve conflicts for trees with multiple photos
-      for (const [treeRef, treePhotos] of Object.entries(photosByTree)) {
-        if (treePhotos.length > 1) {
-          // Multiple photos for same tree - apply conflict resolution
-          let selectedPhoto;
+      // Resolve conflicts for farmers with multiple payments
+      for (const [farmerRef, farmerPayments] of Object.entries(paymentsByFarmer)) {
+        if (farmerPayments.length > 1) {
+          // Multiple payments for same farmer - apply conflict resolution
+          let selectedPayment;
 
           if (resolveConflicts === 'keep_newest') {
-            selectedPhoto = treePhotos[0]; // Already sorted by created_at DESC
+            selectedPayment = farmerPayments[0]; // Already sorted by created_at DESC
           } else if (resolveConflicts === 'keep_oldest') {
-            selectedPhoto = treePhotos[treePhotos.length - 1];
+            selectedPayment = farmerPayments[farmerPayments.length - 1];
           } else {
             // Manual resolution required
             conflicts.push({
-              photoId: treePhotos[0].id,
-              treeRef,
+              paymentId: farmerPayments[0].id,
+              farmerRef,
               conflictType: 'duplicate',
               resolution: 'manual_required',
             });
             continue;
           }
 
-          photosToProcess.push(selectedPhoto.id);
+          paymentsToProcess.push(selectedPayment.id);
 
           // Mark others as conflicted
-          const rejectedPhotos = treePhotos.filter((p) => p.id !== selectedPhoto.id);
-          for (const photo of rejectedPhotos) {
+          const rejectedPayments = farmerPayments.filter((p) => p.id !== selectedPayment.id);
+          for (const payment of rejectedPayments) {
             conflicts.push({
-              photoId: photo.id,
-              treeRef,
+              paymentId: payment.id,
+              farmerRef,
               conflictType: 'duplicate',
-              resolution: `rejected_in_favor_of_${selectedPhoto.id}`,
+              resolution: `rejected_in_favor_of_${selectedPayment.id}`,
             });
           }
         } else {
           // Check for status conflicts
-          const photo = treePhotos[0];
-          if (action === 'approve' && photo.status !== 'planted') {
+          const payment = farmerPayments[0];
+          if (action === 'process' && payment.status !== 'pending') {
             conflicts.push({
-              photoId: photo.id,
-              treeRef: photo.tree_ref,
+              paymentId: payment.id,
+              farmerRef: payment.farmer_ref,
               conflictType: 'status_mismatch',
-              resolution: `tree_status_is_${photo.status}`,
+              resolution: `payment_status_is_${payment.status}`,
             });
           } else {
-            photosToProcess.push(photo.id);
+            paymentsToProcess.push(payment.id);
           }
         }
       }
 
-      // Process approved photos
-      if (action === 'approve' && photosToProcess.length > 0) {
-        // Get tree IDs from the photos to process
-        const treeIdsQuery = `
-          SELECT DISTINCT tree_id 
-          FROM progress_updates 
+      // Process approved payments
+      if (action === 'process' && paymentsToProcess.length > 0) {
+        // Get farmer IDs from the payments to process
+        const farmerIdsQuery = `
+          SELECT DISTINCT farmer_id 
+          FROM farmer_payments 
           WHERE id = ANY($1::bigint[])
         `;
-        const treeIdsResult = await client.query(treeIdsQuery, [photosToProcess]);
-        const treeIds = treeIdsResult.rows.map((r) => r.tree_id);
+        const farmerIdsResult = await client.query(farmerIdsQuery, [paymentsToProcess]);
+        const farmerIds = farmerIdsResult.rows.map((r) => r.farmer_id);
 
-        // Update tree status to verified
-        const updateTreesQuery = `
-          UPDATE trees 
+        // Update farmer payment status to processed
+        const updateFarmersQuery = `
+          UPDATE farmers 
           SET 
-            status = 'verified',
-            verified_at = NOW(),
+            payment_status = 'processed',
+            payment_processed_at = NOW(),
             updated_at = NOW()
           WHERE id = ANY($1::bigint[])
-            AND status = 'planted'
+            AND payment_status = 'pending'
             AND deleted_at IS NULL
-          RETURNING id, tree_ref
+          RETURNING id, farmer_ref
         `;
-        const updatedTrees = await client.query(updateTreesQuery, [treeIds]);
+        const updatedFarmers = await client.query(updateFarmersQuery, [farmerIds]);
 
-        // Create status change progress updates
-        for (const tree of updatedTrees.rows) {
+        // Create payment processing records
+        for (const farmer of updatedFarmers.rows) {
           await client.query(
-            `INSERT INTO progress_updates (
-              tree_id,
-              paging_token,
-              update_type,
-              from_status,
-              to_status,
+            `INSERT INTO farmer_payments (
+              farmer_id,
+              reference_hash,
+              currency,
+              payment_method,
+              amount,
+              status,
               metadata,
               submitted_by,
               created_at
             ) VALUES (
               $1,
               $2,
-              'status_change',
-              'planted',
-              'verified',
               $3,
-              'admin_batch_approval',
+              $4,
+              $5,
+              'processed',
+              $6,
+              'admin_batch_processing',
               NOW()
             )`,
             [
-              tree.id,
-              `admin-batch-${Date.now()}-${tree.id}`,
+              farmer.id,
+              `admin-batch-${Date.now()}-${farmer.id}`,
+              currency || 'XLM',
+              paymentMethod || 'wallet',
+              0,
               JSON.stringify({
-                reason: reason || 'Batch approval',
-                processedPhotos: photosToProcess.length,
+                reason: reason || 'Batch processing',
+                processedPayments: paymentsToProcess.length,
                 conflicts: conflicts.length,
               }),
             ]
           );
           // Webhook delivery is best-effort and persisted/retried independently
           // of the verification transaction.
-          void emitTreeLifecycleEvent('tree.verified', {
+          void emitTreeWebhookEvent('tree.verified', {
             treeId: tree.id,
             treeRef: tree.tree_ref,
             previousStatus: 'planted',
@@ -202,31 +227,36 @@ export async function POST(request: Request) {
         }
       }
 
-      // Process rejected photos
-      if (action === 'reject') {
-        // Add rejection metadata to photos
-        const rejectionMetadata = {
-          rejected_at: new Date().toISOString(),
-          rejection_reason: reason || 'Batch rejection',
-          rejected_by: 'admin',
+      // Process cancelled payments
+      if (action === 'cancel') {
+        // Add cancellation metadata to payments
+        const cancellationMetadata = {
+          cancelled_at: new Date().toISOString(),
+          cancellation_reason: reason || 'Batch cancellation',
+          cancelled_by: 'admin',
         };
 
-        const updateRejectedQuery = `
-          UPDATE progress_updates 
-          SET metadata = metadata || $1::jsonb
+        const updateCancelledQuery = `
+          UPDATE farmer_payments 
+          SET metadata = metadata || $1::jsonb, status = 'cancelled'
           WHERE id = ANY($2::bigint[])
         `;
-        await client.query(updateRejectedQuery, [JSON.stringify(rejectionMetadata), photoIds]);
+        await client.query(updateCancelledQuery, [
+          JSON.stringify(cancellationMetadata),
+          paymentIds,
+        ]);
       }
 
       await client.query('COMMIT');
 
       return NextResponse.json({
         success: true,
-        processed: photosToProcess.length,
+        processed: paymentsToProcess.length,
         conflicts,
         action,
-        message: `Successfully ${action}ed ${photosToProcess.length} photo(s)`,
+        currency,
+        paymentMethod,
+        message: `Successfully ${action}ed ${paymentsToProcess.length} payment(s)`,
       });
     } catch (error) {
       await client.query('ROLLBACK');
@@ -235,7 +265,7 @@ export async function POST(request: Request) {
       client.release();
     }
   } catch (error) {
-    console.error('Error processing batch action:', error);
-    return NextResponse.json({ error: 'Failed to process batch action' }, { status: 500 });
+    console.error('Error processing batch payment action:', error);
+    return NextResponse.json({ error: 'Failed to process batch payment action' }, { status: 500 });
   }
 }

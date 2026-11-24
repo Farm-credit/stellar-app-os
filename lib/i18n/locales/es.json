@@ -6,7 +6,9 @@
     "dashboard": "Panel",
     "projects": "Proyectos",
     "marketplace": "Mercado",
-    "transactions": "Transacciones"
+    "transactions": "Transacciones",
+    "cooperatives": "Cooperativas",
+    "offramp": "Retiro"
   },
   "header": {
     "connectWallet": "Conectar Billetera",
@@ -91,6 +93,13 @@
     "en": "Inglés",
     "es": "Español",
     "fr": "Francés",
-    "pt": "Portugués"
+    "de": "Alemán",
+    "pt": "Portugués",
+    "ja": "Japonés",
+    "zh": "Mandarín",
+    "hi": "Hindi",
+    "ar": "Árabe",
+    "sw": "Suajili",
+    "ha": "Hausa"
   }
 }

@@ -1,14 +1,6 @@
 'use client';
 
-import {
-  CalendarDays,
-  Clock,
-  Globe,
-  PlayCircle,
-  UserRound,
-  Users,
-  Video,
-} from 'lucide-react';
+import { CalendarDays, Clock, Globe, PlayCircle, UserRound, Users, Video } from 'lucide-react';
 import {
   formatWebinarDate,
   formatWebinarTimeRange,

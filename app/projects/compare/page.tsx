@@ -12,13 +12,13 @@
 
 import type { Metadata } from 'next';
 
-import { ProjectComparisonTool } from '@/components/ProjectComparisonTool';
+import { ProjectComparisonTabs } from '@/components/ProjectComparisonTabs';
 import { parseComparisonParams } from '@/lib/comparisonExport';
 
 export const metadata: Metadata = {
-  title: 'Compare carbon offset projects | Farm-credit',
+  title: 'Compare Projects & Tree Sponsorship Offerings | Farm-credit',
   description:
-    'Compare carbon offset projects side-by-side on price, co-benefits, methodology, verifier, risk rating and buyer reviews.',
+    'Compare tree sponsorship offerings and carbon offset projects side-by-side on cost, species, CO2, survival rate, location, price, and co-benefits.',
 };
 
 type SearchParams = Record<string, string | string[] | undefined>;
@@ -41,11 +41,18 @@ export default async function ProjectComparisonPage({
   searchParams: Promise<SearchParams>;
 }) {
   const params = await searchParams;
-  const { ids, criteria } = parseComparisonParams(toSearchParams(params ?? {}));
+  const searchObj = toSearchParams(params ?? {});
+  const { ids, criteria } = parseComparisonParams(searchObj);
+  const tabParam = searchObj.get('tab') || searchObj.get('mode');
+  const defaultTab = tabParam === 'carbon' ? 'carbon' : 'sponsorship';
 
   return (
     <div className="container mx-auto py-8 px-4">
-      <ProjectComparisonTool initialProjectIds={ids} initialCriteria={criteria} />
+      <ProjectComparisonTabs
+        initialProjectIds={ids}
+        initialCriteria={criteria}
+        defaultTab={defaultTab}
+      />
     </div>
   );
 }

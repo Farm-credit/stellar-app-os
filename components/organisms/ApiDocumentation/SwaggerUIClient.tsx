@@ -249,7 +249,8 @@ export function SwaggerUIClient() {
         <section className="rounded-2xl border border-border bg-card p-6 shadow-sm">
           <h2 className="text-xl font-bold text-foreground">Quick Live "Try-It-Out" Sandbox</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Select an endpoint preset below to test request execution and inspect real-time responses.
+            Select an endpoint preset below to test request execution and inspect real-time
+            responses.
           </p>
 
           {/* Endpoint selection pills */}
@@ -342,9 +343,7 @@ export function SwaggerUIClient() {
 
                 <div className="mt-3 overflow-auto max-h-[350px]">
                   {state.responseBody ? (
-                    <pre className="whitespace-pre-wrap text-emerald-300">
-                      {state.responseBody}
-                    </pre>
+                    <pre className="whitespace-pre-wrap text-emerald-300">{state.responseBody}</pre>
                   ) : (
                     <p className="text-gray-500 italic">
                       Click "Execute Live Request" to run request and display live JSON output.
@@ -360,7 +359,8 @@ export function SwaggerUIClient() {
         <section className="rounded-2xl border border-border bg-card p-6 shadow-sm">
           <h2 className="text-2xl font-bold text-foreground">Complete Swagger UI Explorer</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Full OpenAPI 3.0 specification rendering all 25+ tags, 60+ endpoints, parameters, and models.
+            Full OpenAPI 3.0 specification rendering all 25+ tags, 60+ endpoints, parameters, and
+            models.
           </p>
 
           <div className="mt-6 min-h-[600px] rounded-xl border border-border bg-white p-4">

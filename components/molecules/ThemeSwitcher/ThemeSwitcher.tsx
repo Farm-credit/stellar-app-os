@@ -5,6 +5,10 @@ import { Sun, Moon, Sparkles } from 'lucide-react';
 import { useTheme } from '@/hooks/useTheme';
 import { cn } from '@/lib/utils';
 
+// Animation durations (ms) — kept in sync with the CSS animation timings below.
+const ANIMATION_RESET_MS = 600;
+const SPARKLE_RESET_MS = 400;
+
 interface ThemeSwitcherProps {
   variant?: 'default' | 'compact' | 'pill';
   size?: 'sm' | 'md' | 'lg';
@@ -16,24 +20,34 @@ export function ThemeSwitcher({
   size = 'md',
   className,
 }: ThemeSwitcherProps): JSX.Element {
-  const { theme, toggle, isDark } = useTheme();
+  const { toggle, isDark } = useTheme();
   const [isAnimating, setIsAnimating] = useState(false);
   const [showSparkle, setShowSparkle] = useState(false);
   const buttonRef = useRef<HTMLButtonElement>(null);
+  const handleToggleTimerRef = useRef<number | undefined>(undefined);
+  const sparkleTimerRef = useRef<number | undefined>(undefined);
+
+  // Clear any pending animation timers when the component unmounts.
+  useEffect(
+    () => () => {
+      window.clearTimeout(handleToggleTimerRef.current);
+      window.clearTimeout(sparkleTimerRef.current);
+    },
+    []
+  );
 
   const handleToggle = (): void => {
     setIsAnimating(true);
     setShowSparkle(true);
-    
-    // Reset animation state after animation completes
-    setTimeout(() => {
-      setIsAnimating(false);
-    }, 600);
-    
-    setTimeout(() => {
-      setShowSparkle(false);
-    }, 400);
-    
+
+    // Reset animation state after the animation completes. Timer handles are
+    // cleared on unmount by the cleanup effect above to avoid stray updates.
+    handleToggleTimerRef.current = window.setTimeout(
+      () => setIsAnimating(false),
+      ANIMATION_RESET_MS
+    );
+    sparkleTimerRef.current = window.setTimeout(() => setShowSparkle(false), SPARKLE_RESET_MS);
+
     toggle();
   };
 
@@ -61,7 +75,7 @@ export function ThemeSwitcher({
       type="button"
       onClick={handleToggle}
       aria-label={`Switch to ${isDark ? 'light' : 'dark'} mode`}
-      aria-pressed={isDark}
+      aria-checked={isDark}
       role="switch"
       className={cn(
         // Glassmorphism base styles
@@ -77,19 +91,19 @@ export function ThemeSwitcher({
         'focus-visible:ring-offset-background',
         'disabled:opacity-50',
         'disabled:cursor-not-allowed',
-        
+
         // Theme-specific glassmorphism
         isDark
           ? 'bg-white/5 hover:bg-white/10 shadow-black/30'
           : 'bg-black/5 hover:bg-black/10 shadow-black/10',
-        
+
         // Size and variant
         sizeClasses[size],
         variantClasses[variant],
-        
+
         // Animation
         isAnimating && 'scale-95',
-        
+
         className
       )}
     >
@@ -108,10 +122,7 @@ export function ThemeSwitcher({
       {showSparkle && (
         <div className="absolute inset-0 flex items-center justify-center">
           <Sparkles
-            className={cn(
-              'absolute text-stellar-blue animate-pulse',
-              iconSize[size]
-            )}
+            className={cn('absolute text-stellar-blue animate-pulse', iconSize[size])}
             style={{
               animation: 'sparkle 0.6s ease-out forwards',
             }}
@@ -146,9 +157,7 @@ export function ThemeSwitcher({
       <div
         className={cn(
           'absolute inset-0 rounded-inherit opacity-0 blur-xl transition-opacity duration-300',
-          isDark
-            ? 'bg-stellar-blue/20 hover:opacity-100'
-            : 'bg-stellar-purple/20 hover:opacity-100'
+          isDark ? 'bg-stellar-blue/20 hover:opacity-100' : 'bg-stellar-purple/20 hover:opacity-100'
         )}
       />
     </button>

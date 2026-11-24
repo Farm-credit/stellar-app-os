@@ -82,8 +82,7 @@ export const farmerSuccessStories: FarmerSuccessStory[] = [
       waterRetainedMegalitres: 1.8,
       soilHealthImprovementPercent: 31,
     },
-    quote:
-      'My harvest is bigger and I still earn from the trees. The land feels alive again.',
+    quote: 'My harvest is bigger and I still earn from the trees. The land feels alive again.',
   },
   {
     id: 'story-accra-kwame',
@@ -109,7 +108,8 @@ export const farmerSuccessStories: FarmerSuccessStory[] = [
       restoredHectares: 4.1,
       treesPlanted: 2400,
       survivalRatePercent: 84,
-      beforeSummary: 'Eroded shoreline and cleared mangrove flats that let salt water onto farm plots.',
+      beforeSummary:
+        'Eroded shoreline and cleared mangrove flats that let salt water onto farm plots.',
       afterSummary:
         'Four hectares of re-established mangrove that shelters the shore and the village fish nursery.',
     },
@@ -182,7 +182,8 @@ export const farmerSuccessStories: FarmerSuccessStory[] = [
       restoredHectares: 1.5,
       treesPlanted: 520,
       survivalRatePercent: 79,
-      beforeSummary: 'An actively eroding gully that was swallowing grazing land each rainy season.',
+      beforeSummary:
+        'An actively eroding gully that was swallowing grazing land each rainy season.',
       afterSummary:
         'Terraced, tree-anchored slopes that hold rainwater and have stopped the gully advancing.',
     },
@@ -191,8 +192,7 @@ export const farmerSuccessStories: FarmerSuccessStory[] = [
       nativeSpeciesCount: 4,
       waterRetainedMegalitres: 0.9,
     },
-    quote:
-      'The gully used to take more land every year. Now it holds water and gives us shade.',
+    quote: 'The gully used to take more land every year. Now it holds water and gives us shade.',
   },
   {
     id: 'story-katsina-aisha',

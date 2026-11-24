@@ -1,5 +1,5 @@
 /**
- * Offset aggregation API — Issue #1426
+ * Offset aggregation API — Issue #1302 / #1426
  *
  * Aggregates a portfolio manager's carbon positions and retirements across the
  * data sources this repository already has into a single view: portfolio
@@ -120,8 +120,7 @@ export const offsetAggregationRequestSchema = z.object({
 export type OffsetAggregationRequest = z.infer<typeof offsetAggregationRequestSchema>;
 
 export type OffsetAggregationParseResult =
-  | { ok: true; data: OffsetAggregationRequest }
-  | { ok: false; errors: string[] };
+  { ok: true; data: OffsetAggregationRequest } | { ok: false; errors: string[] };
 
 /**
  * Validates an already-parsed request object (POST bodies, internal callers).
@@ -218,6 +217,26 @@ export interface SourcePosition {
     beneficiary?: string;
     transactionHash?: string;
   };
+  /**
+   * Currency of `pricePerTon` / `valueUsd`. Defaults to `USD` when omitted so
+   * sources that predate multi-currency ledgers keep reporting USD totals.
+   * Aggregations must not fold non-USD spend into a `*Usd` field — they would
+   * be reporting two currencies under one label.
+   */
+  currency?: string;
+  /**
+   * Tonnes of this position that have been retired. Defaults to
+   * `quantityTonnes` when `status` is `retired` and to `0` otherwise. Sources
+   * backed by a real purchase ledger set this so a lot that was only partly
+   * retired is reported correctly.
+   */
+  retiredTonnes?: number;
+  /** Project type captured when the position was recorded. */
+  projectType?: string;
+  /** Project location captured when the position was recorded. */
+  location?: string;
+  /** Co-benefits captured when the position was recorded. */
+  coBenefits?: string[];
 }
 
 export interface PortfolioSourceContext {
@@ -595,9 +614,7 @@ function buildRetirements(positions: SourcePosition[]): AggregatedRetirement[] {
       projectName: position.projectName,
       quantityTonnes: roundTonnes(position.quantityTonnes),
       retiredAt: position.retirement?.retiredAt ?? position.recordedAt,
-      ...(position.retirement?.beneficiary
-        ? { beneficiary: position.retirement.beneficiary }
-        : {}),
+      ...(position.retirement?.beneficiary ? { beneficiary: position.retirement.beneficiary } : {}),
       ...(position.retirement?.transactionHash
         ? { transactionHash: position.retirement.transactionHash }
         : {}),

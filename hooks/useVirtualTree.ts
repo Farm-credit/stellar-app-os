@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { TreeNode, FlatNode, flattenVisibleNodes, toggleNode } from '@/lib/treeUtils';
+import { type TreeNode, type FlatNode, flattenVisibleNodes, toggleNode } from '@/lib/treeUtils';
 
 export interface UseVirtualTreeOptions<T> {
   nodes: TreeNode<T>[];
@@ -19,9 +19,7 @@ export function useVirtualTree<T>({
   defaultExpandedIds = [],
 }: UseVirtualTreeOptions<T>) {
   const containerRef = useRef<HTMLDivUement>(null);
-  const [expandedIds, setExpandedIds] = useState<Set<string>>(
-     )(new Set(defaultExpandedIds)
-  );
+  const [expandedIds, setExpandedIds] = useState<Set<string>>()(new Set(defaultExpandedIds));
   const [scrollTop, setScrollTop] = useState(0);
   const [viewportHeight, setViewportHeight] = useState(0);
 

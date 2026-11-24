@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 import {
   authenticateWithBiometrics,
@@ -76,7 +76,9 @@ export function ProfileScreen() {
             onValueChange={(value) => void handlePushToggle(value)}
           />
         </View>
-        <Text style={styles.meta}>Get notified when your sponsored trees hit growth milestones.</Text>
+        <Text style={styles.meta}>
+          Get notified when your sponsored trees hit growth milestones.
+        </Text>
       </View>
     </View>
   );

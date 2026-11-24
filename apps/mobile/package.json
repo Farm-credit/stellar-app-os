@@ -1,0 +1,19 @@
+{
+  "name": "stellar-sponsor-mobile",
+  "private": true,
+  "version": "0.1.0",
+  "main": "expo-router/entry",
+  "scripts": {
+    "start": "expo start",
+    "ios": "expo run:ios",
+    "android": "expo run:android"
+  },
+  "dependencies": {
+    "@react-native-async-storage/async-storage": "^2.1.2",
+    "expo": "~52.0.0",
+    "expo-notifications": "~0.29.14",
+    "expo-router": "~4.0.0",
+    "react": "19.0.0",
+    "react-native": "0.76.5"
+  }
+}

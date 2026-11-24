@@ -1,5 +1,5 @@
-import React, { ReactNode } from 'react';
-import { TreeNode } from '@/lib/treeUtils';
+import React, { type ReactNode } from 'react';
+import { type TreeNode } from '@/lib/treeUtils';
 import { useVirtualTree } from '@/hooks/useVirtualTree';
 
 export interface VirtualTreeRenderArgs<T> {
@@ -42,11 +42,7 @@ export function VirtualTree<T>({
   });
 
   return (
-    <div
-      ref={containerRef}
-      onScroll={handleScroll}
-      className={`overflow-auto ${className ?? ''}`}
-    >
+    <div ref={containerRef} onScroll={handleScroll} className={`overflow-auto ${className ?? ''}`}>
       <div style={{ height: totalHeight, position: 'relative' }}>
         {visibleItems.map((item) => (
           <div

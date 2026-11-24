@@ -12,6 +12,7 @@ import {
   formatNumber,
 } from '@/lib/constants/donation';
 import type { DonationPaymentMethod } from '@/lib/types/donation-payment';
+import { useCurrency } from '@/contexts/CurrencyContext';
 
 interface OrderSummaryProps {
   amount: number;
@@ -32,6 +33,7 @@ export function OrderSummary({
 }: OrderSummaryProps) {
   const safeAmount = Math.min(amount, 1000000);
   const totalAmount = safeAmount * treeCount;
+  const { formatPrice, currentCurrency, xlmPerUsd } = useCurrency();
   const impact = {
     trees: Math.round(totalAmount * TREES_PER_DOLLAR),
     hectares: (totalAmount * HECTARES_PER_DOLLAR).toFixed(2),
@@ -66,14 +68,22 @@ export function OrderSummary({
           <div className="space-y-2 rounded-lg bg-muted/40 p-3 text-sm">
             {species && (
               <div className="flex items-center justify-between gap-3">
-                <Text variant="small" className="text-muted-foreground">Species</Text>
-                <Text variant="small" className="font-medium">{species}</Text>
+                <Text variant="small" className="text-muted-foreground">
+                  Species
+                </Text>
+                <Text variant="small" className="font-medium">
+                  {species}
+                </Text>
               </div>
             )}
             {region && (
               <div className="flex items-center justify-between gap-3">
-                <Text variant="small" className="text-muted-foreground">Planting region</Text>
-                <Text variant="small" className="text-right font-medium">{region}</Text>
+                <Text variant="small" className="text-muted-foreground">
+                  Planting region
+                </Text>
+                <Text variant="small" className="text-right font-medium">
+                  {region}
+                </Text>
               </div>
             )}
           </div>
@@ -97,6 +107,28 @@ export function OrderSummary({
         </div>
 
         <div className="border-t border-border" aria-hidden="true" />
+
+        <div className="space-y-1 rounded-lg bg-muted/40 p-3" aria-live="polite">
+          <div className="flex items-center justify-between gap-3">
+            <Text variant="small" className="text-muted-foreground">
+              In {currentCurrency}
+            </Text>
+            <Text variant="small" className="font-semibold">
+              {formatPrice(totalAmount)}
+            </Text>
+          </div>
+          <div className="flex items-center justify-between gap-3">
+            <Text variant="small" className="text-muted-foreground">
+              XLM equivalent
+            </Text>
+            <Text variant="small" className="font-semibold">
+              {xlmPerUsd ? `${(totalAmount * xlmPerUsd).toFixed(7)} XLM` : 'Rate unavailable'}
+            </Text>
+          </div>
+          <Text variant="small" className="text-muted-foreground">
+            Live estimates; your payment is still settled in the selected Stellar asset.
+          </Text>
+        </div>
 
         {/* Impact Preview */}
         <div className="space-y-3">

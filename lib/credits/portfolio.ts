@@ -86,3 +86,21 @@ export function buildOwnedCreditsView(holdings: CreditHolding[]): OwnedCreditsSu
 export function portfolioCoBenefits(summary: OwnedCreditsSummary): string[] {
   return Array.from(new Set(summary.credits.flatMap((credit) => credit.coBenefits))).sort();
 }
+
+/**
+ * Portfolio rows for the buyer dashboard, sorted by retirement date (retired
+ * credits first, most recent first), then by project id for stable ordering.
+ */
+export function portfolioRows(summary: OwnedCreditsSummary): OwnedCredit[] {
+  return [...summary.credits].sort((a, b) => {
+    if (a.retirementDate && b.retirementDate) {
+      const diff = b.retirementDate.localeCompare(a.retirementDate);
+      if (diff !== 0) return diff;
+    } else if (a.retirementDate) {
+      return -1;
+    } else if (b.retirementDate) {
+      return 1;
+    }
+    return a.projectId.localeCompare(b.projectId);
+  });
+}

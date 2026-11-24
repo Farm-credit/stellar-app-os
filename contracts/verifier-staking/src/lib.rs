@@ -15,10 +15,11 @@
 //!   6. After 14 days, verifier calls `withdraw(verifier)` to claim their tokens.
 //!   7. `is_eligible(verifier)` / `is_registered(verifier)` can be queried.
 
-use soroban_sdk::{
-    contract, contracterror, contractimpl, contracttype, panic_with_error, symbol_short, token, Address, Env,
-};
 use harvesta_errors::HarvestaError;
+use soroban_sdk::{
+    contract, contracterror, contractimpl, contracttype, panic_with_error, symbol_short, token,
+    Address, Env, Vec,
+};
 
 pub const APPEAL_WINDOW_SECS: u64 = 259_200; // 72 hours
 
@@ -38,6 +39,15 @@ pub enum VerifierStakingError {
     DelegationNotAllowed = 100,
     DelegationNotFound = 101,
     DelegationCooldown = 102,
+    SlashNotFound = 103,
+    SlashAlreadyResolved = 104,
+    AppealWindowExpired = 105,
+    AppealWindowActive = 106,
+    NothingToWithdraw = 107,
+    UnbondingPeriodNotExpired = 108,
+    InvalidEvidence = 109,
+    AppealNotPending = 110,
+    SlashPending = 111,
 }
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -53,7 +63,7 @@ pub enum SlashStatus {
 
 /// The type of invalid approval that caused a bond penalty.
 #[contracttype]
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum InvalidApprovalKind {
     DeadTree,
     InvalidProgress,
@@ -68,7 +78,8 @@ pub struct SlashRequest {
     pub requested_at: u64,
     pub expires_at: u64,
     pub status: SlashStatus,
-    pub reason: Option<InvalidApprovalKind>,
+    /// `None` for a generic admin slash; 1 = dead-tree approval, 2 = invalid progress.
+    pub reason: Option<u32>,
 }
 
 #[contracttype]
@@ -88,6 +99,14 @@ pub struct Unbonding {
     pub amount: i128,
     pub completion_time: u64,
 }
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct Delegation {
+    pub delegator: Address,
+    pub verifier: Address,
+    pub amount: i128,
+    pub delegated_at: u64,
+}
 
 // ── Storage keys ──────────────────────────────────────────────────────────────
 
@@ -103,6 +122,11 @@ enum DataKey {
     PlotAssignment(Address, u64),
     /// Tracks offense count for exponential slashing penalty calculation
     OffenseCount(Address),
+    SlashRequest(u64),
+    SlashCount,
+    PendingSlashCount(Address),
+    Unbond(Address),
+    Delegation(Address, Address),
 }
 
 // ── Contract ──────────────────────────────────────────────────────────────────
@@ -115,6 +139,18 @@ pub struct VerifierStaking;
 
 #[contractimpl]
 impl VerifierStaking {
+    fn update_pending_slash_count(env: &Env, verifier: &Address, add: bool) {
+        let key = DataKey::PendingSlashCount(verifier.clone());
+        let count: u32 = env.storage().persistent().get(&key).unwrap_or(0);
+        if add {
+            env.storage().persistent().set(&key, &(count + 1));
+        } else if count <= 1 {
+            env.storage().persistent().remove(&key);
+        } else {
+            env.storage().persistent().set(&key, &(count - 1));
+        }
+    }
+
     /// One-time initialisation.
     ///
     /// * `admin`                     — address authorised to slash bonds
@@ -138,9 +174,17 @@ impl VerifierStaking {
         if min_stake_amount <= 0 {
             panic_with_error!(&env, VerifierStakingError::MinStakeMustBePositive);
         }
-        env.storage()
-            .instance()
-            .set(&DataKey::Config, &(admin, stake_token, min_stake_amount, governance_contract, replanting_buffer_pool, sla_penalty_amount));
+        env.storage().instance().set(
+            &DataKey::Config,
+            &(
+                admin,
+                stake_token,
+                min_stake_amount,
+                governance_contract,
+                replanting_buffer_pool,
+                sla_penalty_amount,
+            ),
+        );
     }
 
     /// Register as an active verifier by depositing the minimum stake.
@@ -205,10 +249,10 @@ impl VerifierStaking {
         let (_, stake_token, _, _, _, _) = Self::config(&env);
 
         let key = DataKey::Stake(verifier.clone());
-        let mut rec: VerifierStake = env
-            .storage()
-            .persistent()
-            .get(&key).unwrap_or_else(|| panic_with_error!(&env, VerifierStakingError::VerifierNotStaked));
+        let mut rec: VerifierStake =
+            env.storage().persistent().get(&key).unwrap_or_else(|| {
+                panic_with_error!(&env, VerifierStakingError::VerifierNotStaked)
+            });
 
         rec.amount += amount;
 
@@ -229,29 +273,28 @@ impl VerifierStaking {
     ///
     /// # Panics
     /// If `slash_amount` is not positive or exceeds the verifier's stake.
-    pub fn slash(env: Env, verifier: Address, slash_amount: i128) {
-        let (admin, _, _, _, replanting_buffer_pool, _) = Self::config(&env);
+    pub fn slash(env: Env, verifier: Address, slash_amount: i128) -> u64 {
+        let (admin, _, _, _, _, _) = Self::config(&env);
         admin.require_auth();
-
         if slash_amount <= 0 {
             panic_with_error!(&env, HarvestaError::AmountMustBePositive);
         }
-
         let key = DataKey::Stake(verifier.clone());
-        let rec: VerifierStake = env
-            .storage()
-            .persistent()
-            .get(&key).unwrap_or_else(|| panic_with_error!(&env, VerifierStakingError::VerifierNotStaked));
-
+        let rec: VerifierStake =
+            env.storage().persistent().get(&key).unwrap_or_else(|| {
+                panic_with_error!(&env, VerifierStakingError::VerifierNotStaked)
+            });
         if slash_amount > rec.amount {
             panic_with_error!(&env, VerifierStakingError::SlashExceedsStake);
         }
-
-        let count: u64 = env.storage().instance().get(&DataKey::SlashCount).unwrap_or(0);
+        let count: u64 = env
+            .storage()
+            .instance()
+            .get(&DataKey::SlashCount)
+            .unwrap_or(0);
         let slash_id = count + 1;
         let requested_at = env.ledger().timestamp();
         let expires_at = requested_at + APPEAL_WINDOW_SECS;
-
         let request = SlashRequest {
             id: slash_id,
             verifier: verifier.clone(),
@@ -261,15 +304,17 @@ impl VerifierStaking {
             status: SlashStatus::Pending,
             reason: None,
         };
-
-        env.storage().persistent().set(&DataKey::SlashRequest(slash_id), &request);
-        env.storage().instance().set(&DataKey::SlashCount, &slash_id);
-
+        env.storage()
+            .persistent()
+            .set(&DataKey::SlashRequest(slash_id), &request);
+        Self::update_pending_slash_count(&env, &verifier, true);
+        env.storage()
+            .instance()
+            .set(&DataKey::SlashCount, &slash_id);
         env.events().publish(
             (symbol_short!("slash_prp"), verifier),
             (slash_id, slash_amount, expires_at),
         );
-
         slash_id
     }
 
@@ -280,9 +325,13 @@ impl VerifierStaking {
         env: Env,
         verifier: Address,
         reason: InvalidApprovalKind,
+        evidence_hash: soroban_sdk::BytesN<32>,
     ) -> u64 {
         let (admin, _, _, _, _, penalty) = Self::config(&env);
         admin.require_auth();
+        if evidence_hash == soroban_sdk::BytesN::from_array(&env, &[0; 32]) {
+            panic_with_error!(&env, VerifierStakingError::InvalidEvidence);
+        }
 
         if penalty <= 0 {
             panic_with_error!(&env, HarvestaError::AmountMustBePositive);
@@ -299,7 +348,11 @@ impl VerifierStaking {
             panic_with_error!(&env, VerifierStakingError::SlashExceedsStake);
         }
 
-        let count: u64 = env.storage().instance().get(&DataKey::SlashCount).unwrap_or(0);
+        let count: u64 = env
+            .storage()
+            .instance()
+            .get(&DataKey::SlashCount)
+            .unwrap_or(0);
         let slash_id = count + 1;
         let requested_at = env.ledger().timestamp();
         let expires_at = requested_at + APPEAL_WINDOW_SECS;
@@ -310,21 +363,29 @@ impl VerifierStaking {
             requested_at,
             expires_at,
             status: SlashStatus::Pending,
-            reason: Some(reason.clone()),
+            reason: Some(match reason {
+                InvalidApprovalKind::DeadTree => 1,
+                InvalidApprovalKind::InvalidProgress => 2,
+            }),
         };
 
-        env.storage().persistent().set(&DataKey::SlashRequest(slash_id), &request);
-        env.storage().instance().set(&DataKey::SlashCount, &slash_id);
+        env.storage()
+            .persistent()
+            .set(&DataKey::SlashRequest(slash_id), &request);
+        Self::update_pending_slash_count(&env, &verifier, true);
+        env.storage()
+            .instance()
+            .set(&DataKey::SlashCount, &slash_id);
         env.events().publish(
             (symbol_short!("bad_appr"), verifier),
-            (slash_id, slash_amount, reason, expires_at),
+            (slash_id, slash_amount, reason, evidence_hash, expires_at),
         );
 
         slash_id
     }
 
     /// Verifier files an appeal against a proposed slash during the 72-hour challenge period.
-    pub fn appeal_slash(env: Env, verifier: Address, slash_id: u64, _reason: soroban_sdk::String) {
+    pub fn appeal_slash(env: Env, verifier: Address, slash_id: u64, reason: soroban_sdk::String) {
         verifier.require_auth();
 
         let mut req: SlashRequest = env
@@ -346,18 +407,48 @@ impl VerifierStaking {
         }
 
         req.status = SlashStatus::Appealed;
-        env.storage().persistent().set(&DataKey::SlashRequest(slash_id), &req);
+        env.storage()
+            .persistent()
+            .set(&DataKey::SlashRequest(slash_id), &req);
 
+        env.events()
+            .publish((symbol_short!("slash_apl"), verifier), (slash_id, reason));
+    }
+
+    /// Admin adjudicates an appeal; an appealed request cannot be executed until upheld.
+    pub fn resolve_appeal(env: Env, slash_id: u64, uphold: bool) {
+        let (admin, _, _, _, _, _) = Self::config(&env);
+        admin.require_auth();
+        let mut req: SlashRequest = env
+            .storage()
+            .persistent()
+            .get(&DataKey::SlashRequest(slash_id))
+            .unwrap_or_else(|| panic_with_error!(&env, VerifierStakingError::SlashNotFound));
+        if req.status != SlashStatus::Appealed {
+            panic_with_error!(&env, VerifierStakingError::AppealNotPending);
+        }
+        req.status = if uphold {
+            SlashStatus::Pending
+        } else {
+            SlashStatus::Cancelled
+        };
+        if uphold {
+            req.expires_at = env.ledger().timestamp();
+        } else {
+            Self::update_pending_slash_count(&env, &req.verifier, false);
+        }
+        env.storage()
+            .persistent()
+            .set(&DataKey::SlashRequest(slash_id), &req);
         env.events().publish(
-            (symbol_short!("slash_apl"), verifier),
-            slash_id,
+            (symbol_short!("appeal_rs"), req.verifier),
+            (slash_id, uphold),
         );
     }
 
     /// Execute a slash after the 72-hour appeal window has passed without an approved challenge.
     pub fn execute_slash(env: Env, slash_id: u64) {
-        let (admin, _, _, _, replanting_buffer_pool) = Self::config(&env);
-        admin.require_auth();
+        let (_, _, _, _, replanting_buffer_pool, _) = Self::config(&env);
 
         let mut req: SlashRequest = env
             .storage()
@@ -365,7 +456,7 @@ impl VerifierStaking {
             .get(&DataKey::SlashRequest(slash_id))
             .unwrap_or_else(|| panic_with_error!(&env, VerifierStakingError::SlashNotFound));
 
-        if req.status != SlashStatus::Pending && req.status != SlashStatus::Appealed {
+        if req.status != SlashStatus::Pending {
             panic_with_error!(&env, VerifierStakingError::SlashAlreadyResolved);
         }
 
@@ -374,17 +465,12 @@ impl VerifierStaking {
         }
 
         let key = DataKey::Stake(req.verifier.clone());
-        let mut rec: VerifierStake = env
-            .storage()
-            .persistent()
-            .get(&key)
-            .unwrap_or_else(|| panic_with_error!(&env, VerifierStakingError::VerifierNotStaked));
+        let mut rec: VerifierStake =
+            env.storage().persistent().get(&key).unwrap_or_else(|| {
+                panic_with_error!(&env, VerifierStakingError::VerifierNotStaked)
+            });
 
-        let actual_slash = if req.slash_amount > rec.amount {
-            rec.amount
-        } else {
-            req.slash_amount
-        };
+        let actual_slash = req.slash_amount.min(rec.amount);
 
         rec.amount -= actual_slash;
         rec.slashed += actual_slash;
@@ -399,13 +485,17 @@ impl VerifierStaking {
             );
         }
 
+        req.status = SlashStatus::Executed;
+        env.storage()
+            .persistent()
+            .set(&DataKey::SlashRequest(slash_id), &req);
+        Self::update_pending_slash_count(&env, &req.verifier, false);
+        env.events().publish(
+            (symbol_short!("slashed"), req.verifier.clone()),
+            actual_slash,
+        );
         env.events()
-            .publish((symbol_short!("slashed"), verifier.clone()), slash_amount);
-        env.events()
-            .publish(
-                (symbol_short!("slash_buf"), verifier),
-                slash_amount,
-            );
+            .publish((symbol_short!("slash_buf"), req.verifier), actual_slash);
     }
 
     /// Returns the recorded offense count for a given verifier.
@@ -429,11 +519,10 @@ impl VerifierStaking {
         }
 
         let key = DataKey::Stake(verifier.clone());
-        let mut rec: VerifierStake = env
-            .storage()
-            .persistent()
-            .get(&key)
-            .unwrap_or_else(|| panic_with_error!(&env, VerifierStakingError::VerifierNotStaked));
+        let mut rec: VerifierStake =
+            env.storage().persistent().get(&key).unwrap_or_else(|| {
+                panic_with_error!(&env, VerifierStakingError::VerifierNotStaked)
+            });
 
         let current_offense = Self::get_offense_count(env.clone(), verifier.clone());
         let new_offense = current_offense.saturating_add(1);
@@ -481,10 +570,19 @@ impl VerifierStaking {
         verifier.require_auth();
 
         let key = DataKey::Stake(verifier.clone());
-        let rec: VerifierStake = env
+        let rec: VerifierStake =
+            env.storage().persistent().get(&key).unwrap_or_else(|| {
+                panic_with_error!(&env, VerifierStakingError::VerifierNotStaked)
+            });
+
+        let pending_slashes: u32 = env
             .storage()
             .persistent()
-            .get(&key).unwrap_or_else(|| panic_with_error!(&env, VerifierStakingError::VerifierNotStaked));
+            .get(&DataKey::PendingSlashCount(verifier.clone()))
+            .unwrap_or(0);
+        if pending_slashes > 0 {
+            panic_with_error!(&env, VerifierStakingError::SlashPending);
+        }
 
         let amount = rec.amount;
         if amount > 0 {
@@ -497,7 +595,7 @@ impl VerifierStaking {
                 .storage()
                 .persistent()
                 .get(&unbond_key)
-                .unwrap_or(vec![&env]);
+                .unwrap_or_else(|| Vec::new(&env));
             unbondings.push_back(unbonding);
             env.storage().persistent().set(&unbond_key, &unbondings);
             // Set TTL for the unbonding entry to be slightly longer than the lockup period.
@@ -528,26 +626,25 @@ impl VerifierStaking {
             .storage()
             .persistent()
             .get(&unbond_key)
-            .unwrap_or(vec![&env]);
+            .unwrap_or_else(|| Vec::new(&env));
 
         if unbondings.is_empty() {
             panic_with_error!(&env, VerifierStakingError::NothingToWithdraw);
         }
 
-        let (_, stake_token, _, _, _) = Self::config(&env);
+        let (_, stake_token, _, _, _, _) = Self::config(&env);
         let mut total_withdrawn = 0;
         let current_time = env.ledger().timestamp();
 
-        // Use `retain` to efficiently filter out matured unbondings and calculate the total to withdraw.
-        // This is more gas-efficient than creating a new Vec.
-        unbondings.retain(|unbonding| {
+        let mut remaining = Vec::new(&env);
+        for unbonding in unbondings.iter() {
             if current_time >= unbonding.completion_time {
                 total_withdrawn += unbonding.amount;
-                false // Remove from the vector
             } else {
-                true // Keep in the vector
+                remaining.push_back(unbonding);
             }
-        });
+        }
+        unbondings = remaining;
 
         if total_withdrawn == 0 {
             panic_with_error!(&env, VerifierStakingError::UnbondingPeriodNotExpired);
@@ -594,14 +691,14 @@ impl VerifierStaking {
 
     /// Returns the stake record for a verifier, or None.
     pub fn get_stake(env: Env, verifier: Address) -> Option<VerifierStake> {
-        env.storage()
-            .persistent()
-            .get(&DataKey::Stake(verifier))
+        env.storage().persistent().get(&DataKey::Stake(verifier))
     }
 
     /// Returns a pending or resolved slash request by ID.
     pub fn get_slash_request(env: Env, slash_id: u64) -> Option<SlashRequest> {
-        env.storage().persistent().get(&DataKey::SlashRequest(slash_id))
+        env.storage()
+            .persistent()
+            .get(&DataKey::SlashRequest(slash_id))
     }
 
     /// Returns a list of pending unbondings for a verifier.
@@ -609,16 +706,12 @@ impl VerifierStaking {
         env.storage()
             .persistent()
             .get(&DataKey::Unbond(verifier))
-            .unwrap_or(vec![&env])
+            .unwrap_or_else(|| Vec::new(&env))
     }
 
     /// Returns the total slashed amount transferred to the buffer pool for a verifier.
     pub fn get_slashed_to_buffer_pool(env: Env, verifier: Address) -> i128 {
-        let rec: VerifierStake = match env
-            .storage()
-            .persistent()
-            .get(&DataKey::Stake(verifier))
-        {
+        let rec: VerifierStake = match env.storage().persistent().get(&DataKey::Stake(verifier)) {
             Some(record) => record,
             None => return 0,
         };
@@ -682,7 +775,8 @@ impl VerifierStaking {
         // Add minimal TTL for the SLA
         env.storage().persistent().extend_ttl(&key, 518400, 1036800);
 
-        env.events().publish((symbol_short!("assigned"), verifier), plot_id);
+        env.events()
+            .publish((symbol_short!("assigned"), verifier), plot_id);
     }
 
     /// Admin marks a plot audit as completed, removing the SLA timer.
@@ -696,7 +790,8 @@ impl VerifierStaking {
         }
         env.storage().persistent().remove(&key);
 
-        env.events().publish((symbol_short!("completed"), verifier), plot_id);
+        env.events()
+            .publish((symbol_short!("completed"), verifier), plot_id);
     }
 
     /// Penalizes a verifier if they failed to audit an assigned plot within 7 days.
@@ -705,11 +800,10 @@ impl VerifierStaking {
         admin.require_auth();
 
         let key = DataKey::PlotAssignment(verifier.clone(), plot_id);
-        let assigned_at: u64 = env
-            .storage()
-            .persistent()
-            .get(&key)
-            .unwrap_or_else(|| panic_with_error!(&env, VerifierStakingError::AssignmentNotFound));
+        let assigned_at: u64 =
+            env.storage().persistent().get(&key).unwrap_or_else(|| {
+                panic_with_error!(&env, VerifierStakingError::AssignmentNotFound)
+            });
 
         let now = env.ledger().timestamp();
         let seven_days = 7 * 24 * 60 * 60;
@@ -725,8 +819,12 @@ impl VerifierStaking {
             .persistent()
             .get(&stake_key)
             .unwrap_or_else(|| panic_with_error!(&env, VerifierStakingError::VerifierNotStaked));
-        
-        let actual_penalty = if rec.amount >= penalty_amount { penalty_amount } else { rec.amount };
+
+        let actual_penalty = if rec.amount >= penalty_amount {
+            penalty_amount
+        } else {
+            rec.amount
+        };
 
         rec.amount -= actual_penalty;
         rec.slashed += actual_penalty;
@@ -744,7 +842,8 @@ impl VerifierStaking {
 
         env.storage().persistent().remove(&key);
 
-        env.events().publish((symbol_short!("sla_brch"), verifier), plot_id);
+        env.events()
+            .publish((symbol_short!("sla_brch"), verifier), plot_id);
     }
 
     /// Delegator delegates stake to a registered verifier.
@@ -794,7 +893,8 @@ impl VerifierStaking {
         let mut rec: VerifierStake = env
             .storage()
             .persistent()
-            .get(&stake_key).unwrap_or_else(|| panic_with_error!(&env, VerifierStakingError::VerifierNotStaked));
+            .get(&stake_key)
+            .unwrap_or_else(|| panic_with_error!(&env, VerifierStakingError::VerifierNotStaked));
 
         rec.amount += amount;
 
@@ -813,7 +913,8 @@ impl VerifierStaking {
         let delegation: Delegation = env
             .storage()
             .persistent()
-            .get(&deleg_key).unwrap_or_else(|| panic_with_error!(&env, VerifierStakingError::DelegationNotFound));
+            .get(&deleg_key)
+            .unwrap_or_else(|| panic_with_error!(&env, VerifierStakingError::DelegationNotFound));
 
         let amount = delegation.amount;
 
@@ -825,7 +926,8 @@ impl VerifierStaking {
         let mut rec: VerifierStake = env
             .storage()
             .persistent()
-            .get(&stake_key).unwrap_or_else(|| panic_with_error!(&env, VerifierStakingError::VerifierNotStaked));
+            .get(&stake_key)
+            .unwrap_or_else(|| panic_with_error!(&env, VerifierStakingError::VerifierNotStaked));
 
         rec.amount -= amount;
         env.storage().persistent().set(&stake_key, &rec);
@@ -839,7 +941,7 @@ impl VerifierStaking {
         );
 
         env.events()
-            .publish((symbol_short!("undelegated"), delegator), (verifier, amount));
+            .publish((symbol_short!("undelg"), delegator), (verifier, amount));
     }
 
     /// Returns the delegation amount for a verifier-delegator pair.
@@ -875,8 +977,10 @@ mod tests {
         )
     }
 
-    fn setup_with_min(min_stake: i128, governance: Address, buffer_pool: Address) -> Ctx {
+    fn setup_with_min(min_stake: i128, _governance: Address, _buffer_pool: Address) -> Ctx {
         let env = Env::default();
+        let governance = Address::generate(&env);
+        let buffer_pool = Address::generate(&env);
         env.mock_all_auths();
 
         let contract_id = env.register_contract(None, VerifierStaking);
@@ -887,8 +991,15 @@ mod tests {
         let token_admin = Address::generate(&env);
         let token = env.register_stellar_asset_contract(token_admin);
 
-        token::StellarAssetClient::new(&env, &token).mint(&verifier, &10_000);
-        client.initialize(&admin, &token, &min_stake, &governance, &buffer_pool, &100i128);
+        token::StellarAssetClient::new(&env, &token).mint(&verifier, &200_000);
+        client.initialize(
+            &admin,
+            &token,
+            &min_stake,
+            &governance,
+            &buffer_pool,
+            &100i128,
+        );
 
         Ctx {
             env,
@@ -1033,7 +1144,12 @@ mod tests {
         let ctx = setup();
         ctx.client.register(&ctx.verifier);
         ctx.client.stake(&ctx.verifier, &1_000); // total 2000
-        ctx.client.slash(&ctx.verifier, &800);
+        let slash_id = ctx.client.slash(&ctx.verifier, &800);
+        let pending = ctx.client.get_slash_request(&slash_id).unwrap();
+        assert_eq!(pending.status, SlashStatus::Pending);
+        assert_eq!(ctx.client.get_stake(&ctx.verifier).unwrap().amount, 2_000);
+        jump_time(&ctx.env, APPEAL_WINDOW_SECS);
+        ctx.client.execute_slash(&slash_id);
 
         let rec = ctx.client.get_stake(&ctx.verifier).unwrap();
         assert_eq!(rec.amount, 1_200); // 1000 min + 1000 stake - 800 slash
@@ -1050,19 +1166,91 @@ mod tests {
         let slash_id = ctx.client.slash_invalid_approval(
             &ctx.verifier,
             &InvalidApprovalKind::DeadTree,
+            &soroban_sdk::BytesN::from_array(&ctx.env, &[1; 32]),
         );
         let request = ctx.client.get_slash_request(&slash_id).unwrap();
 
         assert_eq!(request.slash_amount, 100);
         assert_eq!(request.status, SlashStatus::Pending);
-        assert_eq!(request.reason, Some(InvalidApprovalKind::DeadTree));
+        assert_eq!(request.reason, Some(1));
+    }
+    #[test]
+    fn test_invalid_approval_slash_transfers_to_configured_treasury_after_window() {
+        let ctx = setup();
+        ctx.client.register(&ctx.verifier);
+        ctx.client.stake(&ctx.verifier, &500);
+        let before = balance(&ctx.env, &ctx.token, &ctx.verifier);
+        let treasury_before = balance(
+            &ctx.env,
+            &ctx.token,
+            &ctx.client.get_replanting_buffer_pool(),
+        );
+        let id = ctx.client.slash_invalid_approval(
+            &ctx.verifier,
+            &InvalidApprovalKind::DeadTree,
+            &soroban_sdk::BytesN::from_array(&ctx.env, &[2; 32]),
+        );
+        jump_time(&ctx.env, APPEAL_WINDOW_SECS);
+        ctx.client.execute_slash(&id);
+        let req = ctx.client.get_slash_request(&id).unwrap();
+        assert_eq!(req.status, SlashStatus::Executed);
+        assert_eq!(balance(&ctx.env, &ctx.token, &ctx.verifier), before);
+        assert_eq!(
+            balance(
+                &ctx.env,
+                &ctx.token,
+                &ctx.client.get_replanting_buffer_pool()
+            ),
+            treasury_before + 100
+        );
+        assert_eq!(ctx.client.get_stake(&ctx.verifier).unwrap().amount, 1_400);
+    }
+    #[test]
+    fn test_appealed_slash_cannot_execute_until_adjudicated() {
+        let ctx = setup();
+        ctx.client.register(&ctx.verifier);
+        let id = ctx.client.slash_invalid_approval(
+            &ctx.verifier,
+            &InvalidApprovalKind::InvalidProgress,
+            &soroban_sdk::BytesN::from_array(&ctx.env, &[3; 32]),
+        );
+        ctx.client.appeal_slash(
+            &ctx.verifier,
+            &id,
+            &soroban_sdk::String::from_str(&ctx.env, "evidence dispute"),
+        );
+        jump_time(&ctx.env, APPEAL_WINDOW_SECS);
+        assert!(ctx.client.try_execute_slash(&id).is_err());
+        ctx.client.resolve_appeal(&id, &false);
+        assert_eq!(
+            ctx.client.get_slash_request(&id).unwrap().status,
+            SlashStatus::Cancelled
+        );
+        assert!(ctx.client.try_execute_slash(&id).is_err());
+    }
+    #[test]
+    fn test_invalid_approval_penalty_is_capped_at_available_stake() {
+        let ctx = setup_with_min(
+            40,
+            Address::generate(&Env::default()),
+            Address::generate(&Env::default()),
+        );
+        ctx.client.register(&ctx.verifier);
+        let id = ctx.client.slash_invalid_approval(
+            &ctx.verifier,
+            &InvalidApprovalKind::DeadTree,
+            &soroban_sdk::BytesN::from_array(&ctx.env, &[4; 32]),
+        );
+        assert_eq!(ctx.client.get_slash_request(&id).unwrap().slash_amount, 40);
     }
 
     #[test]
     fn test_slash_full_bond() {
         let ctx = setup();
         ctx.client.register(&ctx.verifier);
-        ctx.client.slash(&ctx.verifier, &1_000);
+        let slash_id = ctx.client.slash(&ctx.verifier, &1_000);
+        jump_time(&ctx.env, APPEAL_WINDOW_SECS);
+        ctx.client.execute_slash(&slash_id);
 
         let rec = ctx.client.get_stake(&ctx.verifier).unwrap();
         assert_eq!(rec.amount, 0);
@@ -1100,10 +1288,7 @@ mod tests {
         ctx.client.unstake(&ctx.verifier);
 
         // Balance unchanged, tokens are held in contract
-        assert_eq!(
-            balance(&ctx.env, &ctx.token, &ctx.verifier),
-            staked_balance
-        );
+        assert_eq!(balance(&ctx.env, &ctx.token, &ctx.verifier), staked_balance);
 
         // Stake record is gone, registration is cleared
         assert!(ctx.client.get_stake(&ctx.verifier).is_none());
@@ -1122,7 +1307,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "Error(Contract, #98)")]
+    #[should_panic(expected = "Error(Contract, #108)")]
     fn test_withdraw_fails_before_unbonding_period() {
         let ctx = setup();
         ctx.client.register(&ctx.verifier);
@@ -1149,10 +1334,7 @@ mod tests {
         ctx.client.withdraw(&ctx.verifier);
 
         // Balance is restored to pre-staking amount
-        assert_eq!(
-            balance(&ctx.env, &ctx.token, &ctx.verifier),
-            pre_balance
-        );
+        assert_eq!(balance(&ctx.env, &ctx.token, &ctx.verifier), pre_balance);
 
         // Unbonding record is cleared
         assert!(ctx.client.get_unbondings(&ctx.verifier).is_empty());
@@ -1204,7 +1386,9 @@ mod tests {
 
         ctx.client.register(&ctx.verifier);
         ctx.client.stake(&ctx.verifier, &1_000); // total stake = 2000
-        ctx.client.slash(&ctx.verifier, &500); // remaining stake = 1500
+        let slash_id = ctx.client.slash(&ctx.verifier, &500);
+        jump_time(&ctx.env, APPEAL_WINDOW_SECS);
+        ctx.client.execute_slash(&slash_id); // remaining stake = 1500
 
         let staked_balance = balance(&ctx.env, &ctx.token, &ctx.verifier);
         assert_eq!(staked_balance, pre_balance - min_stake - 1000);
@@ -1226,6 +1410,15 @@ mod tests {
             balance(&ctx.env, &ctx.token, &ctx.verifier),
             pre_balance - 500 // 500 was slashed
         );
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #111)")]
+    fn test_unstake_blocked_while_slash_is_pending() {
+        let ctx = setup();
+        ctx.client.register(&ctx.verifier);
+        ctx.client.slash(&ctx.verifier, &500);
+        ctx.client.unstake(&ctx.verifier);
     }
 
     #[test]
@@ -1257,10 +1450,10 @@ mod tests {
     fn test_sla_assignment_and_completion() {
         let ctx = setup();
         ctx.client.register(&ctx.verifier);
-        
+
         let plot_id = 123u64;
         ctx.client.assign_plot(&ctx.verifier, &plot_id);
-        
+
         // Completion before 7 days is successful
         ctx.client.complete_audit(&ctx.verifier, &plot_id);
     }
@@ -1270,10 +1463,10 @@ mod tests {
     fn test_sla_penalty_before_7_days_fails() {
         let ctx = setup();
         ctx.client.register(&ctx.verifier);
-        
+
         let plot_id = 456u64;
         ctx.client.assign_plot(&ctx.verifier, &plot_id);
-        
+
         // Cannot penalize immediately
         ctx.client.penalize_sla(&ctx.verifier, &plot_id);
     }

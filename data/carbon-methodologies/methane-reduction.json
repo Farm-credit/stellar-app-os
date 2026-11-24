@@ -1,0 +1,916 @@
+[
+  {
+    "slug": "acm0001",
+    "code": "ACM0001",
+    "name": "Flaring or use of landfill gas",
+    "category": "methane_reduction",
+    "standard": "CDM",
+    "version": "19.0",
+    "description": "Large-scale methodology for capturing landfill gas and flaring it or using it for energy.",
+    "formula": "ER_y = (MD_PJ,y − MD_BL,y) × GWP_CH4 + EG_PJ,y × CEF_elec,y + ET_PJ,y × CEF_ther,y − PE_y",
+    "parameters": [
+      {
+        "symbol": "ER_y",
+        "name": "Emission reductions",
+        "unit": "tCO2e/yr",
+        "description": "Net reductions"
+      },
+      {
+        "symbol": "MD_PJ,y",
+        "name": "Methane destroyed by project",
+        "unit": "tCH4/yr",
+        "description": "Measured LFG × CH4 fraction × density"
+      },
+      {
+        "symbol": "MD_BL,y",
+        "name": "Methane destroyed in baseline",
+        "unit": "tCH4/yr",
+        "description": "Regulatory or contractual baseline"
+      },
+      {
+        "symbol": "GWP_CH4",
+        "name": "Global warming potential of methane",
+        "unit": "tCO2e/tCH4",
+        "description": "Value prescribed by the programme for the crediting period"
+      },
+      {
+        "symbol": "EG_PJ,y",
+        "name": "Electricity generated from LFG",
+        "unit": "MWh/yr",
+        "description": "Displaced electricity"
+      },
+      {
+        "symbol": "CEF_elec,y",
+        "name": "Displaced electricity emission factor",
+        "unit": "tCO2/MWh",
+        "description": "Baseline electricity factor"
+      },
+      {
+        "symbol": "PE_y",
+        "name": "Project emissions",
+        "unit": "tCO2e/yr",
+        "description": "Fossil fuel/electricity consumption"
+      }
+    ],
+    "applicability": [
+      "Landfill gas capture with flaring and/or energy use",
+      "Baseline methane destruction (e.g. regulatory) accounted for"
+    ],
+    "sourceRef": "UNFCCC CDM ACM0001 v19.0 (version per BioCarbon Standard CDM waste-sector list, Feb 2024; may have been superseded)",
+    "metadataVerified": true
+  },
+  {
+    "slug": "ams-iii-g",
+    "code": "AMS-III.G",
+    "name": "Landfill methane recovery",
+    "category": "methane_reduction",
+    "standard": "CDM",
+    "version": "10.0",
+    "description": "Small-scale recovery and destruction or use of methane from landfills.",
+    "formula": "BE_CH4,y = (MD_PJ,y − MD_BL,y) × GWP_CH4;  ER_y = BE_y − PE_y − LE_y",
+    "parameters": [
+      {
+        "symbol": "ER_y",
+        "name": "Emission reductions",
+        "unit": "tCO2e/yr",
+        "description": "Net emission reductions in year y"
+      },
+      {
+        "symbol": "BE_y",
+        "name": "Baseline emissions",
+        "unit": "tCO2e/yr",
+        "description": "Emissions in the baseline scenario"
+      },
+      {
+        "symbol": "PE_y",
+        "name": "Project emissions",
+        "unit": "tCO2e/yr",
+        "description": "Emissions from the project activity"
+      },
+      {
+        "symbol": "MD_PJ,y",
+        "name": "Methane destroyed by project",
+        "unit": "tCH4/yr",
+        "description": "Measured recovered methane destroyed"
+      },
+      {
+        "symbol": "MD_BL,y",
+        "name": "Methane destroyed in baseline",
+        "unit": "tCH4/yr",
+        "description": "Baseline destruction"
+      },
+      {
+        "symbol": "GWP_CH4",
+        "name": "Global warming potential of methane",
+        "unit": "tCO2e/tCH4",
+        "description": "Value prescribed by the programme for the crediting period"
+      }
+    ],
+    "applicability": [
+      "Landfill methane recovery by flaring or energy use",
+      "Small-scale CDM Type III limit: emission reductions ≤ 60 ktCO2e per year"
+    ],
+    "sourceRef": "UNFCCC CDM AMS-III.G v10.0",
+    "metadataVerified": true
+  },
+  {
+    "slug": "ams-iii-d",
+    "code": "AMS-III.D",
+    "name": "Methane recovery in animal manure management systems",
+    "category": "methane_reduction",
+    "standard": "CDM",
+    "version": "21.0",
+    "description": "Small-scale recovery and destruction of methane from animal manure systems, replacing anaerobic lagoons and similar.",
+    "formula": "BE_CH4,y = GWP_CH4 × D_CH4 × Σ_j,LT (MCF_j × B_0,LT × N_LT,y × VS_LT,y × MS%_BL,j);  ER_y = BE_y − PE_y − LE_y",
+    "parameters": [
+      {
+        "symbol": "ER_y",
+        "name": "Emission reductions",
+        "unit": "tCO2e/yr",
+        "description": "Net emission reductions in year y"
+      },
+      {
+        "symbol": "BE_y",
+        "name": "Baseline emissions",
+        "unit": "tCO2e/yr",
+        "description": "Emissions in the baseline scenario"
+      },
+      {
+        "symbol": "PE_y",
+        "name": "Project emissions",
+        "unit": "tCO2e/yr",
+        "description": "Emissions from the project activity"
+      },
+      {
+        "symbol": "LE_y",
+        "name": "Leakage emissions",
+        "unit": "tCO2e/yr",
+        "description": "Emissions displaced outside the project boundary"
+      },
+      {
+        "symbol": "GWP_CH4",
+        "name": "Global warming potential of methane",
+        "unit": "tCO2e/tCH4",
+        "description": "Value prescribed by the programme for the crediting period"
+      },
+      {
+        "symbol": "D_CH4",
+        "name": "Methane density",
+        "unit": "t/m3",
+        "description": "0.00067 t/m3 at room temperature and 1 atm"
+      },
+      {
+        "symbol": "MCF_j",
+        "name": "Methane conversion factor",
+        "unit": "fraction",
+        "description": "Baseline manure system j"
+      },
+      {
+        "symbol": "B_0,LT",
+        "name": "Maximum methane producing capacity",
+        "unit": "m3 CH4/kg VS",
+        "description": "Livestock type LT"
+      },
+      {
+        "symbol": "N_LT,y",
+        "name": "Number of animals",
+        "unit": "head",
+        "description": "Livestock type LT in year y"
+      },
+      {
+        "symbol": "VS_LT,y",
+        "name": "Volatile solids excreted",
+        "unit": "kg VS/head/yr",
+        "description": "Livestock type LT"
+      },
+      {
+        "symbol": "MS%_BL,j",
+        "name": "Share of manure to system j",
+        "unit": "fraction",
+        "description": "Baseline manure allocation"
+      }
+    ],
+    "applicability": [
+      "Manure management in livestock operations",
+      "Small-scale CDM Type III limit: emission reductions ≤ 60 ktCO2e per year"
+    ],
+    "sourceRef": "UNFCCC CDM AMS-III.D v21.0 (version per BioCarbon Standard CDM waste-sector list, Feb 2024; may have been superseded)",
+    "metadataVerified": true
+  },
+  {
+    "slug": "acm0010",
+    "code": "ACM0010",
+    "name": "GHG emission reductions from manure management systems",
+    "category": "methane_reduction",
+    "standard": "CDM",
+    "version": "8.0",
+    "description": "Large-scale methodology for switching manure management to systems that avoid methane.",
+    "formula": "BE_CH4,y = GWP_CH4 × D_CH4 × Σ_j,LT (MCF_j × B_0,LT × N_LT,y × VS_LT,y × MS%_BL,j);  ER_y = BE_y − PE_y − LE_y",
+    "parameters": [
+      {
+        "symbol": "ER_y",
+        "name": "Emission reductions",
+        "unit": "tCO2e/yr",
+        "description": "Net emission reductions in year y"
+      },
+      {
+        "symbol": "BE_y",
+        "name": "Baseline emissions",
+        "unit": "tCO2e/yr",
+        "description": "Emissions in the baseline scenario"
+      },
+      {
+        "symbol": "PE_y",
+        "name": "Project emissions",
+        "unit": "tCO2e/yr",
+        "description": "Emissions from the project activity"
+      },
+      {
+        "symbol": "LE_y",
+        "name": "Leakage emissions",
+        "unit": "tCO2e/yr",
+        "description": "Emissions displaced outside the project boundary"
+      },
+      {
+        "symbol": "GWP_CH4",
+        "name": "Global warming potential of methane",
+        "unit": "tCO2e/tCH4",
+        "description": "Value prescribed by the programme for the crediting period"
+      },
+      {
+        "symbol": "D_CH4",
+        "name": "Methane density",
+        "unit": "t/m3",
+        "description": "0.00067 t/m3"
+      },
+      {
+        "symbol": "MCF_j",
+        "name": "Methane conversion factor",
+        "unit": "fraction",
+        "description": "Baseline manure system j"
+      },
+      {
+        "symbol": "B_0,LT",
+        "name": "Maximum methane producing capacity",
+        "unit": "m3 CH4/kg VS",
+        "description": "Livestock type LT"
+      },
+      {
+        "symbol": "N_LT,y",
+        "name": "Number of animals",
+        "unit": "head",
+        "description": "Livestock type LT"
+      }
+    ],
+    "applicability": [
+      "Manure management systems changed to reduce methane",
+      "Livestock data (population, VS) documented"
+    ],
+    "sourceRef": "UNFCCC CDM ACM0010 v8.0 (version per BioCarbon Standard CDM waste-sector list, Feb 2024; may have been superseded)",
+    "metadataVerified": true
+  },
+  {
+    "slug": "ams-iii-h",
+    "code": "AMS-III.H",
+    "name": "Methane recovery in wastewater treatment",
+    "category": "methane_reduction",
+    "standard": "CDM",
+    "version": "19.0",
+    "description": "Small-scale recovery of methane from wastewater or sludge treatment.",
+    "formula": "BE_ww,treatment,y = Σ_i (Q_ww,i,y × COD_removed,i,y × MCF_ww,BL,i × B_o,ww × UF_BL) × GWP_CH4;  ER_y = BE_y − PE_y − LE_y",
+    "parameters": [
+      {
+        "symbol": "ER_y",
+        "name": "Emission reductions",
+        "unit": "tCO2e/yr",
+        "description": "Net emission reductions in year y"
+      },
+      {
+        "symbol": "BE_y",
+        "name": "Baseline emissions",
+        "unit": "tCO2e/yr",
+        "description": "Emissions in the baseline scenario"
+      },
+      {
+        "symbol": "PE_y",
+        "name": "Project emissions",
+        "unit": "tCO2e/yr",
+        "description": "Emissions from the project activity"
+      },
+      {
+        "symbol": "GWP_CH4",
+        "name": "Global warming potential of methane",
+        "unit": "tCO2e/tCH4",
+        "description": "Value prescribed by the programme for the crediting period"
+      },
+      {
+        "symbol": "Q_ww,i,y",
+        "name": "Wastewater volume",
+        "unit": "m3/yr",
+        "description": "Treatment system i"
+      },
+      {
+        "symbol": "COD_removed,i,y",
+        "name": "COD removed",
+        "unit": "t COD/m3",
+        "description": "Chemical oxygen demand removed"
+      },
+      {
+        "symbol": "MCF_ww,BL,i",
+        "name": "Baseline methane conversion factor",
+        "unit": "fraction",
+        "description": "System i"
+      },
+      {
+        "symbol": "B_o,ww",
+        "name": "Maximum methane producing capacity",
+        "unit": "t CH4/t COD",
+        "description": "Default 0.25"
+      },
+      {
+        "symbol": "UF_BL",
+        "name": "Model correction factor",
+        "unit": "fraction",
+        "description": "Uncertainty adjustment"
+      }
+    ],
+    "applicability": [
+      "Wastewater or sludge treatment with methane recovery",
+      "Small-scale CDM Type III limit: emission reductions ≤ 60 ktCO2e per year"
+    ],
+    "sourceRef": "UNFCCC CDM AMS-III.H v19.0 (version per BioCarbon Standard CDM waste-sector list, Feb 2024; may have been superseded)",
+    "metadataVerified": true
+  },
+  {
+    "slug": "acm0014",
+    "code": "ACM0014",
+    "name": "Treatment of wastewater",
+    "category": "methane_reduction",
+    "standard": "CDM",
+    "version": "8.0",
+    "description": "Large-scale methodology for reducing GHG emissions from wastewater treatment.",
+    "formula": "BE_ww,treatment,y = Σ_i (Q_ww,i,y × COD_removed,i,y × MCF_ww,BL,i × B_o,ww × UF_BL) × GWP_CH4;  ER_y = BE_y − PE_y − LE_y",
+    "parameters": [
+      {
+        "symbol": "ER_y",
+        "name": "Emission reductions",
+        "unit": "tCO2e/yr",
+        "description": "Net emission reductions in year y"
+      },
+      {
+        "symbol": "BE_y",
+        "name": "Baseline emissions",
+        "unit": "tCO2e/yr",
+        "description": "Emissions in the baseline scenario"
+      },
+      {
+        "symbol": "PE_y",
+        "name": "Project emissions",
+        "unit": "tCO2e/yr",
+        "description": "Emissions from the project activity"
+      },
+      {
+        "symbol": "GWP_CH4",
+        "name": "Global warming potential of methane",
+        "unit": "tCO2e/tCH4",
+        "description": "Value prescribed by the programme for the crediting period"
+      },
+      {
+        "symbol": "Q_ww,i,y",
+        "name": "Wastewater volume",
+        "unit": "m3/yr",
+        "description": "Treatment system i"
+      },
+      {
+        "symbol": "COD_removed,i,y",
+        "name": "COD removed",
+        "unit": "t COD/m3",
+        "description": "COD removed"
+      },
+      {
+        "symbol": "MCF_ww,BL,i",
+        "name": "Baseline methane conversion factor",
+        "unit": "fraction",
+        "description": "System i"
+      },
+      {
+        "symbol": "B_o,ww",
+        "name": "Maximum methane producing capacity",
+        "unit": "t CH4/t COD",
+        "description": "Default 0.25"
+      }
+    ],
+    "applicability": ["Industrial or municipal wastewater treatment changes reducing methane"],
+    "sourceRef": "UNFCCC CDM ACM0014 v8.0 (version per BioCarbon Standard CDM waste-sector list, Feb 2024; may have been superseded)",
+    "metadataVerified": true
+  },
+  {
+    "slug": "ams-iii-f",
+    "code": "AMS-III.F",
+    "name": "Avoidance of methane emissions through composting",
+    "category": "methane_reduction",
+    "standard": "CDM",
+    "version": "12.0",
+    "description": "Small-scale composting of organic waste that would otherwise decay anaerobically at disposal sites or in manure/wastewater systems.",
+    "formula": "BE_y = BE_CH4,SWDS,y + …;  BE_CH4,SWDS,y from first-order decay per the CDM solid waste disposal site tool;  ER_y = BE_y − PE_y − LE_y",
+    "parameters": [
+      {
+        "symbol": "ER_y",
+        "name": "Emission reductions",
+        "unit": "tCO2e/yr",
+        "description": "Net emission reductions in year y"
+      },
+      {
+        "symbol": "BE_y",
+        "name": "Baseline emissions",
+        "unit": "tCO2e/yr",
+        "description": "Emissions in the baseline scenario"
+      },
+      {
+        "symbol": "PE_y",
+        "name": "Project emissions",
+        "unit": "tCO2e/yr",
+        "description": "Emissions from the project activity"
+      },
+      {
+        "symbol": "LE_y",
+        "name": "Leakage emissions",
+        "unit": "tCO2e/yr",
+        "description": "Emissions displaced outside the project boundary"
+      },
+      {
+        "symbol": "GWP_CH4",
+        "name": "Global warming potential of methane",
+        "unit": "tCO2e/tCH4",
+        "description": "Value prescribed by the programme for the crediting period"
+      },
+      {
+        "symbol": "W_j,x",
+        "name": "Waste quantity of type j",
+        "unit": "t",
+        "description": "Composted waste type j in year x"
+      },
+      {
+        "symbol": "DOC_j",
+        "name": "Degradable organic carbon",
+        "unit": "fraction",
+        "description": "Waste type j"
+      },
+      {
+        "symbol": "k_j",
+        "name": "Decay rate",
+        "unit": "1/yr",
+        "description": "Waste type j"
+      }
+    ],
+    "applicability": [
+      "Composting of biodegradable waste",
+      "Small-scale CDM Type III limit: emission reductions ≤ 60 ktCO2e per year"
+    ],
+    "sourceRef": "UNFCCC CDM AMS-III.F v12.0 (version per BioCarbon Standard CDM waste-sector list, Feb 2024; may have been superseded)",
+    "metadataVerified": true
+  },
+  {
+    "slug": "ams-iii-e",
+    "code": "AMS-III.E",
+    "name": "Avoidance of methane production from decay of biomass through controlled combustion, gasification or mechanical/thermal treatment",
+    "category": "methane_reduction",
+    "standard": "CDM",
+    "version": "17.0",
+    "description": "Small-scale treatment of biomass that would otherwise decay anaerobically, using controlled combustion or gasification.",
+    "formula": "BE_y = BE_CH4,y − …;  BE_CH4,y from first-order decay of the diverted biomass;  ER_y = BE_y − PE_y − LE_y",
+    "parameters": [
+      {
+        "symbol": "ER_y",
+        "name": "Emission reductions",
+        "unit": "tCO2e/yr",
+        "description": "Net emission reductions in year y"
+      },
+      {
+        "symbol": "BE_y",
+        "name": "Baseline emissions",
+        "unit": "tCO2e/yr",
+        "description": "Emissions in the baseline scenario"
+      },
+      {
+        "symbol": "PE_y",
+        "name": "Project emissions",
+        "unit": "tCO2e/yr",
+        "description": "Emissions from the project activity"
+      },
+      {
+        "symbol": "LE_y",
+        "name": "Leakage emissions",
+        "unit": "tCO2e/yr",
+        "description": "Emissions displaced outside the project boundary"
+      },
+      {
+        "symbol": "GWP_CH4",
+        "name": "Global warming potential of methane",
+        "unit": "tCO2e/tCH4",
+        "description": "Value prescribed by the programme for the crediting period"
+      },
+      {
+        "symbol": "W_j,x",
+        "name": "Biomass quantity",
+        "unit": "t",
+        "description": "Biomass type j diverted in year x"
+      },
+      {
+        "symbol": "DOC_j",
+        "name": "Degradable organic carbon",
+        "unit": "fraction",
+        "description": "Biomass type j"
+      },
+      {
+        "symbol": "k_j",
+        "name": "Decay rate",
+        "unit": "1/yr",
+        "description": "Biomass type j"
+      }
+    ],
+    "applicability": [
+      "Biomass that would otherwise decay anaerobically is combusted, gasified or thermally treated",
+      "Small-scale CDM Type III limit: emission reductions ≤ 60 ktCO2e per year"
+    ],
+    "sourceRef": "UNFCCC CDM AMS-III.E v17.0 (version per BioCarbon Standard CDM waste-sector list, Feb 2024; may have been superseded)",
+    "metadataVerified": true
+  },
+  {
+    "slug": "ams-iii-i",
+    "code": "AMS-III.I",
+    "name": "Avoidance of methane production in wastewater treatment through replacement of anaerobic systems by aerobic systems",
+    "category": "methane_reduction",
+    "standard": "CDM",
+    "version": "8.0",
+    "description": "Small-scale replacement of anaerobic wastewater treatment with aerobic systems.",
+    "formula": "BE_y = Q_ww,y × COD_removed,y × MCF_BL × B_o,ww × GWP_CH4;  ER_y = BE_y − PE_y − LE_y",
+    "parameters": [
+      {
+        "symbol": "ER_y",
+        "name": "Emission reductions",
+        "unit": "tCO2e/yr",
+        "description": "Net emission reductions in year y"
+      },
+      {
+        "symbol": "BE_y",
+        "name": "Baseline emissions",
+        "unit": "tCO2e/yr",
+        "description": "Emissions in the baseline scenario"
+      },
+      {
+        "symbol": "PE_y",
+        "name": "Project emissions",
+        "unit": "tCO2e/yr",
+        "description": "Emissions from the project activity"
+      },
+      {
+        "symbol": "GWP_CH4",
+        "name": "Global warming potential of methane",
+        "unit": "tCO2e/tCH4",
+        "description": "Value prescribed by the programme for the crediting period"
+      },
+      {
+        "symbol": "Q_ww,y",
+        "name": "Wastewater volume",
+        "unit": "m3/yr",
+        "description": "Treated wastewater"
+      },
+      {
+        "symbol": "COD_removed,y",
+        "name": "COD removed",
+        "unit": "t COD/m3",
+        "description": "COD removed"
+      },
+      {
+        "symbol": "MCF_BL",
+        "name": "Baseline methane conversion factor",
+        "unit": "fraction",
+        "description": "Anaerobic system baseline"
+      }
+    ],
+    "applicability": [
+      "Replacement of anaerobic wastewater systems by aerobic ones",
+      "Small-scale CDM Type III limit: emission reductions ≤ 60 ktCO2e per year"
+    ],
+    "sourceRef": "UNFCCC CDM AMS-III.I v8.0 (version per BioCarbon Standard CDM waste-sector list, Feb 2024; may have been superseded)",
+    "metadataVerified": true
+  },
+  {
+    "slug": "acm0008",
+    "code": "ACM0008",
+    "name": "Abatement of methane from coal mines",
+    "category": "methane_reduction",
+    "standard": "CDM",
+    "version": null,
+    "description": "Large-scale methodology for capturing and destroying or using methane from coal mines (coal bed, mine and ventilation air methane).",
+    "formula": "ER_y = (MD_PJ,y − MD_BL,y) × GWP_CH4 + displaced electricity/heat emissions − PE_y",
+    "parameters": [
+      {
+        "symbol": "ER_y",
+        "name": "Emission reductions",
+        "unit": "tCO2e/yr",
+        "description": "Net emission reductions in year y"
+      },
+      {
+        "symbol": "MD_PJ,y",
+        "name": "Methane destroyed by project",
+        "unit": "tCH4/yr",
+        "description": "Captured methane destroyed or used"
+      },
+      {
+        "symbol": "MD_BL,y",
+        "name": "Methane destroyed in baseline",
+        "unit": "tCH4/yr",
+        "description": "Baseline destruction"
+      },
+      {
+        "symbol": "GWP_CH4",
+        "name": "Global warming potential of methane",
+        "unit": "tCO2e/tCH4",
+        "description": "Value prescribed by the programme for the crediting period"
+      },
+      {
+        "symbol": "PE_y",
+        "name": "Project emissions",
+        "unit": "tCO2e/yr",
+        "description": "Emissions from the project activity"
+      }
+    ],
+    "applicability": ["Coal mine methane capture with destruction or use"],
+    "sourceRef": "UNFCCC CDM ACM0008 (title per CDM listing; version not pinned)",
+    "metadataVerified": true
+  },
+  {
+    "slug": "am0023",
+    "code": "AM0023",
+    "name": "Leak detection and repair in gas production, processing, transmission, storage and distribution systems and in refinery facilities",
+    "category": "methane_reduction",
+    "standard": "CDM",
+    "version": "4.0",
+    "description": "Reduces fugitive methane by detecting and repairing leaks in gas systems.",
+    "formula": "ER_y = Σ_i (E_leak,BL,i,y − E_leak,PJ,i,y) × GWP_CH4 − PE_y  (E in tCH4)",
+    "parameters": [
+      {
+        "symbol": "ER_y",
+        "name": "Emission reductions",
+        "unit": "tCO2e/yr",
+        "description": "Net emission reductions in year y"
+      },
+      {
+        "symbol": "E_leak,BL,i,y",
+        "name": "Baseline leak emissions",
+        "unit": "tCH4/yr",
+        "description": "Leak source i"
+      },
+      {
+        "symbol": "E_leak,PJ,i,y",
+        "name": "Post-repair leak emissions",
+        "unit": "tCH4/yr",
+        "description": "Leak source i"
+      },
+      {
+        "symbol": "GWP_CH4",
+        "name": "Global warming potential of methane",
+        "unit": "tCO2e/tCH4",
+        "description": "Value prescribed by the programme for the crediting period"
+      },
+      {
+        "symbol": "PE_y",
+        "name": "Project emissions",
+        "unit": "tCO2e/yr",
+        "description": "Emissions from the project activity"
+      }
+    ],
+    "applicability": [
+      "Oil and gas and refinery facilities with leak detection and repair programmes"
+    ],
+    "sourceRef": "UNFCCC CDM AM0023 v4.0",
+    "metadataVerified": true
+  },
+  {
+    "slug": "vm0041",
+    "code": "VM0041",
+    "name": "Methodology for the Reduction of Enteric Methane Emissions from Ruminants through the Use of Feed Ingredients",
+    "category": "methane_reduction",
+    "standard": "Verra VCS",
+    "version": "2.0",
+    "description": "Credits methane reductions when feed ingredients lower enteric fermentation emissions in ruminants.",
+    "formula": "ER_y = (EF_CH4,BL − EF_CH4,PJ) × N_animals × GWP_CH4 × 10^-3 − PE_y − LE_y  (EF in kg CH4/head/yr)",
+    "parameters": [
+      {
+        "symbol": "ER_y",
+        "name": "Emission reductions",
+        "unit": "tCO2e/yr",
+        "description": "Net emission reductions in year y"
+      },
+      {
+        "symbol": "EF_CH4,BL",
+        "name": "Baseline enteric emission factor",
+        "unit": "kg CH4/head/yr",
+        "description": "Baseline diet"
+      },
+      {
+        "symbol": "EF_CH4,PJ",
+        "name": "Project enteric emission factor",
+        "unit": "kg CH4/head/yr",
+        "description": "Diet with feed ingredient"
+      },
+      {
+        "symbol": "N_animals",
+        "name": "Animals fed",
+        "unit": "head",
+        "description": "Animals receiving the ingredient"
+      },
+      {
+        "symbol": "GWP_CH4",
+        "name": "Global warming potential of methane",
+        "unit": "tCO2e/tCH4",
+        "description": "Value prescribed by the programme for the crediting period"
+      },
+      {
+        "symbol": "PE_y",
+        "name": "Project emissions",
+        "unit": "tCO2e/yr",
+        "description": "Emissions from the project activity"
+      },
+      {
+        "symbol": "LE_y",
+        "name": "Leakage emissions",
+        "unit": "tCO2e/yr",
+        "description": "Emissions displaced outside the project boundary"
+      }
+    ],
+    "applicability": ["Ruminant livestock fed methane-reducing feed ingredients"],
+    "sourceRef": "Verra VCS VM0041 v2.0 (Verra Scope 3 RFP page)",
+    "metadataVerified": true
+  },
+  {
+    "slug": "vm0051",
+    "code": "VM0051",
+    "name": "Improved Management in Rice Production Systems",
+    "category": "methane_reduction",
+    "standard": "Verra VCS",
+    "version": "1.1",
+    "description": "Credits CH4 and N2O reductions from improved water and crop management in flooded rice; replaces CDM AMS-III.AU in the VCS Program.",
+    "formula": "ER_y = (E_BSL,y − E_PROJ,y) − GHG_LK,y;  CH4 = Σ (EF_ijk × t_ijk × A_ijk) × GWP_CH4;  E includes CH4, N2O and fossil CO2",
+    "parameters": [
+      {
+        "symbol": "ER_y",
+        "name": "Emission reductions",
+        "unit": "tCO2e/yr",
+        "description": "Net emission reductions in year y"
+      },
+      {
+        "symbol": "EF_ijk",
+        "name": "Daily CH4 emission factor",
+        "unit": "kg CH4/ha/day",
+        "description": "Per stratum and condition"
+      },
+      {
+        "symbol": "t_ijk",
+        "name": "Cultivation period",
+        "unit": "days",
+        "description": "Days of flooded cultivation"
+      },
+      {
+        "symbol": "A_ijk",
+        "name": "Rice area",
+        "unit": "ha",
+        "description": "Stratum area"
+      },
+      {
+        "symbol": "GWP_CH4",
+        "name": "Global warming potential of methane",
+        "unit": "tCO2e/tCH4",
+        "description": "Value prescribed by the programme for the crediting period"
+      },
+      {
+        "symbol": "GWP_N2O",
+        "name": "Global warming potential of nitrous oxide",
+        "unit": "tCO2e/tN2O",
+        "description": "Value prescribed by the programme for the crediting period"
+      }
+    ],
+    "applicability": [
+      "Improved water and crop management in flooded rice systems",
+      "Uses dynamic baseline per VM0051"
+    ],
+    "sourceRef": "Verra VCS VM0051 v1.1 (Verra methodology page)",
+    "metadataVerified": true
+  },
+  {
+    "slug": "gs-rice-methane",
+    "code": "GS Rice Methane",
+    "name": "Methane emission reduction by adjusted water management practice in rice cultivation",
+    "category": "methane_reduction",
+    "standard": "Gold Standard",
+    "version": null,
+    "description": "Gold Standard methodology (adapted from CDM AMS-III.AU v4.0, aligned with IPCC 2019 Ch.5.5) for alternate wetting and drying and related practices.",
+    "formula": "ER_y = BE_CH4,y − PE_CH4,y − LE_y;  CH4 = Σ (EF × t × A) × GWP_CH4",
+    "parameters": [
+      {
+        "symbol": "ER_y",
+        "name": "Emission reductions",
+        "unit": "tCO2e/yr",
+        "description": "Net emission reductions in year y"
+      },
+      {
+        "symbol": "EF",
+        "name": "CH4 emission factor",
+        "unit": "kg CH4/ha/day",
+        "description": "Per water regime"
+      },
+      {
+        "symbol": "t",
+        "name": "Cultivation period",
+        "unit": "days",
+        "description": "Days"
+      },
+      {
+        "symbol": "A",
+        "name": "Rice area",
+        "unit": "ha",
+        "description": "Area"
+      },
+      {
+        "symbol": "GWP_CH4",
+        "name": "Global warming potential of methane",
+        "unit": "tCO2e/tCH4",
+        "description": "Value prescribed by the programme for the crediting period"
+      }
+    ],
+    "applicability": [
+      "Alternate wetting and drying, aerobic rice, direct-seeded rice",
+      "Large, small and micro-scale projects"
+    ],
+    "sourceRef": "Gold Standard rice methodology page (adapted from CDM AMS-III.AU v4.0)",
+    "metadataVerified": true
+  },
+  {
+    "slug": "ipcc-2006-v5-ch3-swds",
+    "code": "IPCC 2006 GL Vol.5 Ch.3",
+    "name": "Solid waste disposal: first-order decay (FOD) methane",
+    "category": "methane_reduction",
+    "standard": "IPCC",
+    "version": null,
+    "description": "IPCC first-order decay model for CH4 from solid waste disposal sites.",
+    "formula": "DDOCm = W × DOC × DOC_f × MCF;  DDOCm_accum,T = DDOCm_d,T + DDOCm_accum,T−1 × e^(−k);  CH4_gen = DDOCm_decomp × F × 16/12;  CH4_emitted = (ΣCH4_gen − R) × (1 − OX)",
+    "parameters": [
+      {
+        "symbol": "W",
+        "name": "Mass of waste deposited",
+        "unit": "Gg",
+        "description": "Waste deposited in year"
+      },
+      {
+        "symbol": "DOC",
+        "name": "Degradable organic carbon",
+        "unit": "fraction",
+        "description": "Per waste type"
+      },
+      {
+        "symbol": "DOC_f",
+        "name": "Fraction of DOC decomposing",
+        "unit": "fraction",
+        "description": "Default 0.5"
+      },
+      {
+        "symbol": "MCF",
+        "name": "Methane correction factor",
+        "unit": "fraction",
+        "description": "Site management category"
+      },
+      {
+        "symbol": "k",
+        "name": "Decay rate",
+        "unit": "1/yr",
+        "description": "Climate and waste type"
+      },
+      {
+        "symbol": "F",
+        "name": "CH4 fraction in landfill gas",
+        "unit": "fraction",
+        "description": "Default 0.5"
+      },
+      {
+        "symbol": "R",
+        "name": "Recovered methane",
+        "unit": "Gg CH4",
+        "description": "Captured"
+      },
+      {
+        "symbol": "OX",
+        "name": "Oxidation factor",
+        "unit": "fraction",
+        "description": "Cover layer"
+      }
+    ],
+    "applicability": [
+      "Solid waste disposal sites (Tier 1 or 2)",
+      "Guidance methodology, not a crediting programme"
+    ],
+    "sourceRef": "IPCC 2006 Guidelines, Vol.5 Ch.3",
+    "metadataVerified": false
+  }
+]

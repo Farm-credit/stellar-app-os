@@ -1,9 +1,16 @@
 import { notFound } from 'next/navigation';
+import Link from 'next/link';
+import { SponsorAchievementGallery } from '@/components/molecules/SponsorBadges/SponsorAchievementGallery';
 import { SponsorBadges } from '@/components/molecules/SponsorBadges/SponsorBadges';
-import { getSponsorProfile } from '@/lib/api/sponsors';
+import { SponsorMilestoneHistory } from '@/components/organisms/SponsorMilestoneHistory';
+import { evaluateSponsorAchievements } from '@/lib/gamification/sponsor-achievements';
+import { getSponsorMilestones } from '@/lib/gamification/sponsor-milestones';
+import { getSponsorProfile } from '@/lib/api/sponsor-profile';
 import { getSponsorPortfolio } from '@/lib/api/sponsor-portfolio';
 import { ImpactStatCard } from '@/components/atoms/ImpactStatCard';
 import { Badge } from '@/components/atoms/Badge';
+import { SocialImpactScore } from '@/components/molecules/SocialImpactScore/SocialImpactScore';
+import { calculateSocialImpactScore } from '@/lib/impact/social-impact-score';
 import type { SponsorTreeEntry } from '@/lib/types/sponsor-portfolio';
 import { BadgeCheck, Folder, Globe2, MapPin, Sprout } from 'lucide-react';
 
@@ -50,6 +57,20 @@ export default async function SponsorProfilePage({
   const verifiedCount = forest.statusBreakdown
     .filter((entry) => entry.status === 'verified' || entry.status === 'completed')
     .reduce((sum, entry) => sum + entry.count, 0);
+
+  const milestones = getSponsorMilestones(plantingHistory);
+  const achievements = evaluateSponsorAchievements(plantingHistory);
+  const sponsorDisplayName = profile.name ?? formatAddress(profile.address);
+
+  const earliestPlantedAt =
+    plantingHistory.length > 0 ? plantingHistory[plantingHistory.length - 1].plantedAt : undefined;
+
+  const socialImpactScore = calculateSocialImpactScore({
+    treesFunded: profile.totalTrees,
+    speciesCount: forest.totalSpecies,
+    regionsCount: forest.totalRegions,
+    firstPlantedAt: earliestPlantedAt,
+  });
 
   return (
     <main className="mx-auto flex max-w-6xl flex-col gap-8 px-4 py-12 sm:px-6 lg:px-8">
@@ -98,12 +119,20 @@ export default async function SponsorProfilePage({
 
       {/* ── Impact overview ───────────────────────────────────────────── */}
       <section aria-labelledby="sponsor-impact-heading">
-        <h2
-          id="sponsor-impact-heading"
-          className="text-2xl font-semibold text-slate-900 dark:text-white"
-        >
-          Impact overview
-        </h2>
+        <div className="flex items-center justify-between gap-4 flex-wrap">
+          <h2
+            id="sponsor-impact-heading"
+            className="text-2xl font-semibold text-slate-900 dark:text-white"
+          >
+            Impact overview
+          </h2>
+          <Link
+            href="/sponsors/compare"
+            className="text-xs font-semibold text-emerald-600 hover:text-emerald-700 hover:underline flex items-center gap-1"
+          >
+            Compare Tree Sponsorship Offerings ↗
+          </Link>
+        </div>
         <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <ImpactStatCard
             label="Trees verified"
@@ -128,7 +157,13 @@ export default async function SponsorProfilePage({
         </div>
       </section>
 
+      <SocialImpactScore initialScore={socialImpactScore} _sponsorAddress={profile.address} />
+
+      <SponsorAchievementGallery achievements={achievements} sponsorAddress={profile.address} />
+
       <SponsorBadges totalTrees={profile.totalTrees} />
+
+      <SponsorMilestoneHistory milestones={milestones} sponsorName={sponsorDisplayName} />
 
       {/* ── Forest statistics ─────────────────────────────────────────── */}
       <section aria-labelledby="forest-stats-heading">
@@ -251,13 +286,24 @@ export default async function SponsorProfilePage({
                   >
                     CO₂ / yr
                   </th>
+                  <th
+                    scope="col"
+                    className="px-4 py-3 font-medium text-slate-500 dark:text-slate-400"
+                  >
+                    Certificate
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-900">
                 {plantingHistory.slice(0, 50).map((tree) => (
                   <tr key={tree.id} className="hover:bg-slate-50 dark:hover:bg-slate-900/50">
                     <td className="px-4 py-3 font-mono text-slate-700 dark:text-slate-300">
-                      {tree.treeId}
+                      <Link
+                        href={`/trees/${tree.id}`}
+                        className="hover:text-stellar-blue hover:underline"
+                      >
+                        {tree.treeId}
+                      </Link>
                     </td>
                     <td className="px-4 py-3 text-slate-700 dark:text-slate-300">{tree.species}</td>
                     <td className="px-4 py-3 text-slate-700 dark:text-slate-300">{tree.region}</td>
@@ -269,6 +315,27 @@ export default async function SponsorProfilePage({
                     </td>
                     <td className="px-4 py-3 text-slate-700 dark:text-slate-300">
                       {tree.co2OffsetKgPerYear.toFixed(1)} kg
+                    </td>
+                    <td className="px-4 py-3 text-slate-700 dark:text-slate-300">
+                      <div className="flex items-center gap-1.5">
+                        <a
+                          href={`/api/certificates/${tree.id}?format=pdf`}
+                          download={`certificate-${tree.treeId}.pdf`}
+                          className="font-medium text-xs text-stellar-blue hover:underline"
+                          title="Download Carbon Offset Certificate (PDF)"
+                        >
+                          PDF
+                        </a>
+                        <span className="text-slate-300 dark:text-slate-600">·</span>
+                        <a
+                          href={`/api/certificates/${tree.id}?format=png`}
+                          download={`certificate-${tree.treeId}.png`}
+                          className="font-medium text-xs text-stellar-blue hover:underline"
+                          title="Download Shareable Certificate Image (PNG)"
+                        >
+                          Image
+                        </a>
+                      </div>
                     </td>
                   </tr>
                 ))}

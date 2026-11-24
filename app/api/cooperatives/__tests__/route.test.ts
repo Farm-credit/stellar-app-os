@@ -35,9 +35,7 @@ async function readJson(response: Response): Promise<any> {
   return response.json();
 }
 
-async function createCooperativeViaApi(
-  overrides: Record<string, unknown> = {}
-): Promise<string> {
+async function createCooperativeViaApi(overrides: Record<string, unknown> = {}): Promise<string> {
   const response = await createPOST(
     request(BASE, 'POST', {
       name: 'Nairobi Grain Alliance',
@@ -102,7 +100,11 @@ describe('GET/POST /api/cooperatives', () => {
 
   it('applies region and memberId query filters', async () => {
     await createCooperativeViaApi({ region: 'Kenya' });
-    await createCooperativeViaApi({ name: 'Ghana Cocoa Union', region: 'Ghana', founderId: 'gh-1' });
+    await createCooperativeViaApi({
+      name: 'Ghana Cocoa Union',
+      region: 'Ghana',
+      founderId: 'gh-1',
+    });
 
     const kenya = await readJson(await listGET(request(`${BASE}?region=Kenya`)));
     expect(kenya.totalCount).toBe(1);
@@ -125,9 +127,7 @@ describe('GET/POST /api/cooperatives', () => {
   });
 
   it('rejects malformed JSON with 400', async () => {
-    const response = await createPOST(
-      new Request(BASE, { method: 'POST', body: 'not-json{' })
-    );
+    const response = await createPOST(new Request(BASE, { method: 'POST', body: 'not-json{' }));
     expect(response.status).toBe(400);
     await expect(readJson(response)).resolves.toMatchObject({
       success: false,
@@ -337,7 +337,9 @@ describe('/api/cooperatives/:id/bargaining', () => {
       ctx(id)
     );
     expect(voted.status).toBe(200);
-    await expect(readJson(voted)).resolves.toMatchObject({ round: { votes: [{ vote: 'accept' }] } });
+    await expect(readJson(voted)).resolves.toMatchObject({
+      round: { votes: [{ vote: 'accept' }] },
+    });
 
     const premature = await bargainingPOST(
       request(`${BASE}/${id}/bargaining`, 'POST', { action: 'finalize', roundId }),
@@ -388,8 +390,14 @@ describe('/api/cooperatives/:id/bargaining', () => {
     });
 
     const emptyPool = await createCooperativeViaApi({ founderId: 'f2', name: 'Empty Pool Coop' });
-    await membersPOST(request(`${BASE}/${emptyPool}/members`, 'POST', { userId: 'm2' }), ctx(emptyPool));
-    await membersPOST(request(`${BASE}/${emptyPool}/members`, 'POST', { userId: 'm3' }), ctx(emptyPool));
+    await membersPOST(
+      request(`${BASE}/${emptyPool}/members`, 'POST', { userId: 'm2' }),
+      ctx(emptyPool)
+    );
+    await membersPOST(
+      request(`${BASE}/${emptyPool}/members`, 'POST', { userId: 'm3' }),
+      ctx(emptyPool)
+    );
     const noPool = await bargainingPOST(
       request(`${BASE}/${emptyPool}/bargaining`, 'POST', { action: 'create_round' }),
       ctx(emptyPool)
@@ -410,7 +418,11 @@ describe('/api/cooperatives/:id/bargaining', () => {
     expect(badAction.status).toBe(400);
 
     const missingRound = await bargainingPOST(
-      request(`${BASE}/${id}/bargaining`, 'POST', { action: 'submit_offer', pricePerTon: 10, quantityTons: 1 }),
+      request(`${BASE}/${id}/bargaining`, 'POST', {
+        action: 'submit_offer',
+        pricePerTon: 10,
+        quantityTons: 1,
+      }),
       ctx(id)
     );
     expect(missingRound.status).toBe(400);
@@ -423,7 +435,10 @@ describe('/api/cooperatives/:id/bargaining', () => {
   });
 
   it('returns 404 for an unknown cooperative on GET', async () => {
-    const response = await bargainingGET(request(`${BASE}/coop-missing/bargaining`), ctx('coop-missing'));
+    const response = await bargainingGET(
+      request(`${BASE}/coop-missing/bargaining`),
+      ctx('coop-missing')
+    );
     expect(response.status).toBe(404);
   });
 });

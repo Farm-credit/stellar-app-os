@@ -79,10 +79,10 @@ describe('SyncStatusBanner', () => {
 
     render(<SyncStatusBanner />);
     expect(screen.getByText('Sync failed')).toBeInTheDocument();
-    
+
     const retryButton = screen.getByRole('button', { name: /Retry/i });
     expect(retryButton).toBeInTheDocument();
-    
+
     fireEvent.click(retryButton);
     expect(mockRetrySync).toHaveBeenCalledTimes(1);
   });
@@ -105,10 +105,10 @@ describe('SyncStatusBanner', () => {
     render(<SyncStatusBanner />);
     expect(screen.getByText('Ready to sync')).toBeInTheDocument();
     expect(screen.getByText('2 photos pending sync')).toBeInTheDocument();
-    
+
     const syncButton = screen.getByRole('button', { name: /Sync Now/i });
     expect(syncButton).toBeInTheDocument();
-    
+
     fireEvent.click(syncButton);
     expect(mockRetrySync).toHaveBeenCalledTimes(1);
   });

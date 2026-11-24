@@ -2,7 +2,7 @@
 
 ## Summary
 
-Implements a comprehensive comparison tool that allows users to select up to 3 carbon credit projects and compare them side-by-side. The feature includes project selection, detailed comparison table, PDF export functionality, and seamless integration with the purchase flow.
+Implements a comprehensive comparison tool that allows users to select up to 3 offset projects and compare them side-by-side on price, co-benefits, methodology, verifier, risk rating, and buyer reviews. The feature includes project selection, detailed comparison table, PDF export functionality, and seamless integration with the purchase flow.
 
 ## Related Issue
 
@@ -12,9 +12,9 @@ Closes #56
 
 ### Core Features
 
-- ✅ Project selection with up to 3 projects limit
+- ✅ Project selection with up to 3 offset projects limit
 - ✅ Visual selection counter with live updates
-- ✅ Comprehensive comparison table with 7 key attributes
+- ✅ Comprehensive comparison table with key attributes including price, co-benefits, methodology, verifier, risk rating, and buyer reviews
 - ✅ Add to Cart functionality from comparison view
 - ✅ PDF export for offline review and sharing
 - ✅ Navigation integration with purchase page
@@ -35,6 +35,10 @@ Closes #56
   - `location`: Geographic location
   - `coBenefits`: Array of environmental/social benefits
   - `verificationStatus`: Certification standard
+  - `methodology`: Methodology used for credit generation
+  - `verifier`: Third-party verifier name
+  - `riskRating`: Risk rating of the project
+  - `buyerReviews`: Array of buyer reviews
 - ✅ Updated mock data with realistic comparison attributes
 
 ### Technical Implementation
@@ -83,12 +87,16 @@ Closes #56
 The comparison table displays:
 
 1. **Price per Ton** - Formatted currency with 2 decimal places
-2. **Type** - Project category badge
-3. **Location** - Geographic information
-4. **Co-Benefits** - Multiple benefit badges
-5. **Verification Status** - Certification standard badge
-6. **Vintage Year** - Year of credit generation
-7. **Available Supply** - Quantity in tons CO₂
+2. **Co-Benefits** - Multiple benefit badges
+3. **Methodology** - Methodology used for credit generation
+4. **Verifier** - Third-party verifier name
+5. **Risk Rating** - Risk rating badge
+6. **Buyer Reviews** - Aggregated buyer review information
+7. **Type** - Project category badge
+8. **Location** - Geographic information
+9. **Verification Status** - Certification standard badge
+10. **Vintage Year** - Year of credit generation
+11. **Available Supply** - Quantity in tons CO₂
 
 ## Screenshots / Recordings
 
@@ -141,7 +149,7 @@ npm run dev
 #### 3. Test Comparison Table
 
 - [ ] Verify table appears after selecting projects
-- [ ] Check all 7 attributes are displayed correctly
+- [ ] Check all attributes including price, co-benefits, methodology, verifier, risk rating, and buyer reviews are displayed correctly
 - [ ] Verify price formatting (USD currency)
 - [ ] Verify badges display properly (Type, Verification, Co-Benefits)
 - [ ] Check table is readable and well-formatted
@@ -264,6 +272,7 @@ All acceptance criteria met:
 
 - ✅ Up to 3 projects selectable
 - ✅ Comparison table accurate
+- ✅ Price, co-benefits, methodology, verifier, risk rating, and buyer reviews compared
 - ✅ Add to Cart works per project
 - ✅ PDF export generates correctly
 - ✅ Responsive layout (scroll on mobile)
@@ -291,6 +300,7 @@ All acceptance criteria met:
 ### Accessibility Highlights
 
 - Semantic HTML structure (main, header, table)
+- Comparison attributes include price, co-benefits, methodology, verifier, risk rating, and buyer reviews
 - ARIA live regions for dynamic updates
 - Descriptive ARIA labels on all interactive elements
 - Keyboard navigation fully supported

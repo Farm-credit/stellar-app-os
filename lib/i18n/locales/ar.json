@@ -1,0 +1,105 @@
+{
+  "nav": {
+    "home": "الرئيسية",
+    "blog": "المدونة",
+    "purchaseCredits": "شراء الأرصدة",
+    "dashboard": "لوحة التحكم",
+    "projects": "المشاريع",
+    "marketplace": "السوق",
+    "transactions": "المعاملات",
+    "cooperatives": "التعاونيات",
+    "offramp": "السحب النقدي"
+  },
+  "header": {
+    "connectWallet": "ربط المحفظة",
+    "openMenu": "فتح قائمة التنقل",
+    "languageSelector": "اختر اللغة"
+  },
+  "mobile": {
+    "closeMenu": "إغلاق قائمة التنقل",
+    "tapToDisconnect": "انقر لقطع الاتصال"
+  },
+  "footer": {
+    "stayUpdated": "ابقَ على اطلاع",
+    "stayUpdatedDesc": "احصل على أحدث التحديثات حول FarmCredit وشبكة Stellar.",
+    "about": "حول",
+    "resources": "الموارد",
+    "legal": "قانوني",
+    "aboutFarmCredit": "حول FarmCredit",
+    "blog": "المدونة",
+    "documentation": "التوثيق",
+    "apiDocs": "توثيق واجهة برمجة التطبيقات",
+    "devGuide": "دليل المطورين",
+    "community": "المجتمع",
+    "terms": "شروط الخدمة",
+    "privacy": "سياسة الخصوصية",
+    "cookies": "سياسة ملفات تعريف الارتباط",
+    "copyright": "© {{year}} FarmCredit. جميع الحقوق محفوظة.",
+    "followTwitter": "تابعنا على Twitter/X",
+    "viewGithub": "عرض مستودع GitHub الخاص بنا",
+    "joinDiscord": "انضم إلى مجتمع Discord الخاص بنا",
+    "twitter": "تويتر",
+    "github": "جيت هب",
+    "discord": "ديسكورد"
+  },
+  "newsletter": {
+    "emailPlaceholder": "أدخل بريدك الإلكتروني",
+    "emailAriaLabel": "عنوان البريد الإلكتروني للاشتراك في النشرة الإخبارية",
+    "subscribe": "اشترك",
+    "emailRequired": "البريد الإلكتروني مطلوب",
+    "invalidEmail": "يرجى إدخال عنوان بريد إلكتروني صالح",
+    "successMessage": "تم اشتراكك بنجاح 🎉",
+    "errorMessage": "حدث خطأ ما. يرجى المحاولة مرة أخرى."
+  },
+  "blog": {
+    "pageTitle": "المدونة",
+    "pageSubtitle": "رؤى حول أرصدة الكربون والزراعة المستدامة وتكنولوجيا المناخ والسياسة الزراعية.",
+    "featuredBlogTitle": "مدونة FarmCredit",
+    "categoryFiltersLabel": "مرشحات الفئات",
+    "readPost": "اقرأ المقال: {{title}}",
+    "loadingAriaLabel": "جارٍ تحميل مقالات المدونة",
+    "errorTitle": "حدث خطأ ما",
+    "errorDesc": "لم نتمكن من تحميل مقالات المدونة الآن. قد تكون هذه مشكلة مؤقتة — يرجى المحاولة مرة أخرى.",
+    "errorReference": "مرجع الخطأ: {{digest}}",
+    "tryAgain": "حاول مرة أخرى",
+    "tryAgainAriaLabel": "حاول تحميل صفحة المدونة مرة أخرى"
+  },
+  "purchase": {
+    "nextButton": "التالي",
+    "nextAriaLabel": "المتابعة إلى ربط المحفظة",
+    "continueToPayment": "المتابعة إلى الدفع",
+    "loading": "جارٍ التحميل...",
+    "compareTitle": "مقارنة مشاريع أرصدة الكربون",
+    "compareSubtitle": "اختر ما يصل إلى 3 مشاريع لمقارنة ميزاتها وأسعارها وفوائدها جنباً إلى جنب"
+  },
+  "home": {
+    "badge": "مدعوم من Stellar",
+    "title": "FarmCredit",
+    "subtitle": "منصة ائتمان زراعي لامركزية مبنية على شبكة Stellar.",
+    "totalCreditIssued": "إجمالي الائتمان الصادر",
+    "activeFarmers": "المزارعون النشطون",
+    "repaymentRate": "معدل السداد",
+    "getStarted": "ابدأ الآن",
+    "getStartedDescription": "اربط محفظتك للوصول إلى خدمات الائتمان الزراعي.",
+    "connectWallet": "ربط المحفظة",
+    "readBlog": "اقرأ مدونتنا",
+    "purchaseCarbon": "شراء أرصدة الكربون",
+    "makeDonation": "تبرع الآن",
+    "showToast": "إظهار الإشعار",
+    "transactions": "المعاملات",
+    "profileSaved": "تم حفظ الملف الشخصي!"
+  },
+  "languages": {
+    "en": "الإنجليزية",
+    "es": "الإسبانية",
+    "fr": "الفرنسية",
+    "de": "الألمانية",
+    "pt": "البرتغالية",
+    "ja": "اليابانية",
+    "zh": "الماندرين",
+    "hi": "الهندية",
+    "ar": "العربية",
+    "sw": "السواحيلية",
+    "ha": "الهوسا"
+  }
+}

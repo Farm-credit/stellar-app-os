@@ -109,4 +109,3 @@ export function __resetRefreshTokenStateForTests(): void {
   usedRefreshTokens.clear();
   revokedTokenFamilies.clear();
 }
-

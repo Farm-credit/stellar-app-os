@@ -28,8 +28,9 @@ import {
   type PortfolioSource,
   type SourcePosition,
 } from '@/lib/api/offset-aggregation';
+import { buyerLedgerSource } from '@/lib/api/buyer-offset-ledger';
 import { mockCarbonProjects } from '@/lib/api/mock/carbonProjects';
-import type { CarbonProject, ProjectType } from '@/lib/types/carbon';
+import type { CarbonProject } from '@/lib/types/carbon';
 
 // ── Request shape & validation ────────────────────────────────────────────────
 
@@ -41,6 +42,18 @@ const STELLAR_PUBLIC_KEY_REGEX = /^G[A-Z2-7]{55}$/;
 
 export const ANALYTICS_INTERVALS = ['month', 'quarter'] as const;
 export type AnalyticsInterval = (typeof ANALYTICS_INTERVALS)[number];
+
+/**
+ * Which position feeds to aggregate.
+ *
+ * `synthetic` (default) keeps the deterministic catalogue-backed feeds that
+ * shipped with this endpoint, so existing callers keep working with no
+ * database. `ledger` reads the buyer's real purchase lots and retirement
+ * receipts from PostgreSQL (`lib/api/buyer-offset-ledger.ts`). `all` combines
+ * both, which will double-count tonnes for a buyer who has both.
+ */
+export const ANALYTICS_DATA_SOURCES = ['synthetic', 'ledger', 'all'] as const;
+export type AnalyticsDataSource = (typeof ANALYTICS_DATA_SOURCES)[number];
 
 const isoDateSchema = z
   .string()
@@ -66,6 +79,8 @@ export const buyerAnalyticsRequestSchema = z.object({
   to: isoDateSchema.optional(),
   /** Trend bucket size; defaults to `month`. */
   interval: z.enum(ANALYTICS_INTERVALS).optional(),
+  /** Which feeds to aggregate; defaults to `synthetic`. */
+  dataSource: z.enum(ANALYTICS_DATA_SOURCES).optional(),
 });
 
 export type BuyerAnalyticsRequest = z.infer<typeof buyerAnalyticsRequestSchema>;
@@ -138,6 +153,9 @@ export function parseBuyerAnalyticsQuery(searchParams: URLSearchParams): BuyerAn
   const interval = searchParams.get('interval');
   if (interval !== null && interval !== '') raw.interval = interval;
 
+  const dataSource = searchParams.get('dataSource');
+  if (dataSource !== null && dataSource !== '') raw.dataSource = dataSource;
+
   return parseBuyerAnalyticsRequest(raw);
 }
 
@@ -155,16 +173,29 @@ export interface BuyerOffsetTotals {
   sequestrationTonnes: number;
   activeTonnes: number;
   retiredTonnes: number;
-  /** Total amount spent, in USD, across priced positions. */
+  /** Total amount spent, in USD, across positions priced in USD. */
   totalCostUsd: number;
-  /** Tonnes that carried a price (denominator for cost per tonne). */
+  /** Tonnes that carried a USD price (denominator for cost per tonne). */
   pricedTonnes: number;
-  /** Effective (weighted-average) cost per tonne across priced positions. */
+  /** Effective (weighted-average) cost per tonne across USD-priced positions. */
   costPerTonUsd: number;
-  /** Lowest and highest unit price observed across priced positions. */
+  /** Lowest and highest unit price observed across USD-priced positions. */
   minCostPerTonUsd: number;
   maxCostPerTonUsd: number;
+  /**
+   * Spend split by currency. The real ledger prices purchases in USDC by
+   * default, so non-USD spend is reported here rather than being folded into
+   * the `*Usd` fields above.
+   */
+  costByCurrency: CurrencySpend[];
   retirementCount: number;
+}
+
+export interface CurrencySpend {
+  currency: string;
+  tonnes: number;
+  cost: number;
+  costPerTon: number;
 }
 
 export interface CoBenefitSummary {
@@ -196,7 +227,11 @@ export interface SupplyChainProject {
   projectName: string;
   platform: OffsetPlatform;
   assetType: OffsetAssetType;
-  projectType: ProjectType | null;
+  /**
+   * Free-form project type: catalogue types are the `ProjectType` union, but a
+   * real ledger can carry any string retired against the position.
+   */
+  projectType: string | null;
   location: string | null;
   vintages: number[];
   coBenefits: string[];
@@ -205,6 +240,8 @@ export interface SupplyChainProject {
   retiredTonnes: number;
   costUsd: number;
   costPerTonUsd: number;
+  /** Spend split by currency; only ever more than one entry for real ledgers. */
+  costByCurrency: CurrencySpend[];
   /** First and most recent purchase timestamps. */
   firstPurchasedAt: string;
   lastPurchasedAt: string;
@@ -223,6 +260,8 @@ export interface BuyerTrendPoint {
   tonnes: number;
   costUsd: number;
   costPerTonUsd: number;
+  /** Spend split by currency for this period. */
+  costByCurrency: CurrencySpend[];
 }
 
 export interface BuyerTrendAnalysis {
@@ -245,6 +284,7 @@ export interface BuyerAnalyticsSummary {
     from: string | null;
     to: string | null;
     interval: AnalyticsInterval;
+    dataSource: AnalyticsDataSource;
   };
   totals: BuyerOffsetTotals;
   coBenefits: CoBenefitSummary[];
@@ -298,6 +338,51 @@ function positionCostUsd(position: SourcePosition): number {
     return position.quantityTonnes * position.pricePerTon;
   }
   return 0;
+}
+
+/** Spend currency of a position; positions without one are treated as USD. */
+function positionCurrency(position: SourcePosition): string {
+  return (position.currency ?? 'USD').toUpperCase();
+}
+
+function isUsdPriced(position: SourcePosition): boolean {
+  return isPriced(position) && positionCurrency(position) === 'USD';
+}
+
+/**
+ * Tonnes of a position already retired. Sources that predate partial
+ * retirement only set `status`, so a `retired` position without an explicit
+ * `retiredTonnes` counts as fully retired.
+ */
+function retiredTonnesOf(position: SourcePosition): number {
+  if (typeof position.retiredTonnes === 'number') {
+    return Math.min(Math.max(position.retiredTonnes, 0), position.quantityTonnes);
+  }
+  return position.status === 'retired' ? position.quantityTonnes : 0;
+}
+
+/** Accumulates cost per currency so non-USD spend is never labelled USD. */
+class CurrencySpendAccumulator {
+  private readonly buckets = new Map<string, { tonnes: number; cost: number }>();
+
+  add(position: SourcePosition, cost: number): void {
+    const currency = positionCurrency(position);
+    const bucket = this.buckets.get(currency) ?? { tonnes: 0, cost: 0 };
+    bucket.tonnes += position.quantityTonnes;
+    bucket.cost += cost;
+    this.buckets.set(currency, bucket);
+  }
+
+  toSortedArray(): CurrencySpend[] {
+    return [...this.buckets.entries()]
+      .map(([currency, bucket]) => ({
+        currency,
+        tonnes: roundTonnes(bucket.tonnes),
+        cost: roundUsd(bucket.cost),
+        costPerTon: bucket.tonnes > 0 ? roundUsd(bucket.cost / bucket.tonnes) : 0,
+      }))
+      .sort((a, b) => b.cost - a.cost || a.currency.localeCompare(b.currency));
+  }
 }
 
 function isPriced(position: SourcePosition): boolean {
@@ -431,6 +516,7 @@ function buildTotals(positions: SourcePosition[]): BuyerOffsetTotals {
   let pricedTonnes = 0;
   let retirementCount = 0;
   const projectIds = new Set<string>();
+  const currencySpend = new CurrencySpendAccumulator();
   let minCostPerTonUsd = Number.POSITIVE_INFINITY;
   let maxCostPerTonUsd = 0;
 
@@ -442,22 +528,27 @@ function buildTotals(positions: SourcePosition[]): BuyerOffsetTotals {
       creditTonnes += position.quantityTonnes;
     }
 
-    if (position.status === 'retired') {
-      retiredTonnes += position.quantityTonnes;
-      retirementCount += 1;
-    } else {
-      activeTonnes += position.quantityTonnes;
-    }
+    // A lot can be partly retired, so split by real retired tonnage rather than
+    // by status; the remainder stays active.
+    const retiredForPosition = retiredTonnesOf(position);
+    retiredTonnes += retiredForPosition;
+    activeTonnes += position.quantityTonnes - retiredForPosition;
+    if (retiredForPosition > 0) retirementCount += 1;
 
     projectIds.add(position.projectId);
 
     if (isPriced(position)) {
-      totalCostUsd += positionCostUsd(position);
-      pricedTonnes += position.quantityTonnes;
-      const price = unitPrice(position);
-      if (price > 0) {
-        minCostPerTonUsd = Math.min(minCostPerTonUsd, price);
-        maxCostPerTonUsd = Math.max(maxCostPerTonUsd, price);
+      const cost = positionCostUsd(position);
+      currencySpend.add(position, cost);
+
+      if (isUsdPriced(position)) {
+        totalCostUsd += cost;
+        pricedTonnes += position.quantityTonnes;
+        const price = unitPrice(position);
+        if (price > 0) {
+          minCostPerTonUsd = Math.min(minCostPerTonUsd, price);
+          maxCostPerTonUsd = Math.max(maxCostPerTonUsd, price);
+        }
       }
     }
   }
@@ -475,18 +566,26 @@ function buildTotals(positions: SourcePosition[]): BuyerOffsetTotals {
     costPerTonUsd: pricedTonnes > 0 ? roundUsd(totalCostUsd / pricedTonnes) : 0,
     minCostPerTonUsd: Number.isFinite(minCostPerTonUsd) ? roundUsd(minCostPerTonUsd) : 0,
     maxCostPerTonUsd: roundUsd(maxCostPerTonUsd),
+    costByCurrency: currencySpend.toSortedArray(),
     retirementCount,
   };
+}
+
+/**
+ * Co-benefits recorded against the position itself win, because a real
+ * retirement receipt snapshots the co-benefits that were actually claimed.
+ * The project catalogue is the fallback for positions that carry none.
+ */
+function coBenefitsOf(position: SourcePosition): string[] {
+  if (position.coBenefits && position.coBenefits.length > 0) return position.coBenefits;
+  return projectFor(position.projectId)?.coBenefits ?? [];
 }
 
 function buildCoBenefits(positions: SourcePosition[], totalTonnes: number): CoBenefitSummary[] {
   const buckets = new Map<string, { projectIds: Set<string>; tonnes: number }>();
 
   for (const position of positions) {
-    const project = projectFor(position.projectId);
-    if (!project) continue;
-
-    for (const benefit of project.coBenefits) {
+    for (const benefit of coBenefitsOf(position)) {
       const bucket = buckets.get(benefit) ?? { projectIds: new Set<string>(), tonnes: 0 };
       bucket.projectIds.add(position.projectId);
       bucket.tonnes += position.quantityTonnes;
@@ -509,12 +608,16 @@ interface ProjectBucket {
   projectName: string;
   platform: OffsetPlatform;
   assetType: OffsetAssetType;
+  projectType: string | null;
+  location: string | null;
+  coBenefits: string[];
   vintages: Set<number>;
   purchaseCount: number;
   tonnes: number;
   retiredTonnes: number;
   costUsd: number;
   pricedTonnes: number;
+  currencySpend: CurrencySpendAccumulator;
   firstPurchasedAt: string;
   lastPurchasedAt: string;
   latestRetirementAt: string | null;
@@ -531,12 +634,16 @@ function buildSupplyChain(positions: SourcePosition[]): SupplyChainProject[] {
       projectName: position.projectName,
       platform: position.platform,
       assetType: position.assetType,
+      projectType: position.projectType ?? null,
+      location: position.location ?? null,
+      coBenefits: [],
       vintages: new Set<number>(),
       purchaseCount: 0,
       tonnes: 0,
       retiredTonnes: 0,
       costUsd: 0,
       pricedTonnes: 0,
+      currencySpend: new CurrencySpendAccumulator(),
       firstPurchasedAt: position.recordedAt,
       lastPurchasedAt: position.recordedAt,
       latestRetirementAt: null,
@@ -546,11 +653,21 @@ function buildSupplyChain(positions: SourcePosition[]): SupplyChainProject[] {
     bucket.purchaseCount += 1;
     bucket.tonnes += position.quantityTonnes;
     if (typeof position.vintage === 'number') bucket.vintages.add(position.vintage);
-    if (position.status === 'retired') bucket.retiredTonnes += position.quantityTonnes;
+    bucket.retiredTonnes += retiredTonnesOf(position);
+
+    if (position.projectType && !bucket.projectType) bucket.projectType = position.projectType;
+    if (position.location && !bucket.location) bucket.location = position.location;
+    for (const benefit of coBenefitsOf(position)) {
+      if (!bucket.coBenefits.includes(benefit)) bucket.coBenefits.push(benefit);
+    }
 
     if (isPriced(position)) {
-      bucket.costUsd += positionCostUsd(position);
-      bucket.pricedTonnes += position.quantityTonnes;
+      const cost = positionCostUsd(position);
+      bucket.currencySpend.add(position, cost);
+      if (isUsdPriced(position)) {
+        bucket.costUsd += cost;
+        bucket.pricedTonnes += position.quantityTonnes;
+      }
     }
 
     bucket.recordedAt.push(position.recordedAt);
@@ -575,18 +692,22 @@ function buildSupplyChain(positions: SourcePosition[]): SupplyChainProject[] {
   return [...buckets.values()]
     .map((bucket) => {
       const project = projectFor(bucket.projectId);
+      const projectType = bucket.projectType ?? project?.type ?? null;
+      const location = bucket.location ?? project?.location ?? null;
+      const coBenefits = [...bucket.coBenefits];
       const vintages = [...bucket.vintages].sort((a, b) => a - b);
       const issuanceAt =
         vintages.length > 0 ? new Date(Date.UTC(vintages[0], 0, 1)).toISOString() : undefined;
 
       const allRetired = bucket.retiredTonnes > 0 && bucket.retiredTonnes >= bucket.tonnes - 1e-9;
+      const hasMetadata = Boolean(projectType || location);
 
       const stages: SupplyChainStage[] = [
         {
           stage: 'origination',
-          status: project ? 'complete' : 'pending',
-          detail: project
-            ? [project.type, project.location].filter(Boolean).join(' · ')
+          status: hasMetadata ? 'complete' : 'pending',
+          detail: hasMetadata
+            ? [projectType, location].filter(Boolean).join(' · ')
             : 'Project metadata unavailable',
         },
         {
@@ -632,15 +753,16 @@ function buildSupplyChain(positions: SourcePosition[]): SupplyChainProject[] {
         projectName: bucket.projectName,
         platform: bucket.platform,
         assetType: bucket.assetType,
-        projectType: project?.type ?? null,
-        location: project?.location ?? null,
+        projectType,
+        location,
         vintages,
-        coBenefits: project?.coBenefits ?? [],
+        coBenefits,
         purchaseCount: bucket.purchaseCount,
         tonnes: roundTonnes(bucket.tonnes),
         retiredTonnes: roundTonnes(bucket.retiredTonnes),
         costUsd: roundUsd(bucket.costUsd),
         costPerTonUsd: bucket.pricedTonnes > 0 ? roundUsd(bucket.costUsd / bucket.pricedTonnes) : 0,
+        costByCurrency: bucket.currencySpend.toSortedArray(),
         firstPurchasedAt: bucket.firstPurchasedAt,
         lastPurchasedAt: bucket.lastPurchasedAt,
         stages,
@@ -679,7 +801,14 @@ function bucketKey(iso: string, interval: AnalyticsInterval): { period: string; 
 function buildTrends(positions: SourcePosition[], interval: AnalyticsInterval): BuyerTrendAnalysis {
   const buckets = new Map<
     string,
-    { label: string; purchaseCount: number; tonnes: number; costUsd: number; pricedTonnes: number }
+    {
+      label: string;
+      purchaseCount: number;
+      tonnes: number;
+      costUsd: number;
+      pricedTonnes: number;
+      currencySpend: CurrencySpendAccumulator;
+    }
   >();
 
   for (const position of positions) {
@@ -690,13 +819,18 @@ function buildTrends(positions: SourcePosition[], interval: AnalyticsInterval): 
       tonnes: 0,
       costUsd: 0,
       pricedTonnes: 0,
+      currencySpend: new CurrencySpendAccumulator(),
     };
 
     bucket.purchaseCount += 1;
     bucket.tonnes += position.quantityTonnes;
     if (isPriced(position)) {
-      bucket.costUsd += positionCostUsd(position);
-      bucket.pricedTonnes += position.quantityTonnes;
+      const cost = positionCostUsd(position);
+      bucket.currencySpend.add(position, cost);
+      if (isUsdPriced(position)) {
+        bucket.costUsd += cost;
+        bucket.pricedTonnes += position.quantityTonnes;
+      }
     }
 
     buckets.set(period, bucket);
@@ -710,6 +844,7 @@ function buildTrends(positions: SourcePosition[], interval: AnalyticsInterval): 
       tonnes: roundTonnes(bucket.tonnes),
       costUsd: roundUsd(bucket.costUsd),
       costPerTonUsd: bucket.pricedTonnes > 0 ? roundUsd(bucket.costUsd / bucket.pricedTonnes) : 0,
+      costByCurrency: bucket.currencySpend.toSortedArray(),
     }))
     .sort((a, b) => a.period.localeCompare(b.period));
 
@@ -740,6 +875,20 @@ export interface AggregateBuyerAnalyticsOptions {
 // ── Public API ────────────────────────────────────────────────────────────────
 
 /**
+ * Resolves the source adapters for a data source selection.
+ *
+ * `synthetic` keeps the hermetic catalogue feeds, `ledger` reads the buyer's
+ * real purchase/retirement rows from PostgreSQL, and `all` combines them.
+ */
+export function resolveBuyerAnalyticsSources(
+  dataSource: AnalyticsDataSource = 'synthetic'
+): PortfolioSource[] {
+  if (dataSource === 'ledger') return [buyerLedgerSource];
+  if (dataSource === 'all') return [...DEFAULT_PORTFOLIO_SOURCES, buyerLedgerSource];
+  return DEFAULT_PORTFOLIO_SOURCES;
+}
+
+/**
  * Loads the buyer's offset positions, filters them, and returns the full
  * analytics view: totals, cost per tonne, co-benefits, per-project supply
  * chain, and trend analysis.
@@ -748,7 +897,8 @@ export async function aggregateBuyerAnalytics(
   request: BuyerAnalyticsRequest,
   options: AggregateBuyerAnalyticsOptions = {}
 ): Promise<BuyerAnalyticsSummary> {
-  const sources = options.sources ?? DEFAULT_PORTFOLIO_SOURCES;
+  const dataSource = request.dataSource ?? 'synthetic';
+  const sources = options.sources ?? resolveBuyerAnalyticsSources(dataSource);
   const asOf = options.now ?? new Date();
   const interval = request.interval ?? 'month';
 
@@ -776,6 +926,7 @@ export async function aggregateBuyerAnalytics(
       from: request.from ?? null,
       to: request.to ?? null,
       interval,
+      dataSource,
     },
     totals,
     coBenefits,

@@ -15,7 +15,8 @@ import {
 // Types
 // ---------------------------------------------------------------------------
 
-export type MilestoneStatus = 'Funded' | 'In Progress' | 'Completed' | 'Disputed' | 'Upcoming';
+export type MilestoneStatus =
+  'Funded' | 'In Progress' | 'Pending Grace' | 'Completed' | 'Disputed' | 'Upcoming';
 
 export interface MilestoneItem {
   id: string;
@@ -25,12 +26,18 @@ export interface MilestoneItem {
   amount: string;
   description: string;
   date?: string;
+  verifierReward?: string;
+  verifierAddress?: string;
+  graceExpiresAt?: string;
+  canFinalize?: boolean;
 }
 
 export interface MilestoneTimelineProps {
   farmerAddress?: string;
   totalAmount?: string;
   initialStatus?: MilestoneStatus;
+  items?: MilestoneItem[];
+  onFinalize?: (milestoneId: string) => Promise<void>;
 }
 
 // ---------------------------------------------------------------------------
@@ -46,20 +53,24 @@ export interface MilestoneTimelineProps {
 export function MilestoneTimeline({
   totalAmount = '$10,000',
   initialStatus = 'In Progress',
+  items: providedItems,
+  onFinalize,
 }: MilestoneTimelineProps): JSX.Element {
   const [isExpanded, setIsExpanded] = useState<boolean>(true);
   const [milestones, setMilestones] = useState<MilestoneItem[]>([]);
   const [progress, setProgress] = useState<number>(0);
+  const [finalizingId, setFinalizingId] = useState<string | null>(null);
+  const [finalizeError, setFinalizeError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Simulated fetching logic mapped against contract states
-    const items: MilestoneItem[] = [
+    const items: MilestoneItem[] = providedItems ?? [
       {
         id: 'm1',
         title: 'Milestone 1: Planting & GPS Proof',
         payoutPercent: 75,
         status: 'Completed',
         amount: '$7,500',
+        verifierReward: '$150.00 (2%)',
         description: 'Verify tree seedlings placement via photographic hashes.',
         date: '2026-02-15',
       },
@@ -69,6 +80,7 @@ export function MilestoneTimeline({
         payoutPercent: 25,
         status: initialStatus,
         amount: '$2,500',
+        verifierReward: '$50.00 (2%)',
         description: 'Validate growth viability (> 70% threshold).',
       },
     ];
@@ -81,7 +93,20 @@ export function MilestoneTimeline({
       .reduce((sum, m) => sum + m.payoutPercent, 0);
 
     setProgress(completedWeight);
-  }, [initialStatus]);
+  }, [initialStatus, providedItems]);
+
+  async function handleFinalizeClick(milestoneId: string) {
+    if (!onFinalize) return;
+    setFinalizingId(milestoneId);
+    setFinalizeError(null);
+    try {
+      await onFinalize(milestoneId);
+    } catch (err) {
+      setFinalizeError(err instanceof Error ? err.message : 'Unable to finalize milestone payout');
+    } finally {
+      setFinalizingId(null);
+    }
+  }
 
   const toggleExpand = () => setIsExpanded(!isExpanded);
 
@@ -102,6 +127,13 @@ export function MilestoneTimeline({
           <span className={`${baseClasses} bg-blue-50 text-blue-700 border border-blue-200`}>
             <PiHourglassBold className="h-4 w-4 animate-spin-slow" />
             In Progress
+          </span>
+        );
+      case 'Pending Grace':
+        return (
+          <span className={`${baseClasses} bg-amber-50 text-amber-700 border border-amber-200`}>
+            <PiHourglassBold className="h-4 w-4" />
+            Pending Grace
           </span>
         );
       case 'Disputed':
@@ -153,6 +185,16 @@ export function MilestoneTimeline({
           )}
         </button>
       </div>
+
+      {finalizeError && (
+        <div
+          role="alert"
+          aria-live="assertive"
+          className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+        >
+          {finalizeError}
+        </div>
+      )}
 
       {isExpanded && (
         <div id="milestone-timeline-body" className="space-y-8 relative">
@@ -207,6 +249,17 @@ export function MilestoneTimeline({
                       Released on {milestone.date}
                     </span>
                   )}
+                  {milestone.verifierReward && (
+                    <span className="text-xs text-slate-500 mt-1 block">
+                      Verifier reward share: {milestone.verifierReward}
+                      {milestone.verifierAddress ? ` → ${milestone.verifierAddress}` : ''}
+                    </span>
+                  )}
+                  {milestone.graceExpiresAt && milestone.status === 'Pending Grace' && (
+                    <span className="text-xs text-amber-600 mt-1 block">
+                      Grace period expires: {milestone.graceExpiresAt}
+                    </span>
+                  )}
                 </div>
 
                 {/* Amount / Badges Block */}
@@ -215,6 +268,16 @@ export function MilestoneTimeline({
                     {milestone.amount} ({milestone.payoutPercent}%)
                   </span>
                   {renderBadge(milestone.status)}
+                  {milestone.status === 'Pending Grace' && onFinalize && (
+                    <button
+                      type="button"
+                      onClick={() => void handleFinalizeClick(milestone.id)}
+                      disabled={finalizingId === milestone.id || milestone.canFinalize === false}
+                      className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {finalizingId === milestone.id ? 'Finalizing…' : 'Finalize Payout'}
+                    </button>
+                  )}
                 </div>
               </div>
             );

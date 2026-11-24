@@ -6,7 +6,9 @@
     "dashboard": "Allon Sarrafa",
     "projects": "Ayyuka",
     "marketplace": "Kasuwa",
-    "transactions": "Ma'amaloli"
+    "transactions": "Ma'amaloli",
+    "cooperatives": "Haɗin gwiwa",
+    "offramp": "Fitar da Kuɗi"
   },
   "header": {
     "connectWallet": "Haɗa Jakar Kuɗi",
@@ -91,7 +93,13 @@
     "en": "Turanci",
     "es": "Sifeniyanci",
     "fr": "Faransanci",
+    "de": "Jamusanci",
     "pt": "Fotigalanci",
+    "ja": "Japananci",
+    "zh": "Sinanci",
+    "hi": "Hindi",
+    "ar": "Larabci",
+    "sw": "Swahili",
     "ha": "Hausa"
   }
 }

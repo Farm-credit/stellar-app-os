@@ -3,7 +3,7 @@
 import { type JSX, useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Menu, Moon, Sun } from 'lucide-react';
+import { Menu } from 'lucide-react';
 import { Button } from '@/components/atoms/Button';
 import { Text } from '@/components/atoms/Text';
 import { MobileDrawer } from '@/components/organisms/Header/MobileDrawer';
@@ -13,7 +13,6 @@ import { NotificationBell } from '@/components/organisms/NotificationCenter/Noti
 import { useWalletModal } from '@/components/organisms/WalletModal/useWalletModal';
 import { useWalletContext } from '@/contexts/WalletContext';
 import { useAppTranslation } from '@/hooks/useTranslation';
-import { useTheme } from '@/hooks/useTheme';
 import { CompactThemeSwitcher } from '@/components/molecules/ThemeSwitcher/ThemeSwitcher';
 import { cn } from '@/lib/utils';
 
@@ -22,14 +21,15 @@ const NAV_LINKS = [
   { href: '/projects', label: 'nav.projects' },
   { href: '/marketplace', label: 'nav.marketplace' },
   { href: '/cooperatives', label: 'nav.cooperatives' },
+  { href: '/community/forum', label: 'nav.community' },
   { href: '/transactions', label: 'nav.transactions' },
+  { href: '/offramp', label: 'nav.offramp' },
   { href: '/dashboard', label: 'nav.dashboard' },
 ] as const;
 
 export function Header(): JSX.Element {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
-  const { resolvedTheme, toggle: toggleTheme } = useTheme();
 
   const pathname = usePathname();
   const { wallet, disconnect } = useWalletContext();
@@ -108,18 +108,6 @@ export function Header(): JSX.Element {
           {/* ── Desktop Right Controls ── */}
           <div className="hidden md:flex items-center gap-2">
             <CompactThemeSwitcher />
-            <button
-              type="button"
-              onClick={toggleTheme}
-              aria-label={`Switch to ${resolvedTheme === 'dark' ? 'light' : 'dark'} mode`}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-full text-white/70 transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stellar-blue"
-            >
-              {resolvedTheme === 'dark' ? (
-                <Sun className="h-4 w-4" aria-hidden="true" />
-              ) : (
-                <Moon className="h-4 w-4" aria-hidden="true" />
-              )}
-            </button>
 
             <LanguageSelector variant="desktop" />
 
@@ -173,19 +161,6 @@ export function Header(): JSX.Element {
           <div className="flex md:hidden items-center gap-2">
             <CompactThemeSwitcher />
             <NotificationBell />
-
-            <button
-              type="button"
-              onClick={toggleTheme}
-              aria-label={`Switch to ${resolvedTheme === 'dark' ? 'light' : 'dark'} mode`}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-full text-white/70 transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stellar-blue"
-            >
-              {resolvedTheme === 'dark' ? (
-                <Sun className="h-4 w-4" aria-hidden="true" />
-              ) : (
-                <Moon className="h-4 w-4" aria-hidden="true" />
-              )}
-            </button>
 
             <button
               type="button"

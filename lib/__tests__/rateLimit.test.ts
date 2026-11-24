@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { checkRateLimit, checkSubmitAnonRateLimit, blockIp } from '../rateLimit';
-import { redis } from '../redis';
+import '../redis';
 
 // Mock the Redis module so it returns a mocked client if needed, or null to test fallback.
 // Since rateLimit imports redis, we can mock it here if we want to test both paths.
@@ -30,7 +30,7 @@ describe('rateLimit', () => {
       await checkRateLimit(ip, 2);
       await checkRateLimit(ip, 2);
       const result = await checkRateLimit(ip, 2);
-      
+
       expect(result.allowed).toBe(false);
       if (result.allowed === false) {
         expect(result.reason).toBe('rate_limit');
@@ -65,7 +65,7 @@ describe('rateLimit', () => {
   describe('checkSubmitAnonRateLimit (in-memory)', () => {
     it('allows up to 5 requests per hour', async () => {
       const ip = '192.168.2.1';
-      
+
       for (let i = 0; i < 5; i++) {
         const result = await checkSubmitAnonRateLimit(ip);
         expect(result.allowed).toBe(true);

@@ -59,9 +59,12 @@ export function calculateSoilHealthScore(input: SoilMeasurementInput): SoilHealt
   }
 
   // Component scoring
-  const socScore = Math.min(40, Math.round(((Math.min(socGainBps, 100)) * 40) / 100));
+  const socScore = Math.min(40, Math.round((Math.min(socGainBps, 100) * 40) / 100));
   const practiceScore = Math.min(35, Math.round((Math.min(input.practiceScore, 100) * 35) / 100));
-  const microbialScore = Math.min(25, Math.round((Math.min(input.microbialBiomassPpm, 500) * 25) / 500));
+  const microbialScore = Math.min(
+    25,
+    Math.round((Math.min(input.microbialBiomassPpm, 500) * 25) / 500)
+  );
   const compositeScore = Math.min(100, socScore + practiceScore + microbialScore);
 
   // Agronomic soil mass calculation per acre (30cm layer)
@@ -75,7 +78,8 @@ export function calculateSoilHealthScore(input: SoilMeasurementInput): SoilHealt
 
   // CO2 equivalent = carbon * 44 / 12 * 1000 grams
   const sequestrationAboveBaselineGrams = Math.round((carbonSequesteredKg * 44 * 1000) / 12);
-  const sequestrationAboveBaselineTonnes = Math.round((sequestrationAboveBaselineGrams / 1_000_000) * 100) / 100;
+  const sequestrationAboveBaselineTonnes =
+    Math.round((sequestrationAboveBaselineGrams / 1_000_000) * 100) / 100;
 
   // Bonus incentive credits scaled by composite score
   const bonusCreditsGrams = Math.round((sequestrationAboveBaselineGrams * compositeScore) / 100);

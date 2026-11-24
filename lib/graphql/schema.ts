@@ -18,6 +18,7 @@ export const typeDefs = `#graphql
     longitude: Float!
     co2OffsetKgPerYear: Float!
     projectName: String!
+    sponsorName: String
   }
 
   type Planter {

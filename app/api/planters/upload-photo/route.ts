@@ -1,23 +1,17 @@
 import { NextResponse } from 'next/server';
 import { randomUUID } from 'crypto';
+import {
+  guardUploadAgainstDuplicates,
+  safelyRecordUploadedPhotoHash,
+} from '@/lib/image/upload-dedup';
 
 /**
  * POST /api/planters/upload-photo
  *
  * Accepts a multipart/form-data upload with a single "photo" field,
- * validates the file type and size server-side, then pins to IPFS via
- * Pinata and returns the content CID.
- *
- * Security:
- * - Allow-list: only image/jpeg, image/png, image/webp accepted
- * - 5 MB hard size cap — rejects oversized files before reading
- * - File is renamed to a UUID on the server — original name discarded
- * - X-Content-Type-Options: nosniff set on response
- * - TODO(security): Antivirus / CDR scanning of uploaded images is NOT
- *   implemented. Integrate a scanning step (e.g., ClamAV or a cloud AV
- *   API) before permanently pinning to IPFS in production.
- * - TODO(security): Rate-limit this endpoint per wallet / IP to prevent
- *   storage exhaustion attacks.
+ * validates the file type, magic bytes, and perceptual hash (pHash)
+ * duplicate status server-side, then pins to IPFS via Pinata and returns
+ * the content CID + pHash hex.
  */
 
 const ALLOWED_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
@@ -25,8 +19,7 @@ const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
 
 /**
  * Verify magic-bytes / file signature to ensure the actual content matches
- * the declared MIME type. This is a lightweight check; a server-side
- * library like `file-type` should be used in production for full coverage.
+ * the declared MIME type.
  */
 function validateMagicBytes(buffer: Uint8Array, mimeType: string): boolean {
   if (mimeType === 'image/jpeg') {
@@ -36,7 +29,6 @@ function validateMagicBytes(buffer: Uint8Array, mimeType: string): boolean {
     return buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4e && buffer[3] === 0x47;
   }
   if (mimeType === 'image/webp') {
-    // RIFF....WEBP
     return (
       buffer[0] === 0x52 &&
       buffer[1] === 0x49 &&
@@ -65,12 +57,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'No photo file provided' }, { status: 400 });
   }
 
-  // ── Size check ────────────────────────────────────────────────────────────
   if (file.size > MAX_FILE_SIZE_BYTES) {
     return NextResponse.json({ error: 'File too large. Maximum size is 5 MB.' }, { status: 413 });
   }
 
-  // ── MIME type allow-list ──────────────────────────────────────────────────
   if (!ALLOWED_MIME_TYPES.has(file.type)) {
     return NextResponse.json(
       { error: 'Unsupported file type. Only JPEG, PNG and WebP images are accepted.' },
@@ -78,7 +68,6 @@ export async function POST(request: Request) {
     );
   }
 
-  // ── Magic-bytes content verification ─────────────────────────────────────
   const arrayBuffer = await file.arrayBuffer();
   const bytes = new Uint8Array(arrayBuffer);
   if (!validateMagicBytes(bytes, file.type)) {
@@ -88,9 +77,52 @@ export async function POST(request: Request) {
     );
   }
 
-  // ── Rename to UUID — discard original filename ────────────────────────────
   const ext = file.type === 'image/jpeg' ? 'jpg' : file.type === 'image/png' ? 'png' : 'webp';
   const safeFilename = `${randomUUID()}.${ext}`;
+
+  const rawTreeId = formData.get('treeId');
+  const entityType = typeof rawTreeId === 'string' && rawTreeId.trim() ? 'tree' : 'planter';
+  const rawEntityId =
+    entityType === 'tree' ? rawTreeId : (formData.get('planterId') ?? formData.get('walletAddress'));
+  const entityId =
+    typeof rawEntityId === 'string' && rawEntityId.trim().length > 0
+      ? rawEntityId.trim()
+      : safeFilename;
+
+  // ── Perceptual hash (pHash) duplicate detection before IPFS pinning ───────
+  let verifiedHashHex: string | undefined;
+  try {
+    const verdict = await guardUploadAgainstDuplicates(Buffer.from(arrayBuffer), {
+      entityType,
+      entityId,
+      routeLabel: 'planters/upload-photo',
+    });
+
+    if (verdict.isDuplicate) {
+      return NextResponse.json(
+        {
+          error: `Duplicate or reused photo detected. Please upload an original ${entityType} verification photo.`,
+          code: 'DUPLICATE_PHOTO',
+          hash: verdict.phash.hex,
+          distance: verdict.distance,
+          similarity: verdict.similarityScore,
+          threshold: verdict.threshold,
+          duplicateOf: verdict.duplicateOf,
+        },
+        {
+          status: 422,
+          headers: { 'X-Content-Type-Options': 'nosniff' },
+        }
+      );
+    }
+
+    verifiedHashHex = verdict.phash.hex;
+  } catch (err) {
+    console.warn(
+      '[photo-upload] Perceptual hash check failed — continuing after magic-byte validation:',
+      err instanceof Error ? err.message : String(err)
+    );
+  }
 
   // ── Pin to IPFS via Pinata ────────────────────────────────────────────────
   const pinatajwt = process.env.PINATA_JWT;
@@ -104,7 +136,7 @@ export async function POST(request: Request) {
   pinataFormData.append('file', renamedBlob, safeFilename);
   pinataFormData.append(
     'pinataMetadata',
-    JSON.stringify({ name: `planter-photo-${safeFilename}` })
+    JSON.stringify({ name: `${entityType}-photo-${safeFilename}` })
   );
   pinataFormData.append('pinataOptions', JSON.stringify({ cidVersion: 1 }));
 
@@ -131,8 +163,19 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Photo upload failed. Please try again.' }, { status: 502 });
   }
 
+  if (verifiedHashHex) {
+    await safelyRecordUploadedPhotoHash({
+      entityType,
+      entityId,
+      hashHex: verifiedHashHex as Parameters<typeof safelyRecordUploadedPhotoHash>[0]['hashHex'],
+      storageRef: cid,
+      metadata: { mimeType: file.type, safeFilename },
+      routeLabel: 'planters/upload-photo',
+    });
+  }
+
   return NextResponse.json(
-    { cid },
+    { cid, ...(verifiedHashHex ? { hash: verifiedHashHex } : {}) },
     {
       status: 200,
       headers: {

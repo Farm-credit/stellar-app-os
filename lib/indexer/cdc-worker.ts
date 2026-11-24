@@ -16,7 +16,7 @@
  * Run: pnpm indexer:cdc
  */
 
-import { SorobanRpc, xdr } from '@stellar/stellar-sdk';
+import { rpc as SorobanRpc, xdr } from '@stellar/stellar-sdk';
 import { getPool } from '@/lib/db/client';
 import {
   upsertContractEvent,
@@ -32,10 +32,13 @@ import logger from '@/lib/logger';
 const NETWORK = (process.env.STELLAR_NETWORK ?? 'testnet') as NetworkType;
 const SOROBAN_RPC_URL = process.env.SOROBAN_RPC_URL ?? 'https://soroban-testnet.stellar.org';
 
-const CONTRACT_IDS = (process.env.TREE_CONTRACT_IDS ?? '')
-  .split(',')
-  .map((id) => id.trim())
-  .filter(Boolean);
+const CONTRACT_IDS = [
+  ...(process.env.TREE_CONTRACT_IDS ?? '')
+    .split(',')
+    .map((id) => id.trim())
+    .filter(Boolean),
+  ...(process.env.VERIFIER_STAKING_CONTRACT_ID ? [process.env.VERIFIER_STAKING_CONTRACT_ID] : []),
+].filter((id, index, ids) => ids.indexOf(id) === index);
 
 const POLL_INTERVAL_MS = Number(process.env.CDC_POLL_INTERVAL_MS ?? '5000');
 const MAX_EVENTS_PER_POLL = Number(process.env.CDC_MAX_EVENTS_PER_POLL ?? '100');

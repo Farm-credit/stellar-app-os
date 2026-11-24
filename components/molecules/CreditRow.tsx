@@ -1,12 +1,12 @@
 import { Button } from '@/components/atoms/Button';
 import { CreditStatusBadge } from '@/components/atoms/CreditStatusBadge';
 import { Text } from '@/components/atoms/Text';
-import type { CreditHolding } from '@/lib/types/credits';
+import type { OwnedCredit } from '@/lib/types/credits';
 
 interface CreditRowProps {
-  credit: CreditHolding;
-  onTrade: (credit: CreditHolding) => void;
-  onRetire: (credit: CreditHolding) => void;
+  credit: OwnedCredit;
+  onTrade: (credit: OwnedCredit) => void;
+  onRetire: (credit: OwnedCredit) => void;
 }
 
 function formatRetirementDate(value: string): string {
@@ -25,22 +25,28 @@ export function CreditRow({ credit, onTrade, onRetire }: CreditRowProps) {
           </Text>
           <CreditStatusBadge status={credit.status} />
         </div>
-        {credit.retirementDate && (
-          <Text variant="small" as="p" className="text-muted-foreground">
-            Retired on {formatRetirementDate(credit.retirementDate)}
-          </Text>
-        )}
-        {credit.coBenefits && credit.coBenefits.length > 0 && (
-          <ul className="flex flex-wrap gap-1 pt-1" aria-label="Co-benefits">
-            {credit.coBenefits.map((benefit) => (
-              <li
-                key={benefit}
-                className="rounded-full bg-stellar-green/10 px-2 py-0.5 text-xs text-stellar-green"
-              >
-                {benefit}
-              </li>
-            ))}
-          </ul>
+        <Text variant="small" as="p" className="text-muted-foreground">
+          Retirement date:{' '}
+          <span className="font-medium text-foreground">
+            {credit.retirementDate ? formatRetirementDate(credit.retirementDate) : 'Not retired'}
+          </span>
+        </Text>
+        {credit.coBenefits.length > 0 && (
+          <div className="pt-1">
+            <Text variant="small" as="span" className="mr-2 text-muted-foreground">
+              Co-benefits:
+            </Text>
+            <ul className="inline-flex flex-wrap gap-1 align-middle" aria-label="Co-benefits">
+              {credit.coBenefits.map((benefit) => (
+                <li
+                  key={benefit}
+                  className="rounded-full bg-stellar-green/10 px-2 py-0.5 text-xs text-stellar-green"
+                >
+                  {benefit}
+                </li>
+              ))}
+            </ul>
+          </div>
         )}
       </div>
 

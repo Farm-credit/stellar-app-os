@@ -1,18 +1,16 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import {
-  MOCK_TREE_NFT_LISTINGS,
-  calculateRoyaltyBreakdown,
-  getTreeNFTListings,
-} from '@/lib/nft/nft-marketplace';
+import { calculateRoyaltyBreakdown, getTreeNFTListings } from '@/lib/nft/nft-marketplace';
 import type { TreeNFTListing, NFTRarity, RoyaltyBreakdown } from '@/lib/types/nft-marketplace';
 
 export function NFTMarketplace() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedRarity, setSelectedRarity] = useState<NFTRarity | 'All'>('All');
-  const [selectedSort, setSelectedSort] = useState<'date-newest' | 'price-asc' | 'price-desc' | 'rarity'>('date-newest');
-  
+  const [selectedSort, setSelectedSort] = useState<
+    'date-newest' | 'price-asc' | 'price-desc' | 'rarity'
+  >('date-newest');
+
   const [activeModalListing, setActiveModalListing] = useState<TreeNFTListing | null>(null);
   const [modalMode, setModalMode] = useState<'buy' | 'offer' | null>(null);
   const [offerPriceInput, setOfferPriceInput] = useState<number>(0);
@@ -86,7 +84,8 @@ export function NFTMarketplace() {
               Tree Sponsorship NFT Marketplace
             </h1>
             <p className="mt-2 text-emerald-100 text-sm md:text-base">
-              Trade verified tree sponsorship NFTs. Built-in platform royalties (2.5%) and planter royalties (5.0%) fund continuous ecosystem maintenance.
+              Trade verified tree sponsorship NFTs. Built-in platform royalties (2.5%) and planter
+              royalties (5.0%) fund continuous ecosystem maintenance.
             </p>
           </div>
           <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/15 min-w-[200px] text-center">
@@ -160,10 +159,10 @@ export function NFTMarketplace() {
                     listing.nft.rarity === 'Legendary'
                       ? 'bg-amber-500'
                       : listing.nft.rarity === 'Epic'
-                      ? 'bg-purple-600'
-                      : listing.nft.rarity === 'Rare'
-                      ? 'bg-blue-500'
-                      : 'bg-slate-600'
+                        ? 'bg-purple-600'
+                        : listing.nft.rarity === 'Rare'
+                          ? 'bg-blue-500'
+                          : 'bg-slate-600'
                   }`}
                 >
                   {listing.nft.rarity}
@@ -188,7 +187,9 @@ export function NFTMarketplace() {
 
               <div className="pt-3 border-t border-border flex items-center justify-between">
                 <div>
-                  <div className="text-[11px] text-muted-foreground uppercase font-medium">Price</div>
+                  <div className="text-[11px] text-muted-foreground uppercase font-medium">
+                    Price
+                  </div>
                   <div className="text-lg font-extrabold text-foreground flex items-baseline gap-1">
                     <span>{listing.priceXlm} XLM</span>
                     <span className="text-xs text-muted-foreground font-normal">
@@ -272,22 +273,34 @@ export function NFTMarketplace() {
 
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Listing Price:</span>
-                  <span className="font-semibold">{activeRoyaltyBreakdown.listingPriceXlm} XLM (${activeRoyaltyBreakdown.listingPriceUsd})</span>
+                  <span className="font-semibold">
+                    {activeRoyaltyBreakdown.listingPriceXlm} XLM ($
+                    {activeRoyaltyBreakdown.listingPriceUsd})
+                  </span>
                 </div>
 
                 <div className="flex justify-between text-sm text-amber-600">
                   <span>Platform Fee (2.5%):</span>
-                  <span>- {activeRoyaltyBreakdown.platformFeeXlm} XLM (${activeRoyaltyBreakdown.platformFeeUsd})</span>
+                  <span>
+                    - {activeRoyaltyBreakdown.platformFeeXlm} XLM ($
+                    {activeRoyaltyBreakdown.platformFeeUsd})
+                  </span>
                 </div>
 
                 <div className="flex justify-between text-sm text-emerald-600">
                   <span>Planter Project Royalty (5.0%):</span>
-                  <span>- {activeRoyaltyBreakdown.creatorRoyaltyXlm} XLM (${activeRoyaltyBreakdown.creatorRoyaltyUsd})</span>
+                  <span>
+                    - {activeRoyaltyBreakdown.creatorRoyaltyXlm} XLM ($
+                    {activeRoyaltyBreakdown.creatorRoyaltyUsd})
+                  </span>
                 </div>
 
                 <div className="pt-2 border-t border-border flex justify-between text-base font-bold">
                   <span>Seller Net Proceeds:</span>
-                  <span className="text-foreground">{activeRoyaltyBreakdown.sellerNetProceedsXlm} XLM (${activeRoyaltyBreakdown.sellerNetProceedsUsd})</span>
+                  <span className="text-foreground">
+                    {activeRoyaltyBreakdown.sellerNetProceedsXlm} XLM ($
+                    {activeRoyaltyBreakdown.sellerNetProceedsUsd})
+                  </span>
                 </div>
               </div>
             )}
@@ -295,7 +308,9 @@ export function NFTMarketplace() {
             {/* Offer Price Input */}
             {modalMode === 'offer' && (
               <div className="space-y-2">
-                <label className="text-xs font-semibold text-foreground">Your Offer Price (XLM)</label>
+                <label className="text-xs font-semibold text-foreground">
+                  Your Offer Price (XLM)
+                </label>
                 <input
                   type="number"
                   value={offerPriceInput}

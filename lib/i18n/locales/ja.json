@@ -1,0 +1,105 @@
+{
+  "nav": {
+    "home": "ホーム",
+    "blog": "ブログ",
+    "purchaseCredits": "クレジットを購入",
+    "dashboard": "ダッシュボード",
+    "projects": "プロジェクト",
+    "marketplace": "マーケットプレイス",
+    "transactions": "取引履歴",
+    "cooperatives": "協同組合",
+    "offramp": "オフランプ"
+  },
+  "header": {
+    "connectWallet": "ウォレットを接続",
+    "openMenu": "ナビゲーションメニューを開く",
+    "languageSelector": "言語を選択"
+  },
+  "mobile": {
+    "closeMenu": "ナビゲーションメニューを閉じる",
+    "tapToDisconnect": "タップして切断"
+  },
+  "footer": {
+    "stayUpdated": "最新情報を受け取る",
+    "stayUpdatedDesc": "FarmCreditとStellarネットワークの最新ニュースをお届けします。",
+    "about": "概要",
+    "resources": "リソース",
+    "legal": "法的情報",
+    "aboutFarmCredit": "FarmCreditについて",
+    "blog": "ブログ",
+    "documentation": "ドキュメント",
+    "apiDocs": "APIドキュメント",
+    "devGuide": "開発者ガイド",
+    "community": "コミュニティ",
+    "terms": "利用規約",
+    "privacy": "プライバシーポリシー",
+    "cookies": "Cookieポリシー",
+    "copyright": "© {{year}} FarmCredit. 無断転載を禁じます。",
+    "followTwitter": "Twitter/Xでフォローする",
+    "viewGithub": "GitHubリポジトリを見る",
+    "joinDiscord": "Discordコミュニティに参加する",
+    "twitter": "Twitter",
+    "github": "GitHub",
+    "discord": "Discord"
+  },
+  "newsletter": {
+    "emailPlaceholder": "メールアドレスを入力",
+    "emailAriaLabel": "ニュースレター購読用メールアドレス",
+    "subscribe": "購読する",
+    "emailRequired": "メールアドレスは必須です",
+    "invalidEmail": "有効なメールアドレスを入力してください",
+    "successMessage": "購読が完了しました 🎉",
+    "errorMessage": "エラーが発生しました。もう一度お試しください。"
+  },
+  "blog": {
+    "pageTitle": "ブログ",
+    "pageSubtitle": "カーボンクレジット、持続可能な農業、気候テクノロジー、農業政策に関する洞察。",
+    "featuredBlogTitle": "FarmCredit ブログ",
+    "categoryFiltersLabel": "カテゴリフィルター",
+    "readPost": "ブログ記事を読む: {{title}}",
+    "loadingAriaLabel": "ブログ記事を読み込み中",
+    "errorTitle": "エラーが発生しました",
+    "errorDesc": "現在ブログ記事を読み込めませんでした。一時的な問題の可能性があります。もう一度お試しください。",
+    "errorReference": "エラー参照番号: {{digest}}",
+    "tryAgain": "再試行",
+    "tryAgainAriaLabel": "ブログページを再度読み込む"
+  },
+  "purchase": {
+    "nextButton": "次へ",
+    "nextAriaLabel": "ウォレット接続へ進む",
+    "continueToPayment": "支払いへ進む",
+    "loading": "読み込み中...",
+    "compareTitle": "カーボンクレジットプロジェクトを比較",
+    "compareSubtitle": "最大3つのプロジェクトを選択して、機能、価格、メリットを並べて比較します"
+  },
+  "home": {
+    "badge": "Stellarで稼働",
+    "title": "FarmCredit",
+    "subtitle": "Stellarネットワーク上に構築された分散型農業クレジットプラットフォーム。",
+    "totalCreditIssued": "総発行クレジット",
+    "activeFarmers": "参加農家数",
+    "repaymentRate": "返済率",
+    "getStarted": "はじめる",
+    "getStartedDescription": "ウォレットを接続して農業クレジットサービスにアクセスしてください。",
+    "connectWallet": "ウォレットを接続",
+    "readBlog": "ブログを読む",
+    "purchaseCarbon": "カーボンクレジットを購入",
+    "makeDonation": "寄付をする",
+    "showToast": "通知を表示",
+    "transactions": "取引履歴",
+    "profileSaved": "プロフィールを保存しました！"
+  },
+  "languages": {
+    "en": "英語",
+    "es": "スペイン語",
+    "fr": "フランス語",
+    "de": "ドイツ語",
+    "pt": "ポルトガル語",
+    "ja": "日本語",
+    "zh": "中国語（北京語）",
+    "hi": "ヒンディー語",
+    "ar": "アラビア語",
+    "sw": "スワヒリ語",
+    "ha": "ハウサ語"
+  }
+}

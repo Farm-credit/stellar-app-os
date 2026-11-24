@@ -97,14 +97,13 @@ export async function GET(request: NextRequest) {
   };
   try {
     const generator = getComplianceReportGenerator();
-    const response = await generator.generateReport({
+    const response = await generator.generateReport(
       reportType,
-      format: format === 'both' ? 'json' : format,
+      format === 'both' ? 'json' : format,
       registry,
-      startDate,
-      endDate,
-      filters,
-    });
+      { startDate, endDate },
+      filters
+    );
     const contentType =
       format === 'csv' ? 'text/csv' : format === 'json' ? 'application/json' : 'application/zip';
     const headers: Record<string, string> = {

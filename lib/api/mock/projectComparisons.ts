@@ -130,7 +130,8 @@ export const mockProjectComparisonMetadata: Record<string, ProjectComparisonMeta
         buyerName: 'Ana Ferreira',
         rating: 3,
         title: 'Good co-benefits, limited supply',
-        content: 'Impact reporting is solid but availability is intermittent, which complicates planning.',
+        content:
+          'Impact reporting is solid but availability is intermittent, which complicates planning.',
         verified: true,
         createdAt: '2024-09-30T08:15:00Z',
       },
@@ -169,7 +170,8 @@ export const mockProjectComparisonMetadata: Record<string, ProjectComparisonMeta
         buyerCompany: 'Baltic Freight AS',
         rating: 4,
         title: 'Measurable coastal protection',
-        content: 'Survival-rate surveys are published openly; a small share of plots underperformed.',
+        content:
+          'Survival-rate surveys are published openly; a small share of plots underperformed.',
         verified: true,
         createdAt: '2024-06-18T13:00:00Z',
       },

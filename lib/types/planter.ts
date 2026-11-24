@@ -123,3 +123,31 @@ export const REVIEW_CATEGORY_LABELS: Record<ReviewCategory, string> = {
   responsiveness: 'Responsiveness',
   treeHealth: 'Tree Health Outcomes',
 };
+
+// ── Planter Referrals ─────────────────────────────────────────────────────
+
+/** Reward paid to the referrer, in XLM, per referred planter's first completed job */
+export const PLANTER_REFERRAL_REWARD_XLM = 2;
+
+/** Lifecycle state of a planter referral */
+export type PlanterReferralStatus = 'pending' | 'rewarded';
+
+/** A referral linking an existing planter (referrer) to a newly registered planter (referee) */
+export interface PlanterReferral {
+  id: string;
+  referrerWallet: string;
+  refereeWallet: string;
+  status: PlanterReferralStatus;
+  rewardTxHash?: string;
+  rewardedAt?: string;
+  createdAt: string;
+}
+
+/** Aggregated referral stats for a planter's referral dashboard */
+export interface PlanterReferralSummary {
+  totalReferrals: number;
+  rewardedReferrals: number;
+  pendingReferrals: number;
+  totalXlmEarned: number;
+  rewardAmountXlm: number;
+}

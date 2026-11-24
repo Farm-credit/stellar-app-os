@@ -1,12 +1,21 @@
 'use client';
 
 import { useCallback, useMemo, useState } from 'react';
-import { Search, X, SlidersHorizontal, Globe2, ThermometerSun, Sprout, RotateCcw } from 'lucide-react';
+import {
+  Search,
+  X,
+  SlidersHorizontal,
+  Globe2,
+  ThermometerSun,
+  Sprout,
+  RotateCcw,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/atoms/Checkbox';
 import { Input } from '@/components/atoms/Input';
+import Link from 'next/link';
 import { TREE_SPECIES } from '@/lib/constants/species';
 
 export interface LocationFilters {
@@ -51,9 +60,7 @@ export function LocationFilterPanel({
   const filteredSpeciesOptions = useMemo(() => {
     const query = speciesSearch.trim().toLowerCase();
     if (!query) return speciesOptions;
-    return speciesOptions.filter((slug) =>
-      resolveSpeciesName(slug).toLowerCase().includes(query)
-    );
+    return speciesOptions.filter((slug) => resolveSpeciesName(slug).toLowerCase().includes(query));
   }, [speciesOptions, speciesSearch]);
 
   const handleRegionToggle = useCallback(
@@ -67,8 +74,7 @@ export function LocationFilterPanel({
   );
 
   const handleSpeciesToggle = useCallback(
-    (species: string) =>
-      onChange({ ...filters, species: toggleItem(filters.species, species) }),
+    (species: string) => onChange({ ...filters, species: toggleItem(filters.species, species) }),
     [filters, onChange]
   );
 
@@ -216,7 +222,10 @@ export function LocationFilterPanel({
             </span>
           </div>
           <div className="relative mb-2">
-            <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+            <Search
+              className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground"
+              aria-hidden="true"
+            />
             <Input
               type="text"
               placeholder="Search species..."
@@ -245,9 +254,16 @@ export function LocationFilterPanel({
               </label>
             ))}
             {filteredSpeciesOptions.length === 0 && (
-              <p className="px-1.5 py-2 text-xs text-muted-foreground">No species match your search</p>
+              <p className="px-1.5 py-2 text-xs text-muted-foreground">
+                No species match your search
+              </p>
             )}
           </div>
+          <p className="mt-2 text-xs">
+            <Link href="/species" className="text-stellar-blue hover:underline">
+              Learn about our tree species
+            </Link>
+          </p>
           {filters.species.length > 0 && (
             <div className="mt-3 flex flex-wrap gap-1.5">
               {filters.species.map((slug) => (

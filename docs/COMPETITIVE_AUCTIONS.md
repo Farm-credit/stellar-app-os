@@ -18,3 +18,7 @@ The repository is intentionally behind an interface (`InMemoryCompetitiveAuction
 For an end-to-end review, create an auction with an end time in the future, place a reserve-meeting bid, and verify that a lower or equal bid returns a conflict. After the end time, finalize as the seller and verify that the winning bid is marked as won while earlier leaders are marked refundable. Requests using a non-seller finalizer, a seller bidder, an invalid quantity, or a closed auction should be rejected without mutating the auction state.
 
 The current adapter is process-local, so these checks are suitable for API and contract-integration testing only. Production rollout must use a durable repository and an atomic escrow settlement boundary as described above.
+
+## Security review notes
+
+Reviewers should confirm that the eventual settlement adapter preserves seller and bidder authorization at the escrow boundary, performs reserve and slippage checks before token movement, and makes finalization plus refund-state transitions atomic.

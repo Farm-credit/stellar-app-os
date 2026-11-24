@@ -7,7 +7,7 @@ vi.mock('exifr', () => ({
   },
 }));
 
-import { exifr } from 'exifr';
+import exifr from 'exifr';
 
 describe('EXIFExtractionService', () => {
   let service: EXIFExtractionService;

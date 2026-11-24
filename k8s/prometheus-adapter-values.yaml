@@ -1,0 +1,132 @@
+##############################################################################
+# Helm values for prometheus-community/prometheus-adapter
+#
+# Usage:
+#   helm install prometheus-adapter \
+#     prometheus-community/prometheus-adapter \
+#     -n monitoring --create-namespace \
+#     -f k8s/prometheus-adapter-values.yaml
+#
+# Or to upgrade:
+#   helm upgrade prometheus-adapter \
+#     prometheus-community/prometheus-adapter \
+#     -n monitoring \
+#     -f k8s/prometheus-adapter-values.yaml
+##############################################################################
+
+# Point at your Prometheus instance
+prometheus:
+  url: http://prometheus-kube-prometheus-prometheus.monitoring.svc.cluster.local
+  port: 9090
+
+# Replica count (1 is fine — the adapter is stateless and reads from Prometheus)
+replicas: 1
+
+# Resource requests/limits
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 250m
+    memory: 256Mi
+
+# Metric rules — mirrors the ConfigMap in prometheus-adapter.yaml
+rules:
+  custom:
+    # ── api_request_rps ────────────────────────────────────────────────────────
+    - seriesQuery: 'api_request_total{namespace!="",pod!=""}'
+      resources:
+        overrides:
+          namespace:
+            resource: namespace
+          pod:
+            resource: pod
+      name:
+        matches: "api_request_total"
+        as: "api_request_rps"
+      metricsQuery: |
+        sum by (<<.GroupBy>>) (
+          rate(api_request_total{<<.LabelMatchers>>}[2m])
+        )
+
+    # ── api_request_duration_p95_ms ────────────────────────────────────────────
+    - seriesQuery: 'api_request_duration_ms_bucket{namespace!="",pod!=""}'
+      resources:
+        overrides:
+          namespace:
+            resource: namespace
+          pod:
+            resource: pod
+      name:
+        matches: "api_request_duration_ms_bucket"
+        as: "api_request_duration_p95_ms"
+      metricsQuery: |
+        histogram_quantile(0.95,
+          sum by (le, <<.GroupBy>>) (
+            rate(api_request_duration_ms_bucket{<<.LabelMatchers>>}[2m])
+          )
+        )
+
+    # ── api_error_rate ─────────────────────────────────────────────────────────
+    - seriesQuery: 'api_error_total{namespace!="",pod!=""}'
+      resources:
+        overrides:
+          namespace:
+            resource: namespace
+          pod:
+            resource: pod
+      name:
+        matches: "api_error_total"
+        as: "api_error_rate"
+      metricsQuery: |
+        sum by (<<.GroupBy>>) (
+          rate(api_error_total{<<.LabelMatchers>>}[2m])
+        )
+        /
+        sum by (<<.GroupBy>>) (
+          rate(api_request_total{<<.LabelMatchers>>}[2m])
+        )
+
+# Disable default CPU/memory rules (provided by metrics-server)
+rules:
+  default: false
+  resource:
+    cpu:
+      containerQuery: |
+        sum by (<<.GroupBy>>) (
+          irate(container_cpu_usage_seconds_total{container!="POD",<<.LabelMatchers>>}[2m])
+        )
+      nodeQuery: |
+        sum by (<<.GroupBy>>) (
+          irate(node_cpu_seconds_total{mode!="idle",mode!="iowait",mode!="steal",<<.LabelMatchers>>}[2m])
+        )
+      resources:
+        overrides:
+          namespace:
+            resource: namespace
+          node:
+            resource: node
+          pod:
+            resource: pod
+      containerLabel: container
+    memory:
+      containerQuery: |
+        sum by (<<.GroupBy>>) (
+          container_memory_working_set_bytes{container!="POD",<<.LabelMatchers>>}
+        )
+      nodeQuery: |
+        sum by (<<.GroupBy>>) (
+          node_memory_MemTotal_bytes{<<.LabelMatchers>>}
+          - node_memory_MemAvailable_bytes{<<.LabelMatchers>>}
+        )
+      resources:
+        overrides:
+          namespace:
+            resource: namespace
+          node:
+            resource: node
+          pod:
+            resource: pod
+      containerLabel: container
+    window: 5m

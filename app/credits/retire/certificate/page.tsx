@@ -17,6 +17,9 @@ import type { RetirementSelection } from '@/lib/types/retire';
 import type { CertificateData } from '@/lib/certificate';
 import type { NetworkType } from '@/lib/types/wallet';
 
+import { RetirementBlockchainProofCard } from '@/components/molecules/RetirementBlockchainProofCard';
+import type { BlockchainProofReceipt } from '@/lib/retirement/receipt';
+
 const EXPLORER_BASE_URLS: Record<NetworkType, string> = {
   mainnet: 'https://stellar.expert/explorer/public/tx',
   testnet: 'https://stellar.expert/explorer/testnet/tx',
@@ -31,11 +34,50 @@ function RetireCertificateContent(): JSX.Element {
   const [transactionHash, setTransactionHash] = useState<string | null>(null);
   const [network, setNetwork] = useState<NetworkType>('testnet');
   const [selectionParam, setSelectionParam] = useState<string | null>(null);
+  const [proofReceipt, setProofReceipt] = useState<BlockchainProofReceipt | null>(null);
 
   useEffect(() => {
     const param = searchParams.get('selection');
     const hashParam = searchParams.get('hash');
+    const receiptIdParam = searchParams.get('receiptId');
     const networkParam = searchParams.get('network') as NetworkType | null;
+
+    if (!param && !receiptIdParam && !hashParam) {
+      router.push('/credits/retire');
+      return;
+    }
+
+    if (hashParam) {
+      setTransactionHash(hashParam);
+    }
+    setNetwork(networkParam ?? 'testnet');
+
+    // Direct lookup mode: visiting a shareable immutable receipt URL (?receiptId=... or ?hash=...)
+    if (!param && (receiptIdParam || hashParam)) {
+      const lookupId = receiptIdParam || hashParam || '';
+      fetch(`/api/v2/credits/retire/${encodeURIComponent(lookupId)}/receipt`)
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => {
+          if (data?.receipt) {
+            const receipt: BlockchainProofReceipt = data.receipt;
+            setProofReceipt(receipt);
+            setTransactionHash(receipt.transactionHash);
+            setNetwork(receipt.network);
+            setSelection({
+              projectId: receipt.project.id,
+              projectName: receipt.project.name,
+              quantity: receipt.creditsRetired,
+              walletAddress: receipt.buyer.walletAddress,
+              region: receipt.project.location,
+              retirementDate: receipt.timestamp,
+            });
+          } else {
+            router.push('/credits/retire');
+          }
+        })
+        .catch(() => router.push('/credits/retire'));
+      return;
+    }
 
     if (!param || !hashParam) {
       router.push('/credits/retire');
@@ -43,12 +85,33 @@ function RetireCertificateContent(): JSX.Element {
     }
 
     setSelectionParam(param);
-    setTransactionHash(hashParam);
-    setNetwork(networkParam ?? 'testnet');
 
     try {
       const parsed = JSON.parse(decodeURIComponent(param)) as RetirementSelection;
       setSelection(parsed);
+
+      // Call backend to issue or fetch the immutable blockchain proof receipt
+      fetch('/api/v2/credits/retire', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          buyerAddress: parsed.walletAddress || wallet?.publicKey || 'StellarBuyer',
+          projectId: parsed.projectId,
+          projectName: parsed.projectName,
+          location: parsed.region,
+          quantity: parsed.quantity,
+          transactionHash: hashParam,
+          reason: 'Permanent carbon offset retirement proof',
+          network: networkParam ?? 'testnet',
+        }),
+      })
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => {
+          if (data?.receipt) {
+            setProofReceipt(data.receipt);
+          }
+        })
+        .catch((err) => console.warn('Could not sync receipt proof:', err));
     } catch (err) {
       console.error('Failed to parse certificate data', err);
       router.push('/credits/retire');
@@ -101,17 +164,22 @@ function RetireCertificateContent(): JSX.Element {
       <div className="mb-8">
         <ProgressStepper steps={steps} />
       </div>
-      <div className="space-y-6">
+      <div className="space-y-8">
         <div>
           <Text variant="h3" as="h2" className="mb-2">
-            Retirement Certificate
+            Retirement Certificate & Blockchain Proof
           </Text>
           <Text variant="muted" as="p">
-            Your retirement is confirmed on-chain. Download the certificate for your records.
+            Your retirement is permanently verified and burned on-chain. Below is your official
+            certificate and immutable receipt.
           </Text>
         </div>
+
+        {proofReceipt && <RetirementBlockchainProofCard receipt={proofReceipt} />}
+
         <CertificatePreview data={certificateData} />
-        <div className="flex justify-end">
+
+        <div className="flex justify-end gap-3">
           <Button
             stellar="primary"
             onClick={() => router.push('/dashboard/credits?refresh=1')}

@@ -26,7 +26,9 @@ function isIso8601(value: unknown): value is string {
   return !isNaN(d.getTime());
 }
 
-function validateRequest(body: unknown): { valid: true; data: InvoiceGenerateRequest } | { valid: false; error: string } {
+function validateRequest(
+  body: unknown
+): { valid: true; data: InvoiceGenerateRequest } | { valid: false; error: string } {
   if (!body || typeof body !== 'object') {
     return { valid: false, error: 'Request body must be a JSON object' };
   }
@@ -41,14 +43,14 @@ function validateRequest(body: unknown): { valid: true; data: InvoiceGenerateReq
     return { valid: false, error: 'issueDate must be a valid ISO-8601 date string' };
   }
 
-  if (!VALID_TERMS.includes(b.paymentTerms as typeof VALID_TERMS[number])) {
+  if (!VALID_TERMS.includes(b.paymentTerms as (typeof VALID_TERMS)[number])) {
     return {
       valid: false,
       error: `paymentTerms must be one of: ${VALID_TERMS.join(', ')}`,
     };
   }
 
-  if (!VALID_CURRENCIES.includes(b.currency as typeof VALID_CURRENCIES[number])) {
+  if (!VALID_CURRENCIES.includes(b.currency as (typeof VALID_CURRENCIES)[number])) {
     return {
       valid: false,
       error: `currency must be one of: ${VALID_CURRENCIES.join(', ')}`,

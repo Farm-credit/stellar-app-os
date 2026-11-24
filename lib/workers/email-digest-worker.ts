@@ -174,7 +174,9 @@ export class EmailDigestWorker extends BaseWorker {
         newUpdates: row.new_updates,
         topSpecies: row.top_species,
         photoUrls: Array.isArray(row.photo_urls) ? row.photo_urls : [],
-        communityHighlights: Array.isArray(row.community_highlights) ? row.community_highlights : [],
+        communityHighlights: Array.isArray(row.community_highlights)
+          ? row.community_highlights
+          : [],
         generatedAt: row.generated_at,
       }));
     } catch (err) {

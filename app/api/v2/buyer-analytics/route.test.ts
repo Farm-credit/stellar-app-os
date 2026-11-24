@@ -50,9 +50,22 @@ describe('GET /api/v2/buyer-analytics', () => {
     expect(response.status).toBe(400);
   });
 
-  it('returns 400 for an unknown platform or interval', async () => {
+  it('returns 400 for an unknown platform, interval, or data source', async () => {
     expect((await GET(getRequest('?buyerId=demo&platforms=acme-registry'))).status).toBe(400);
     expect((await GET(getRequest('?buyerId=demo&interval=week'))).status).toBe(400);
+    expect((await GET(getRequest('?buyerId=demo&dataSource=bank'))).status).toBe(400);
+  });
+
+  it('keeps the synthetic feeds as the default and echoes the requested source', async () => {
+    const response = await GET(getRequest(`?buyerId=demo&dataSource=synthetic`));
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.filters.dataSource).toBe('synthetic');
+    expect(body.sourceStatuses.map((source: { sourceId: string }) => source.sourceId)).toEqual([
+      'stellar-credits',
+      'tree-registry',
+    ]);
   });
 
   it('aggregates the dashboard and stamps the version header', async () => {

@@ -3,7 +3,8 @@ import { FarmerOnboardingWizard } from '@/components/organisms/FarmerOnboardingW
 
 export const metadata: Metadata = {
   title: 'Farmer onboarding | FarmCredit',
-  description: 'Guide new farmers through a polished multi-step onboarding experience for identity and land registration.',
+  description:
+    'Guide new farmers through a polished multi-step onboarding experience for identity and land registration.',
 };
 
 export default function FarmerOnboardingPage() {

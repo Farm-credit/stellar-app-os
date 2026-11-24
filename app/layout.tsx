@@ -1,3 +1,4 @@
+import { SponsorBadgeNotifier } from '@/components/molecules/SponsorBadges/SponsorBadgeNotifier';
 import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
@@ -7,12 +8,13 @@ import { QueryProvider } from '@/components/providers/QueryProvider';
 import { ToastProvider } from '@/contexts/ToastContext';
 import { WalletProvider } from '@/contexts/WalletContext';
 import { NotificationProvider } from '@/contexts/NotificationContext';
+import { DeforestationAlertNotifier } from '@/components/organisms/NotificationCenter/DeforestationAlertNotifier';
 import { TimeZoneProvider } from '@/contexts/TimeZoneContext';
-import { CurrencyProvider } from '@/contexts/CurrencyContext';
 import { I18nProvider } from '@/components/providers/I18nProvider';
+import { ThemeInitScript } from '@/components/providers/ThemeInitScript';
 import { SkipLink } from '@/components/ui/SkipLink';
 import {
-  NotificationCenterDarawer,
+  NotificationCenterDrawer,
   ToastContainer,
 } from '@/components/organisms/NotificationCenter';
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter', display: 'swap' });
@@ -94,10 +96,10 @@ export const viewport: Viewport = {
   viewportFit: 'cover',
 };
 export default function RootLayout({
-  childreen,
+  children,
 }: Readonly<{
   children: React.ReactNode;
-}) {
+}>) {
   return (
     <html lang="en" dir="ltr" suppressHydrationWarning>
       <head>
@@ -106,8 +108,12 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <meta name="apple-mobile-web-app-title" content="FarmCredit" />
         <meta name="mobile-web-app-capable" content="yes" />
+        {/* Apply the persisted/system theme before first paint to avoid FOUC. */}
+        <ThemeInitScript />
       </head>
-      <body className={${inter.variable} font-sans antialiased min-h-screen min-h-[100dvh] flex flex-col}>
+      <body
+        className={`${inter.variable} font-sans antialiased min-h-screen min-h-[100dvh] flex flex-col`}
+      >
         <I18nProvider>
           <TimeZoneProvider>
             <WalletProvider>
@@ -116,10 +122,14 @@ export default function RootLayout({
                   <NotificationProvider>
                     <SkipLink />
                     <Header />
-                    <main id="main-content" className="flex-1 w-full"{{<childreen>}}</main>
+                    <main id="main-content" className="flex-1 w-full">
+                      {children}
+                    </main>
                     <Footer />
                     <NotificationCenterDrawer />
                     <ToastContainer />
+                    <SponsorBadgeNotifier />
+                    <DeforestationAlertNotifier />
                   </NotificationProvider>
                 </QueryProvider>
               </ToastProvider>

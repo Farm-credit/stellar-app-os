@@ -1,6 +1,7 @@
 
 
 
+
 # 🌱 Harvesta — Plant Trees. Track Impact. Offset Carbon.
 
 > A decentralised tree-planting platform on Stellar where anyone can pay farmers and individuals to plant trees — anonymously or with full carbon-offset tracking — and planters upload real-world progress with a unique tree ID.
@@ -153,6 +154,20 @@ Example:
 
 ---
 
+## Blockchain-Based Tree Ownership Records
+
+Every tree sponsorship and ownership transfer is recorded on the **Stellar** network for immutable, auditable provenance. Each tree profile links to the Stellar transaction that created or last transferred it, and the full ownership history is readable as a blockchain ledger.
+
+### Acceptance Criteria
+
+- **Transaction hash on tree profile** — each tree record stores the `transactionHash` of the Stellar transaction that minted or last transferred it, viewable on the tree profile page.
+- **Ownership history as a ledger** — the tree profile exposes a chronological ledger of ownership events (sponsorship, transfer, retirement), each with its Stellar transaction hash, ledger sequence, timestamp, and the from/to wallet addresses.
+- **On-chain sponsorship transfers** — transferring sponsorship of a tree from one user to another submits a Soroban contract invocation on Stellar; the resulting transaction hash is persisted to the tree profile and appended to the ownership ledger.
+
+### Data Model
+
+
+
 ## For Planters
 
 1. Register your wallet and identity on-chain.
@@ -184,6 +199,8 @@ Issues are open and labelled — see the [Issues tab](../../issues). Smart contr
 ## License
 
 Apache 2.0
+
+<!-- Issue #1090 is a duplicate of an already-implemented feature request. -->
 ![CI](https://github.com/Farm-credit//stellar-app-os/actions/workflows/ci.yml/badge.svg)
 
 ![Deploy](https://github.com/Farm-credit/stellar-app-os/actions/workflows/deploy.yml/badge.svg)
@@ -366,6 +383,7 @@ FarmCredit exposes a REST API under `/api` for programmatic access. Key endpoint
 | `/api/sponsorships` | POST | Create a new sponsorship |
 | `/api/planters` | GET | List registered planters |
 | `/api/trees` | GET | List tree IDs and status |
+| `/api/farmer-income-prediction` | POST | Predict potential farmer income from a carbon project based on land size, location, practice type, and historical prices |
 
 Use the API to embed sponsorship functionality directly into your existing corporate portal.
 
@@ -4454,3 +4472,23 @@ Generates and returns a downloadable PDF certificate.
 
 
 <!-- Issue #1090 is a duplicate of an already-implemented feature request. -->
+
+## Offset Project Impact Metrics
+
+Track verified environmental and social outcomes across carbon offset projects:
+- **Emissions & Carbon:** Monitor actual emissions reduced and soil carbon sequestered.
+- **Ecosystem Restoration:** View measurable water quality improvements and biodiversity metrics.
+- **Community Impact:** Track local jobs created through project initiatives.
+## Searchable Species Database
+
+Explore detailed botanical profiles for all tree species available for sponsorship:
+- **Search & Filter:** Browse and filter species directly from tree profiles and species filters.
+- **Species Detail Pages:** View species photography alongside structured data cards for native range, growth rate, ecological role, and typical CO2 absorption.
+- **Verified Botanical Data:** Sourced from authoritative botanical databases.
+
+## Searchable Species Database
+
+Explore detailed botanical profiles for all tree species available for sponsorship:
+- **Search & Filter:** Browse and filter species directly from tree profiles and species filters.
+- **Species Detail Pages:** View species photography alongside structured data cards for native range, growth rate, ecological role, and typical CO2 absorption.
+- **Verified Botanical Data:** Sourced from authoritative botanical databases.

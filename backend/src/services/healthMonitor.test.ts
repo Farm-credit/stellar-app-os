@@ -13,9 +13,7 @@ import {
 // Helpers
 // ---------------------------------------------------------------------------
 
-function makeResult(
-  overrides: Partial<HealthCheckResult> = {}
-): HealthCheckResult {
+function makeResult(overrides: Partial<HealthCheckResult> = {}): HealthCheckResult {
   return {
     serviceId: 'svc-a',
     status: 'healthy',
@@ -217,7 +215,11 @@ describe('applyResult', () => {
       let state = makeState({ currentStatus: 'unhealthy' });
 
       for (let i = 0; i < defaultThresholds.recoveryThreshold; i++) {
-        state = applyResult(makeResult({ status: 'healthy', latencyMs: 50 }), state, defaultThresholds);
+        state = applyResult(
+          makeResult({ status: 'healthy', latencyMs: 50 }),
+          state,
+          defaultThresholds
+        );
       }
 
       expect(state.currentStatus).toBe('healthy');
@@ -271,9 +273,9 @@ describe('HealthMonitor', () => {
 
   describe('runChecks', () => {
     it('runs all registered check functions and updates state', async () => {
-      const checkFn = vi.fn().mockResolvedValue(
-        makeResult({ serviceId: 'svc-b', status: 'healthy', latencyMs: 80 })
-      );
+      const checkFn = vi
+        .fn()
+        .mockResolvedValue(makeResult({ serviceId: 'svc-b', status: 'healthy', latencyMs: 80 }));
       monitor.register('svc-b', checkFn);
 
       const results = await monitor.runChecks();
@@ -294,9 +296,9 @@ describe('HealthMonitor', () => {
     });
 
     it('accumulates failure count across multiple runChecks calls', async () => {
-      const alwaysFail = vi.fn().mockResolvedValue(
-        makeResult({ status: 'unhealthy', latencyMs: null })
-      );
+      const alwaysFail = vi
+        .fn()
+        .mockResolvedValue(makeResult({ status: 'unhealthy', latencyMs: null }));
       monitor.register('bad-svc', alwaysFail);
 
       await monitor.runChecks();
@@ -337,9 +339,10 @@ describe('HealthMonitor', () => {
     });
 
     it('marks service as degraded when latency exceeds threshold', async () => {
-      monitor.register('slow-api', vi.fn().mockResolvedValue(
-        makeResult({ status: 'healthy', latencyMs: 6_000 })
-      ));
+      monitor.register(
+        'slow-api',
+        vi.fn().mockResolvedValue(makeResult({ status: 'healthy', latencyMs: 6_000 }))
+      );
 
       const results = await monitor.runChecks();
 

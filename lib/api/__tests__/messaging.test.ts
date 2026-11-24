@@ -133,9 +133,7 @@ describe('normalizeDealTerms', () => {
   });
 
   it('rounds quantity to 4 dp and price to 2 dp', () => {
-    const normalised = normalizeDealTerms(
-      terms({ quantityTons: 100.123456, pricePerTon: 40.987 })
-    );
+    const normalised = normalizeDealTerms(terms({ quantityTons: 100.123456, pricePerTon: 40.987 }));
     expect(normalised.quantityTons).toBe(100.1235);
     expect(normalised.pricePerTon).toBe(40.99);
   });
@@ -155,7 +153,10 @@ describe('normalizeDealTerms', () => {
     );
     expect(() =>
       normalizeDealTerms(
-        terms({ deliveryStart: '2026-11-01T00:00:00.000Z', deliveryEnd: '2026-10-01T00:00:00.000Z' })
+        terms({
+          deliveryStart: '2026-11-01T00:00:00.000Z',
+          deliveryEnd: '2026-10-01T00:00:00.000Z',
+        })
       )
     ).toThrow(/deliveryStart must be on or before deliveryEnd/);
   });
@@ -202,9 +203,9 @@ describe('sendMessage', () => {
 
   it('rejects an over-long body', () => {
     const conversation = makeConversation();
-    expect(() =>
-      sendMessage(conversation.id, { senderId: BUYER, body: 'x'.repeat(4001) })
-    ).toThrow(/4000 characters or fewer/);
+    expect(() => sendMessage(conversation.id, { senderId: BUYER, body: 'x'.repeat(4001) })).toThrow(
+      /4000 characters or fewer/
+    );
   });
 
   it('records terms attached to a message as a structured offer', () => {
@@ -227,7 +228,12 @@ describe('deal negotiation', () => {
   it('lets the buyer counter the farmer offer, superseding it', () => {
     const conversation = makeConversation({ terms: terms({ pricePerTon: 50 }) });
 
-    const countered = counterDeal(conversation.id, BUYER, terms({ pricePerTon: 45 }), 'Meet in the middle?');
+    const countered = counterDeal(
+      conversation.id,
+      BUYER,
+      terms({ pricePerTon: 45 }),
+      'Meet in the middle?'
+    );
 
     expect(countered.proposals).toHaveLength(2);
     expect(countered.proposals[0].status).toBe('superseded');
@@ -294,9 +300,9 @@ describe('deal negotiation', () => {
   it('dispatches actions through handleDealAction', () => {
     const conversation = makeConversation();
 
-    expect(() =>
-      handleDealAction(conversation.id, { actorId: FARMER, action: 'propose' })
-    ).toThrow(/terms are required/);
+    expect(() => handleDealAction(conversation.id, { actorId: FARMER, action: 'propose' })).toThrow(
+      /terms are required/
+    );
 
     const proposed = handleDealAction(conversation.id, {
       actorId: FARMER,
@@ -310,6 +316,46 @@ describe('deal negotiation', () => {
       action: 'accept',
     });
     expect(accepted.status).toBe('agreed');
+  });
+
+  it('negotiates custom deal volume, delivery timing windows and pricing', () => {
+    const conversation = makeConversation();
+    const customDeal = handleDealAction(conversation.id, {
+      actorId: BUYER,
+      action: 'propose',
+      terms: {
+        quantityTons: 250.5,
+        pricePerTon: 32.75,
+        currency: 'USDC',
+        deliveryStart: '2026-11-01T00:00:00.000Z',
+        deliveryEnd: '2026-11-30T00:00:00.000Z',
+        notes: 'High-grade agroforestry credits with community co-benefits',
+      },
+      note: 'Proposing bulk order for Q4 delivery',
+    });
+
+    expect(customDeal.currentTerms?.quantityTons).toBe(250.5);
+    expect(customDeal.currentTerms?.pricePerTon).toBe(32.75);
+    expect(customDeal.currentTerms?.currency).toBe('USDC');
+    expect(customDeal.currentTerms?.notes).toContain('High-grade agroforestry');
+
+    // Counter with revised timing and price
+    const countered = handleDealAction(conversation.id, {
+      actorId: FARMER,
+      action: 'counter',
+      terms: {
+        quantityTons: 250.5,
+        pricePerTon: 34.0,
+        currency: 'USDC',
+        deliveryStart: '2026-11-15T00:00:00.000Z',
+        deliveryEnd: '2026-12-15T00:00:00.000Z',
+        notes: 'Delivery staged across mid-November to mid-December',
+      },
+      note: 'Countered price and delivery window',
+    });
+
+    expect(countered.currentTerms?.pricePerTon).toBe(34.0);
+    expect(countered.currentTerms?.deliveryStart).toBe('2026-11-15T00:00:00.000Z');
   });
 });
 

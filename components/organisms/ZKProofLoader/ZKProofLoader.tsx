@@ -86,45 +86,49 @@ export interface ZKProofLoaderProps {
 
 // ─── Default Steps ────────────────────────────────────────────────────────────
 
-const defaultStepDefs: Array<{ id: string; label: string; sublabel: string; icon: React.ReactNode }> =
-  [
-    {
-      id: 'gps',
-      label: 'Acquiring GPS Coordinates',
-      sublabel: 'navigator.geolocation.getCurrentPosition()',
-      icon: <MapPin className="h-3.5 w-3.5" />,
-    },
-    {
-      id: 'commit',
-      label: 'Hashing Location Commitment',
-      sublabel: 'SHA-256(lat || lon || farmerId || nonce)',
-      icon: <Hash className="h-3.5 w-3.5" />,
-    },
-    {
-      id: 'witness',
-      label: 'Building Circuit Witness',
-      sublabel: 'Preparing Groth16 private inputs',
-      icon: <Database className="h-3.5 w-3.5" />,
-    },
-    {
-      id: 'prove',
-      label: 'Running ZK Prover',
-      sublabel: 'snarkjs.groth16.fullProve() — BN254',
-      icon: <Cpu className="h-3.5 w-3.5" />,
-    },
-    {
-      id: 'serialize',
-      label: 'Serialising Proof',
-      sublabel: 'Encoding a, b, c for Soroban contract',
-      icon: <Package className="h-3.5 w-3.5" />,
-    },
-    {
-      id: 'nullifier',
-      label: 'Verifying Nullifier',
-      sublabel: 'Checking registry for double-submission',
-      icon: <ShieldCheck className="h-3.5 w-3.5" />,
-    },
-  ];
+const defaultStepDefs: Array<{
+  id: string;
+  label: string;
+  sublabel: string;
+  icon: React.ReactNode;
+}> = [
+  {
+    id: 'gps',
+    label: 'Acquiring GPS Coordinates',
+    sublabel: 'navigator.geolocation.getCurrentPosition()',
+    icon: <MapPin className="h-3.5 w-3.5" />,
+  },
+  {
+    id: 'commit',
+    label: 'Hashing Location Commitment',
+    sublabel: 'SHA-256(lat || lon || farmerId || nonce)',
+    icon: <Hash className="h-3.5 w-3.5" />,
+  },
+  {
+    id: 'witness',
+    label: 'Building Circuit Witness',
+    sublabel: 'Preparing Groth16 private inputs',
+    icon: <Database className="h-3.5 w-3.5" />,
+  },
+  {
+    id: 'prove',
+    label: 'Running ZK Prover',
+    sublabel: 'snarkjs.groth16.fullProve() — BN254',
+    icon: <Cpu className="h-3.5 w-3.5" />,
+  },
+  {
+    id: 'serialize',
+    label: 'Serialising Proof',
+    sublabel: 'Encoding a, b, c for Soroban contract',
+    icon: <Package className="h-3.5 w-3.5" />,
+  },
+  {
+    id: 'nullifier',
+    label: 'Verifying Nullifier',
+    sublabel: 'Checking registry for double-submission',
+    icon: <ShieldCheck className="h-3.5 w-3.5" />,
+  },
+];
 
 function makeInitialSteps(): ZKProofStep[] {
   return defaultStepDefs.map((def) => ({ ...def, status: 'pending' as ZKStepStatus }));
@@ -331,7 +335,13 @@ export function ZKProofLoader({
   };
 
   const proofStatus: ZKProofStatus =
-    status === 'running' ? 'running' : status === 'success' ? 'success' : status === 'error' ? 'error' : 'idle';
+    status === 'running'
+      ? 'running'
+      : status === 'success'
+        ? 'success'
+        : status === 'error'
+          ? 'error'
+          : 'idle';
 
   const completedCount = steps.filter((s) => s.status === 'complete').length;
   const activeStep = steps.find((s) => s.status === 'active');
@@ -353,15 +363,9 @@ export function ZKProofLoader({
         <div className="space-y-1">
           <div className="flex items-center gap-2">
             <motion.div
-              animate={
-                status === 'running'
-                  ? { rotate: [0, 360] }
-                  : {}
-              }
+              animate={status === 'running' ? { rotate: [0, 360] } : {}}
               transition={
-                status === 'running'
-                  ? { duration: 3, repeat: Infinity, ease: 'linear' }
-                  : {}
+                status === 'running' ? { duration: 3, repeat: Infinity, ease: 'linear' } : {}
               }
               aria-hidden="true"
             >
@@ -414,11 +418,7 @@ export function ZKProofLoader({
       </AnimatePresence>
 
       {/* ── Steps list ─────────────────────────────────────────────────────── */}
-      <div
-        className="space-y-1.5 p-5"
-        role="list"
-        aria-label="Proof generation steps"
-      >
+      <div className="space-y-1.5 p-5" role="list" aria-label="Proof generation steps">
         {steps.map((step, i) => (
           <motion.div
             key={step.id}
@@ -569,8 +569,7 @@ export function ZKProofLoader({
         {/* Left: context info */}
         <Text variant="muted" className="text-xs">
           {status === 'idle' && 'Click to start proof generation'}
-          {status === 'running' &&
-            `Step ${completedCount + 1} of ${steps.length}…`}
+          {status === 'running' && `Step ${completedCount + 1} of ${steps.length}…`}
           {status === 'success' && `Proof ready • ${completedCount}/${steps.length} steps`}
           {status === 'error' && 'Proof failed — review error above'}
         </Text>

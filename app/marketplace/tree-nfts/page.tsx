@@ -3,7 +3,8 @@ import { NFTMarketplace } from '@/components/organisms/NFTMarketplace/NFTMarketp
 
 export const metadata = {
   title: 'Tree Sponsorship NFT Marketplace | FarmCredit Stellar OS',
-  description: 'Trade tree sponsorship NFTs on the OpenSea-style secondary marketplace with on-chain royalties for planters.',
+  description:
+    'Trade tree sponsorship NFTs on the OpenSea-style secondary marketplace with on-chain royalties for planters.',
 };
 
 export default function TreeNFTMarketplacePage() {

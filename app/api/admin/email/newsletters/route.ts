@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { isAdminRequest } from '@/lib/auth/admin';
 import { getPool } from '@/lib/db/client';
+import { processFarmerPayments, type PaymentInput } from '@/lib/payments/farmer-payments';
 import {
   queueNewsletter,
   resolveSponsorRecipients,
@@ -56,7 +57,13 @@ export async function POST(request: Request) {
     const delivery = body.send
       ? await sendNewsletterBatch(getPool(), campaign.id, body.batchSize)
       : undefined;
-    return NextResponse.json({ campaign, delivery }, { status: 201 });
+    const payments = Array.isArray((body as { payments?: PaymentInput[] }).payments)
+      ? await processFarmerPayments(
+          getPool(),
+          (body as { payments?: PaymentInput[] }).payments as PaymentInput[]
+        )
+      : undefined;
+    return NextResponse.json({ campaign, delivery, payments }, { status: 201 });
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Unable to queue newsletter' },

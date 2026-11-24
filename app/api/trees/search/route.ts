@@ -58,9 +58,7 @@ export async function GET(request: NextRequest) {
     let filtered = baseResult.trees ?? [];
 
     if (planterId) {
-      filtered = filtered.filter(
-        (tree) => tree.planter?.toLowerCase() === planterId.toLowerCase()
-      );
+      filtered = filtered.filter((tree) => tree.planter?.toLowerCase() === planterId.toLowerCase());
     }
 
     if (minCo2 !== undefined && !isNaN(minCo2)) {

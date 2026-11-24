@@ -39,12 +39,16 @@ export function listFarmerCredentials(certifications: FarmerCertification[] = []
   return credentials.filter(
     (credential) =>
       credential.status === 'active' &&
+      (!credential.expiresAt || new Date(credential.expiresAt).getTime() >= Date.now()) &&
       (!region || credential.region.toLowerCase().includes(region.toLowerCase())) &&
       certifications.every((certification) => credential.certifications.includes(certification))
   );
 }
 export function addFarmerCredential(credential: Omit<FarmerCredential, 'id'>): FarmerCredential {
   if (!credential.certifications.length) throw new Error('At least one certification is required');
+  if (credential.expiresAt && Number.isNaN(new Date(credential.expiresAt).getTime())) {
+    throw new Error('expiresAt must be a valid ISO date');
+  }
   const created = { ...credential, id: `cred_${Date.now()}` };
   credentials.push(created);
   return created;

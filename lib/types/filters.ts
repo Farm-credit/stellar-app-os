@@ -1,6 +1,7 @@
-import type { ProjectType } from './carbon';
+import type { ProjectType, VerificationStatus } from './carbon';
 
 export interface ProjectFilters {
+  search?: string;
   types: ProjectType[];
   locations: string[];
   priceRange: {
@@ -8,15 +9,16 @@ export interface ProjectFilters {
     max: number;
   };
   coBenefits: string[];
+  certificationStandards: (VerificationStatus | string)[];
 }
 
 export interface FilterSidebarProps {
   filters: ProjectFilters;
-
   onFiltersChange: (filters: ProjectFilters) => void;
   availableTypes: ProjectType[];
   availableLocations: string[];
   availableCoBenefits: string[];
+  availableStandards?: string[];
   priceRange: {
     min: number;
     max: number;
@@ -27,6 +29,7 @@ export interface FilterSidebarProps {
 
 export function createDefaultFilters(priceRange?: { min: number; max: number }): ProjectFilters {
   return {
+    search: '',
     types: [],
     locations: [],
     priceRange: priceRange || {
@@ -34,6 +37,7 @@ export function createDefaultFilters(priceRange?: { min: number; max: number }):
       max: 100,
     },
     coBenefits: [],
+    certificationStandards: [],
   };
 }
 

@@ -18,6 +18,7 @@
 //! signers on every guarded entry point.
 
 pub mod auth;
+pub mod storage;
 
 pub use auth::{
     require_admin_invocation_auth, require_invocation_auth, require_matching_invocation_auth,

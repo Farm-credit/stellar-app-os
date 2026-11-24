@@ -1,50 +1,9 @@
 /**
- * /api/v2/carbon-accounting — Issue #1432
+ * /api/v2/carbon-accounting — Issue #1370
  *
- * GHG Protocol corporate carbon-accounting API. Scope 1 (direct), Scope 2
- * (purchased energy, dual-reported) and Scope 3 (value chain) inventory
- * calculation with offsets reported separately, per the GHG Protocol
- * Corporate Standard.
- *
- * GET /api/v2/carbon-accounting
- *   Returns the emission-factor catalogue and scope definitions — every
- *   published factor used by the calculator, so results are reproducible.
- *
- *   Also accepts a simple scalar query subset to run an ad-hoc inventory
- *   without a body:
- *     ?scope1.naturalGasTherms=<n>
- *     &scope2.electricityKwh=<n>&scope2.gridRegion=<region>
- *     &scope2.renewablePercentage=<0..100>
- *     &offsets.creditsRetiredTonnes=<n>&offsets.treesPlanted=<n>
- *     &from=<ISO date>&to=<ISO date>
- *   When any of these are present, GET computes and returns an inventory
- *   report instead of the catalogue.
- *
- * POST /api/v2/carbon-accounting
- *   Content-Type: application/json — full request shape:
- *   {
- *     reportingPeriod?: { from, to }        // defaults to current calendar year
- *     organization?:  { name?, employees? } // employees enables intensity
- *     scope1?: { stationary?: [{ fuel, quantity }],
- *                mobile?:     [{ fuel, quantity }],
- *                fugitive?:   [{ refrigerant, quantityKg }] }
- *     scope2?: { electricityKwh?, heatKwh?, steamKwh?,
- *                gridRegion?, renewablePercentage? }
- *     scope3?: { freight?: [{ mode, tonnes, distanceKm }],
- *                waste?:   [{ method, tonnes }],
- *                businessTravel?: { shortHaulFlights?, longHaulFlights?,
- *                                   railKm?, carKm? },
- *                commuting?: [{ mode, distanceKm }] }
- *     offsets?: { creditsRetiredTonnes?, treesPlanted?, co2KgPerTree? }
- *   }
- *   At least one of scope1/scope2/scope3/offsets is required.
- *
- * Responses:
- *   200  GhgInventoryReport (POST/GET-with-params) | factor catalogue (GET)
- *   400  { error, details: string[] }  — validation failure
- *   500  { error }
- *
- * Closes #1432
+ * Public HTTP adapter for the GHG Protocol inventory engine. Keeping the
+ * validation and calculation in `lib/api/ghg-protocol.ts` lets clients use
+ * the same behaviour through POST requests and through the catalogue GET.
  */
 
 import { NextResponse } from 'next/server';
@@ -58,10 +17,7 @@ import { apiVersionHeaders } from '@/lib/api/versioning';
 
 export const runtime = 'nodejs';
 
-// Inventories contain company operational data — never cache publicly.
-const CACHE_HEADERS: Record<string, string> = {
-  'Cache-Control': 'private, no-store, max-age=0',
-};
+const CACHE_HEADERS = { 'Cache-Control': 'private, no-store, max-age=0' };
 
 function responseHeaders(): Record<string, string> {
   return {
@@ -98,18 +54,15 @@ function hasInventoryParams(searchParams: URLSearchParams): boolean {
 export function GET(request: Request): NextResponse {
   try {
     const url = new URL(request.url);
-
-    if (hasInventoryParams(url.searchParams)) {
-      const parsed = parseGhgInventoryQuery(url.searchParams);
-      if (!parsed.ok) {
-        return validationResponse(parsed.errors);
-      }
-      return NextResponse.json(calculateGhgInventory(parsed.data), {
-        headers: responseHeaders(),
-      });
+    if (!hasInventoryParams(url.searchParams)) {
+      return NextResponse.json(getGhgFactorCatalogue(), { headers: responseHeaders() });
     }
 
-    return NextResponse.json(getGhgFactorCatalogue(), { headers: responseHeaders() });
+    const parsed = parseGhgInventoryQuery(url.searchParams);
+    if (!parsed.ok) return validationResponse(parsed.errors);
+    return NextResponse.json(calculateGhgInventory(parsed.data), {
+      headers: responseHeaders(),
+    });
   } catch (error) {
     return errorResponse(error);
   }
@@ -128,10 +81,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     }
 
     const parsed = parseGhgInventoryRequest(body);
-    if (!parsed.ok) {
-      return validationResponse(parsed.errors);
-    }
-
+    if (!parsed.ok) return validationResponse(parsed.errors);
     return NextResponse.json(calculateGhgInventory(parsed.data), {
       headers: responseHeaders(),
     });

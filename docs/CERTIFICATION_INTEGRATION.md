@@ -76,3 +76,7 @@ These checks confirm configuration and adapter compatibility without implying th
 ## Security review notes
 
 Provider tokens must remain server-side secrets. Review deployments for secret-manager injection, HTTPS-only endpoints, redacted request logging, and separate credentials for each registry. Provider responses should be treated as untrusted input and remain subject to the adapter schemas and normalized error boundary.
+
+## Maintainer handoff checklist
+
+Before promoting this integration from draft to production, confirm that provider credentials are injected only through the deployment secret manager, provider requests use TLS, and renewal jobs are idempotent. Keep this checklist alongside the adapter review so registry responses remain schema-validated and normalized before application use.

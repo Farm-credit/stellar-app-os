@@ -37,9 +37,7 @@ describe('GET /api/webhooks/events/catalog', () => {
       expect(event.sample).toBeTypeOf('object');
     }
 
-    const retired = body.events.find(
-      (event: { type: string }) => event.type === 'credit.retired'
-    );
+    const retired = body.events.find((event: { type: string }) => event.type === 'credit.retired');
     expect(retired.requiredFields).toContain('buyerWallet');
     expect(retired.sample.quantityTonnes).toBeGreaterThan(0);
   });
