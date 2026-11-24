@@ -15,6 +15,37 @@
 
 import { createClient } from '@supabase/supabase-js';
 
+import {
+  boundsToGeoJsonPolygon,
+  fetchNdviStatistics,
+  getCopernicusConfig,
+  isCopernicusConfigured,
+  pointBufferToGeoJsonPolygon,
+  type CopernicusConfig,
+  type NdviDateRange,
+  type NdviQueryGeometry,
+  type NdviStatistics,
+} from './copernicusNdviApi';
+import {
+  auditClaimAgainstNdvi,
+  evidenceFromStatistics,
+  validateGroundPlantingClaim,
+  type GroundPlantingClaim,
+  type LandPlotAuditResult,
+  type SatelliteNdviEvidence,
+} from './landPlotAudit';
+
+// Re-export the land-plot-audit contracts so route handlers and UI import
+// from a single module.
+export type {
+  AuditVerdict,
+  ClaimedVegetationStatus,
+  GroundPlantingClaim,
+  LandPlotAuditResult,
+  SatelliteNdviEvidence,
+} from './landPlotAudit';
+export type { CopernicusConfig, NdviStatistics } from './copernicusNdviApi';
+
 export interface SatelliteImageBounds {
   north: number;
   south: number;
@@ -172,7 +203,7 @@ async function processVerificationJob(jobId: string): Promise<void> {
         result = await simulateLandCoverChangeAnalysis(job.request);
         break;
       case 'vegetation_health':
-        result = await simulateVegetationHealthAnalysis(job.request);
+        result = await runVegetationHealthAnalysis(job.request);
         break;
     }
 
@@ -272,7 +303,7 @@ async function simulateVegetationHealthAnalysis(
 /**
  * Calculate area in hectares from bounds
  */
-function calculateAreaHectares(bounds: SatelliteImageBounds): number {
+export function calculateAreaHectares(bounds: SatelliteImageBounds): number {
   // Approximate calculation using Haversine formula
   const R = 6371000; // Earth radius in meters
   const latDiff = ((bounds.north - bounds.south) * Math.PI) / 180;
@@ -305,4 +336,176 @@ export function estimateJobCost(request: VerificationRequest): {
     estimatedCost: Math.round(areaHectares * costPerHectare * 100) / 100,
     currency: 'USD',
   };
+}
+
+// ── Copernicus NDVI integration ──────────────────────────────────────────────
+
+/** NDVI value mapped to the top of the 0–100 health-score scale. */
+const NDVI_SCORE_CEIL = 0.9;
+/** NDVI below this is treated as absent/unhealthy vegetation. */
+const NDVI_UNHEALTHY_THRESHOLD = 0.2;
+
+/**
+ * Run vegetation-health analysis, preferring a real Sentinel-2 NDVI lookup via
+ * the Copernicus Statistical API. Falls back to the simulated analysis when
+ * credentials are missing, the API errors, or no cloud-free pixels are found,
+ * emitting an informative console warning so operators know the data source.
+ */
+async function runVegetationHealthAnalysis(
+  request: VerificationRequest
+): Promise<VerificationResult> {
+  const config = getCopernicusConfig();
+  if (!isCopernicusConfigured(config)) {
+    console.info(
+      '[satelliteVerification] Copernicus credentials not configured; using simulated ' +
+        'vegetation health analysis. Set COPERNICUS_CLIENT_ID and COPERNICUS_CLIENT_SECRET ' +
+        'to enable Sentinel-2 NDVI lookups.'
+    );
+    return simulateVegetationHealthAnalysis(request);
+  }
+
+  try {
+    const geometry = boundsToGeoJsonPolygon(request.bounds);
+    const stats = await fetchNdviStatistics(
+      geometry,
+      { from: request.startDate, to: request.endDate },
+      config
+    );
+
+    if (stats.sampleCount < 1) {
+      console.warn(
+        `[satelliteVerification] No cloud-free Sentinel-2 pixels found for project ` +
+          `${request.projectId} in ${request.startDate}..${request.endDate}; falling back to ` +
+          'simulated vegetation health analysis.'
+      );
+      return simulateVegetationHealthAnalysis(request);
+    }
+
+    return {
+      type: 'vegetation_health',
+      data: {
+        meanNDVI: stats.meanNdvi,
+        meanEVI: stats.meanEvi ?? 0,
+        healthScore: computeNdviHealthScore(stats.meanNdvi),
+        anomalyDetected: stats.meanNdvi < NDVI_UNHEALTHY_THRESHOLD,
+        imageDate: stats.interval?.to ?? request.endDate,
+      },
+    };
+  } catch (error) {
+    console.error(
+      '[satelliteVerification] Copernicus NDVI lookup failed; falling back to simulated ' +
+        `vegetation health analysis: ${error instanceof Error ? error.message : 'unknown error'}`
+    );
+    return simulateVegetationHealthAnalysis(request);
+  }
+}
+
+/** Map a mean NDVI value to a 0–100 health score (0 → 0, 0.9+ → 100). */
+function computeNdviHealthScore(ndvi: number): number {
+  const normalised = Math.max(0, Math.min(ndvi, NDVI_SCORE_CEIL)) / NDVI_SCORE_CEIL;
+  return Math.round(normalised * 100);
+}
+
+// ── Land plot audits ─────────────────────────────────────────────────────────
+
+/** Options for {@link auditLandPlot}. */
+export interface AuditLandPlotOptions {
+  /** Override the Copernicus client config (defaults to env-derived config). */
+  config?: CopernicusConfig;
+  /** Override the acquisition window (defaults to a window around claimedAt). */
+  dateRange?: NdviDateRange;
+  /** Half-width (days) of the acquisition window around claimedAt. Default 15. */
+  windowDays?: number;
+  /** Optional cloud coverage (0–100) to attach to the satellite evidence. */
+  cloudCoveragePercent?: number;
+}
+
+/**
+ * Audit a ground planting claim against Sentinel-2 NDVI vegetation density.
+ *
+ * This is the cross-check used by verifiers/auditors: it fetches the mean NDVI
+ * for the plot from the Copernicus Statistical API and compares it to the
+ * steward's claimed vegetation status, returning a confirmed / disputed /
+ * insufficient_data verdict with confidence and reasoning.
+ *
+ * Degrades gracefully: when credentials are missing or the API call fails, an
+ * `insufficient_data` verdict is returned (with a console warning) rather than
+ * throwing, so the audit endpoint stays available in every environment.
+ *
+ * @param claim   The steward's ground planting claim.
+ * @param options Optional config / window overrides.
+ * @returns       The land plot audit result.
+ * @throws Error when the claim fails validation (callers should map this to 422).
+ */
+export async function auditLandPlot(
+  claim: GroundPlantingClaim,
+  options: AuditLandPlotOptions = {}
+): Promise<LandPlotAuditResult> {
+  const issues = validateGroundPlantingClaim(claim);
+  if (issues.length > 0) {
+    throw new Error(
+      `Invalid land plot audit claim: ${issues.map((i) => `${i.field} (${i.message})`).join('; ')}`
+    );
+  }
+
+  const config = options.config ?? getCopernicusConfig();
+
+  const noDataEvidence: SatelliteNdviEvidence = {
+    meanNdvi: 0,
+    sampleCount: 0,
+    imageDate: null,
+    source: 'copernicus-sentinel-2',
+    cloudCoveragePercent: options.cloudCoveragePercent,
+  };
+
+  if (!isCopernicusConfigured(config)) {
+    console.warn(
+      '[satelliteVerification] Copernicus credentials not configured; returning ' +
+        'insufficient_data for land plot audit. Set COPERNICUS_CLIENT_ID and ' +
+        'COPERNICUS_CLIENT_SECRET to cross-check claims against Sentinel-2 NDVI.'
+    );
+    return auditClaimAgainstNdvi(claim, noDataEvidence);
+  }
+
+  const geometry = resolveAuditGeometry(claim);
+  const dateRange = options.dateRange ?? buildAuditWindow(claim.claimedAt, options.windowDays);
+
+  let stats: NdviStatistics;
+  try {
+    stats = await fetchNdviStatistics(geometry, dateRange, config);
+  } catch (error) {
+    console.error(
+      '[satelliteVerification] Copernicus NDVI lookup failed during land plot audit; ' +
+        `returning insufficient_data: ${error instanceof Error ? error.message : 'unknown error'}`
+    );
+    return auditClaimAgainstNdvi(claim, noDataEvidence);
+  }
+
+  const evidence = evidenceFromStatistics(stats, options.cloudCoveragePercent);
+  return auditClaimAgainstNdvi(claim, evidence);
+}
+
+/** Resolve a plot geometry from the claim, preferring bounds over a centroid. */
+function resolveAuditGeometry(claim: GroundPlantingClaim): NdviQueryGeometry {
+  if (claim.bounds) return boundsToGeoJsonPolygon(claim.bounds);
+  const coords = claim.coordinates;
+  if (!coords) throw new Error('Plot geometry could not be resolved from the claim.');
+  return pointBufferToGeoJsonPolygon(coords.latitude, coords.longitude);
+}
+
+/** Build a symmetric acquisition window around the claim date, capped to now. */
+function buildAuditWindow(claimedAt: string, windowDays = 15): NdviDateRange {
+  const halfMs = windowDays * 24 * 60 * 60 * 1000;
+  const center = new Date(claimedAt);
+  const now = new Date();
+
+  if (Number.isNaN(center.getTime())) {
+    const from = new Date(now.getTime() - halfMs);
+    return { from: from.toISOString(), to: now.toISOString() };
+  }
+
+  const from = new Date(center.getTime() - halfMs);
+  const to = new Date(center.getTime() + halfMs);
+  const cappedTo = to.getTime() > now.getTime() ? now : to;
+  return { from: from.toISOString(), to: cappedTo.toISOString() };
 }
