@@ -5,7 +5,7 @@ import { SponsorBadges } from '@/components/molecules/SponsorBadges/SponsorBadge
 import { SponsorMilestoneHistory } from '@/components/organisms/SponsorMilestoneHistory';
 import { evaluateSponsorAchievements } from '@/lib/gamification/sponsor-achievements';
 import { getSponsorMilestones } from '@/lib/gamification/sponsor-milestones';
-import { getSponsorProfile } from '@/lib/api/sponsors';
+import { getSponsorProfile } from '@/lib/api/sponsor-profile';
 import { getSponsorPortfolio } from '@/lib/api/sponsor-portfolio';
 import { ImpactStatCard } from '@/components/atoms/ImpactStatCard';
 import { Badge } from '@/components/atoms/Badge';
@@ -286,13 +286,24 @@ export default async function SponsorProfilePage({
                   >
                     CO₂ / yr
                   </th>
+                  <th
+                    scope="col"
+                    className="px-4 py-3 font-medium text-slate-500 dark:text-slate-400"
+                  >
+                    Certificate
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-900">
                 {plantingHistory.slice(0, 50).map((tree) => (
                   <tr key={tree.id} className="hover:bg-slate-50 dark:hover:bg-slate-900/50">
                     <td className="px-4 py-3 font-mono text-slate-700 dark:text-slate-300">
-                      {tree.treeId}
+                      <Link
+                        href={`/trees/${tree.id}`}
+                        className="hover:text-stellar-blue hover:underline"
+                      >
+                        {tree.treeId}
+                      </Link>
                     </td>
                     <td className="px-4 py-3 text-slate-700 dark:text-slate-300">{tree.species}</td>
                     <td className="px-4 py-3 text-slate-700 dark:text-slate-300">{tree.region}</td>
@@ -304,6 +315,27 @@ export default async function SponsorProfilePage({
                     </td>
                     <td className="px-4 py-3 text-slate-700 dark:text-slate-300">
                       {tree.co2OffsetKgPerYear.toFixed(1)} kg
+                    </td>
+                    <td className="px-4 py-3 text-slate-700 dark:text-slate-300">
+                      <div className="flex items-center gap-1.5">
+                        <a
+                          href={`/api/certificates/${tree.id}?format=pdf`}
+                          download={`certificate-${tree.treeId}.pdf`}
+                          className="font-medium text-xs text-stellar-blue hover:underline"
+                          title="Download Carbon Offset Certificate (PDF)"
+                        >
+                          PDF
+                        </a>
+                        <span className="text-slate-300 dark:text-slate-600">·</span>
+                        <a
+                          href={`/api/certificates/${tree.id}?format=png`}
+                          download={`certificate-${tree.treeId}.png`}
+                          className="font-medium text-xs text-stellar-blue hover:underline"
+                          title="Download Shareable Certificate Image (PNG)"
+                        >
+                          Image
+                        </a>
+                      </div>
                     </td>
                   </tr>
                 ))}

@@ -9,7 +9,7 @@
  * 4. Years of engagement (max 150 pts)
  */
 
-import { getSponsorProfile } from '@/lib/api/sponsors';
+import { getSponsorProfile } from '@/lib/api/sponsor-profile';
 import { getSponsorPortfolio } from '@/lib/api/sponsor-portfolio';
 
 export type ImpactScoreFactorKey =

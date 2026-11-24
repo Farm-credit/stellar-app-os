@@ -221,13 +221,31 @@ export function SponsorTreeList({ initialFilters }: SponsorTreeListProps) {
                     <Co2MethodologyLink />
                   </div>
 
-                  <Link
-                    href={`/trees/${tree.id}`}
-                    className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-stellar-blue/10 text-stellar-blue transition-all duration-300 group-hover:bg-stellar-blue group-hover:text-white"
-                    aria-label={`View details for tree ${tree.treeId}`}
-                  >
-                    <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-                  </Link>
+                  <div className="flex items-center gap-1.5">
+                    <a
+                      href={`/api/certificates/${tree.id}?format=pdf`}
+                      download={`certificate-${tree.treeId}.pdf`}
+                      className="rounded-lg border border-slate-200 px-2 py-1 text-[11px] font-semibold text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+                      title="Download Carbon Offset Certificate (PDF)"
+                    >
+                      Cert PDF
+                    </a>
+                    <a
+                      href={`/api/certificates/${tree.id}?format=png`}
+                      download={`certificate-${tree.treeId}.png`}
+                      className="rounded-lg border border-slate-200 px-2 py-1 text-[11px] font-semibold text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+                      title="Download Shareable Certificate Image (PNG)"
+                    >
+                      Cert Image
+                    </a>
+                    <Link
+                      href={`/trees/${tree.id}`}
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-stellar-blue/10 text-stellar-blue transition-all duration-300 group-hover:bg-stellar-blue group-hover:text-white"
+                      aria-label={`View details for tree ${tree.treeId}`}
+                    >
+                      <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+                    </Link>
+                  </div>
                 </div>
 
                 <GrowthForecastChart tree={tree} />
