@@ -8,6 +8,13 @@ import type { PlanterRegistrationFormData } from '@/lib/schemas/planter-registra
 import { REGISTRATION_STEPS, type RegistrationStep } from '@/lib/types/planter';
 import type { RegisterPlanterResponse } from '@/lib/types/planter';
 import { useOfflineUploadQueue } from '@/hooks/useOfflineUploadQueue';
+import { useAnnouncer } from '@/components/ui/live-region';
+import {
+  CLIENT_DEFAULT_DUPLICATE_THRESHOLD,
+  recordLocalPhotoHash,
+  warnDuplicatePhotoDetected,
+} from '@/lib/image/client-phash';
+import type { PHashHex } from '@/lib/image/dct-core';
 
 const ALLOWED_PHOTO_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 const MAX_PHOTO_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
@@ -51,6 +58,7 @@ export function usePlanterRegistration(): UsePlanterRegistrationReturn {
   const [planterId, setPlanterId] = useState<string | null>(null);
 
   const { isOnline, pendingCount, manualSync } = useOfflineUploadQueue();
+  const announceAlert = useAnnouncer('planter-photo-upload-alert', true);
 
   const form = useForm<PlanterRegistrationFormData>({
     resolver: zodResolver(planterRegistrationSchema),
@@ -139,7 +147,7 @@ export function usePlanterRegistration(): UsePlanterRegistrationReturn {
           );
           setIsUploadingPhoto(false);
           return;
-        } catch (err) {
+        } catch (_err) {
           setPhotoUploadError('Failed to queue photo for offline upload.');
           setPhotoPreviewUrl(null);
           URL.revokeObjectURL(objectUrl);
@@ -152,6 +160,10 @@ export function usePlanterRegistration(): UsePlanterRegistrationReturn {
       try {
         const formData = new FormData();
         formData.append('photo', file);
+        const currentWallet = form.getValues('walletPublicKey')?.trim();
+        if (currentWallet) {
+          formData.append('walletAddress', currentWallet);
+        }
 
         const res = await fetch('/api/planters/upload-photo', {
           method: 'POST',
@@ -159,17 +171,58 @@ export function usePlanterRegistration(): UsePlanterRegistrationReturn {
         });
 
         if (!res.ok) {
-          const data = (await res.json().catch(() => ({}))) as { error?: string };
+          const data = (await res.json().catch(() => ({}))) as {
+            error?: string;
+            code?: string;
+            hash?: string;
+            distance?: number;
+            similarity?: number;
+            threshold?: number;
+            duplicateOf?: number;
+          };
+
+          if (
+            res.status === 422 &&
+            (data.code === 'DUPLICATE_PHOTO' ||
+              (typeof data.error === 'string' && /duplicate/i.test(data.error)))
+          ) {
+            const distance = data.distance ?? 0;
+            const threshold = data.threshold ?? CLIENT_DEFAULT_DUPLICATE_THRESHOLD;
+            warnDuplicatePhotoDetected(
+              {
+                hash: (data.hash ?? '0000000000000000') as PHashHex,
+                distance,
+                threshold,
+                similarityScore:
+                  typeof data.similarity === 'number'
+                    ? data.similarity
+                    : Math.max(0, Math.min(1, 1 - distance / 64)),
+                source: 'upload-response',
+                duplicateId: data.duplicateOf,
+              },
+              'planter-registration'
+            );
+          }
+
           throw new Error(data.error ?? 'Photo upload failed. Please try again.');
         }
 
-        const { cid } = (await res.json()) as { cid: string };
+        const { cid, hash } = (await res.json()) as { cid: string; hash?: string };
+        if (hash && /^[0-9a-f]{16}$/i.test(hash)) {
+          recordLocalPhotoHash({
+            hash: hash.toLowerCase(),
+            entityType: 'planter',
+            entityId: currentWallet || cid,
+            fileName: file.name,
+            storageRef: cid,
+          });
+        }
         form.setValue('profilePhotoIpfsCid', cid, { shouldValidate: true });
       } catch (err) {
-        // Show generic message — do not expose internal details
-        setPhotoUploadError(
-          err instanceof Error ? err.message : 'Photo upload failed. Please try again.'
-        );
+        const errMessage =
+          err instanceof Error ? err.message : 'Photo upload failed. Please try again.';
+        announceAlert(errMessage);
+        setPhotoUploadError(errMessage);
         // Reset preview on failure
         setPhotoPreviewUrl(null);
         URL.revokeObjectURL(objectUrl);
@@ -178,7 +231,7 @@ export function usePlanterRegistration(): UsePlanterRegistrationReturn {
         setIsUploadingPhoto(false);
       }
     },
-    [form, isOnline]
+    [announceAlert, form, isOnline]
   );
 
   const clearPhoto = useCallback(() => {

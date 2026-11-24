@@ -2,6 +2,11 @@ import { NextResponse } from 'next/server';
 import { buildAndSubmitEscrowRelease } from '@/lib/stellar/escrow';
 import type { MilestoneReleaseRequest } from '@/lib/types/escrow';
 import { emitMilestonePayoutApproved } from '@/lib/webhook/events';
+import {
+  guardUploadAgainstDuplicates,
+  safelyRecordUploadedPhotoHash,
+} from '@/lib/image/upload-dedup';
+import type { PHashHex } from '@/lib/image/phash';
 
 function validateVerification(
   verification: MilestoneReleaseRequest['verification']
@@ -52,6 +57,39 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: verificationError }, { status: 422 });
     }
 
+    // Perceptual hash duplicate guard before releasing escrow funds on-chain
+    let verifiedPhotoHash: PHashHex | null = null;
+    try {
+      const photoBuffer = Buffer.from(verification.photoBase64, 'base64');
+      const verdict = await guardUploadAgainstDuplicates(photoBuffer, {
+        entityType: 'tree',
+        entityId: loanId,
+        routeLabel: 'escrow/release',
+      });
+
+      if (verdict.isDuplicate) {
+        return NextResponse.json(
+          {
+            error:
+              'Duplicate or reused field verification photo detected. Submit a fresh on-site photo to release escrow funds.',
+            code: 'DUPLICATE_PHOTO',
+            hash: verdict.phash.hex,
+            distance: verdict.distance,
+            similarity: verdict.similarityScore,
+            threshold: verdict.threshold,
+            duplicateOf: verdict.duplicateOf,
+          },
+          { status: 422 }
+        );
+      }
+      verifiedPhotoHash = verdict.phash.hex;
+    } catch (hashErr) {
+      console.warn(
+        `[escrow/release] Could not compute pHash for loan ${loanId} verification payload:`,
+        hashErr instanceof Error ? hashErr.message : String(hashErr)
+      );
+    }
+
     const result = await buildAndSubmitEscrowRelease(
       totalAmountUsdc,
       farmerWalletAddress,
@@ -60,9 +98,23 @@ export async function POST(request: Request) {
       loanId
     );
 
+    if (verifiedPhotoHash) {
+      await safelyRecordUploadedPhotoHash({
+        entityType: 'tree',
+        entityId: loanId,
+        hashHex: verifiedPhotoHash,
+        storageRef: `escrow:${result.transactionHash}`,
+        metadata: {
+          farmerWalletAddress,
+          network,
+          gpsCoordinates: verification.gpsCoordinates,
+          submittedAt: verification.submittedAt,
+        },
+        routeLabel: 'escrow/release',
+      });
+    }
+
     // Notify planter backends now that the payout is confirmed on-chain.
-    // Best-effort: a webhook failure must not fail an already-released payout,
-    // so we don't await and errors are swallowed/retried inside the emitter.
     void emitMilestonePayoutApproved({
       loanId,
       farmerWalletAddress: result.farmerWalletAddress,
@@ -73,7 +125,10 @@ export async function POST(request: Request) {
       approvedAt: new Date().toISOString(),
     });
 
-    return NextResponse.json(result);
+    return NextResponse.json({
+      ...result,
+      ...(verifiedPhotoHash ? { photoHash: verifiedPhotoHash } : {}),
+    });
   } catch (error) {
     console.error('Escrow release error:', error);
     const message = error instanceof Error ? error.message : 'Escrow release failed';

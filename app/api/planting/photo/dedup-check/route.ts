@@ -118,6 +118,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Duplicate lookup service unavailable' }, { status: 503 });
   }
 
+  if (match) {
+    const similarityPct = Math.round(Math.max(0, 1 - match.distance / 64) * 1000) / 10;
+    console.warn(
+      `[dedup-check] Potential duplicate photo flagged: hash=${hash.hex}, distance=${match.distance}/${threshold} bits (${similarityPct}% similarity), duplicateOf=#${match.row.id}`
+    );
+  }
+
   const payload: DedupCheckSuccess = {
     hash: hash.hex,
     population: hash.population,
