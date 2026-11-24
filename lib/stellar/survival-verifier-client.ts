@@ -167,6 +167,60 @@ export async function invokeResolveDispute(
   ]);
 }
 
+/**
+ * Invoke `submit_for_finalization` on the `escrow-milestone` contract
+ * to record the approving verifier and begin the post-approval grace period.
+ */
+export async function invokeSubmitMilestoneForFinalization(
+  verifierPublicKey: string,
+  farmerPublicKey: string,
+  milestoneId: 1 | 2 | 3,
+  proofHash: string,
+  network: NetworkType
+): Promise<string> {
+  if (proofHash.length !== 64 || !/^[0-9a-f]+$/i.test(proofHash)) {
+    throw new Error('proofHash must be a 64-char hex string (32 bytes)');
+  }
+  return invokeContract(network, 'escrow-milestone', 'submit_for_finalization', [
+    addressToScVal(verifierPublicKey),
+    addressToScVal(farmerPublicKey),
+    u32ToScVal(milestoneId),
+    hexToScBytesN32(proofHash),
+  ]);
+}
+
+/**
+ * Invoke `finalize_milestone` on the `escrow-milestone` contract after grace
+ * period expiry to trigger the automatic 98% farmer / 2% verifier split.
+ */
+export async function invokeFinalizeMilestone(
+  farmerPublicKey: string,
+  milestoneId: 1 | 2 | 3,
+  network: NetworkType
+): Promise<string> {
+  return invokeContract(network, 'escrow-milestone', 'finalize_milestone', [
+    addressToScVal(farmerPublicKey),
+    u32ToScVal(milestoneId),
+  ]);
+}
+
+/**
+ * Invoke `reject_pending_milestone` on the `escrow-milestone` contract to
+ * block payout and verifier reward during the grace period.
+ */
+export async function invokeRejectPendingMilestone(
+  callerPublicKey: string,
+  farmerPublicKey: string,
+  milestoneId: 1 | 2 | 3,
+  network: NetworkType
+): Promise<string> {
+  return invokeContract(network, 'escrow-milestone', 'reject_pending_milestone', [
+    addressToScVal(callerPublicKey),
+    addressToScVal(farmerPublicKey),
+    u32ToScVal(milestoneId),
+  ]);
+}
+
 // ── Polling ───────────────────────────────────────────────────────────────────
 
 async function pollForConfirmation(
