@@ -65,8 +65,12 @@ export function FieldHealthDashboard({
 }: FieldHealthDashboardProps) {
   const [selectedTreeId, setSelectedTreeId] = useState<string>(trees[0]?.id ?? 'tree-001');
   const [heightCm, setHeightCm] = useState<string>('125');
-  const [pestPresence, setPestPresence] = useState<PestPresence>('none');
+  const [soilMoisturePercent, setSoilMoisturePercent] = useState<string>('');
+  const [pestPresence, setPestPresence] = useState<PestPresence | null>(null);
   const [wateringStatus, setWateringStatus] = useState<WateringStatus>('optimal');
+  const [verifierAddress, setVerifierAddress] = useState<string>('');
+  const [auditDecision, setAuditDecision] = useState<'approved' | 'rejected' | null>(null);
+  const [auditStartedAt, setAuditStartedAt] = useState(() => new Date().toISOString());
   const [observerName, setObserverName] = useState<string>('');
   const [notes, setNotes] = useState<string>('');
   const [submitting, setSubmitting] = useState<boolean>(false);
@@ -85,7 +89,7 @@ export function FieldHealthDashboard({
     const validHeight = Number.isFinite(numericHeight) && numericHeight > 0 ? numericHeight : 0;
     return computeHealthScore({
       heightCm: validHeight,
-      pestPresence,
+      pestPresence: pestPresence ?? 'none',
       wateringStatus,
     });
   }, [numericHeight, pestPresence, wateringStatus]);
@@ -102,8 +106,34 @@ export function FieldHealthDashboard({
       return;
     }
 
+    const numericSoilMoisture = Number(soilMoisturePercent);
+    if (
+      soilMoisturePercent === '' ||
+      !Number.isInteger(numericSoilMoisture) ||
+      numericSoilMoisture < 0 ||
+      numericSoilMoisture > 100
+    ) {
+      setErrorMessage('Enter a soil moisture reading from 0 to 100%.');
+      return;
+    }
+
+    if (!pestPresence) {
+      setErrorMessage('Inspect the sapling for pest damage and choose a result.');
+      return;
+    }
+
     if (!observerName.trim()) {
       setErrorMessage('Please enter the field observer name.');
+      return;
+    }
+
+    if (!verifierAddress.trim()) {
+      setErrorMessage('Enter the verifier Stellar account address.');
+      return;
+    }
+
+    if (!auditDecision) {
+      setErrorMessage('Choose an audit decision before submitting.');
       return;
     }
 
@@ -116,14 +146,23 @@ export function FieldHealthDashboard({
           heightCm: numericHeight,
           pestPresence,
           wateringStatus,
+          soilMoisturePercent: numericSoilMoisture,
           observerName: observerName.trim(),
+          verifierAddress: verifierAddress.trim(),
+          assignedAt: auditStartedAt,
+          decision: auditDecision,
           notes: notes.trim() || undefined,
         }),
       });
 
       const data = await response.json();
       if (!response.ok) {
-        setErrorMessage(data?.error ?? 'Failed to save observation. Please try again.');
+        const validationDetails = data?.details
+          ? Object.values(data.details).flat().join(' ')
+          : null;
+        setErrorMessage(
+          validationDetails || data?.error || 'Failed to save observation. Please try again.'
+        );
         return;
       }
 
@@ -131,6 +170,10 @@ export function FieldHealthDashboard({
       setSyncedObservation(created);
       setRecentObservations((prev) => [created, ...prev].slice(0, 10));
       setNotes('');
+      setSoilMoisturePercent('');
+      setPestPresence(null);
+      setAuditDecision(null);
+      setAuditStartedAt(new Date().toISOString());
     } catch {
       setErrorMessage('Network error while syncing observation. Please try again.');
     } finally {
@@ -149,10 +192,10 @@ export function FieldHealthDashboard({
             </div>
             <div>
               <h1 className="text-xl font-bold text-slate-900 sm:text-2xl">
-                Field Tree Health Dashboard
+                Mobile Field Audit Checklist
               </h1>
               <p className="text-sm text-slate-600">
-                Log field measurements and sync live health scores to sponsor tree profiles.
+                Record soil moisture, sapling height, and pest damage on site.
               </p>
             </div>
           </div>
@@ -175,7 +218,12 @@ export function FieldHealthDashboard({
           onSubmit={handleSubmit}
           className="space-y-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6 lg:col-span-3"
         >
-          <h2 className="text-base font-semibold text-slate-900">Log Health Observation</h2>
+          <div>
+            <h2 className="text-base font-semibold text-slate-900">Tree inspection</h2>
+            <p className="mt-1 text-xs text-slate-500">
+              Checklist timing starts when this form opens.
+            </p>
+          </div>
 
           {/* Tree Selector */}
           <div>
@@ -220,6 +268,29 @@ export function FieldHealthDashboard({
             />
           </div>
 
+          <div>
+            <label htmlFor="soil-moisture" className="block text-sm font-medium text-slate-700">
+              Soil Moisture (%)
+            </label>
+            <input
+              id="soil-moisture"
+              type="number"
+              inputMode="numeric"
+              min={0}
+              max={100}
+              step={1}
+              required
+              value={soilMoisturePercent}
+              onChange={(e) => setSoilMoisturePercent(e.target.value)}
+              placeholder="0–100"
+              aria-describedby="soil-moisture-hint"
+              className="mt-1.5 min-h-[48px] w-full rounded-xl border border-slate-300 bg-white px-3.5 text-base text-slate-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+            />
+            <p id="soil-moisture-hint" className="mt-1 text-xs text-slate-500">
+              Enter the percentage shown by your moisture meter.
+            </p>
+          </div>
+
           {/* Pest Presence */}
           <fieldset>
             <legend className="flex items-center gap-1.5 text-sm font-medium text-slate-700">
@@ -246,6 +317,30 @@ export function FieldHealthDashboard({
                   </button>
                 );
               })}
+            </div>
+          </fieldset>
+
+          <fieldset>
+            <legend className="text-sm font-medium text-slate-700">Audit Decision</legend>
+            <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+              {[
+                { value: 'approved' as const, label: 'Approve audit' },
+                { value: 'rejected' as const, label: 'Flag for follow-up' },
+              ].map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => setAuditDecision(option.value)}
+                  aria-pressed={auditDecision === option.value}
+                  className={`min-h-[52px] rounded-xl border px-3 py-2 text-left text-sm font-semibold transition-colors ${
+                    auditDecision === option.value
+                      ? 'border-emerald-600 bg-emerald-50 text-emerald-900 ring-1 ring-emerald-600'
+                      : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                  }`}
+                >
+                  {option.label}
+                </button>
+              ))}
             </div>
           </fieldset>
 
@@ -294,6 +389,24 @@ export function FieldHealthDashboard({
             />
           </div>
 
+          <div>
+            <label htmlFor="verifier-address" className="block text-sm font-medium text-slate-700">
+              Verifier Stellar Address
+            </label>
+            <input
+              id="verifier-address"
+              type="text"
+              required
+              autoCapitalize="characters"
+              autoComplete="off"
+              spellCheck={false}
+              value={verifierAddress}
+              onChange={(e) => setVerifierAddress(e.target.value.trim().toUpperCase())}
+              placeholder="G..."
+              className="mt-1.5 min-h-[48px] w-full rounded-xl border border-slate-300 bg-white px-3.5 text-base text-slate-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+            />
+          </div>
+
           {/* Field Notes */}
           <div>
             <label htmlFor="field-notes" className="block text-sm font-medium text-slate-700">
@@ -325,7 +438,7 @@ export function FieldHealthDashboard({
             >
               <span className="flex items-center gap-2 font-medium">
                 <CheckCircle2 className="h-4 w-4 text-emerald-600" aria-hidden />
-                Observation logged (Score: {syncedObservation.healthScore}/100) & synced to sponsor
+                Field audit logged (Score: {syncedObservation.healthScore}/100) & synced to sponsor
                 profile.
               </span>
               <Link
@@ -345,10 +458,10 @@ export function FieldHealthDashboard({
             {submitting ? (
               <>
                 <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
-                Syncing Observation...
+                Saving Field Audit...
               </>
             ) : (
-              'Log & Sync Observation'
+              'Submit Field Audit'
             )}
           </button>
         </form>
@@ -418,7 +531,8 @@ export function FieldHealthDashboard({
                       </span>
                     </div>
                     <p className="mt-0.5 text-xs text-slate-500">
-                      {obs.heightCm} cm · Pest: {obs.pestPresence} · Water: {obs.wateringStatus}
+                      {obs.heightCm} cm · Soil: {obs.soilMoisturePercent ?? '—'}% · Pest:{' '}
+                      {obs.pestPresence} · Water: {obs.wateringStatus}
                     </p>
                   </li>
                 );
