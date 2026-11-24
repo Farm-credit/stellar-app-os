@@ -130,7 +130,9 @@ describe('POST /api/v2/csr-report/verify', () => {
     const res = await POST(postJson({ hello: 'world' }));
 
     expect(res.status).toBe(400);
-    await expect(res.json()).resolves.toMatchObject({ error: expect.stringMatching(/Invalid request body/) });
+    await expect(res.json()).resolves.toMatchObject({
+      error: expect.stringMatching(/Invalid request body/),
+    });
   });
 
   it('returns 400 when the body is not valid JSON', async () => {

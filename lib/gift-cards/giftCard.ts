@@ -1,4 +1,12 @@
-import crypto from 'node:crypto';
+function randomBytes(length: number): Uint8Array {
+  const bytes = new Uint8Array(length);
+  globalThis.crypto.getRandomValues(bytes);
+  return bytes;
+}
+
+function randomHex(length: number): string {
+  return Array.from(randomBytes(length), (byte) => byte.toString(16).padStart(2, '0')).join('');
+}
 
 export interface GiftCardDenomination {
   id: string;
@@ -112,8 +120,7 @@ export interface GiftCardRedemptionInput {
 }
 
 export type ValidationResult<T> =
-  | { ok: true; value: T }
-  | { ok: false; errors: Record<string, string> };
+  { ok: true; value: T } | { ok: false; errors: Record<string, string> };
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -127,15 +134,15 @@ export function normalizeGiftCardCode(code: string): string {
 
 export function generateGiftCardCode(): string {
   const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  const bytes = crypto.randomBytes(8);
-  const chars = Array.from(bytes, (b) => alphabet[b % alphabet.length]).join('');
+  const bytes = randomBytes(8);
+  const chars = Array.from(bytes, (byte) => alphabet[byte % alphabet.length]).join('');
   return `TREE-${chars.slice(0, 4)}-${chars.slice(4, 8)}`;
 }
 
 function generateAssignedTreeIds(treeCount: number): string[] {
   const ids: string[] = [];
   for (let i = 0; i < treeCount; i += 1) {
-    const suffix = crypto.randomBytes(3).toString('hex').toUpperCase();
+    const suffix = randomHex(3).toUpperCase();
     ids.push(`ST-TREE-${suffix}`);
   }
   return ids;
@@ -175,8 +182,7 @@ export function validateGiftCardPurchaseInput(
     errors.recipientEmail = 'A valid recipient email address is required.';
   }
 
-  const personalMessage =
-    typeof raw.personalMessage === 'string' ? raw.personalMessage.trim() : '';
+  const personalMessage = typeof raw.personalMessage === 'string' ? raw.personalMessage.trim() : '';
   if (personalMessage.length > GIFT_CARD_MESSAGE_MAX_LENGTH) {
     errors.personalMessage = `Personalised message must be ${GIFT_CARD_MESSAGE_MAX_LENGTH} characters or fewer.`;
   }
@@ -341,7 +347,7 @@ export function createGiftCard(
 
   const now = options?.now ?? new Date();
   const card: GiftCard = {
-    id: crypto.randomUUID(),
+    id: globalThis.crypto.randomUUID(),
     code,
     denominationId: denomination.id,
     amountUsd: denomination.amountUsd,

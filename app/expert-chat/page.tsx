@@ -65,7 +65,6 @@ const RECONNECT_MAX_MS = 30000;
 const SSE_ENDPOINT = '/api/expert-chat/stream';
 const MESSAGES_ENDPOINT = '/api/expert-chat/messages';
 const AVAILABILITY_ENDPOINT = '/api/expert-chat/availability';
-=======
 
 function useTimezone() {
   const [timezone, setTimezone] = useState<string>('UTC');
@@ -120,6 +119,7 @@ export default function ExpertChatPage({ initialTopic }: ExpertChatPageProps) {
   const reconnectAttemptRef = useRef(0);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mountedRef = useRef(true);
+  const connectStreamRef = useRef<() => void>(() => {});
   const historyEndRef = useRef<HTMLDivElement | null>(null);
 
   const fetchAvailability = useCallback(async () => {
@@ -167,7 +167,7 @@ export default function ExpertChatPage({ initialTopic }: ExpertChatPageProps) {
     reconnectTimerRef.current = setTimeout(() => {
       reconnectTimerRef.current = null;
       if (mountedRef.current) {
-        connectStream();
+        connectStreamRef.current();
       }
     }, delay);
   }, []);
@@ -238,6 +238,7 @@ export default function ExpertChatPage({ initialTopic }: ExpertChatPageProps) {
   }, [fetchAvailability, fetchMessages, isWindowFocused, scheduleReconnect]);
 
   useEffect(() => {
+    connectStreamRef.current = connectStream;
     mountedRef.current = true;
     void fetchAvailability();
     void fetchMessages();

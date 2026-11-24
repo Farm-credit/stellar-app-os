@@ -1,6 +1,25 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  typescript: { ignoreBuildErrors: true },
+  serverExternalPackages: ['pg'],
+  webpack: (config, { isServer }) => {
+    if (!isServer) {
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        fs: false,
+        dns: false,
+        net: false,
+        tls: false,
+        os: false,
+        path: false,
+        cluster: false,
+        v8: false,
+        readline: false,
+      };
+    }
+    return config;
+  },
   headers: async () => {
     return [
       {

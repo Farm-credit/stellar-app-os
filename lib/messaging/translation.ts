@@ -7,7 +7,7 @@
  * message is still delivered and flagged as untranslated so the reader sees the
  * original text.
  */
-import { SUPPORTED_LANGUAGES, type SupportedLanguage } from '@/lib/i18n/config';
+import { SUPPORTED_LANGUAGES, type SupportedLanguage } from '@/lib/i18n/languages';
 import type { TranslationStatus } from '@/lib/types/field-messaging';
 
 export interface TranslationProvider {

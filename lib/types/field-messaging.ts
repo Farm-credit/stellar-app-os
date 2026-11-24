@@ -1,4 +1,4 @@
-import type { SupportedLanguage } from '@/lib/i18n/config';
+import type { SupportedLanguage } from '@/lib/i18n/languages';
 
 /** Who wrote a message in a sponsor ↔ field team thread (#1686). */
 export type FieldMessageSender = 'sponsor' | 'field_team';

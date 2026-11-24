@@ -522,7 +522,6 @@ export function NotificationProvider({ children }: { children: ReactNode }): Rea
   useEffect(() => {
     const treeEventListeners = treeEventListenersRef.current;
     const expertChatListeners = expertChatListenersRef.current;
-
     return () => {
       treeEventListeners.clear();
       expertChatListeners.clear();

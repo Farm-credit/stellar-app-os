@@ -107,7 +107,10 @@ export function showNotification(title: string, options?: NotificationOptions): 
 // sent at 9 AM in the sponsor's timezone.
 // ---------------------------------------------------------------------------
 
-import { getPool } from './db/client';
+async function getDbPool() {
+  const { getPool } = await import('./db/client');
+  return getPool();
+}
 
 export interface DigestEvent {
   /** Unique identifier for the event. */
@@ -172,7 +175,7 @@ function rowToDigestEvent(row: NotificationEventRow): DigestEvent {
  * immediately. Events are aggregated and delivered by {@link sendDailyDigest}.
  */
 export async function enqueueDigestEvent(event: DigestEvent): Promise<void> {
-  const pool = getPool();
+  const pool = await getDbPool();
   await pool.query(
     `INSERT INTO notification_events
        (sponsor_id, event_id, title, description, occurred_at, url)
@@ -194,7 +197,7 @@ export async function enqueueDigestEvent(event: DigestEvent): Promise<void> {
  * occurrence time. Does not mark them as delivered.
  */
 export async function getPendingDigestEvents(sponsorId: string): Promise<DigestEvent[]> {
-  const pool = getPool();
+  const pool = await getDbPool();
   const result = await pool.query<NotificationEventRow>(
     `SELECT id, sponsor_id, event_id, title, description, occurred_at, url
        FROM notification_events
@@ -217,7 +220,7 @@ export async function markDigestEventsDelivered(
   if (eventIds.length === 0) {
     return;
   }
-  const pool = getPool();
+  const pool = await getDbPool();
   await pool.query(
     `UPDATE notification_events
         SET delivered_at = $1
@@ -982,7 +985,14 @@ export function buildWeeklySponsorDigestEmail(
     '</div>',
   ].join('');
 
-  return { sponsorId: settings.sponsorId, to: settings.email, subject, html, text };
+  return {
+    sponsorId: settings.sponsorId,
+    to: settings.email,
+    subject,
+    html,
+    text,
+    treeUpdates,
+  };
 }
 
 /** Compile the personalised monthly newsletter email for a sponsor. */

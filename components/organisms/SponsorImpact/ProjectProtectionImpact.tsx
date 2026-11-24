@@ -1,9 +1,21 @@
 'use client';
-import { Circle, CircleMarker, MapContainer, TileLayer } from 'react-leaflet';
+import dynamic from 'next/dynamic';
 import { BookOpen, ShieldCheck } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/molecules/Card';
 import type { ProjectCoordinates } from '@/lib/types/carbon';
 import 'leaflet/dist/leaflet.css';
+
+const MapContainer = dynamic(() => import('react-leaflet').then((mod) => mod.MapContainer), {
+  ssr: false,
+});
+const TileLayer = dynamic(() => import('react-leaflet').then((mod) => mod.TileLayer), {
+  ssr: false,
+});
+const Circle = dynamic(() => import('react-leaflet').then((mod) => mod.Circle), { ssr: false });
+const CircleMarker = dynamic(() => import('react-leaflet').then((mod) => mod.CircleMarker), {
+  ssr: false,
+});
+
 export function ProjectProtectionImpact({
   projectName,
   coordinates,

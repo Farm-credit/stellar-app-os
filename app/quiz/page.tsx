@@ -1,13 +1,9 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import TreeImage from '@/components/atoms/TreeImage';
+import { TreeImage } from '@/components/atoms/TreeImage';
 import QuizResultCard from '@/components/QuizResultCard';
-import {
-  QUIZ_QUESTIONS,
-  recommendSpeciesForQuiz,
-  type QuizAnswers,
-} from '@/lib/species/education';
+import { QUIZ_QUESTIONS, recommendSpeciesForQuiz, type QuizAnswers } from '@/lib/species/education';
 
 export default function QuizPage() {
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -52,12 +48,10 @@ export default function QuizPage() {
     <main className="min-h-screen bg-gradient-to-b from-green-50 to-white px-4 py-10">
       <div className="mx-auto max-w-3xl">
         <header className="mb-8 text-center">
-          <h1 className="text-3xl font-bold text-green-900 sm:text-4xl">
-            Which tree are you?
-          </h1>
+          <h1 className="text-3xl font-bold text-green-900 sm:text-4xl">Which tree are you?</h1>
           <p className="mt-2 text-gray-700">
-            Answer 10 quick questions to discover the tree species that match your
-            personality and learn how you can sponsor one.
+            Answer 10 quick questions to discover the tree species that match your personality and
+            learn how you can sponsor one.
           </p>
         </header>
 
@@ -155,7 +149,7 @@ export default function QuizPage() {
 
         {isComplete && result && (
           <div>
-            <QuizResultCard result={result} sharePath="/quiz" />
+            <QuizResultCard result={result} shareUrl="/quiz" />
             <div className="mt-6 text-center">
               <button
                 type="button"

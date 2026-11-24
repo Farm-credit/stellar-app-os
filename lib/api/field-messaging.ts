@@ -18,7 +18,7 @@ import {
   isSupportedLanguage,
   translateText,
 } from '@/lib/messaging/translation';
-import type { SupportedLanguage } from '@/lib/i18n/config';
+import type { SupportedLanguage } from '@/lib/i18n/languages';
 import type {
   FieldMessage,
   FieldMessageSender,

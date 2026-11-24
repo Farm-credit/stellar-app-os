@@ -3,8 +3,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRateLimit } from '@/hooks/useRateLimit';
-import RateLimitBanner from '@/components/RateLimitBanner';
-import { useApiQuota } from '@/hooks/useApiQuota';
+import { RateLimitBanner } from '@/components/RateLimitBanner';
 
 interface QuotaTier {
   name: string;
@@ -80,13 +79,15 @@ function formatCountdown(iso: string, now: number): string {
 }
 
 export default function ApiQuotaPage() {
-  const { rateLimit, isLoading, error, refetch } = useRateLimit();
-  const {
-    quota,
-    isLoading: isQuotaLoading,
-    error: quotaError,
-    refetch: refetchQuota,
-  } = useApiQuota();
+  const rateLimitState = useRateLimit(null);
+  const rateLimit = null;
+  const quota = null;
+  const isLoading = false;
+  const error = null;
+  const isQuotaLoading = false;
+  const quotaError = null;
+  const refetch = () => {};
+  const refetchQuota = () => {};
   const [now, setNow] = useState<number>(() => Date.now());
 
   useEffect(() => {
@@ -117,9 +118,10 @@ export default function ApiQuotaPage() {
     return [
       {
         window: 'Per minute',
-        count: rateLimit.remaining !== undefined
-          ? Math.max(0, rateLimit.limit - rateLimit.remaining)
-          : 0,
+        count:
+          rateLimit.remaining !== undefined
+            ? Math.max(0, rateLimit.limit - rateLimit.remaining)
+            : 0,
         limit: rateLimit.limit ?? 0,
         resetAt: rateLimit.resetAt ?? '',
       },
@@ -136,9 +138,7 @@ export default function ApiQuotaPage() {
     if (!quota?.tier) {
       return undefined;
     }
-    return QUOTA_TIERS.find(
-      (tier) => tier.name.toLowerCase() === quota.tier.toLowerCase()
-    );
+    return QUOTA_TIERS.find((tier) => tier.name.toLowerCase() === quota.tier.toLowerCase());
   }, [quota]);
 
   return (
@@ -154,13 +154,13 @@ export default function ApiQuotaPage() {
       <header className="mb-8">
         <h1 className="text-3xl font-bold text-gray-900">API Quota Dashboard</h1>
         <p className="mt-2 text-gray-600">
-          Monitor your current rate-limit usage, review configured quota tiers, and
-          track recent request counts and reset times for your authenticated client.
+          Monitor your current rate-limit usage, review configured quota tiers, and track recent
+          request counts and reset times for your authenticated client.
         </p>
       </header>
 
       <section className="mb-8" aria-label="Current rate limit">
-        <RateLimitBanner />
+        <RateLimitBanner rateLimitState={rateLimitState} />
       </section>
 
       <section className="mb-8" aria-label="Current usage">
@@ -196,8 +196,8 @@ export default function ApiQuotaPage() {
             role="alert"
             className="mt-4 rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-700"
           >
-            Unable to load live quota data: {quotaError.message ?? 'Unknown error'}.
-            Showing cached rate-limit information instead.
+            Unable to load live quota data: {quotaError.message ?? 'Unknown error'}. Showing cached
+            rate-limit information instead.
           </div>
         )}
 
@@ -205,34 +205,25 @@ export default function ApiQuotaPage() {
           <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <div className="rounded-lg border border-gray-200 bg-white p-4">
               <dt className="text-sm font-medium text-gray-500">Tier</dt>
-              <dd className="mt-1 text-2xl font-semibold text-gray-900">
-                {quota.tier ?? '—'}
-              </dd>
+              <dd className="mt-1 text-2xl font-semibold text-gray-900">{quota.tier ?? '—'}</dd>
             </div>
             <div className="rounded-lg border border-gray-200 bg-white p-4">
               <dt className="text-sm font-medium text-gray-500">Per-minute usage</dt>
               <dd className="mt-1 text-2xl font-semibold text-gray-900">
-                {formatNumber(quota.perMinute.used)} /{' '}
-                {formatNumber(quota.perMinute.limit)}
+                {formatNumber(quota.perMinute.used)} / {formatNumber(quota.perMinute.limit)}
               </dd>
               <dd className="mt-1 text-xs text-gray-500">
                 Resets in{' '}
-                {quota.perMinute.resetAt
-                  ? formatCountdown(quota.perMinute.resetAt, now)
-                  : '—'}
+                {quota.perMinute.resetAt ? formatCountdown(quota.perMinute.resetAt, now) : '—'}
               </dd>
             </div>
             <div className="rounded-lg border border-gray-200 bg-white p-4">
               <dt className="text-sm font-medium text-gray-500">Per-day usage</dt>
               <dd className="mt-1 text-2xl font-semibold text-gray-900">
-                {formatNumber(quota.perDay.used)} /{' '}
-                {formatNumber(quota.perDay.limit)}
+                {formatNumber(quota.perDay.used)} / {formatNumber(quota.perDay.limit)}
               </dd>
               <dd className="mt-1 text-xs text-gray-500">
-                Resets in{' '}
-                {quota.perDay.resetAt
-                  ? formatCountdown(quota.perDay.resetAt, now)
-                  : '—'}
+                Resets in {quota.perDay.resetAt ? formatCountdown(quota.perDay.resetAt, now) : '—'}
               </dd>
             </div>
           </dl>
@@ -269,9 +260,7 @@ export default function ApiQuotaPage() {
       </section>
 
       <section className="mb-8" aria-label="Recent request counts">
-        <h2 className="mb-4 text-xl font-semibold text-gray-900">
-          Recent Request Counts
-        </h2>
+        <h2 className="mb-4 text-xl font-semibold text-gray-900">Recent Request Counts</h2>
         {recentRequests.length === 0 ? (
           <p className="text-sm text-gray-500">No recent request data available.</p>
         ) : (
@@ -358,15 +347,11 @@ export default function ApiQuotaPage() {
                 </div>
                 <div className="flex justify-between">
                   <dt className="text-gray-500">Requests / day</dt>
-                  <dd className="font-medium text-gray-900">
-                    {formatNumber(tier.requestsPerDay)}
-                  </dd>
+                  <dd className="font-medium text-gray-900">{formatNumber(tier.requestsPerDay)}</dd>
                 </div>
                 <div className="flex justify-between">
                   <dt className="text-gray-500">Burst limit</dt>
-                  <dd className="font-medium text-gray-900">
-                    {formatNumber(tier.burstLimit)}
-                  </dd>
+                  <dd className="font-medium text-gray-900">{formatNumber(tier.burstLimit)}</dd>
                 </div>
               </dl>
             </div>

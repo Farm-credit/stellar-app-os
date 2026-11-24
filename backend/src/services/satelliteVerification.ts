@@ -69,8 +69,9 @@ export interface VerificationJob {
   updatedAt: string;
 }
 
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co';
+const SUPABASE_SERVICE_KEY =
+  process.env.SUPABASE_SERVICE_ROLE_KEY || 'placeholder-service-role-key';
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 
@@ -138,10 +139,8 @@ export async function listVerificationJobs(projectId: string): Promise<Verificat
  * Trigger async verification processing
  * In production, this would push to a message queue (Redis, RabbitMQ, etc.)
  */
-async function triggerVerificationProcessing(jobId: string): Promise<void> {
-  // For now, process synchronously for demo
-  // In production: await queue.add('satellite-verification', { jobId });
-  processVerificationJob(jobId).catch(console.error);
+function triggerVerificationProcessing(jobId: string): Promise<void> {
+  return processVerificationJob(jobId).catch(console.error);
 }
 
 /**

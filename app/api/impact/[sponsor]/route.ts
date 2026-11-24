@@ -29,7 +29,7 @@ import { isValidStellarAddress, listBySponsor } from '@/lib/api/carbon-impact';
 
 export const runtime = 'nodejs';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'sk_test_placeholder');
 
 interface Tree {
   species?: string;

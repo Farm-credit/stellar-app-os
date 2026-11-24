@@ -5,10 +5,8 @@ import { getPlanterProfile } from '@/lib/api/planters';
 import ReferralLinkCard from '@/components/ReferralLinkCard';
 import { getPlanterReferralUrl } from '@/lib/referrals';
 
-const PlanterEvidenceMap = dynamic(
-  () =>
-    import('@/components/organisms/PlanterEvidenceMap').then((module) => module.PlanterEvidenceMap),
-  { ssr: false }
+const PlanterEvidenceMap = dynamic(() =>
+  import('@/components/organisms/PlanterEvidenceMap').then((module) => module.PlanterEvidenceMap)
 );
 
 export default async function PlanterProfilePage({

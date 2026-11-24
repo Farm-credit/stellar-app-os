@@ -56,12 +56,12 @@ const { complianceReport } = vi.hoisted(() => ({
 }));
 
 vi.mock('@/lib/api/buyer-analytics', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@/lib/api/buyer-analytics')>();
-  return { ...actual, aggregateBuyerAnalytics: vi.fn(async () => ({})) };
+  const actual = await importOriginal<Record<string, unknown>>();
+  return { ...actual, aggregateBuyerAnalytics: vi.fn(() => Promise.resolve({})) };
 });
 
 vi.mock('@/lib/esg-reporting-v2', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@/lib/esg-reporting-v2')>();
+  const actual = await importOriginal<Record<string, unknown>>();
   return { ...actual, buildBuyerComplianceReport: vi.fn(() => complianceReport) };
 });
 
@@ -159,9 +159,7 @@ describe('GET /api/v2/buyer-esg-report (CSR exports)', () => {
   it('refuses to sign an export when the platform key is not configured', async () => {
     delete process.env.CSR_REPORT_SIGNING_PRIVATE_KEY_HEX;
 
-    const res = await GET(
-      reportUrl({ buyerId: 'buyer-001', dataSource: 'ledger', format: 'gri' })
-    );
+    const res = await GET(reportUrl({ buyerId: 'buyer-001', dataSource: 'ledger', format: 'gri' }));
 
     expect(res.status).toBe(503);
     await expect(res.json()).resolves.toMatchObject({

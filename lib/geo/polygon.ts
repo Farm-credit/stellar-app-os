@@ -4,6 +4,23 @@ export interface RegionPolygonCheckInput {
   regionCode: string;
 }
 
+export type GeoPolygon = [number, number][];
+
+export function buildBufferPolygon(
+  latitude: number,
+  longitude: number,
+  radiusKm: number
+): GeoPolygon {
+  const latDelta = radiusKm / 111;
+  const lngDelta = radiusKm / (111 * Math.max(Math.cos((latitude * Math.PI) / 180), 0.01));
+  return [
+    [latitude - latDelta, longitude - lngDelta],
+    [latitude + latDelta, longitude - lngDelta],
+    [latitude + latDelta, longitude + lngDelta],
+    [latitude - latDelta, longitude + lngDelta],
+  ];
+}
+
 const REGION_POLYGONS: Record<string, [number, number][]> = {
   'northern-nigeria': [
     [4.0, 3.0],
@@ -218,10 +235,7 @@ export function buildClosedRing(coordinates: [number, number][]): [number, numbe
     return [];
   }
 
-  const ring: [number, number][] = coordinates.map(([lat, lng]) => [
-    normalizeLng(lng),
-    lat,
-  ]);
+  const ring: [number, number][] = coordinates.map(([lat, lng]) => [normalizeLng(lng), lat]);
 
   const first = ring[0];
   const last = ring[ring.length - 1];
