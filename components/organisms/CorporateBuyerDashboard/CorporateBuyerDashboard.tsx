@@ -17,6 +17,7 @@ import {
   PieChart,
   Pie,
   Cell,
+  ReferenceLine,
 } from 'recharts';
 import {
   Leaf,
@@ -31,6 +32,8 @@ import {
   AlertCircle,
   MapPin,
   ShieldCheck,
+  Target,
+  ExternalLink,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/molecules/Card';
 import { Button } from '@/components/atoms/Button';
@@ -39,10 +42,15 @@ import { cn } from '@/lib/utils';
 import {
   mockPurchases,
   mockMonthlyTrends,
+  mockMonthlyTrendsPriorYear,
   computePortfolioSummary,
   computeProjectAllocations,
   computeCoBenefits,
+  filterPurchasesByRange,
+  annualTarget,
+  CO_BENEFIT_SDG_MAP,
   type OffsetPurchase,
+  type DateRange,
 } from '@/lib/api/mock/corporateBuyer';
 
 // ─── Design tokens ─────────────────────────────────────────────────────────────
@@ -91,6 +99,13 @@ const STATUS_LABEL: Record<OffsetPurchase['status'], string> = {
   pending: 'Pending',
 };
 
+const DATE_RANGE_LABELS: Record<DateRange, string> = {
+  '3m': 'Last 3 months',
+  '6m': 'Last 6 months',
+  '1y': 'Last 12 months',
+  all: 'All time',
+};
+
 // ─── KPI card ──────────────────────────────────────────────────────────────────
 interface KpiCardProps {
   label: string;
@@ -98,9 +113,10 @@ interface KpiCardProps {
   sub?: string;
   icon: React.ElementType;
   color: string;
+  delta?: { value: string; positive: boolean };
 }
 
-function KpiCard({ label, value, sub, icon: Icon, color }: KpiCardProps) {
+function KpiCard({ label, value, sub, icon: Icon, color, delta }: KpiCardProps) {
   return (
     <Card className="border-white/5 bg-stellar-navy/40 backdrop-blur-sm">
       <CardContent className="p-6">
@@ -109,6 +125,11 @@ function KpiCard({ label, value, sub, icon: Icon, color }: KpiCardProps) {
             <p className="text-xs font-medium uppercase tracking-wider text-white/50">{label}</p>
             <p className="mt-1.5 text-2xl font-bold text-white truncate">{value}</p>
             {sub && <p className="mt-0.5 text-xs text-white/40">{sub}</p>}
+            {delta && (
+              <p className={cn('mt-1 text-xs font-medium', delta.positive ? 'text-stellar-green' : 'text-rose-400')}>
+                {delta.positive ? '▲' : '▼'} {delta.value} vs prior period
+              </p>
+            )}
           </div>
           <div className={cn('shrink-0 rounded-xl p-2.5 bg-white/5', color)}>
             <Icon className="h-5 w-5" />
@@ -119,14 +140,72 @@ function KpiCard({ label, value, sub, icon: Icon, color }: KpiCardProps) {
   );
 }
 
+// ─── Annual target progress bar ────────────────────────────────────────────────
+function AnnualTargetCard({ purchasedTons }: { purchasedTons: number }) {
+  const pct = Math.min(100, Math.round((purchasedTons / annualTarget.targetTons) * 100));
+  const remaining = Math.max(0, annualTarget.targetTons - purchasedTons);
+
+  return (
+    <Card className="border-white/5 bg-stellar-navy/40 backdrop-blur-sm">
+      <CardContent className="p-6">
+        <div className="flex items-start justify-between gap-4 mb-4">
+          <div>
+            <p className="text-xs font-medium uppercase tracking-wider text-white/50">{annualTarget.label}</p>
+            <p className="mt-1.5 text-2xl font-bold text-white">{pct}% complete</p>
+            <p className="mt-0.5 text-xs text-white/40">
+              {fmt(purchasedTons)} / {fmt(annualTarget.targetTons)} tCO₂e
+            </p>
+          </div>
+          <div className="shrink-0 rounded-xl p-2.5 bg-white/5 text-stellar-cyan">
+            <Target className="h-5 w-5" />
+          </div>
+        </div>
+        <div className="relative h-2.5 w-full rounded-full bg-white/5 overflow-hidden">
+          <div
+            className={cn(
+              'h-full rounded-full transition-all',
+              pct >= 100 ? 'bg-stellar-green' : pct >= 60 ? 'bg-stellar-blue' : 'bg-amber-400'
+            )}
+            style={{ width: `${pct}%` }}
+          />
+        </div>
+        {remaining > 0 && (
+          <p className="mt-2 text-xs text-white/40">{fmt(remaining)} tons still needed this year</p>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ─── SDG badge ─────────────────────────────────────────────────────────────────
+function SdgBadge({ sdg }: { sdg: number }) {
+  return (
+    <span
+      title={`UN SDG ${sdg}`}
+      className="inline-flex items-center justify-center h-5 w-5 rounded-sm text-[10px] font-bold text-white bg-stellar-purple/60 shrink-0"
+    >
+      {sdg}
+    </span>
+  );
+}
+
 // ─── Main component ─────────────────────────────────────────────────────────────
 export function CorporateBuyerDashboard() {
   const [trendMetric, setTrendMetric] = useState<TrendMetric>('tonsRetired');
+  const [showYoY, setShowYoY] = useState(false);
+  const [dateRange, setDateRange] = useState<DateRange>('all');
   const [expandedProject, setExpandedProject] = useState<string | null>(null);
 
-  const summary = useMemo(() => computePortfolioSummary(mockPurchases), []);
-  const allocations = useMemo(() => computeProjectAllocations(mockPurchases), []);
-  const coBenefits = useMemo(() => computeCoBenefits(mockPurchases), []);
+  // Filter purchases by selected date range
+  const filteredPurchases = useMemo(
+    () => filterPurchasesByRange(mockPurchases, dateRange),
+    [dateRange]
+  );
+
+  const summary = useMemo(() => computePortfolioSummary(filteredPurchases), [filteredPurchases]);
+  const allTimeSummary = useMemo(() => computePortfolioSummary(mockPurchases), []);
+  const allocations = useMemo(() => computeProjectAllocations(filteredPurchases), [filteredPurchases]);
+  const coBenefits = useMemo(() => computeCoBenefits(filteredPurchases), [filteredPurchases]);
 
   // Pie data: tons by project type
   const typeBreakdown = useMemo(() => {
@@ -136,6 +215,22 @@ export function CorporateBuyerDashboard() {
     }
     return Array.from(map.entries()).map(([name, value]) => ({ name, value }));
   }, [allocations]);
+
+  // Trend data: merge current and prior year for the YoY overlay
+  const trendData = useMemo(() => {
+    return mockMonthlyTrends.map((cur, i) => ({
+      ...cur,
+      priorTonsRetired: mockMonthlyTrendsPriorYear[i]?.tonsRetired ?? null,
+      priorSpend: mockMonthlyTrendsPriorYear[i]?.spend ?? null,
+      priorAvgPricePerTon: mockMonthlyTrendsPriorYear[i]?.avgPricePerTon ?? null,
+    }));
+  }, []);
+
+  const priorYoYKey: Record<TrendMetric, string> = {
+    tonsRetired: 'priorTonsRetired',
+    spend: 'priorSpend',
+    avgPricePerTon: 'priorAvgPricePerTon',
+  };
 
   const trendLabel: Record<TrendMetric, string> = {
     tonsRetired: 'Tons Retired',
@@ -149,11 +244,20 @@ export function CorporateBuyerDashboard() {
     avgPricePerTon: COLORS.amber,
   };
 
+  // YoY delta for KPIs (tons retired vs prior year total)
+  const priorYearTons = mockMonthlyTrendsPriorYear.reduce((s, m) => s + m.tonsRetired, 0);
+  const currentYearTons = mockMonthlyTrends
+    .filter((m) => m.month.includes('24'))
+    .reduce((s, m) => s + m.tonsRetired, 0);
+  const yoyDeltaPct = priorYearTons > 0
+    ? (((currentYearTons - priorYearTons) / priorYearTons) * 100).toFixed(0)
+    : '0';
+
   return (
     <div className="space-y-8 animate-in fade-in duration-700">
 
       {/* ── Header ── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
         <div>
           <Text variant="h2" className="text-3xl font-bold tracking-tight text-white">
             Corporate Offset Dashboard
@@ -162,20 +266,44 @@ export function CorporateBuyerDashboard() {
             Acme Corp · portfolio as of {new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
           </Text>
         </div>
-        <Button variant="outline" className="gap-2 border-white/10 hover:bg-white/5 self-start sm:self-auto">
-          <Download className="h-4 w-4" />
-          Export CSV
-        </Button>
+        <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+          {/* Date range filter */}
+          <div className="flex rounded-lg border border-white/10 overflow-hidden">
+            {(['3m', '6m', '1y', 'all'] as DateRange[]).map((r) => (
+              <button
+                key={r}
+                onClick={() => setDateRange(r)}
+                className={cn(
+                  'px-3 py-1.5 text-xs font-medium transition-colors',
+                  dateRange === r
+                    ? 'bg-white/10 text-white'
+                    : 'text-white/40 hover:text-white/70'
+                )}
+              >
+                {r === 'all' ? 'All' : r.toUpperCase()}
+              </button>
+            ))}
+          </div>
+          <Button variant="outline" className="gap-2 border-white/10 hover:bg-white/5">
+            <Download className="h-4 w-4" />
+            Export CSV
+          </Button>
+        </div>
       </div>
 
       {/* ── KPI Row ── */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <KpiCard
           label="Total Offset Purchased"
           value={`${fmt(summary.totalTons)} tCO₂e`}
           sub={`${fmt(summary.retiredTons)} tons retired`}
           icon={Leaf}
           color="text-stellar-green"
+          delta={
+            dateRange === 'all'
+              ? { value: `${Math.abs(Number(yoyDeltaPct))}%`, positive: Number(yoyDeltaPct) >= 0 }
+              : undefined
+          }
         />
         <KpiCard
           label="Total Spend"
@@ -193,11 +321,13 @@ export function CorporateBuyerDashboard() {
         />
         <KpiCard
           label="Countries Covered"
-          value={String(new Set(mockPurchases.map((p) => p.country)).size)}
+          value={String(new Set(filteredPurchases.map((p) => p.country)).size)}
           sub={`${summary.projectCount} unique projects`}
           icon={Globe2}
           color="text-stellar-purple"
         />
+        {/* Annual target — always uses all-time data for FY progress */}
+        <AnnualTargetCard purchasedTons={allTimeSummary.totalTons} />
       </div>
 
       {/* ── Trend Analysis + Type Breakdown ── */}
@@ -211,31 +341,49 @@ export function CorporateBuyerDashboard() {
                 <TrendingUp className="h-4 w-4 text-stellar-blue" />
                 Trend Analysis
               </CardTitle>
-              <div className="flex gap-1">
-                {(['tonsRetired', 'spend', 'avgPricePerTon'] as TrendMetric[]).map((m) => (
-                  <button
-                    key={m}
-                    onClick={() => setTrendMetric(m)}
-                    className={cn(
-                      'rounded-md px-2.5 py-1 text-xs font-medium transition-colors',
-                      trendMetric === m
-                        ? 'bg-white/10 text-white'
-                        : 'text-white/40 hover:text-white/70'
-                    )}
-                  >
-                    {trendLabel[m]}
-                  </button>
-                ))}
+              <div className="flex flex-wrap items-center gap-2">
+                {/* YoY toggle */}
+                <button
+                  onClick={() => setShowYoY((v) => !v)}
+                  className={cn(
+                    'rounded-md px-2.5 py-1 text-xs font-medium border transition-colors',
+                    showYoY
+                      ? 'border-stellar-purple/50 bg-stellar-purple/20 text-white'
+                      : 'border-white/10 text-white/40 hover:text-white/70'
+                  )}
+                >
+                  YoY
+                </button>
+                <div className="flex gap-1">
+                  {(['tonsRetired', 'spend', 'avgPricePerTon'] as TrendMetric[]).map((m) => (
+                    <button
+                      key={m}
+                      onClick={() => setTrendMetric(m)}
+                      className={cn(
+                        'rounded-md px-2.5 py-1 text-xs font-medium transition-colors',
+                        trendMetric === m
+                          ? 'bg-white/10 text-white'
+                          : 'text-white/40 hover:text-white/70'
+                      )}
+                    >
+                      {trendLabel[m]}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
           </CardHeader>
           <CardContent className="pt-0">
             <ResponsiveContainer width="100%" height={260}>
-              <AreaChart data={mockMonthlyTrends} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+              <AreaChart data={trendData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                 <defs>
                   <linearGradient id="trendGradient" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor={trendColor[trendMetric]} stopOpacity={0.3} />
                     <stop offset="95%" stopColor={trendColor[trendMetric]} stopOpacity={0} />
+                  </linearGradient>
+                  <linearGradient id="priorGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor={COLORS.purple} stopOpacity={0.15} />
+                    <stop offset="95%" stopColor={COLORS.purple} stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
@@ -261,14 +409,26 @@ export function CorporateBuyerDashboard() {
                   }}
                   labelStyle={{ color: 'rgba(255,255,255,0.7)' }}
                   itemStyle={{ color: trendColor[trendMetric] }}
-                  formatter={(v: number) =>
-                    trendMetric === 'spend'
-                      ? [usd(v), trendLabel[trendMetric]]
-                      : trendMetric === 'avgPricePerTon'
-                      ? [`$${v.toFixed(2)}`, trendLabel[trendMetric]]
-                      : [`${fmt(v)} tCO₂e`, trendLabel[trendMetric]]
-                  }
+                  formatter={(v: number, name: string) => {
+                    const label = name.startsWith('prior') ? `Prior year ${trendLabel[trendMetric]}` : trendLabel[trendMetric];
+                    if (trendMetric === 'spend') return [usd(v), label];
+                    if (trendMetric === 'avgPricePerTon') return [`$${v.toFixed(2)}`, label];
+                    return [`${fmt(v)} tCO₂e`, label];
+                  }}
                 />
+                {showYoY && (
+                  <Area
+                    type="monotone"
+                    dataKey={priorYoYKey[trendMetric]}
+                    stroke={COLORS.purple}
+                    strokeWidth={1.5}
+                    strokeDasharray="4 2"
+                    fill="url(#priorGradient)"
+                    dot={false}
+                    activeDot={{ r: 3, fill: COLORS.purple }}
+                    connectNulls
+                  />
+                )}
                 <Area
                   type="monotone"
                   dataKey={trendMetric}
@@ -277,9 +437,25 @@ export function CorporateBuyerDashboard() {
                   fill="url(#trendGradient)"
                   dot={false}
                   activeDot={{ r: 4, fill: trendColor[trendMetric] }}
+                  connectNulls
                 />
               </AreaChart>
             </ResponsiveContainer>
+            {showYoY && (
+              <div className="mt-2 flex items-center gap-4 text-xs text-white/40">
+                <span className="flex items-center gap-1.5">
+                  <span className="inline-block h-0.5 w-6 rounded" style={{ background: trendColor[trendMetric] }} />
+                  Current year
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span
+                    className="inline-block h-0.5 w-6 rounded"
+                    style={{ background: COLORS.purple, borderTop: '1px dashed' }}
+                  />
+                  Prior year
+                </span>
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -336,22 +512,26 @@ export function CorporateBuyerDashboard() {
       {/* ── Co-benefits + Cost per ton bar ── */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
 
-        {/* Co-benefits panel */}
+        {/* Co-benefits panel with SDG badges */}
         <Card className="border-white/5 bg-stellar-navy/40">
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-base font-semibold text-white">
               <ShieldCheck className="h-4 w-4 text-stellar-green" />
-              Co-Benefits Coverage
+              Co-Benefits &amp; UN SDG Alignment
             </CardTitle>
           </CardHeader>
           <CardContent className="pt-0 space-y-3">
             {coBenefits.map((cb) => {
               const pct = Math.round((cb.tons / summary.totalTons) * 100);
+              const sdgs = CO_BENEFIT_SDG_MAP[cb.label] ?? [];
               return (
                 <div key={cb.label}>
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-sm text-white/80">{cb.label}</span>
-                    <span className="text-xs text-white/40">{fmt(cb.tons)} t · {pct}%</span>
+                  <div className="flex items-center justify-between mb-1 gap-2">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <span className="text-sm text-white/80 truncate">{cb.label}</span>
+                      {sdgs.map((n) => <SdgBadge key={n} sdg={n} />)}
+                    </div>
+                    <span className="text-xs text-white/40 shrink-0">{fmt(cb.tons)} t · {pct}%</span>
                   </div>
                   <div className="h-1.5 w-full rounded-full bg-white/5 overflow-hidden">
                     <div
@@ -407,6 +587,18 @@ export function CorporateBuyerDashboard() {
                   cursor={{ fill: 'rgba(255,255,255,0.03)' }}
                   formatter={(v: number) => [`$${v.toFixed(2)} / tCO₂e`]}
                 />
+                {/* Portfolio avg price reference line */}
+                <ReferenceLine
+                  x={summary.avgCostPerTon}
+                  stroke="rgba(255,255,255,0.25)"
+                  strokeDasharray="4 2"
+                  label={{
+                    value: `Avg $${summary.avgCostPerTon.toFixed(0)}`,
+                    position: 'insideTopRight',
+                    fill: 'rgba(255,255,255,0.4)',
+                    fontSize: 10,
+                  }}
+                />
                 <Bar dataKey="avgPricePerTon" radius={[0, 4, 4, 0]}>
                   {allocations.map((_, i) => (
                     <Cell key={i} fill={PIE_PALETTE[i % PIE_PALETTE.length]} />
@@ -440,7 +632,7 @@ export function CorporateBuyerDashboard() {
             <tbody className="divide-y divide-white/5">
               {allocations.map((a) => {
                 const isOpen = expandedProject === a.projectId;
-                const purchases = mockPurchases.filter((p) => p.projectId === a.projectId);
+                const purchases = filteredPurchases.filter((p) => p.projectId === a.projectId);
                 return (
                   <React.Fragment key={a.projectId}>
                     <tr
@@ -491,7 +683,7 @@ export function CorporateBuyerDashboard() {
                             <table className="w-full text-xs">
                               <thead>
                                 <tr className="border-b border-white/5">
-                                  {['Date', 'Tons', 'Price/t', 'Total', 'Status'].map((h) => (
+                                  {['Date', 'Tons', 'Price/t', 'Total', 'Status', 'Certificate'].map((h) => (
                                     <th key={h} className="px-4 py-2 text-left font-medium text-white/30 uppercase tracking-wider whitespace-nowrap">
                                       {h}
                                     </th>
@@ -510,6 +702,16 @@ export function CorporateBuyerDashboard() {
                                         {STATUS_ICON[p.status]}
                                         <span className="text-white/60">{STATUS_LABEL[p.status]}</span>
                                       </span>
+                                    </td>
+                                    <td className="px-4 py-2">
+                                      {p.certificateSerial ? (
+                                        <span className="flex items-center gap-1 text-stellar-blue font-mono">
+                                          {p.certificateSerial}
+                                          <ExternalLink className="h-3 w-3 opacity-60" />
+                                        </span>
+                                      ) : (
+                                        <span className="text-white/20">—</span>
+                                      )}
                                     </td>
                                   </tr>
                                 ))}
