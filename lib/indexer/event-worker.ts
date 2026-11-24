@@ -3,7 +3,7 @@
  * The runtime behavior is intentionally lightweight and can be expanded later.
  */
 
-import { SorobanRpc } from '@stellar/stellar-sdk';
+import { rpc as SorobanRpc, xdr } from '@stellar/stellar-sdk';
 import { getPool } from '@/lib/db/client';
 import {
   upsertContractEvent,
@@ -18,15 +18,24 @@ const SOROBAN_RPC_URL =
   process.env.NEXT_PUBLIC_SOROBAN_RPC_URL ?? 'https://soroban-testnet.stellar.org';
 const POLL_INTERVAL_MS = 5_000;
 const MAX_EVENTS_PER_POLL = 100;
-const CONTRACT_IDS = (process.env.SOROBAN_CONTRACT_IDS ?? '')
-  .split(',')
-  .map((id) => id.trim())
-  .filter(Boolean);
+const CONTRACT_IDS = [
+  ...(process.env.SOROBAN_CONTRACT_IDS ?? '')
+    .split(',')
+    .map((id) => id.trim())
+    .filter(Boolean),
+  ...(process.env.VERIFIER_STAKING_CONTRACT_ID ? [process.env.VERIFIER_STAKING_CONTRACT_ID] : []),
+].filter((id, index, ids) => ids.indexOf(id) === index);
 
 const server = new SorobanRpc.Server(SOROBAN_RPC_URL, {
   allowHttp: SOROBAN_RPC_URL.startsWith('http://'),
 });
 const pool = getPool();
+
+function scValToBase64(value: unknown): string {
+  if (value instanceof xdr.ScVal) return value.toXDR('base64');
+  if (typeof value === 'string') return value;
+  throw new TypeError('Soroban event contained an unsupported XDR value.');
+}
 
 export async function pollContractEvents() {
   const startLedger = await loadEventCursor(pool, NETWORK);
@@ -58,8 +67,8 @@ export async function pollContractEvents() {
           ? event.contractId
           : (event.contractId?.toString() ?? ''),
       eventType: 'other' as ContractEventType,
-      topicsXdr: [],
-      valueXdr: null,
+      topicsXdr: event.topic?.map(scValToBase64) ?? [],
+      valueXdr: event.value ? scValToBase64(event.value) : null,
       pagingToken: event.pagingToken ?? null,
     });
   }
