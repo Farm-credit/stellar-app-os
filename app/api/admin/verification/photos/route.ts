@@ -8,15 +8,17 @@ interface VerificationPhoto {
   treeRef: string;
   updateType: string;
   mediaUrl: string;
-  ipfsCid: string;
-  lat: string;
-  lng: string;
+  baselineMediaUrl: string | null;
+  baselineCreatedAt: string | null;
+  ipfsCid: string | null;
+  lat: string | null;
+  lng: string | null;
   metadata: Record<string, unknown>;
-  submittedBy: string;
+  submittedBy: string | null;
   createdAt: string;
   treeStatus: string;
-  planterName: string;
-  species: string;
+  planterName: string | null;
+  species: string | null;
   region: string;
   photoHash: string | null;
   duplicateOf: number | null;
@@ -51,6 +53,7 @@ export async function GET(request: Request) {
     if (status === 'pending') {
       conditions.push(`t.status = $${paramIndex++}`);
       params.push('planted');
+      conditions.push(`pu.metadata->>'rejected_at' IS NULL`);
     } else if (status !== 'all') {
       conditions.push(`t.status = $${paramIndex++}`);
       params.push(status);
@@ -80,7 +83,7 @@ export async function GET(request: Request) {
       SELECT COUNT(DISTINCT pu.id) as total
       FROM progress_updates pu
       INNER JOIN trees t ON pu.tree_id = t.id
-      LEFT JOIN planters p ON t….planter_id = p.id
+      LEFT JOIN planters p ON t.planter_id = p.id
       LEFT JOIN photo_hashes ph ON ph.entity_type = 'tree' 
         AND ph.entity_id = t.tree_ref
         AND ph.storage_ref = pu.media_url
@@ -100,6 +103,8 @@ export async function GET(request: Request) {
         t.tree_ref as "treeRef",
         pu.update_type as "updateType",
         pu.media_url as "mediaUrl",
+        baseline.media_url as "baselineMediaUrl",
+        baseline.created_at as "baselineCreatedAt",
         pu.ipfs_cid as "ipfsCid",
         pu.lat,
         pu.lng,
@@ -122,12 +127,22 @@ export async function GET(request: Request) {
       FROM progress_updates pu
       INNER JOIN trees t ON pu.tree_id = t.id
       LEFT JOIN planters p ON t.planter_id = p.id
+      LEFT JOIN LATERAL (
+        SELECT historical.media_url, historical.created_at
+        FROM progress_updates historical
+        WHERE historical.tree_id = pu.tree_id
+          AND historical.update_type = 'photo_submitted'
+          AND historical.media_url IS NOT NULL
+          AND historical.created_at < pu.created_at
+        ORDER BY historical.created_at ASC, historical.id ASC
+        LIMIT 1
+      ) baseline ON TRUE
       LEFT JOIN photo_hashes ph ON ph.entity_type = 'tree' 
         AND ph.entity_id = t.tree_ref
         AND ph.storage_ref = pu.media_url
       WHERE ${whereClause}
         AND pu.media_url IS NOT NULL
-        AND t….deleted_at IS NULL
+        AND t.deleted_at IS NULL
       ORDER BY 
         CASE WHEN ph.duplicate_of IS NOT NULL THEN 0 ELSE 1 END,
         pu.created_at DESC
