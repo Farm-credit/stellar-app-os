@@ -102,3 +102,16 @@ describe('offset project search filters (#1265)', () => {
     expect(new Set(standards).size).toBe(standards.length);
   });
 });
+
+describe('default price range (#1265)', () => {
+  it('does not exclude projects priced above the default 100 sentinel', () => {
+    const pricey = { ...all[0], id: 'proj-pricey', pricePerTon: 150 };
+    const result = applyFilters([...all, pricey], createDefaultFilters({ min: 0, max: 100 }));
+    expect(result.map((p) => p.id)).toContain('proj-pricey');
+  });
+
+  it('still enforces an explicit max below 100', () => {
+    const result = applyFilters(all, { ...open, priceRange: { min: 0, max: 40 } });
+    expect(result.every((p) => p.pricePerTon <= 40)).toBe(true);
+  });
+});
