@@ -12,6 +12,7 @@ export interface CreateHealthObservationPayload {
   heightCm: number;
   pestPresence: PestPresence;
   wateringStatus: WateringStatus;
+  soilMoisturePercent?: number;
   observerName: string;
   notes?: string;
   observedAt?: string;
@@ -165,9 +166,10 @@ export function getTreeHealthSummary(treeId: string): TreeHealthSummary {
   };
 }
 
-export function addHealthObservation(
-  payload: CreateHealthObservationPayload
-): { observation: HealthObservation; summary: TreeHealthSummary } {
+export function addHealthObservation(payload: CreateHealthObservationPayload): {
+  observation: HealthObservation;
+  summary: TreeHealthSummary;
+} {
   const store = getStore();
   const existing = store.get(payload.treeId) ?? buildSeedObservations(payload.treeId, 1);
   const sorted = [...existing].sort(
@@ -192,6 +194,7 @@ export function addHealthObservation(
     heightCm: payload.heightCm,
     pestPresence: payload.pestPresence,
     wateringStatus: payload.wateringStatus,
+    soilMoisturePercent: payload.soilMoisturePercent,
     notes: payload.notes?.trim() || undefined,
     healthScore: computed.score,
     healthStatus: computed.status,

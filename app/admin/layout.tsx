@@ -26,6 +26,12 @@ const adminNavItems: AdminNavItem[] = [
     description:
       'Create and track seed batches through collection, storage, distribution, and planting.',
   },
+  {
+    href: '/admin/verifier-metrics',
+    label: 'Verifier Performance',
+    description:
+      'Review audit accuracy, disputes, turnaround time, and indexed collateral slashes.',
+  },
 ];
 
 export default async function AdminLayout({ children }: AdminLayoutProps) {

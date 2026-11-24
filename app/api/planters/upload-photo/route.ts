@@ -80,7 +80,10 @@ export async function POST(request: Request) {
   const ext = file.type === 'image/jpeg' ? 'jpg' : file.type === 'image/png' ? 'png' : 'webp';
   const safeFilename = `${randomUUID()}.${ext}`;
 
-  const rawEntityId = formData.get('planterId') ?? formData.get('walletAddress');
+  const rawTreeId = formData.get('treeId');
+  const entityType = typeof rawTreeId === 'string' && rawTreeId.trim() ? 'tree' : 'planter';
+  const rawEntityId =
+    entityType === 'tree' ? rawTreeId : (formData.get('planterId') ?? formData.get('walletAddress'));
   const entityId =
     typeof rawEntityId === 'string' && rawEntityId.trim().length > 0
       ? rawEntityId.trim()
@@ -90,7 +93,7 @@ export async function POST(request: Request) {
   let verifiedHashHex: string | undefined;
   try {
     const verdict = await guardUploadAgainstDuplicates(Buffer.from(arrayBuffer), {
-      entityType: 'planter',
+      entityType,
       entityId,
       routeLabel: 'planters/upload-photo',
     });
@@ -98,8 +101,7 @@ export async function POST(request: Request) {
     if (verdict.isDuplicate) {
       return NextResponse.json(
         {
-          error:
-            'Duplicate or reused photo detected. Please upload an original planter verification photo.',
+          error: `Duplicate or reused photo detected. Please upload an original ${entityType} verification photo.`,
           code: 'DUPLICATE_PHOTO',
           hash: verdict.phash.hex,
           distance: verdict.distance,
@@ -117,7 +119,7 @@ export async function POST(request: Request) {
     verifiedHashHex = verdict.phash.hex;
   } catch (err) {
     console.warn(
-      '[planters/upload-photo] Perceptual hash check failed — continuing after magic-byte validation:',
+      '[photo-upload] Perceptual hash check failed — continuing after magic-byte validation:',
       err instanceof Error ? err.message : String(err)
     );
   }
@@ -134,7 +136,7 @@ export async function POST(request: Request) {
   pinataFormData.append('file', renamedBlob, safeFilename);
   pinataFormData.append(
     'pinataMetadata',
-    JSON.stringify({ name: `planter-photo-${safeFilename}` })
+    JSON.stringify({ name: `${entityType}-photo-${safeFilename}` })
   );
   pinataFormData.append('pinataOptions', JSON.stringify({ cidVersion: 1 }));
 
@@ -163,7 +165,7 @@ export async function POST(request: Request) {
 
   if (verifiedHashHex) {
     await safelyRecordUploadedPhotoHash({
-      entityType: 'planter',
+      entityType,
       entityId,
       hashHex: verifiedHashHex as Parameters<typeof safelyRecordUploadedPhotoHash>[0]['hashHex'],
       storageRef: cid,

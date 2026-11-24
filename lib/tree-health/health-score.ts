@@ -6,6 +6,7 @@ export interface HealthObservationInput {
   heightCm: number;
   pestPresence: PestPresence;
   wateringStatus: WateringStatus;
+  soilMoisturePercent?: number;
 }
 
 export interface HealthObservation extends HealthObservationInput {

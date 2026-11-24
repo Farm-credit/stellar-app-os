@@ -47,11 +47,13 @@ describe('tree health store sync', () => {
       heightCm: 185,
       pestPresence: 'none',
       wateringStatus: 'optimal',
+      soilMoisturePercent: 42,
       observerName: 'Test Field Officer',
       notes: 'Strong new growth',
     });
 
     expect(observation.syncedToSponsor).toBe(true);
+    expect(observation.soilMoisturePercent).toBe(42);
     expect(summary.observations.length).toBe(initialCount + 1);
     expect(summary.latestObservation?.id).toBe(observation.id);
     expect(summary.currentScore).toBe(observation.healthScore);

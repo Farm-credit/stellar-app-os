@@ -1,15 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { findDuplicateMock, recordPhotoHashMock, getDuplicateThresholdMock } = vi.hoisted(() => ({
-  findDuplicateMock: vi.fn(),
+const { guardUploadMock, recordPhotoHashMock } = vi.hoisted(() => ({
+  guardUploadMock: vi.fn(),
   recordPhotoHashMock: vi.fn(),
-  getDuplicateThresholdMock: vi.fn(() => 5),
 }));
 
-vi.mock('@/lib/db/photo-hashes', () => ({
-  findDuplicate: findDuplicateMock,
-  recordPhotoHash: recordPhotoHashMock,
-  getDuplicateThreshold: getDuplicateThresholdMock,
+vi.mock('@/lib/image/upload-dedup', () => ({
+  guardUploadAgainstDuplicates: guardUploadMock,
+  safelyRecordUploadedPhotoHash: recordPhotoHashMock,
 }));
 
 import { POST } from './route';
@@ -27,7 +25,7 @@ async function createValidJpegFile(): Promise<File> {
     .jpeg({ quality: 85 })
     .toBuffer();
 
-  const file = new File([jpegBuffer], 'planter.jpg', { type: 'image/jpeg' });
+  const file = new File([new Uint8Array(jpegBuffer)], 'planter.jpg', { type: 'image/jpeg' });
   Object.defineProperty(file, 'arrayBuffer', {
     value: () =>
       Promise.resolve(
@@ -57,7 +55,16 @@ describe('POST /api/planters/upload-photo pHash duplicate protection', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     process.env.PINATA_JWT = 'test-pinata-jwt';
-    findDuplicateMock.mockResolvedValue(null);
+    guardUploadMock.mockResolvedValue({
+      phash: { hex: '1234567890abcdef' },
+      threshold: 5,
+      isDuplicate: false,
+      distance: null,
+      similarityScore: null,
+      duplicateOf: null,
+      matchedEntityId: null,
+      stellarIdentityKind: 'external',
+    });
     recordPhotoHashMock.mockResolvedValue(101);
   });
 
@@ -71,22 +78,18 @@ describe('POST /api/planters/upload-photo pHash duplicate protection', () => {
   });
 
   it('rejects duplicate planter photos with 422 before pinning to IPFS', async () => {
-    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const fetchSpy = vi.fn();
     globalThis.fetch = fetchSpy as unknown as typeof fetch;
 
-    findDuplicateMock.mockResolvedValueOnce({
-      row: {
-        id: 23,
-        entity_type: 'planter',
-        entity_id: 'planter-prev',
-        hash_hex: 'ffffffffffffffff',
-        storage_ref: 'bafy-old',
-        metadata: {},
-        duplicate_of: null,
-        created_at: new Date(),
-      },
+    guardUploadMock.mockResolvedValueOnce({
+      phash: { hex: 'ffffffffffffffff' },
+      threshold: 5,
+      isDuplicate: true,
       distance: 0,
+      similarityScore: 1,
+      duplicateOf: 23,
+      matchedEntityId: 'planter-prev',
+      stellarIdentityKind: 'external',
     });
 
     const photo = await createValidJpegFile();
@@ -100,11 +103,6 @@ describe('POST /api/planters/upload-photo pHash duplicate protection', () => {
       distance: 0,
     });
     expect(fetchSpy).not.toHaveBeenCalled();
-    expect(warnSpy).toHaveBeenCalledWith(
-      expect.stringContaining('[planters/upload-photo] Flagged duplicate planter photo'),
-      expect.any(Object)
-    );
-    warnSpy.mockRestore();
   });
 
   it('pins unique planter photos to IPFS and records their perceptual hash', async () => {
@@ -128,6 +126,33 @@ describe('POST /api/planters/upload-photo pHash duplicate protection', () => {
         entityType: 'planter',
         entityId: 'planter-unique',
         storageRef: 'bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi',
+      })
+    );
+  });
+
+  it('pins tree check-in photos as tree evidence', async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ IpfsHash: 'bafy-tree-photo' }),
+    }) as unknown as typeof fetch;
+
+    const photo = await createValidJpegFile();
+    const res = await POST(makeFormRequest({ photo, treeId: 'tree-1' }));
+
+    expect(res.status).toBe(200);
+    expect(guardUploadMock).toHaveBeenCalledWith(
+      expect.any(Buffer),
+      expect.objectContaining({
+        entityType: 'tree',
+        entityId: 'tree-1',
+        routeLabel: 'planters/upload-photo',
+      })
+    );
+    expect(recordPhotoHashMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        entityType: 'tree',
+        entityId: 'tree-1',
+        storageRef: 'bafy-tree-photo',
       })
     );
   });
