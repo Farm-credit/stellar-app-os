@@ -1,4 +1,5 @@
 import { processDueSettlements, type MarketplaceSettlement } from './settlement-service';
+import { processDueMilestoneFinalizations } from '@/lib/escrow/milestone-finalization';
 
 export async function runSettlementWorker(now = new Date()): Promise<MarketplaceSettlement[]> {
   const apiUrl = process.env.SETTLEMENT_API_URL;
@@ -18,7 +19,12 @@ export async function runSettlementWorker(now = new Date()): Promise<Marketplace
     return payload.settlements ?? [];
   }
   const settlements = await processDueSettlements(now);
-  console.info('[settlement-worker] processed %d due settlements', settlements.length);
+  const finalizedMilestones = await processDueMilestoneFinalizations(now);
+  console.info(
+    '[settlement-worker] processed %d due settlements and %d due milestone finalizations',
+    settlements.length,
+    finalizedMilestones.length
+  );
   return settlements;
 }
 

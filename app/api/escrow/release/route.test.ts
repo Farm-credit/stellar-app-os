@@ -28,6 +28,7 @@ vi.mock('@/lib/db/photo-hashes', () => ({
   getDuplicateThreshold: getDuplicateThresholdMock,
 }));
 
+import { resetMilestoneFinalizations } from '@/lib/escrow/milestone-finalization';
 import { POST } from './route';
 
 async function makeFieldJpegBase64(): Promise<string> {
@@ -48,6 +49,7 @@ async function makeFieldJpegBase64(): Promise<string> {
 describe('POST /api/escrow/release perceptual hash duplicate guard', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    resetMilestoneFinalizations();
     findDuplicateMock.mockResolvedValue(null);
     recordPhotoHashMock.mockResolvedValue(55);
     buildAndSubmitEscrowReleaseMock.mockResolvedValue({
@@ -139,5 +141,42 @@ describe('POST /api/escrow/release perceptual hash duplicate guard', () => {
         storageRef: 'escrow:tx-escrow-123',
       })
     );
+  });
+
+  it('queues milestone approval with 2% verifier split when gracePeriodEndsAt is provided', async () => {
+    const photoBase64 = await makeFieldJpegBase64();
+    const gracePeriodEndsAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+    const req = new Request('http://localhost/api/escrow/release', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        loanId: 'loan-1930-grace',
+        farmerWalletAddress: 'GCFARMEREXAMPLE',
+        verifierWalletAddress: 'GCVERIFIEREXAMPLE',
+        escrowSecretKey: 'SESCROWEXAMPLE',
+        network: 'testnet',
+        totalAmountUsdc: 1000,
+        gracePeriodEndsAt,
+        verification: {
+          gpsCoordinates: { latitude: 11.99, longitude: 8.52 },
+          photoBase64,
+          photoMimeType: 'image/jpeg',
+          submittedAt: '2026-11-23T12:00:00.000Z',
+        },
+      }),
+    });
+
+    const res = await POST(req);
+    expect(res.status).toBe(202);
+    const data = await res.json();
+    expect(data).toMatchObject({
+      finalizationStatus: 'pending_grace',
+      releasedAmountUsdc: 750,
+      farmerPayoutUsdc: 735,
+      verifierWalletAddress: 'GCVERIFIEREXAMPLE',
+      verifierRewardUsdc: 15,
+      gracePeriodEndsAt,
+    });
+    expect(buildAndSubmitEscrowReleaseMock).not.toHaveBeenCalled();
   });
 });

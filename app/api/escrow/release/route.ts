@@ -1,5 +1,10 @@
 import { NextResponse } from 'next/server';
 import { buildAndSubmitEscrowRelease } from '@/lib/stellar/escrow';
+import {
+  approveMilestoneWithGracePeriod,
+  MilestoneFinalizationError,
+  serializeMilestoneFinalization,
+} from '@/lib/escrow/milestone-finalization';
 import type { MilestoneReleaseRequest } from '@/lib/types/escrow';
 import { emitMilestonePayoutApproved } from '@/lib/webhook/events';
 import {
@@ -41,8 +46,17 @@ export async function POST(request: Request) {
       totalAmountUsdc: number;
     };
 
-    const { loanId, farmerWalletAddress, escrowSecretKey, network, verification, totalAmountUsdc } =
-      body;
+    const {
+      loanId,
+      farmerWalletAddress,
+      escrowSecretKey,
+      network,
+      verification,
+      totalAmountUsdc,
+      verifierWalletAddress,
+      gracePeriodEndsAt,
+      milestoneId,
+    } = body;
 
     if (!loanId || !farmerWalletAddress || !escrowSecretKey || !network || !totalAmountUsdc) {
       return NextResponse.json({ error: 'Missing required parameters' }, { status: 400 });
@@ -50,6 +64,20 @@ export async function POST(request: Request) {
 
     if (totalAmountUsdc <= 0) {
       return NextResponse.json({ error: 'Invalid escrow amount' }, { status: 400 });
+    }
+
+    if (verifierWalletAddress !== undefined && !verifierWalletAddress.trim()) {
+      return NextResponse.json(
+        { error: 'verifierWalletAddress must not be empty' },
+        { status: 400 }
+      );
+    }
+
+    if (gracePeriodEndsAt !== undefined && !verifierWalletAddress?.trim()) {
+      return NextResponse.json(
+        { error: 'verifierWalletAddress is required when scheduling grace-period finalization' },
+        { status: 400 }
+      );
     }
 
     const verificationError = validateVerification(verification);
@@ -90,12 +118,67 @@ export async function POST(request: Request) {
       );
     }
 
+    if (gracePeriodEndsAt !== undefined && verifierWalletAddress) {
+      try {
+        const queued = approveMilestoneWithGracePeriod({
+          loanId,
+          milestoneId: milestoneId ?? 1,
+          farmerWalletAddress,
+          approvingVerifierAddress: verifierWalletAddress,
+          totalDisbursementUsdc: totalAmountUsdc * 0.75,
+          escrowSecretKey,
+          network,
+          gracePeriodEndsAt,
+        });
+
+        if (verifiedPhotoHash) {
+          await safelyRecordUploadedPhotoHash({
+            entityType: 'tree',
+            entityId: loanId,
+            hashHex: verifiedPhotoHash,
+            storageRef: `escrow:pending:${queued.id}`,
+            metadata: {
+              farmerWalletAddress,
+              verifierWalletAddress,
+              network,
+              gpsCoordinates: verification.gpsCoordinates,
+              submittedAt: verification.submittedAt,
+            },
+            routeLabel: 'escrow/release',
+          });
+        }
+
+        return NextResponse.json(
+          {
+            finalizationStatus: queued.status,
+            gracePeriodEndsAt: queued.gracePeriodEndsAt,
+            releasedAmountUsdc: queued.totalDisbursementUsdc,
+            farmerWalletAddress: queued.farmerWalletAddress,
+            farmerPayoutUsdc: queued.split.farmerPayoutUsdc,
+            verifierWalletAddress: queued.approvingVerifierAddress,
+            verifierRewardUsdc: queued.split.verifierRewardUsdc,
+            finalization: serializeMilestoneFinalization(queued),
+            ...(verifiedPhotoHash ? { photoHash: verifiedPhotoHash } : {}),
+          },
+          { status: 202 }
+        );
+      } catch (err) {
+        if (err instanceof MilestoneFinalizationError) {
+          const status =
+            err.code === 'INVALID_INPUT' || err.code === 'INVALID_VERIFIER' ? 400 : 409;
+          return NextResponse.json({ error: err.message, code: err.code }, { status });
+        }
+        throw err;
+      }
+    }
+
     const result = await buildAndSubmitEscrowRelease(
       totalAmountUsdc,
       farmerWalletAddress,
       escrowSecretKey,
       network,
-      loanId
+      loanId,
+      verifierWalletAddress ? { verifierWalletAddress, milestoneId } : {}
     );
 
     if (verifiedPhotoHash) {
@@ -119,6 +202,15 @@ export async function POST(request: Request) {
       loanId,
       farmerWalletAddress: result.farmerWalletAddress,
       releasedAmountUsdc: result.releasedAmountUsdc,
+      ...(result.farmerPayoutUsdc !== undefined
+        ? { farmerPayoutUsdc: result.farmerPayoutUsdc }
+        : {}),
+      ...(result.verifierWalletAddress
+        ? { verifierWalletAddress: result.verifierWalletAddress }
+        : {}),
+      ...(result.verifierRewardUsdc !== undefined
+        ? { verifierRewardUsdc: result.verifierRewardUsdc }
+        : {}),
       network,
       transactionHash: result.transactionHash,
       explorerUrl: result.explorerUrl,

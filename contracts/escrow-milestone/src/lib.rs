@@ -40,6 +40,11 @@ const MILESTONE_2_BPS: i128 = 2500;
 const BPS_DENOM: i128 = 10_000;
 const MIN_SURVIVAL_RATE_PERCENT: u32 = 70;
 
+/// Verifier reward share in basis points (200 = 2.00% of milestone disbursement).
+pub const VERIFIER_REWARD_BPS: i128 = 200;
+/// Default grace period after milestone approval before finalization (7 days).
+pub const DEFAULT_GRACE_PERIOD_SECS: u64 = 7 * 24 * 60 * 60;
+
 /// 6 months in seconds (approx 26 weeks)
 const SIX_MONTHS_SECS: u64 = 60 * 60 * 24 * 7 * 26;
 
@@ -108,6 +113,39 @@ pub struct EscrowState {
     /// Whether a dispute is currently open
     pub dispute_open: bool,
     pub lp_shares: i128,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum PendingFinalizationStatus {
+    Pending,
+    Finalized,
+    Rejected,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, PartialEq)]
+pub struct PendingMilestoneFinalization {
+    pub farmer: Address,
+    pub milestone_id: u32,
+    pub approving_verifier: Address,
+    pub proof_hash: BytesN<32>,
+    pub approved_at: u64,
+    pub grace_expires_at: u64,
+    pub status: PendingFinalizationStatus,
+    pub total_disbursed: i128,
+    pub farmer_payout: i128,
+    pub verifier_reward: i128,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, PartialEq)]
+pub struct MilestonePayoutSplit {
+    pub milestone_id: u32,
+    pub total_disbursed: i128,
+    pub farmer_payout: i128,
+    pub verifier_reward: i128,
+    pub approving_verifier: Address,
 }
 
 #[contract]
@@ -562,6 +600,20 @@ impl EscrowMilestone {
         state.dispute_open = true;
         state.status = EscrowStatus::Disputed;
 
+        for milestone_id in 1..=3_u32 {
+            let pending_key = Self::pending_finalization_key(&env, &farmer, milestone_id);
+            if let Some(mut pending) = env
+                .storage()
+                .persistent()
+                .get::<_, PendingMilestoneFinalization>(&pending_key)
+            {
+                if pending.status == PendingFinalizationStatus::Pending {
+                    pending.status = PendingFinalizationStatus::Rejected;
+                    env.storage().persistent().set(&pending_key, &pending);
+                }
+            }
+        }
+
         env.storage().persistent().set(&key, &state);
 
         env.events()
@@ -694,6 +746,37 @@ impl EscrowMilestone {
 
     fn used_proof_key(env: &Env, proof_hash: &BytesN<32>) -> soroban_sdk::Val {
         (Symbol::new(env, "used_proof"), proof_hash.clone()).into_val(env)
+    }
+
+    fn pending_finalization_key(env: &Env, farmer: &Address, milestone_id: u32) -> soroban_sdk::Val {
+        (Symbol::new(env, "PENDFIN"), farmer.clone(), milestone_id).into_val(env)
+    }
+
+    fn is_authorized_verifier(env: &Env, admin: &Address, candidate: &Address) -> bool {
+        if candidate == admin {
+            return true;
+        }
+        let verifiers: soroban_sdk::Vec<Address> = env
+            .storage()
+            .instance()
+            .get(&symbol_short!("VERFRS"))
+            .unwrap_or(soroban_sdk::Vec::new(env));
+        (0..verifiers.len()).any(|i| verifiers.get(i).unwrap() == *candidate)
+    }
+
+    fn compute_verifier_reward_split_internal(disbursement_amount: i128) -> (i128, i128) {
+        if disbursement_amount <= 0 {
+            return (0, 0);
+        }
+        let verifier_reward = disbursement_amount
+            .checked_mul(VERIFIER_REWARD_BPS)
+            .expect("verifier reward overflow")
+            .checked_div(BPS_DENOM)
+            .expect("verifier reward division error");
+        let farmer_payout = disbursement_amount
+            .checked_sub(verifier_reward)
+            .expect("farmer payout underflow");
+        (farmer_payout, verifier_reward)
     }
 
     fn require_admin(env: &Env) {
@@ -940,6 +1023,372 @@ impl EscrowMilestone {
         let count_key: soroban_sdk::Val =
             (Symbol::new(&env, "VCNT"), farmer, milestone_id).into_val(&env);
         env.storage().persistent().get(&count_key).unwrap_or(0u32)
+    }
+
+    // ── Grace-period milestone finalization & 2% verifier reward split (#1930) ─
+
+    /// Admin configures the post-approval grace period (in seconds) before a
+    /// milestone can be finalized and disbursed.
+    pub fn set_grace_period(env: Env, grace_period_secs: u64) {
+        Self::require_admin(&env);
+        if grace_period_secs == 0 {
+            panic_with_error!(&env, EscrowMilestoneError::InvalidGracePeriod);
+        }
+        env.storage()
+            .instance()
+            .set(&symbol_short!("GRACE"), &grace_period_secs);
+        env.events().publish(
+            (Symbol::new(&env, "GraceSet"),),
+            (grace_period_secs, env.ledger().timestamp()),
+        );
+    }
+
+    /// Returns the configured post-approval grace period in seconds.
+    pub fn get_grace_period(env: Env) -> u64 {
+        env.storage()
+            .instance()
+            .get(&symbol_short!("GRACE"))
+            .unwrap_or(DEFAULT_GRACE_PERIOD_SECS)
+    }
+
+    /// Computes `(farmer_payout, verifier_reward)` for a given disbursement
+    /// amount using the exact 2% (200 bps) verifier reward split. Integer
+    /// division remainder stays with `farmer_payout` so total never exceeds
+    /// `disbursement_amount`.
+    pub fn preview_verifier_reward_split(
+        _env: Env,
+        disbursement_amount: i128,
+    ) -> (i128, i128) {
+        Self::compute_verifier_reward_split_internal(disbursement_amount)
+    }
+
+    /// Records an approving verifier's attestation for `milestone_id` (1 = planting,
+    /// 2 = survival, 3 = maturity) and starts the grace period before payout
+    /// finalization.
+    pub fn submit_for_finalization(
+        env: Env,
+        verifier: Address,
+        farmer: Address,
+        milestone_id: u32,
+        proof_hash: BytesN<32>,
+    ) -> PendingMilestoneFinalization {
+        verifier.require_auth();
+
+        let (admin, _amm, _xlm, _usdc): (Address, Address, Address, Address) = env
+            .storage()
+            .instance()
+            .get(&symbol_short!("ADMIN"))
+            .unwrap_or_else(|| panic_with_error!(&env, HarvestaError::NotInitialized));
+
+        if !Self::is_authorized_verifier(&env, &admin, &verifier) {
+            panic_with_error!(&env, EscrowMilestoneError::NotAVerifier);
+        }
+        if !(1..=3).contains(&milestone_id) {
+            panic_with_error!(&env, EscrowMilestoneError::InvalidMilestoneId);
+        }
+
+        let escrow_key = Self::escrow_key(&env, &farmer);
+        let state: EscrowState = env
+            .storage()
+            .persistent()
+            .get(&escrow_key)
+            .unwrap_or_else(|| panic_with_error!(&env, HarvestaError::EscrowNotFound));
+
+        if state.dispute_open || state.status == EscrowStatus::Disputed {
+            panic_with_error!(&env, MilestoneError::MilestoneReleaseBlocked);
+        }
+
+        let now = env.ledger().timestamp();
+        match (milestone_id, &state.status) {
+            (1, EscrowStatus::Funded) => {}
+            (2, EscrowStatus::Milestone1Released) => {
+                if now < state.milestone1_verified_at.saturating_add(SIX_MONTHS_SECS) {
+                    panic_with_error!(&env, HarvestaError::SurvivalPeriodNotElapsed);
+                }
+            }
+            (3, EscrowStatus::SurvivalReleased) => {}
+            _ => panic_with_error!(&env, MilestoneError::MilestoneAlreadyProcessed),
+        }
+
+        let used_key = Self::used_proof_key(&env, &proof_hash);
+        if env.storage().persistent().has(&used_key) {
+            panic!("proof hash already used: replay attack prevented");
+        }
+
+        let pending_key = Self::pending_finalization_key(&env, &farmer, milestone_id);
+        if let Some(existing) = env
+            .storage()
+            .persistent()
+            .get::<_, PendingMilestoneFinalization>(&pending_key)
+        {
+            match existing.status {
+                PendingFinalizationStatus::Pending => {
+                    panic_with_error!(&env, EscrowMilestoneError::PendingFinalizationAlreadyExists);
+                }
+                PendingFinalizationStatus::Finalized => {
+                    panic_with_error!(&env, EscrowMilestoneError::MilestoneAlreadyFinalized);
+                }
+                PendingFinalizationStatus::Rejected => {}
+            }
+        }
+
+        let grace_secs = Self::get_grace_period(env.clone());
+        let grace_expires_at = now.saturating_add(grace_secs);
+        let pending = PendingMilestoneFinalization {
+            farmer: farmer.clone(),
+            milestone_id,
+            approving_verifier: verifier.clone(),
+            proof_hash,
+            approved_at: now,
+            grace_expires_at,
+            status: PendingFinalizationStatus::Pending,
+            total_disbursed: 0,
+            farmer_payout: 0,
+            verifier_reward: 0,
+        };
+
+        env.storage().persistent().set(&used_key, &true);
+        env.storage().persistent().set(&pending_key, &pending);
+        env.events().publish(
+            (Symbol::new(&env, "MilestonePending"), farmer),
+            (milestone_id, verifier, grace_expires_at),
+        );
+
+        pending
+    }
+
+    /// Admin or arbiter rejects a pending milestone before finalization, blocking
+    /// disbursement and verifier reward payout.
+    pub fn reject_pending_milestone(
+        env: Env,
+        caller: Address,
+        farmer: Address,
+        milestone_id: u32,
+    ) {
+        caller.require_auth();
+
+        let (admin, _amm, _xlm, _usdc): (Address, Address, Address, Address) = env
+            .storage()
+            .instance()
+            .get(&symbol_short!("ADMIN"))
+            .unwrap_or_else(|| panic_with_error!(&env, HarvestaError::NotInitialized));
+
+        let escrow_key = Self::escrow_key(&env, &farmer);
+        let state: EscrowState = env
+            .storage()
+            .persistent()
+            .get(&escrow_key)
+            .unwrap_or_else(|| panic_with_error!(&env, HarvestaError::EscrowNotFound));
+
+        if caller != admin && caller != state.arbiter {
+            panic_with_error!(&env, HarvestaError::Unauthorized);
+        }
+
+        let pending_key = Self::pending_finalization_key(&env, &farmer, milestone_id);
+        let mut pending: PendingMilestoneFinalization = env
+            .storage()
+            .persistent()
+            .get(&pending_key)
+            .unwrap_or_else(|| {
+                panic_with_error!(&env, EscrowMilestoneError::PendingFinalizationNotFound)
+            });
+
+        match pending.status {
+            PendingFinalizationStatus::Finalized => {
+                panic_with_error!(&env, EscrowMilestoneError::MilestoneAlreadyFinalized);
+            }
+            PendingFinalizationStatus::Rejected => {
+                panic_with_error!(&env, EscrowMilestoneError::MilestoneRejected);
+            }
+            PendingFinalizationStatus::Pending => {}
+        }
+
+        pending.status = PendingFinalizationStatus::Rejected;
+        env.storage().persistent().set(&pending_key, &pending);
+        env.events().publish(
+            (Symbol::new(&env, "MilestoneRejected"), farmer),
+            (milestone_id, caller),
+        );
+    }
+
+    /// Finalizes a pending milestone once its grace period has expired, routing
+    /// 2% of the milestone disbursement to the approving verifier and the net
+    /// remainder to the farmer. Permissionless after grace expiry.
+    pub fn finalize_milestone(
+        env: Env,
+        farmer: Address,
+        milestone_id: u32,
+    ) -> MilestonePayoutSplit {
+        let (admin, amm, _xlm, _usdc): (Address, Address, Address, Address) = env
+            .storage()
+            .instance()
+            .get(&symbol_short!("ADMIN"))
+            .unwrap_or_else(|| panic_with_error!(&env, HarvestaError::NotInitialized));
+
+        if !(1..=3).contains(&milestone_id) {
+            panic_with_error!(&env, EscrowMilestoneError::InvalidMilestoneId);
+        }
+
+        let pending_key = Self::pending_finalization_key(&env, &farmer, milestone_id);
+        let mut pending: PendingMilestoneFinalization = env
+            .storage()
+            .persistent()
+            .get(&pending_key)
+            .unwrap_or_else(|| {
+                panic_with_error!(&env, EscrowMilestoneError::PendingFinalizationNotFound)
+            });
+
+        let key = Self::escrow_key(&env, &farmer);
+        let mut state: EscrowState = env
+            .storage()
+            .persistent()
+            .get(&key)
+            .unwrap_or_else(|| panic_with_error!(&env, HarvestaError::EscrowNotFound));
+
+        if pending.status == PendingFinalizationStatus::Finalized {
+            panic_with_error!(&env, EscrowMilestoneError::MilestoneAlreadyFinalized);
+        }
+        if state.dispute_open || state.status == EscrowStatus::Disputed {
+            panic_with_error!(&env, MilestoneError::MilestoneReleaseBlocked);
+        }
+        if pending.status == PendingFinalizationStatus::Rejected {
+            panic_with_error!(&env, EscrowMilestoneError::MilestoneRejected);
+        }
+        if state.status == EscrowStatus::Completed || state.status == EscrowStatus::Refunded {
+            panic_with_error!(&env, MilestoneError::MilestoneAlreadyProcessed);
+        }
+
+        let now = env.ledger().timestamp();
+        if now < pending.grace_expires_at {
+            panic_with_error!(&env, EscrowMilestoneError::GracePeriodNotElapsed);
+        }
+
+        if !Self::is_authorized_verifier(&env, &admin, &pending.approving_verifier) {
+            panic_with_error!(&env, EscrowMilestoneError::InvalidApprovingVerifier);
+        }
+
+        let remainder = state
+            .total_amount
+            .checked_sub(state.released)
+            .expect("remainder calculation underflow");
+        if remainder <= 0 || state.lp_shares <= 0 {
+            panic_with_error!(&env, HarvestaError::NothingToRelease);
+        }
+
+        let (release_amount, shares, next_status) = match (milestone_id, &state.status) {
+            (1, EscrowStatus::Funded) => {
+                let tranche = state
+                    .total_amount
+                    .checked_mul(MILESTONE_1_BPS)
+                    .expect("release amount overflow")
+                    .checked_div(BPS_DENOM)
+                    .expect("release amount division error");
+                let payout = core::cmp::min(tranche, remainder);
+                let shares = state
+                    .lp_shares
+                    .checked_mul(MILESTONE_1_BPS)
+                    .expect("share overflow")
+                    .checked_div(BPS_DENOM)
+                    .expect("share division error");
+                (payout, shares, EscrowStatus::Milestone1Released)
+            }
+            (2, EscrowStatus::Milestone1Released) => {
+                let tranche = state
+                    .total_amount
+                    .checked_mul(MILESTONE_2_BPS)
+                    .expect("survival tranche overflow")
+                    .checked_div(BPS_DENOM)
+                    .expect("survival tranche division error");
+                let payout = core::cmp::min(tranche, remainder);
+                let shares = if payout == remainder {
+                    state.lp_shares
+                } else {
+                    state
+                        .lp_shares
+                        .checked_mul(payout)
+                        .expect("share overflow")
+                        .checked_div(remainder)
+                        .expect("share division error")
+                };
+                (payout, shares, EscrowStatus::SurvivalReleased)
+            }
+            (3, EscrowStatus::SurvivalReleased) => {
+                (remainder, state.lp_shares, EscrowStatus::Completed)
+            }
+            _ => panic_with_error!(&env, MilestoneError::MilestoneAlreadyProcessed),
+        };
+
+        let withdrawn_amount = AmmClient::new(&env, &amm).withdraw(
+            &env.current_contract_address(),
+            &state.token,
+            &shares,
+        );
+        let (farmer_payout, verifier_reward) =
+            Self::compute_verifier_reward_split_internal(withdrawn_amount);
+
+        // Checks-effects-interactions: persist finalized state before token transfers.
+        pending.status = PendingFinalizationStatus::Finalized;
+        pending.total_disbursed = withdrawn_amount;
+        pending.farmer_payout = farmer_payout;
+        pending.verifier_reward = verifier_reward;
+
+        state.released = state
+            .released
+            .checked_add(release_amount)
+            .expect("released amount overflow");
+        state.lp_shares = state
+            .lp_shares
+            .checked_sub(shares)
+            .expect("share underflow");
+        state.status = next_status.clone();
+        if milestone_id == 1 {
+            state.milestone1_verified_at = now;
+            state.verification_hash = OptProof::Some(pending.proof_hash.clone());
+        } else {
+            state.survival_verification_hash = OptProof::Some(pending.proof_hash.clone());
+        }
+
+        env.storage().persistent().set(&pending_key, &pending);
+        env.storage().persistent().set(&key, &state);
+
+        let token_client = token::Client::new(&env, &state.token);
+        let contract_addr = env.current_contract_address();
+        if farmer_payout > 0 {
+            token_client.transfer(&contract_addr, &state.farmer, &farmer_payout);
+        }
+        if verifier_reward > 0 {
+            token_client.transfer(&contract_addr, &pending.approving_verifier, &verifier_reward);
+        }
+
+        env.events().publish(
+            (Symbol::new(&env, "VerifierRewardPaid"), farmer),
+            (
+                milestone_id,
+                pending.approving_verifier.clone(),
+                verifier_reward,
+                farmer_payout,
+                withdrawn_amount,
+            ),
+        );
+
+        MilestonePayoutSplit {
+            milestone_id,
+            total_disbursed: withdrawn_amount,
+            farmer_payout,
+            verifier_reward,
+            approving_verifier: pending.approving_verifier,
+        }
+    }
+
+    /// Returns the pending or finalized milestone record for `(farmer, milestone_id)`.
+    pub fn get_pending_finalization(
+        env: Env,
+        farmer: Address,
+        milestone_id: u32,
+    ) -> Option<PendingMilestoneFinalization> {
+        env.storage()
+            .persistent()
+            .get(&Self::pending_finalization_key(&env, &farmer, milestone_id))
     }
     /// Add `addr` to the contract whitelist. Restricted to admin.
     pub fn add_to_whitelist(env: Env, addr: Address) {
@@ -1699,6 +2148,279 @@ mod tests {
         client.deposit(&funder, &farmer, &token, &10_000, &arbiter);
         client.approve_milestone(&v1, &farmer, &1u32); // only 1 of 5 registered
     }
+
+    // ── Grace-period finalization & 2% verifier reward split (#1930) ─────────
+
+    #[test]
+    fn test_preview_verifier_reward_split_conserves_exact_total_and_dust() {
+        let Ctx { client, .. } = setup();
+
+        // Exact 2% of 2,450 = 49, farmer = 2,401 -> 49 + 2,401 = 2,450
+        assert_eq!(client.preview_verifier_reward_split(&2_450), (2_401, 49));
+        // Odd amount with remainder: 2,451 * 200 / 10_000 = 49 (dust 0.02 stays with farmer)
+        assert_eq!(client.preview_verifier_reward_split(&2_451), (2_402, 49));
+        // Small amount below 50: 49 * 200 / 10_000 = 0 -> farmer receives full 49
+        assert_eq!(client.preview_verifier_reward_split(&49), (49, 0));
+        // Zero/negative returns (0, 0)
+        assert_eq!(client.preview_verifier_reward_split(&0), (0, 0));
+    }
+
+    #[test]
+    fn test_grace_period_expiry_routes_2pct_to_approving_verifier_across_all_milestones() {
+        let Ctx {
+            env,
+            client,
+            token,
+            funder,
+            farmer,
+            arbiter,
+            ..
+        } = setup();
+
+        let verifier = Address::generate(&env);
+        client.register_verifier(&verifier);
+        client.deposit(&funder, &farmer, &token, &10_000, &arbiter);
+        // Net escrow after 2% deposit fee = 9,800
+
+        // Milestone 1 (25% = 2,450): 2% = 49 to verifier, 2,401 to farmer
+        let pending1 = client.submit_for_finalization(
+            &verifier,
+            &farmer,
+            &1u32,
+            &dummy_hash(&env, 101),
+        );
+        assert_eq!(pending1.status, PendingFinalizationStatus::Pending);
+        assert_eq!(pending1.approving_verifier, verifier);
+        assert_eq!(
+            pending1.grace_expires_at,
+            pending1.approved_at + DEFAULT_GRACE_PERIOD_SECS
+        );
+
+        // Advance just past grace period
+        env.ledger()
+            .with_mut(|l| l.timestamp = pending1.grace_expires_at);
+        let split1 = client.finalize_milestone(&farmer, &1u32);
+        assert_eq!(split1.total_disbursed, 2_450);
+        assert_eq!(split1.verifier_reward, 49);
+        assert_eq!(split1.farmer_payout, 2_401);
+        assert_eq!(split1.approving_verifier, verifier);
+        assert_eq!(balance(&env, &token, &verifier), 49);
+        assert_eq!(balance(&env, &token, &farmer), 2_401);
+
+        // Milestone 2 (after 6-month survival wait, 25% = 2,450): 49 to verifier, 2,401 to farmer
+        env.ledger()
+            .with_mut(|l| l.timestamp += SIX_MONTHS_SECS + 1);
+        let pending2 = client.submit_for_finalization(
+            &verifier,
+            &farmer,
+            &2u32,
+            &dummy_hash(&env, 102),
+        );
+        env.ledger()
+            .with_mut(|l| l.timestamp = pending2.grace_expires_at + 1);
+        let split2 = client.finalize_milestone(&farmer, &2u32);
+        assert_eq!(split2.total_disbursed, 2_450);
+        assert_eq!(split2.verifier_reward, 49);
+        assert_eq!(split2.farmer_payout, 2_401);
+        assert_eq!(balance(&env, &token, &verifier), 98);
+        assert_eq!(balance(&env, &token, &farmer), 4_802);
+
+        // Milestone 3 (remaining 50% = 4,900): 2% = 98 to verifier, 4,802 to farmer
+        let pending3 = client.submit_for_finalization(
+            &verifier,
+            &farmer,
+            &3u32,
+            &dummy_hash(&env, 103),
+        );
+        env.ledger()
+            .with_mut(|l| l.timestamp = pending3.grace_expires_at);
+        let split3 = client.finalize_milestone(&farmer, &3u32);
+        assert_eq!(split3.total_disbursed, 4_900);
+        assert_eq!(split3.verifier_reward, 98);
+        assert_eq!(split3.farmer_payout, 4_802);
+
+        assert_eq!(balance(&env, &token, &verifier), 196);
+        assert_eq!(balance(&env, &token, &farmer), 9_604);
+        assert_eq!(196 + 9_604, 9_800);
+        assert_eq!(
+            client.get_escrow(&farmer).unwrap().status,
+            EscrowStatus::Completed
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #9)")]
+    fn test_finalize_before_grace_period_expiry_rejected() {
+        let Ctx {
+            env,
+            client,
+            token,
+            funder,
+            farmer,
+            arbiter,
+            ..
+        } = setup();
+
+        let verifier = Address::generate(&env);
+        client.register_verifier(&verifier);
+        client.deposit(&funder, &farmer, &token, &10_000, &arbiter);
+
+        let pending = client.submit_for_finalization(
+            &verifier,
+            &farmer,
+            &1u32,
+            &dummy_hash(&env, 111),
+        );
+        env.ledger()
+            .with_mut(|l| l.timestamp = pending.grace_expires_at - 1);
+        client.finalize_milestone(&farmer, &1u32);
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #10)")]
+    fn test_double_finalization_rejected_idempotently() {
+        let Ctx {
+            env,
+            client,
+            token,
+            funder,
+            farmer,
+            arbiter,
+            ..
+        } = setup();
+
+        let verifier = Address::generate(&env);
+        client.register_verifier(&verifier);
+        client.deposit(&funder, &farmer, &token, &10_000, &arbiter);
+
+        let pending = client.submit_for_finalization(
+            &verifier,
+            &farmer,
+            &1u32,
+            &dummy_hash(&env, 112),
+        );
+        env.ledger()
+            .with_mut(|l| l.timestamp = pending.grace_expires_at);
+        client.finalize_milestone(&farmer, &1u32);
+        client.finalize_milestone(&farmer, &1u32);
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #43)")]
+    fn test_disputed_milestone_blocks_finalization_and_verifier_payout() {
+        let Ctx {
+            env,
+            client,
+            token,
+            funder,
+            farmer,
+            arbiter,
+            ..
+        } = setup();
+
+        let verifier = Address::generate(&env);
+        client.register_verifier(&verifier);
+        client.deposit(&funder, &farmer, &token, &10_000, &arbiter);
+
+        let pending = client.submit_for_finalization(
+            &verifier,
+            &farmer,
+            &1u32,
+            &dummy_hash(&env, 113),
+        );
+        client.raise_dispute(&farmer, &funder);
+        env.ledger()
+            .with_mut(|l| l.timestamp = pending.grace_expires_at + 10);
+        assert_eq!(
+            client.get_pending_finalization(&farmer, &1u32).unwrap().status,
+            PendingFinalizationStatus::Rejected
+        );
+        assert_eq!(balance(&env, &token, &verifier), 0);
+        client.finalize_milestone(&farmer, &1u32);
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #11)")]
+    fn test_rejected_pending_milestone_blocks_finalization_and_verifier_payout() {
+        let Ctx {
+            env,
+            admin,
+            client,
+            token,
+            funder,
+            farmer,
+            arbiter,
+            ..
+        } = setup();
+
+        let verifier = Address::generate(&env);
+        client.register_verifier(&verifier);
+        client.deposit(&funder, &farmer, &token, &10_000, &arbiter);
+
+        let pending = client.submit_for_finalization(
+            &verifier,
+            &farmer,
+            &1u32,
+            &dummy_hash(&env, 115),
+        );
+        client.reject_pending_milestone(&admin, &farmer, &1u32);
+        env.ledger()
+            .with_mut(|l| l.timestamp = pending.grace_expires_at + 10);
+        assert_eq!(balance(&env, &token, &verifier), 0);
+        client.finalize_milestone(&farmer, &1u32);
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #12)")]
+    fn test_removed_verifier_cannot_receive_payout_on_finalization() {
+        let Ctx {
+            env,
+            client,
+            token,
+            funder,
+            farmer,
+            arbiter,
+            ..
+        } = setup();
+
+        let verifier = Address::generate(&env);
+        client.register_verifier(&verifier);
+        client.deposit(&funder, &farmer, &token, &10_000, &arbiter);
+
+        let pending = client.submit_for_finalization(
+            &verifier,
+            &farmer,
+            &1u32,
+            &dummy_hash(&env, 116),
+        );
+        client.remove_verifier(&verifier);
+        env.ledger()
+            .with_mut(|l| l.timestamp = pending.grace_expires_at + 10);
+        client.finalize_milestone(&farmer, &1u32);
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #2)")]
+    fn test_unregistered_verifier_cannot_submit_milestone_for_finalization() {
+        let Ctx {
+            env,
+            client,
+            token,
+            funder,
+            farmer,
+            arbiter,
+            ..
+        } = setup();
+
+        let rogue = Address::generate(&env);
+        client.deposit(&funder, &farmer, &token, &10_000, &arbiter);
+        client.submit_for_finalization(
+            &rogue,
+            &farmer,
+            &1u32,
+            &dummy_hash(&env, 117),
+        );
+    }
 }
 
 #[contracterror]
@@ -1711,4 +2433,12 @@ pub enum EscrowMilestoneError {
     MilestoneReleaseBlocked = 4,
     VerifierSetFull = 5,
     VerifierSetIncomplete = 6,
+    PendingFinalizationNotFound = 7,
+    PendingFinalizationAlreadyExists = 8,
+    GracePeriodNotElapsed = 9,
+    MilestoneAlreadyFinalized = 10,
+    MilestoneRejected = 11,
+    InvalidApprovingVerifier = 12,
+    InvalidMilestoneId = 13,
+    InvalidGracePeriod = 14,
 }
