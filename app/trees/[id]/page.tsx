@@ -5,6 +5,7 @@ import { ArrowRight, Smartphone } from 'lucide-react';
 import { TreeDetail } from '@/components/organisms/TreeDetail/TreeDetail';
 import { TreeHealthTrendChart } from '@/components/organisms/TreeHealth/TreeHealthTrendChart';
 import { TreeStagePhotoTimeline } from '@/components/organisms/TreeStagePhotoTimeline';
+import { TreeMonthlyCheckIn } from '@/components/organisms/TreeMonthlyCheckIn/TreeMonthlyCheckIn';
 import { ConnectedTreeHealthAlertToggle } from '@/components/molecules/ConnectedTreeHealthAlertToggle';
 import { ConnectedTreeMessagePanel } from '@/components/organisms/TreeMessagePanel/ConnectedTreeMessagePanel';
 import { TreeQRLabel } from '@/components/organisms/TreeQRLabel';
@@ -113,6 +114,8 @@ export default async function TreeDetailPage({ params }: { params: Promise<{ id:
           initialNotifications={stageTimeline.notifications}
         />
       </div>
+
+      <TreeMonthlyCheckIn treeId={tree.id} />
 
       <div className="mx-auto max-w-3xl space-y-6 px-4 pb-8">
         {tree.dedication?.trim() ? (

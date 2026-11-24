@@ -131,4 +131,27 @@ describe('POST /api/planters/upload-photo pHash duplicate protection', () => {
       })
     );
   });
+
+  it('pins tree check-in photos as tree evidence', async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ IpfsHash: 'bafy-tree-photo' }),
+    }) as unknown as typeof fetch;
+
+    const photo = await createValidJpegFile();
+    const res = await POST(makeFormRequest({ photo, treeId: 'tree-1' }));
+
+    expect(res.status).toBe(200);
+    expect(findDuplicateMock).toHaveBeenCalledWith(
+      expect.any(Buffer),
+      expect.objectContaining({ entityType: 'tree', entityId: 'tree-1' })
+    );
+    expect(recordPhotoHashMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        entityType: 'tree',
+        entityId: 'tree-1',
+        storageRef: 'bafy-tree-photo',
+      })
+    );
+  });
 });
