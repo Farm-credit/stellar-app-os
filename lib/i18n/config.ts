@@ -1,6 +1,7 @@
 import i18n, { type InitOptions } from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import LanguageDetector from 'i18next-browser-languagedetector';
+import { SUPPORTED_LANGUAGES, type SupportedLanguage } from '@/lib/i18n/languages';
 import enTranslations from '@/lib/i18n/locales/en.json';
 import esTranslations from '@/lib/i18n/locales/es.json';
 import frTranslations from '@/lib/i18n/locales/fr.json';
@@ -13,20 +14,8 @@ import arTranslations from '@/lib/i18n/locales/ar.json';
 import swTranslations from '@/lib/i18n/locales/sw.json';
 import haTranslations from '@/lib/i18n/locales/ha.json';
 
-export const SUPPORTED_LANGUAGES = [
-  'en',
-  'es',
-  'fr',
-  'de',
-  'pt',
-  'ja',
-  'zh',
-  'hi',
-  'ar',
-  'sw',
-  'ha',
-] as const;
-export type SupportedLanguage = (typeof SUPPORTED_LANGUAGES)[number];
+export { SUPPORTED_LANGUAGES };
+export type { SupportedLanguage };
 
 export const LANGUAGE_LABELS: Record<SupportedLanguage, string> = {
   en: 'English',

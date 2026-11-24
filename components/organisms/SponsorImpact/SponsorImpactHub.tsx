@@ -1,8 +1,8 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
-import { Circle, CircleMarker, MapContainer, Popup, TileLayer } from 'react-leaflet';
 import {
   Bell,
   ChevronRight,
@@ -25,6 +25,18 @@ import {
 import { Button } from '@/components/atoms/Button';
 import { mockAllTimeSponsors } from '@/lib/api/mock/leaderboard';
 import { ImpactReportsTab } from './ImpactReportsTab';
+
+const MapContainer = dynamic(() => import('react-leaflet').then((mod) => mod.MapContainer), {
+  ssr: false,
+});
+const TileLayer = dynamic(() => import('react-leaflet').then((mod) => mod.TileLayer), {
+  ssr: false,
+});
+const Circle = dynamic(() => import('react-leaflet').then((mod) => mod.Circle), { ssr: false });
+const CircleMarker = dynamic(() => import('react-leaflet').then((mod) => mod.CircleMarker), {
+  ssr: false,
+});
+const Popup = dynamic(() => import('react-leaflet').then((mod) => mod.Popup), { ssr: false });
 
 type Tab = 'overview' | 'portfolio' | 'rewards' | 'reports';
 interface PortfolioProject {
@@ -420,10 +432,7 @@ export function SponsorImpactHub({
         <Button variant={tab === 'rewards' ? 'default' : 'ghost'} onClick={() => setTab('rewards')}>
           Rewards
         </Button>
-        <Button
-          variant={tab === 'reports' ? 'default' : 'ghost'}
-          onClick={() => setTab('reports')}
-        >
+        <Button variant={tab === 'reports' ? 'default' : 'ghost'} onClick={() => setTab('reports')}>
           Impact Reports
         </Button>
       </div>

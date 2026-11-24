@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import { useEffect, useRef } from 'react';
 import type { SponsorshipMilestones } from '@/lib/types/sponsor-badge';
 import { getAchievementBadgeProgress } from '@/lib/gamification/achievement-badges';
 import { dispatchPushNotification } from '@/lib/notifications/push-notifications';

@@ -96,9 +96,6 @@ export interface PersonalisedNewsletterSection {
   totalTrees: number;
 }
 
-const ANNUAL_IMPACT_EMAILS_ENDPOINT = '/api/sponsors/annual-impact-emails';
-const WAITLIST_ENDPOINT = '/api/sponsors/waitlist';
-const NEWSLETTER_PREFERENCES_ENDPOINT = '/api/sponsors/newsletter-preferences';
 const PUBLIC_API_V1_ENDPOINT = '/api/v1';
 
 export interface PublicApiAuth {
@@ -170,11 +167,7 @@ function parseRateLimit(headers: Headers): RateLimitInfo | undefined {
   const parsedRemaining = Number(remaining);
   const parsedReset = Number(reset);
 
-  if (
-    Number.isNaN(parsedLimit) ||
-    Number.isNaN(parsedRemaining) ||
-    Number.isNaN(parsedReset)
-  ) {
+  if (Number.isNaN(parsedLimit) || Number.isNaN(parsedRemaining) || Number.isNaN(parsedReset)) {
     return undefined;
   }
 
@@ -248,9 +241,7 @@ export async function getSponsorTreeUpdates(address: string): Promise<Tree[]> {
 
   const trees = await fetchTrees({ sponsor: address });
 
-  return trees.filter(
-    (tree) => tree.sponsor?.toLowerCase() === normalized
-  );
+  return trees.filter((tree) => tree.sponsor?.toLowerCase() === normalized);
 }
 
 function isTreeInYear(tree: Tree, year: number): boolean {
@@ -321,17 +312,14 @@ export function getAnnualImpactSummary(
 ): AnnualImpactSummary | undefined {
   const normalized = normalizeAddress(sponsorId);
   return annualImpactSummariesStore.find(
-    (entry) =>
-      normalizeAddress(entry.sponsorId) === normalized && entry.year === year
+    (entry) => normalizeAddress(entry.sponsorId) === normalized && entry.year === year
   );
 }
 
 /**
  * Persists an AnnualImpactSummary idempotently (one record per sponsor/year).
  */
-export function persistAnnualImpactSummary(
-  summary: AnnualImpactSummary
-): AnnualImpactSummary {
+export function persistAnnualImpactSummary(summary: AnnualImpactSummary): AnnualImpactSummary {
   const existing = getAnnualImpactSummary(summary.sponsorId, summary.year);
   if (existing) return existing;
   annualImpactSummariesStore.push(summary);
@@ -349,16 +337,12 @@ export async function sendAnnualImpactEmail(
   const normalized = normalizeAddress(sponsorId);
   const alreadySent = annualImpactEmailsStore.find(
     (row) =>
-      normalizeAddress(row.sponsorId) === normalized &&
-      row.year === year &&
-      row.status === 'sent'
+      normalizeAddress(row.sponsorId) === normalized && row.year === year && row.status === 'sent'
   );
   if (alreadySent) return undefined;
 
   const profile = getSponsorProfile(sponsorId);
-  const summary = persistAnnualImpactSummary(
-    await aggregateAnnualImpact(sponsorId, year)
-  );
+  const summary = persistAnnualImpactSummary(await aggregateAnnualImpact(sponsorId, year));
   const imageUrl = buildImpactImageUrl(summary);
 
   const row: AnnualImpactEmailRow = {
@@ -416,9 +400,7 @@ export function isAnnualImpactSendDay(date: Date = new Date()): boolean {
  * Returns the sponsor's monthly newsletter preference.
  * Sponsors are opted in by default until they explicitly opt out.
  */
-export function getNewsletterPreference(
-  sponsorId: string
-): SponsorNewsletterPreference {
+export function getNewsletterPreference(sponsorId: string): SponsorNewsletterPreference {
   const normalized = normalizeAddress(sponsorId);
   const existing = newsletterPreferencesStore.find(
     (entry) => normalizeAddress(entry.sponsorId) === normalized
@@ -549,9 +531,7 @@ export function updateNewsletterPreference(
  * Computes the marketing segments a sponsor belongs to based on their
  * sponsorship history and tree data.
  */
-export async function computeSponsorSegments(
-  sponsorId: string
-): Promise<SponsorSegment[]> {
+export async function computeSponsorSegments(sponsorId: string): Promise<SponsorSegment[]> {
   const segments: SponsorSegment[] = [];
   const trees = await getSponsorTreeUpdates(sponsorId);
   const totalTrees = trees.length;
@@ -561,9 +541,7 @@ export async function computeSponsorSegments(
 
   const now = Date.now();
   const lapsedCutoff = new Date(now);
-  lapsedCutoff.setUTCMonth(
-    lapsedCutoff.getUTCMonth() - LAPSED_INACTIVITY_MONTHS
-  );
+  lapsedCutoff.setUTCMonth(lapsedCutoff.getUTCMonth() - LAPSED_INACTIVITY_MONTHS);
 
   let lastActivity: Date | undefined;
   for (const tree of trees) {
@@ -617,13 +595,9 @@ export async function getSponsorsBySegment(
 /**
  * Returns the digest settings for a sponsor, if configured.
  */
-export function getSponsorDigestSettings(
-  sponsorId: string
-): SponsorDigestSettings | undefined {
+export function getSponsorDigestSettings(sponsorId: string): SponsorDigestSettings | undefined {
   const normalized = normalizeAddress(sponsorId);
-  return digestSettingsStore.find(
-    (entry) => normalizeAddress(entry.sponsorId) === normalized
-  );
+  return digestSettingsStore.find((entry) => normalizeAddress(entry.sponsorId) === normalized);
 }
 
 /**
@@ -642,13 +616,14 @@ export function setSponsorDigestSettings(
     return existing;
   }
 
-  const preference: SponsorNewsletterPreference = {
+  const settings: SponsorDigestSettings = {
     sponsorId,
-    optIn,
+    email: email ?? '',
+    weeklyDigestEnabled,
     updatedAt: new Date().toISOString(),
   };
-  newsletterPreferencesStore.push(preference);
-  return preference;
+  digestSettingsStore.push(settings);
+  return settings;
 }
 
 /**
@@ -664,16 +639,6 @@ export async function getPersonalisedNewsletterSection(
     treeUpdates,
     totalTrees: treeUpdates.length,
   };
-}
-
-  const settings: SponsorDigestSettings = {
-    sponsorId,
-    email,
-    weeklyDigestEnabled,
-    updatedAt: new Date().toISOString(),
-  };
-  digestSettingsStore.push(settings);
-  return settings;
 }
 
 /**
@@ -719,10 +684,7 @@ export function joinWaitlist(sponsorId: string, region: string): WaitlistEntry {
 /**
  * Returns the sponsor's waitlist position for a region, if any.
  */
-export function getWaitlistPosition(
-  sponsorId: string,
-  region: string
-): number | undefined {
+export function getWaitlistPosition(sponsorId: string, region: string): number | undefined {
   const normalizedSponsor = normalizeAddress(sponsorId);
   const normalizedRegion = region.toLowerCase();
   const entry = waitlistStore.find(

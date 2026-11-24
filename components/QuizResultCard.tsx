@@ -3,7 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import SocialShareButtons from './SocialShareButtons';
-import { generateShareText, generateShareUrl } from '../lib/sharing';
+import { buildQuizResultShareUrl, generateShareText } from '../lib/sharing';
 
 export interface QuizSpeciesRecommendation {
   id: string;
@@ -41,11 +41,7 @@ function formatNumber(value: number | undefined): string | null {
   return new Intl.NumberFormat('en-US').format(value);
 }
 
-export default function QuizResultCard({
-  result,
-  shareUrl,
-  className = '',
-}: QuizResultCardProps) {
+export default function QuizResultCard({ result, shareUrl, className = '' }: QuizResultCardProps) {
   const {
     quizTitle = 'Tree Species Quiz',
     score,
@@ -67,21 +63,18 @@ export default function QuizResultCard({
 
   const resolvedShareUrl =
     shareUrl ??
-    generateShareUrl({
-      path: '/quiz',
-      title: shareTitle,
-      description: shareDescription,
-    }) ??
-    (typeof window !== 'undefined' ? window.location.href : undefined);
+    buildQuizResultShareUrl(
+      recommendedSpecies.map((species) => species.id),
+      score ?? 0,
+      totalQuestions
+    );
 
   return (
     <div
       className={`rounded-2xl border border-green-200 bg-white p-6 shadow-lg ${className}`.trim()}
     >
       <div className="mb-4">
-        <p className="text-sm font-medium uppercase tracking-wide text-green-600">
-          {quizTitle}
-        </p>
+        <p className="text-sm font-medium uppercase tracking-wide text-green-600">{quizTitle}</p>
         <h2 className="mt-1 text-2xl font-bold text-gray-900">{resultTitle}</h2>
         {score !== undefined && totalQuestions !== undefined && (
           <p className="mt-1 text-sm text-gray-500">
@@ -94,9 +87,7 @@ export default function QuizResultCard({
 
       {recommendedSpecies.length > 0 && (
         <div className="mb-6">
-          <h3 className="mb-3 text-lg font-semibold text-gray-900">
-            Recommended species for you
-          </h3>
+          <h3 className="mb-3 text-lg font-semibold text-gray-900">Recommended species for you</h3>
           <ul className="space-y-4">
             {recommendedSpecies.map((species) => {
               const co2 = formatNumber(species.co2PerYearKg);
@@ -117,14 +108,10 @@ export default function QuizResultCard({
                   <div className="min-w-0 flex-1">
                     <p className="font-semibold text-gray-900">{species.name}</p>
                     {species.scientificName && (
-                      <p className="text-sm italic text-gray-500">
-                        {species.scientificName}
-                      </p>
+                      <p className="text-sm italic text-gray-500">{species.scientificName}</p>
                     )}
                     {species.description && (
-                      <p className="mt-1 text-sm text-gray-600">
-                        {species.description}
-                      </p>
+                      <p className="mt-1 text-sm text-gray-600">{species.description}</p>
                     )}
                     <div className="mt-2 flex flex-wrap gap-3 text-xs text-gray-600">
                       {co2 && (

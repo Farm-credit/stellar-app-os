@@ -253,10 +253,7 @@ function persistDigestPreferences(prefs: DigestPreferences): void {
  * Compute the next 9 AM (in the given timezone) after `from`.
  * Falls back to a UTC-based calculation if the timezone is invalid.
  */
-export function computeNextDigestSendTime(
-  timezone: string,
-  from: Date = new Date()
-): Date {
+export function computeNextDigestSendTime(timezone: string, from: Date = new Date()): Date {
   const safeTimezone = timezone || 'UTC';
 
   const zonedParts = (date: Date): { year: number; month: number; day: number; hour: number } => {
@@ -320,10 +317,7 @@ export function normalizeToastDuration(duration?: number): number {
  * These map to in-app notifications with the corresponding NotificationType.
  */
 export type TreeLifecycleEventKind =
-  | 'tree_planted'
-  | 'survival_1_year'
-  | 'milestone_5_year'
-  | 'sponsor_achievement';
+  'tree_planted' | 'survival_1_year' | 'milestone_5_year' | 'sponsor_achievement';
 
 export interface TreeLifecycleNotificationEvent {
   kind: TreeLifecycleEventKind;
@@ -392,14 +386,14 @@ function buildTreeEventMapping(event: TreeLifecycleNotificationEvent): TreeEvent
       return {
         type: 'sponsor_achievement',
         priority: 'high',
-        title: event.achievementName ? `Achievement Unlocked: ${event.achievementName}` : 'Achievement Unlocked',
+        title: event.achievementName
+          ? `Achievement Unlocked: ${event.achievementName}`
+          : 'Achievement Unlocked',
         description:
           event.achievementDescription ??
           `You unlocked a new sponsor achievement${event.achievementName ? `: ${event.achievementName}` : ''}.`,
         actionLabel: 'View Achievements',
-        actionPath: event.achievementId
-          ? `/achievements/${event.achievementId}`
-          : '/achievements',
+        actionPath: event.achievementId ? `/achievements/${event.achievementId}` : '/achievements',
       };
     default:
       return {
@@ -418,11 +412,12 @@ export function NotificationProvider({ children }: { children: ReactNode }): Rea
   const [toasts, setToasts] = useState<ToastNotification[]>([]);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [newsletterOptIn, setNewsletterOptInState] = useState<boolean>(readStoredNewsletterOptIn);
-  const [digestPreferences, setDigestPreferencesState] =
-    useState<DigestPreferences>(readStoredDigestPreferences);
-  const [expertChatConversations, setExpertChatConversations] = useState<
-    ExpertChatConversation[]
-  >([]);
+  const [digestPreferences, setDigestPreferencesState] = useState<DigestPreferences>(
+    readStoredDigestPreferences
+  );
+  const [expertChatConversations, setExpertChatConversations] = useState<ExpertChatConversation[]>(
+    []
+  );
 
   const treeEventListenersRef = useRef<Set<TreeLifecycleEventListener>>(new Set());
   const expertChatListenersRef = useRef<Set<(message: ExpertChatMessage) => void>>(new Set());
@@ -462,60 +457,57 @@ export function NotificationProvider({ children }: { children: ReactNode }): Rea
     return id;
   }, []);
 
-  const notifyTreeEvent = useCallback(
-    (event: TreeLifecycleNotificationEvent): string => {
-      const mapping = buildTreeEventMapping(event);
-      const id = generateId();
+  const notifyTreeEvent = useCallback((event: TreeLifecycleNotificationEvent): string => {
+    const mapping = buildTreeEventMapping(event);
+    const id = generateId();
 
-      const action: NotificationAction | undefined =
-        mapping.actionLabel && mapping.actionPath
-          ? {
-              label: mapping.actionLabel,
-              onClick: () => {
-                if (typeof window !== 'undefined') {
-                  window.open(mapping.actionPath as string, '_blank');
-                }
-              },
-              variant: 'primary',
-            }
-          : undefined;
+    const action: NotificationAction | undefined =
+      mapping.actionLabel && mapping.actionPath
+        ? {
+            label: mapping.actionLabel,
+            onClick: () => {
+              if (typeof window !== 'undefined') {
+                window.open(mapping.actionPath as string, '_blank');
+              }
+            },
+            variant: 'primary',
+          }
+        : undefined;
 
-      const newNotification: Notification = {
-        id,
-        title: mapping.title,
-        description: mapping.description,
-        type: mapping.type,
-        priority: mapping.priority,
-        timestamp: event.timestamp ?? new Date().toISOString(),
-        read: false,
-        archived: false,
-        action,
-        metadata: {
-          ...(event.metadata ?? {}),
-          eventKind: event.kind,
-          ...(event.treeId ? { treeId: event.treeId } : {}),
-          ...(event.treeName ? { treeName: event.treeName } : {}),
-          ...(event.projectId ? { projectId: event.projectId } : {}),
-          ...(event.projectName ? { projectName: event.projectName } : {}),
-          ...(event.achievementId ? { achievementId: event.achievementId } : {}),
-          ...(event.achievementName ? { achievementName: event.achievementName } : {}),
-        },
-      };
+    const newNotification: Notification = {
+      id,
+      title: mapping.title,
+      description: mapping.description,
+      type: mapping.type,
+      priority: mapping.priority,
+      timestamp: event.timestamp ?? new Date().toISOString(),
+      read: false,
+      archived: false,
+      action,
+      metadata: {
+        ...(event.metadata ?? {}),
+        eventKind: event.kind,
+        ...(event.treeId ? { treeId: event.treeId } : {}),
+        ...(event.treeName ? { treeName: event.treeName } : {}),
+        ...(event.projectId ? { projectId: event.projectId } : {}),
+        ...(event.projectName ? { projectName: event.projectName } : {}),
+        ...(event.achievementId ? { achievementId: event.achievementId } : {}),
+        ...(event.achievementName ? { achievementName: event.achievementName } : {}),
+      },
+    };
 
-      setNotifications((prev) => [newNotification, ...prev]);
+    setNotifications((prev) => [newNotification, ...prev]);
 
-      treeEventListenersRef.current.forEach((listener) => {
-        try {
-          listener(event, id);
-        } catch {
-          // Ignore listener failures so one bad subscriber cannot break others.
-        }
-      });
+    treeEventListenersRef.current.forEach((listener) => {
+      try {
+        listener(event, id);
+      } catch {
+        // Ignore listener failures so one bad subscriber cannot break others.
+      }
+    });
 
-      return id;
-    },
-    []
-  );
+    return id;
+  }, []);
 
   const subscribeToTreeEvents = useCallback(
     (listener: TreeLifecycleEventListener): (() => void) => {
@@ -528,9 +520,11 @@ export function NotificationProvider({ children }: { children: ReactNode }): Rea
   );
 
   useEffect(() => {
+    const treeEventListeners = treeEventListenersRef.current;
+    const expertChatListeners = expertChatListenersRef.current;
     return () => {
-      treeEventListenersRef.current.clear();
-      expertChatListenersRef.current.clear();
+      treeEventListeners.clear();
+      expertChatListeners.clear();
     };
   }, []);
 
@@ -559,7 +553,13 @@ export function NotificationProvider({ children }: { children: ReactNode }): Rea
   );
 
   const addExpertChatMessage = useCallback(
-    (conversationId: string, message: Omit<ExpertChatMessage, 'id' | 'conversationId' | 'timestamp' | 'read'> & { timestamp?: string; read?: boolean }) => {
+    (
+      conversationId: string,
+      message: Omit<ExpertChatMessage, 'id' | 'conversationId' | 'timestamp' | 'read'> & {
+        timestamp?: string;
+        read?: boolean;
+      }
+    ) => {
       const id = generateId();
       const newMessage: ExpertChatMessage = {
         ...message,
@@ -861,6 +861,3 @@ export function useNotification(): NotificationContextValue {
   }
   return context;
 }
-</｜｜DSML｜｜ parameter>
-</｜｜DSML｜｜ invoke>
-</｜｜DSML｜｜ calls>

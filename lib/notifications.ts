@@ -107,7 +107,10 @@ export function showNotification(title: string, options?: NotificationOptions): 
 // sent at 9 AM in the sponsor's timezone.
 // ---------------------------------------------------------------------------
 
-import { getPool } from './db/client';
+async function getDbPool() {
+  const { getPool } = await import('./db/client');
+  return getPool();
+}
 
 export interface DigestEvent {
   /** Unique identifier for the event. */
@@ -172,7 +175,7 @@ function rowToDigestEvent(row: NotificationEventRow): DigestEvent {
  * immediately. Events are aggregated and delivered by {@link sendDailyDigest}.
  */
 export async function enqueueDigestEvent(event: DigestEvent): Promise<void> {
-  const pool = getPool();
+  const pool = await getDbPool();
   await pool.query(
     `INSERT INTO notification_events
        (sponsor_id, event_id, title, description, occurred_at, url)
@@ -194,7 +197,7 @@ export async function enqueueDigestEvent(event: DigestEvent): Promise<void> {
  * occurrence time. Does not mark them as delivered.
  */
 export async function getPendingDigestEvents(sponsorId: string): Promise<DigestEvent[]> {
-  const pool = getPool();
+  const pool = await getDbPool();
   const result = await pool.query<NotificationEventRow>(
     `SELECT id, sponsor_id, event_id, title, description, occurred_at, url
        FROM notification_events
@@ -217,7 +220,7 @@ export async function markDigestEventsDelivered(
   if (eventIds.length === 0) {
     return;
   }
-  const pool = getPool();
+  const pool = await getDbPool();
   await pool.query(
     `UPDATE notification_events
         SET delivered_at = $1
@@ -397,11 +400,7 @@ export function isDigestSendTime(timezone: string, now: Date = new Date()): bool
 export type TreeMilestoneType = 'tree_planted' | 'survival_1_year' | 'milestone_5_year';
 
 export type SponsorAchievementType =
-  | 'first_tree'
-  | 'ten_trees'
-  | 'hundred_trees'
-  | 'co2_offset'
-  | 'species_diversity';
+  'first_tree' | 'ten_trees' | 'hundred_trees' | 'co2_offset' | 'species_diversity';
 
 export interface TreeMilestoneEvent {
   kind: 'tree_milestone';
@@ -855,7 +854,10 @@ export async function getSponsorTreeUpdates(
   }
 }
 
-function buildTreeUpdatesSection(updates: NewsletterTreeUpdate[]): { html: string; text: string[] } {
+function buildTreeUpdatesSection(updates: NewsletterTreeUpdate[]): {
+  html: string;
+  text: string[];
+} {
   if (updates.length === 0) {
     return {
       html: '<p style="color:#555;">No tree updates yet this month - your next tree could be the one!</p>',
@@ -965,6 +967,33 @@ export function buildWeeklySponsorDigestEmail(
     metrics.treesSurvived !== undefined
       ? `<li>Trees survived: <strong>${metrics.treesSurvived}</strong></li>`
       : '';
+
+  const html = [
+    '<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">',
+    `<h2>Hi ${escapeHtml(sponsorName)},</h2>`,
+    '<h3>Your weekly impact summary</h3>',
+    '<h4>Impact metrics</h4>',
+    '<ul>',
+    `<li>Trees funded: <strong>${metrics.treesFunded}</strong></li>`,
+    `<li>CO2 absorbed: <strong>${metrics.co2AbsorbedKg} kg</strong></li>`,
+    `<li>Species supported: <strong>${metrics.speciesCount}</strong></li>`,
+    survivedHtml,
+    '</ul>',
+    htmlTreeUpdates,
+    htmlHighlights,
+    '<p>Thank you for making a difference!</p>',
+    '</div>',
+  ].join('');
+
+  return {
+    sponsorId: settings.sponsorId,
+    to: settings.email,
+    subject,
+    html,
+    text,
+    treeUpdates,
+  };
+}
 
 /** Compile the personalised monthly newsletter email for a sponsor. */
 export function buildMonthlyNewsletterEmail(
@@ -1222,7 +1251,10 @@ export function renderNewsletterEmail(
   const html = substitutePlaceholders(template.html, values);
   const text = template.text
     ? substitutePlaceholders(template.text, values)
-    : html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+    : html
+        .replace(/<[^>]*>/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
 
   return {
     sponsorId: recipient.sponsorId,
