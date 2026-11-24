@@ -1,13 +1,11 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useCallback } from 'react';
 import {
   AreaChart,
   Area,
   BarChart,
   Bar,
-  LineChart,
-  Line,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -31,6 +29,7 @@ import {
   AlertCircle,
   MapPin,
   ShieldCheck,
+  Filter,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/molecules/Card';
 import { Button } from '@/components/atoms/Button';
@@ -78,6 +77,34 @@ function usd(n: number) {
 }
 
 type TrendMetric = 'tonsRetired' | 'spend' | 'avgPricePerTon';
+type DateRange = 'all' | '2024' | '2025';
+
+// ─── CSV export helper ─────────────────────────────────────────────────────────
+function exportToCsv(purchases: OffsetPurchase[]) {
+  const headers = ['ID', 'Date', 'Project', 'Type', 'Country', 'Tons', 'Price/ton', 'Total Cost', 'Standard', 'Vintage', 'Status', 'Co-benefits'];
+  const rows = purchases.map((p) => [
+    p.id,
+    p.date,
+    `"${p.projectName}"`,
+    p.projectType,
+    p.country,
+    p.tons,
+    p.pricePerTon,
+    p.totalCost,
+    p.verificationStandard,
+    p.vintage,
+    p.status,
+    `"${p.coBenefits.join(', ')}"`,
+  ]);
+  const csv = [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `carbon-offsets-${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
 
 const STATUS_ICON: Record<OffsetPurchase['status'], React.ReactNode> = {
   retired: <CheckCircle2 className="h-3.5 w-3.5 text-green-400" />,
@@ -123,10 +150,38 @@ function KpiCard({ label, value, sub, icon: Icon, color }: KpiCardProps) {
 export function CorporateBuyerDashboard() {
   const [trendMetric, setTrendMetric] = useState<TrendMetric>('tonsRetired');
   const [expandedProject, setExpandedProject] = useState<string | null>(null);
+  const [dateRange, setDateRange] = useState<DateRange>('all');
+  const [typeFilter, setTypeFilter] = useState<string>('all');
 
-  const summary = useMemo(() => computePortfolioSummary(mockPurchases), []);
-  const allocations = useMemo(() => computeProjectAllocations(mockPurchases), []);
-  const coBenefits = useMemo(() => computeCoBenefits(mockPurchases), []);
+  // Filter purchases by selected date range
+  const filteredPurchases = useMemo(() => {
+    if (dateRange === 'all') return mockPurchases;
+    return mockPurchases.filter((p) => p.date.startsWith(dateRange));
+  }, [dateRange]);
+
+  // Filter trend data by date range
+  const filteredTrends = useMemo(() => {
+    if (dateRange === 'all') return mockMonthlyTrends;
+    return mockMonthlyTrends.filter((t) => t.month.includes(dateRange.slice(2)));
+  }, [dateRange]);
+
+  const summary = useMemo(() => computePortfolioSummary(filteredPurchases), [filteredPurchases]);
+  const allocations = useMemo(() => computeProjectAllocations(filteredPurchases), [filteredPurchases]);
+  const coBenefits = useMemo(() => computeCoBenefits(filteredPurchases), [filteredPurchases]);
+
+  // All unique project types for the filter dropdown
+  const projectTypes = useMemo(() => {
+    const types = Array.from(new Set(mockPurchases.map((p) => p.projectType))).sort();
+    return ['all', ...types];
+  }, []);
+
+  // Supply chain rows filtered by type
+  const visibleAllocations = useMemo(() => {
+    if (typeFilter === 'all') return allocations;
+    return allocations.filter((a) => a.projectType === typeFilter);
+  }, [allocations, typeFilter]);
+
+  const handleExport = useCallback(() => exportToCsv(filteredPurchases), [filteredPurchases]);
 
   // Pie data: tons by project type
   const typeBreakdown = useMemo(() => {
@@ -162,10 +217,27 @@ export function CorporateBuyerDashboard() {
             Acme Corp · portfolio as of {new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
           </Text>
         </div>
-        <Button variant="outline" className="gap-2 border-white/10 hover:bg-white/5 self-start sm:self-auto">
-          <Download className="h-4 w-4" />
-          Export CSV
-        </Button>
+        <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+          {/* Date range filter */}
+          <div className="flex rounded-lg border border-white/10 overflow-hidden text-xs font-medium">
+            {(['all', '2024', '2025'] as DateRange[]).map((r) => (
+              <button
+                key={r}
+                onClick={() => setDateRange(r)}
+                className={cn(
+                  'px-3 py-1.5 transition-colors',
+                  dateRange === r ? 'bg-white/10 text-white' : 'text-white/40 hover:text-white/70'
+                )}
+              >
+                {r === 'all' ? 'All time' : r}
+              </button>
+            ))}
+          </div>
+          <Button onClick={handleExport} variant="outline" className="gap-2 border-white/10 hover:bg-white/5">
+            <Download className="h-4 w-4" />
+            Export CSV
+          </Button>
+        </div>
       </div>
 
       {/* ── KPI Row ── */}
@@ -231,7 +303,7 @@ export function CorporateBuyerDashboard() {
           </CardHeader>
           <CardContent className="pt-0">
             <ResponsiveContainer width="100%" height={260}>
-              <AreaChart data={mockMonthlyTrends} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+              <AreaChart data={filteredTrends} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                 <defs>
                   <linearGradient id="trendGradient" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor={trendColor[trendMetric]} stopOpacity={0.3} />
@@ -421,10 +493,26 @@ export function CorporateBuyerDashboard() {
       {/* ── Supply chain / project breakdown ── */}
       <Card className="border-white/5 bg-stellar-navy/40">
         <CardHeader className="pb-2">
-          <CardTitle className="flex items-center gap-2 text-base font-semibold text-white">
-            <Globe2 className="h-4 w-4 text-stellar-purple" />
-            Project Supply Chain
-          </CardTitle>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <CardTitle className="flex items-center gap-2 text-base font-semibold text-white">
+              <Globe2 className="h-4 w-4 text-stellar-purple" />
+              Project Supply Chain
+            </CardTitle>
+            <div className="flex items-center gap-2">
+              <Filter className="h-3.5 w-3.5 text-white/40" />
+              <select
+                value={typeFilter}
+                onChange={(e) => setTypeFilter(e.target.value)}
+                className="rounded-md border border-white/10 bg-white/5 px-2 py-1 text-xs text-white/70 focus:outline-none focus:ring-1 focus:ring-white/20"
+              >
+                {projectTypes.map((t) => (
+                  <option key={t} value={t} className="bg-[#0D0B21]">
+                    {t === 'all' ? 'All types' : t}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
         </CardHeader>
         <CardContent className="pt-0 overflow-x-auto">
           <table className="w-full text-sm">
@@ -438,7 +526,7 @@ export function CorporateBuyerDashboard() {
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
-              {allocations.map((a) => {
+              {visibleAllocations.map((a) => {
                 const isOpen = expandedProject === a.projectId;
                 const purchases = mockPurchases.filter((p) => p.projectId === a.projectId);
                 return (
@@ -537,7 +625,7 @@ export function CorporateBuyerDashboard() {
         </CardHeader>
         <CardContent className="pt-0">
           <ResponsiveContainer width="100%" height={260}>
-            <BarChart data={mockMonthlyTrends} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+            <BarChart data={filteredTrends} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
               <XAxis
                 dataKey="month"
