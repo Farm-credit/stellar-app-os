@@ -144,9 +144,10 @@ export function applyFilters(projects: CarbonProject[], filters: ProjectFilters)
     }
 
     // Price range filter
+    // A max of 100 is the default "no upper bound" sentinel (see getActiveFilterCount).
     if (
       project.pricePerTon < filters.priceRange.min ||
-      project.pricePerTon > filters.priceRange.max
+      (filters.priceRange.max < 100 && project.pricePerTon > filters.priceRange.max)
     ) {
       return false;
     }
