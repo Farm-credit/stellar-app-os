@@ -971,8 +971,8 @@ export function buildWeeklySponsorDigestEmail(
   const html = [
     '<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">',
     `<h2>Hi ${escapeHtml(sponsorName)},</h2>`,
-    '<h3>Your weekly impact summary</h3>',
-    '<h4>Impact metrics</h4>',
+    '<p>Here is your weekly impact summary:</p>',
+    '<h3>Impact metrics</h3>',
     '<ul>',
     `<li>Trees funded: <strong>${metrics.treesFunded}</strong></li>`,
     `<li>CO2 absorbed: <strong>${metrics.co2AbsorbedKg} kg</strong></li>`,

@@ -3,13 +3,24 @@
 import { useCallback, useMemo, useState } from 'react';
 import { FileText, Download } from 'lucide-react';
 import { Button } from '@/components/atoms/Button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/molecules/Card';
-import { getSponsorProfile } from '@/lib/api/sponsors';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/molecules/Card';
+import { getSponsorProfile } from '@/lib/api/sponsor-profile';
 import { getSponsorPortfolio } from '@/lib/api/sponsor-portfolio';
 import { buildImpactReportData } from '@/lib/impact-report/impact-report-data';
 
 function slugify(value: string) {
-  return value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'sponsor';
+  return (
+    value
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '') || 'sponsor'
+  );
 }
 
 export function ImpactReportsTab({ sponsorAddress }: { sponsorAddress: string }) {

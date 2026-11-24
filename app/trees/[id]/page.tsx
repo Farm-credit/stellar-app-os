@@ -10,6 +10,7 @@ import { ConnectedTreeMessagePanel } from '@/components/organisms/TreeMessagePan
 import { TreeQRLabel } from '@/components/organisms/TreeQRLabel';
 import { TreeMilestoneShareCards } from '@/components/organisms/TreeMilestoneShareCards';
 import { TreeDedicationShareCard } from '@/components/organisms/TreeDedicationShareCard';
+import { CarbonOffsetCertificateCard } from '@/components/organisms/CarbonOffsetCertificate/CarbonOffsetCertificateCard';
 import { getMockTrees } from '@/lib/api/mock/trees';
 import { getTreeById } from '@/lib/api/tree-registry';
 import {
@@ -121,6 +122,7 @@ export default async function TreeDetailPage({ params }: { params: Promise<{ id:
             dedication={tree.dedication}
           />
         ) : null}
+        <CarbonOffsetCertificateCard tree={tree} />
         <TreeQRLabel tree={tree} />
         <TreeMilestoneShareCards
           treePublicUrl={publicTreePath}

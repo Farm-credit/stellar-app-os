@@ -5,7 +5,7 @@ import {
   requestNotificationPermission,
   subscribeToPushNotifications,
   unsubscribeFromPushNotifications,
-} from '@/lib/notifications';
+} from '@/lib/notifications-push';
 
 interface TreeHealthAlertToggleProps {
   /** Wallet public key of the sponsor; null when no wallet is connected. */

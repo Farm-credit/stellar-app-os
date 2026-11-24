@@ -1,4 +1,4 @@
-import { getSponsorProfile } from '@/lib/api/sponsors';
+import { getSponsorProfile } from '@/lib/api/sponsor-profile';
 import { getSponsorPortfolio } from '@/lib/api/sponsor-portfolio';
 import {
   evaluateSponsorAchievements,

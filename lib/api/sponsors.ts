@@ -1,20 +1,12 @@
 import { mockAllTimeSponsors } from '@/lib/api/mock/leaderboard';
-import type { SponsorBadge } from '@/lib/types/sponsor-badge';
-import { getSponsorBadges } from '@/lib/gamification/sponsor-badges';
 import { fetchTrees } from '@/lib/api/trees';
 import type { Tree } from '@/lib/types/tree';
 import { CO2_KG_PER_TREE } from '@/lib/constants/impact';
 import { SPECIES } from '@/lib/constants/species';
 import { sendNotification } from '@/lib/notifications';
+import { getSponsorProfile } from './sponsor-profile';
 
-export interface SponsorProfile {
-  address: string;
-  name?: string;
-  avatarUrl?: string;
-  totalTrees: number;
-  co2Offset: number;
-  badges: SponsorBadge[];
-}
+export { getSponsorProfile, type SponsorProfile } from './sponsor-profile';
 
 export interface AnnualImpactSummary {
   sponsorId: string;
@@ -213,19 +205,6 @@ const digestSettingsStore: SponsorDigestSettings[] = [];
 
 function normalizeAddress(address: string): string {
   return address.toLowerCase();
-}
-
-export function getSponsorProfile(address: string): SponsorProfile | undefined {
-  const sponsor = mockAllTimeSponsors.find(
-    (entry) => entry.address.toLowerCase() === address.toLowerCase()
-  );
-
-  if (!sponsor) return undefined;
-
-  return {
-    ...sponsor,
-    badges: getSponsorBadges(sponsor.totalTrees),
-  };
 }
 
 /**
@@ -618,7 +597,7 @@ export function setSponsorDigestSettings(
 
   const settings: SponsorDigestSettings = {
     sponsorId,
-    email: email ?? '',
+    email,
     weeklyDigestEnabled,
     updatedAt: new Date().toISOString(),
   };

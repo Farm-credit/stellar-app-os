@@ -66,9 +66,13 @@ export async function GET(request: NextRequest) {
 
     const analyticsRequest: BuyerAnalyticsRequest = analyticsResult.data;
 
-    // Parse additional report parameters
-    const format = formatSchema.parse(request.nextUrl.searchParams.get('format'));
-    const companyName = companyNameSchema.parse(request.nextUrl.searchParams.get('companyName'));
+    // Parse additional report parameters. `URLSearchParams.get` returns null for
+    // an absent param, which Zod rejects — map it to undefined so the schema's
+    // documented defaults (`format=json`) and optional fields still apply.
+    const format = formatSchema.parse(request.nextUrl.searchParams.get('format') ?? undefined);
+    const companyName = companyNameSchema.parse(
+      request.nextUrl.searchParams.get('companyName') ?? undefined
+    );
     if ((format === 'gri' || format === 'tcfd') && analyticsRequest.dataSource !== 'ledger') {
       return NextResponse.json(
         { error: 'Signed CSR exports require dataSource=ledger.' },
