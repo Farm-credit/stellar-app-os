@@ -293,6 +293,14 @@ Custom error codes follow the workspace-wide allocation standard documented in
 | `order_count` | `fn order_count(env: Env) -> u64` |
 | `set_royalty` | `fn set_royalty(env: Env, basis_points: u32)` |
 | `get_royalty` | `fn get_royalty(env: Env) -> u32` |
+| `set_treasury` | `fn set_treasury(env: Env, treasury: Address)` |
+| `get_treasury` | `fn get_treasury(env: Env) -> Option<Address>` |
+| `protocol_fee_bps` | `fn protocol_fee_bps(env: Env) -> u32` |
+| `quote_protocol_fee` | `fn quote_protocol_fee(env: Env, gross_amount: i128) -> i128` |
+| `quote_protocol_fee_with_royalty` | `fn quote_protocol_fee_with_royalty(env: Env, gross_amount: i128, royalty_bps: u32) -> i128` |
+| `get_accrued_fees` | `fn get_accrued_fees(env: Env, payment_token: Address) -> i128` |
+| `get_total_fees_siphoned` | `fn get_total_fees_siphoned(env: Env) -> i128` |
+| `siphon_protocol_fees` | `fn siphon_protocol_fees(env: Env, payment_token: Address) -> i128` |
 | `validate_order_trade` | `fn validate_order_trade(env: Env, seller: Address, buyer: Address)` |
 | `validate_order_matching` | `fn validate_order_matching(env: Env, buy_owner: Address, sell_owner: Address)` |
 | `extend_instance_ttl` | `fn extend_instance_ttl(env: Env, threshold: u32, extend_to: u32)` |
@@ -302,10 +310,6 @@ Custom error codes follow the workspace-wide allocation standard documented in
 | `get_twap` | `fn get_twap(env: Env, observation_count: u32) -> Option<i128>` |
 | `get_twap_config` | `fn get_twap_config(env: Env) -> Option<TwapConfig>` |
 | `get_total_observations` | `fn get_total_observations(env: Env) -> u64` |
-| `configure_treasury_reserve` | `fn configure_treasury_reserve( env: Env, fee_token: Address, usdc_reserve: Address, fee_bps: u32, )` |
-| `swap_fees_to_usdc` | `fn swap_fees_to_usdc(env: Env)` |
-| `get_treasury_reserve` | `fn get_treasury_reserve(env: Env) -> Option<TreasuryReserveConfig>` |
-| `get_accumulated_fees` | `fn get_accumulated_fees(env: Env) -> i128` |
 | `initialize` | `fn initialize(env: Env, price: i128, timestamp: u64)` |
 | `set_price` | `fn set_price(env: Env, price: i128, timestamp: u64)` |
 | `price` | `fn price(env: Env) -> i128` |
@@ -327,7 +331,6 @@ Custom error codes follow the workspace-wide allocation standard documented in
 | `Order` | `#[contracttype]` or public Rust type in `contracts/carbon-marketplace/src/lib.rs` |
 | `OrderSide` | `#[contracttype]` or public Rust type in `contracts/carbon-marketplace/src/lib.rs` |
 | `OrderStatus` | `#[contracttype]` or public Rust type in `contracts/carbon-marketplace/src/lib.rs` |
-| `TreasuryReserveConfig` | `#[contracttype]` or public Rust type in `contracts/carbon-marketplace/src/lib.rs` |
 | `TwapConfig` | `#[contracttype]` or public Rust type in `contracts/carbon-marketplace/src/lib.rs` |
 
 #### Event topics
@@ -337,12 +340,15 @@ Custom error codes follow the workspace-wide allocation standard documented in
 | `adm_cncl` | `env.events().publish` in `contracts/carbon-marketplace/src/lib.rs` |
 | `auct_cncl` | `env.events().publish` in `contracts/carbon-marketplace/src/lib.rs` |
 | `auct_crtd` | `env.events().publish` in `contracts/carbon-marketplace/src/lib.rs` |
+| `fee_accr` | `env.events().publish` in `contracts/carbon-marketplace/src/lib.rs` |
+| `fee_sip` | `env.events().publish` in `contracts/carbon-marketplace/src/lib.rs` |
 | `bid` | `env.events().publish` in `contracts/carbon-marketplace/src/lib.rs` |
 | `cancelled` | `env.events().publish` in `contracts/carbon-marketplace/src/lib.rs` |
 | `listed` | `env.events().publish` in `contracts/carbon-marketplace/src/lib.rs` |
 | `ord_cncl` | `env.events().publish` in `contracts/carbon-marketplace/src/lib.rs` |
 | `paused` | `env.events().publish` in `contracts/carbon-marketplace/src/lib.rs` |
 | `sold` | `env.events().publish` in `contracts/carbon-marketplace/src/lib.rs` |
+| `trsry_set` | `env.events().publish` in `contracts/carbon-marketplace/src/lib.rs` |
 | `unpaused` | `env.events().publish` in `contracts/carbon-marketplace/src/lib.rs` |
 
 ### `contract-utils`
@@ -1176,6 +1182,10 @@ Custom error codes follow the workspace-wide allocation standard documented in
 |---|---|
 | `initialize` | `fn initialize(env: Env, signers: Vec<Address>, token: Address)` |
 | `deposit` | `fn deposit(env: Env, from: Address, amount: i128)` |
+| `record_protocol_fee` | `fn record_protocol_fee(env: Env, payment_token: Address, amount: i128)` |
+| `protocol_fees` | `fn protocol_fees(env: Env, payment_token: Address) -> i128` |
+| `total_protocol_fees` | `fn total_protocol_fees(env: Env) -> i128` |
+| `asset_balance` | `fn asset_balance(env: Env, token: Address) -> i128` |
 | `propose` | `fn propose(env: Env, signer: Address, to: Address, amount: i128) -> u32` |
 | `approve` | `fn approve(env: Env, signer: Address, proposal_id: u32)` |
 | `cancel` | `fn cancel(env: Env, signer: Address, proposal_id: u32)` |
@@ -1197,6 +1207,7 @@ Custom error codes follow the workspace-wide allocation standard documented in
 
 | Topic | Source |
 |---|---|
+| `fee_rcvd` | `env.events().publish` in `contracts/treasury/src/lib.rs` |
 | `proposed` | `env.events().publish` in `contracts/treasury/src/lib.rs` |
 
 ### `tree-escrow`

@@ -1,6 +1,6 @@
 'use client';
 
-import { use } from 'react';
+import { use, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/atoms/Button';
 import { Badge } from '@/components/atoms/Badge';
@@ -49,6 +49,9 @@ interface MarketplaceDetailPageProps {
   params: Promise<{ id: string }>;
 }
 
+/** Mirrors PROTOCOL_FEE_BPS in contracts/carbon-marketplace/src/lib.rs. */
+const PROTOCOL_FEE_BPS = 100;
+
 /**
  * Marketplace listing detail page
  *
@@ -64,6 +67,16 @@ interface MarketplaceDetailPageProps {
 export default function MarketplaceDetailPage({ params }: MarketplaceDetailPageProps) {
   const router = useRouter();
   const { id } = use(params);
+
+  useEffect(() => {
+    if (!process.env.NEXT_PUBLIC_CARBON_MARKETPLACE_TREASURY) {
+      console.warn(
+        `[marketplace] Community Maintenance Treasury is not configured for this client. ` +
+          `Secondary trades deduct ${PROTOCOL_FEE_BPS / 100}% of the post-royalty payment; ` +
+          `fees stay accrued in the marketplace until set_treasury(...) is called.`
+      );
+    }
+  }, []);
 
   // Fetch all listings and find the specific one
   // In a real app, this would be a dedicated API endpoint
@@ -90,7 +103,13 @@ export default function MarketplaceDetailPage({ params }: MarketplaceDetailPageP
   }
 
   const handlePurchase = () => {
-    // TODO: Implement purchase flow
+    // TODO: Implement purchase flow. The on-chain call must settle the 1 %
+    // protocol fee through CarbonMarketplace so the treasury ledger stays in
+    // sync with the actual token transfer.
+    console.warn(
+      '[marketplace] Purchase flow is not connected to CarbonMarketplace yet. ' +
+        'When wiring it up, verify the treasury is configured before enabling secondary trades.'
+    );
     alert('Purchase flow not yet implemented');
   };
 
@@ -265,6 +284,15 @@ export default function MarketplaceDetailPage({ params }: MarketplaceDetailPageP
                     {listing.quantity.toFixed(2)} tons × {formatPrice(listing.pricePerTon)} per ton
                   </Text>
                 </div>
+              </div>
+
+              <div
+                role="status"
+                aria-live="polite"
+                className="rounded-xl border border-stellar-green/30 bg-stellar-green/5 px-3 py-2 text-xs text-muted-foreground"
+              >
+                Secondary trades include a {PROTOCOL_FEE_BPS / 100}% protocol fee on the
+                post-royalty payment. It is routed to the Community Maintenance Treasury.
               </div>
 
               <Button

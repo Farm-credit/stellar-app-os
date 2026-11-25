@@ -145,16 +145,22 @@ impl Treasury {
 
         let key = DataKey::ProtocolFees(payment_token.clone());
         let existing: i128 = env.storage().instance().get(&key).unwrap_or(0);
-        env.storage().instance().set(&key, &(existing + amount));
+        let updated = existing
+            .checked_add(amount)
+            .unwrap_or_else(|| panic!("protocol fee ledger overflow"));
+        env.storage().instance().set(&key, &updated);
 
         let total: i128 = env
             .storage()
             .instance()
             .get(&DataKey::TotalProtocolFees)
             .unwrap_or(0);
+        let total = total
+            .checked_add(amount)
+            .unwrap_or_else(|| panic!("protocol fee ledger overflow"));
         env.storage()
             .instance()
-            .set(&DataKey::TotalProtocolFees, &(total + amount));
+            .set(&DataKey::TotalProtocolFees, &total);
 
         env.events()
             .publish((symbol_short!("fee_rcvd"),), (payment_token, amount));
