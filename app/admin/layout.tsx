@@ -32,12 +32,6 @@ const adminNavItems: AdminNavItem[] = [
     description:
       'Review audit accuracy, disputes, turnaround time, and indexed collateral slashes.',
   },
-  {
-    href: '/admin/location-requests',
-    label: 'Location Requests',
-    description:
-      'Match sponsor tree planting region preferences to available planting zones and notify sponsors.',
-  },
 ];
 
 export default async function AdminLayout({ children }: AdminLayoutProps) {
