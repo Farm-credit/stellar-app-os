@@ -393,10 +393,24 @@ impl CarbonMarketplace {
         PROTOCOL_FEE_BPS
     }
 
-    /// Quotes the 1 % protocol fee on a gross trade payment.
+    /// Quotes the 1 % protocol fee for a secondary trade at the currently
+    /// configured royalty.
+    ///
+    /// The charge is taken from the post-royalty amount, so this is the value
+    /// that `buy`, `bid` and order fills will actually siphon for a trade whose
+    /// planter receives the royalty configured via `set_royalty`.
     pub fn quote_protocol_fee(env: Env, gross_amount: i128) -> i128 {
+        let royalty_bps = Self::get_royalty(env.clone());
+        Self::quote_protocol_fee_with_royalty(env, gross_amount, royalty_bps)
+    }
+
+    /// Quotes the 1 % protocol fee for an explicit royalty, in basis points.
+    ///
+    /// Lets clients show the exact deduction before a royalty change is
+    /// submitted. royalty values above 10 000 bps are ignored (no royalty).
+    pub fn quote_protocol_fee_with_royalty(env: Env, gross_amount: i128, royalty_bps: u32) -> i128 {
         let _ = &env;
-        Self::compute_protocol_fee(gross_amount)
+        Self::compute_fee_split(gross_amount, royalty_bps).1
     }
 
     /// Protocol fees collected in `payment_token` but not yet routed.
@@ -1539,15 +1553,40 @@ impl CarbonMarketplace {
     // ── Internal: protocol fee ────────────────────────────────────────────────
 
     /// 1 % of the supplied amount (floor), or 0 for dust amounts.
+    ///
+    /// Dividing by 100 directly is equivalent to `amount * 100 / 10_000` but
+    /// cannot overflow the intermediate product for large payments.
     fn compute_protocol_fee(gross_amount: i128) -> i128 {
         if gross_amount <= 0 {
             return 0;
         }
-        gross_amount * PROTOCOL_FEE_BPS as i128 / BPS_DENOMINATOR
+        gross_amount / (BPS_DENOMINATOR / PROTOCOL_FEE_BPS as i128)
     }
 
-    /// Split `gross` into `(royalty, protocol_fee, seller_amount)`.
-    /// The 1 % fee is taken from the post-royalty amount.
+    /// Split `gross` into `(royalty, protocol_fee, seller_amount)` for a
+    /// royalty expressed in basis points. The 1 % fee is taken from the
+    /// post-royalty amount so the three parts always add back up to `gross`.
+    fn compute_fee_split(gross: i128, royalty_bps: u32) -> (i128, i128, i128) {
+        if gross <= 0 {
+            return (0, 0, 0);
+        }
+        let bps = royalty_bps as i128;
+        // Royalties are capped at 10 000 bps by `set_royalty`; ignore any
+        // out-of-range value rather than deducting more than the payment.
+        let royalty = if bps <= 0 || bps > BPS_DENOMINATOR {
+            0
+        } else {
+            // Split the multiplication to avoid overflowing on large payments.
+            // `gross % 10_000 * bps` is bounded by ~1e8.
+            gross / BPS_DENOMINATOR * bps + (gross % BPS_DENOMINATOR) * bps / BPS_DENOMINATOR
+        };
+        let post_royalty = gross - royalty;
+        let fee = Self::compute_protocol_fee(post_royalty);
+        (royalty, fee, post_royalty - fee)
+    }
+
+    /// Split `gross` into `(royalty, protocol_fee, seller_amount)` using the
+    /// configured royalty. No royalty is paid when the planter is the seller.
     fn split_payment(
         env: &Env,
         gross: i128,
@@ -1560,14 +1599,11 @@ impl CarbonMarketplace {
             .get(&DataKey::RoyaltyConfig)
             .unwrap_or(0);
 
-        let royalty = if royalty_bps > 0 && planter != seller {
-            gross * royalty_bps as i128 / BPS_DENOMINATOR
+        if planter == seller {
+            Self::compute_fee_split(gross, 0)
         } else {
-            0
-        };
-        let post_royalty = gross - royalty;
-        let fee = Self::compute_protocol_fee(post_royalty);
-        (royalty, fee, post_royalty - fee)
+            Self::compute_fee_split(gross, royalty_bps)
+        }
     }
 
     fn accrue_fee(env: &Env, payer: &Address, payment_token: &Address, fee: i128) {
@@ -1579,10 +1615,12 @@ impl CarbonMarketplace {
             .instance()
             .get(&DataKey::AccruedFees(payment_token.clone()))
             .unwrap_or(0);
-        env.storage().instance().set(
-            &DataKey::AccruedFees(payment_token.clone()),
-            &(accrued + fee),
-        );
+        let updated = accrued
+            .checked_add(fee)
+            .unwrap_or_else(|| panic!("protocol fee overflow"));
+        env.storage()
+            .instance()
+            .set(&DataKey::AccruedFees(payment_token.clone()), &updated);
 
         env.events().publish(
             (symbol_short!("fee_accr"),),
@@ -1677,9 +1715,12 @@ impl CarbonMarketplace {
             .instance()
             .get(&DataKey::TotalFeesSiphoned)
             .unwrap_or(0);
+        let updated = total
+            .checked_add(accrued)
+            .unwrap_or_else(|| panic!("protocol fee overflow"));
         env.storage()
             .instance()
-            .set(&DataKey::TotalFeesSiphoned, &(total + accrued));
+            .set(&DataKey::TotalFeesSiphoned, &updated);
 
         // Inform the treasury's own fee ledger.
         TreasuryLedgerClient::new(env, &treasury).record_protocol_fee(payment_token, &accrued);
@@ -2190,6 +2231,118 @@ mod tests {
         ctx.client.buy(&ctx.buyer, &id, &100);
         ctx.client.buy(&ctx.buyer, &id, &100);
         assert_eq!(ctx.client.get_total_fees_siphoned(), 200);
+    }
+
+    #[test]
+    fn test_quote_protocol_fee_accounts_for_configured_royalty() {
+        let ctx = setup();
+        assert_eq!(ctx.client.quote_protocol_fee(&20_000), 200);
+
+        ctx.client.set_royalty(&1_000); // 10 %
+                                        // 20_000 gross - 2_000 royalty = 18_000 -> 180 fee.
+        assert_eq!(ctx.client.quote_protocol_fee(&20_000), 180);
+        assert_eq!(
+            ctx.client.quote_protocol_fee_with_royalty(&20_000, &1_000),
+            180
+        );
+        assert_eq!(ctx.client.quote_protocol_fee_with_royalty(&20_000, &0), 200);
+        // Out-of-range royalties are ignored rather than over-deducting.
+        assert_eq!(
+            ctx.client.quote_protocol_fee_with_royalty(&20_000, &10_001),
+            200
+        );
+    }
+
+    #[test]
+    fn test_resting_buy_order_siphons_fee_when_seller_matches() {
+        let ctx = setup();
+        ctx.client.set_treasury(&ctx.treasury);
+
+        // Buy order rests first; the seller's call settles it from escrow.
+        let buy_id = ctx
+            .client
+            .place_buy_order(&ctx.buyer, &ctx.payment_token, &500, &10);
+        let sell_id =
+            ctx.client
+                .place_sell_order(&ctx.seller, &ctx.planter, &ctx.payment_token, &500, &10);
+
+        assert_eq!(
+            ctx.client.get_order(&buy_id).unwrap().status,
+            OrderStatus::Filled
+        );
+        assert_eq!(
+            ctx.client.get_order(&sell_id).unwrap().status,
+            OrderStatus::Filled
+        );
+        assert_eq!(ctx.client.get_order(&buy_id).unwrap().escrowed, 0);
+        // 500 * 10 = 5_000 -> 50 fee.
+        assert_eq!(bal(&ctx.env, &ctx.payment_token, &ctx.treasury), 50);
+        assert_eq!(ctx.client.get_total_fees_siphoned(), 50);
+    }
+
+    #[test]
+    fn test_fee_ledger_is_isolated_per_payment_token() {
+        let ctx = setup();
+        ctx.client.set_treasury(&ctx.treasury);
+
+        let second_token = ctx
+            .env
+            .register_stellar_asset_contract_v2(ctx.admin.clone())
+            .address();
+        token::StellarAssetClient::new(&ctx.env, &second_token).mint(&ctx.seller, &1_000_000);
+        token::StellarAssetClient::new(&ctx.env, &second_token).mint(&ctx.buyer, &10_000_000);
+
+        let first = ctx
+            .client
+            .list(&ctx.seller, &ctx.planter, &1_000, &100, &ctx.payment_token);
+        ctx.client.buy(&ctx.buyer, &first, &100);
+        let second = ctx
+            .client
+            .list(&ctx.seller, &ctx.planter, &1_000, &100, &second_token);
+        ctx.client.buy(&ctx.buyer, &second, &100);
+
+        let treasury = treasury::TreasuryClient::new(&ctx.env, &ctx.treasury);
+        assert_eq!(treasury.protocol_fees(&ctx.payment_token), 100);
+        assert_eq!(treasury.protocol_fees(&second_token), 100);
+        assert_eq!(treasury.total_protocol_fees(), 200);
+        assert_eq!(ctx.client.get_total_fees_siphoned(), 200);
+    }
+
+    #[test]
+    fn test_dust_trade_has_no_fee() {
+        let ctx = setup();
+        ctx.client.set_treasury(&ctx.treasury);
+
+        let id = ctx
+            .client
+            .list(&ctx.seller, &ctx.planter, &10, &1, &ctx.payment_token);
+        ctx.client.buy(&ctx.buyer, &id, &1);
+
+        assert_eq!(bal(&ctx.env, &ctx.payment_token, &ctx.treasury), 0);
+        assert_eq!(bal(&ctx.env, &ctx.payment_token, &ctx.seller), 1);
+        assert_eq!(ctx.client.get_total_fees_siphoned(), 0);
+    }
+
+    #[test]
+    fn test_amm_swap_does_not_siphon_protocol_fee() {
+        let ctx = setup();
+        ctx.client.set_treasury(&ctx.treasury);
+
+        let lp = Address::generate(&ctx.env);
+        token::StellarAssetClient::new(&ctx.env, &ctx.tree_token).mint(&lp, &4_000_000);
+        token::StellarAssetClient::new(&ctx.env, &ctx.payment_token).mint(&lp, &4_000_000);
+        ctx.client.amm_add_liquidity(&lp, &4_000_000, &4_000_000);
+
+        let trader = Address::generate(&ctx.env);
+        token::StellarAssetClient::new(&ctx.env, &ctx.tree_token).mint(&trader, &10_000);
+        let out = ctx
+            .client
+            .amm_swap_exact_in(&trader, &ctx.tree_token, &10_000, &1);
+        assert!(out > 0);
+
+        // AMM fees stay with LPs; only orderbook/auction trades are siphoned.
+        assert_eq!(bal(&ctx.env, &ctx.payment_token, &ctx.treasury), 0);
+        assert_eq!(ctx.client.get_total_fees_siphoned(), 0);
     }
 
     // ── Listing lifecycle ────────────────────────────────────────────────────
