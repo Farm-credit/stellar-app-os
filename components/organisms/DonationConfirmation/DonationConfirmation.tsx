@@ -49,6 +49,11 @@ function DonationConfirmationContent() {
   const trees = Math.round(amount * TREES_PER_DOLLAR);
   const projectName = 'Stellar Amazon Reforestation'; // Default or project selection if available
   const regionAllocations = state.regionAllocations;
+  const preferredLocationLabel = state.locationPreference.preferredRegion
+    ? state.locationPreference.preferredCountry
+      ? `${state.locationPreference.preferredCountry} (${state.locationPreference.preferredRegion})`
+      : state.locationPreference.preferredRegion
+    : state.locationPreference.preferredCountry;
 
   useEffect(() => {
     // Fire analytics event
@@ -218,6 +223,30 @@ function DonationConfirmationContent() {
                 </Text>
               </div>
             </div>
+
+            {/* Preferred Planting Location Request Status */}
+            {preferredLocationLabel && (
+              <div
+                className="pt-4 border-t border-gray-100 text-left"
+                data-testid="location-preference-confirmation"
+              >
+                <div className="flex items-center justify-between gap-2 mb-1">
+                  <div className="flex items-center gap-2 text-sm font-medium text-gray-700">
+                    <MapPin className="w-4 h-4 text-stellar-green" />
+                    <Text>Preferred Planting Location Request</Text>
+                  </div>
+                  <Badge variant="secondary" className="text-xs">
+                    Pending Review
+                  </Badge>
+                </div>
+                <Text className="text-sm text-gray-600">
+                  Requested:{' '}
+                  <span className="font-semibold text-gray-800">{preferredLocationLabel}</span>. Our
+                  admin team will match your preference to an available planting zone and notify you
+                  by email once confirmed or if an alternative zone is assigned.
+                </Text>
+              </div>
+            )}
 
             {/* Region Breakdown */}
             {regionAllocations.length > 0 && (
