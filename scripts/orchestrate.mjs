@@ -359,6 +359,7 @@ async function runPhases(ctx, tree, deps) {
     'species-registry',
     'farmer-registry',
     'planter-registry',
+    'planter-reputation',
     'kyc-attestation',
     'location-proof',
     'zk-verifier',
