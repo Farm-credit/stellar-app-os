@@ -21,7 +21,6 @@ interface OrderSummaryProps {
   treeCount?: number;
   species?: string;
   region?: string;
-  preferredLocation?: string;
 }
 
 export function OrderSummary({
@@ -31,7 +30,6 @@ export function OrderSummary({
   treeCount = 1,
   species,
   region,
-  preferredLocation,
 }: OrderSummaryProps) {
   const safeAmount = Math.min(amount, 1000000);
   const totalAmount = safeAmount * treeCount;
@@ -66,7 +64,7 @@ export function OrderSummary({
           </div>
         </div>
 
-        {(species || region || preferredLocation) && (
+        {(species || region) && (
           <div className="space-y-2 rounded-lg bg-muted/40 p-3 text-sm">
             {species && (
               <div className="flex items-center justify-between gap-3">
@@ -85,16 +83,6 @@ export function OrderSummary({
                 </Text>
                 <Text variant="small" className="text-right font-medium">
                   {region}
-                </Text>
-              </div>
-            )}
-            {preferredLocation && (
-              <div className="flex items-center justify-between gap-3">
-                <Text variant="small" className="text-muted-foreground">
-                  Requested location
-                </Text>
-                <Text variant="small" className="text-right font-medium text-stellar-green">
-                  {preferredLocation}
                 </Text>
               </div>
             )}
