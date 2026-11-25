@@ -1,6 +1,6 @@
-"use client";
+'use client';
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from 'react';
 import {
   Area,
   AreaChart,
@@ -12,17 +12,18 @@ import {
   Tooltip,
   XAxis,
   YAxis,
-} from "recharts";
+} from 'recharts';
 import {
   Activity,
   AlertCircle,
   Award,
+  Download,
   Droplets,
   Leaf,
   RefreshCw,
   ShieldCheck,
   Users,
-} from "lucide-react";
+} from 'lucide-react';
 import {
   formatCredits,
   formatTonnes,
@@ -31,62 +32,59 @@ import {
   VALID_TIMEFRAMES,
   type SponsorTelemetryPayload,
   type TelemetryTimeframe,
-} from "@/lib/sponsor-telemetry";
+} from '@/lib/sponsor-telemetry';
+import {
+  buildBenefactorAuditCsv,
+  buildBenefactorAuditExport,
+  buildBenefactorAuditJson,
+} from '@/lib/sponsor-telemetry-export';
 
 const TIMEFRAME_LABELS: Record<TelemetryTimeframe, string> = {
-  "7d": "7D",
-  "30d": "30D",
-  "90d": "90D",
-  "1y": "1Y",
-  all: "All",
+  '7d': '7D',
+  '30d': '30D',
+  '90d': '90D',
+  '1y': '1Y',
+  all: 'All',
 };
 
 const AUTO_REFRESH_MS = 30_000;
 
 export default function SponsorTelemetryPage() {
-  const [timeframe, setTimeframe] = useState<TelemetryTimeframe>("30d");
-  const [selectedPoolId, setSelectedPoolId] = useState<string>("all");
+  const [timeframe, setTimeframe] = useState<TelemetryTimeframe>('30d');
+  const [selectedPoolId, setSelectedPoolId] = useState<string>('all');
   const [liveSync, setLiveSync] = useState<boolean>(true);
   const [data, setData] = useState<SponsorTelemetryPayload | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [exportStatus, setExportStatus] = useState<string | null>(null);
 
-  const fetchTelemetry = useCallback(
-    async (tf: TelemetryTimeframe, pool: string) => {
-      setLoading(true);
-      setError(null);
-      try {
-        const params = new URLSearchParams({
-          timeframe: tf,
-          poolId: pool,
-        });
-        const response = await fetch(`/api/sponsor/telemetry?${params.toString()}`, {
-          cache: "no-store",
-        });
+  const fetchTelemetry = useCallback(async (tf: TelemetryTimeframe, pool: string) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const params = new URLSearchParams({
+        timeframe: tf,
+        poolId: pool,
+      });
+      const response = await fetch(`/api/sponsor/telemetry?${params.toString()}`, {
+        cache: 'no-store',
+      });
 
-        if (!response.ok) {
-          const body = (await response.json().catch(() => ({}))) as {
-            error?: string;
-          };
-          throw new Error(
-            body.error || `Telemetry request failed (${response.status})`,
-          );
-        }
-
-        const payload = (await response.json()) as SponsorTelemetryPayload;
-        setData(payload);
-      } catch (err) {
-        setError(
-          err instanceof Error
-            ? err.message
-            : "Failed to fetch ESG telemetry data",
-        );
-      } finally {
-        setLoading(false);
+      if (!response.ok) {
+        const body = (await response.json().catch(() => ({}))) as {
+          error?: string;
+        };
+        throw new Error(body.error || `Telemetry request failed (${response.status})`);
       }
-    },
-    [],
-  );
+
+      const payload = (await response.json()) as SponsorTelemetryPayload;
+      setData(payload);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch ESG telemetry data');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     void fetchTelemetry(timeframe, selectedPoolId);
@@ -100,9 +98,43 @@ export default function SponsorTelemetryPage() {
     return () => clearInterval(intervalId);
   }, [liveSync, timeframe, selectedPoolId, fetchTelemetry]);
 
+  const downloadAudit = useCallback(
+    (format: 'csv' | 'json') => {
+      if (!data) {
+        console.warn('[sponsor telemetry] Export requested before telemetry loaded');
+        setExportStatus('Export is unavailable until telemetry has loaded.');
+        return;
+      }
+
+      try {
+        const report = buildBenefactorAuditExport(data);
+        const content =
+          format === 'csv' ? buildBenefactorAuditCsv(report) : buildBenefactorAuditJson(report);
+        const blob = new Blob([content], {
+          type: format === 'csv' ? 'text/csv;charset=utf-8' : 'application/json;charset=utf-8',
+        });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `benefactor-audit-${data.timeframe}-${new Date().toISOString().slice(0, 10)}.${format}`;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(url);
+        setExportStatus(
+          `Downloaded ${report.transactions.length.toLocaleString('en-US')} confirmed transactions as ${format.toUpperCase()}.`
+        );
+      } catch (exportError) {
+        console.warn('[sponsor telemetry] Failed to create audit export', exportError);
+        setExportStatus('The audit export could not be created. Try again.');
+      }
+    },
+    [data]
+  );
+
   const poolComparisonData =
     data?.pools.map((pool) => ({
-      name: pool.poolName.replace(" Fund", "").replace(" Pool", ""),
+      name: pool.poolName.replace(' Fund', '').replace(' Pool', ''),
       carbonTokens: pool.carbonTokensDistributed,
       co2Tonnes: Number((pool.co2SequesteredKg / 1000).toFixed(1)),
       waterKL: Number((pool.waterTableLiters / 1000).toFixed(1)),
@@ -116,11 +148,11 @@ export default function SponsorTelemetryPage() {
           <div className="flex flex-wrap items-center gap-2">
             <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-medium text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300">
               <Activity className="h-3.5 w-3.5" aria-hidden="true" />
-              Stellar {data?.summary.stellarNetwork ?? "testnet"} Live Telemetry
+              Stellar {data?.summary.stellarNetwork ?? 'testnet'} Live Telemetry
             </span>
             {data?.summary.ledgerSequence ? (
               <span className="text-xs text-muted-foreground">
-                Ledger #{data.summary.ledgerSequence.toLocaleString("en-US")}
+                Ledger #{data.summary.ledgerSequence.toLocaleString('en-US')}
               </span>
             ) : null}
           </div>
@@ -128,8 +160,8 @@ export default function SponsorTelemetryPage() {
             Corporate ESG Telemetry Dashboard
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Real-time CO2 offset analytics, water table recharge impact, and
-            community CARBON credit distributions funded by benefactor pools.
+            Real-time CO2 offset analytics, water table recharge impact, and community CARBON credit
+            distributions funded by benefactor pools.
           </p>
         </div>
 
@@ -148,8 +180,8 @@ export default function SponsorTelemetryPage() {
                 aria-pressed={timeframe === tf}
                 className={`rounded-md px-3 py-1.5 text-xs font-medium transition ${
                   timeframe === tf
-                    ? "bg-emerald-600 text-white shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
+                    ? 'bg-emerald-600 text-white shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
                 }`}
               >
                 {TIMEFRAME_LABELS[tf]}
@@ -166,15 +198,9 @@ export default function SponsorTelemetryPage() {
           >
             <option value="all">All Benefactor Pools</option>
             <option value="pool-rift-valley">Rift Valley Agroforestry Fund</option>
-            <option value="pool-mekong-watershed">
-              Mekong Watershed Restoration Pool
-            </option>
-            <option value="pool-andes-silvopasture">
-              Andes Silvopasture Corridor
-            </option>
-            <option value="pool-sahel-greenbelt">
-              Sahel Community Greenbelt Pool
-            </option>
+            <option value="pool-mekong-watershed">Mekong Watershed Restoration Pool</option>
+            <option value="pool-andes-silvopasture">Andes Silvopasture Corridor</option>
+            <option value="pool-sahel-greenbelt">Sahel Community Greenbelt Pool</option>
           </select>
 
           {/* Live Toggle */}
@@ -184,16 +210,16 @@ export default function SponsorTelemetryPage() {
             aria-pressed={liveSync}
             className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition ${
               liveSync
-                ? "border-emerald-500/40 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300"
-                : "bg-background text-muted-foreground"
+                ? 'border-emerald-500/40 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300'
+                : 'bg-background text-muted-foreground'
             }`}
           >
             <span
               className={`h-2 w-2 rounded-full ${
-                liveSync ? "animate-pulse bg-emerald-500" : "bg-muted-foreground"
+                liveSync ? 'animate-pulse bg-emerald-500' : 'bg-muted-foreground'
               }`}
             />
-            {liveSync ? "Auto-Sync On" : "Auto-Sync Paused"}
+            {liveSync ? 'Auto-Sync On' : 'Auto-Sync Paused'}
           </button>
 
           {/* Manual Refresh */}
@@ -204,13 +230,40 @@ export default function SponsorTelemetryPage() {
             className="inline-flex items-center gap-1.5 rounded-lg border bg-background px-3 py-2 text-xs font-medium text-foreground transition hover:bg-muted disabled:opacity-50"
           >
             <RefreshCw
-              className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`}
+              className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`}
               aria-hidden="true"
             />
             Refresh
           </button>
+          <div className="flex items-center gap-1.5 rounded-lg border bg-background p-1">
+            <span className="px-2 text-xs font-medium text-muted-foreground">Audit export</span>
+            <button
+              type="button"
+              onClick={() => downloadAudit('csv')}
+              disabled={!data || loading}
+              aria-label="Download benefactor audit data as CSV"
+              className="inline-flex items-center gap-1 rounded-md px-2 py-1.5 text-xs font-medium text-foreground transition hover:bg-muted disabled:opacity-50"
+            >
+              <Download className="h-3.5 w-3.5" aria-hidden="true" />
+              CSV
+            </button>
+            <button
+              type="button"
+              onClick={() => downloadAudit('json')}
+              disabled={!data || loading}
+              aria-label="Download benefactor audit data as JSON"
+              className="inline-flex items-center gap-1 rounded-md px-2 py-1.5 text-xs font-medium text-foreground transition hover:bg-muted disabled:opacity-50"
+            >
+              <Download className="h-3.5 w-3.5" aria-hidden="true" />
+              JSON
+            </button>
+          </div>
         </div>
       </header>
+
+      <div className="sr-only" role="status" aria-live="polite">
+        {exportStatus}
+      </div>
 
       {/* Error Banner */}
       {error ? (
@@ -238,17 +291,10 @@ export default function SponsorTelemetryPage() {
 
       {/* Loading Skeleton */}
       {loading && !data ? (
-        <div
-          data-testid="telemetry-loading"
-          className="space-y-6"
-          aria-busy="true"
-        >
+        <div data-testid="telemetry-loading" className="space-y-6" aria-busy="true">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {Array.from({ length: 4 }).map((_, i) => (
-              <div
-                key={i}
-                className="h-32 animate-pulse rounded-xl border bg-muted/40"
-              />
+              <div key={i} className="h-32 animate-pulse rounded-xl border bg-muted/40" />
             ))}
           </div>
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
@@ -271,19 +317,13 @@ export default function SponsorTelemetryPage() {
                 <span className="text-xs font-medium text-muted-foreground">
                   Aggregate CO2 Sequestered
                 </span>
-                <Leaf
-                  className="h-4 w-4 text-emerald-600"
-                  aria-hidden="true"
-                />
+                <Leaf className="h-4 w-4 text-emerald-600" aria-hidden="true" />
               </div>
-              <p
-                data-testid="kpi-co2"
-                className="mt-2 text-2xl font-bold text-foreground"
-              >
-                {data.summary.totalCo2Tonnes.toLocaleString("en-US", {
+              <p data-testid="kpi-co2" className="mt-2 text-2xl font-bold text-foreground">
+                {data.summary.totalCo2Tonnes.toLocaleString('en-US', {
                   minimumFractionDigits: 1,
                   maximumFractionDigits: 1,
-                })}{" "}
+                })}{' '}
                 tCO2e
               </p>
               <p className="mt-1 text-xs text-emerald-600 dark:text-emerald-400">
@@ -296,19 +336,13 @@ export default function SponsorTelemetryPage() {
                 <span className="text-xs font-medium text-muted-foreground">
                   Water Table Impact
                 </span>
-                <Droplets
-                  className="h-4 w-4 text-sky-600"
-                  aria-hidden="true"
-                />
+                <Droplets className="h-4 w-4 text-sky-600" aria-hidden="true" />
               </div>
-              <p
-                data-testid="kpi-water"
-                className="mt-2 text-2xl font-bold text-foreground"
-              >
-                {data.summary.totalWaterTableKiloLiters.toLocaleString("en-US", {
+              <p data-testid="kpi-water" className="mt-2 text-2xl font-bold text-foreground">
+                {data.summary.totalWaterTableKiloLiters.toLocaleString('en-US', {
                   minimumFractionDigits: 1,
                   maximumFractionDigits: 1,
-                })}{" "}
+                })}{' '}
                 kL
               </p>
               <p className="mt-1 text-xs text-sky-600 dark:text-sky-400">
@@ -321,20 +355,14 @@ export default function SponsorTelemetryPage() {
                 <span className="text-xs font-medium text-muted-foreground">
                   Community Credits Distributed
                 </span>
-                <Award
-                  className="h-4 w-4 text-amber-600"
-                  aria-hidden="true"
-                />
+                <Award className="h-4 w-4 text-amber-600" aria-hidden="true" />
               </div>
-              <p
-                data-testid="kpi-credits"
-                className="mt-2 text-2xl font-bold text-foreground"
-              >
+              <p data-testid="kpi-credits" className="mt-2 text-2xl font-bold text-foreground">
                 {formatCredits(data.summary.totalCarbonTokens)}
               </p>
               <p className="mt-1 text-xs text-muted-foreground">
-                {data.summary.totalNftCertificates.toLocaleString("en-US")} NFT
-                impact certificates minted
+                {data.summary.totalNftCertificates.toLocaleString('en-US')} NFT impact certificates
+                minted
               </p>
             </article>
 
@@ -343,19 +371,13 @@ export default function SponsorTelemetryPage() {
                 <span className="text-xs font-medium text-muted-foreground">
                   Benefactor Pool Funding
                 </span>
-                <Users
-                  className="h-4 w-4 text-indigo-600"
-                  aria-hidden="true"
-                />
+                <Users className="h-4 w-4 text-indigo-600" aria-hidden="true" />
               </div>
-              <p
-                data-testid="kpi-funding"
-                className="mt-2 text-2xl font-bold text-foreground"
-              >
+              <p data-testid="kpi-funding" className="mt-2 text-2xl font-bold text-foreground">
                 {formatUsdc(data.summary.totalBenefactorFundingUsdc)}
               </p>
               <p className="mt-1 text-xs text-muted-foreground">
-                {data.summary.activeFarmerStewards} farmers &amp;{" "}
+                {data.summary.activeFarmerStewards} farmers &amp;{' '}
                 {data.summary.activeCommunityStewards} community stewards
               </p>
             </article>
@@ -452,16 +474,13 @@ export default function SponsorTelemetryPage() {
                   Community Credits Distributed by Benefactor Fund
                 </h2>
                 <p className="text-xs text-muted-foreground">
-                  CARBON reward tokens distributed to farmer and non-farmer
-                  community stewards per Soroban reward pool
+                  CARBON reward tokens distributed to farmer and non-farmer community stewards per
+                  Soroban reward pool
                 </p>
               </div>
               <div className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-                <ShieldCheck
-                  className="h-4 w-4 text-emerald-600"
-                  aria-hidden="true"
-                />
-                Contract:{" "}
+                <ShieldCheck className="h-4 w-4 text-emerald-600" aria-hidden="true" />
+                Contract:{' '}
                 <code className="rounded bg-muted px-1.5 py-0.5 text-[11px]">
                   {data.summary.contractId.slice(0, 8)}...
                   {data.summary.contractId.slice(-6)}
@@ -500,8 +519,7 @@ export default function SponsorTelemetryPage() {
                 Benefactor Reward Pools &amp; Steward Impact
               </h2>
               <p className="text-xs text-muted-foreground">
-                On-chain verified ecological outcomes across active Stellar
-                Soroban reward pools
+                On-chain verified ecological outcomes across active Stellar Soroban reward pools
               </p>
             </div>
             <div className="overflow-x-auto">
@@ -521,17 +539,13 @@ export default function SponsorTelemetryPage() {
                   {data.pools.map((pool) => (
                     <tr key={pool.poolId} className="hover:bg-muted/20">
                       <td className="px-5 py-3.5">
-                        <div className="font-medium text-foreground">
-                          {pool.poolName}
-                        </div>
+                        <div className="font-medium text-foreground">{pool.poolName}</div>
                         <div className="text-xs text-muted-foreground">
                           {pool.contractAddress.slice(0, 10)}...
                           {pool.contractAddress.slice(-6)}
                         </div>
                       </td>
-                      <td className="px-5 py-3.5 text-muted-foreground">
-                        {pool.region}
-                      </td>
+                      <td className="px-5 py-3.5 text-muted-foreground">{pool.region}</td>
                       <td className="px-5 py-3.5 font-medium text-emerald-700 dark:text-emerald-400">
                         {formatTonnes(pool.co2SequesteredKg)}
                       </td>
@@ -547,15 +561,14 @@ export default function SponsorTelemetryPage() {
                         </div>
                       </td>
                       <td className="px-5 py-3.5 text-xs text-muted-foreground">
-                        {pool.farmerStewards} farmers /{" "}
-                        {pool.communityStewards} community
+                        {pool.farmerStewards} farmers / {pool.communityStewards} community
                       </td>
                       <td className="px-5 py-3.5">
                         <span
                           className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium capitalize ${
-                            pool.status === "active"
-                              ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300"
-                              : "bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300"
+                            pool.status === 'active'
+                              ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
+                              : 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300'
                           }`}
                         >
                           {pool.status}
