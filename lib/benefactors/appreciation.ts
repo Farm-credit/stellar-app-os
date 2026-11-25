@@ -62,15 +62,22 @@ export function decryptAppreciationNote(
     throw new Error('Unsupported appreciation envelope');
   }
   const key = createHash('sha256').update(sharedSecret).digest();
-  const [encodedCiphertext, encodedTag] = envelope.ciphertext.split('.');
-  if (!encodedCiphertext || !encodedTag) throw new Error('Malformed appreciation envelope');
+  const parts = envelope.ciphertext.split('.');
+  const encodedCiphertext = parts[0];
+  const encodedTag = parts[1];
+  if (!encodedCiphertext) throw new Error('Malformed appreciation envelope');
+  const ciphertextBytes = decode(encodedCiphertext);
+  const tag = encodedTag ? decode(encodedTag) : ciphertextBytes.subarray(-16);
+  const encryptedBytes = encodedTag ? ciphertextBytes : ciphertextBytes.subarray(0, -16);
+  if (tag.length !== 16 || encryptedBytes.length === 0)
+    throw new Error('Malformed appreciation envelope');
   const decipher = createDecipheriv('aes-256-gcm', key, decode(envelope.iv)) as {
     setAuthTag(tag: Buffer): void;
     update(value: Buffer, inputEncoding: undefined, outputEncoding: BufferEncoding): string;
     final(outputEncoding: BufferEncoding): string;
   };
-  decipher.setAuthTag(decode(encodedTag));
-  return `${decipher.update(decode(encodedCiphertext), undefined, 'utf8')}${decipher.final('utf8')}`;
+  decipher.setAuthTag(tag);
+  return `${decipher.update(encryptedBytes, undefined, 'utf8')}${decipher.final('utf8')}`;
 }
 
 export function createAppreciationId(): string {
