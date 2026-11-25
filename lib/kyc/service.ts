@@ -12,6 +12,12 @@ import { getPool } from '@/lib/db/client';
 import { screenCertificationEligibility } from './eligibility';
 import { hashIdentifier, validateKycSubmission } from './validation';
 import {
+  canTransitionKycStatus,
+  evaluateKycWorkflow,
+  hasOnlyVerifierPendingBlockers,
+  type KycWorkflowSummary,
+} from './workflow';
+import {
   type CertificationTier,
   type KycApplicationRecord,
   type KycApplicationStatus,
@@ -170,12 +176,31 @@ export class KycService {
     }
 
     const input = validation.input;
+    const nationalIdHash = hashIdentifier(input.identity.nationalId);
+
+    // Prevent duplicate active or already-approved KYC applications for the same national ID.
+    const duplicate = await this.findActiveByNationalIdHash(nationalIdHash);
+    if (duplicate) {
+      return {
+        ok: false,
+        errors: [
+          {
+            field: 'identity.nationalId',
+            message: `An active or approved KYC application (${duplicate.id}) already exists for this national ID.`,
+          },
+        ],
+      };
+    }
+
     const screening = screenCertificationEligibility(input);
 
-    // An application that fails a blocking gate is recorded as rejected up
-    // front rather than parked in the review queue, so reviewers only ever see
-    // cases that could still be approved.
-    const status: KycApplicationStatus = screening.eligible ? 'submitted' : 'rejected';
+    // Applications that pass all hard gates and only await verifier sign-off
+    // (`identity_verified` / `land_proof_verified`) enter the review queue as
+    // `submitted`. Hard eligibility failures (e.g. underage, active sanctions,
+    // unsupported region, insufficient experience) are rejected upfront.
+    const status: KycApplicationStatus = hasOnlyVerifierPendingBlockers(screening)
+      ? 'submitted'
+      : 'rejected';
 
     const { rows } = await this.db.query<KycRow>(
       `INSERT INTO farmer_kyc_applications (
@@ -197,7 +222,7 @@ export class KycService {
       [
         input.farmerAddress,
         input.identity.fullName,
-        hashIdentifier(input.identity.nationalId),
+        nationalIdHash,
         input.identity.phoneNumber,
         input.identity.village,
         input.identity.dateOfBirth,
@@ -235,6 +260,19 @@ export class KycService {
     }
 
     return { ok: true, application };
+  }
+
+  async findActiveByNationalIdHash(nationalIdHash: string): Promise<KycApplicationRecord | null> {
+    const { rows } = await this.db.query<KycRow>(
+      `SELECT ${SELECT_COLUMNS}
+         FROM farmer_kyc_applications
+        WHERE national_id_hash = $1
+          AND status IN ('submitted', 'under_review', 'approved')
+        ORDER BY submitted_at DESC
+        LIMIT 1`,
+      [nationalIdHash]
+    );
+    return rows.length > 0 ? mapRow(rows[0]) : null;
   }
 
   async getApplication(id: string): Promise<KycApplicationRecord | null> {
@@ -376,6 +414,7 @@ export class KycService {
       `UPDATE farmer_kyc_applications
           SET identity_verified_at = CASE WHEN $2 THEN $4::timestamptz ELSE identity_verified_at END,
               land_verified_at     = CASE WHEN $3 THEN $4::timestamptz ELSE land_verified_at END,
+              status               = CASE WHEN status = 'submitted' THEN 'under_review' ELSE status END,
               updated_at           = NOW()
         WHERE id = $1`,
       [id, input.identityVerified, input.landVerified, verifiedAt]
@@ -445,6 +484,94 @@ export class KycService {
     );
 
     return rows.length > 0 ? mapRow(rows[0]) : null;
+  }
+
+  /**
+   * Transition an application from `submitted` to `under_review` when a verifier
+   * claims it from the worklist.
+   */
+  async startReview(
+    id: string
+  ): Promise<{ ok: boolean; error?: string; application?: KycApplicationRecord }> {
+    const existing = await this.getApplication(id);
+    if (!existing) {
+      return { ok: false, error: `KYC application ${id} not found` };
+    }
+
+    if (!canTransitionKycStatus(existing.status, 'under_review')) {
+      return {
+        ok: false,
+        error: `Cannot start review for application ${id} in status "${existing.status}"`,
+      };
+    }
+
+    const { rows } = await this.db.query<KycRow>(
+      `UPDATE farmer_kyc_applications
+          SET status = 'under_review', updated_at = NOW()
+        WHERE id = $1
+        RETURNING ${SELECT_COLUMNS}`,
+      [id]
+    );
+
+    return { ok: true, application: mapRow(rows[0]) };
+  }
+
+  /**
+   * Mark an application as expired (e.g. stale open submission or expired
+   * annual KYC certification).
+   */
+  async expireApplication(
+    id: string,
+    reason?: string
+  ): Promise<{ ok: boolean; error?: string; application?: KycApplicationRecord }> {
+    const existing = await this.getApplication(id);
+    if (!existing) {
+      return { ok: false, error: `KYC application ${id} not found` };
+    }
+
+    if (!canTransitionKycStatus(existing.status, 'expired')) {
+      return {
+        ok: false,
+        error: `Cannot expire application ${id} in status "${existing.status}"`,
+      };
+    }
+
+    const decision: KycDecision | null = reason?.trim()
+      ? {
+          decision: 'reject',
+          reviewer: 'system',
+          reason: `Expired: ${reason.trim()}`,
+          decidedAt: new Date().toISOString(),
+        }
+      : existing.decision;
+
+    const { rows } = await this.db.query<KycRow>(
+      `UPDATE farmer_kyc_applications
+          SET status = 'expired',
+              decision = COALESCE($2::jsonb, decision),
+              updated_at = NOW()
+        WHERE id = $1
+        RETURNING ${SELECT_COLUMNS}`,
+      [id, decision ? JSON.stringify(decision) : null]
+    );
+
+    return { ok: true, application: mapRow(rows[0]) };
+  }
+
+  /**
+   * Compute the 4-stage KYC verification workflow summary for an application.
+   */
+  async getWorkflowSummary(id: string): Promise<{
+    application: KycApplicationRecord;
+    workflow: KycWorkflowSummary;
+  } | null> {
+    const application = await this.getApplication(id);
+    if (!application) return null;
+
+    return {
+      application,
+      workflow: evaluateKycWorkflow(application),
+    };
   }
 
   /**
