@@ -163,6 +163,13 @@ export function PaymentStep() {
             treeCount={donationState.treeCount}
             species={TREE_SPECIES.find((species) => species.slug === state.speciesSlug)?.name}
             region={IMPACT_DATA.regions.find((region) => region.id === state.regionId)?.name}
+            preferredLocation={
+              state.locationPreference.preferredRegion
+                ? state.locationPreference.preferredCountry
+                  ? `${state.locationPreference.preferredCountry} (${state.locationPreference.preferredRegion})`
+                  : state.locationPreference.preferredRegion
+                : state.locationPreference.preferredCountry || undefined
+            }
           />
         </div>
       </div>

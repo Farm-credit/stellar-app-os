@@ -11,6 +11,7 @@ import { Input } from '@/components/atoms/Input';
 import { Checkbox } from '@/components/atoms/Checkbox';
 import { ProgressStepper } from '@/components/molecules/ProgressStepper/ProgressStepper';
 import { AnonymousDonationToggle } from '@/components/molecules/AnonymousDonationToggle/AnonymousDonationToggle';
+import { LocationPreferenceField } from '@/components/molecules/LocationPreferenceField/LocationPreferenceField';
 import { useDonationContext } from '@/contexts/DonationContext';
 import { GiftTreeForm } from '@/components/organisms/GiftTreeForm/GiftTreeForm';
 import { isValidGiftDetails } from '@/lib/types/gift';
@@ -25,7 +26,7 @@ const steps = [
 
 export function DonorInfoStep() {
   const router = useRouter();
-  const { state, setDonorInfo, setGift } = useDonationContext();
+  const { state, setDonorInfo, setGift, setLocationPreference } = useDonationContext();
 
   const [isAnonymousMode, setIsAnonymousMode] = useState(false);
 
@@ -142,6 +143,12 @@ export function DonorInfoStep() {
                 {...register('name')}
               />
             </div>
+
+            {/* Preferred Planting Region/Country */}
+            <LocationPreferenceField
+              value={state.locationPreference}
+              onChange={(pref) => setLocationPreference(pref)}
+            />
 
             {/* Privacy Policy Checkbox */}
             <div className="space-y-2">
