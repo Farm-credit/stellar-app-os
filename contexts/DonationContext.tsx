@@ -4,7 +4,6 @@ import { createContext, useContext, useState, useCallback, useMemo, type ReactNo
 import {
   type DonationFlowState,
   type DonorInfo,
-  type LocationPreference,
   type RegionAllocation,
   DEFAULT_DONATION_FLOW_STATE,
 } from '@/lib/types/donor';
@@ -22,7 +21,6 @@ interface DonationContextValue {
   setDonorInfo: (_info: Partial<DonorInfo>) => void;
   setRegionAllocations: (_allocations: RegionAllocation[]) => void;
   setGift: (_gift: Partial<GiftDetails>) => void;
-  setLocationPreference: (_preference: Partial<LocationPreference>) => void;
   resetFlow: () => void;
 }
 
@@ -72,13 +70,6 @@ export function DonationProvider({ children }: { children: ReactNode }) {
     setState((prev) => ({ ...prev, gift: { ...prev.gift, ...gift } }));
   }, []);
 
-  const setLocationPreference = useCallback((preference: Partial<LocationPreference>) => {
-    setState((prev) => ({
-      ...prev,
-      locationPreference: { ...prev.locationPreference, ...preference },
-    }));
-  }, []);
-
   const resetFlow = useCallback(() => {
     setState({ ...DEFAULT_DONATION_FLOW_STATE });
   }, []);
@@ -95,7 +86,6 @@ export function DonationProvider({ children }: { children: ReactNode }) {
       setDonorInfo,
       setRegionAllocations,
       setGift,
-      setLocationPreference,
       resetFlow,
     }),
     [
@@ -109,7 +99,6 @@ export function DonationProvider({ children }: { children: ReactNode }) {
       setDonorInfo,
       setRegionAllocations,
       setGift,
-      setLocationPreference,
       resetFlow,
     ]
   );

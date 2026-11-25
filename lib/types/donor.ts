@@ -17,12 +17,6 @@ export interface DonorInfo {
   privacyAccepted: boolean;
 }
 
-export interface LocationPreference {
-  preferredRegion: string;
-  preferredCountry: string;
-  preferenceNotes: string;
-}
-
 export interface DonationFlowState {
   amount: number;
   treeCount: number;
@@ -34,7 +28,6 @@ export interface DonationFlowState {
   donorInfo: DonorInfo;
   regionAllocations: RegionAllocation[];
   gift: GiftDetails;
-  locationPreference: LocationPreference;
 }
 
 export const DEFAULT_DONOR_INFO: DonorInfo = {
@@ -42,12 +35,6 @@ export const DEFAULT_DONOR_INFO: DonorInfo = {
   name: '',
   anonymous: false,
   privacyAccepted: false,
-};
-
-export const DEFAULT_LOCATION_PREFERENCE: LocationPreference = {
-  preferredRegion: '',
-  preferredCountry: '',
-  preferenceNotes: '',
 };
 
 export const DEFAULT_DONATION_FLOW_STATE: DonationFlowState = {
@@ -60,5 +47,4 @@ export const DEFAULT_DONATION_FLOW_STATE: DonationFlowState = {
   donorInfo: { ...DEFAULT_DONOR_INFO },
   regionAllocations: [],
   gift: { ...DEFAULT_GIFT_DETAILS },
-  locationPreference: { ...DEFAULT_LOCATION_PREFERENCE },
 };
