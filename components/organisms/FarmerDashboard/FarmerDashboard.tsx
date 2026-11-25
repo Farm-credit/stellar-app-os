@@ -246,6 +246,34 @@ export function FarmerDashboard({ farmerId }: { farmerId?: string }) {
         )}
       </div>
 
+      {/* ── Cash out to local currency ── */}
+      <Card className="border-none shadow-sm rounded-3xl">
+        <CardContent className="flex flex-wrap items-center justify-between gap-4 p-6">
+          <div className="flex items-start gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-stellar-green/10 text-stellar-green">
+              <Coins className="h-5 w-5" />
+            </div>
+            <div>
+              <Text className="font-semibold">Cash out your earnings</Text>
+              <Text className="text-muted-foreground">
+                Convert your USDC balance to local currency through Fundable&apos;s Stellar
+                off-ramp.
+              </Text>
+            </div>
+          </div>
+          <Button stellar="success" width="auto" size="sm" asChild>
+            <a
+              href="https://stellar.fundable.finance/offramp"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Off-ramp with Fundable
+              <ExternalLink className="ml-1.5 h-3.5 w-3.5" aria-hidden="true" />
+            </a>
+          </Button>
+        </CardContent>
+      </Card>
+
       {/* ── Planting history ── */}
       <Card className="border-none shadow-sm rounded-3xl">
         <CardHeader>
