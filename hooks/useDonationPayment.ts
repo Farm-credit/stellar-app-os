@@ -65,37 +65,6 @@ export function useDonationPayment() {
     }));
   }, []);
 
-  const submitLocationPreference = useCallback(
-    (transactionRef: string, sponsorId?: string) => {
-      const { preferredRegion, preferredCountry, preferenceNotes } =
-        donationState.locationPreference;
-      const requestedRegion = preferredRegion.trim() || preferredCountry.trim();
-      const sponsorEmail = donationState.donorInfo.email.trim();
-      if (!requestedRegion || !sponsorEmail) return;
-
-      void fetch('/api/planting-location-requests', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          sponsorId: sponsorId ?? null,
-          sponsorName: donationState.donorInfo.name.trim(),
-          sponsorEmail,
-          transactionRef,
-          treeCount: Math.max(1, donationState.treeCount),
-          preferredRegion: requestedRegion,
-          preferredCountry: preferredCountry.trim() || null,
-          preferenceNotes: preferenceNotes.trim() || null,
-        }),
-      });
-    },
-    [
-      donationState.locationPreference,
-      donationState.donorInfo.email,
-      donationState.donorInfo.name,
-      donationState.treeCount,
-    ]
-  );
-
   // Stellar payment flow — delegates to service
   const processStellarPayment = useCallback(async () => {
     if (isProcessingRef.current || !wallet) return;
@@ -131,7 +100,6 @@ export function useDonationPayment() {
           }),
         });
       }
-      submitLocationPreference(result.transactionHash, wallet.publicKey);
       setPaymentState((prev) => ({
         ...prev,
         status: 'success',
@@ -163,7 +131,6 @@ export function useDonationPayment() {
     currentCurrency,
     xlmPerUsd,
     formatPrice,
-    submitLocationPreference,
   ]);
 
   // Stripe callbacks — coordinated with StripePaymentForm
@@ -192,7 +159,6 @@ export function useDonationPayment() {
           }),
         });
       }
-      submitLocationPreference(paymentIntentId);
       router.push(
         `/donate/confirmation?txId=${paymentIntentId}&method=card&amount=${totalAmount}&trees=${donationState.treeCount}&currency=${currentCurrency}&localAmount=${encodeURIComponent(formatPrice(totalAmount))}${xlmEquivalent ? `&xlmAmount=${xlmEquivalent}` : ''}`
       );
@@ -205,7 +171,6 @@ export function useDonationPayment() {
       currentCurrency,
       xlmPerUsd,
       formatPrice,
-      submitLocationPreference,
     ]
   );
 
