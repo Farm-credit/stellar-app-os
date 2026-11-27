@@ -16,13 +16,14 @@ import {
 import { hasCompletedOnboardingTour, requestOnboardingTourRestart } from '@/lib/onboardingTour';
 import { cn } from '@/lib/utils';
 import { PreferencesSection } from '@/components/organisms/settings/PreferencesSection';
+import { LeaderboardSection } from '@/components/organisms/settings/LeaderboardSection';
 import { RecognitionSection } from '@/components/organisms/settings/RecognitionSection';
 import { useTimeZone } from '@/contexts/TimeZoneContext';
 import { nextDigestSendTime } from '@/lib/digest';
 import { useNotifications } from '@/contexts/NotificationContext';
 import { settingsApi } from '@/lib/api/settings';
 
-type TabId = 'profile' | 'notifications' | 'preferences' | 'recognition' | 'danger';
+type TabId = 'profile' | 'notifications' | 'preferences' | 'recognition' | 'leaderboard' | 'danger';
 
 interface NavItem {
   id: TabId;
@@ -31,6 +32,7 @@ interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
+  { id: 'leaderboard', label: 'Leaderboard' },
   { id: 'profile', label: 'Profile', icon: '👤' },
   { id: 'notifications', label: 'Notifications', icon: '🔔' },
   { id: 'preferences', label: 'Preferences', icon: '⚙️' },
@@ -39,6 +41,7 @@ const NAV_ITEMS: NavItem[] = [
 ];
 
 const SECTION_TITLES: Record<TabId, string> = {
+  leaderboard: 'Leaderboard',
   profile: 'Profile',
   notifications: 'Notifications',
   preferences: 'Preferences',
@@ -331,6 +334,7 @@ export default function SettingsPage(): ReactNode {
             {activeTab === 'notifications' && <NotificationSection />}
             {activeTab === 'preferences' && <PreferencesSection />}
             {activeTab === 'recognition' && <RecognitionSection />}
+            {activeTab === 'leaderboard' && <LeaderboardSection />}
             {activeTab === 'danger' && <DeleteAccountSection />}
           </div>
         </div>

@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from 'next/server';
-import { Keypair } from '@stellar/stellar-sdk';
+import { verifyWalletMessage } from '@/lib/auth/verifyWalletMessage';
 import { consumeNonce } from '@/lib/auth/nonce';
 import { signPlanterJwt, verifyPlanterJwt } from '@/lib/auth/jwt';
 import { getUserData, deleteUserData } from '@/lib/db/user';
@@ -10,8 +10,9 @@ export const runtime = 'nodejs';
 interface LoginBody {
   walletAddress: string;
   nonce: string;
-  /** Base64-encoded Ed25519 signature of `stellar-auth:<nonce>`. */
+  /** Base64-encoded signature of `stellar-auth:<nonce>` (raw or SEP-53). */
   signature: string;
+  scheme?: 'raw' | 'sep53';
 }
 
 // CORS configuration: list of allowed partner domains
@@ -94,7 +95,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400, headers: corsHeaders });
   }
 
-  const { walletAddress, nonce, signature } = body;
+  const { walletAddress, nonce, signature, scheme = 'raw' } = body;
+  if (scheme !== 'raw' && scheme !== 'sep53') {
+    return NextResponse.json(
+      { error: 'Unsupported signature scheme' },
+      { status: 400, headers: corsHeaders }
+    );
+  }
   if (!walletAddress || !nonce || !signature) {
     return NextResponse.json(
       { error: 'w!lletAddress, nonce, and signature are required' },
@@ -116,11 +123,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     // Verify the Ed25519 signature produced by the planter's Stellar keypair.
     try {
-      const keypair = Keypair.fromPublicKey(walletAddress);
-      const message = Buffer.from(`stellar-auth:${nonce}`);
-      const sigBytes = Buffer.from(signature, 'base64');
-
-      if (!keypair.verify(message, sigBytes)) {
+      if (!verifyWalletMessage(walletAddress, `stellar-auth:${nonce}`, signature, scheme)) {
         logAudit(request, 'login_failed', walletAddress, {
           reason: 'signature_verification_failed',
         });
@@ -224,7 +227,7 @@ async function getWalletFromRequest(request: NextRequest): Promise<string | null
   const token = authHeader.slice(7);
   try {
     const payload = await verifyPlanterJwt(token);
-    return payload.sub ?? null; // 'sub' represents the wallet address
+    return payload?.sub ?? null; // 'sub' represents the wallet address
   } catch {
     return null;
   }
