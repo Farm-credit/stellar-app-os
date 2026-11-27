@@ -15,7 +15,7 @@ if (!BASE) {
   process.exit(1);
 }
 
-/** @type {Array<{ path: string; expectedStatus: number; bodyContains?: string }> */
+/** @type {Array<{ path: string; expectedStatus: number; bodyContains?: string }>} */
 const CHECKS = [
   { path: '/', expectedStatus: 200, bodyContains: 'FarmCredit' },
   { path: '/impact', expectedStatus: 200, bodyContains: 'Trees Planted' },
@@ -34,7 +34,7 @@ const SCORE_THRESHOLD = 90; // strict >90
 let passed = 0;
 let failed = 0;
 
-/** @param {string= formFactor */
+/** @param {string} formFactor */
 function getLighthouseConfig(formFactor) {
   const isMobile = formFactor === 'mobile';
   return {
@@ -55,7 +55,7 @@ function getLighthouseConfig(formFactor) {
   };
 }
 
-/** @param {string= url @tparam {object} config */
+/** @param {string} url @param {object} config */
 async function runLighthouse(url, config) {
   const chrome = await launch({ chromeFlags: ['--headless', '--no-sandbox'] });
   try {
@@ -87,11 +87,11 @@ for (const check of CHECKS) {
       const reason = !statusOk
         ? `expected ${check.expectedStatus}, got ${res.status}`
         : `body missing "${check.bodyContains}"`;
-      console.error(`✌  ${check.path} - ${reason}`);
+      console.error(`❌  ${check.path} - ${reason}`);
       failed++;
     }
   } catch (err) {
-    console.error(`✌  ${check.path} - fetch error: ${err.message}`);
+    console.error(`❌  ${check.path} - fetch error: ${err.message}`);
     failed++;
   }
 }
@@ -104,7 +104,7 @@ for (const path of LIGHTHOUSE_PATHS) {
     try {
       categories = await runLighthouse(url, getLighthouseConfig(formFactor));
     } catch (err) {
-      console.error(`Ȝ  ${path} (${formFactor}) - Lighthouse error: ${err.message}`);
+      console.error(`❌  ${path} (${formFactor}) - Lighthouse error: ${err.message}`);
       failed++;
       continue;
     }
@@ -112,7 +112,7 @@ for (const path of LIGHTHOUSE_PATHS) {
     for (const category of LIGHTHOUSE_CATEGORIES) {
       const categoryData = categories[category];
       if (!categoryData || typeof categoryData.score !== 'number') {
-        console.error(`✀  ${path} (${formFactor}) - ${category} score not available`);
+        console.error(`❌  ${path} (${formFactor}) - ${category} score not available`);
         failed++;
         continue;
       }
@@ -120,10 +120,10 @@ for (const path of LIGHTHOUSE_PATHS) {
       const score = Math.round(categoryData.score * 100);
       const label = `${path} (${formFactor}) ${category} score is ${score}`;
       if (score > SCORE_THRESHOLD) {
-        console.log(`⌀‍  ${label}`);
+        console.log(`✅  ${label}`);
         passed++;
       } else {
-        console.error(`Ȝ  ${label} - expected >${SCORE_THRESHOLD}, got ${score}`);
+        console.error(`❌  ${label} - expected >${SCORE_THRESHOLD}, got ${score}`);
         failed++;
       }
     }
