@@ -3,28 +3,22 @@ import { networkConfig } from '@/lib/config/network';
 
 const USDC_ASSET_CODE = 'USDC';
 
-export async function connectFreighter(_network: NetworkType): Promise<string> {
+export async function connectFreighter(_network?: NetworkType): Promise<string> {
   if (typeof window === 'undefined') {
     throw new Error('Freighter wallet can only be accessed in the browser');
   }
 
   try {
-    const { isConnected, setAllowed, getPublicKey } = await import('@stellar/freighter-api');
-
-    const connected = await isConnected();
-    if (!connected) {
-      const allowed = await setAllowed();
-      if (!allowed) {
-        throw new Error('Connection rejected by user');
-      }
+    const { isConnected, requestAccess } = await import('@stellar/freighter-api');
+    const connection = await isConnected();
+    if (connection.error || !connection.isConnected) {
+      throw new Error('Freighter wallet extension not found. Please install it.');
     }
-
-    const publicKey = await getPublicKey();
-    if (!publicKey) {
-      throw new Error('Failed to get public key from Freighter');
+    const result = await requestAccess();
+    if (result.error || !result.address) {
+      throw new Error('Connection rejected by user');
     }
-
-    return publicKey;
+    return result.address;
   } catch (error) {
     if (error instanceof Error) {
       if (
@@ -197,7 +191,8 @@ export async function isFreighterInstalled(): Promise<boolean> {
 
   try {
     const { isConnected } = await import('@stellar/freighter-api');
-    return await isConnected();
+    const result = await isConnected();
+    return !result.error && result.isConnected;
   } catch {
     return false;
   }
@@ -208,7 +203,9 @@ export async function getFreighterNetwork(): Promise<NetworkType | null> {
 
   try {
     const { getNetwork } = await import('@stellar/freighter-api');
-    const network = await getNetwork();
+    const result = await getNetwork();
+    if (result.error) return null;
+    const network = result.network;
 
     if (network === 'PUBLIC') return 'mainnet';
     if (network === 'TESTNET') return 'testnet';

@@ -150,6 +150,12 @@ function LeaderboardContent() {
                 : 'Celebrating the planters who bring our forests to life, one tree at a time.'}
             </Text>
             <Link
+              href="/leaderboard/tree-sponsors"
+              className="block text-sm font-medium text-stellar-blue underline"
+            >
+              Tree sponsorship rankings
+            </Link>
+            <Link
               href="/leaderboard/sponsors"
               className="mt-3 inline-flex items-center gap-2 text-sm font-medium text-stellar-green hover:underline"
             >
