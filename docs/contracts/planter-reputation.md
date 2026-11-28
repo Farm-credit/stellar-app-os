@@ -88,6 +88,14 @@ Six contract events (`StewardRegistered`, `MilestoneRecorded`, `PenaltyApplied`,
 `VerifierUpdated`, `WeightsUpdated`, `ActivityChanged`) let indexers update
 read models without polling storage.
 
+## Deployment
+
+The contract is included in the standard deployment orchestrator and is
+deployed and initialized with the selected admin identity alongside the other
+single-admin registries. The Contracts GitHub Actions workflow also deploys and
+initializes it on testnet after a successful main-branch build and test run;
+the contract ID is included in the workflow summary.
+
 ## Verification
 
 ```sh

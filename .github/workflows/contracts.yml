@@ -132,6 +132,22 @@ jobs:
             --network testnet)
           echo "contract_id=$CONTRACT_ID" >> "$GITHUB_OUTPUT"
 
+      - name: Deploy and initialize planter-reputation
+        id: deploy_planter_reputation
+        run: |
+          CONTRACT_ID=$(stellar contract deploy \
+            --wasm wasm/planter_reputation.wasm \
+            --source deployer \
+            --network testnet)
+          ADMIN_ADDRESS=$(stellar keys address deployer --network testnet)
+          stellar contract invoke \
+            --id "$CONTRACT_ID" \
+            --source deployer \
+            --network testnet \
+            -- initialize \
+            --admin "$ADMIN_ADDRESS"
+          echo "contract_id=$CONTRACT_ID" >> "$GITHUB_OUTPUT"
+
       - name: Summary
         run: |
           echo "## Testnet Contract Deployments" >> "$GITHUB_STEP_SUMMARY"
@@ -141,3 +157,4 @@ jobs:
           echo "| escrow-milestone | ${{ steps.deploy_escrow_milestone.outputs.contract_id }} |" >> "$GITHUB_STEP_SUMMARY"
           echo "| location-proof | ${{ steps.deploy_location_proof.outputs.contract_id }} |" >> "$GITHUB_STEP_SUMMARY"
           echo "| nullifier-registry | ${{ steps.deploy_nullifier_registry.outputs.contract_id }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| planter-reputation | ${{ steps.deploy_planter_reputation.outputs.contract_id }} |" >> "$GITHUB_STEP_SUMMARY"
