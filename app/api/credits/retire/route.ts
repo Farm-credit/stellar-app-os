@@ -6,13 +6,19 @@ import {
   buildRetirementMemo,
   verifyRetirementReceipt,
 } from '@/lib/carbon/retirement-proof';
+import { notifyCreditRetired } from '@/lib/webhook/offset-verification-bridge';
 import logger from '@/lib/logger';
 
 export const runtime = 'nodejs';
 
+const STELLAR_ACCOUNT_RE = /^G[A-Z2-7]{55}$/;
+
 const CreateReceiptSchema = z.object({
   retirementKey: z.string().min(8).max(64),
-  buyerWallet: z.string().min(40).max(80),
+  buyerWallet: z
+    .string()
+    .trim()
+    .regex(STELLAR_ACCOUNT_RE, 'buyerWallet must be a valid 56-character Stellar account (G...)'),
   buyerEmail: z.string().email().optional(),
   creditAmount: z.number().positive(),
   unit: z.string().max(10).optional(),
@@ -99,6 +105,20 @@ export async function POST(request: Request) {
       retirementKey: input.retirementKey,
       txHash: input.txHash,
       receiptHash,
+    });
+
+    void notifyCreditRetired({
+      creditId: receipt.retirementKey,
+      assetCode: `CARBON-${receipt.projectId}-${new Date(receipt.retiredAt).getUTCFullYear()}`,
+      projectId: receipt.projectId,
+      buyerWallet: receipt.buyerWallet,
+      quantityTonnes: receipt.creditAmount,
+      retirementPurpose: receipt.onChainMemo ?? null,
+      beneficiary: receipt.buyerEmail ?? null,
+      retirementCertificateUrl: null,
+      transactionHash: receipt.txHash,
+      explorerUrl: `https://stellar.expert/explorer/${receipt.network === 'mainnet' ? 'public' : 'testnet'}/tx/${receipt.txHash}`,
+      retiredAt: receipt.retiredAt,
     });
 
     return NextResponse.json({ receipt, replay: false }, { status: 201 });

@@ -8,6 +8,7 @@ import {
   issueFieldCreditForTree,
   listEligibleFieldCredits,
 } from '@/lib/carbon/verified-field-credits';
+import { notifyCreditVerified } from '@/lib/webhook/offset-verification-bridge';
 import type { NetworkType } from '@/lib/types/wallet';
 
 export const runtime = 'nodejs';
@@ -105,6 +106,24 @@ export async function POST(request: Request) {
       network: network as NetworkType,
       contractId,
     });
+
+    const vintage = new Date(result.credit.latestDate).getUTCFullYear();
+    void notifyCreditVerified({
+      creditId: String(result.issuanceId),
+      assetCode: `CARBON-FIELD-${result.credit.projectId}-${vintage}`,
+      projectId: result.credit.projectId,
+      projectName: result.projectName,
+      quantityTonnes: result.credit.amountGrams / 1_000_000,
+      vintage,
+      standard: 'Stellar Field Verified',
+      verifier: result.verifiedBy,
+      registry: 'Stellar',
+      verificationReportUrl: null,
+      transactionHash: result.transactionHash,
+      explorerUrl: `https://stellar.expert/explorer/${network === 'mainnet' ? 'public' : 'testnet'}/tx/${result.transactionHash}`,
+      verifiedAt: new Date().toISOString(),
+    });
+
     return NextResponse.json(result, { status: 201 });
   } catch (error) {
     if (error instanceof FieldCreditAlreadyReservedError) {

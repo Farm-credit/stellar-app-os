@@ -277,7 +277,13 @@ export class FieldCreditNotEligibleError extends Error {
 export async function issueFieldCreditForTree(
   pool: Pool,
   input: { sponsorWallet: string; treeId: number; network: NetworkType; contractId: string }
-): Promise<{ credit: EligibleFieldCredit; transactionHash: string }> {
+): Promise<{
+  credit: EligibleFieldCredit;
+  transactionHash: string;
+  issuanceId: string;
+  projectName: string;
+  verifiedBy: string;
+}> {
   if (!StrKey.isValidEd25519PublicKey(input.sponsorWallet)) {
     throw new Error('Sponsor wallet is not a valid Stellar public key.');
   }
@@ -285,6 +291,7 @@ export async function issueFieldCreditForTree(
   const client = await pool.connect();
   let credit: EligibleFieldCredit;
   let issuanceId: string;
+  let verifiedBy = 'Field Verifier';
   try {
     await client.query('BEGIN');
     const treeResult = await client.query<{ id: number; tree_ref: string; sponsor_wallet: string }>(
@@ -349,6 +356,10 @@ export async function issueFieldCreditForTree(
     );
     if (!calculation.eligible) throw new FieldCreditNotEligibleError();
     credit = calculation.credit;
+    const latestVerifiedRow = sampleResult.rows.find((row) => row.id === credit.latestSampleId);
+    if (latestVerifiedRow?.verified_by?.trim()) {
+      verifiedBy = latestVerifiedRow.verified_by.trim();
+    }
 
     const inserted = await client.query<{ id: string }>(
       `INSERT INTO field_credit_issuances
@@ -399,5 +410,11 @@ export async function issueFieldCreditForTree(
     [transactionHash, issuanceId]
   );
 
-  return { credit, transactionHash };
+  return {
+    credit,
+    transactionHash,
+    issuanceId,
+    projectName: credit.projectId,
+    verifiedBy,
+  };
 }

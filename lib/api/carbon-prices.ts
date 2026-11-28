@@ -600,13 +600,21 @@ export interface CatalogSourceOptions {
 export function createCatalogPriceSource(
   catalog: readonly CarbonPriceSeriesRecord[] = CARBON_PRICE_CATALOG,
   options: CatalogSourceOptions = {}
-): CarbonPriceSource {
+): CarbonPriceSource & {
+  updatePrice(input: { assetCode: string; projectId?: string; pricePerTon: number; now?: Date }): {
+    record: CarbonPriceSeriesRecord;
+    previousPricePerTon: number;
+    pricePerTon: number;
+    changed: boolean;
+  } | null;
+} {
   const now = options.now ?? (() => new Date());
   const historyDays = options.historyDays ?? MAX_HISTORY_DAYS;
   const seriesCache = new Map<string, CarbonPricePoint[]>();
+  const mutableCatalog = catalog.map((entry) => ({ ...entry }));
 
   function seriesFor(assetCode: string): CarbonPricePoint[] | null {
-    const record = catalog.find((entry) => entry.assetCode === assetCode);
+    const record = mutableCatalog.find((entry) => entry.assetCode === assetCode);
     if (!record) return null;
     const cached = seriesCache.get(assetCode);
     if (cached) return cached;
@@ -617,19 +625,50 @@ export function createCatalogPriceSource(
 
   return {
     sourceId: 'catalog',
-    async listQuotes() {
-      return catalog.map((entry) => ({ ...entry }));
+    listQuotes() {
+      return Promise.resolve(mutableCatalog.map((entry) => ({ ...entry })));
     },
-    async getDailySeries(assetCode: string, days: number) {
+    getDailySeries(assetCode: string, days: number) {
       const series = seriesFor(assetCode);
-      if (!series) return null;
+      if (!series) return Promise.resolve(null);
       const window = Math.min(Math.max(1, Math.floor(days)), series.length);
-      return series.slice(series.length - window);
+      return Promise.resolve(series.slice(series.length - window));
+    },
+    updatePrice({ assetCode, projectId, pricePerTon, now: overrideNow }) {
+      const record = mutableCatalog.find(
+        (entry) => entry.assetCode === assetCode && (!projectId || entry.projectId === projectId)
+      );
+      if (!record) return null;
+
+      const previousPricePerTon = round2(record.basePricePerTon);
+      const nextPricePerTon = round2(pricePerTon);
+      const changed = nextPricePerTon !== previousPricePerTon;
+      if (changed) {
+        record.basePricePerTon = nextPricePerTon;
+        record.updatedAt = (overrideNow ?? now()).toISOString();
+        seriesCache.delete(record.assetCode);
+      }
+      return {
+        record: { ...record },
+        previousPricePerTon,
+        pricePerTon: nextPricePerTon,
+        changed,
+      };
     },
   };
 }
 
-export const defaultCarbonPriceSource: CarbonPriceSource = createCatalogPriceSource();
+export const defaultCatalogPriceSource = createCatalogPriceSource();
+export const defaultCarbonPriceSource: CarbonPriceSource = defaultCatalogPriceSource;
+
+export function updateCarbonPrice(input: {
+  assetCode: string;
+  projectId?: string;
+  pricePerTon: number;
+  now?: Date;
+}) {
+  return defaultCatalogPriceSource.updatePrice(input);
+}
 
 // ── Aggregation ───────────────────────────────────────────────────────────────
 

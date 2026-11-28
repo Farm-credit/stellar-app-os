@@ -33,10 +33,19 @@ const adminNavItems: AdminNavItem[] = [
       'Review audit accuracy, disputes, turnaround time, and indexed collateral slashes.',
   },
   {
+    
+     {
     href: '/admin/location-requests',
     label: 'Location Requests',
     description:
       'Match sponsor tree planting region preferences to available planting zones and notify sponsors.',
+  },
+  {
+    href: '/admin/webhooks',
+    label: 'Webhooks',
+    description: 'Manage external webhook subscriptions, signing secrets, and delivery logs.',
+  },
+  
   },
 ];
 

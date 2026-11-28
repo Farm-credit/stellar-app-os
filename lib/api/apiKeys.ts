@@ -67,7 +67,7 @@ export async function findApiKeyByRawValue(rawKey: string): Promise<ApiKeyRow | 
   if (!rawKey || !rawKey.startsWith(KEY_PREFIX)) return null;
   const keyHash = hashKey(rawKey);
   const result = await getPool().query<ApiKeyRow>(
-    `SELECT id, name, prefix, key_hash, tier, owner_wallet, is_active, created_at, last_used_at, revoked_at
+    `SELECT id, name, prefix, key_hash, tier, owner_wallet, scopes, is_active, created_at, last_used_at, revoked_at
      FROM api_keys
      WHERE key_hash = $1 AND is_active = TRUE AND revoked_at IS NULL
      LIMIT 1`,

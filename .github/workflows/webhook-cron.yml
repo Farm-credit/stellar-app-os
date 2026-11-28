@@ -1,0 +1,29 @@
+name: Webhook Retry Processor
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch: {}
+
+concurrency:
+  group: webhook-retry-cron
+  cancel-in-progress: false
+
+jobs:
+  process-due-webhooks:
+    name: Process due webhook retries
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Trigger webhook backoff processor
+        env:
+          APP_BASE_URL: ${{ secrets.APP_BASE_URL }}
+          WEBHOOK_CRON_SECRET: ${{ secrets.WEBHOOK_CRON_SECRET }}
+        run: |
+          if [ -z "$APP_BASE_URL" ] || [ -z "$WEBHOOK_CRON_SECRET" ]; then
+            echo "APP_BASE_URL or WEBHOOK_CRON_SECRET not set; skipping."
+            exit 0
+          fi
+          curl -fsS -X POST "${APP_BASE_URL%/}/api/webhooks/process" \
+            -H "Authorization: Bearer ${WEBHOOK_CRON_SECRET}" \
+            -H "Content-Type: application/json"

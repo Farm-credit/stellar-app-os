@@ -5,7 +5,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/lib/db/client', () => ({ getPool: () => ({ mockedPool: true }) }));
-vi.mock('./dispatch', () => ({ dispatchEvent: vi.fn(async () => []) }));
+vi.mock('./dispatch', () => ({ dispatchEvent: vi.fn(() => Promise.resolve([])) }));
 
 import { dispatchEvent } from './dispatch';
 import {
@@ -161,10 +161,17 @@ describe('buildProjectApprovedEvent', () => {
     expect(event.data.approvedAt).toBe(NOW.toISOString());
   });
 
-  it('rejects a non-positive expected yield', () => {
+  it('rejects a non-positive expected yield and allows nullable off-chain tx fields', () => {
     expect(() =>
       buildProjectApprovedEvent({ ...PROJECT_APPROVED_INPUT, expectedAnnualTonnes: -1 })
     ).toThrow(/greater than 0/);
+
+    const offChain = buildProjectApprovedEvent(
+      { ...PROJECT_APPROVED_INPUT, transactionHash: null, explorerUrl: null },
+      { now: NOW }
+    );
+    expect(offChain.data.transactionHash).toBeNull();
+    expect(offChain.data.explorerUrl).toBeNull();
   });
 });
 

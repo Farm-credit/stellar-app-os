@@ -120,3 +120,38 @@ export function createAndPublishListing(input: unknown): Promise<PublishedListin
 export function getPublishedListings(): Promise<PublishedListing[]> {
   return Promise.resolve(PUBLISHED_LISTINGS);
 }
+
+export function getPublishedListingById(id: string): Promise<PublishedListing | null> {
+  return Promise.resolve(PUBLISHED_LISTINGS.find((listing) => listing.id === id) ?? null);
+}
+
+export function updatePublishedListingPrice(input: { id: string; pricePerTon: number }): Promise<{
+  listing: PublishedListing;
+  previousPricePerTon: number;
+  pricePerTon: number;
+  changed: boolean;
+  updatedAt: string;
+} | null> {
+  if (!Number.isFinite(input.pricePerTon) || input.pricePerTon <= 0) {
+    return Promise.reject(new Error('Price per ton must be greater than 0.'));
+  }
+  const listing = PUBLISHED_LISTINGS.find((entry) => entry.id === input.id);
+  if (!listing) return Promise.resolve(null);
+
+  const previousPricePerTon = listing.pricePerTon;
+  const pricePerTon = Math.round(input.pricePerTon * 100) / 100;
+  const changed = pricePerTon !== previousPricePerTon;
+  const updatedAt = new Date().toISOString();
+
+  if (changed) {
+    listing.pricePerTon = pricePerTon;
+  }
+
+  return Promise.resolve({
+    listing: { ...listing },
+    previousPricePerTon,
+    pricePerTon,
+    changed,
+    updatedAt,
+  });
+}

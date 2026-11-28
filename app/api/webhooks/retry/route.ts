@@ -1,6 +1,10 @@
 import { type NextRequest, NextResponse } from 'next/server';
+import { isAdminRequest } from '@/lib/auth/admin';
 import { getPool } from '@/lib/db/client';
 import { retryDelivery } from '@/lib/webhook/dispatch';
+
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 /**
  * Manually retry a single webhook delivery (used by the admin webhook viewer).
@@ -8,7 +12,11 @@ import { retryDelivery } from '@/lib/webhook/dispatch';
  * Body: { deliveryId: number }  (legacy callers may send { eventId } with the
  * numeric delivery id — both are accepted).
  */
-export async function POST(request: NextRequest) {
+export async function POST(request: NextRequest): Promise<NextResponse> {
+  if (!(await isAdminRequest())) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
     const body = (await request.json()) as {
       deliveryId?: number | string;

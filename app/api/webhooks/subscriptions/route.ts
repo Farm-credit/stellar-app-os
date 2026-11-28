@@ -1,8 +1,15 @@
 import { NextResponse } from 'next/server';
+import { isAdminRequest } from '@/lib/auth/admin';
 import { getPool } from '@/lib/db/client';
-import { insertSubscription, listSubscriptions } from '@/lib/webhook/repository';
-import { randomBytes } from 'node:crypto';
-import { WEBHOOK_EVENT_TYPES } from '@/lib/webhook/types';
+import { toPublicSubscriptionDto } from '@/lib/webhook/presenters';
+import { listSubscriptions } from '@/lib/webhook/repository';
+import {
+  createExternalSubscription,
+  WebhookSubscriptionInputError,
+} from '@/lib/webhook/subscriptionService';
+
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 const TREE_STATUS_EVENTS = [
   'tree.planted',
@@ -13,14 +20,16 @@ const TREE_STATUS_EVENTS = [
   'planter.tree.health.updated',
 ];
 
-function normalizeUrl(url: string): string {
-  return url.trim();
-}
+export async function GET(): Promise<NextResponse> {
+  if (!(await isAdminRequest())) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
 
-export async function GET() {
   try {
     const subscriptions = await listSubscriptions(getPool());
-    return NextResponse.json({ subscriptions });
+    return NextResponse.json({
+      subscriptions: subscriptions.map(toPublicSubscriptionDto),
+    });
   } catch (error) {
     console.error('Webhook subscriptions fetch error:', error);
     return NextResponse.json(
@@ -33,67 +42,66 @@ export async function GET() {
   }
 }
 
-export async function POST(request: Request) {
+export async function POST(request: Request): Promise<NextResponse> {
+  if (!(await isAdminRequest())) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  let body: {
+    planterId?: number | string;
+    url?: string;
+    eventTypes?: string[];
+    events?: string[];
+    description?: string;
+    isActive?: boolean;
+  };
   try {
-    const body = (await request.json()) as {
-      planterId?: number | string;
-      url?: string;
-      eventTypes?: string[];
-      isActive?: boolean;
-    };
+    body = (await request.json()) as typeof body;
+  } catch {
+    return NextResponse.json({ error: 'Request body must be valid JSON' }, { status: 400 });
+  }
 
-    const planterId = Number(body.planterId);
-    const url = normalizeUrl(body.url ?? '');
-    const eventTypes =
-      Array.isArray(body.eventTypes) && body.eventTypes.length > 0
-        ? body.eventTypes
-        : TREE_STATUS_EVENTS;
-    const unsupported = eventTypes.filter(
-      (eventType) =>
-        !WEBHOOK_EVENT_TYPES.includes(eventType as (typeof WEBHOOK_EVENT_TYPES)[number])
-    );
-
-    if (!Number.isInteger(planterId) || planterId <= 0) {
-      return NextResponse.json({ error: 'A valid planterId is required' }, { status: 400 });
+  try {
+    const rawPlanterId = body.planterId;
+    let planterId: number | null = null;
+    if (rawPlanterId !== undefined && rawPlanterId !== null && rawPlanterId !== '') {
+      const parsedPlanterId = Number(rawPlanterId);
+      if (!Number.isInteger(parsedPlanterId) || parsedPlanterId <= 0) {
+        return NextResponse.json({ error: 'A valid planterId is required' }, { status: 400 });
+      }
+      planterId = parsedPlanterId;
     }
 
-    if (!url || !/^https?:\/\//i.test(url)) {
-      return NextResponse.json(
-        { error: 'A valid http(s) callback URL is required' },
-        { status: 400 }
-      );
-    }
-    if (unsupported.length > 0) {
-      return NextResponse.json(
-        { error: 'Unsupported webhook event type', unsupported },
-        { status: 400 }
-      );
-    }
+    const rawEvents = body.eventTypes ?? body.events;
+    const events =
+      Array.isArray(rawEvents) && rawEvents.length > 0 ? rawEvents : TREE_STATUS_EVENTS;
 
-    const secret = randomBytes(32).toString('hex');
-    const subscription = await insertSubscription(getPool(), {
+    const { subscription, secret } = await createExternalSubscription(getPool(), {
       planterId,
-      url,
-      secret,
-      eventTypes,
-      isActive: body.isActive ?? true,
+      clientId: planterId === null ? 'admin' : null,
+      url: body.url,
+      events,
+      description: body.description,
+      active: body.isActive ?? true,
     });
 
     return NextResponse.json(
       {
         success: true,
         subscription: {
-          id: subscription.id,
-          planter_id: subscription.planter_id,
-          url: subscription.url,
-          event_types: subscription.event_types,
-          is_active: subscription.is_active,
+          ...subscription,
           secret,
         },
       },
       { status: 201 }
     );
   } catch (error) {
+    if (error instanceof WebhookSubscriptionInputError) {
+      return NextResponse.json(
+        { error: error.message, details: error.details },
+        { status: error.status }
+      );
+    }
     console.error('Webhook subscription create error:', error);
     return NextResponse.json(
       {
