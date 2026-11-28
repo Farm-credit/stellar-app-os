@@ -959,6 +959,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "endowment-stream"
+version = "0.1.0"
+dependencies = [
+ "soroban-sdk 27.0.6",
+]
+
+[[package]]
 name = "enum-ordinalize"
 version = "4.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1292,6 +1299,13 @@ name = "impact-certificate-fractionalization"
 version = "0.1.0"
 dependencies = [
  "harvesta-errors",
+ "soroban-sdk 27.0.6",
+]
+
+[[package]]
+name = "impact-plot-shares"
+version = "0.1.0"
+dependencies = [
  "soroban-sdk 27.0.6",
 ]
 

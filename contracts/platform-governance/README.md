@@ -40,7 +40,8 @@ initialize(
     staking_contract: Address,
     admin_controls: Address,
     platform_fee: u64,
-    min_planting_bond: i128
+    min_planting_bond: i128,
+    tree_token: Address   // TREE token locked for quadratic voting power
 )
 ```
 
@@ -230,3 +231,17 @@ Proposals to select tree species for planting campaigns. Options should specify 
 - **Timelock**: Provides time for review before execution
 - **Admin Overrides**: Emergency functions for critical situations
 - **Pause Capability**: Contract can be paused in emergencies
+
+## Quadratic voting (issue #1810)
+
+Voting power is not the raw token balance. Voters call `lock_tokens(voter, amount)`
+to deposit TREE and receive `isqrt(total_locked)` votes, so 10,000 TREE is 100 votes
+and 1,000,000 TREE is only 1,000. This applies to every proposal type, including
+`RewardPoolDistribution` (benefactor reward pool allocations). Delegates add the
+quadratic power of each direct delegator. Quorum is measured against
+`total_voting_power()`, the sum of all voters' quadratic power.
+
+- `unlock_tokens(voter, amount)` returns tokens and recomputes power (after the optional
+  `set_min_lock_seconds` period).
+- `voting_power_of`, `locked_balance`, `total_voting_power`, `tree_token` are read-only views.
+- `initialize` now takes a final `tree_token` argument.

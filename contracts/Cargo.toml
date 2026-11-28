@@ -55,6 +55,7 @@ members = [
     "atomic-swap",
     "farmer-bonus-pool",
     "carbon-fractionalization",
+    "impact-plot-shares",
     "impact-certificate-fractionalization",
     "planter-reputation",
 ]
